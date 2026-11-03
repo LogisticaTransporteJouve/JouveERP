@@ -1,6 +1,6 @@
 "use client";
 
-import { FilePlus2, MoreHorizontal, Percent } from "lucide-react";
+import { FilePlus2, Files, MoreHorizontal, Percent } from "lucide-react";
 import { useMemo, useState, useTransition } from "react";
 
 import { useScopeIsFiscal } from "@/components/providers/scope-provider";
@@ -24,6 +24,10 @@ import {
 import { comprobanteLabel } from "../lib/late-interest";
 import type { LateInterestCandidate } from "../schema";
 
+import {
+  BulkLateInterestDialog,
+  bulkEligible,
+} from "./bulk-late-interest-dialog";
 import { IssueLateInterestDialog } from "./issue-late-interest-dialog";
 import {
   LateInterestRateDialog,
@@ -58,6 +62,8 @@ export function LateInterestPage({
   const { data: general } = useLateInterestGeneralRate();
   const [issuing, setIssuing] = useState<LateInterestCandidate | null>(null);
   const [rateTarget, setRateTarget] = useState<RateTarget | null>(null);
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const eligible = items.filter(bulkEligible);
   const today = todayInAR();
 
   const columns = useMemo<ColumnDef<LateInterestCandidate>[]>(() => {
@@ -202,7 +208,17 @@ export function LateInterestPage({
             }}
           />
         </div>
-        <div className="flex items-center gap-2 text-sm">
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          {canIssue && (
+            <Button
+              size="sm"
+              disabled={eligible.length === 0}
+              onClick={() => setBulkOpen(true)}
+            >
+              <Files />
+              Generar varias ND
+            </Button>
+          )}
           <span className="text-muted-foreground">
             Tasa general:{" "}
             {general.monthly_rate === null
@@ -241,6 +257,14 @@ export function LateInterestPage({
         asOf={asOf}
         onClose={() => setIssuing(null)}
       />
+      {canIssue && (
+        <BulkLateInterestDialog
+          open={bulkOpen}
+          candidates={eligible}
+          asOf={asOf}
+          onClose={() => setBulkOpen(false)}
+        />
+      )}
       <LateInterestRateDialog
         target={rateTarget}
         onClose={() => setRateTarget(null)}

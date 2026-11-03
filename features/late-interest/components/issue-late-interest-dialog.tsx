@@ -51,7 +51,7 @@ export function IssueLateInterestDialog({
   const preview =
     candidate && Number.isFinite(rateNumber) && rateNumber > 0
       ? computeLateInterest({
-          openAmount: candidate.open_amount,
+          balanceDays: candidate.balance_days,
           monthlyRate: rateNumber,
           from: candidate.charge_from,
           to: asOf,

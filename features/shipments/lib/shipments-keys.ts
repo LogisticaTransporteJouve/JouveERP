@@ -10,4 +10,6 @@ export const shipmentsKeys = {
     remitoNumber: string;
     excludeId: string | null;
   }) => [...shipmentsKeys.all, "remitoConflict", check] as const,
+  freightTariff: (clientId: string, date: string) =>
+    [...shipmentsKeys.all, "freightTariff", clientId, date] as const,
 };

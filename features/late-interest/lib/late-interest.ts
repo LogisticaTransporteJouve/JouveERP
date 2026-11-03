@@ -1,6 +1,8 @@
-// Interés por mora: simple interest on the open balance at a monthly rate,
+// Interés por mora: simple interest on the daily balance at a monthly rate,
 // prorated /30 per day, from the day after the due date (or after the last
-// charged day) to the as-of date, both inclusive.
+// charged day) to the as-of date, both inclusive. The daily balance comes
+// summed from late_interest_candidates (balance_days): a payment in the
+// middle of the period lowers it from its date on.
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -14,21 +16,22 @@ export function inclusiveDays(from: string, to: string): number {
 }
 
 export function computeLateInterest(input: {
-  openAmount: number;
+  /** Σ of the comprobante's balance over each day of [from, to]. */
+  balanceDays: number;
   /** Monthly %, e.g. 3 = 3% per month. */
   monthlyRate: number;
   from: string;
   to: string;
-}): { days: number; interest: number } {
+}): { days: number; interest: number; averageBalance: number } {
   const days = inclusiveDays(input.from, input.to);
-  if (days === 0 || input.openAmount <= 0 || input.monthlyRate <= 0) {
-    return { days, interest: 0 };
+  if (days === 0 || input.balanceDays <= 0 || input.monthlyRate <= 0) {
+    return { days, interest: 0, averageBalance: 0 };
   }
   const interest =
-    Math.round(
-      ((input.openAmount * input.monthlyRate) / 100) * (days / 30) * 100,
-    ) / 100;
-  return { days, interest };
+    Math.round(((input.balanceDays * input.monthlyRate) / 100 / 30) * 100) /
+    100;
+  const averageBalance = Math.round((input.balanceDays / days) * 100) / 100;
+  return { days, interest, averageBalance };
 }
 
 /** "FC A 0001-00000123" style label of the overdue comprobante. */

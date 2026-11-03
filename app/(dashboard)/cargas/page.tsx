@@ -11,12 +11,17 @@ import { runAction } from "@/lib/query/run-action";
 
 export const dynamic = "force-dynamic";
 
-export default async function CargasPageRoute() {
+export default async function CargasPageRoute({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string | string[] }>;
+}) {
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "shipments:read")) {
     redirect("/dashboard");
   }
 
+  const { q } = await searchParams;
   const dehydratedState = await prefetchQueries([
     {
       queryKey: shipmentsKeys.list(),
@@ -27,7 +32,9 @@ export default async function CargasPageRoute() {
   return (
     <Hydrate state={dehydratedState}>
       <div className="space-y-6">
-        <ShipmentsTable />
+        <ShipmentsTable
+          initialSearch={typeof q === "string" ? q.slice(0, 120) : ""}
+        />
       </div>
     </Hydrate>
   );

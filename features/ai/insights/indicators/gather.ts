@@ -238,7 +238,7 @@ async function lateInterest(today: string): Promise<IndicatorFinding[]> {
           rate === null
             ? 0
             : computeLateInterest({
-                openAmount: Number(r.open_amount),
+                balanceDays: Number(r.balance_days),
                 monthlyRate: rate,
                 from: r.charge_from,
                 to: today,

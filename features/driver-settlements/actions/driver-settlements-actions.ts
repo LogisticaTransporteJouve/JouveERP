@@ -13,10 +13,13 @@ import { getServiceClient } from "@/lib/supabase/service";
 import { formatReceiptNumber } from "@/features/receipts/schema";
 
 import {
+  DRIVER_SETTLEMENTS_PAGE_SIZE,
   DriverSettlementIdSchema,
   DriverSettlementSaveSchema,
+  DriverSettlementsPageSchema,
   groupPendingByDriver,
   isDriverSettlementStatus,
+  receiptsOutOfSync,
   settlementDifference,
   type CodPending,
   type CodPendingShipment,
@@ -24,6 +27,7 @@ import {
   type DriverSettlementDetail,
   type DriverSettlementItem,
   type DriverSettlementSaveInput,
+  type DriverSettlementsPage,
   type SettlementAccount,
 } from "../schema";
 
@@ -35,10 +39,10 @@ const WRITE_DENIED = "No tenés permiso para registrar rendiciones.";
 // client after the gate, as storage billing reads pallets.
 
 const SETTLEMENT_COLUMNS =
-  "id, numero, driver_id, settlement_date, status, notes, created_at, driver:drivers(full_name)";
+  "id, numero, driver_id, settlement_date, status, notes, created_at, driver:drivers(full_name, employee_id), difference:employee_account_movements(id, kind, amount)";
 
 const ITEM_COLUMNS =
-  "id, settlement_id, shipment_id, expected_amount, note, released, lines:driver_settlement_lines(id, account_id, amount, reference, check_number, bank_name, drawer_name, check_due_date, receipt_id, account:accounts(name, type), receipt:receipts(punto_venta, numero, status))";
+  "id, settlement_id, shipment_id, expected_amount, note, released, lines:driver_settlement_lines(id, account_id, amount, reference, check_number, bank_name, drawer_name, check_due_date, receipt_id, account:accounts(name, type), receipt:receipts(punto_venta, numero, status, total_amount))";
 
 type SettlementRow = {
   id: string;
@@ -48,7 +52,8 @@ type SettlementRow = {
   status: string;
   notes: string | null;
   created_at: string;
-  driver: { full_name: string } | null;
+  driver: { full_name: string; employee_id: string | null } | null;
+  difference: { id: string; kind: string; amount: number }[];
 };
 
 type ItemRow = {
@@ -69,7 +74,12 @@ type ItemRow = {
     check_due_date: string | null;
     receipt_id: string | null;
     account: { name: string; type: string } | null;
-    receipt: { punto_venta: number; numero: number; status: string } | null;
+    receipt: {
+      punto_venta: number;
+      numero: number;
+      status: string;
+      total_amount: number;
+    } | null;
   }[];
 };
 
@@ -77,8 +87,24 @@ function firstIssue(error: { issues: { message: string }[] }): string {
   return error.issues[0]?.message ?? "Datos inválidos.";
 }
 
+function postedDifference(
+  row: SettlementRow,
+): DriverSettlement["difference_posted"] {
+  const m = row.difference[0];
+  if (!m) return null;
+  if (m.kind !== "charge" && m.kind !== "payment") {
+    logger.error("driver_settlements.unknown_difference_kind", {
+      id: row.id,
+      kind: m.kind,
+    });
+    return null;
+  }
+  return { id: m.id, kind: m.kind, amount: Number(m.amount) };
+}
+
 /** The rendición's totals and receipts from its items. A cancelled one keeps
- *  its (released) items for the record. */
+ *  its (released) items for the record. A receipt whose total no longer
+ *  equals what the rendición posted on it was edited in Recibos. */
 function summarize(
   row: SettlementRow,
   items: readonly ItemRow[],
@@ -94,29 +120,46 @@ function summarize(
   let received = 0;
   const receipts = new Map<
     string,
-    { id: string; label: string; canceled: boolean }
+    {
+      id: string;
+      label: string;
+      canceled: boolean;
+      total: number;
+      posted: number;
+    }
   >();
   for (const item of items) {
     expected += Number(item.expected_amount);
     for (const line of item.lines) {
       received += Number(line.amount);
       if (line.receipt_id && line.receipt) {
-        receipts.set(line.receipt_id, {
+        const r = receipts.get(line.receipt_id) ?? {
           id: line.receipt_id,
           label: formatReceiptNumber(
             line.receipt.punto_venta,
             line.receipt.numero,
           ),
           canceled: line.receipt.status === "canceled",
-        });
+          total: Number(line.receipt.total_amount),
+          posted: 0,
+        };
+        r.posted = round2(r.posted + Number(line.amount));
+        receipts.set(line.receipt_id, r);
       }
     }
   }
+  const receiptList = [...receipts.values()].map((r) => ({
+    id: r.id,
+    label: r.label,
+    canceled: r.canceled,
+    mismatch: !r.canceled && round2(r.total) !== r.posted,
+  }));
   return {
     id: row.id,
     numero: row.numero,
     driver_id: row.driver_id,
     driver_name: row.driver?.full_name ?? "—",
+    driver_employee_id: row.driver?.employee_id ?? null,
     settlement_date: row.settlement_date,
     status: row.status,
     notes: row.notes,
@@ -124,41 +167,60 @@ function summarize(
     received_total: round2(received),
     difference: settlementDifference(expected, received),
     cargas: items.length,
-    receipts: [...receipts.values()],
+    receipts: receiptList,
+    receipts_out_of_sync: receiptsOutOfSync(row.status, receiptList),
+    difference_posted: postedDifference(row),
     created_at: row.created_at,
   };
 }
 
-/** Every rendición, newest first, with its totals and receipts. */
-export async function listDriverSettlementsAction(): Promise<
-  ActionResult<DriverSettlement[]>
-> {
+/** A page of rendiciones, newest first, with their totals and receipts. */
+export async function listDriverSettlementsAction(
+  input: { offset: number; limit: number } = {
+    offset: 0,
+    limit: DRIVER_SETTLEMENTS_PAGE_SIZE,
+  },
+): Promise<ActionResult<DriverSettlementsPage>> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "receipts:read")) {
     return { ok: false, error: READ_DENIED };
   }
+  const parsed = DriverSettlementsPageSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Página inválida." };
+  const { offset, limit } = parsed.data;
+
   const supabase = getServiceClient();
-  const [heads, items] = await Promise.all([
-    paginateRange<SettlementRow>((from, to) =>
-      supabase
-        .from("driver_settlements")
-        .select(SETTLEMENT_COLUMNS)
-        .order("created_at", { ascending: false })
-        .order("id")
-        .range(from, to),
-    ),
-    paginateRange<ItemRow>((from, to) =>
-      supabase
-        .from("driver_settlement_items")
-        .select(ITEM_COLUMNS)
-        .order("id")
-        .range(from, to),
-    ),
-  ]);
-  if (heads.error || items.error) {
+  // One extra row tells whether there is a next page.
+  const heads = await supabase
+    .from("driver_settlements")
+    .select(SETTLEMENT_COLUMNS)
+    .order("created_at", { ascending: false })
+    .order("id")
+    .range(offset, offset + limit);
+  if (heads.error) {
     logger.error("driver_settlements.list.failed", {
       userId: ctx.userId,
-      error: heads.error ?? items.error,
+      error: heads.error,
+    });
+    return { ok: false, error: "No se pudieron listar las rendiciones." };
+  }
+  const page = heads.data.slice(0, limit);
+  const ids = page.map((h) => h.id);
+  const items =
+    ids.length === 0
+      ? { data: [], error: null }
+      : await paginateRange<ItemRow>((from, to) =>
+          supabase
+            .from("driver_settlement_items")
+            .select(ITEM_COLUMNS)
+            .in("settlement_id", ids)
+            .order("id")
+            .range(from, to),
+        );
+  if (items.error) {
+    logger.error("driver_settlements.list.items_failed", {
+      userId: ctx.userId,
+      error: items.error,
     });
     return { ok: false, error: "No se pudieron listar las rendiciones." };
   }
@@ -170,10 +232,34 @@ export async function listDriverSettlementsAction(): Promise<
   }
   return {
     ok: true,
-    data: heads.data
-      .map((h) => summarize(h, bySettlement.get(h.id) ?? []))
-      .filter((s): s is DriverSettlement => s !== null),
+    data: {
+      settlements: page
+        .map((h) => summarize(h, bySettlement.get(h.id) ?? []))
+        .filter((s): s is DriverSettlement => s !== null),
+      nextOffset: heads.data.length > limit ? offset + limit : null,
+    },
   };
+}
+
+/** Most rendiciones listAllDriverSettlementsAction reads (pages of 100). */
+const ALL_CAP = 2000;
+
+/**
+ * Every rendición, newest first, page by page (for readers that aggregate,
+ * like the assistant). `complete` is false when it stopped at ALL_CAP.
+ */
+export async function listAllDriverSettlementsAction(): Promise<
+  ActionResult<{ settlements: DriverSettlement[]; complete: boolean }>
+> {
+  const settlements: DriverSettlement[] = [];
+  let offset: number | null = 0;
+  while (offset !== null && settlements.length < ALL_CAP) {
+    const res = await listDriverSettlementsAction({ offset, limit: 100 });
+    if (!res.ok) return res;
+    settlements.push(...res.data.settlements);
+    offset = res.data.nextOffset;
+  }
+  return { ok: true, data: { settlements, complete: offset === null } };
 }
 
 export async function getDriverSettlementAction(
@@ -484,5 +570,94 @@ export async function cancelDriverSettlementAction(input: {
   }
 
   await logAudit("driver_settlement.cancelled", ctx.userId, {}, parsed.data.id);
+  return { ok: true, data: undefined };
+}
+
+const DIFFERENCE_DENIED =
+  "No tenés permiso para asentar en la cuenta corriente del chofer.";
+
+/** "Asentar diferencia": the rendición's difference to the driver's employee
+ *  account (short = charge, over = payment). Posting twice returns the same
+ *  movement. Writes receipts' and HR's data: needs both write permissions. */
+export async function postDriverSettlementDifferenceAction(input: {
+  id: string;
+}): Promise<ActionResult<{ movementId: string }>> {
+  const ctx = await requireUserContext();
+  if (
+    !userCan(ctx.access, "receipts:write") ||
+    !userCan(ctx.access, "hr:write")
+  ) {
+    return { ok: false, error: DIFFERENCE_DENIED };
+  }
+  const parsed = DriverSettlementIdSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Rendición inválida." };
+
+  const { data, error } = await getServiceClient().rpc(
+    "post_driver_settlement_difference",
+    { p_settlement_id: parsed.data.id, p_user_id: ctx.userId },
+  );
+  if (error || !data) {
+    const guardError = mapDbGuardError(error, {
+      slug: "driver_settlements.difference.rejected",
+      userId: ctx.userId,
+      id: parsed.data.id,
+    });
+    if (guardError) return { ok: false, error: guardError };
+    logger.error("driver_settlements.difference.failed", {
+      userId: ctx.userId,
+      id: parsed.data.id,
+      error,
+    });
+    return { ok: false, error: "No se pudo asentar la diferencia." };
+  }
+
+  await logAudit(
+    "driver_settlement.difference_posted",
+    ctx.userId,
+    { movement_id: data },
+    parsed.data.id,
+  );
+  return { ok: true, data: { movementId: data } };
+}
+
+/** Takes the posted difference back out of the driver's account. */
+export async function unpostDriverSettlementDifferenceAction(input: {
+  id: string;
+}): Promise<ActionResult> {
+  const ctx = await requireUserContext();
+  if (
+    !userCan(ctx.access, "receipts:write") ||
+    !userCan(ctx.access, "hr:write")
+  ) {
+    return { ok: false, error: DIFFERENCE_DENIED };
+  }
+  const parsed = DriverSettlementIdSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Rendición inválida." };
+
+  const { error } = await getServiceClient().rpc(
+    "unpost_driver_settlement_difference",
+    { p_settlement_id: parsed.data.id },
+  );
+  if (error) {
+    const guardError = mapDbGuardError(error, {
+      slug: "driver_settlements.difference_unpost.rejected",
+      userId: ctx.userId,
+      id: parsed.data.id,
+    });
+    if (guardError) return { ok: false, error: guardError };
+    logger.error("driver_settlements.difference_unpost.failed", {
+      userId: ctx.userId,
+      id: parsed.data.id,
+      error,
+    });
+    return { ok: false, error: "No se pudo quitar la diferencia." };
+  }
+
+  await logAudit(
+    "driver_settlement.difference_unposted",
+    ctx.userId,
+    {},
+    parsed.data.id,
+  );
   return { ok: true, data: undefined };
 }

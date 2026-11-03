@@ -130,7 +130,7 @@ export async function getStorageBillingAction(
       supabase
         .from("storage_tariffs")
         .select(
-          "client_id, rate_per_pallet, period, handling_in, handling_out, valid_from, valid_to, is_active",
+          "client_id, area_id, rate_per_pallet, period, handling_in, handling_out, valid_from, valid_to, is_active",
         )
         .eq("is_active", true)
         .order("id")
@@ -313,7 +313,7 @@ export async function invoiceStorageAction(
       supabase
         .from("storage_tariffs")
         .select(
-          "client_id, rate_per_pallet, period, handling_in, handling_out, valid_from, valid_to, is_active",
+          "client_id, area_id, rate_per_pallet, period, handling_in, handling_out, valid_from, valid_to, is_active",
         )
         .eq("is_active", true)
         .order("id")

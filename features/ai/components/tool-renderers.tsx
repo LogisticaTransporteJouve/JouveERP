@@ -103,6 +103,8 @@ const TOOL_LABELS: Record<string, string> = {
   proposeLateInterestNd: "Propuesta de ND por mora",
   proposeRecategorizeExpense: "Propuesta de recategorización",
   getLateInterestCandidates: "Interés por mora",
+  getFreightSettlements: "Liquidaciones de fletes",
+  getDriverSettlements: "Rendiciones",
   askQuestions: "Preguntas",
   renderChart: "Gráfico",
   renderTable: "Tabla",

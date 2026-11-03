@@ -28,6 +28,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { todayInAR } from "@/lib/format";
 import { useAccountsList } from "@/features/accounts/hooks/use-accounts";
 
+import { useRejectSoldCheckAsDebt } from "../hooks/use-check-sales";
 import {
   useCreditCheque,
   useDepositCheque,
@@ -297,6 +298,8 @@ function rejectDescription(status: Cheque["status"]): string {
 }
 
 const SALE_ACCOUNT = "__sale__";
+/** A sold check the buyer debits later: no movement now, a debt instead. */
+const BUYER_LATER = "__later__";
 
 export function RejectChequeDialog({
   check,
@@ -306,7 +309,9 @@ export function RejectChequeDialog({
   channels: CheckChannelOption[];
 }) {
   const [open, setOpen] = useState(false);
-  const mut = useRejectCheque();
+  const rejectMut = useRejectCheque();
+  const debtMut = useRejectSoldCheckAsDebt();
+  const pending = rejectMut.isPending || debtMut.isPending;
   const { data: accounts } = useAccountsList();
   const repayAccounts = accounts.filter(
     (a) =>
@@ -323,11 +328,26 @@ export function RejectChequeDialog({
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (check.status === "vendido" && repayAccountId === BUYER_LATER) {
+      debtMut.mutate(
+        { check_id: check.id, event_date: eventDate, notes },
+        {
+          onSuccess: () => {
+            toast.success(
+              "Cheque rechazado: queda la deuda con el comprador para pagar después.",
+            );
+            setOpen(false);
+          },
+          onError: (err) => toast.error(err.message),
+        },
+      );
+      return;
+    }
     if (!channelId) {
       toast.error("Elegí el canal del rechazo.");
       return;
     }
-    mut.mutate(
+    rejectMut.mutate(
       {
         check_id: check.id,
         channel_id: channelId,
@@ -387,6 +407,9 @@ export function RejectChequeDialog({
                   <SelectItem value={SALE_ACCOUNT}>
                     La cuenta de la venta
                   </SelectItem>
+                  <SelectItem value={BUYER_LATER}>
+                    Todavía no lo debitó (queda como deuda)
+                  </SelectItem>
                   {repayAccounts.map((a) => (
                     <SelectItem key={a.id} value={a.id}>
                       {a.name}
@@ -409,16 +432,12 @@ export function RejectChequeDialog({
               type="button"
               variant="ghost"
               onClick={() => setOpen(false)}
-              disabled={mut.isPending}
+              disabled={pending}
             >
               Cancelar
             </Button>
-            <Button
-              type="submit"
-              variant="destructive"
-              disabled={mut.isPending}
-            >
-              {mut.isPending ? "Rechazando…" : "Rechazar"}
+            <Button type="submit" variant="destructive" disabled={pending}>
+              {pending ? "Rechazando…" : "Rechazar"}
             </Button>
           </DialogFooter>
         </form>

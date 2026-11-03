@@ -3,9 +3,12 @@
 import {
   CheckCircle2,
   Eye,
+  FileText,
   HandCoins,
   MoreHorizontal,
   Pencil,
+  Undo2,
+  UserRoundPen,
   XCircle,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -33,6 +36,8 @@ import {
   useConfirmDriverSettlement,
   useDriverSettlement,
   useDriverSettlements,
+  usePostDriverSettlementDifference,
+  useUnpostDriverSettlementDifference,
 } from "../hooks/use-driver-settlements";
 import {
   DRIVER_SETTLEMENT_STATUS_LABELS,
@@ -81,11 +86,30 @@ function EditDraft({
   );
 }
 
-export function DriverSettlementsPage({ canWrite }: { canWrite: boolean }) {
-  const { data: settlements } = useDriverSettlements();
+/** What the status cell says about a confirmed rendición whose receipts
+ *  changed in Recibos. */
+function syncNote(s: DriverSettlement): string {
+  if (!s.receipts_out_of_sync) return "";
+  if (s.receipts.every((r) => r.canceled)) return " · recibos anulados";
+  return " · recibos cambiados en Recibos";
+}
+
+export function DriverSettlementsPage({
+  canWrite,
+  canPostDifference,
+}: {
+  canWrite: boolean;
+  /** receipts:write + hr:write: the difference goes to the driver's
+   *  employee account. */
+  canPostDifference: boolean;
+}) {
+  const { settlements, hasNextPage, fetchNextPage, isFetchingNextPage } =
+    useDriverSettlements();
   const { data: pending } = useCodPending();
   const confirmMut = useConfirmDriverSettlement();
   const cancelMut = useCancelDriverSettlement();
+  const postDiffMut = usePostDriverSettlementDifference();
+  const unpostDiffMut = useUnpostDriverSettlementDifference();
   const confirm = useConfirm();
   const [editing, setEditing] = useState<Editing>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
@@ -180,7 +204,7 @@ export function DriverSettlementsPage({ canWrite }: { canWrite: boolean }) {
         title: "Cancelar rendición",
         description:
           s.status === "confirmed"
-            ? "Solo se puede si sus recibos ya están anulados (en Recibos). Sus cargas vuelven a quedar por rendir."
+            ? `Solo se puede si sus recibos ya están anulados (en Recibos). Sus cargas vuelven a quedar por rendir.${s.difference_posted ? " La diferencia asentada sale de la cuenta corriente del chofer." : ""}`
             : "Sus cargas vuelven a quedar por rendir.",
         confirmLabel: "Cancelar rendición",
         tone: "destructive",
@@ -188,6 +212,37 @@ export function DriverSettlementsPage({ canWrite }: { canWrite: boolean }) {
       if (!ok) return;
       cancelMut.mutate(s.id, {
         onSuccess: () => toast.success("Rendición cancelada."),
+        onError: (err) => toast.error(err.message),
+      });
+    }
+
+    async function handlePostDifference(s: DriverSettlement) {
+      const short = s.difference < 0;
+      const ok = await confirm({
+        title: "Asentar diferencia al chofer",
+        description: short
+          ? `Se carga el faltante de ${formatMoney(-s.difference)} como deuda en la cuenta corriente de ${s.driver_name}. Usalo cuando lo debe el chofer: si lo debe el cliente, ya queda abierto en su cuenta corriente y no hace falta asentarlo.`
+          : `Se acredita el sobrante de ${formatMoney(s.difference)} en la cuenta corriente de ${s.driver_name}.`,
+        confirmLabel: "Asentar",
+      });
+      if (!ok) return;
+      postDiffMut.mutate(s.id, {
+        onSuccess: () =>
+          toast.success("Diferencia asentada en la cuenta corriente."),
+        onError: (err) => toast.error(err.message),
+      });
+    }
+
+    async function handleUnpostDifference(s: DriverSettlement) {
+      const ok = await confirm({
+        title: "Quitar diferencia",
+        description: `Se borra el movimiento de la cuenta corriente de ${s.driver_name}.`,
+        confirmLabel: "Quitar",
+        tone: "destructive",
+      });
+      if (!ok) return;
+      unpostDiffMut.mutate(s.id, {
+        onSuccess: () => toast.success("Diferencia quitada."),
         onError: (err) => toast.error(err.message),
       });
     }
@@ -226,14 +281,10 @@ export function DriverSettlementsPage({ canWrite }: { canWrite: boolean }) {
         header: "Estado",
         cell: ({ row }) => {
           const s = row.original;
-          const anulled =
-            s.status === "confirmed" &&
-            s.receipts.length > 0 &&
-            s.receipts.every((r) => r.canceled);
           return (
             <span className="text-sm">
               {DRIVER_SETTLEMENT_STATUS_LABELS[s.status]}
-              {anulled ? " · recibos anulados" : ""}
+              {syncNote(s)}
             </span>
           );
         },
@@ -257,6 +308,11 @@ export function DriverSettlementsPage({ canWrite }: { canWrite: boolean }) {
             {row.original.difference === 0
               ? "—"
               : formatMoneySigned(row.original.difference)}
+            {row.original.difference_posted && (
+              <span className="block text-xs text-muted-foreground">
+                En cta. cte. del chofer
+              </span>
+            )}
           </span>
         ),
         meta: { align: "right", mobile: "secondary" },
@@ -270,6 +326,14 @@ export function DriverSettlementsPage({ canWrite }: { canWrite: boolean }) {
           const s = row.original;
           const isDraft = canWrite && s.status === "draft";
           const canCancel = canWrite && s.status !== "cancelled";
+          const canPost =
+            canPostDifference &&
+            s.status === "confirmed" &&
+            s.difference !== 0 &&
+            s.difference_posted === null &&
+            !s.receipts_out_of_sync &&
+            s.driver_employee_id !== null;
+          const canUnpost = canPostDifference && s.difference_posted !== null;
           return (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -282,6 +346,31 @@ export function DriverSettlementsPage({ canWrite }: { canWrite: boolean }) {
                   <Eye className="size-4" />
                   Ver
                 </DropdownMenuItem>
+                {s.numero !== null && (
+                  <DropdownMenuItem asChild>
+                    <a
+                      href={`/api/driver-settlements/${s.id}/pdf`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <FileText className="size-4" />
+                      PDF
+                    </a>
+                  </DropdownMenuItem>
+                )}
+                {(canPost || canUnpost) && <DropdownMenuSeparator />}
+                {canPost && (
+                  <DropdownMenuItem onClick={() => handlePostDifference(s)}>
+                    <UserRoundPen className="size-4" />
+                    Asentar diferencia al chofer
+                  </DropdownMenuItem>
+                )}
+                {canUnpost && (
+                  <DropdownMenuItem onClick={() => handleUnpostDifference(s)}>
+                    <Undo2 className="size-4" />
+                    Quitar diferencia del chofer
+                  </DropdownMenuItem>
+                )}
                 {isDraft && (
                   <>
                     <DropdownMenuSeparator />
@@ -321,7 +410,15 @@ export function DriverSettlementsPage({ canWrite }: { canWrite: boolean }) {
         },
       },
     ];
-  }, [canWrite, confirm, confirmMut, cancelMut]);
+  }, [
+    canWrite,
+    canPostDifference,
+    confirm,
+    confirmMut,
+    cancelMut,
+    postDiffMut,
+    unpostDiffMut,
+  ]);
 
   return (
     <>
@@ -357,6 +454,25 @@ export function DriverSettlementsPage({ canWrite }: { canWrite: boolean }) {
           getRowId={(s) => s.id}
           emptyMessage="Sin rendiciones todavía."
         />
+        {settlements.some((s) => s.receipts_out_of_sync) && (
+          <p className="text-xs text-muted-foreground">
+            Un recibo de la rendición se anuló o se editó en Recibos: la
+            rendición sigue confirmada con lo que registró. Si se anularon todos
+            sus recibos, cancelala; si se editó uno, revisá el recibo.
+          </p>
+        )}
+        {hasNextPage && (
+          <div className="flex justify-center">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={isFetchingNextPage}
+              onClick={() => fetchNextPage()}
+            >
+              {isFetchingNextPage ? "Cargando…" : "Cargar más"}
+            </Button>
+          </div>
+        )}
       </section>
 
       {editing?.mode === "create" && (

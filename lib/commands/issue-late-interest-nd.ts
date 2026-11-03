@@ -71,8 +71,8 @@ export async function issueLateInterestNd(
       error: "El comprobante no está vencido o no tiene saldo abierto.",
     };
   }
-  const { days, interest } = computeLateInterest({
-    openAmount: Number(row.open_amount),
+  const { days, interest, averageBalance } = computeLateInterest({
+    balanceDays: Number(row.balance_days),
     monthlyRate: monthly_rate,
     from: row.charge_from,
     to: as_of,
@@ -137,7 +137,8 @@ export async function issueLateInterestNd(
       period_from: row.charge_from,
       period_to: as_of,
       monthly_rate,
-      base_amount: Number(row.open_amount),
+      // The average daily balance the interest was computed on.
+      base_amount: averageBalance,
       interest_amount: interest,
       moneda: row.moneda,
       created_by: actorId,

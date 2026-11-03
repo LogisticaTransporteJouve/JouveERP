@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { todayInAR } from "@/lib/format";
+import { formatArgentineDate, todayInAR } from "@/lib/format";
 
 import { usePallets } from "../hooks/use-pallets";
 import { storedDays } from "../lib/pallet-days";
@@ -83,10 +83,35 @@ export function PalletTraceability({
         meta: { cellClassName: "text-sm" },
       },
       {
+        id: "area",
+        header: "Área",
+        enableSorting: false,
+        cell: ({ row }) => row.original.area?.name ?? "—",
+        meta: { cellClassName: "text-sm" },
+      },
+      {
         id: "product",
         header: "Producto",
         enableSorting: false,
         cell: ({ row }) => row.original.product?.name ?? "—",
+        meta: { cellClassName: "text-sm" },
+      },
+      {
+        accessorKey: "lot_number",
+        header: "Lote",
+        cell: ({ row }) =>
+          row.original.lot_number ? (
+            <span className="text-sm">
+              {row.original.lot_number}
+              {row.original.lot_expiry && (
+                <span className="block text-xs text-muted-foreground">
+                  Vence {formatArgentineDate(row.original.lot_expiry)}
+                </span>
+              )}
+            </span>
+          ) : (
+            "—"
+          ),
         meta: { cellClassName: "text-sm" },
       },
       {

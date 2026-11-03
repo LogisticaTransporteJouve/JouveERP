@@ -32,8 +32,12 @@ describe("movements", () => {
       transaction_id: null,
       purchase_invoice_id: null,
       payroll_entry_id: null,
+      driver_settlement_id: null,
     };
     expect(movementSource({ ...none, kind: "charge" })).toBe("manual");
+    expect(
+      movementSource({ ...none, kind: "charge", driver_settlement_id: "s" }),
+    ).toBe("settlement");
     expect(
       movementSource({ ...none, kind: "advance", transaction_id: "t" }),
     ).toBe("cash");

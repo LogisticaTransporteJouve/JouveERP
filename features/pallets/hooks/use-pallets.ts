@@ -2,6 +2,7 @@
 
 import {
   useMutation,
+  useQuery,
   useQueryClient,
   useSuspenseQuery,
 } from "@tanstack/react-query";
@@ -15,11 +16,12 @@ import {
   deletePalletAction,
   dispatchPalletsBulkAction,
   listPalletsAction,
+  listPalletBlockEventsAction,
   unblockPalletAction,
   updatePalletAction,
 } from "../actions/pallets-actions";
 import { palletsKeys } from "../lib/pallets-keys";
-import type { PalletBlockInput } from "../schema";
+import type { PalletBlockInput, PalletUnblockInput } from "../schema";
 
 export function usePallets() {
   return useSuspenseQuery({
@@ -78,8 +80,18 @@ export function useBlockPallet() {
 export function useUnblockPallet() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => runAction(() => unblockPalletAction({ id })),
+    mutationFn: (input: PalletUnblockInput) =>
+      runAction(() => unblockPalletAction(input)),
     onSuccess: () => invalidate(qc),
+  });
+}
+
+/** Who blocked or unblocked the pallet; loads while `enabled`. */
+export function usePalletBlockEvents(palletId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: palletsKeys.blockEvents(palletId),
+    queryFn: () => runAction(() => listPalletBlockEventsAction(palletId)),
+    enabled,
   });
 }
 

@@ -65,6 +65,7 @@ const SOURCE_LABEL: Record<ReturnType<typeof movementSource>, string> = {
   cash: "Caja",
   purchase: "Compra",
   payroll: "Planilla",
+  settlement: "Rendición",
   forgiveness: "Plan",
   manual: "Manual",
 };

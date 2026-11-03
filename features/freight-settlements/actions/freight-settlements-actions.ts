@@ -15,6 +15,7 @@ import { isIvaCondition } from "@/features/clients/schema";
 import { issueFiscalInvoiceAction } from "@/features/invoices/actions/invoices-actions";
 import { formatInvoiceNumero } from "@/features/invoices/schema";
 
+import { invoiceIsVoid, releaseInvoicingClaim } from "../lib/invoicing-claim";
 import {
   FreightCandidatesSchema,
   FreightSettlementIdSchema,
@@ -566,18 +567,7 @@ export async function invoiceFreightSettlementAction(
     })),
   });
   if (!result.ok) {
-    const { error: releaseErr } = await supabase
-      .from("freight_settlements")
-      .update({ invoicing_claimed_at: null })
-      .eq("id", id)
-      .is("invoice_id", null);
-    if (releaseErr) {
-      logger.error("freight_settlements.invoice.release_failed", {
-        userId: ctx.userId,
-        id,
-        error: releaseErr,
-      });
-    }
+    await releaseInvoicingClaim(supabase, id, ctx.userId);
     return result;
   }
 
@@ -592,6 +582,12 @@ export async function invoiceFreightSettlementAction(
       invoiceId: result.data.id,
       error: linkErr,
     });
+    // The invoice already failed or was cancelled (the link guard refuses
+    // it): nothing holds the liquidación, so free it now instead of after
+    // the claim's TTL. Any other error keeps it claimed.
+    if (await invoiceIsVoid(supabase, result.data.id)) {
+      await releaseInvoicingClaim(supabase, id, ctx.userId);
+    }
     return {
       ok: false,
       error:

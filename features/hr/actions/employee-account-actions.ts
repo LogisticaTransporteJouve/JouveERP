@@ -69,7 +69,7 @@ export async function getEmployeeAccountAction(
     supabase
       .from("employee_account_movements")
       .select(
-        "id, employee_id, kind, currency, amount, movement_date, description, creditor, plan_id, transaction_id, purchase_invoice_id, payroll_entry_id, plan:employee_debt_plans ( description )",
+        "id, employee_id, kind, currency, amount, movement_date, description, creditor, plan_id, transaction_id, purchase_invoice_id, payroll_entry_id, driver_settlement_id, plan:employee_debt_plans ( description )",
       )
       .eq("employee_id", employeeId)
       .order("movement_date", { ascending: false })
@@ -133,6 +133,7 @@ export async function getEmployeeAccountAction(
       transaction_id: row.transaction_id,
       purchase_invoice_id: row.purchase_invoice_id,
       payroll_entry_id: row.payroll_entry_id,
+      driver_settlement_id: row.driver_settlement_id,
     });
   }
 

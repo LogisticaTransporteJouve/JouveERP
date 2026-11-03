@@ -23,6 +23,7 @@ type StorageTariffSelectRow = Pick<
   Database["public"]["Tables"]["storage_tariffs"]["Row"],
   | "id"
   | "client_id"
+  | "area_id"
   | "rate_per_pallet"
   | "handling_in"
   | "handling_out"
@@ -30,17 +31,23 @@ type StorageTariffSelectRow = Pick<
   | "valid_from"
   | "valid_to"
   | "is_active"
+  | "migrated_to_client_tariffs_at"
   | "notes"
   | "created_at"
-> & { client: { legal_name: string } | null };
+> & {
+  client: { legal_name: string } | null;
+  area: { name: string; warehouse: { name: string } | null } | null;
+};
 
 function narrow(row: StorageTariffSelectRow): StorageTariff | null {
   if (!isTariffPeriod(row.period)) {
     logger.error("storage_tariffs.unknown_period", { period: row.period });
     return null;
   }
+  const { area, ...rest } = row;
   return {
-    ...row,
+    ...rest,
+    area_label: area ? `${area.warehouse?.name ?? "—"} · ${area.name}` : null,
     period: row.period,
     rate_per_pallet: Number(row.rate_per_pallet),
     handling_in: Number(row.handling_in),
@@ -49,7 +56,7 @@ function narrow(row: StorageTariffSelectRow): StorageTariff | null {
 }
 
 const SELECT_COLUMNS =
-  "id, client_id, rate_per_pallet, handling_in, handling_out, period, valid_from, valid_to, is_active, notes, created_at, client:clients(legal_name)";
+  "id, client_id, area_id, rate_per_pallet, handling_in, handling_out, period, valid_from, valid_to, is_active, migrated_to_client_tariffs_at, notes, created_at, client:clients(legal_name), area:storage_areas(name, warehouse:warehouses(name))";
 
 export async function listStorageTariffsAction(): Promise<
   ActionResult<StorageTariff[]>
@@ -101,6 +108,7 @@ export async function createStorageTariffAction(
     .from("storage_tariffs")
     .insert({
       client_id: parsed.data.client_id ?? null,
+      area_id: parsed.data.area_id ?? null,
       rate_per_pallet: parsed.data.rate_per_pallet,
       handling_in: parsed.data.handling_in,
       handling_out: parsed.data.handling_out,
@@ -154,6 +162,7 @@ export async function updateStorageTariffAction(
     .from("storage_tariffs")
     .update({
       ...(rest.client_id !== undefined && { client_id: rest.client_id }),
+      ...(rest.area_id !== undefined && { area_id: rest.area_id }),
       ...(rest.rate_per_pallet !== undefined && {
         rate_per_pallet: rest.rate_per_pallet,
       }),
@@ -259,9 +268,11 @@ export async function increaseStorageTariffsAction(
   const { data: current, error } = await supabase
     .from("storage_tariffs")
     .select(
-      "id, client_id, rate_per_pallet, handling_in, handling_out, period, valid_from, valid_to",
+      "id, client_id, area_id, rate_per_pallet, handling_in, handling_out, period, valid_from, valid_to",
     )
     .eq("is_active", true)
+    // A row moved to the client's tarifario is raised there.
+    .is("migrated_to_client_tariffs_at", null)
     .or(`valid_to.is.null,valid_to.gte.${valid_from}`);
   if (error) {
     logger.error("storage_tariffs.increase.read_failed", {
@@ -291,6 +302,7 @@ export async function increaseStorageTariffsAction(
         const oldRate = Number(t.rate_per_pallet);
         return {
           client_id: t.client_id,
+          area_id: t.area_id,
           rate_per_pallet: round2(oldRate * factor),
           handling_in: round2(Number(t.handling_in) * factor),
           handling_out: round2(Number(t.handling_out) * factor),

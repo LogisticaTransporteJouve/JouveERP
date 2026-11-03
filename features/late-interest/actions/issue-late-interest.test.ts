@@ -84,6 +84,8 @@ beforeEach(() => {
     due_date: "2026-10-01",
     moneda: "PES",
     open_amount: 10000,
+    // 30 days on 10.000, no payment in the period.
+    balance_days: 300000,
     charged_to: null,
     charge_from: "2026-10-02",
     client_rate: null,

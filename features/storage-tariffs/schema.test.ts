@@ -60,7 +60,8 @@ describe("StorageTariffCreateSchema", () => {
 
   it("rejects an unknown period", () => {
     expect(
-      StorageTariffCreateSchema.safeParse({ ...base, period: "yearly" }).success,
+      StorageTariffCreateSchema.safeParse({ ...base, period: "yearly" })
+        .success,
     ).toBe(false);
   });
 });
@@ -84,19 +85,31 @@ describe("StorageTariffIncreaseSchema", () => {
 
   it("acepta bajas (porcentaje negativo > -100)", () => {
     expect(
-      StorageTariffIncreaseSchema.safeParse({ percent: -10, valid_from: "2026-08-01" }).success,
+      StorageTariffIncreaseSchema.safeParse({
+        percent: -10,
+        valid_from: "2026-08-01",
+      }).success,
     ).toBe(true);
   });
 
   it("rechaza 0, -100 y fechas inválidas", () => {
     expect(
-      StorageTariffIncreaseSchema.safeParse({ percent: 0, valid_from: "2026-08-01" }).success,
+      StorageTariffIncreaseSchema.safeParse({
+        percent: 0,
+        valid_from: "2026-08-01",
+      }).success,
     ).toBe(false);
     expect(
-      StorageTariffIncreaseSchema.safeParse({ percent: -100, valid_from: "2026-08-01" }).success,
+      StorageTariffIncreaseSchema.safeParse({
+        percent: -100,
+        valid_from: "2026-08-01",
+      }).success,
     ).toBe(false);
     expect(
-      StorageTariffIncreaseSchema.safeParse({ percent: 10, valid_from: "01/08/2026" }).success,
+      StorageTariffIncreaseSchema.safeParse({
+        percent: 10,
+        valid_from: "01/08/2026",
+      }).success,
     ).toBe(false);
   });
 });
@@ -113,8 +126,11 @@ describe("tariffVigencia", () => {
     expect(tariffVigencia(T, "2026-06-30")).toBe("futura");
   });
   it("abierta (valid_to null) nunca vence", () => {
-    expect(tariffVigencia({ valid_from: "2026-01-01", valid_to: null }, "2030-01-01")).toBe(
-      "vigente",
-    );
+    expect(
+      tariffVigencia(
+        { valid_from: "2026-01-01", valid_to: null },
+        "2030-01-01",
+      ),
+    ).toBe("vigente");
   });
 });

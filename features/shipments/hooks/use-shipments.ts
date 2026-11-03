@@ -25,6 +25,7 @@ import {
   setShipmentsTripAction,
   updateShipmentAction,
 } from "../actions/shipments-actions";
+import { getClientFreightTariffAction } from "../actions/freight-tariff-actions";
 import { shipmentsKeys } from "../lib/shipments-keys";
 
 export function useShipments() {
@@ -145,5 +146,25 @@ export function useInvoiceFreight() {
     mutationFn: (input: unknown) =>
       runAction(() => invoiceFreightAction(input)),
     onSuccess: () => invalidateKeys(qc, INVOICE_EFFECT_KEYS),
+  });
+}
+
+/** The client's flete tariff on `date`, to pre-fill a new carga's flete. */
+export function useClientFreightTariff(input: {
+  clientId: string;
+  date: string;
+  enabled: boolean;
+}) {
+  return useQuery({
+    queryKey: shipmentsKeys.freightTariff(input.clientId, input.date),
+    queryFn: () =>
+      runAction(() =>
+        getClientFreightTariffAction({
+          client_id: input.clientId,
+          date: input.date,
+        }),
+      ),
+    enabled: input.enabled && input.clientId !== "",
+    staleTime: 60_000,
   });
 }

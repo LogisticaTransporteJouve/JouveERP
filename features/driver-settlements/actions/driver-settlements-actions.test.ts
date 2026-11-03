@@ -12,6 +12,7 @@ const ACCOUNT = "00000000-0000-4000-8000-000000000003";
 const SETTLEMENT = "00000000-0000-4000-8000-000000000004";
 
 let roles: Role[] = ["finance"];
+let denies: string[] = [];
 let rpcError: unknown = null;
 let fake = recordingSupabase(respond);
 
@@ -25,6 +26,80 @@ function respond(call: RecordedCall) {
   }
   if (call.table === "save_driver_settlement") {
     return { data: rpcError ? null : SETTLEMENT, error: rpcError };
+  }
+  if (call.table === "post_driver_settlement_difference") {
+    return { data: rpcError ? null : "m1", error: rpcError };
+  }
+  if (call.table === "driver_settlements" && listingItems) {
+    return {
+      data: [
+        {
+          id: SETTLEMENT,
+          numero: 7,
+          driver_id: DRIVER,
+          settlement_date: "2026-11-02",
+          status: "confirmed",
+          notes: null,
+          created_at: "2026-11-02T10:00:00Z",
+          driver: { full_name: "Juan", employee_id: "e1" },
+          difference: [],
+        },
+      ],
+      error: null,
+    };
+  }
+  if (call.table === "driver_settlement_items" && listingItems) {
+    return {
+      data: [
+        {
+          id: "i1",
+          settlement_id: SETTLEMENT,
+          shipment_id: SHIPMENT,
+          expected_amount: 1000,
+          note: null,
+          released: false,
+          lines: [
+            {
+              id: "l1",
+              account_id: ACCOUNT,
+              amount: 600,
+              reference: null,
+              check_number: null,
+              bank_name: null,
+              drawer_name: null,
+              check_due_date: null,
+              receipt_id: "r1",
+              account: { name: "Caja", type: "cash" },
+              receipt: {
+                punto_venta: 1,
+                numero: 5,
+                status: "issued",
+                total_amount: 700,
+              },
+            },
+            {
+              id: "l2",
+              account_id: ACCOUNT,
+              amount: 300,
+              reference: null,
+              check_number: null,
+              bank_name: null,
+              drawer_name: null,
+              check_due_date: null,
+              receipt_id: "r1",
+              account: { name: "Caja", type: "cash" },
+              receipt: {
+                punto_venta: 1,
+                numero: 5,
+                status: "issued",
+                total_amount: 700,
+              },
+            },
+          ],
+        },
+      ],
+      error: null,
+    };
   }
   if (call.table === "confirm_driver_settlement") {
     return { data: rpcError ? null : ["r1", "r2"], error: rpcError };
@@ -65,7 +140,7 @@ function respond(call: RecordedCall) {
 vi.mock("@/lib/auth/context", () => ({
   requireUserContext: async () => ({
     userId: "u1",
-    access: resolveAccess(roles, []),
+    access: resolveAccess(roles, denies),
   }),
 }));
 vi.mock("@/lib/supabase/service", () => ({
@@ -76,11 +151,17 @@ vi.mock("@/lib/actions/audit", () => ({ logAudit: vi.fn() }));
 const {
   confirmDriverSettlementAction,
   listCodPendingAction,
+  listDriverSettlementsAction,
+  postDriverSettlementDifferenceAction,
   saveDriverSettlementAction,
 } = await import("./driver-settlements-actions");
 
+let listingItems = false;
+
 beforeEach(() => {
   roles = ["finance"];
+  denies = [];
+  listingItems = false;
   rpcError = null;
   served.clear();
   fake = recordingSupabase(respond);
@@ -175,5 +256,43 @@ describe("listCodPendingAction", () => {
         drafts: 0,
       },
     ]);
+  });
+});
+
+describe("listDriverSettlementsAction", () => {
+  it("flags a receipt whose total changed in Recibos", async () => {
+    listingItems = true;
+    const res = await listDriverSettlementsAction({ offset: 0, limit: 25 });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    const [s] = res.data.settlements;
+    expect(s?.difference).toBe(-100);
+    expect(s?.receipts).toEqual([
+      { id: "r1", label: expect.any(String), canceled: false, mismatch: true },
+    ]);
+    expect(s?.receipts_out_of_sync).toBe(true);
+    expect(s?.driver_employee_id).toBe("e1");
+    expect(res.data.nextOffset).toBeNull();
+  });
+});
+
+describe("postDriverSettlementDifferenceAction", () => {
+  it("posts the difference with the acting user", async () => {
+    const res = await postDriverSettlementDifferenceAction({ id: SETTLEMENT });
+    expect(res).toEqual({ ok: true, data: { movementId: "m1" } });
+    const call = fake.calls.find(
+      (c) => c.table === "post_driver_settlement_difference",
+    );
+    expect(call?.payload).toEqual({
+      p_settlement_id: SETTLEMENT,
+      p_user_id: "u1",
+    });
+  });
+
+  it("needs hr:write besides receipts:write", async () => {
+    denies = ["hr:write"];
+    const res = await postDriverSettlementDifferenceAction({ id: SETTLEMENT });
+    expect(res.ok).toBe(false);
+    expect(fake.calls).toHaveLength(0);
   });
 });

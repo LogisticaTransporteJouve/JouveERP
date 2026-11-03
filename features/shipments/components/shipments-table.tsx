@@ -15,6 +15,7 @@ import {
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { ListSearch } from "@/components/list-toolbar";
 import { useConfirm } from "@/components/providers/confirm-provider";
 import { Button } from "@/components/ui/button";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
@@ -27,7 +28,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 import { useDeleteShipment, useShipments } from "../hooks/use-shipments";
-import { formatRoute } from "../lib/format";
+import { formatRoute, matchesShipmentSearch } from "../lib/format";
 import { type Shipment, type ShipmentStatus } from "../schema";
 
 import { FreightInvoiceDialog } from "./freight-invoice-dialog";
@@ -79,8 +80,18 @@ type StatusState = {
   action: ShipmentStatusAction;
 } | null;
 
-export function ShipmentsTable() {
+/** `initialSearch`: the ?q= of a link (a scanned remito's carga). */
+export function ShipmentsTable({
+  initialSearch = "",
+}: {
+  initialSearch?: string;
+}) {
   const { data: items } = useShipments();
+  const [search, setSearch] = useState(initialSearch);
+  const visible = useMemo(
+    () => items.filter((s) => matchesShipmentSearch(s, search)),
+    [items, search],
+  );
   const deleteMut = useDeleteShipment();
   const confirm = useConfirm();
   const [dialog, setDialog] = useState<DialogState>(null);
@@ -270,11 +281,21 @@ export function ShipmentsTable() {
         </Button>
       </div>
 
+      <ListSearch
+        value={search}
+        onChange={setSearch}
+        placeholder="Buscar por remito, cliente o ruta…"
+      />
+
       <DataTable
         columns={columns}
-        data={items}
+        data={visible}
         getRowId={(s) => s.id}
-        emptyMessage="Sin cargas. Creá la primera."
+        emptyMessage={
+          search.trim() === ""
+            ? "Sin cargas. Creá la primera."
+            : "Ninguna carga coincide con la búsqueda."
+        }
       />
 
       {dialog && (

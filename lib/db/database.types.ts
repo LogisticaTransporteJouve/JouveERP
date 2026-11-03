@@ -1409,11 +1409,92 @@ export type Database = {
           },
         ]
       }
+      check_sale_debts: {
+        Row: {
+          amount: number
+          check_id: string
+          created_at: string
+          created_by: string | null
+          currency: string
+          id: string
+          notes: string | null
+          paid_at: string | null
+          paid_transaction_id: string | null
+          rejected_on: string
+          sale_id: string
+        }
+        Insert: {
+          amount: number
+          check_id: string
+          created_at?: string
+          created_by?: string | null
+          currency: string
+          id?: string
+          notes?: string | null
+          paid_at?: string | null
+          paid_transaction_id?: string | null
+          rejected_on: string
+          sale_id: string
+        }
+        Update: {
+          amount?: number
+          check_id?: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          id?: string
+          notes?: string | null
+          paid_at?: string | null
+          paid_transaction_id?: string | null
+          rejected_on?: string
+          sale_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "check_sale_debts_check_id_fkey"
+            columns: ["check_id"]
+            isOneToOne: true
+            referencedRelation: "checks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "check_sale_debts_check_id_fkey"
+            columns: ["check_id"]
+            isOneToOne: true
+            referencedRelation: "v_rejected_check_open"
+            referencedColumns: ["check_id"]
+          },
+          {
+            foreignKeyName: "check_sale_debts_paid_transaction_id_fkey"
+            columns: ["paid_transaction_id"]
+            isOneToOne: true
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "check_sale_debts_paid_transaction_id_fkey"
+            columns: ["paid_transaction_id"]
+            isOneToOne: true
+            referencedRelation: "v_transactions_tagged"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "check_sale_debts_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "check_sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       check_sales: {
         Row: {
           account_id: string
           buyer_cuit: string | null
           buyer_name: string
+          cancel_reason: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
           channel_id: string
           commission_amount: number
           created_at: string
@@ -1426,11 +1507,15 @@ export type Database = {
           net_amount: number
           notes: string | null
           sale_date: string
+          status: string
         }
         Insert: {
           account_id: string
           buyer_cuit?: string | null
           buyer_name: string
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
           channel_id: string
           commission_amount?: number
           created_at?: string
@@ -1443,11 +1528,15 @@ export type Database = {
           net_amount: number
           notes?: string | null
           sale_date: string
+          status?: string
         }
         Update: {
           account_id?: string
           buyer_cuit?: string | null
           buyer_name?: string
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
           channel_id?: string
           commission_amount?: number
           created_at?: string
@@ -1460,6 +1549,7 @@ export type Database = {
           net_amount?: number
           notes?: string | null
           sale_date?: string
+          status?: string
         }
         Relationships: [
           {
@@ -2198,6 +2288,7 @@ export type Database = {
           creditor: string
           currency: string
           description: string
+          driver_settlement_id: string | null
           employee_id: string
           id: string
           kind: string
@@ -2215,6 +2306,7 @@ export type Database = {
           creditor?: string
           currency: string
           description: string
+          driver_settlement_id?: string | null
           employee_id: string
           id?: string
           kind: string
@@ -2232,6 +2324,7 @@ export type Database = {
           creditor?: string
           currency?: string
           description?: string
+          driver_settlement_id?: string | null
           employee_id?: string
           id?: string
           kind?: string
@@ -2243,6 +2336,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "employee_account_movements_driver_settlement_id_fkey"
+            columns: ["driver_settlement_id"]
+            isOneToOne: false
+            referencedRelation: "driver_settlements"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "employee_account_movements_employee_id_fkey"
             columns: ["employee_id"]
@@ -4608,6 +4708,41 @@ export type Database = {
         }
         Relationships: []
       }
+      pallet_block_events: {
+        Row: {
+          action: string
+          actor_id: string | null
+          created_at: string
+          id: string
+          pallet_id: string
+          reason: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          pallet_id: string
+          reason?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          pallet_id?: string
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pallet_block_events_pallet_id_fkey"
+            columns: ["pallet_id"]
+            isOneToOne: false
+            referencedRelation: "pallets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pallets: {
         Row: {
           area_id: string | null
@@ -6371,6 +6506,7 @@ export type Database = {
       }
       storage_tariffs: {
         Row: {
+          area_id: string | null
           client_id: string | null
           created_at: string
           created_by: string | null
@@ -6378,6 +6514,7 @@ export type Database = {
           handling_out: number
           id: string
           is_active: boolean
+          migrated_to_client_tariffs_at: string | null
           notes: string | null
           period: string
           rate_per_pallet: number
@@ -6386,6 +6523,7 @@ export type Database = {
           valid_to: string | null
         }
         Insert: {
+          area_id?: string | null
           client_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -6393,6 +6531,7 @@ export type Database = {
           handling_out?: number
           id?: string
           is_active?: boolean
+          migrated_to_client_tariffs_at?: string | null
           notes?: string | null
           period?: string
           rate_per_pallet: number
@@ -6401,6 +6540,7 @@ export type Database = {
           valid_to?: string | null
         }
         Update: {
+          area_id?: string | null
           client_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -6408,6 +6548,7 @@ export type Database = {
           handling_out?: number
           id?: string
           is_active?: boolean
+          migrated_to_client_tariffs_at?: string | null
           notes?: string | null
           period?: string
           rate_per_pallet?: number
@@ -6416,6 +6557,13 @@ export type Database = {
           valid_to?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "storage_tariffs_area_id_fkey"
+            columns: ["area_id"]
+            isOneToOne: false
+            referencedRelation: "storage_areas"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "storage_tariffs_client_id_fkey"
             columns: ["client_id"]
@@ -8798,6 +8946,10 @@ export type Database = {
         }
         Returns: number
       }
+      cancel_check_sale: {
+        Args: { p_reason: string; p_sale_id: string; p_user_id: string }
+        Returns: undefined
+      }
       cancel_driver_settlement: {
         Args: { p_settlement_id: string; p_user_id: string }
         Returns: undefined
@@ -9372,6 +9524,7 @@ export type Database = {
       late_interest_candidates: {
         Args: { p_as_of: string }
         Returns: {
+          balance_days: number
           channel_id: string
           channel_is_fiscal: boolean
           charge_from: string
@@ -9396,6 +9549,10 @@ export type Database = {
           p_charge: Database["public"]["Tables"]["late_interest_charges"]["Row"]
         }
         Returns: boolean
+      }
+      late_interest_reductions_after: {
+        Args: { p_from: string; p_invoice_id: string; p_to: string }
+        Returns: number
       }
       libro_iva_compras: {
         Args: { p_channel_id?: string; p_period: string }
@@ -9568,6 +9725,7 @@ export type Database = {
         Args: { p_today: string }
         Returns: number
       }
+      migrate_client_storage_tariffs: { Args: never; Returns: number }
       next_internal_invoice_numero_atomic: {
         Args: {
           p_channel_id: string
@@ -9586,6 +9744,15 @@ export type Database = {
         Returns: boolean
       }
       open_or_create_dm: { Args: { p_other: string }; Returns: string }
+      pay_check_sale_debt: {
+        Args: {
+          p_account_id: string
+          p_debt_id: string
+          p_payment_date: string
+          p_user_id: string
+        }
+        Returns: string
+      }
       pay_loan_installment: {
         Args: {
           p_account_id: string
@@ -9618,6 +9785,10 @@ export type Database = {
       }
       pick_default_avatar_color: {
         Args: { p_user_id: string }
+        Returns: string
+      }
+      post_driver_settlement_difference: {
+        Args: { p_settlement_id: string; p_user_id: string }
         Returns: string
       }
       post_pending_journals: {
@@ -9712,6 +9883,15 @@ export type Database = {
           p_check_id: string
           p_event_date: string
           p_notes: string
+        }
+        Returns: string
+      }
+      reject_sold_check_as_debt: {
+        Args: {
+          p_check_id: string
+          p_event_date: string
+          p_notes: string
+          p_user_id: string
         }
         Returns: string
       }
@@ -10032,6 +10212,10 @@ export type Database = {
           total: number
         }[]
       }
+      unblock_pallet: {
+        Args: { p_pallet_id: string; p_reason: string }
+        Returns: boolean
+      }
       undo_import_run: {
         Args: { p_run_id: string; p_user_id: string }
         Returns: undefined
@@ -10047,6 +10231,10 @@ export type Database = {
       }
       unmatch_bank_statement_line: {
         Args: { p_line_id: string; p_user_id: string }
+        Returns: undefined
+      }
+      unpost_driver_settlement_difference: {
+        Args: { p_settlement_id: string }
         Returns: undefined
       }
       update_chat_channel: {

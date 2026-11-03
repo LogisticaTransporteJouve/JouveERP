@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  CalendarRange,
   CheckCircle2,
   Eye,
   FileText,
@@ -40,6 +41,7 @@ import {
   type FreightSettlement,
 } from "../schema";
 
+import { BulkFreightSettlementsDialog } from "./bulk-freight-settlements-dialog";
 import { FreightSettlementDetailDialog } from "./freight-settlement-detail-dialog";
 import { FreightSettlementDialog } from "./freight-settlement-dialog";
 import { FreightSettlementInvoiceDialog } from "./freight-settlement-invoice-dialog";
@@ -85,12 +87,20 @@ function EditDraft({ id, onClose }: { id: string; onClose: () => void }) {
   );
 }
 
-export function FreightSettlementsPage({ canWrite }: { canWrite: boolean }) {
+export function FreightSettlementsPage({
+  canWrite,
+  canEmail,
+}: {
+  canWrite: boolean;
+  /** email:send: the R goes to the client by email. */
+  canEmail: boolean;
+}) {
   const { data: items } = useFreightSettlements();
   const confirmMut = useConfirmFreightSettlement();
   const cancelMut = useCancelFreightSettlement();
   const confirm = useConfirm();
   const [creating, setCreating] = useState(false);
+  const [bulk, setBulk] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [invoicing, setInvoicing] = useState<FreightSettlement | null>(null);
@@ -292,10 +302,16 @@ export function FreightSettlementsPage({ canWrite }: { canWrite: boolean }) {
           </p>
         </div>
         {canWrite && (
-          <Button onClick={() => setCreating(true)}>
-            <Plus />
-            Nueva liquidación
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => setBulk(true)}>
+              <CalendarRange />
+              Liquidar período
+            </Button>
+            <Button onClick={() => setCreating(true)}>
+              <Plus />
+              Nueva liquidación
+            </Button>
+          </div>
         )}
       </div>
 
@@ -307,9 +323,13 @@ export function FreightSettlementsPage({ canWrite }: { canWrite: boolean }) {
       />
 
       <FreightSettlementDialog open={creating} onOpenChange={setCreating} />
+      {canWrite && (
+        <BulkFreightSettlementsDialog open={bulk} onOpenChange={setBulk} />
+      )}
       {editId && <EditDraft id={editId} onClose={() => setEditId(null)} />}
       <FreightSettlementDetailDialog
         id={detailId}
+        canEmail={canEmail}
         onClose={() => setDetailId(null)}
       />
       <FreightSettlementInvoiceDialog

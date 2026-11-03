@@ -1,5 +1,6 @@
 "use client";
 
+import { FileText } from "lucide-react";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
@@ -159,9 +160,27 @@ export function DriverSettlementDetailDialog({
                       {r.label}
                     </Link>
                     {r.canceled ? " (anulado)" : ""}
+                    {r.mismatch ? " (editado en Recibos)" : ""}
                   </span>
                 ))}
               </div>
+            )}
+            {s.receipts_out_of_sync && (
+              <p className="text-sm text-muted-foreground">
+                Un recibo se anuló o se editó en Recibos después de confirmar:
+                lo que muestra la rendición ya no coincide con los recibos. Si
+                se anularon todos, cancelá la rendición; si se editó uno,
+                revisalo.
+              </p>
+            )}
+            {s.difference_posted && (
+              <p className="text-sm text-muted-foreground">
+                {s.difference_posted.kind === "charge"
+                  ? "Faltante cargado"
+                  : "Sobrante acreditado"}{" "}
+                en la cuenta corriente del chofer:{" "}
+                {formatMoney(s.difference_posted.amount)}.
+              </p>
             )}
             {s.notes && (
               <p className="text-sm text-muted-foreground">{s.notes}</p>
@@ -169,6 +188,18 @@ export function DriverSettlementDetailDialog({
           </div>
         ) : null}
         <DialogFooter>
+          {s && s.numero !== null && (
+            <Button asChild variant="outline">
+              <a
+                href={`/api/driver-settlements/${s.id}/pdf`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <FileText />
+                PDF
+              </a>
+            </Button>
+          )}
           <Button type="button" variant="outline" onClick={onClose}>
             Cerrar
           </Button>

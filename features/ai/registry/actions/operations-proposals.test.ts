@@ -54,6 +54,7 @@ const candidate = {
   due_date: "2026-09-30",
   moneda: "PES",
   open_amount: 100_000,
+  balance_days: 3_000_000,
   charged_to: null,
   charge_from: "2026-10-01",
   client_rate: null,

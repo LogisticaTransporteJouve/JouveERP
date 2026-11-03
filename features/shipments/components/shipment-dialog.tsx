@@ -35,7 +35,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
-import { formatArgentineDate } from "@/lib/format";
+import { formatArgentineDate, formatMoney, todayInAR } from "@/lib/format";
 
 import { isIvaCondition } from "@/features/clients/schema";
 import {
@@ -44,6 +44,7 @@ import {
 } from "@/features/invoices/components/client-picker";
 
 import {
+  useClientFreightTariff,
   useCreateShipment,
   useShipmentOptions,
   useShipmentRemitoConflict,
@@ -170,6 +171,26 @@ export function ShipmentDialog({
     debouncedRemito.trim() === typedRemito.trim()
       ? (remitoCheck.data ?? null)
       : null;
+
+  // A new carga takes its client's flete tariff (in force on its date, or
+  // today) as its flete while the user has not typed one.
+  const scheduledDate = useWatch({
+    control: form.control,
+    name: "scheduled_date",
+  });
+  const freightTariff = useClientFreightTariff({
+    clientId: watchedClientId,
+    date: /^\d{4}-\d{2}-\d{2}$/.test(scheduledDate)
+      ? scheduledDate
+      : todayInAR(),
+    enabled: open && !isEdit,
+  });
+  const suggestedFreight = freightTariff.data?.price ?? null;
+  useEffect(() => {
+    if (isEdit || suggestedFreight === null) return;
+    if (form.getFieldState("freight_amount").isDirty) return;
+    form.setValue("freight_amount", String(suggestedFreight));
+  }, [isEdit, suggestedFreight, form]);
 
   function onSubmit(values: FormValues) {
     const payload = {
@@ -387,6 +408,12 @@ export function ShipmentDialog({
                           step="0.01"
                         />
                       </FormControl>
+                      {!isEdit && suggestedFreight !== null && (
+                        <p className="text-xs text-muted-foreground">
+                          Tarifa de flete del cliente:{" "}
+                          {formatMoney(suggestedFreight)}
+                        </p>
+                      )}
                       <FormMessage />
                     </FormItem>
                   )}

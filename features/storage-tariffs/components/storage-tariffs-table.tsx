@@ -85,6 +85,16 @@ export function StorageTariffsTable({
         cell: ({ row }) => (
           <span className="font-medium">
             {row.original.client?.legal_name ?? "General"}
+            {row.original.area_label && (
+              <span className="block text-xs font-normal text-muted-foreground">
+                {row.original.area_label}
+              </span>
+            )}
+            {row.original.migrated_to_client_tariffs_at && (
+              <span className="block text-xs font-normal text-muted-foreground">
+                En el tarifario del cliente (se edita ahí)
+              </span>
+            )}
           </span>
         ),
       },
