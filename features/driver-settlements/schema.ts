@@ -57,9 +57,51 @@ export interface DriverSettlement {
   received_total: number;
   difference: number;
   cargas: number;
-  /** Receipts it posted (confirmed), with their status. */
-  receipts: { id: string; label: string; canceled: boolean }[];
+  /** Receipts it posted (confirmed), with their status. `mismatch`: the
+   *  receipt's total no longer equals what the rendición posted on it (it
+   *  was edited in Recibos). */
+  receipts: {
+    id: string;
+    label: string;
+    canceled: boolean;
+    mismatch: boolean;
+  }[];
+  /** A confirmed rendición whose receipts were cancelled or edited in
+   *  Recibos: what it shows no longer matches the books. */
+  receipts_out_of_sync: boolean;
+  /** The difference posted to the driver's employee account, if any. */
+  difference_posted: {
+    id: string;
+    kind: "charge" | "payment";
+    amount: number;
+  } | null;
+  /** The driver's employee (the account the difference posts to). */
+  driver_employee_id: string | null;
   created_at: string;
+}
+
+/** A page of rendiciones, newest first. */
+export interface DriverSettlementsPage {
+  settlements: DriverSettlement[];
+  nextOffset: number | null;
+}
+
+export const DRIVER_SETTLEMENTS_PAGE_SIZE = 25;
+
+export const DriverSettlementsPageSchema = z.object({
+  offset: z.number().int().min(0).max(1_000_000),
+  limit: z.number().int().min(1).max(100),
+});
+
+/** Out of sync: a receipt cancelled, or its total changed, in Recibos while
+ *  the rendición stays confirmed. */
+export function receiptsOutOfSync(
+  status: DriverSettlementStatus,
+  receipts: readonly { canceled: boolean; mismatch: boolean }[],
+): boolean {
+  return (
+    status === "confirmed" && receipts.some((r) => r.canceled || r.mismatch)
+  );
 }
 
 export interface DriverSettlementLine {
@@ -198,8 +240,13 @@ export const DriverSettlementItemSchema = z.object({
   shipment_id: z.string().uuid(),
   note: optionalText(500),
   /** Empty = the driver handed in nothing for this carga. */
-  lines: z.array(DriverSettlementLineSchema).max(10),
+  lines: z
+    .array(DriverSettlementLineSchema)
+    .max(10, "Hasta 10 pagos por carga."),
 });
+export type DriverSettlementItemInput = z.input<
+  typeof DriverSettlementItemSchema
+>;
 
 export const DriverSettlementSaveSchema = z
   .object({

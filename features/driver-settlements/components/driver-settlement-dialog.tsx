@@ -1,5 +1,6 @@
 "use client";
 
+import { Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -38,26 +39,22 @@ import {
   useSettlementAccounts,
 } from "../hooks/use-driver-settlements";
 import {
+  emptyLine,
+  rowReceived,
+  rowsProblem,
+  rowsToItems,
+  type LineDraft,
+  type RowDraft,
+} from "../lib/settlement-form";
+import {
   settlementDifference,
   type CodPendingShipment,
   type DriverSettlementDetail,
   type SettlementAccount,
 } from "../schema";
 
-type Row = {
-  shipment_id: string;
-  label: string;
-  detail: string;
-  expected: number;
-  included: boolean;
-  account_id: string;
-  amount: string;
-  reference: string;
-  check_number: string;
-  bank_name: string;
-  check_due_date: string;
-  note: string;
-};
+/** Payment lines a carga takes (DriverSettlementItemSchema). */
+const MAX_LINES = 10;
 
 function route(origin: string | null, destination: string | null): string {
   if (!origin && !destination) return "—";
@@ -84,32 +81,31 @@ function isCheck(accounts: readonly SettlementAccount[], id: string): boolean {
   return isAccountType(type) && isCheckAccount(type);
 }
 
-function parseAmount(raw: string): number {
-  const n = Number(raw);
-  return Number.isFinite(n) && n > 0 ? round2(n) : 0;
-}
-
 function buildRows(
   pending: readonly CodPendingShipment[],
   settlement: DriverSettlementDetail | undefined,
   defaultAccount: string,
-): Row[] {
-  const rows: Row[] = [];
+): RowDraft[] {
+  const rows: RowDraft[] = [];
   for (const item of settlement?.items ?? []) {
-    const line = item.lines[0];
     rows.push({
       shipment_id: item.shipment_id,
       label: item.client_name,
       detail: rowDetail(item),
       expected: item.expected_amount,
       included: true,
-      account_id: line?.account_id ?? defaultAccount,
-      amount: line ? String(line.amount) : "",
-      reference: line?.reference ?? "",
-      check_number: line?.check_number ?? "",
-      bank_name: line?.bank_name ?? "",
-      check_due_date: line?.check_due_date ?? "",
       note: item.note ?? "",
+      // Every saved line, so an edit keeps what was handed in.
+      lines:
+        item.lines.length === 0
+          ? [emptyLine(defaultAccount)]
+          : item.lines.map((line) => ({
+              ...emptyLine(line.account_id, String(line.amount)),
+              reference: line.reference ?? "",
+              check_number: line.check_number ?? "",
+              bank_name: line.bank_name ?? "",
+              check_due_date: line.check_due_date ?? "",
+            })),
     });
   }
   for (const s of pending) {
@@ -121,13 +117,8 @@ function buildRows(
       expected: s.cod_amount,
       // A new rendición takes every pending carga, collected in full.
       included: settlement === undefined,
-      account_id: defaultAccount,
-      amount: String(s.cod_amount),
-      reference: "",
-      check_number: "",
-      bank_name: "",
-      check_due_date: "",
       note: "",
+      lines: [emptyLine(defaultAccount, String(s.cod_amount))],
     });
   }
   return rows;
@@ -156,7 +147,7 @@ export function DriverSettlementDialog({
   const saveMut = useSaveDriverSettlement();
   const [date, setDate] = useState(todayInAR());
   const [notes, setNotes] = useState("");
-  const [rows, setRows] = useState<Row[]>([]);
+  const [rows, setRows] = useState<RowDraft[]>([]);
 
   const accountList = accounts.data ?? [];
   const defaultAccount =
@@ -171,38 +162,53 @@ export function DriverSettlementDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, settlement, defaultAccount]);
 
-  function update(id: string, patch: Partial<Row>) {
+  function update(id: string, patch: Partial<RowDraft>) {
     setRows((prev) =>
       prev.map((r) => (r.shipment_id === id ? { ...r, ...patch } : r)),
     );
   }
 
-  const included = rows.filter((r) => r.included);
-  const expected = round2(included.reduce((s, r) => s + r.expected, 0));
-  const received = round2(
-    included.reduce((s, r) => s + parseAmount(r.amount), 0),
-  );
-  const difference = settlementDifference(expected, received);
-
-  function problem(): string | null {
-    if (included.length === 0) return "Elegí al menos una carga.";
-    for (const r of included) {
-      if (parseAmount(r.amount) === 0) continue;
-      if (r.account_id === "") return `Elegí la cuenta de ${r.label}.`;
-      if (
-        isCheck(accountList, r.account_id) &&
-        (r.check_number.trim() === "" ||
-          r.bank_name.trim() === "" ||
-          r.check_due_date === "")
-      ) {
-        return `El cheque de ${r.label} necesita número, banco y fecha de pago.`;
-      }
-    }
-    return null;
+  function updateLine(id: string, key: string, patch: Partial<LineDraft>) {
+    setRows((prev) =>
+      prev.map((r) =>
+        r.shipment_id === id
+          ? {
+              ...r,
+              lines: r.lines.map((l) =>
+                l.key === key ? { ...l, ...patch } : l,
+              ),
+            }
+          : r,
+      ),
+    );
   }
 
+  /** A new line takes what is still missing for the carga. */
+  function addLine(row: RowDraft) {
+    const missing = round2(row.expected - rowReceived(row));
+    update(row.shipment_id, {
+      lines: [
+        ...row.lines,
+        emptyLine(defaultAccount, missing > 0 ? String(missing) : ""),
+      ],
+    });
+  }
+
+  function removeLine(row: RowDraft, key: string) {
+    const lines = row.lines.filter((l) => l.key !== key);
+    update(row.shipment_id, {
+      lines: lines.length === 0 ? [emptyLine(defaultAccount)] : lines,
+    });
+  }
+
+  const checkOf = (accountId: string) => isCheck(accountList, accountId);
+  const included = rows.filter((r) => r.included);
+  const expected = round2(included.reduce((s, r) => s + r.expected, 0));
+  const received = round2(included.reduce((s, r) => s + rowReceived(r), 0));
+  const difference = settlementDifference(expected, received);
+
   function onSubmit() {
-    const issue = problem();
+    const issue = rowsProblem(rows, checkOf);
     if (issue) {
       toast.error(issue);
       return;
@@ -213,27 +219,7 @@ export function DriverSettlementDialog({
         driver_id: driver.id,
         settlement_date: date,
         notes,
-        items: included.map((r) => {
-          const amount = parseAmount(r.amount);
-          const check = isCheck(accountList, r.account_id);
-          return {
-            shipment_id: r.shipment_id,
-            note: r.note,
-            lines:
-              amount === 0
-                ? []
-                : [
-                    {
-                      account_id: r.account_id,
-                      amount,
-                      reference: r.reference,
-                      check_number: check ? r.check_number : "",
-                      bank_name: check ? r.bank_name : "",
-                      check_due_date: check ? r.check_due_date : "",
-                    },
-                  ],
-          };
-        }),
+        items: rowsToItems(rows, checkOf),
       },
       {
         onSuccess: () => {
@@ -256,8 +242,9 @@ export function DriverSettlementDialog({
             {driver.name}
           </DialogTitle>
           <DialogDescription>
-            Lo que el chofer entrega por las cargas contra entrega. Al
-            confirmarla se emiten los recibos.
+            Lo que el chofer entrega por las cargas contra entrega, con uno o
+            varios medios de pago por carga. Al confirmarla se emiten los
+            recibos.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
@@ -286,10 +273,9 @@ export function DriverSettlementDialog({
           ) : (
             <ul className="max-h-[50vh] divide-y overflow-y-auto rounded-md border">
               {rows.map((r) => {
-                const check = isCheck(accountList, r.account_id);
                 const rowDiff = settlementDifference(
                   r.expected,
-                  parseAmount(r.amount),
+                  rowReceived(r),
                 );
                 return (
                   <li key={r.shipment_id} className="space-y-2 px-3 py-2">
@@ -319,83 +305,125 @@ export function DriverSettlementDialog({
                       </span>
                     </label>
                     {r.included && (
-                      <div className="grid grid-cols-1 gap-2 pl-7 sm:grid-cols-[1fr_9rem_1fr]">
-                        <Select
-                          value={r.account_id}
-                          onValueChange={(v) =>
-                            update(r.shipment_id, { account_id: v })
-                          }
-                        >
-                          <SelectTrigger className="w-full" aria-label="Cuenta">
-                            <SelectValue placeholder="Cuenta" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {accountList.map((a) => (
-                              <SelectItem key={a.id} value={a.id}>
-                                {a.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <Input
-                          type="number"
-                          inputMode="decimal"
-                          step="0.01"
-                          min="0"
-                          aria-label="Importe entregado"
-                          placeholder="0 = no cobró"
-                          value={r.amount}
-                          onChange={(e) =>
-                            update(r.shipment_id, { amount: e.target.value })
-                          }
-                        />
-                        <Input
-                          aria-label="Nota"
-                          placeholder={
-                            rowDiff !== 0 ? "Motivo de la diferencia" : "Nota"
-                          }
-                          maxLength={500}
-                          value={r.note}
-                          onChange={(e) =>
-                            update(r.shipment_id, { note: e.target.value })
-                          }
-                        />
-                        {check && (
-                          <>
-                            <Input
-                              aria-label="Número de cheque"
-                              placeholder="N° de cheque"
-                              maxLength={60}
-                              value={r.check_number}
-                              onChange={(e) =>
-                                update(r.shipment_id, {
-                                  check_number: e.target.value,
-                                })
-                              }
-                            />
-                            <Input
-                              type="date"
-                              aria-label="Fecha de pago del cheque"
-                              value={r.check_due_date}
-                              onChange={(e) =>
-                                update(r.shipment_id, {
-                                  check_due_date: e.target.value,
-                                })
-                              }
-                            />
-                            <Input
-                              aria-label="Banco"
-                              placeholder="Banco"
-                              maxLength={120}
-                              value={r.bank_name}
-                              onChange={(e) =>
-                                update(r.shipment_id, {
-                                  bank_name: e.target.value,
-                                })
-                              }
-                            />
-                          </>
-                        )}
+                      <div className="space-y-2 pl-7">
+                        {r.lines.map((l, index) => {
+                          const check = checkOf(l.account_id);
+                          return (
+                            <div
+                              key={l.key}
+                              className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_9rem_auto]"
+                            >
+                              <Select
+                                value={l.account_id}
+                                onValueChange={(v) =>
+                                  updateLine(r.shipment_id, l.key, {
+                                    account_id: v,
+                                  })
+                                }
+                              >
+                                <SelectTrigger
+                                  className="w-full"
+                                  aria-label={`Cuenta del pago ${index + 1}`}
+                                >
+                                  <SelectValue placeholder="Cuenta" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {accountList.map((a) => (
+                                    <SelectItem key={a.id} value={a.id}>
+                                      {a.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <Input
+                                type="number"
+                                inputMode="decimal"
+                                step="0.01"
+                                min="0"
+                                aria-label={`Importe del pago ${index + 1}`}
+                                placeholder="0 = no cobró"
+                                value={l.amount}
+                                onChange={(e) =>
+                                  updateLine(r.shipment_id, l.key, {
+                                    amount: e.target.value,
+                                  })
+                                }
+                              />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                aria-label={`Quitar el pago ${index + 1}`}
+                                disabled={
+                                  r.lines.length === 1 && l.amount === ""
+                                }
+                                onClick={() => removeLine(r, l.key)}
+                              >
+                                <Trash2 className="size-4" />
+                              </Button>
+                              {check && (
+                                <div className="grid grid-cols-1 gap-2 sm:col-span-3 sm:grid-cols-3">
+                                  <Input
+                                    aria-label="Número de cheque"
+                                    placeholder="N° de cheque"
+                                    maxLength={60}
+                                    value={l.check_number}
+                                    onChange={(e) =>
+                                      updateLine(r.shipment_id, l.key, {
+                                        check_number: e.target.value,
+                                      })
+                                    }
+                                  />
+                                  <Input
+                                    type="date"
+                                    aria-label="Fecha de pago del cheque"
+                                    value={l.check_due_date}
+                                    onChange={(e) =>
+                                      updateLine(r.shipment_id, l.key, {
+                                        check_due_date: e.target.value,
+                                      })
+                                    }
+                                  />
+                                  <Input
+                                    aria-label="Banco"
+                                    placeholder="Banco"
+                                    maxLength={120}
+                                    value={l.bank_name}
+                                    onChange={(e) =>
+                                      updateLine(r.shipment_id, l.key, {
+                                        bank_name: e.target.value,
+                                      })
+                                    }
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={r.lines.length >= MAX_LINES}
+                            onClick={() => addLine(r)}
+                          >
+                            <Plus />
+                            Otro medio de pago
+                          </Button>
+                          <Input
+                            aria-label="Nota"
+                            className="sm:flex-1"
+                            placeholder={
+                              rowDiff !== 0 ? "Motivo de la diferencia" : "Nota"
+                            }
+                            maxLength={500}
+                            value={r.note}
+                            onChange={(e) =>
+                              update(r.shipment_id, { note: e.target.value })
+                            }
+                          />
+                        </div>
                       </div>
                     )}
                   </li>

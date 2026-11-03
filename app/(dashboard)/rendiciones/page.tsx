@@ -6,6 +6,7 @@ import {
 } from "@/features/driver-settlements/actions/driver-settlements-actions";
 import { DriverSettlementsPage } from "@/features/driver-settlements/components/driver-settlements-page";
 import { driverSettlementsKeys } from "@/features/driver-settlements/lib/driver-settlements-keys";
+import { DRIVER_SETTLEMENTS_PAGE_SIZE } from "@/features/driver-settlements/schema";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { Hydrate } from "@/lib/query/hydrate";
@@ -22,8 +23,16 @@ export default async function RendicionesRoute() {
 
   const dehydratedState = await prefetchQueries([
     {
+      infinite: true,
       queryKey: driverSettlementsKeys.list(),
-      queryFn: () => runAction(() => listDriverSettlementsAction()),
+      queryFn: ({ pageParam }: { pageParam: number }) =>
+        runAction(() =>
+          listDriverSettlementsAction({
+            offset: pageParam,
+            limit: DRIVER_SETTLEMENTS_PAGE_SIZE,
+          }),
+        ),
+      initialPageParam: 0,
     },
     {
       queryKey: driverSettlementsKeys.pending(),
@@ -36,6 +45,10 @@ export default async function RendicionesRoute() {
       <div className="space-y-6">
         <DriverSettlementsPage
           canWrite={userCan(ctx.access, "receipts:write")}
+          canPostDifference={
+            userCan(ctx.access, "receipts:write") &&
+            userCan(ctx.access, "hr:write")
+          }
         />
       </div>
     </Hydrate>

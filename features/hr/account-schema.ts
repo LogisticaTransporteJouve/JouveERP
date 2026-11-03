@@ -164,16 +164,23 @@ export type AccountMovement = {
   transaction_id: string | null;
   purchase_invoice_id: string | null;
   payroll_entry_id: string | null;
+  /** The rendición whose difference it posted. */
+  driver_settlement_id: string | null;
 };
 
 /** Where a movement comes from, for what the card lets the user do. */
 export function movementSource(
   m: Pick<
     AccountMovement,
-    "kind" | "transaction_id" | "purchase_invoice_id" | "payroll_entry_id"
+    | "kind"
+    | "transaction_id"
+    | "purchase_invoice_id"
+    | "payroll_entry_id"
+    | "driver_settlement_id"
   >,
-): "cash" | "purchase" | "payroll" | "forgiveness" | "manual" {
+): "cash" | "purchase" | "payroll" | "settlement" | "forgiveness" | "manual" {
   if (m.payroll_entry_id) return "payroll";
+  if (m.driver_settlement_id) return "settlement";
   if (m.purchase_invoice_id) return "purchase";
   if (m.kind === "forgiveness") return "forgiveness";
   if (m.transaction_id) return "cash";

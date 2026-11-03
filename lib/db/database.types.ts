@@ -2127,6 +2127,7 @@ export type Database = {
           creditor: string
           currency: string
           description: string
+          driver_settlement_id: string | null
           employee_id: string
           id: string
           kind: string
@@ -2144,6 +2145,7 @@ export type Database = {
           creditor?: string
           currency: string
           description: string
+          driver_settlement_id?: string | null
           employee_id: string
           id?: string
           kind: string
@@ -2161,6 +2163,7 @@ export type Database = {
           creditor?: string
           currency?: string
           description?: string
+          driver_settlement_id?: string | null
           employee_id?: string
           id?: string
           kind?: string
@@ -2172,6 +2175,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "employee_account_movements_driver_settlement_id_fkey"
+            columns: ["driver_settlement_id"]
+            isOneToOne: false
+            referencedRelation: "driver_settlements"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "employee_account_movements_employee_id_fkey"
             columns: ["employee_id"]
@@ -9461,6 +9471,10 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: string
       }
+      post_driver_settlement_difference: {
+        Args: { p_settlement_id: string; p_user_id: string }
+        Returns: string
+      }
       post_pending_journals: {
         Args: { p_limit?: number; p_period?: string }
         Returns: Json
@@ -9864,6 +9878,10 @@ export type Database = {
       }
       unmatch_bank_statement_line: {
         Args: { p_line_id: string; p_user_id: string }
+        Returns: undefined
+      }
+      unpost_driver_settlement_difference: {
+        Args: { p_settlement_id: string }
         Returns: undefined
       }
       update_chat_channel: {

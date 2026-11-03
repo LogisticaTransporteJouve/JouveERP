@@ -4,14 +4,17 @@ import {
   useMutation,
   useQuery,
   useQueryClient,
+  useSuspenseInfiniteQuery,
   useSuspenseQuery,
 } from "@tanstack/react-query";
+import { useMemo } from "react";
 
 import { agingKeys } from "@/features/aging/lib/aging-keys";
 import { checksKeys } from "@/features/checks/lib/checks-keys";
 import { clientsKeys } from "@/features/clients/lib/clients-keys";
 import { invoicesKeys } from "@/features/invoices/lib/invoices-keys";
 import { LEDGER_KEYS } from "@/features/journal-entries/lib/ledger-keys";
+import { accountKeys } from "@/features/hr/lib/account-keys";
 import { receiptsKeys } from "@/features/receipts/lib/receipts-keys";
 import { CASH_KEYS } from "@/features/treasury/lib/cash-keys";
 import { invalidateKeys } from "@/lib/query/invalidate";
@@ -24,16 +27,37 @@ import {
   listCodPendingAction,
   listDriverSettlementAccountsAction,
   listDriverSettlementsAction,
+  postDriverSettlementDifferenceAction,
   saveDriverSettlementAction,
+  unpostDriverSettlementDifferenceAction,
 } from "../actions/driver-settlements-actions";
 import { driverSettlementsKeys } from "../lib/driver-settlements-keys";
-import type { DriverSettlementSaveInput } from "../schema";
+import {
+  DRIVER_SETTLEMENTS_PAGE_SIZE,
+  type DriverSettlement,
+  type DriverSettlementSaveInput,
+  type DriverSettlementsPage,
+} from "../schema";
 
 export function useDriverSettlements() {
-  return useSuspenseQuery({
+  const query = useSuspenseInfiniteQuery({
     queryKey: driverSettlementsKeys.list(),
-    queryFn: () => runAction(() => listDriverSettlementsAction()),
+    queryFn: ({ pageParam }) =>
+      runAction(() =>
+        listDriverSettlementsAction({
+          offset: pageParam,
+          limit: DRIVER_SETTLEMENTS_PAGE_SIZE,
+        }),
+      ),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage: DriverSettlementsPage) =>
+      lastPage.nextOffset ?? undefined,
   });
+  const settlements = useMemo<DriverSettlement[]>(
+    () => query.data.pages.flatMap((page) => page.settlements),
+    [query.data],
+  );
+  return { ...query, settlements };
 }
 
 export function useCodPending() {
@@ -97,7 +121,27 @@ export function useCancelDriverSettlement() {
   return useMutation({
     mutationFn: (id: string) =>
       runAction(() => cancelDriverSettlementAction({ id })),
-    onSuccess: () =>
-      qc.invalidateQueries({ queryKey: driverSettlementsKeys.all }),
+    onSuccess: () => invalidateKeys(qc, DIFFERENCE_KEYS),
+  });
+}
+
+// The difference lands in the driver's employee account.
+const DIFFERENCE_KEYS = [driverSettlementsKeys.all, accountKeys.all] as const;
+
+export function usePostDriverSettlementDifference() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      runAction(() => postDriverSettlementDifferenceAction({ id })),
+    onSuccess: () => invalidateKeys(qc, DIFFERENCE_KEYS),
+  });
+}
+
+export function useUnpostDriverSettlementDifference() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      runAction(() => unpostDriverSettlementDifferenceAction({ id })),
+    onSuccess: () => invalidateKeys(qc, DIFFERENCE_KEYS),
   });
 }
