@@ -42,6 +42,7 @@ import {
 } from "@/features/suppliers/components/supplier-picker";
 import { useSupplierByIdOptional } from "@/features/suppliers/hooks/use-suppliers";
 import { CostTagSelect } from "@/features/cost-centers/components/cost-tag-select";
+import { EmployeeChargeSelect } from "@/features/hr/components/employee-charge-select";
 
 import {
   usePurchaseInvoiceByIdOptional,
@@ -91,6 +92,8 @@ type FormValues = {
   /** Expense account and cost center ids; "" for none. */
   account_id: string;
   cost_center_id: string;
+  /** "A cargo de empleado": employee id or "". */
+  charged_employee_id: string;
   kind: PurchaseInvoiceKind;
   letter: PurchaseInvoiceLetter | "";
   punto_venta: string;
@@ -133,6 +136,7 @@ function invoiceToValues(
     channel_id: inv?.channel_id ?? initialChannelId,
     account_id: inv?.account_id ?? "",
     cost_center_id: inv?.cost_center_id ?? "",
+    charged_employee_id: inv?.charged_employee_id ?? "",
     kind: inv?.kind ?? "factura",
     letter: inv?.letter ?? "",
     punto_venta: inv ? String(inv.punto_venta) : "",
@@ -324,6 +328,22 @@ export function PurchaseInvoiceForm({
       });
     }
   }, [derivedTotals, form]);
+
+  // A listed row does not carry "a cargo de empleado": read it from the
+  // detail, and send it only once known and changed.
+  const chargeFromRow = invoice?.charged_employee_id !== undefined;
+  const detailQuery = usePurchaseInvoiceByIdOptional(
+    mode === "edit" && invoice && !chargeFromRow ? invoice.id : null,
+  );
+  const detailCharge = detailQuery.data?.charged_employee_id;
+  const chargeKnown =
+    mode === "create" || chargeFromRow || detailCharge !== undefined;
+  useEffect(() => {
+    if (detailCharge === undefined) return;
+    form.resetField("charged_employee_id", {
+      defaultValue: detailCharge ?? "",
+    });
+  }, [detailCharge, form]);
 
   const originInvoiceQuery = usePurchaseInvoiceByIdOptional(
     invoice?.invoice_origin_id ?? null,
@@ -584,6 +604,9 @@ export function PurchaseInvoiceForm({
       channel_id: values.channel_id,
       account_id: values.account_id || null,
       cost_center_id: values.cost_center_id || null,
+      ...(chargeKnown && form.formState.dirtyFields.charged_employee_id
+        ? { charged_employee_id: values.charged_employee_id || null }
+        : {}),
       kind: values.kind,
       letter,
       punto_venta: Number(values.punto_venta),
@@ -1086,6 +1109,20 @@ export function PurchaseInvoiceForm({
             )}
           />
         </div>
+
+        {watchedKind !== "nc" && chargeKnown && (
+          <FormField
+            control={form.control}
+            name="charged_employee_id"
+            render={({ field }) => (
+              <EmployeeChargeSelect
+                id="purchase-charged-employee"
+                value={field.value}
+                onChange={field.onChange}
+              />
+            )}
+          />
+        )}
 
         <div className="grid gap-4 sm:grid-cols-3">
           <FormField

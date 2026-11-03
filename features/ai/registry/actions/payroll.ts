@@ -1,11 +1,17 @@
 import { z } from "zod";
 
+import {
+  getEmployeeAccountAction,
+  listEmployeeAccountBalancesAction,
+} from "@/features/hr/actions/employee-account-actions";
 import { getFinalSettlementAction } from "@/features/hr/actions/final-settlement-actions";
 import { listGarnishmentsAction } from "@/features/hr/actions/garnishments-actions";
 import {
   getPayrollPeriodAction,
   listPayrollPeriodsAction,
 } from "@/features/hr/actions/payroll-actions";
+import { listSalaryChangesAction } from "@/features/hr/actions/salary-actions";
+import { getPeriodTripExtrasAction } from "@/features/hr/actions/trip-extras-actions";
 import { payrollOtros, suggestedSplit } from "@/features/hr/lib/payroll-split";
 import { formatPayrollPeriod, sacMonth } from "@/features/hr/payroll-schema";
 import {
@@ -332,6 +338,112 @@ export const getFinalSettlement = defineAiAction({
       )} · SAC proporcional ${money(d.sac_amount)}.`,
       d,
       { currency: "ARS" },
+    );
+  },
+});
+
+const EMPLOYEE_ID_INPUT = z.object({
+  employeeId: z.string().uuid().describe("employee_id (de searchEmployees)."),
+});
+
+export const getEmployeeAccountBalances = defineAiAction({
+  name: "getEmployeeAccountBalances",
+  domain: "rrhh",
+  permission: "hr:read",
+  sideEffect: "read",
+  sources: ["v_employee_account_balances", "employees"],
+  description:
+    "Saldos de la cuenta corriente de los empleados (adelantos, compras a su cargo y deudas menos descuentos de planilla, pagos y condonaciones), por empleado y moneda. Positivo = el empleado debe; balance_socio = la parte que se le debe a un socio. Solo empleados con saldo distinto de cero.",
+  input: z.object({}),
+  run: async () => {
+    const res = await listEmployeeAccountBalancesAction();
+    if (!res.ok) return errResult(res.error);
+    const owedArs = sumBy(
+      res.data.filter((r) => r.currency === "ARS" && r.balance > 0),
+      (r) => r.balance,
+    );
+    return okResult(
+      `${res.data.length} saldos de cuenta corriente · deben ${money(owedArs)} en pesos.`,
+      { rows: res.data },
+      { partial: reachedCap(res.data.length, 500) },
+    );
+  },
+});
+
+export const getEmployeeAccount = defineAiAction({
+  name: "getEmployeeAccount",
+  domain: "rrhh",
+  permission: "hr:read",
+  sideEffect: "read",
+  sources: [
+    "v_employee_account_balances",
+    "employee_account_movements",
+    "v_employee_debt_plans",
+  ],
+  description:
+    "Cuenta corriente de un empleado: saldo por moneda, planes de devolución (total, cuota mensual, pagado, resta, estado activo/pausado/cancelado/condonado, acreedor empresa o socio) y movimientos (adelanto, cargo, descuento de planilla, pago, condonación). La cuota de un plan activo en pesos es lo que la planilla descuenta por defecto en Deudas.",
+  input: EMPLOYEE_ID_INPUT,
+  run: async (_ctx, input) => {
+    const res = await getEmployeeAccountAction(input.employeeId);
+    if (!res.ok) return errResult(res.error);
+    const ars = res.data.balances.find((b) => b.currency === "ARS");
+    const active = res.data.plans.filter((p) => p.status === "activo").length;
+    return okResult(
+      `Saldo ${money(ars?.balance ?? 0)} en pesos · ${active} planes activos · ${res.data.movements.length} movimientos.`,
+      res.data,
+      { partial: res.data.movements_partial },
+    );
+  },
+});
+
+export const getSalaryHistory = defineAiAction({
+  name: "getSalaryHistory",
+  domain: "rrhh",
+  permission: "hr:read",
+  sideEffect: "read",
+  sources: ["employee_salary_changes"],
+  description:
+    "Historial del sueldo base de un empleado: sueldo anterior y nuevo, mes desde el que rige y, si vino de un aumento en %, el porcentaje y el motivo. Lo más reciente primero.",
+  input: EMPLOYEE_ID_INPUT,
+  run: async (_ctx, input) => {
+    const res = await listSalaryChangesAction(input.employeeId);
+    if (!res.ok) return errResult(res.error);
+    const last = res.data[0];
+    return okResult(
+      `${res.data.length} cambios de sueldo${
+        last?.new_salary != null
+          ? ` · último ${money(last.new_salary)} desde ${last.effective_month.slice(0, 7)}`
+          : ""
+      }.`,
+      res.data,
+      { partial: reachedCap(res.data.length, 200) },
+    );
+  },
+});
+
+export const getTripExtrasSuggestion = defineAiAction({
+  name: "getTripExtrasSuggestion",
+  domain: "rrhh",
+  permission: "hr:read",
+  sideEffect: "read",
+  sources: ["payroll_entries", "employees", "drivers", "trips", "shipments"],
+  description:
+    "Extras sugeridos desde los viajes del mes para la planilla mensual: por chofer, jornadas (días con viaje completado), km y descargas (cargas entregadas) por su tarifa, y cuáles ya se agregaron como extra. Es una sugerencia; lo cargado en la planilla manda.",
+  input: z.object({
+    year: z.number().describe("Año, ej. 2026."),
+    month: z.number().describe("Mes 1-12."),
+  }),
+  run: async (_ctx, input) => {
+    const res = await getPeriodTripExtrasAction(input.year, input.month);
+    if (!res.ok) return errResult(res.error);
+    const total = sumBy(res.data.rows, (r) => sumBy(r.lines, (l) => l.amount));
+    return okResult(
+      `${res.data.rows.length} choferes con viajes en ${formatPayrollPeriod(
+        input.year,
+        input.month,
+      )} · extras sugeridos ${money(total)}.`,
+      res.data,
+      { currency: "ARS", partial: res.data.partial, note: PAYROLL_NOTE },
     );
   },
 });

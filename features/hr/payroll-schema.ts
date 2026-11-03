@@ -62,7 +62,11 @@ export type SeedPayrollPeriodInput = z.infer<typeof SeedPayrollPeriodSchema>;
 export type ClosePayrollPeriodInput = z.infer<typeof ClosePayrollPeriodSchema>;
 
 type PayrollPeriodRow = Database["public"]["Tables"]["payroll_periods"]["Row"];
-export type PayrollPeriod = Omit<PayrollPeriodRow, "status" | "kind"> & {
+// posts_employee_accounts is the database's alone (closing writes the account).
+export type PayrollPeriod = Omit<
+  PayrollPeriodRow,
+  "status" | "kind" | "posts_employee_accounts"
+> & {
   status: PayrollStatus;
   kind: PayrollPeriodKind;
 };
@@ -93,6 +97,9 @@ export const UpdatePayrollEntrySchema = z.object({
 
 export type UpdatePayrollEntryInput = z.infer<typeof UpdatePayrollEntrySchema>;
 
+/** Drops a hand-typed Deudas: the entry goes back to the plans' installments. */
+export const ResetPayrollDeudasSchema = z.object({ id: z.string().uuid() });
+
 export type PayrollEntryResolved = {
   id: string;
   period_id: string;
@@ -105,6 +112,9 @@ export type PayrollEntryResolved = {
   vacaciones_monto: number;
   viaticos: number;
   deudas: number;
+  /** true = Deudas typed by hand for this period; false = the installments of
+   *  the employee's active plans (computed by the database). */
+  deudas_override: boolean;
   telefono: number;
   embargo: number;
   /** The liquidador's receipt net; null while it is not loaded. */

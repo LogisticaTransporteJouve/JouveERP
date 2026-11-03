@@ -2,8 +2,10 @@
 
 import {
   useMutation,
+  useQuery,
   useQueryClient,
   useSuspenseInfiniteQuery,
+  useSuspenseQuery,
 } from "@tanstack/react-query";
 import { useMemo } from "react";
 
@@ -12,6 +14,8 @@ import { runAction } from "@/lib/query/run-action";
 
 import {
   createEmployeeAction,
+  listEmployeeOptionsAction,
+  listEmployeesAction,
   reactivateEmployeeAction,
   searchEmployeesAction,
   terminateEmployeeAction,
@@ -49,6 +53,23 @@ export function useEmployeesSearchInfinite(filters: {
   );
 
   return { ...query, items };
+}
+
+/** Every employee (active and not), for pickers and the salary raise. */
+export function useEmployeesList() {
+  return useSuspenseQuery({
+    queryKey: employeesKeys.list(),
+    queryFn: () => runAction(() => listEmployeesAction()),
+  });
+}
+
+/** Employees a purchase can be charged to; data null = no hr:write. */
+export function useEmployeeOptions() {
+  return useQuery({
+    queryKey: employeesKeys.options(),
+    queryFn: () => runAction(() => listEmployeeOptionsAction()),
+    staleTime: 5 * 60_000,
+  });
 }
 
 export function useCreateEmployee() {

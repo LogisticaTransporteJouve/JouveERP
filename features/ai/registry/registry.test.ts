@@ -36,6 +36,10 @@ const PAYROLL_TOOLS = [
   "getPayrollPeriodDetail",
   "getGarnishments",
   "getFinalSettlement",
+  "getEmployeeAccountBalances",
+  "getEmployeeAccount",
+  "getSalaryHistory",
+  "getTripExtrasSuggestion",
   "getEmployees",
 ];
 

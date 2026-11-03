@@ -1559,6 +1559,197 @@ export type Database = {
         }
         Relationships: []
       }
+      employee_account_movements: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          creditor: string
+          currency: string
+          description: string
+          employee_id: string
+          id: string
+          kind: string
+          movement_date: string
+          payroll_entry_id: string | null
+          plan_id: string | null
+          purchase_invoice_id: string | null
+          transaction_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          creditor?: string
+          currency: string
+          description: string
+          employee_id: string
+          id?: string
+          kind: string
+          movement_date: string
+          payroll_entry_id?: string | null
+          plan_id?: string | null
+          purchase_invoice_id?: string | null
+          transaction_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          creditor?: string
+          currency?: string
+          description?: string
+          employee_id?: string
+          id?: string
+          kind?: string
+          movement_date?: string
+          payroll_entry_id?: string | null
+          plan_id?: string | null
+          purchase_invoice_id?: string | null
+          transaction_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_account_movements_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_account_movements_payroll_entry_id_fkey"
+            columns: ["payroll_entry_id"]
+            isOneToOne: false
+            referencedRelation: "payroll_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_account_movements_payroll_entry_id_fkey"
+            columns: ["payroll_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_payroll_entries_resolved"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_account_movements_payroll_entry_id_fkey"
+            columns: ["payroll_entry_id"]
+            isOneToOne: false
+            referencedRelation: "v_payroll_entries_with_payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_account_movements_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "employee_debt_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_account_movements_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "v_employee_debt_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_account_movements_purchase_invoice_id_fkey"
+            columns: ["purchase_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_account_movements_purchase_invoice_id_fkey"
+            columns: ["purchase_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_purchase_invoice_open"
+            referencedColumns: ["purchase_invoice_id"]
+          },
+          {
+            foreignKeyName: "employee_account_movements_purchase_invoice_id_fkey"
+            columns: ["purchase_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_supplier_aging_documents"
+            referencedColumns: ["purchase_invoice_id"]
+          },
+          {
+            foreignKeyName: "employee_account_movements_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_account_movements_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "v_transactions_tagged"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employee_debt_plans: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          creditor: string
+          creditor_name: string | null
+          currency: string
+          description: string
+          employee_id: string
+          id: string
+          installment_amount: number
+          notes: string | null
+          start_month: string
+          status: string
+          total: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          creditor?: string
+          creditor_name?: string | null
+          currency: string
+          description: string
+          employee_id: string
+          id?: string
+          installment_amount: number
+          notes?: string | null
+          start_month: string
+          status?: string
+          total: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          creditor?: string
+          creditor_name?: string | null
+          currency?: string
+          description?: string
+          employee_id?: string
+          id?: string
+          installment_amount?: number
+          notes?: string | null
+          start_month?: string
+          status?: string
+          total?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_debt_plans_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employee_documents: {
         Row: {
           attachment_file_id: string | null
@@ -1722,6 +1913,50 @@ export type Database = {
           },
         ]
       }
+      employee_salary_changes: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          effective_month: string
+          employee_id: string
+          id: string
+          new_salary: number | null
+          previous_salary: number | null
+          raise_percentage: number | null
+          reason: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          effective_month: string
+          employee_id: string
+          id?: string
+          new_salary?: number | null
+          previous_salary?: number | null
+          raise_percentage?: number | null
+          reason?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          effective_month?: string
+          employee_id?: string
+          id?: string
+          new_salary?: number | null
+          previous_salary?: number | null
+          raise_percentage?: number | null
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_salary_changes_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employee_vacation_balances: {
         Row: {
           bonus_days: number
@@ -1802,6 +2037,9 @@ export type Database = {
           position: string | null
           retribucion_formal: number | null
           termination_date: string | null
+          trip_rate_per_day: number | null
+          trip_rate_per_km: number | null
+          trip_rate_per_unload: number | null
           updated_at: string
           viatico_monthly: number
         }
@@ -1825,6 +2063,9 @@ export type Database = {
           position?: string | null
           retribucion_formal?: number | null
           termination_date?: string | null
+          trip_rate_per_day?: number | null
+          trip_rate_per_km?: number | null
+          trip_rate_per_unload?: number | null
           updated_at?: string
           viatico_monthly?: number
         }
@@ -1848,6 +2089,9 @@ export type Database = {
           position?: string | null
           retribucion_formal?: number | null
           termination_date?: string | null
+          trip_rate_per_day?: number | null
+          trip_rate_per_km?: number | null
+          trip_rate_per_unload?: number | null
           updated_at?: string
           viatico_monthly?: number
         }
@@ -3570,6 +3814,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           deudas: number
+          deudas_override: boolean
           embargo: number
           employee_id: string
           id: string
@@ -3586,6 +3831,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           deudas?: number
+          deudas_override?: boolean
           embargo?: number
           employee_id: string
           id?: string
@@ -3602,6 +3848,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           deudas?: number
+          deudas_override?: boolean
           embargo?: number
           employee_id?: string
           id?: string
@@ -3788,6 +4035,7 @@ export type Database = {
           kind: string
           month: number
           notes: string | null
+          posts_employee_accounts: boolean
           status: string
           updated_at: string
           year: number
@@ -3801,6 +4049,7 @@ export type Database = {
           kind?: string
           month: number
           notes?: string | null
+          posts_employee_accounts?: boolean
           status?: string
           updated_at?: string
           year: number
@@ -3814,6 +4063,7 @@ export type Database = {
           kind?: string
           month?: number
           notes?: string | null
+          posts_employee_accounts?: boolean
           status?: string
           updated_at?: string
           year?: number
@@ -3966,6 +4216,7 @@ export type Database = {
           cancelled_at: string | null
           cancelled_by: string | null
           channel_id: string
+          charged_employee_id: string | null
           cost_center_id: string | null
           cotizacion: number
           created_at: string
@@ -3997,6 +4248,7 @@ export type Database = {
           cancelled_at?: string | null
           cancelled_by?: string | null
           channel_id: string
+          charged_employee_id?: string | null
           cost_center_id?: string | null
           cotizacion?: number
           created_at?: string
@@ -4028,6 +4280,7 @@ export type Database = {
           cancelled_at?: string | null
           cancelled_by?: string | null
           channel_id?: string
+          charged_employee_id?: string | null
           cost_center_id?: string | null
           cotizacion?: number
           created_at?: string
@@ -4072,6 +4325,13 @@ export type Database = {
             columns: ["channel_id"]
             isOneToOne: false
             referencedRelation: "invoicing_channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_invoices_charged_employee_id_fkey"
+            columns: ["charged_employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
             referencedColumns: ["id"]
           },
           {
@@ -6080,6 +6340,51 @@ export type Database = {
           },
         ]
       }
+      v_employee_account_balances: {
+        Row: {
+          balance: number | null
+          balance_socio: number | null
+          currency: string | null
+          employee_id: string | null
+          movements: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_account_movements_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_employee_debt_plans: {
+        Row: {
+          created_at: string | null
+          creditor: string | null
+          creditor_name: string | null
+          currency: string | null
+          description: string | null
+          employee_id: string | null
+          id: string | null
+          installment_amount: number | null
+          notes: string | null
+          paid: number | null
+          remaining: number | null
+          start_month: string | null
+          status: string | null
+          total: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_debt_plans_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_employee_vacation_balances: {
         Row: {
           bonus_days: number | null
@@ -7020,6 +7325,15 @@ export type Database = {
         }
         Returns: undefined
       }
+      apply_salary_raise: {
+        Args: {
+          p_effective_month: string
+          p_employee_ids: string[]
+          p_percentage: number
+          p_reason?: string
+        }
+        Returns: number
+      }
       apply_supplier_opening_balance: {
         Args: {
           p_notes?: string
@@ -7268,6 +7582,10 @@ export type Database = {
           bucket_path: string
         }[]
       }
+      delete_employee_account_movement: {
+        Args: { p_movement_id: string }
+        Returns: undefined
+      }
       deposit_check: {
         Args: {
           p_account_id: string
@@ -7294,6 +7612,14 @@ export type Database = {
       emit_journal_or_record: {
         Args: { p_id: string; p_period: string; p_source: string }
         Returns: undefined
+      }
+      employee_plans_refresh_entries: {
+        Args: { p_employee_id: string }
+        Returns: undefined
+      }
+      employee_salary_for_month: {
+        Args: { p_employee_id: string; p_month: string }
+        Returns: number
       }
       fill_payroll_period: { Args: { p_period_id: string }; Returns: number }
       find_account_by_role: {
@@ -7625,6 +7951,10 @@ export type Database = {
         Args: { p_base: number; p_employee_id: string; p_period_id: string }
         Returns: number
       }
+      payroll_plan_installments: {
+        Args: { p_employee_id: string; p_period_id: string }
+        Returns: number
+      }
       payroll_sac_suggestion: {
         Args: { p_employee_id: string; p_half: number; p_year: number }
         Returns: number
@@ -7681,6 +8011,20 @@ export type Database = {
           documents: number
           total: number
         }[]
+      }
+      record_employee_account_cash: {
+        Args: {
+          p_account_id: string
+          p_amount: number
+          p_channel_id: string
+          p_date: string
+          p_description?: string
+          p_employee_id: string
+          p_installment_amount?: number
+          p_kind: string
+          p_plan_id?: string
+        }
+        Returns: string
       }
       record_loan_disbursement: {
         Args: {
@@ -7788,6 +8132,9 @@ export type Database = {
           position: string | null
           retribucion_formal: number | null
           termination_date: string | null
+          trip_rate_per_day: number | null
+          trip_rate_per_km: number | null
+          trip_rate_per_unload: number | null
           updated_at: string
           viatico_monthly: number
         }[]
@@ -8019,6 +8366,7 @@ export type Database = {
         | "gastos"
         | "cheques_cartera"
         | "cheques_rechazados"
+        | "anticipos_personal"
         | "cheques_diferidos_emitidos"
         | "prestamos"
         | "caja_apertura"
@@ -8212,6 +8560,7 @@ export const Constants = {
         "gastos",
         "cheques_cartera",
         "cheques_rechazados",
+        "anticipos_personal",
         "cheques_diferidos_emitidos",
         "prestamos",
         "caja_apertura",

@@ -151,6 +151,8 @@ const baseFields = {
   channel_id: z.string().min(1, "Canal requerido."),
   account_id: optionalUuid,
   cost_center_id: optionalUuid,
+  /** "A cargo de empleado"; undefined = leave it as it is. */
+  charged_employee_id: optionalUuid,
   supplier_id: z.string().uuid("Proveedor requerido."),
   kind: z.enum(PURCHASE_INVOICE_KINDS),
   letter: letterNullable,
@@ -205,6 +207,7 @@ export const PurchaseInvoiceUpdateSchema = z
     channel_id: baseFields.channel_id.optional(),
     account_id: baseFields.account_id,
     cost_center_id: baseFields.cost_center_id,
+    charged_employee_id: baseFields.charged_employee_id,
     supplier_id: baseFields.supplier_id.optional(),
     kind: baseFields.kind.optional(),
     letter: baseFields.letter,
@@ -254,6 +257,9 @@ export type PurchaseInvoice = {
   /** Expense account the neto posts to; null posts to the 'compras' role. */
   account_id: string | null;
   cost_center_id: string | null;
+  /** "A cargo de empleado". Only the detail read carries it; a listed row
+   *  leaves it undefined. */
+  charged_employee_id?: string | null;
   supplier_id: string;
   supplier_legal_name: string;
   supplier_cuit: string | null;
