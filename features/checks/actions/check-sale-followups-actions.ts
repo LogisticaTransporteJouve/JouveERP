@@ -177,8 +177,14 @@ export async function rejectSoldCheckAsDebtAction(
   return { ok: true, data: { debt_id: data } };
 }
 
-/** Debts to buyers of rejected sold checks: pending first, then the latest
- *  100 paid. */
+const CHECK_SALE_DEBT_SELECT =
+  "id, check_id, amount, currency, rejected_on, paid_at, check:checks(check_number, bank_name), sale:check_sales(buyer_name)";
+
+/** Paid debts shown under the pending ones (the latest). */
+const PAID_CHECK_SALE_DEBTS_SHOWN = 100;
+
+/** Debts to buyers of rejected sold checks: every pending one (drained past
+ *  max_rows), then the latest paid ones. */
 export async function listCheckSaleDebtsAction(): Promise<
   ActionResult<CheckSaleDebt[]>
 > {
@@ -186,21 +192,32 @@ export async function listCheckSaleDebtsAction(): Promise<
   if (!userCan(ctx.access, "cheques:read")) {
     return { ok: false, error: READ_DENIED };
   }
-  const { data, error } = await getServiceClient()
-    .from("check_sale_debts")
-    .select(
-      "id, check_id, amount, currency, rejected_on, paid_at, check:checks(check_number, bank_name), sale:check_sales(buyer_name)",
-    )
-    .order("paid_at", { ascending: false, nullsFirst: true })
-    .order("rejected_on", { ascending: false })
-    .order("id")
-    .limit(200);
+  const service = getServiceClient();
+  const [pending, paid] = await Promise.all([
+    paginateRange((from, to) =>
+      service
+        .from("check_sale_debts")
+        .select(CHECK_SALE_DEBT_SELECT)
+        .is("paid_at", null)
+        .order("rejected_on", { ascending: false })
+        .order("id")
+        .range(from, to),
+    ),
+    service
+      .from("check_sale_debts")
+      .select(CHECK_SALE_DEBT_SELECT)
+      .not("paid_at", "is", null)
+      .order("paid_at", { ascending: false })
+      .order("id")
+      .limit(PAID_CHECK_SALE_DEBTS_SHOWN),
+  ]);
+  const error = pending.error ?? paid.error;
   if (error) {
     logger.error("check_sales.debts.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudieron leer las deudas por cheques." };
   }
   const debts: CheckSaleDebt[] = [];
-  for (const row of data ?? []) {
+  for (const row of [...(pending.data ?? []), ...(paid.data ?? [])]) {
     if (!isCheckSaleCurrency(row.currency)) {
       logger.error("check_sales.debts.unknown_currency", { id: row.id });
       continue;
