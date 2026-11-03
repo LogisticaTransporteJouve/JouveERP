@@ -52,9 +52,7 @@ export function reconcile(
       if (usedLedger.has(entry.id)) continue;
       if (entry.direction !== mv.direction) continue;
       if (Math.abs(entry.amount - mv.amount) > amountTolerance) continue;
-      const dist = mv.date
-        ? Math.abs(dayNum(entry.date) - dayNum(mv.date))
-        : 0;
+      const dist = mv.date ? Math.abs(dayNum(entry.date) - dayNum(mv.date)) : 0;
       if (dist > dayWindow) continue;
       if (best === null || dist < best.dist) best = { entry, dist };
     }
@@ -68,4 +66,47 @@ export function reconcile(
 
   const unmatchedLedger = ledger.filter((e) => !usedLedger.has(e.id));
   return { matched, unmatchedStatement, unmatchedLedger };
+}
+
+/** A bank statement line already imported (bank_statement_lines), with its
+ *  state in Conciliación. */
+export type ImportedLine = {
+  id: string;
+  date: string; // YYYY-MM-DD
+  amount: number; // signed: + credit, - debit
+  status: "open" | "matched" | "ignored";
+};
+
+/**
+ * The scanned movements that are lines of a statement already imported:
+ * same signed amount to the cent, dated within `dayWindow` days, one-to-one
+ * and greedy in date order. Returns movement index → line.
+ */
+export function matchImportedLines(
+  movements: readonly StatementMovement[],
+  lines: readonly ImportedLine[],
+  dayWindow = 1,
+): Map<number, ImportedLine> {
+  const cents = (v: number) => Math.round(v * 100);
+  const used = new Set<string>();
+  const out = new Map<number, ImportedLine>();
+  const ordered = [...movements].sort(
+    (a, b) => (a.date ? dayNum(a.date) : 0) - (b.date ? dayNum(b.date) : 0),
+  );
+  for (const mv of ordered) {
+    if (!mv.date) continue;
+    const signed = mv.direction === "in" ? mv.amount : -mv.amount;
+    let best: { line: ImportedLine; dist: number } | null = null;
+    for (const line of lines) {
+      if (used.has(line.id) || cents(line.amount) !== cents(signed)) continue;
+      const dist = Math.abs(dayNum(line.date) - dayNum(mv.date));
+      if (dist > dayWindow) continue;
+      if (best === null || dist < best.dist) best = { line, dist };
+    }
+    if (best) {
+      used.add(best.line.id);
+      out.set(mv.index, best.line);
+    }
+  }
+  return out;
 }
