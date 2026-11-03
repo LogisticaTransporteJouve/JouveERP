@@ -131,6 +131,7 @@ const GUARDS = [
   "pay_tax_document",
   "link_tax_document_payment",
   "create_bank_statement_line_tax_payment",
+  "recategorize_expense",
 ];
 
 describe("guard hints in migrations", () => {

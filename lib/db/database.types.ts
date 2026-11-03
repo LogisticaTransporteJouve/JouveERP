@@ -148,6 +148,63 @@ export type Database = {
         }
         Relationships: []
       }
+      aging_snapshots: {
+        Row: {
+          ars_bucket_0_30: number
+          ars_bucket_30_60: number
+          ars_bucket_60_90: number
+          ars_bucket_90_plus: number
+          ars_overdue: number
+          ars_total_open: number
+          captured_at: string
+          client_count: number
+          document_count: number
+          snapshot_date: string
+          usd_bucket_0_30: number
+          usd_bucket_30_60: number
+          usd_bucket_60_90: number
+          usd_bucket_90_plus: number
+          usd_overdue: number
+          usd_total_open: number
+        }
+        Insert: {
+          ars_bucket_0_30?: number
+          ars_bucket_30_60?: number
+          ars_bucket_60_90?: number
+          ars_bucket_90_plus?: number
+          ars_overdue?: number
+          ars_total_open?: number
+          captured_at?: string
+          client_count?: number
+          document_count?: number
+          snapshot_date: string
+          usd_bucket_0_30?: number
+          usd_bucket_30_60?: number
+          usd_bucket_60_90?: number
+          usd_bucket_90_plus?: number
+          usd_overdue?: number
+          usd_total_open?: number
+        }
+        Update: {
+          ars_bucket_0_30?: number
+          ars_bucket_30_60?: number
+          ars_bucket_60_90?: number
+          ars_bucket_90_plus?: number
+          ars_overdue?: number
+          ars_total_open?: number
+          captured_at?: string
+          client_count?: number
+          document_count?: number
+          snapshot_date?: string
+          usd_bucket_0_30?: number
+          usd_bucket_30_60?: number
+          usd_bucket_60_90?: number
+          usd_bucket_90_plus?: number
+          usd_overdue?: number
+          usd_total_open?: number
+        }
+        Relationships: []
+      }
       ai_chat_confirmations: {
         Row: {
           action: string
@@ -159,6 +216,7 @@ export type Database = {
           labels: Json
           origin: string
           result_id: string | null
+          result_note: string | null
           revision: number
           revision_key: string
           session_id: string
@@ -177,6 +235,7 @@ export type Database = {
           labels?: Json
           origin?: string
           result_id?: string | null
+          result_note?: string | null
           revision?: number
           revision_key: string
           session_id: string
@@ -195,6 +254,7 @@ export type Database = {
           labels?: Json
           origin?: string
           result_id?: string | null
+          result_note?: string | null
           revision?: number
           revision_key?: string
           session_id?: string
@@ -8693,6 +8753,7 @@ export type Database = {
         Args: { p_settlement_id: string; p_user_id: string }
         Returns: undefined
       }
+      capture_aging_snapshot: { Args: never; Returns: string }
       checks_channel_mismatches: {
         Args: never
         Returns: {
@@ -9492,6 +9553,17 @@ export type Database = {
         Returns: string
       }
       purge_audit_events: { Args: never; Returns: number }
+      recategorize_expense: {
+        Args: {
+          p_cost_center_id?: string
+          p_expense_account_id?: string
+          p_id: string
+          p_set_account: boolean
+          p_set_cost_center: boolean
+          p_source: string
+        }
+        Returns: Json
+      }
       receipt_list_totals: {
         Args: {
           p_client_id?: string
