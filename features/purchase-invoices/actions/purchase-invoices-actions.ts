@@ -33,6 +33,9 @@ import {
   type PurchaseIvaRateId,
 } from "../schema";
 
+const EMPLOYEE_CHARGE_DENIED =
+  "No tenés permiso para cargar una compra a un empleado.";
+
 function narrowRow(row: Record<string, unknown>): PurchaseInvoice | null {
   if (!isPurchaseInvoiceKind(row.kind)) return null;
   if (!isPurchaseInvoiceStatus(row.status)) return null;
@@ -113,7 +116,7 @@ export async function searchPurchaseInvoicesAction(
 }
 
 const DETAIL_COLS =
-  "id, channel_id, account_id, cost_center_id, supplier_id, kind, letter, punto_venta, numero, fecha, fch_vto_pago, imp_neto, imp_iva, imp_trib, imp_total, moneda, cotizacion, cae_proveedor, cae_vto_proveedor, status, invoice_origin_id, motivo_nc_nd, notes, created_by, cancelled_at, cancelled_by, created_at, updated_at, suppliers!inner(legal_name, cuit)";
+  "id, channel_id, account_id, cost_center_id, charged_employee_id, supplier_id, kind, letter, punto_venta, numero, fecha, fch_vto_pago, imp_neto, imp_iva, imp_trib, imp_total, moneda, cotizacion, cae_proveedor, cae_vto_proveedor, status, invoice_origin_id, motivo_nc_nd, notes, created_by, cancelled_at, cancelled_by, created_at, updated_at, suppliers!inner(legal_name, cuit)";
 
 export async function getPurchaseInvoiceByIdAction(
   id: string,
@@ -351,6 +354,9 @@ export async function createPurchaseInvoiceAction(
       error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
     };
   }
+  if (parsed.data.charged_employee_id && !userCan(ctx.access, "hr:write")) {
+    return { ok: false, error: EMPLOYEE_CHARGE_DENIED };
+  }
 
   const supabase = await createClient();
 
@@ -362,6 +368,7 @@ export async function createPurchaseInvoiceAction(
       channel_id: parsed.data.channel_id,
       account_id: parsed.data.account_id ?? null,
       cost_center_id: parsed.data.cost_center_id ?? null,
+      charged_employee_id: parsed.data.charged_employee_id ?? null,
       supplier_id: parsed.data.supplier_id,
       kind: parsed.data.kind,
       letter: parsed.data.letter ?? null,
@@ -444,6 +451,7 @@ export async function createPurchaseInvoiceAction(
       items_count: parsed.data.items?.length ?? 0,
       account_id: parsed.data.account_id ?? null,
       cost_center_id: parsed.data.cost_center_id ?? null,
+      charged_employee_id: parsed.data.charged_employee_id ?? null,
     },
     data.id,
   );
@@ -491,6 +499,12 @@ export async function updatePurchaseInvoiceAction(
   }
 
   const { id, ...rest } = parsed.data;
+  if (
+    rest.charged_employee_id !== undefined &&
+    !userCan(ctx.access, "hr:write")
+  ) {
+    return { ok: false, error: EMPLOYEE_CHARGE_DENIED };
+  }
   const supabase = await createClient();
   const { error } = await supabase
     .from("purchase_invoices")
@@ -501,6 +515,9 @@ export async function updatePurchaseInvoiceAction(
       }),
       ...(rest.cost_center_id !== undefined && {
         cost_center_id: rest.cost_center_id ?? null,
+      }),
+      ...(rest.charged_employee_id !== undefined && {
+        charged_employee_id: rest.charged_employee_id ?? null,
       }),
       ...(rest.supplier_id !== undefined && { supplier_id: rest.supplier_id }),
       ...(rest.kind !== undefined && { kind: rest.kind }),

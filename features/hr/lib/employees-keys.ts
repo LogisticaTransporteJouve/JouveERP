@@ -8,4 +8,5 @@ export const employeesKeys = {
     [...employeesKeys.all, "search", filters] as const,
   byId: (id: string) => [...employeesKeys.all, "byId", id] as const,
   list: () => [...employeesKeys.all, "list"] as const,
+  options: () => [...employeesKeys.all, "options"] as const,
 };

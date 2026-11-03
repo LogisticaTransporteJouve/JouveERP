@@ -74,6 +74,36 @@ export async function listEmployeesAction(): Promise<ActionResult<Employee[]>> {
   return { ok: true, data: items };
 }
 
+export type EmployeeOption = {
+  id: string;
+  legal_name: string;
+  is_active: boolean;
+};
+
+/** The employees a purchase can be charged to ("a cargo de empleado"); null
+ *  when the user cannot charge one (hr:write), so the picker hides. */
+export async function listEmployeeOptionsAction(): Promise<
+  ActionResult<EmployeeOption[] | null>
+> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.access, "hr:write")) return { ok: true, data: null };
+
+  const supabase = await createSupabaseClient();
+  const { data, error } = await paginateRange((from, to) =>
+    supabase
+      .from("employees")
+      .select("id, legal_name, is_active")
+      .order("legal_name")
+      .order("id")
+      .range(from, to),
+  );
+  if (error) {
+    logger.error("employees.options.failed", { userId: ctx.userId, error });
+    return { ok: false, error: "No se pudo listar los empleados." };
+  }
+  return { ok: true, data: data ?? [] };
+}
+
 export type SearchEmployeesInput = {
   query?: string;
   onlyActive?: boolean;

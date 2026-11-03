@@ -2,6 +2,7 @@
 
 import {
   useMutation,
+  useQuery,
   useQueryClient,
   useSuspenseInfiniteQuery,
   useSuspenseQuery,
@@ -13,6 +14,7 @@ import { runAction } from "@/lib/query/run-action";
 
 import {
   createEmployeeAction,
+  listEmployeeOptionsAction,
   listEmployeesAction,
   reactivateEmployeeAction,
   searchEmployeesAction,
@@ -58,6 +60,15 @@ export function useEmployeesList() {
   return useSuspenseQuery({
     queryKey: employeesKeys.list(),
     queryFn: () => runAction(() => listEmployeesAction()),
+  });
+}
+
+/** Employees a purchase can be charged to; data null = no hr:write. */
+export function useEmployeeOptions() {
+  return useQuery({
+    queryKey: employeesKeys.options(),
+    queryFn: () => runAction(() => listEmployeeOptionsAction()),
+    staleTime: 5 * 60_000,
   });
 }
 
