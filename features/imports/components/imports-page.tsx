@@ -17,8 +17,10 @@ export function ImportsPage({
   importableKinds,
   canReadPayroll,
   canReadTrips,
+  canReadAccounts,
   today,
 }: {
+  canReadAccounts: boolean;
   /** The kinds this user may import and undo. */
   importableKinds: readonly ImportKind[];
   canReadPayroll: boolean;
@@ -35,9 +37,10 @@ export function ImportsPage({
           <h1 className="text-2xl font-semibold tracking-tight">Importador</h1>
           <p className="text-muted-foreground max-w-2xl text-sm">
             Carga de planillas para el arranque: clientes, proveedores,
-            empleados y vehículos, y sueldos y viajes de antes del sistema como
-            referencia. Las diferencias de saldos se corrigen con el ajuste
-            inicial.
+            empleados y vehículos; tarifas, préstamos, cheques en cartera y
+            saldos de clientes al arranque; extractos bancarios para conciliar;
+            y sueldos y viajes de antes del sistema como referencia. Las
+            diferencias de saldos se corrigen con el ajuste inicial.
           </p>
         </div>
         {importableKinds.length > 0 && (
@@ -80,6 +83,7 @@ export function ImportsPage({
           open={open}
           onOpenChange={setOpen}
           kinds={importableKinds}
+          canReadAccounts={canReadAccounts}
         />
       )}
     </div>

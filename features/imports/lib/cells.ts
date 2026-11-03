@@ -1,3 +1,8 @@
+import {
+  UNITS_BY_CONCEPT,
+  type ClientTariffConcept,
+  type ClientTariffUnit,
+} from "@/features/client-tariffs/schema";
 import { IVA_CONDITIONS, type IvaCondition } from "@/features/clients/schema";
 import {
   DRIVER_POSITION,
@@ -165,4 +170,74 @@ export function parseNumberCell(raw: string): NumberCell {
   if (raw.trim() === "") return { ok: true, value: null };
   const value = parseStatementNumber(raw);
   return value === null ? { ok: false } : { ok: true, value };
+}
+
+const TARIFF_CONCEPTS: Record<string, ClientTariffConcept> = {
+  almacenaje: "storage",
+  almacenamiento: "storage",
+  guarda: "storage",
+  carga: "handling_in",
+  ingreso: "handling_in",
+  "carga ingreso": "handling_in",
+  descarga: "handling_out",
+  egreso: "handling_out",
+  "descarga egreso": "handling_out",
+  flete: "freight",
+  fletes: "freight",
+};
+
+/** "Almacenaje", "carga", "descarga", "flete" → the stored concept. */
+export function parseTariffConcept(raw: string): ClientTariffConcept | null {
+  return TARIFF_CONCEPTS[normalizeHeader(raw)] ?? null;
+}
+
+/** Empty → the concept's first unit (almacenaje: per month); otherwise the
+ *  unit the text names, whether or not the concept takes it (the row builder
+ *  checks that). */
+export function parseTariffUnit(
+  raw: string,
+  concept: ClientTariffConcept,
+): ClientTariffUnit | null {
+  const value = normalizeHeader(raw);
+  if (value === "") return UNITS_BY_CONCEPT[concept][0] ?? null;
+  if (/\b(dia|diario|diaria)\b/.test(value)) return "pallet_day";
+  if (/\b(mes|mensual)\b/.test(value)) return "pallet_month";
+  if (/\b(carga|viaje|envio)\b/.test(value)) return "shipment";
+  if (/\bpallets?\b/.test(value)) return "pallet";
+  return null;
+}
+
+/** Empty → `fallback`; "$", "pesos" → ARS; "U$S", "dólares" → USD. */
+export function parseCurrency(
+  raw: string,
+  fallback: "ARS" | "USD",
+): "ARS" | "USD" | null {
+  const trimmed = raw.trim();
+  if (trimmed === "") return fallback;
+  if (trimmed === "$") return "ARS";
+  if (/^(u\$s|us\$)$/i.test(trimmed)) return "USD";
+  const value = normalizeHeader(trimmed);
+  if (["ars", "pesos", "peso"].includes(value)) return "ARS";
+  if (["usd", "dolares", "dolar"].includes(value)) return "USD";
+  return null;
+}
+
+/** Empty → `fallback`; "físico", "e-cheq" → the stored kind. */
+export function parseCheckKind(
+  raw: string,
+  fallback: "fisico" | "echeq",
+): "fisico" | "echeq" | null {
+  const value = normalizeHeader(raw).replace(/ /g, "");
+  if (value === "") return fallback;
+  if (["fisico", "papel"].includes(value)) return "fisico";
+  if (["echeq", "echeque", "electronico"].includes(value)) return "echeq";
+  return null;
+}
+
+/** Empty → préstamo. */
+export function parseLoanKind(raw: string): "prestamo" | "leasing" | null {
+  const value = normalizeHeader(raw);
+  if (value === "" || value.startsWith("prestamo")) return "prestamo";
+  if (value.startsWith("leasing")) return "leasing";
+  return null;
 }

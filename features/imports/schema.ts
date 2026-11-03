@@ -2,10 +2,13 @@ import { z } from "zod";
 
 import type { Permission } from "@/lib/auth/permissions";
 
-// Importador (roadmap 5.1 + 5.2): a spreadsheet read into one kind of record.
-// Master data (clients, suppliers, employees, vehicles) lands in its own
-// table; historic payroll and trips land in tables of their own that nothing
-// else reads (supabase/migrations/20261103110000_import_runs.sql).
+// Importador (roadmap 5.1 to 5.4): a spreadsheet read into one kind of
+// record. Master data (clients, suppliers, employees, vehicles) lands in its
+// own table; historic payroll and trips land in tables of their own that
+// nothing else reads (supabase/migrations/20261103110000_import_runs.sql).
+// The go-live items (tariffs, loans, cartera checks, client opening balances)
+// and bank statements land where the app's own forms put them
+// (supabase/migrations/20261103120100_import_opening_items.sql).
 
 export const IMPORT_KINDS = [
   "clients",
@@ -14,6 +17,11 @@ export const IMPORT_KINDS = [
   "vehicles",
   "historic_payroll",
   "historic_trips",
+  "client_tariffs",
+  "loans",
+  "checks",
+  "opening_balances",
+  "bank_statement",
 ] as const;
 export type ImportKind = (typeof IMPORT_KINDS)[number];
 
@@ -24,6 +32,11 @@ export const IMPORT_KIND_LABELS: Record<ImportKind, string> = {
   vehicles: "Vehículos",
   historic_payroll: "Sueldos históricos",
   historic_trips: "Viajes históricos",
+  client_tariffs: "Tarifas por cliente",
+  loans: "Préstamos al arranque",
+  checks: "Cheques en cartera al arranque",
+  opening_balances: "Saldos iniciales de clientes",
+  bank_statement: "Extracto bancario",
 };
 
 /** What the run creates, beside imports:write: the module's own write. */
@@ -34,7 +47,40 @@ export const IMPORT_KIND_PERMISSION: Record<ImportKind, Permission> = {
   vehicles: "vehicles:write",
   historic_payroll: "hr:write",
   historic_trips: "trips:write",
+  client_tariffs: "storage_billing:issue",
+  loans: "accounting:write",
+  checks: "cheques:write",
+  opening_balances: "opening_balances:write",
+  bank_statement: "transactions:write",
 };
+
+/** The kinds whose rows go to one treasury account the user picks: the
+ *  cartera of the checks, the account of the statement. */
+const ACCOUNT_KINDS: readonly ImportKind[] = ["checks", "bank_statement"];
+
+/** The kinds whose rows take one channel the user picks. */
+const CHANNEL_KINDS: readonly ImportKind[] = ["loans", "checks"];
+
+export function kindNeedsAccount(kind: ImportKind): boolean {
+  return ACCOUNT_KINDS.includes(kind);
+}
+
+export function kindNeedsChannel(kind: ImportKind): boolean {
+  return CHANNEL_KINDS.includes(kind);
+}
+
+/** Money items with one row per key: a key repeated in the file is an error
+ *  in both rows (skipping one would drop an amount silently). */
+const STRICT_KEY_KINDS: readonly ImportKind[] = [
+  "client_tariffs",
+  "loans",
+  "checks",
+  "opening_balances",
+];
+
+export function kindHasStrictKeys(kind: ImportKind): boolean {
+  return STRICT_KEY_KINDS.includes(kind);
+}
 
 /** Reading a kind's historic rows needs its module's read as well. */
 export const HISTORIC_READ_PERMISSION = {
@@ -68,6 +114,10 @@ export const ImportMappingSchema = z.record(
 export const ImportRequestSchema = z.object({
   kind: z.enum(IMPORT_KINDS),
   mapping: ImportMappingSchema.nullable(),
+  /** The cartera (checks) or the statement's account (bank_statement). */
+  account_id: z.string().uuid().nullable(),
+  /** The channel of loans and checks. */
+  channel_id: z.string().min(1).max(60).nullable(),
 });
 export type ImportRequestInput = z.infer<typeof ImportRequestSchema>;
 
@@ -134,3 +184,62 @@ export const HistoricTripRowSchema = z.object({
   source_hash: z.string().regex(/^[0-9a-f]{64}$/),
 });
 export type HistoricTripRow = z.infer<typeof HistoricTripRowSchema>;
+
+const currency = z.enum(["ARS", "USD"]);
+const positiveMoney = z
+  .number()
+  .gt(0, "Tiene que ser mayor a cero.")
+  .max(999_999_999_999);
+const signedMoney = z.number().min(-999_999_999_999).max(999_999_999_999);
+
+/** One loan installment of the pending schedule. */
+export const LoanImportInstallmentSchema = z.object({
+  number: z.number().int().min(1).max(600),
+  due_date: isoDate,
+  amount: money,
+});
+
+/** A loan at go-live: the capital still owed and its pending schedule. */
+export const LoanImportRowSchema = z
+  .object({
+    kind: z.enum(["prestamo", "leasing"]),
+    description: z.string().trim().min(1).max(200),
+    lender: optionalText(200),
+    principal: positiveMoney,
+    currency,
+    channel_id: z.string().min(1),
+    installments_count: z.number().int().min(1).max(600),
+    first_due_date: isoDate,
+    notes: optionalText(2000),
+    installments: z.array(LoanImportInstallmentSchema).min(1).max(600),
+  })
+  .refine((r) => r.installments.length === r.installments_count, {
+    message: "El cronograma no coincide con la cantidad de cuotas.",
+    path: ["installments"],
+  });
+export type LoanImportRow = z.infer<typeof LoanImportRowSchema>;
+
+/** What a client owes at go-live (client_opening_balances, in pesos). */
+export const OpeningBalanceImportRowSchema = z.object({
+  client_id: z.string().uuid(),
+  opening_date: isoDate,
+  target_balance: money,
+  notes: optionalText(500),
+});
+export type OpeningBalanceImportRow = z.infer<
+  typeof OpeningBalanceImportRowSchema
+>;
+
+/** One bank statement line: + credit, - debit. */
+export const BankStatementImportRowSchema = z.object({
+  account_id: z.string().uuid(),
+  line_date: isoDate,
+  description: z.string().trim().min(1).max(500),
+  amount: signedMoney.refine((v) => v !== 0, "La línea no tiene importe."),
+  balance: signedMoney.nullable(),
+  reference: optionalText(120),
+  source_hash: z.string().regex(/^[0-9a-f]{64}$/),
+});
+export type BankStatementImportRow = z.infer<
+  typeof BankStatementImportRowSchema
+>;

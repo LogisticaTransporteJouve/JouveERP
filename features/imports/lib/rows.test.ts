@@ -51,6 +51,9 @@ const LOOKUPS: ImportLookups = {
       kind: "monthly",
     }),
   ]),
+  account: null,
+  channelId: null,
+  tariffs: [],
 };
 
 /** Builds a file whose header is `columns` (mapped in order). */
