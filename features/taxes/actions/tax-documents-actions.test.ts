@@ -226,6 +226,7 @@ describe("getIvaPositionEstimateAction", () => {
           imp_trib_orig: 0,
           imp_total_orig: 6050,
           cotizacion: 1,
+          ...breakdownCols({}),
         },
       ],
     });
@@ -246,6 +247,7 @@ describe("getIvaPositionEstimateAction", () => {
         retenciones: 40,
         saldo_anterior: 0,
         saldo_anterior_known: true,
+        percepciones_compras: 0,
         saldo: 800,
         tributos_compras: 0,
         ventas: 2,
@@ -254,7 +256,7 @@ describe("getIvaPositionEstimateAction", () => {
     });
   });
 
-  it("subtracts last month's saldo a favor and reports the purchases' tributos apart", async () => {
+  it("subtracts last month's saldo a favor and the purchases' IVA perceptions, and reports the other tributos apart", async () => {
     ventas.mockResolvedValue({ ok: true, data: [] });
     compras.mockResolvedValue({
       ok: true,
@@ -272,6 +274,7 @@ describe("getIvaPositionEstimateAction", () => {
           imp_trib_orig: 75,
           imp_total_orig: 6125,
           cotizacion: 1,
+          ...breakdownCols({ perc_iva: 25, perc_iibb: 50 }),
         },
       ],
     });
@@ -292,8 +295,9 @@ describe("getIvaPositionEstimateAction", () => {
       credito: 1050,
       saldo_anterior: 150,
       saldo_anterior_known: true,
-      saldo: -1200,
-      tributos_compras: 75,
+      percepciones_compras: 25,
+      saldo: -1225,
+      tributos_compras: 50,
     });
   });
 
@@ -399,3 +403,19 @@ describe("getIvaPositionEstimateAction", () => {
     expect(ventas).not.toHaveBeenCalled();
   });
 });
+
+/** The libro IVA compras breakdown columns, in pesos and in the document's currency. */
+function breakdownCols(parts: { perc_iva?: number; perc_iibb?: number }) {
+  const b = {
+    no_gravado: 0,
+    exentas: 0,
+    perc_iva: parts.perc_iva ?? 0,
+    perc_iibb: parts.perc_iibb ?? 0,
+    perc_municipales: 0,
+    impuestos_internos: 0,
+  };
+  return {
+    ...b,
+    ...Object.fromEntries(Object.entries(b).map(([k, v]) => [`${k}_orig`, v])),
+  };
+}

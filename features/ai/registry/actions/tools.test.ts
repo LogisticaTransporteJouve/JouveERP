@@ -388,6 +388,18 @@ function compraRow(over: Partial<LibroIvaComprasRow>): LibroIvaComprasRow {
     iva_orig: 0,
     imp_trib_orig: 0,
     imp_total_orig: 0,
+    no_gravado: 0,
+    exentas: 0,
+    perc_iva: 0,
+    perc_iibb: 0,
+    perc_municipales: 0,
+    impuestos_internos: 0,
+    no_gravado_orig: 0,
+    exentas_orig: 0,
+    perc_iva_orig: 0,
+    perc_iibb_orig: 0,
+    perc_municipales_orig: 0,
+    impuestos_internos_orig: 0,
     ...over,
   };
 }
