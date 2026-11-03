@@ -184,14 +184,13 @@ describe("formatting", () => {
     expect(settlementNextStep({ ...draft, client_is_fiscal: false })).toBe(
       "issue_internal",
     );
-    expect(
-      settlementNextStep({
-        ...base,
-        channel: "fiscal",
-        remito_pos: 9002,
-        remito_number: 1,
-      }),
-    ).toBe("invoice");
+    const remitoEmitted = {
+      ...base,
+      channel: "fiscal" as const,
+      remito_pos: 9002,
+      remito_number: 1,
+    };
+    expect(settlementNextStep(remitoEmitted)).toBe("invoice");
     expect(
       settlementNextStep({ ...base, status: "cancelled" as const }),
     ).toBeNull();
