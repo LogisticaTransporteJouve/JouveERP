@@ -109,9 +109,16 @@ export function ShipmentsTable() {
         header: "Cliente",
         enableSorting: false,
         cell: ({ row }) => (
-          <span className="font-medium">
-            {row.original.client?.legal_name ?? "—"}
-          </span>
+          <div className="flex flex-col">
+            <span className="font-medium">
+              {row.original.client?.legal_name ?? "—"}
+            </span>
+            {row.original.remito_number && (
+              <span className="text-xs text-muted-foreground">
+                Remito {row.original.remito_number}
+              </span>
+            )}
+          </div>
         ),
         meta: { mobile: "secondary" },
       },

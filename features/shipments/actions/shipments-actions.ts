@@ -8,6 +8,7 @@ import { getActiveInvoicingChannels } from "@/lib/channels";
 import { todayInAR } from "@/lib/format";
 import { userCan } from "@/lib/auth/permissions";
 import { mapDbGuardError } from "@/lib/db/guard-errors";
+import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
@@ -21,6 +22,9 @@ import {
   FreightInvoiceSchema,
   type FreightInvoiceInput,
   ShipmentCreateSchema,
+  ShipmentRemitoCheckSchema,
+  type ShipmentRemitoCheckInput,
+  type ShipmentRemitoConflict,
   ShipmentStatusChangeSchema,
   ShipmentTripAssignSchema,
   ShipmentUpdateSchema,
@@ -34,7 +38,7 @@ import { freightInvoiceDates } from "../lib/freight-invoice";
 const UNASSIGNED_LIMIT = 200;
 
 const SELECT_COLUMNS =
-  "id, client_id, trip_id, channel_id, origin, destination, description, scheduled_date, status, delivery_date, failure_reason, freight_amount, invoice_id, notes, created_at, updated_at, client:clients(legal_name, display_name, cuit, iva_condition, is_fiscal), trip:trips(trip_date)";
+  "id, client_id, trip_id, channel_id, remito_number, origin,destination, description, scheduled_date, status, delivery_date, failure_reason, freight_amount, invoice_id, notes, created_at, updated_at, client:clients(legal_name, display_name, cuit, iva_condition, is_fiscal), trip:trips(trip_date)";
 
 function narrow(row: {
   status: string;
@@ -50,6 +54,61 @@ function narrow(row: {
     freight_amount:
       row.freight_amount === null ? null : Number(row.freight_amount),
   } as Shipment;
+}
+
+const REMITO_UNIQUE_INDEX = "shipments_client_remito_unique";
+const REMITO_TAKEN_ERROR =
+  "Ese número de remito ya está en otra carga del cliente.";
+
+/** The write hit the remito-per-client unique index. */
+function isRemitoTaken(
+  error: { code?: string | null; message?: string | null } | null,
+): boolean {
+  return (
+    error?.code === PG_UNIQUE_VIOLATION &&
+    (error.message ?? "").includes(REMITO_UNIQUE_INDEX)
+  );
+}
+
+/**
+ * The live carga of the client that already holds this remito number (the
+ * one being edited aside), or null: the form warns before saving. The DB
+ * index is what refuses the duplicate.
+ */
+export async function findShipmentRemitoConflictAction(
+  input: ShipmentRemitoCheckInput,
+): Promise<ActionResult<ShipmentRemitoConflict | null>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.access, "shipments:read")) {
+    return { ok: false, error: "No tenés permiso para ver cargas." };
+  }
+  const parsed = ShipmentRemitoCheckSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Datos inválidos." };
+  const supabase = await createSupabaseClient();
+  const { data, error } = await supabase.rpc("shipment_remito_conflict", {
+    p_client_id: parsed.data.client_id,
+    p_remito_number: parsed.data.remito_number,
+    ...(parsed.data.exclude_id ? { p_exclude_id: parsed.data.exclude_id } : {}),
+  });
+  if (error) {
+    logger.error("shipments.remito_check.failed", {
+      userId: ctx.userId,
+      error,
+    });
+    return { ok: false, error: "No se pudo verificar el remito." };
+  }
+  const row = data?.[0];
+  if (!row) return { ok: true, data: null };
+  return {
+    ok: true,
+    data: {
+      id: row.id,
+      scheduled_date: row.scheduled_date ?? null,
+      status: row.status,
+      origin: row.origin ?? null,
+      destination: row.destination ?? null,
+    },
+  };
 }
 
 export async function listShipmentsAction(): Promise<ActionResult<Shipment[]>> {
@@ -153,6 +212,7 @@ export async function createShipmentAction(
       client_id: parsed.data.client_id ?? null,
       trip_id: parsed.data.trip_id ?? null,
       channel_id: parsed.data.channel_id ?? null,
+      remito_number: parsed.data.remito_number ?? null,
       origin: parsed.data.origin ?? null,
       destination: parsed.data.destination ?? null,
       description: parsed.data.description ?? null,
@@ -163,6 +223,7 @@ export async function createShipmentAction(
     })
     .select("id")
     .single();
+  if (isRemitoTaken(error)) return { ok: false, error: REMITO_TAKEN_ERROR };
   if (error) {
     logger.error("shipments.create.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo crear la carga." };
@@ -193,6 +254,9 @@ export async function updateShipmentAction(
       ...(rest.client_id !== undefined && { client_id: rest.client_id }),
       ...(rest.trip_id !== undefined && { trip_id: rest.trip_id }),
       ...(rest.channel_id !== undefined && { channel_id: rest.channel_id }),
+      ...(rest.remito_number !== undefined && {
+        remito_number: rest.remito_number,
+      }),
       ...(rest.origin !== undefined && { origin: rest.origin }),
       ...(rest.destination !== undefined && { destination: rest.destination }),
       ...(rest.description !== undefined && { description: rest.description }),
@@ -206,6 +270,7 @@ export async function updateShipmentAction(
     })
     .eq("id", id)
     .select("id");
+  if (isRemitoTaken(error)) return { ok: false, error: REMITO_TAKEN_ERROR };
   if (error) {
     const guardError = mapDbGuardError(error, {
       slug: "shipments.update.rejected",
@@ -281,6 +346,10 @@ export async function changeShipmentStatusAction(
     .from("shipments")
     .update(patch)
     .eq("id", id);
+  // Out of cancelled, the carga takes its remito number back.
+  if (isRemitoTaken(updErr)) {
+    return { ok: false, error: REMITO_TAKEN_ERROR };
+  }
   if (updErr) {
     logger.error("shipments.status.update_failed", {
       userId: ctx.userId,

@@ -15,6 +15,7 @@ import {
   changeShipmentStatusAction,
   createShipmentAction,
   deleteShipmentAction,
+  findShipmentRemitoConflictAction,
   invoiceFreightAction,
   listShipmentHistoryAction,
   listShipmentOptionsAction,
@@ -64,6 +65,30 @@ export function useShipmentOptions() {
     queryKey: shipmentsKeys.options(),
     queryFn: () => runAction(() => listShipmentOptionsAction()),
     staleTime: 60_000,
+  });
+}
+
+/** The live carga of the client that already holds `remitoNumber`, checked
+ *  while the form is open (the caller debounces the number). */
+export function useShipmentRemitoConflict(check: {
+  clientId: string;
+  remitoNumber: string;
+  excludeId: string | null;
+}) {
+  const remitoNumber = check.remitoNumber.trim();
+  const ready = check.clientId !== "" && remitoNumber !== "";
+  return useQuery({
+    queryKey: shipmentsKeys.remitoConflict({ ...check, remitoNumber }),
+    queryFn: () =>
+      runAction(() =>
+        findShipmentRemitoConflictAction({
+          client_id: check.clientId,
+          remito_number: remitoNumber,
+          exclude_id: check.excludeId,
+        }),
+      ),
+    enabled: ready,
+    staleTime: 10_000,
   });
 }
 
