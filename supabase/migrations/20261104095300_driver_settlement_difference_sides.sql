@@ -216,6 +216,8 @@ $$;
 revoke all on function public.remove_driver_settlement_difference(uuid, uuid, boolean)
   from public, anon, authenticated;
 
+-- Rollback-safe: the new signature keeps the old arguments (defaults).
+-- squawk-ignore ban-drop-function
 drop function public.unpost_driver_settlement_difference(uuid);
 
 create function public.unpost_driver_settlement_difference(
@@ -251,6 +253,8 @@ grant execute on function public.unpost_driver_settlement_difference(uuid, uuid,
 
 -- Same as 20261104080000 plus undoing the difference (receipts and treasury
 -- movement included) and p_allow_driver.
+-- Rollback-safe: the new signature keeps the old arguments (defaults).
+-- squawk-ignore ban-drop-function
 drop function public.cancel_driver_settlement(uuid, uuid);
 
 create function public.cancel_driver_settlement(
@@ -303,6 +307,8 @@ grant execute on function public.cancel_driver_settlement(uuid, uuid, boolean)
 -- 4. Posting it
 ------------------------------------------------------------------------------
 
+-- Rollback-safe: the new signature keeps the old arguments (defaults).
+-- squawk-ignore ban-drop-function
 drop function public.post_driver_settlement_difference(uuid, uuid);
 
 create function public.post_driver_settlement_difference(
