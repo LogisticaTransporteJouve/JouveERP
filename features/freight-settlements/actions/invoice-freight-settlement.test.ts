@@ -15,14 +15,38 @@ let status = "confirmed";
 let shipmentChannel: string | null = null;
 let claimed = true;
 let linkError: unknown = null;
+// A legacy liquidación (R-00000012) unless a test says otherwise.
+let numero: number | null = 12;
+let channel: string | null = null;
+let remito: { pos: number; number: number } | null = null;
+let isFiscal = true;
+let confirmResult: unknown = null;
 let fake = recordingSupabase(respond);
 
 function respond(call: RecordedCall) {
+  if (call.table === "confirm_freight_settlement_document") {
+    if (status === "draft") {
+      status = "confirmed";
+      channel = isFiscal ? "fiscal" : "internal";
+    }
+    return {
+      data: confirmResult ?? {
+        channel,
+        numero,
+        remito_pos: remito?.pos ?? null,
+        remito_number: remito?.number ?? null,
+      },
+      error: null,
+    };
+  }
   if (call.table === "freight_settlements" && call.op === "select") {
     return {
       data: {
         id: ID,
-        numero: 12,
+        numero,
+        channel,
+        remito_pos: remito?.pos ?? null,
+        remito_number: remito?.number ?? null,
         client_id: "c1",
         period_start: "2026-10-01",
         period_end: "2026-10-31",
@@ -32,7 +56,7 @@ function respond(call: RecordedCall) {
         invoicing_claimed_at: null,
         notes: null,
         created_at: "2026-11-01T12:00:00Z",
-        client: { legal_name: "Cliente", is_fiscal: true },
+        client: { legal_name: "Cliente", is_fiscal: isFiscal },
         invoice: null,
       },
       error: null,
@@ -60,11 +84,13 @@ function respond(call: RecordedCall) {
   }
   if (call.table === "clients") {
     return {
-      data: {
-        cuit: "30111111118",
-        iva_condition: "responsable_inscripto",
-        is_fiscal: true,
-      },
+      data: isFiscal
+        ? {
+            cuit: "30111111118",
+            iva_condition: "responsable_inscripto",
+            is_fiscal: true,
+          }
+        : { cuit: null, iva_condition: null, is_fiscal: false },
       error: null,
     };
   }
@@ -97,7 +123,7 @@ vi.mock("@/features/invoices/actions/invoices-actions", () => ({
   issueFiscalInvoiceAction: (input: unknown) => issue(input),
 }));
 
-const { invoiceFreightSettlementAction } =
+const { confirmFreightSettlementAction, invoiceFreightSettlementAction } =
   await import("./freight-settlements-actions");
 
 const input = { id: ID, channel_id: "jouve_fiscal", punto_venta: 3 };
@@ -112,6 +138,11 @@ beforeEach(() => {
   roles = ["owner"];
   status = "confirmed";
   shipmentChannel = null;
+  numero = 12;
+  channel = null;
+  remito = null;
+  isFiscal = true;
+  confirmResult = null;
   claimed = true;
   linkError = null;
   fake = recordingSupabase(respond);
@@ -188,5 +219,95 @@ describe("invoiceFreightSettlementAction", () => {
     const res = await invoiceFreightSettlementAction(input);
     expect(res.ok).toBe(false);
     expect(fake.calls).toHaveLength(0);
+  });
+
+  it("asks a fiscal draft for its Remito R first, without confirming", async () => {
+    status = "draft";
+    numero = null;
+    const res = await invoiceFreightSettlementAction(input);
+    expect(res).toEqual({
+      ok: false,
+      error: "Confirmá la liquidación (Remito R) antes de facturarla.",
+    });
+    expect(
+      fake.calls.some((c) => c.table === "confirm_freight_settlement_document"),
+    ).toBe(false);
+    expect(issue).not.toHaveBeenCalled();
+  });
+
+  it("confirms an internal draft and issues its remito interno in one step", async () => {
+    status = "draft";
+    numero = null;
+    isFiscal = false;
+    const internalInput = {
+      id: ID,
+      channel_id: "jouve_internal",
+      punto_venta: 9001,
+    };
+    const res = await invoiceFreightSettlementAction(internalInput);
+    expect(res).toEqual({ ok: true, data: { invoiceId: "inv1" } });
+    const tables = fake.calls.map((c) => c.table);
+    const confirmAt = tables.indexOf("confirm_freight_settlement_document");
+    expect(confirmAt).toBeGreaterThan(-1);
+    // Confirming reprices: the liquidación is read again before issuing.
+    expect(tables.lastIndexOf("freight_settlement_items")).toBeGreaterThan(
+      confirmAt,
+    );
+    const sent = issue.mock.calls[0]![0] as {
+      channel_id: string;
+      doc_tipo: number;
+    };
+    expect(sent.channel_id).toBe("jouve_internal");
+    expect(sent.doc_tipo).toBe(99);
+  });
+});
+
+describe("confirmFreightSettlementAction", () => {
+  it("returns the Remito R number of a fiscal liquidación", async () => {
+    status = "draft";
+    numero = null;
+    confirmResult = {
+      channel: "fiscal",
+      numero: null,
+      remito_pos: 9002,
+      remito_number: 7,
+    };
+    const res = await confirmFreightSettlementAction({ id: ID });
+    expect(res).toEqual({
+      ok: true,
+      data: { channel: "fiscal", number: "R9002-00000007" },
+    });
+    expect(
+      fake.calls.find((c) => c.table === "confirm_freight_settlement_document")
+        ?.payload,
+    ).toEqual({ p_settlement_id: ID, p_user_id: "u1" });
+  });
+
+  it("gives an internal liquidación no number", async () => {
+    confirmResult = {
+      channel: "internal",
+      numero: null,
+      remito_pos: null,
+      remito_number: null,
+    };
+    const res = await confirmFreightSettlementAction({ id: ID });
+    expect(res).toEqual({
+      ok: true,
+      data: { channel: "internal", number: null },
+    });
+  });
+
+  it("keeps the legacy R- number of one confirmed before the remito R", async () => {
+    confirmResult = {
+      channel: null,
+      numero: 12,
+      remito_pos: null,
+      remito_number: null,
+    };
+    const res = await confirmFreightSettlementAction({ id: ID });
+    expect(res).toEqual({
+      ok: true,
+      data: { channel: null, number: "R-00000012" },
+    });
   });
 });

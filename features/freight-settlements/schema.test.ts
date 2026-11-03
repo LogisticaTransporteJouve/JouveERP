@@ -6,10 +6,16 @@ import {
   FreightCandidatesSchema,
   FreightSettlementInvoiceSchema,
   FreightSettlementSaveSchema,
+  formatRemitoR,
   formatSettlementNumber,
   freightItemDescription,
+  hasRDocument,
   isFreightPriceSource,
+  isFreightSettlementChannel,
   isFreightSettlementStatus,
+  settlementDocumentLabel,
+  settlementNextStep,
+  settlementNumberLabel,
 } from "./schema";
 
 const client_id = "11111111-1111-4111-8111-111111111111";
@@ -111,6 +117,85 @@ describe("formatting", () => {
         service_date: null,
       }),
     ).toBe("Flete");
+  });
+
+  const base = {
+    status: "confirmed" as const,
+    numero: null,
+    channel: null,
+    remito_pos: null,
+    remito_number: null,
+    client_is_fiscal: true,
+    invoice_number: null,
+    invoice_id: null,
+  };
+
+  it("prints the Remito R as R<pos>-<numero>", () => {
+    expect(formatRemitoR(9002, 1)).toBe("R9002-00000001");
+    const fiscal = {
+      ...base,
+      channel: "fiscal" as const,
+      remito_pos: 9002,
+      remito_number: 15,
+    };
+    expect(settlementNumberLabel(fiscal)).toBe("R9002-00000015");
+    expect(settlementDocumentLabel(fiscal)).toBe("Remito R9002-00000015");
+    expect(hasRDocument(fiscal)).toBe(true);
+  });
+
+  it("keeps the legacy R- number of a liquidación confirmed before the remito R", () => {
+    const legacy = { ...base, numero: 12 };
+    expect(settlementNumberLabel(legacy)).toBe("R-00000012");
+    expect(settlementDocumentLabel(legacy)).toBe("Liquidación R-00000012");
+    expect(hasRDocument(legacy)).toBe(true);
+    // A legacy one follows its client's side for the next step.
+    expect(settlementNextStep(legacy)).toBe("invoice");
+    expect(settlementNextStep({ ...legacy, client_is_fiscal: false })).toBe(
+      "issue_internal",
+    );
+  });
+
+  it("names an internal liquidación by its remito interno X", () => {
+    const internal = {
+      ...base,
+      channel: "internal" as const,
+      client_is_fiscal: false,
+    };
+    expect(settlementNumberLabel(internal)).toBe("Sin remito");
+    expect(settlementDocumentLabel(internal)).toBeNull();
+    expect(hasRDocument(internal)).toBe(false);
+    const issued = {
+      ...internal,
+      status: "invoiced" as const,
+      invoice_id: "inv1",
+      invoice_number: "X9001-00000004",
+    };
+    expect(settlementNumberLabel(issued)).toBe("X9001-00000004");
+    expect(settlementDocumentLabel(issued)).toBe(
+      "Remito interno X9001-00000004",
+    );
+    expect(settlementNextStep(issued)).toBeNull();
+  });
+
+  it("offers each side its next step", () => {
+    const draft = { ...base, status: "draft" as const };
+    expect(settlementNumberLabel(draft)).toBe("Borrador");
+    expect(settlementNextStep(draft)).toBe("confirm");
+    expect(settlementNextStep({ ...draft, client_is_fiscal: false })).toBe(
+      "issue_internal",
+    );
+    const remitoEmitted = {
+      ...base,
+      channel: "fiscal" as const,
+      remito_pos: 9002,
+      remito_number: 1,
+    };
+    expect(settlementNextStep(remitoEmitted)).toBe("invoice");
+    expect(
+      settlementNextStep({ ...base, status: "cancelled" as const }),
+    ).toBeNull();
+    expect(isFreightSettlementChannel("internal")).toBe(true);
+    expect(isFreightSettlementChannel("legacy")).toBe(false);
   });
 
   it("labels every status and narrows unknown values", () => {
