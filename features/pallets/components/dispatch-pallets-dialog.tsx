@@ -64,6 +64,11 @@ export function DispatchPalletsDialog({
       {
         onSuccess: (data) => {
           toast.success(`${data.dispatched} pallets despachados.`);
+          if (data.blocked > 0) {
+            toast.warning(
+              `${data.blocked} pallets quedaron en depósito porque están bloqueados.`,
+            );
+          }
           onDispatched();
           onOpenChange(false);
         },

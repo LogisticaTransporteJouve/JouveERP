@@ -9,14 +9,17 @@ import {
 import { runAction } from "@/lib/query/run-action";
 
 import {
+  blockPalletAction,
   createPalletAction,
   createPalletsBulkAction,
   deletePalletAction,
   dispatchPalletsBulkAction,
   listPalletsAction,
+  unblockPalletAction,
   updatePalletAction,
 } from "../actions/pallets-actions";
 import { palletsKeys } from "../lib/pallets-keys";
+import type { PalletBlockInput } from "../schema";
 
 export function usePallets() {
   return useSuspenseQuery({
@@ -59,6 +62,23 @@ export function useUpdatePallet() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: unknown) => runAction(() => updatePalletAction(input)),
+    onSuccess: () => invalidate(qc),
+  });
+}
+
+export function useBlockPallet() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: PalletBlockInput) =>
+      runAction(() => blockPalletAction(input)),
+    onSuccess: () => invalidate(qc),
+  });
+}
+
+export function useUnblockPallet() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => runAction(() => unblockPalletAction({ id })),
     onSuccess: () => invalidate(qc),
   });
 }

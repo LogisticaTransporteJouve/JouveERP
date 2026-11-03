@@ -1160,6 +1160,75 @@ export type Database = {
           },
         ]
       }
+      check_sales: {
+        Row: {
+          account_id: string
+          buyer_cuit: string | null
+          buyer_name: string
+          channel_id: string
+          commission_amount: number
+          created_at: string
+          created_by: string | null
+          currency: string
+          gross_amount: number
+          id: string
+          idempotency_key: string
+          interest_amount: number
+          net_amount: number
+          notes: string | null
+          sale_date: string
+        }
+        Insert: {
+          account_id: string
+          buyer_cuit?: string | null
+          buyer_name: string
+          channel_id: string
+          commission_amount?: number
+          created_at?: string
+          created_by?: string | null
+          currency: string
+          gross_amount: number
+          id?: string
+          idempotency_key: string
+          interest_amount?: number
+          net_amount: number
+          notes?: string | null
+          sale_date: string
+        }
+        Update: {
+          account_id?: string
+          buyer_cuit?: string | null
+          buyer_name?: string
+          channel_id?: string
+          commission_amount?: number
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          gross_amount?: number
+          id?: string
+          idempotency_key?: string
+          interest_amount?: number
+          net_amount?: number
+          notes?: string | null
+          sale_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "check_sales_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "check_sales_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "invoicing_channels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       checks: {
         Row: {
           amount: number
@@ -1361,6 +1430,7 @@ export type Database = {
       }
       client_tariffs: {
         Row: {
+          area_id: string | null
           client_id: string
           concept: string
           created_at: string
@@ -1375,6 +1445,7 @@ export type Database = {
           valid_to: string | null
         }
         Insert: {
+          area_id?: string | null
           client_id: string
           concept: string
           created_at?: string
@@ -1389,6 +1460,7 @@ export type Database = {
           valid_to?: string | null
         }
         Update: {
+          area_id?: string | null
           client_id?: string
           concept?: string
           created_at?: string
@@ -1403,6 +1475,13 @@ export type Database = {
           valid_to?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "client_tariffs_area_id_fkey"
+            columns: ["area_id"]
+            isOneToOne: false
+            referencedRelation: "storage_areas"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "client_tariffs_client_id_fkey"
             columns: ["client_id"]
@@ -1424,6 +1503,7 @@ export type Database = {
           is_active: boolean
           is_fiscal: boolean
           iva_condition: string | null
+          late_interest_monthly_rate: number | null
           legal_name: string
           notes: string | null
           phone: string | null
@@ -1441,6 +1521,7 @@ export type Database = {
           is_active?: boolean
           is_fiscal?: boolean
           iva_condition?: string | null
+          late_interest_monthly_rate?: number | null
           legal_name: string
           notes?: string | null
           phone?: string | null
@@ -1458,6 +1539,7 @@ export type Database = {
           is_active?: boolean
           is_fiscal?: boolean
           iva_condition?: string | null
+          late_interest_monthly_rate?: number | null
           legal_name?: string
           notes?: string | null
           phone?: string | null
@@ -2604,6 +2686,27 @@ export type Database = {
         }
         Relationships: []
       }
+      finance_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Relationships: []
+      }
       fleet_documents: {
         Row: {
           attachment_file_id: string | null
@@ -3517,6 +3620,76 @@ export type Database = {
           },
         ]
       }
+      late_interest_charges: {
+        Row: {
+          base_amount: number
+          client_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          interest_amount: number
+          invoice_id: string
+          moneda: string
+          monthly_rate: number
+          nd_invoice_id: string | null
+          period_from: string
+          period_to: string
+          released: boolean
+        }
+        Insert: {
+          base_amount: number
+          client_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          interest_amount: number
+          invoice_id: string
+          moneda: string
+          monthly_rate: number
+          nd_invoice_id?: string | null
+          period_from: string
+          period_to: string
+          released?: boolean
+        }
+        Update: {
+          base_amount?: number
+          client_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          interest_amount?: number
+          invoice_id?: string
+          moneda?: string
+          monthly_rate?: number
+          nd_invoice_id?: string | null
+          period_from?: string
+          period_to?: string
+          released?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "late_interest_charges_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "late_interest_charges_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "late_interest_charges_nd_invoice_id_fkey"
+            columns: ["nd_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       loan_installments: {
         Row: {
           amount: number
@@ -3885,6 +4058,10 @@ export type Database = {
       }
       pallets: {
         Row: {
+          area_id: string | null
+          block_reason: string | null
+          blocked_at: string | null
+          blocked_by: string | null
           client_id: string
           code: string
           created_at: string
@@ -3892,6 +4069,8 @@ export type Database = {
           entry_date: string
           exit_date: string | null
           id: string
+          lot_expiry: string | null
+          lot_number: string | null
           notes: string | null
           product_id: string | null
           quantity: number | null
@@ -3900,6 +4079,10 @@ export type Database = {
           warehouse_id: string
         }
         Insert: {
+          area_id?: string | null
+          block_reason?: string | null
+          blocked_at?: string | null
+          blocked_by?: string | null
           client_id: string
           code: string
           created_at?: string
@@ -3907,6 +4090,8 @@ export type Database = {
           entry_date: string
           exit_date?: string | null
           id?: string
+          lot_expiry?: string | null
+          lot_number?: string | null
           notes?: string | null
           product_id?: string | null
           quantity?: number | null
@@ -3915,6 +4100,10 @@ export type Database = {
           warehouse_id: string
         }
         Update: {
+          area_id?: string | null
+          block_reason?: string | null
+          blocked_at?: string | null
+          blocked_by?: string | null
           client_id?: string
           code?: string
           created_at?: string
@@ -3922,6 +4111,8 @@ export type Database = {
           entry_date?: string
           exit_date?: string | null
           id?: string
+          lot_expiry?: string | null
+          lot_number?: string | null
           notes?: string | null
           product_id?: string | null
           quantity?: number | null
@@ -3930,6 +4121,13 @@ export type Database = {
           warehouse_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "pallets_area_id_warehouse_id_fkey"
+            columns: ["area_id", "warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "storage_areas"
+            referencedColumns: ["id", "warehouse_id"]
+          },
           {
             foreignKeyName: "pallets_client_id_fkey"
             columns: ["client_id"]
@@ -5505,6 +5703,47 @@ export type Database = {
           },
         ]
       }
+      storage_areas: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          name: string
+          notes: string | null
+          updated_at: string
+          warehouse_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          notes?: string | null
+          updated_at?: string
+          warehouse_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          notes?: string | null
+          updated_at?: string
+          warehouse_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "storage_areas_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       storage_billing_runs: {
         Row: {
           applied_tariffs: Json
@@ -5998,6 +6237,7 @@ export type Database = {
           accrual_month: string
           amount: number
           channel_id: string
+          check_sale_id: string | null
           cost_center_id: string | null
           counterparty_client_id: string | null
           counterparty_supplier_id: string | null
@@ -6024,6 +6264,7 @@ export type Database = {
           accrual_month: string
           amount: number
           channel_id: string
+          check_sale_id?: string | null
           cost_center_id?: string | null
           counterparty_client_id?: string | null
           counterparty_supplier_id?: string | null
@@ -6050,6 +6291,7 @@ export type Database = {
           accrual_month?: string
           amount?: number
           channel_id?: string
+          check_sale_id?: string | null
           cost_center_id?: string | null
           counterparty_client_id?: string | null
           counterparty_supplier_id?: string | null
@@ -6084,6 +6326,13 @@ export type Database = {
             columns: ["channel_id"]
             isOneToOne: false
             referencedRelation: "invoicing_channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_check_sale_id_fkey"
+            columns: ["check_sale_id"]
+            isOneToOne: false
+            referencedRelation: "check_sales"
             referencedColumns: ["id"]
           },
           {
@@ -7817,6 +8066,7 @@ export type Database = {
       client_tariff_at: {
         Args: { p_client_id: string; p_concept: string; p_date: string }
         Returns: {
+          area_id: string | null
           client_id: string
           concept: string
           created_at: string
@@ -7851,6 +8101,7 @@ export type Database = {
               is_active: boolean
               is_fiscal: boolean
               iva_condition: string | null
+              late_interest_monthly_rate: number | null
               legal_name: string
               notes: string | null
               phone: string | null
@@ -7879,6 +8130,7 @@ export type Database = {
               is_active: boolean
               is_fiscal: boolean
               iva_condition: string | null
+              late_interest_monthly_rate: number | null
               legal_name: string
               notes: string | null
               phone: string | null
@@ -8257,6 +8509,33 @@ export type Database = {
           source_table: string
         }[]
       }
+      late_interest_candidates: {
+        Args: { p_as_of: string }
+        Returns: {
+          channel_id: string
+          channel_is_fiscal: boolean
+          charge_from: string
+          charged_to: string
+          client_id: string
+          client_name: string
+          due_date: string
+          fecha: string
+          invoice_id: string
+          kind: string
+          letter: string
+          moneda: string
+          monthly_rate: number
+          numero: number
+          open_amount: number
+          punto_venta: number
+        }[]
+      }
+      late_interest_charge_is_live: {
+        Args: {
+          p_charge: Database["public"]["Tables"]["late_interest_charges"]["Row"]
+        }
+        Returns: boolean
+      }
       libro_iva_compras: {
         Args: { p_channel_id?: string; p_period: string }
         Returns: {
@@ -8598,6 +8877,7 @@ export type Database = {
           is_active: boolean
           is_fiscal: boolean
           iva_condition: string | null
+          late_interest_monthly_rate: number | null
           legal_name: string
           notes: string | null
           phone: string | null
@@ -8753,6 +9033,22 @@ export type Database = {
       }
       seed_sac_period: {
         Args: { p_half: number; p_year: number }
+        Returns: string
+      }
+      sell_checks: {
+        Args: {
+          p_account_id: string
+          p_buyer_cuit: string
+          p_buyer_name: string
+          p_channel_id: string
+          p_check_ids: string[]
+          p_commission: number
+          p_idempotency_key: string
+          p_interest: number
+          p_notes: string
+          p_sale_date: string
+          p_user_id: string
+        }
         Returns: string
       }
       set_user_access: {

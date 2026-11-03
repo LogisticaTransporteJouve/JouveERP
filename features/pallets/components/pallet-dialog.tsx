@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -37,6 +37,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { useCreatePallet, useUpdatePallet } from "../hooks/use-pallets";
 import { PALLET_STATUSES, PALLET_STATUS_LABELS, type Pallet } from "../schema";
 
+import { AreaSelect, type AreaOption } from "./area-select";
+
 const NONE = "__none__";
 
 const FormSchema = z.object({
@@ -49,6 +51,9 @@ const FormSchema = z.object({
   entry_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha requerida."),
   exit_date: z.string(),
   notes: z.string().trim().max(2000),
+  area_id: z.string(),
+  lot_number: z.string().trim().max(60),
+  lot_expiry: z.string(),
 });
 
 type FormValues = z.infer<typeof FormSchema>;
@@ -64,6 +69,9 @@ function toDefaults(pallet?: Pallet): FormValues {
     entry_date: pallet?.entry_date ?? "",
     exit_date: pallet?.exit_date ?? "",
     notes: pallet?.notes ?? "",
+    area_id: pallet?.area_id ?? "",
+    lot_number: pallet?.lot_number ?? "",
+    lot_expiry: pallet?.lot_expiry ?? "",
   };
 }
 
@@ -73,6 +81,7 @@ export function PalletDialog({
   warehouseOptions,
   clientOptions,
   productOptions,
+  areaOptions,
   open,
   onOpenChange,
 }: {
@@ -81,6 +90,7 @@ export function PalletDialog({
   warehouseOptions: { id: string; name: string }[];
   clientOptions: { id: string; legal_name: string }[];
   productOptions: { id: string; name: string }[];
+  areaOptions: AreaOption[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -98,6 +108,8 @@ export function PalletDialog({
     if (open) form.reset(toDefaults(pallet));
   }, [open, pallet, form]);
 
+  const warehouseId = useWatch({ control: form.control, name: "warehouse_id" });
+
   function onSubmit(values: FormValues) {
     const payload = {
       warehouse_id: values.warehouse_id,
@@ -109,6 +121,9 @@ export function PalletDialog({
       entry_date: values.entry_date,
       exit_date: values.exit_date,
       notes: values.notes,
+      area_id: values.area_id,
+      lot_number: values.lot_number,
+      lot_expiry: values.lot_expiry,
     };
     if (mode === "create") {
       createMut.mutate(payload, {
@@ -149,7 +164,14 @@ export function PalletDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Depósito</FormLabel>
-                  <Select value={field.value} onValueChange={field.onChange}>
+                  <Select
+                    value={field.value}
+                    onValueChange={(v) => {
+                      field.onChange(v);
+                      // An area belongs to one warehouse.
+                      if (v !== field.value) form.setValue("area_id", "");
+                    }}
+                  >
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Elegí un depósito" />
@@ -163,6 +185,24 @@ export function PalletDialog({
                       ))}
                     </SelectContent>
                   </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="area_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Área (opcional)</FormLabel>
+                  <FormControl>
+                    <AreaSelect
+                      areaOptions={areaOptions}
+                      warehouseId={warehouseId}
+                      value={field.value}
+                      onChange={field.onChange}
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -252,6 +292,34 @@ export function PalletDialog({
                         ))}
                       </SelectContent>
                     </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <FormField
+                control={form.control}
+                name="lot_number"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Lote (opcional)</FormLabel>
+                    <FormControl>
+                      <Input {...field} maxLength={60} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="lot_expiry"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Vencimiento del lote</FormLabel>
+                    <FormControl>
+                      <Input {...field} type="date" />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}

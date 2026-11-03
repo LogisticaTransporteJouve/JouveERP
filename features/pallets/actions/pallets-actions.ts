@@ -5,19 +5,25 @@ import type { JsonValue } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import type { Database } from "@/lib/db/database.types";
-import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
+import { mapDbGuardError } from "@/lib/db/guard-errors";
+import {
+  PG_FOREIGN_KEY_VIOLATION,
+  PG_UNIQUE_VIOLATION,
+} from "@/lib/db/pg-error-codes";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { getServiceClient } from "@/lib/supabase/service";
 
 import {
+  PalletBlockSchema,
   PalletBulkCreateSchema,
   PalletBulkDispatchSchema,
   PalletCreateSchema,
   PalletUpdateSchema,
   isPalletStatus,
   type Pallet,
+  type PalletBlockInput,
 } from "../schema";
 
 type PalletSelectRow = Pick<
@@ -32,12 +38,19 @@ type PalletSelectRow = Pick<
   | "entry_date"
   | "exit_date"
   | "notes"
+  | "area_id"
+  | "lot_number"
+  | "lot_expiry"
+  | "blocked_at"
+  | "blocked_by"
+  | "block_reason"
   | "created_at"
   | "updated_at"
 > & {
   warehouse: { name: string } | null;
   client: { legal_name: string } | null;
   product: { name: string } | null;
+  area: { name: string } | null;
 };
 
 function narrow(row: PalletSelectRow): Pallet | null {
@@ -53,7 +66,26 @@ function narrow(row: PalletSelectRow): Pallet | null {
 }
 
 const SELECT_COLUMNS =
-  "id, warehouse_id, client_id, product_id, code, quantity, status, entry_date, exit_date, notes, created_at, updated_at, warehouse:warehouses(name), client:clients(legal_name), product:products(name)";
+  "id, warehouse_id, client_id, product_id, code, quantity, status, entry_date, exit_date, notes, area_id, lot_number, lot_expiry, blocked_at, blocked_by, block_reason, created_at, updated_at, warehouse:warehouses(name), client:clients(legal_name), product:products(name), area:storage_areas(name)";
+
+/** A pallet write the database refused: a guard (a blocked pallet), an area
+ *  of another warehouse (the composite FK) or a repeated code. */
+function palletWriteError(
+  error: { code?: string | null; message: string; hint?: string | null },
+  slug: string,
+  userId: string,
+  id?: string,
+): string | null {
+  const guard = mapDbGuardError(error, { slug, userId, id });
+  if (guard) return guard;
+  if (error.code === PG_UNIQUE_VIOLATION) {
+    return "Ya existe un pallet con ese código.";
+  }
+  if (error.code === PG_FOREIGN_KEY_VIOLATION) {
+    return "El área no es del depósito del pallet.";
+  }
+  return null;
+}
 
 export async function listPalletsAction(): Promise<ActionResult<Pallet[]>> {
   const ctx = await requireUserContext();
@@ -131,14 +163,20 @@ export async function createPalletAction(
       entry_date: parsed.data.entry_date,
       exit_date: parsed.data.exit_date ?? null,
       notes: parsed.data.notes ?? null,
+      area_id: parsed.data.area_id ?? null,
+      lot_number: parsed.data.lot_number ?? null,
+      lot_expiry: parsed.data.lot_expiry ?? null,
       created_by: ctx.userId,
     })
     .select("id")
     .single();
   if (error) {
-    if (error.code === PG_UNIQUE_VIOLATION) {
-      return { ok: false, error: "Ya existe un pallet con ese código." };
-    }
+    const known = palletWriteError(
+      error,
+      "pallets.create.rejected",
+      ctx.userId,
+    );
+    if (known) return { ok: false, error: known };
     logger.error("pallets.create.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo crear el pallet." };
   }
@@ -204,6 +242,9 @@ export async function createPalletsBulkAction(
     status: "en_deposito",
     entry_date: parsed.data.entry_date,
     notes: parsed.data.notes ?? null,
+    area_id: parsed.data.area_id ?? null,
+    lot_number: parsed.data.lot_number ?? null,
+    lot_expiry: parsed.data.lot_expiry ?? null,
     created_by: ctx.userId,
   }));
 
@@ -218,6 +259,9 @@ export async function createPalletsBulkAction(
         error: "Se generó un código repetido, volvé a intentar.",
       };
     }
+    if (error.code === PG_FOREIGN_KEY_VIOLATION) {
+      return { ok: false, error: "El área no es del depósito de los pallets." };
+    }
     logger.error("pallets.bulk_create.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudieron crear los pallets." };
   }
@@ -228,13 +272,14 @@ export async function createPalletsBulkAction(
 
 /**
  * Bulk OUT: mark the selected pallets as despachado with an exit date. Only
- * pallets still en_deposito are dispatched (idempotent re-runs are no-ops). The
- * exit date drives storage-billing: it caps the stored days and triggers the
- * descarga (handling_out) charge for the period it falls in.
+ * pallets still en_deposito and not blocked are dispatched (idempotent re-runs
+ * are no-ops); the blocked ones are counted and left in place. The exit date
+ * drives storage-billing: it caps the stored days and triggers the descarga
+ * (handling_out) charge for the period it falls in.
  */
 export async function dispatchPalletsBulkAction(
   input: unknown,
-): Promise<ActionResult<{ dispatched: number }>> {
+): Promise<ActionResult<{ dispatched: number; blocked: number }>> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "pallets:write")) {
     return { ok: false, error: "No tenés permiso para despachar pallets." };
@@ -254,14 +299,34 @@ export async function dispatchPalletsBulkAction(
     .update({ status: "despachado", exit_date })
     .in("id", ids)
     .eq("status", "en_deposito")
+    .is("blocked_at", null)
     .select("id");
   if (error) {
+    const guard = mapDbGuardError(error, {
+      slug: "pallets.bulk_dispatch.rejected",
+      userId: ctx.userId,
+    });
+    if (guard) return { ok: false, error: guard };
     logger.error("pallets.bulk_dispatch.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudieron despachar los pallets." };
   }
   const dispatched = data?.length ?? 0;
-  await logAudit("pallet.bulk_dispatched", ctx.userId, { count: dispatched });
-  return { ok: true, data: { dispatched } };
+  const { count: blocked, error: blockedErr } = await supabase
+    .from("pallets")
+    .select("id", { count: "exact", head: true })
+    .in("id", ids)
+    .not("blocked_at", "is", null);
+  if (blockedErr) {
+    logger.error("pallets.bulk_dispatch.blocked_count_failed", {
+      userId: ctx.userId,
+      error: blockedErr,
+    });
+  }
+  await logAudit("pallet.bulk_dispatched", ctx.userId, {
+    count: dispatched,
+    blocked: blocked ?? 0,
+  });
+  return { ok: true, data: { dispatched, blocked: blocked ?? 0 } };
 }
 
 export async function updatePalletAction(
@@ -295,12 +360,19 @@ export async function updatePalletAction(
       ...(rest.entry_date !== undefined && { entry_date: rest.entry_date }),
       ...(rest.exit_date !== undefined && { exit_date: rest.exit_date }),
       ...(rest.notes !== undefined && { notes: rest.notes }),
+      ...(rest.area_id !== undefined && { area_id: rest.area_id }),
+      ...(rest.lot_number !== undefined && { lot_number: rest.lot_number }),
+      ...(rest.lot_expiry !== undefined && { lot_expiry: rest.lot_expiry }),
     })
     .eq("id", id);
   if (error) {
-    if (error.code === PG_UNIQUE_VIOLATION) {
-      return { ok: false, error: "Ya existe un pallet con ese código." };
-    }
+    const known = palletWriteError(
+      error,
+      "pallets.update.rejected",
+      ctx.userId,
+      id,
+    );
+    if (known) return { ok: false, error: known };
     logger.error("pallets.update.failed", { userId: ctx.userId, id, error });
     return { ok: false, error: "No se pudo actualizar el pallet." };
   }
@@ -324,9 +396,97 @@ export async function deletePalletAction(input: {
   const supabase = await createSupabaseClient();
   const { error } = await supabase.from("pallets").delete().eq("id", input.id);
   if (error) {
+    const guard = mapDbGuardError(error, {
+      slug: "pallets.delete.rejected",
+      userId: ctx.userId,
+      id: input.id,
+    });
+    if (guard) return { ok: false, error: guard };
     logger.error("pallets.delete.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo borrar el pallet." };
   }
   await logAudit("pallet.deleted", ctx.userId, {}, input.id);
+  return { ok: true, data: undefined };
+}
+
+/**
+ * Blocks a pallet en depósito: it cannot be dispatched nor deleted until it is
+ * unblocked (guard_pallet_blocked). Records who and why.
+ */
+export async function blockPalletAction(
+  input: PalletBlockInput,
+): Promise<ActionResult> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.access, "pallets:write")) {
+    return { ok: false, error: "No tenés permiso para bloquear pallets." };
+  }
+  const parsed = PalletBlockSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
+    };
+  }
+  const { id, reason } = parsed.data;
+
+  const supabase = await createSupabaseClient();
+  const { data, error } = await supabase
+    .from("pallets")
+    .update({
+      blocked_at: new Date().toISOString(),
+      blocked_by: ctx.userId,
+      block_reason: reason,
+    })
+    .eq("id", id)
+    .is("blocked_at", null)
+    .select("id");
+  if (error) {
+    const guard = mapDbGuardError(error, {
+      slug: "pallets.block.rejected",
+      userId: ctx.userId,
+      id,
+    });
+    if (guard) return { ok: false, error: guard };
+    logger.error("pallets.block.failed", { userId: ctx.userId, id, error });
+    return { ok: false, error: "No se pudo bloquear el pallet." };
+  }
+  if (data.length === 0) {
+    return { ok: false, error: "El pallet no existe o ya está bloqueado." };
+  }
+
+  await logAudit("pallet.blocked", ctx.userId, { reason }, id);
+  return { ok: true, data: undefined };
+}
+
+export async function unblockPalletAction(input: {
+  id: string;
+}): Promise<ActionResult> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.access, "pallets:write")) {
+    return { ok: false, error: "No tenés permiso para desbloquear pallets." };
+  }
+  const id = PalletBlockSchema.shape.id.safeParse(input.id);
+  if (!id.success) return { ok: false, error: "Pallet inválido." };
+
+  const supabase = await createSupabaseClient();
+  const { data, error } = await supabase
+    .from("pallets")
+    .update({ blocked_at: null, blocked_by: null, block_reason: null })
+    .eq("id", id.data)
+    .not("blocked_at", "is", null)
+    .select("id, block_reason");
+  if (error) {
+    logger.error("pallets.unblock.failed", {
+      userId: ctx.userId,
+      id: id.data,
+      error,
+    });
+    return { ok: false, error: "No se pudo desbloquear el pallet." };
+  }
+  if (data.length === 0) {
+    return { ok: false, error: "El pallet no existe o no está bloqueado." };
+  }
+
+  await logAudit("pallet.unblocked", ctx.userId, {}, id.data);
   return { ok: true, data: undefined };
 }

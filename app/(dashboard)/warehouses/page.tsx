@@ -1,8 +1,12 @@
 import { redirect } from "next/navigation";
 
+import { listStorageAreasAction } from "@/features/warehouses/actions/storage-areas-actions";
 import { listWarehousesAction } from "@/features/warehouses/actions/warehouses-actions";
 import { WarehousesTable } from "@/features/warehouses/components/warehouses-table";
-import { warehousesKeys } from "@/features/warehouses/lib/warehouses-keys";
+import {
+  storageAreasKeys,
+  warehousesKeys,
+} from "@/features/warehouses/lib/warehouses-keys";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { Hydrate } from "@/lib/query/hydrate";
@@ -21,6 +25,11 @@ export default async function WarehousesPageRoute() {
       queryKey: warehousesKeys.list(false),
       queryFn: () =>
         runAction(() => listWarehousesAction({ onlyActive: false })),
+    },
+    {
+      queryKey: storageAreasKeys.list(false),
+      queryFn: () =>
+        runAction(() => listStorageAreasAction({ onlyActive: false })),
     },
   ]);
   return (

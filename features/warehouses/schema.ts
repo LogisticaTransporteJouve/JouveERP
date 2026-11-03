@@ -48,3 +48,27 @@ export const WarehouseToggleSchema = z.object({
   id: z.string().uuid(),
   is_active: z.boolean(),
 });
+
+/** An area (zone) of a warehouse: cámara de frío, a granel, rack… */
+export interface StorageArea {
+  id: string;
+  warehouse_id: string;
+  name: string;
+  is_active: boolean;
+  notes: string | null;
+}
+
+export const StorageAreaCreateSchema = z.object({
+  warehouse_id: z.string().uuid("Depósito requerido."),
+  name: z.string().trim().min(1, "Nombre requerido.").max(120),
+  notes: optionalText(500),
+});
+export type StorageAreaCreateInput = z.input<typeof StorageAreaCreateSchema>;
+
+export const StorageAreaUpdateSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string().trim().min(1, "Nombre requerido.").max(120).optional(),
+  is_active: z.boolean().optional(),
+  notes: optionalText(500),
+});
+export type StorageAreaUpdateInput = z.input<typeof StorageAreaUpdateSchema>;
