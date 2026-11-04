@@ -18,12 +18,15 @@ type Props = {
   initialFilters: JournalFilters;
   /** Shows the closed-periods control (canManageClosedPeriods). */
   canManagePeriods: boolean;
+  /** Shows «Nuevo asiento» (accounting:write). */
+  canWrite: boolean;
 };
 
 export function JournalList({
   channels,
   initialFilters,
   canManagePeriods,
+  canWrite,
 }: Props) {
   const [filters, setFilters] = useState<JournalFilters>(initialFilters);
   const [newEntryOpen, setNewEntryOpen] = useState(false);
@@ -55,14 +58,18 @@ export function JournalList({
               Períodos cerrados
             </Button>
           )}
-          <Button onClick={() => setNewEntryOpen(true)}>
-            <Plus />
-            Nuevo asiento
-          </Button>
+          {canWrite && (
+            <Button onClick={() => setNewEntryOpen(true)}>
+              <Plus />
+              Nuevo asiento
+            </Button>
+          )}
         </div>
       </div>
 
-      <ManualEntryDialog open={newEntryOpen} onOpenChange={setNewEntryOpen} />
+      {canWrite && (
+        <ManualEntryDialog open={newEntryOpen} onOpenChange={setNewEntryOpen} />
+      )}
       {canManagePeriods && (
         <ClosedPeriodsDialog open={periodsOpen} onOpenChange={setPeriodsOpen} />
       )}

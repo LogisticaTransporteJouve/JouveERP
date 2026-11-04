@@ -26,7 +26,7 @@ export default async function CostCentersPageRoute() {
   return (
     <Hydrate state={dehydratedState}>
       <div className="space-y-6">
-        <CostCentersTable />
+        <CostCentersTable actorAccess={ctx.access} />
       </div>
     </Hydrate>
   );

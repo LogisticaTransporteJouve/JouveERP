@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { userCan, type Access } from "@/lib/auth/permissions";
 import { formatArgentineDate, parseArAmount } from "@/lib/format";
 
 import {
@@ -43,7 +44,8 @@ import type { ExchangeRate } from "../schema";
 /** `exchange_rates.rate` is numeric(18, 6). */
 const EXCHANGE_RATE_DECIMALS = 6;
 
-export function ExchangeRatesPage() {
+export function ExchangeRatesPage({ actorAccess }: { actorAccess: Access }) {
+  const canWrite = userCan(actorAccess, "accounting:write");
   const { data: items } = useExchangeRates();
   const deleteMut = useDeleteExchangeRate();
   const confirm = useConfirm();
@@ -110,19 +112,20 @@ export function ExchangeRatesPage() {
         header: "",
         enableSorting: false,
         meta: { headerClassName: "w-12" },
-        cell: ({ row }) => (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => handleDelete(row.original)}
-            aria-label="Borrar"
-          >
-            <Trash2 className="size-4 text-destructive" />
-          </Button>
-        ),
+        cell: ({ row }) =>
+          canWrite && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => handleDelete(row.original)}
+              aria-label="Borrar"
+            >
+              <Trash2 className="size-4 text-destructive" />
+            </Button>
+          ),
       },
     ];
-  }, [confirm, deleteMut]);
+  }, [canWrite, confirm, deleteMut]);
 
   return (
     <div className="space-y-6">
@@ -138,10 +141,12 @@ export function ExchangeRatesPage() {
         </div>
         <div className="flex items-center gap-2">
           <ExportButton resource="exchange-rates" />
-          <Button onClick={() => setDialogOpen(true)}>
-            <Plus />
-            Cargar cotización
-          </Button>
+          {canWrite && (
+            <Button onClick={() => setDialogOpen(true)}>
+              <Plus />
+              Cargar cotización
+            </Button>
+          )}
         </div>
       </div>
 
@@ -152,11 +157,13 @@ export function ExchangeRatesPage() {
         emptyMessage="No hay cotizaciones cargadas."
       />
 
-      <ExchangeRateDialog
-        rates={items}
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-      />
+      {canWrite && (
+        <ExchangeRateDialog
+          rates={items}
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+        />
+      )}
     </div>
   );
 }

@@ -28,6 +28,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ManualEntryDialog } from "@/features/journal-entries/components/manual-entry-dialog";
+import { userCan, type Access } from "@/lib/auth/permissions";
 import { formatArgentineDate } from "@/lib/format";
 
 import {
@@ -44,7 +45,8 @@ const numFmt = new Intl.NumberFormat("es-AR", {
   maximumFractionDigits: 6,
 });
 
-export function InflationPage() {
+export function InflationPage({ actorAccess }: { actorAccess: Access }) {
+  const canWrite = userCan(actorAccess, "accounting:write");
   const { data: items } = useInflationAdjustments();
   const deleteMut = useDeleteInflationAdjustment();
   const applyMut = useApplyInflationAdjustment();
@@ -139,40 +141,41 @@ export function InflationPage() {
         header: "",
         enableSorting: false,
         meta: { headerClassName: "w-40" },
-        cell: ({ row }) => (
-          <div className="flex justify-end gap-1">
-            {row.original.journal_entry_id ? (
+        cell: ({ row }) =>
+          canWrite && (
+            <div className="flex justify-end gap-1">
+              {row.original.journal_entry_id ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleRevert(row.original)}
+                >
+                  <Unlink className="size-4" />
+                  Desvincular
+                </Button>
+              ) : (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setEntryFor(row.original)}
+                >
+                  <BookOpen className="size-4" />
+                  Generar asiento
+                </Button>
+              )}
               <Button
                 variant="ghost"
-                size="sm"
-                onClick={() => handleRevert(row.original)}
+                size="icon"
+                onClick={() => handleDelete(row.original)}
+                aria-label="Borrar"
               >
-                <Unlink className="size-4" />
-                Desvincular
+                <Trash2 className="size-4 text-destructive" />
               </Button>
-            ) : (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setEntryFor(row.original)}
-              >
-                <BookOpen className="size-4" />
-                Generar asiento
-              </Button>
-            )}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => handleDelete(row.original)}
-              aria-label="Borrar"
-            >
-              <Trash2 className="size-4 text-destructive" />
-            </Button>
-          </div>
-        ),
+            </div>
+          ),
       },
     ];
-  }, [confirm, deleteMut, revertMut]);
+  }, [canWrite, confirm, deleteMut, revertMut]);
 
   return (
     <div className="space-y-6">
@@ -186,10 +189,12 @@ export function InflationPage() {
             monetarios (preparación de balance ajustado).
           </p>
         </div>
-        <Button onClick={() => setDialogOpen(true)}>
-          <Plus />
-          Cargar coeficiente
-        </Button>
+        {canWrite && (
+          <Button onClick={() => setDialogOpen(true)}>
+            <Plus />
+            Cargar coeficiente
+          </Button>
+        )}
       </div>
 
       <DataTable
@@ -199,35 +204,39 @@ export function InflationPage() {
         emptyMessage="No hay coeficientes cargados."
       />
 
-      <InflationDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+      {canWrite && (
+        <InflationDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+      )}
 
-      <ManualEntryDialog
-        open={entryFor !== null}
-        onOpenChange={(open) => {
-          if (!open) setEntryFor(null);
-        }}
-        defaultDescription={
-          entryFor
-            ? `Ajuste por inflación RG 4667 — período ${entryFor.period}`
-            : undefined
-        }
-        prefillRecpam
-        onCreated={(journalEntryId) => {
-          if (!entryFor) return;
-          applyMut.mutate(
-            { id: entryFor.id, journal_entry_id: journalEntryId },
-            {
-              onSuccess: () =>
-                toast.success("Asiento vinculado al coeficiente."),
-              onError: (err) =>
-                toast.error(
-                  `El asiento se creó pero no se pudo vincular: ${err.message}`,
-                ),
-            },
-          );
-          setEntryFor(null);
-        }}
-      />
+      {canWrite && (
+        <ManualEntryDialog
+          open={entryFor !== null}
+          onOpenChange={(open) => {
+            if (!open) setEntryFor(null);
+          }}
+          defaultDescription={
+            entryFor
+              ? `Ajuste por inflación RG 4667 — período ${entryFor.period}`
+              : undefined
+          }
+          prefillRecpam
+          onCreated={(journalEntryId) => {
+            if (!entryFor) return;
+            applyMut.mutate(
+              { id: entryFor.id, journal_entry_id: journalEntryId },
+              {
+                onSuccess: () =>
+                  toast.success("Asiento vinculado al coeficiente."),
+                onError: (err) =>
+                  toast.error(
+                    `El asiento se creó pero no se pudo vincular: ${err.message}`,
+                  ),
+              },
+            );
+            setEntryFor(null);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -302,7 +311,11 @@ function InflationDialog({
                 <FormItem>
                   <FormLabel>Coeficiente</FormLabel>
                   <FormControl>
-                    <Input {...field} placeholder="1,058432" className="font-mono" />
+                    <Input
+                      {...field}
+                      placeholder="1,058432"
+                      className="font-mono"
+                    />
                   </FormControl>
                   <FormDescription className="text-xs">
                     Ejemplo: 1,058432 = inflación del 5,8432% en el período.
@@ -337,7 +350,11 @@ function InflationDialog({
               )}
             />
             <DialogFooter>
-              <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => onOpenChange(false)}
+              >
                 Cancelar
               </Button>
               <Button type="submit" disabled={createMut.isPending}>

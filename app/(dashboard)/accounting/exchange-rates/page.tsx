@@ -24,7 +24,7 @@ export default async function ExchangeRatesPageRoute() {
   ]);
   return (
     <Hydrate state={dehydratedState}>
-      <ExchangeRatesPage />
+      <ExchangeRatesPage actorAccess={ctx.access} />
     </Hydrate>
   );
 }
