@@ -195,6 +195,15 @@ describe("PurchaseInvoiceCreateSchema", () => {
         imp_no_gravado: 290,
         imp_total: 1500.01,
       }).success,
+    ).toBe(false);
+    expect(
+      PurchaseInvoiceCreateSchema.safeParse({
+        ...valid,
+        imp_neto: 1000,
+        imp_iva: 210,
+        imp_no_gravado: 290,
+        imp_total: 1500,
+      }).success,
     ).toBe(true);
   });
 
