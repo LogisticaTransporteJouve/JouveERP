@@ -180,6 +180,7 @@ const GUARDS = [
   "claim_storage_billing_period",
   "guard_storage_billing_run_invoice",
   "guard_storage_billing_run_delete",
+  "enforce_payroll_period_immutability",
   "guard_shipment_invoice",
   "guard_check_import_run",
 ];

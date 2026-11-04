@@ -1,4 +1,4 @@
--- Audit w11-s5 F1, w11-s2 F1, w11-s4 F3-F4 (20261104190000-190002): a carga
+-- Audit w11-s5 F1, w11-s2 F1, w11-s4 F3-F4 (20261104190300-190302): a carga
 -- links only a live invoice of its client; a fiscal storage factura credited
 -- in full by emitted NCs frees its period (claim, delete guard, the void-run
 -- list), an internal one or a partial NC does not; a billed run keeps its

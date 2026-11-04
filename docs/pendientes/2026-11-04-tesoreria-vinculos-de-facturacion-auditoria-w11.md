@@ -3,14 +3,14 @@
 Ver [la decisión](../decisions/2026-11-04-tesoreria-vinculos-de-facturacion-auditoria-w11.md).
 
 - [x] **Una carga se vincula solo a una factura vigente de su cliente**
-      (`20261104190000`). Si el vínculo se rechaza por una factura fallida,
+      (`20261104190300`). Si el vínculo se rechaza por una factura fallida,
       «Facturar flete» libera la carga.
 - [x] **Una factura fiscal de almacenaje con NC por el total libera su
-      período** (`20261104190001`). Aplica a la reserva, a la guarda de
+      período** (`20261104190301`). Aplica a la reserva, a la guarda de
       borrado y al historial. El mensaje de la guarda ahora es cierto.
-- [x] **Un período facturado no suelta su factura** (`20261104190001`).
+- [x] **Un período facturado no suelta su factura** (`20261104190301`).
 - [x] **La marca de importación de un cheque la pone solo el importador**
-      (`20261104190002`).
+      (`20261104190302`).
 - [x] **El re-vínculo de otro período o canal deja su `storage.invoiced`**.
 - [x] **«Facturar almacenaje» ofrece solo los canales del lado del
       cliente** y preselecciona el único.

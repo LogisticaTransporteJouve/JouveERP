@@ -88,9 +88,11 @@ function fakeSupabase(
       let out = (tables[table] ?? []).filter((r) => filters.every((f) => f(r)));
       if (order) {
         const { col, asc } = order;
-        out = [...out].sort(
-          (a, b) => (Number(a[col]) - Number(b[col])) * (asc ? 1 : -1),
-        );
+        const cmp = (a: unknown, b: unknown) =>
+          typeof a === "string" && typeof b === "string"
+            ? a.localeCompare(b)
+            : Number(a) - Number(b);
+        out = [...out].sort((a, b) => cmp(a[col], b[col]) * (asc ? 1 : -1));
       }
       return out.slice(offset, offset + limit);
     };
@@ -627,6 +629,7 @@ describe("NC without CbtesAsoc", () => {
           numero: 15538,
           doc_nro: "30708974141",
           imp_total: 5220020000,
+          moneda: "PES",
           fecha: "2022-10-28",
           status: "emitted",
           client_id: "c1",
@@ -659,6 +662,96 @@ describe("NC without CbtesAsoc", () => {
       kind: "nc",
       invoice_origin_id: "fa-15538",
     });
+  });
+});
+
+describe("NC matched by total", () => {
+  const factura = (id: string, fecha: string, moneda = "PES"): Row => ({
+    id,
+    kind: "factura",
+    punto_venta: 3,
+    cbte_tipo_afip: 1,
+    numero: Number(id.replace(/\D/g, "")),
+    doc_nro: "30718543866",
+    imp_total: 1000,
+    moneda,
+    fecha,
+    status: "emitted",
+    client_id: "c1",
+  });
+  const clients = [
+    { id: "c1", cuit: "30718543866", legal_name: "PALLET SIRANS S.R.L." },
+  ] as Row[];
+  const nc = (cbteNro: number, over: Partial<VoucherInfo> = {}) =>
+    voucher({
+      cbteTipo: 3,
+      cbteNro,
+      cbteFch: "20260310",
+      impTotal: 1000,
+      impNeto: 826.45,
+      impIva: 173.55,
+      iva: [],
+      ...over,
+    });
+
+  it("spreads two same-total NCs over two facturas instead of over-crediting one", async () => {
+    const db = {
+      clients,
+      invoices: [factura("fa-1", "2026-01-31"), factura("fa-2", "2026-02-28")],
+    };
+    const afip = fakeAfip([nc(1), nc(2)]);
+
+    const res = await syncIssuedPair(fakeSupabase(db), afip, target, 3, 10);
+
+    expect(res).toMatchObject({ imported: 2, unlinked: 0 });
+    expect(
+      db.invoices.find((r) => r.kind === "nc" && r.numero === 1),
+    ).toMatchObject({ invoice_origin_id: "fa-2" });
+    expect(
+      db.invoices.find((r) => r.kind === "nc" && r.numero === 2),
+    ).toMatchObject({ invoice_origin_id: "fa-1" });
+  });
+
+  it("stores the NC unlinked when every same-total factura is already credited", async () => {
+    const db = { clients, invoices: [factura("fa-1", "2026-01-31")] };
+    const afip = fakeAfip([nc(1), nc(2)]);
+
+    const res = await syncIssuedPair(fakeSupabase(db), afip, target, 3, 10);
+
+    expect(res).toMatchObject({ imported: 2, unlinked: 1 });
+    expect(
+      db.invoices.find((r) => r.kind === "nc" && r.numero === 2),
+    ).toMatchObject({ invoice_origin_id: null, origin_unlinked: true });
+  });
+
+  it("does not link a peso NC to a dollar factura of the same total", async () => {
+    const db = {
+      clients,
+      invoices: [factura("fa-1", "2026-01-31", "DOL")],
+    };
+    const afip = fakeAfip([nc(1)]);
+
+    const res = await syncIssuedPair(fakeSupabase(db), afip, target, 3, 10);
+
+    expect(res).toMatchObject({ imported: 1, unlinked: 1 });
+    expect(db.invoices.find((r) => r.kind === "nc")).toMatchObject({
+      invoice_origin_id: null,
+    });
+  });
+});
+
+describe("voucher in a currency other than pesos or dollars", () => {
+  it("is left out as missing instead of being imported", async () => {
+    const db = { clients: [] as Row[], invoices: [] as Row[] };
+    const afip = fakeAfip([
+      voucher({ cbteNro: 1, monId: "060", monCotiz: 1100 }),
+      voucher({ cbteNro: 2 }),
+    ]);
+
+    const res = await syncIssuedPair(fakeSupabase(db), afip, target, 1, 10);
+
+    expect(res).toMatchObject({ imported: 1, missing: 1, stopped: null });
+    expect(db.invoices.map((r) => r.numero)).toEqual([2]);
   });
 });
 

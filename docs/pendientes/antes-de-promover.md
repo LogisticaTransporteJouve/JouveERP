@@ -632,16 +632,66 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
     todo por nombre e ignora las columnas nuevas; con el grupo `none`,
     `getVehicleEconomics` del código anterior lo listaría como un vehículo
     más llamado «Sin vehículo» (cosmético; el resto lo ignora por id).
-- [ ] **Aprobar `20261104190000`, `190001` y `190002`** (auditoría w11,
+- [ ] **Aprobar `20261104190100`** (auditoría w11, RRHH). No toca filas
+      existentes ni cambia políticas RLS.
+      `enforce_payroll_period_immutability` pasa a `SECURITY DEFINER`:
+      solo owner o admin (o el service role) sacan un período de
+      `closed`, y una entry o un extra no se pasan de un período cerrado a
+      otro. Rollback: el código anterior reabre solo por la action con
+      `hr:admin` (owner/admin) y nunca mueve entries ni extras.
+  - Con este deploy, la importación de ventas de ARCA vincula una NC sin
+    `CbtesAsoc` solo a una factura de su moneda a la que le queda lugar, y
+    no trae comprobantes en otra moneda que pesos o dólares
+    (`lib/afip/sync-issued.ts`, sin migración; un rollback vuelve a vincular
+    por total sin mirar lugar ni moneda). Producción tiene ventas y
+    NC reales importadas de ARCA, y el cambio no las toca. Antes de
+    promover, correr esta consulta de solo lectura (válida sobre el
+    esquema de `20261102170000`). Lista cada NC de una factura cuyas NC
+    suman más que su total, y cada NC vinculada por total a una factura de
+    otra moneda. Lo que salga lo decide el dueño:
+    `docs/pendientes/2026-11-04-fiscal-nc-por-total-y-liquidaciones-auditoria-w11.md`.
+
+    ```sql
+    with credited as (
+      select n.invoice_origin_id as factura_id,
+             sum(n.imp_total) as nc_total,
+             count(*) as nc_count
+        from public.invoices n
+       where n.kind = 'nc'
+         and n.invoice_origin_id is not null
+         and n.status in ('draft', 'emitting', 'emitted')
+       group by n.invoice_origin_id
+    )
+    select f.id as factura_id, f.punto_venta, f.cbte_tipo_afip as factura_tipo,
+           f.numero as factura_numero, f.fecha as factura_fecha,
+           f.moneda as factura_moneda, f.imp_total as factura_total,
+           c.nc_total, c.nc_count,
+           n.id as nc_id, n.cbte_tipo_afip as nc_tipo, n.numero as nc_numero,
+           n.fecha as nc_fecha, n.moneda as nc_moneda, n.imp_total as nc_imp_total,
+           (n.idempotency_key like 'arca-sync-%'
+              and n.cbte_tipo_origen_afip is null) as vinculada_por_total,
+           c.nc_total > f.imp_total + 0.01 as factura_acreditada_de_mas,
+           n.moneda <> f.moneda as otra_moneda
+      from public.invoices n
+      join public.invoices f on f.id = n.invoice_origin_id
+      join credited c on c.factura_id = f.id
+     where n.kind = 'nc'
+       and n.status in ('draft', 'emitting', 'emitted')
+       and (c.nc_total > f.imp_total + 0.01
+            or (n.idempotency_key like 'arca-sync-%'
+                and n.cbte_tipo_origen_afip is null
+                and n.moneda <> f.moneda))
+     order by f.fecha, f.id, n.fecha, n.numero;
+- [ ] **Aprobar `20261104190300`, `190301` y `190302`** (auditoría w11,
       vínculos de facturación y cheques). No tocan filas existentes ni
       cambian políticas RLS.
-  - `190000`: trigger nuevo `shipments_guard_invoice`. Una carga se vincula
+  - `190300`: trigger nuevo `shipments_guard_invoice`. Una carga se vincula
     solo a una factura de su cliente que no falló ni se anuló.
     `link_freight_settlement_invoice` ya valida lo mismo, y
     `release_invoice_billing_links` solo limpia el vínculo. Rollback: el
     código anterior informa el rechazo como «no se vinculó», conserva la
     reserva 15 minutos y después emite con la clave siguiente.
-  - `190001`: funciones nuevas `storage_invoice_is_void` y
+  - `190301`: funciones nuevas `storage_invoice_is_void` y
     `storage_billing_void_run_ids` (invoker, para `authenticated`).
     `claim_storage_billing_period`, `guard_storage_billing_run_delete` y
     `guard_storage_billing_run_invoice` se reemplazan desde su última
@@ -650,11 +700,11 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
     existentes. Un período vinculado no suelta su factura. Rollback: misma
     firma de la reserva; el código anterior nunca cambia la factura de un
     período vinculado.
-  - `190002`: trigger nuevo `checks_guard_import_run`. `import_run_id` de un
+  - `190302`: trigger nuevo `checks_guard_import_run`. `import_run_id` de un
     cheque lo pone solo `commit_import_run` y no cambia. Rollback: el código
     anterior lo escribe solo desde el importador.
   - Consulta de control antes de aplicar (solo lectura): cuántos períodos
-    libera `190001` en la próxima reserva de cada cliente.
+    libera `190301` en la próxima reserva de cada cliente.
 
     ```sql
     select r.id, r.client_id, r.period_start, r.period_end, i.imp_total,

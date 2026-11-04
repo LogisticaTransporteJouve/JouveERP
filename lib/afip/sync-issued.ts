@@ -391,11 +391,19 @@ const FACTURA_TIPO_FOR_NOTE: Record<number, number> = {
   13: 11,
 };
 
+/** Same-total facturas looked at for one note; past them it stays unlinked. */
+const TOTAL_MATCH_CANDIDATES = 100;
+
+/** NC statuses that already take credit off their origin, as in
+ *  `invoice_open_amount`. */
+const CREDITING_NC_STATUSES = ["draft", "emitting", "emitted"];
+
 /** Older NC/ND (before ARCA required CbtesAsoc) carry no reference. The
- *  origin is then the factura of the same point of sale and letter, to the
- *  same receiver, for the same total, on or before the note's date (latest
- *  wins). Without a match it stays missing; the gap retry tries again once
- *  more facturas are in. */
+ *  origin is then the factura of the same point of sale, letter and currency,
+ *  to the same receiver, for the same total, on or before the note's date
+ *  (latest wins). An NC only takes a factura whose linked NCs leave room for
+ *  its whole total, so a guess never over-credits a factura. Without a match
+ *  it stays missing and the note is stored unlinked. */
 async function matchOriginByTotal(
   supabase: Supabase,
   info: VoucherInfo,
@@ -405,25 +413,64 @@ async function matchOriginByTotal(
   if (!facturaTipo || !fecha || !info.docNro) return { status: "missing" };
   const { data, error } = await supabase
     .from("invoices")
-    .select("id, client_id")
+    .select("id, client_id, imp_total")
     .eq("punto_venta", info.ptoVta)
     .eq("cbte_tipo_afip", facturaTipo)
     .eq("doc_nro", info.docNro)
+    .eq("moneda", info.monId ?? "PES")
     .eq("imp_total", info.impTotal)
     .lte("fecha", fecha)
     .eq("status", "emitted")
     .order("fecha", { ascending: false })
-    .limit(1);
+    .limit(TOTAL_MATCH_CANDIDATES);
   if (error) throw new Error(`origin match: ${error.message}`);
-  const found = data?.[0];
+  const candidates = data ?? [];
+  const credited =
+    kindLetterForCbteTipo(info.cbteTipo)?.kind === "nc"
+      ? await creditedByNotes(
+          supabase,
+          candidates.map((c) => c.id),
+        )
+      : null;
+  const found = candidates.find(
+    (c) =>
+      !credited ||
+      cents(c.imp_total) - (credited.get(c.id) ?? 0) >= cents(info.impTotal),
+  );
   return found
     ? { status: "found", id: found.id, clientId: found.client_id }
     : { status: "missing" };
 }
 
+/** Cents each factura already has credited by the NCs linked to it. */
+async function creditedByNotes(
+  supabase: Supabase,
+  originIds: string[],
+): Promise<Map<string, number>> {
+  const credited = new Map<string, number>();
+  if (originIds.length === 0) return credited;
+  const { data, error } = await supabase
+    .from("invoices")
+    .select("invoice_origin_id, imp_total")
+    .in("invoice_origin_id", originIds)
+    .eq("kind", "nc")
+    .in("status", CREDITING_NC_STATUSES);
+  if (error) throw new Error(`origin credits: ${error.message}`);
+  for (const n of data ?? []) {
+    if (!n.invoice_origin_id) continue;
+    credited.set(
+      n.invoice_origin_id,
+      (credited.get(n.invoice_origin_id) ?? 0) + cents(n.imp_total),
+    );
+  }
+  return credited;
+}
+
+const SUPPORTED_MONEDAS: readonly string[] = ["PES", "DOL"];
+
 type VoucherOutcome =
   | { kind: "imported"; unlinked: boolean }
-  | { kind: "missing" }
+  | { kind: "missing"; reason?: string }
   | { kind: "waiting_origin"; originNro: number }
   | { kind: "failed"; message: string };
 
@@ -437,6 +484,18 @@ async function importVoucher(
 ): Promise<VoucherOutcome> {
   const info = await afip.getVoucherInfo(target.punto_venta, cbteTipo, nro);
   if (!info) return { kind: "missing" };
+  // The aging, receipts and NC spread model only pesos and dollars; another
+  // currency would be counted as pesos there, so it is left as a gap.
+  const moneda = info.monId ?? "PES";
+  if (!SUPPORTED_MONEDAS.includes(moneda)) {
+    logger.warn("arca_sync.unsupported_currency", {
+      punto_venta: info.ptoVta,
+      cbte_tipo: info.cbteTipo,
+      numero: info.cbteNro,
+      moneda,
+    });
+    return { kind: "missing", reason: `moneda no soportada (${moneda})` };
+  }
 
   const kind = kindLetterForCbteTipo(cbteTipo)?.kind;
   const origin =
@@ -588,7 +647,7 @@ export async function syncIssuedPair(
         numero: nro,
         reason:
           outcome.kind === "missing"
-            ? "ARCA no devolvió el comprobante"
+            ? (outcome.reason ?? "ARCA no devolvió el comprobante")
             : outcome.kind === "waiting_origin"
               ? `espera su origen ${outcome.originNro}`
               : outcome.message,

@@ -5,14 +5,14 @@ la [decisión w10](2026-11-04-tesoreria-prestamos-y-almacenaje-auditoria-w10.md)
 un vínculo lo pone solo el camino que lo valida, y ninguna escritura directa
 lo cambia después.
 
-- **Carga y su factura** (`20261104190000`). Una carga se vincula solo a una
+- **Carga y su factura** (`20261104190300`). Una carga se vincula solo a una
   factura de su cliente que no falló ni se anuló. El trigger bloquea la
   factura (`for share`), como el de almacenaje. Antes, si la factura fallaba
   entre la emisión y el vínculo, `release_invoice_billing_links` ya había
   corrido sin encontrar la carga, y la carga quedaba facturada para siempre:
   no se podía facturar, editar ni borrar. Ahora el vínculo se rechaza y
   «Facturar flete» libera la reserva de la carga y lo avisa.
-- **Factura fiscal de almacenaje anulada con NC** (`20261104190001`). Una
+- **Factura fiscal de almacenaje anulada con NC** (`20261104190301`). Una
   factura fiscal se deshace con una nota de crédito, nunca se anula. Si sus
   NC emitidas suman su total (con 0,01 de tolerancia), su período de
   almacenaje queda libre. Es la misma prueba que usa una liquidación de
@@ -29,12 +29,12 @@ lo cambia después.
   Una NC interna se puede anular después, y la factura volvería a estar
   vigente con su período ya borrado. Por eso las NC de una factura interna no
   liberan el período.
-- **Un período facturado no suelta su factura** (`20261104190001`). Una vez
+- **Un período facturado no suelta su factura** (`20261104190301`). Una vez
   puesto, `invoice_id` no se borra ni se cambia por PATCH. Solo pasa a null
   cuando se borra la factura (el `set null` de la FK). Antes, desvincular
   primero y borrar después liberaba un período facturado por código anterior
   a `160002`, que emitía con una clave al azar.
-- **Marca de importación de un cheque** (`20261104190002`). La pone solo
+- **Marca de importación de un cheque** (`20261104190302`). La pone solo
   `commit_import_run` al cargar el cheque, y ningún UPDATE la cambia. De esa
   marca depende Resultado de gestión (caja): el ingreso y el rechazo de un
   cheque importado son neutros. Un PATCH de finance podía volver neutro el
