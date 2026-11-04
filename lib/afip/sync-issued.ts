@@ -24,8 +24,10 @@ import type { VoucherInfo } from "./wsfev1";
 
 type Supabase = SupabaseClient<Database>;
 type InvoiceInsert = Database["public"]["Tables"]["invoices"]["Insert"];
-type InvoiceItemInsert =
-  Database["public"]["Tables"]["invoice_items"]["Insert"];
+type ImportedItem = Omit<
+  Database["public"]["Tables"]["invoice_items"]["Insert"],
+  "invoice_id"
+>;
 
 export interface ArcaVoucherPort {
   getLastAuthorizedNumber(ptoVta: number, cbteTipo: number): Promise<number>;
@@ -173,10 +175,7 @@ const cents = (n: number) => Math.round(n * 100);
  *  header. Empty (the header-only import) when the breakdown is missing, names
  *  a rate the ERP does not model, or does not add up to the header neto and
  *  IVA to the cent. */
-export function voucherToInvoiceItems(
-  info: VoucherInfo,
-  invoiceId: string,
-): InvoiceItemInsert[] {
+export function voucherToInvoiceItems(info: VoucherInfo): ImportedItem[] {
   if (info.iva.length === 0) return [];
   const valid = info.iva.every(
     (a) =>
@@ -191,7 +190,6 @@ export function voucherToInvoiceItems(
   const iva = info.iva.reduce((s, a) => s + cents(a.importe), 0);
   if (base !== cents(info.impNeto) || iva !== cents(info.impIva)) return [];
   return info.iva.map((a, i) => ({
-    invoice_id: invoiceId,
     sort_order: i,
     description: "Importado de ARCA",
     quantity: 1,
@@ -468,47 +466,26 @@ async function importVoucher(
   });
   if (!row) return { kind: "missing" };
 
-  const { data, error } = await supabase
-    .from("invoices")
-    .upsert(row, { onConflict: "idempotency_key", ignoreDuplicates: true })
-    .select("id");
+  const items = voucherToInvoiceItems(info);
+  if (items.length === 0 && info.iva.length > 0) {
+    logger.warn("arca_sync.iva_breakdown_skipped", {
+      punto_venta: info.ptoVta,
+      cbte_tipo: info.cbteTipo,
+      numero: info.cbteNro,
+    });
+  }
+  // Header and items in one transaction: a kill or a failed items write
+  // leaves nothing, and the next run imports the voucher again. A key
+  // already imported inserts nothing (null).
+  const { error } = await supabase.rpc("import_arca_issued_invoice", {
+    p_invoice: row,
+    p_items: items,
+  });
   if (error && error.code !== PG_UNIQUE_VIOLATION) {
     return { kind: "failed", message: error.message };
   }
   if (error) return { kind: "missing" };
-  // Only the row this call inserted gets items: a duplicate comes back empty.
-  const insertedId = data?.[0]?.id;
-  if (insertedId) await storeIvaBreakdown(supabase, info, insertedId);
   return { kind: "imported", unlinked };
-}
-
-/** Best effort: without the items the invoice stays header-only, as every
- *  import was before, and the books infer its rate. */
-async function storeIvaBreakdown(
-  supabase: Supabase,
-  info: VoucherInfo,
-  invoiceId: string,
-): Promise<void> {
-  const items = voucherToInvoiceItems(info, invoiceId);
-  if (items.length === 0) {
-    if (info.iva.length > 0) {
-      logger.warn("arca_sync.iva_breakdown_skipped", {
-        punto_venta: info.ptoVta,
-        cbte_tipo: info.cbteTipo,
-        numero: info.cbteNro,
-      });
-    }
-    return;
-  }
-  const { error } = await supabase.from("invoice_items").insert(items);
-  if (error) {
-    logger.warn("arca_sync.iva_breakdown_insert_failed", {
-      punto_venta: info.ptoVta,
-      cbte_tipo: info.cbteTipo,
-      numero: info.cbteNro,
-      error: error.message,
-    });
-  }
 }
 
 const GAP_PAGE = 1000;

@@ -1,13 +1,19 @@
 import { describe, expect, it } from "vitest";
 
+import { computeLineAmounts, computeTotals } from "@/features/invoices/schema";
 import { CONDICION_IVA_RECEPTOR } from "@/lib/afip/codes";
+import { round2 } from "@/lib/format";
 
 import {
-  carriesTransparencyRegime,
   discriminatesIva,
+  invoicePerRate,
   invoiceTotalsRows,
-  isFacturaBToConsumidorFinal,
+  itemSubtotal,
   itemUnitPrice,
+} from "./invoice-figures";
+import {
+  carriesTransparencyRegime,
+  isFacturaBToConsumidorFinal,
   isLetterAToMonotributo,
   type InvoiceTemplateData,
 } from "./invoice-template";
@@ -148,6 +154,83 @@ describe("invoice totals", () => {
       { label: "Subtotal", amount: 121 },
       { label: "Otros tributos", amount: 3.3 },
     ]);
+  });
+});
+
+describe("item subtotals", () => {
+  const lines = [
+    { quantity: 3, unit_price: 100, iva_rate_id: 5 as const },
+    { quantity: 2, unit_price: 333.33, iva_rate_id: 4 as const },
+  ];
+  const totals = computeTotals(lines, true);
+  const items = lines.map((l) => ({
+    description: "Flete",
+    ...l,
+    ...computeLineAmounts(l, true),
+  }));
+  const issued = (letter: "A" | "B") => ({
+    ...voucher(letter, CONDICION_IVA_RECEPTOR.CONSUMIDOR_FINAL),
+    items,
+    imp_neto: totals.imp_neto,
+    imp_iva: totals.imp_iva,
+    imp_total: totals.imp_total,
+    per_rate: invoicePerRate(
+      { isFiscal: true, imp_neto: totals.imp_neto, imp_iva: totals.imp_iva },
+      items,
+    ),
+  });
+  const sumLines = (data: InvoiceTemplateData) =>
+    Math.round(
+      data.items.reduce((s, it) => s + itemSubtotal(data, it), 0) * 100,
+    ) / 100;
+
+  it("on an A, each line is quantity × net price and the lines add up to the Subtotal", () => {
+    const a = issued("A");
+    expect(itemSubtotal(a, a.items[0]!)).toBe(300);
+    expect(sumLines(a)).toBe(
+      invoiceTotalsRows(a).find((r) => r.label === "Subtotal")?.amount,
+    );
+  });
+
+  it("on a B, the lines carry IVA and add up to the Subtotal before tributos", () => {
+    const b = issued("B");
+    expect(itemSubtotal(b, b.items[0]!)).toBe(363);
+    expect(sumLines(b)).toBe(b.imp_total);
+    const withTrib = {
+      ...b,
+      imp_trib: 12.5,
+      imp_total: round2(b.imp_total + 12.5),
+    };
+    expect(sumLines(withTrib)).toBe(
+      invoiceTotalsRows(withTrib).find((r) => r.label === "Subtotal")?.amount,
+    );
+  });
+});
+
+describe("invoicePerRate", () => {
+  it("adds the items per rate, low id first", () => {
+    expect(
+      invoicePerRate({ isFiscal: true, imp_neto: 1100, imp_iva: 126 }, [
+        { iva_rate_id: 5, line_neto: 100, line_iva: 21 },
+        { iva_rate_id: 4, line_neto: 1000, line_iva: 105 },
+        { iva_rate_id: 5, line_neto: 50, line_iva: 10.5 },
+      ]),
+    ).toEqual([
+      { id: 4, base: 1000, importe: 105 },
+      { id: 5, base: 150, importe: 31.5 },
+    ]);
+  });
+
+  it("puts an itemless fiscal header under the rate the book infers, or none", () => {
+    expect(
+      invoicePerRate({ isFiscal: true, imp_neto: 100, imp_iva: 21 }, []),
+    ).toEqual([{ id: 5, base: 100, importe: 21 }]);
+    expect(
+      invoicePerRate({ isFiscal: true, imp_neto: 100, imp_iva: 17 }, []),
+    ).toEqual([]);
+    expect(
+      invoicePerRate({ isFiscal: false, imp_neto: 100, imp_iva: 0 }, []),
+    ).toEqual([]);
   });
 });
 

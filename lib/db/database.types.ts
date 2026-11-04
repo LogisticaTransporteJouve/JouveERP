@@ -9743,6 +9743,10 @@ export type Database = {
           entitled_days: number
         }[]
       }
+      import_arca_issued_invoice: {
+        Args: { p_invoice: Json; p_items: Json }
+        Returns: string
+      }
       import_run_outside_reference: {
         Args: { p_run_id: string; p_skip: string[]; p_table: string }
         Returns: string

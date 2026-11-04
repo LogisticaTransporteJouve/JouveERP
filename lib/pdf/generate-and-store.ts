@@ -10,9 +10,9 @@ import {
   renderInvoiceQR,
   type InvoiceQRPayload,
 } from "@/lib/afip/qr";
-import { round2 } from "@/lib/format";
 import { getServiceClient } from "@/lib/supabase/service";
 
+import { invoicePerRate } from "./invoice-figures";
 import type {
   InvoiceTemplateData,
   InvoiceTemplateItem,
@@ -21,7 +21,6 @@ import type {
 import type { InvoiceKind, InvoiceLetter } from "@/lib/afip/codes";
 import { loadEmisor, redactEmisor } from "@/lib/pdf/emisor";
 import type { IvaCondition } from "@/features/clients/schema";
-import { inferIvaRateId } from "@/features/libro-iva/schema";
 import type { InvoiceRow } from "@/features/invoices/schema";
 
 const DOC_TIPO_LABEL: Record<number, string> = {
@@ -109,40 +108,18 @@ export async function buildTemplateData(
       line_total: Number(it.line_total),
     }));
 
-  // Aggregate IVA per rate from items.
-  const buckets = new Map<number, { base: number; importe: number }>();
-  for (const it of items) {
-    if (it.iva_rate_id === null) continue;
-    const bucket = buckets.get(it.iva_rate_id) ?? { base: 0, importe: 0 };
-    bucket.base = round2(bucket.base + Number(it.line_neto));
-    bucket.importe = round2(bucket.importe + Number(it.line_iva));
-    buckets.set(it.iva_rate_id, bucket);
-  }
-  const per_rate: InvoiceTemplateData["per_rate"] = [];
-  for (const [id, b] of buckets) {
-    per_rate.push({
-      id: id as InvoiceTemplateData["per_rate"][number]["id"],
-      base: b.base,
-      importe: b.importe,
-    });
-  }
-  per_rate.sort((a, b) => a.id - b.id);
-  // An invoice imported from ARCA without its breakdown has only the header:
-  // its one bucket goes under the rate the Libro IVA infers for it, so the
-  // PDF adds up (Subtotal + IVA = Total) and agrees with the book.
-  if (isFiscal && items.length === 0 && Number(row.imp_neto) > 0) {
-    const id = inferIvaRateId({
-      neto: Number(row.imp_neto),
-      iva: Number(row.imp_iva),
-    });
-    if (id !== null) {
-      per_rate.push({
-        id: id as InvoiceTemplateData["per_rate"][number]["id"],
-        base: Number(row.imp_neto),
-        importe: Number(row.imp_iva),
-      });
-    }
-  }
+  const per_rate = invoicePerRate(
+    {
+      isFiscal,
+      imp_neto: Number(row.imp_neto),
+      imp_iva: Number(row.imp_iva),
+    },
+    items.map((it) => ({
+      iva_rate_id: it.iva_rate_id,
+      line_neto: Number(it.line_neto),
+      line_iva: Number(it.line_iva),
+    })),
+  );
 
   // QR (only fiscal + has CAE)
   let qrDataUrl: string | null = null;
