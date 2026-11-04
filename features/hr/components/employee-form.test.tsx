@@ -84,6 +84,7 @@ function type(el: HTMLInputElement, text: string) {
   for (const ch of text) {
     fireEvent.change(el, { target: { value: el.value + ch } });
   }
+  fireEvent.blur(el);
 }
 
 async function saved(): Promise<Record<string, unknown>> {
@@ -127,9 +128,10 @@ describe("EmployeeForm money fields", () => {
     expect(await saved()).toMatchObject({ base_salary: 1500.5 });
   });
 
-  it("ignores a second decimal mark typed after the first", async () => {
+  it("reads a typed thousands dot as thousands", async () => {
     renderForm();
-    type(field("Sueldo base mensual"), "1500.5.0");
-    expect(field("Sueldo base mensual").value).toBe("1.500,50");
+    type(field("Sueldo base mensual"), "15.000");
+    expect(field("Sueldo base mensual").value).toBe("15.000");
+    expect(await saved()).toMatchObject({ base_salary: 15_000 });
   });
 });

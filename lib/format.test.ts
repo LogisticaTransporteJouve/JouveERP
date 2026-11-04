@@ -11,6 +11,7 @@ import {
   formatMoneySigned,
   formatNumber2,
   formatSignedAmountInput,
+  moneyInputBlurText,
   nextMoneyInputText,
   normalizeAmountText,
   parseArAmount,
@@ -325,28 +326,47 @@ describe("parseArAmount separator rules", () => {
 });
 
 describe("nextMoneyInputText", () => {
-  function typeKeys(keys: string, opts?: { decimals?: number }): string {
-    let text = "";
+  function typeKeys(
+    keys: string,
+    opts?: { decimals?: number },
+    from = "",
+  ): string {
+    let text = from;
     for (const key of keys) text = nextMoneyInputText(text, text + key, opts);
     return text;
   }
 
   it.each([
-    ["1500.50", "1.500,50"],
-    ["1500,50", "1.500,50"],
-    ["1500.5.0", "1.500,50"],
-    ["1500,5,0", "1.500,50"],
-    [".5", "0,5"],
-  ])("typing %s shows %s", (keys, shown) => {
-    expect(typeKeys(keys)).toBe(shown);
+    ["15.000", "15.000", 15000],
+    ["15.", "15.", 15],
+    ["15.0", "15.0", 15],
+    ["15.00", "15.00", 15],
+    ["15.5", "15.5", 15.5],
+    ["1500.50", "1500.50", 1500.5],
+    ["1500,50", "1500,50", 1500.5],
+    ["1.234,56", "1234,56", 1234.56],
+    ["1.234.567", "1234.567", 1234567],
+    ["1500,5,0", "1500,50", 1500.5],
+  ])("typing %s keeps %s and reads %s", (keys, shown, saved) => {
+    const text = typeKeys(keys);
+    expect(text).toBe(shown);
+    expect(parseArAmount(text)).toBe(saved);
   });
 
-  it("keeps the decimals cap when a dot is typed", () => {
-    expect(typeKeys("1.23456", { decimals: 4 })).toBe("1,2345");
+  it("stops the digits after a comma at the field's decimals", () => {
+    expect(typeKeys("1,23456", { decimals: 4 })).toBe("1,2345");
   });
 
-  it("turns a dot typed in the middle into the decimal mark", () => {
-    expect(nextMoneyInputText("1.500", "1..500")).toBe("1,50");
+  it("keeps a lone dot with 3 digits as thousands with 4 decimals too", () => {
+    expect(parseArAmount(typeKeys("1.234", { decimals: 4 }))).toBe(1234);
+    // Once "1.234" reads as thousands, a further digit continues the number.
+    expect(parseArAmount(typeKeys("1.2345", { decimals: 4 }))).toBe(12345);
+  });
+
+  it("reads digits typed into a grouped value as more digits", () => {
+    expect(parseArAmount(typeKeys("0", undefined, "1.500"))).toBe(15000);
+    expect(parseArAmount(typeKeys(",5", undefined, "1.500"))).toBe(1500.5);
+    expect(parseArAmount(typeKeys(".5", undefined, "1.500"))).toBe(1500.5);
   });
 
   it.each([
@@ -367,11 +387,11 @@ describe("nextMoneyInputText", () => {
   });
 
   it("joins pasted digits to what was there", () => {
-    expect(nextMoneyInputText("1.500", "1.50050")).toBe("150.050");
+    expect(parseArAmount(nextMoneyInputText("1.500", "1.50050"))).toBe(150050);
   });
 
   it("ignores a paste that is not an amount", () => {
-    expect(nextMoneyInputText("1.500", "1.500abc")).toBe("1.500");
+    expect(parseArAmount(nextMoneyInputText("1.500", "1.500abc"))).toBe(1500);
   });
 
   it("keeps a minus only with allowNegative", () => {
@@ -379,6 +399,27 @@ describe("nextMoneyInputText", () => {
       "-1.500,5",
     );
     expect(nextMoneyInputText("", "-1500.5")).toBe("1.500,5");
+    expect(typeKeys("-15")).toBe("15");
+  });
+});
+
+describe("moneyInputBlurText", () => {
+  it.each([
+    ["15.000", "15.000"],
+    ["15.", "15"],
+    ["1500.50", "1.500,50"],
+    ["1234,56", "1.234,56"],
+    ["1234.567", "1.234.567"],
+    ["", ""],
+  ])("formats %s as %s", (text, canonical) => {
+    expect(moneyInputBlurText(text)).toBe(canonical);
+  });
+
+  it("keeps the sign with allowNegative and the field's decimals", () => {
+    expect(moneyInputBlurText("-1500.5", { allowNegative: true })).toBe(
+      "-1.500,5",
+    );
+    expect(moneyInputBlurText("1,23456", { decimals: 4 })).toBe("1,2345");
   });
 });
 

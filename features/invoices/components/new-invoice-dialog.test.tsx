@@ -98,6 +98,22 @@ describe("NewInvoiceDialog item amounts", () => {
     expect(items[0]).toMatchObject({ quantity: 1, unit_price: n });
   });
 
+  it.each([
+    ["15.000", 15000],
+    ["1500.50", 1500.5],
+    ["15.5", 15.5],
+  ])("typing %s key by key saves %s", async (keys, n) => {
+    open();
+    fireEvent.change(field("Descripción"), { target: { value: "Flete" } });
+    const price = field("Precio unitario");
+    for (const key of keys) {
+      fireEvent.change(price, { target: { value: price.value + key } });
+    }
+    fireEvent.blur(price);
+    const items = await savedItems();
+    expect(items[0]).toMatchObject({ unit_price: n });
+  });
+
   it("reads a typed quantity as es-AR, up to the column's 4 decimals", async () => {
     open();
     fireEvent.change(field("Descripción"), { target: { value: "Flete" } });

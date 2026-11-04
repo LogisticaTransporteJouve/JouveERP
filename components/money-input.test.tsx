@@ -39,6 +39,7 @@ function typeAndSave(text: string, initial = ""): number | null {
   for (const ch of text) {
     fireEvent.change(input(), { target: { value: input().value + ch } });
   }
+  fireEvent.blur(input());
   fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
   return onSave.mock.calls[0]?.[0];
 }
@@ -53,12 +54,14 @@ describe("MoneyInput", () => {
 
   it.each([
     ["1500,50", "1.500,50", 1500.5],
-    // A typed dot is the decimal mark (numpad), like the comma.
+    // A lone dot with 1–2 digits after it is the decimal mark (numpad).
     ["1500.50", "1.500,50", 1500.5],
-    // The field groups thousands itself; a second decimal mark is ignored.
+    ["15.5", "15,5", 15.5],
+    // With exactly 3 it groups thousands, as many users type them.
+    ["15.000", "15.000", 15000],
+    ["850.000,00", "850.000,00", 850_000],
     ["850000,00", "850.000,00", 850_000],
-    ["850.000,00", "850,00", 850],
-  ])("typing %s shows %s and saves %s", (typed, shown, saved) => {
+  ])("typing %s shows %s on blur and saves %s", (typed, shown, saved) => {
     expect(typeAndSave(typed)).toBe(saved);
     expect(input().value).toBe(shown);
   });
@@ -75,6 +78,16 @@ describe("MoneyInput", () => {
     fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
     expect(input().value).toBe(shown);
     expect(onSave).toHaveBeenCalledWith(saved);
+  });
+
+  it("keeps the text as typed until blur, so the cursor does not jump", () => {
+    render(<Harness initial="" onSave={vi.fn()} />);
+    for (const ch of "15.") {
+      fireEvent.change(input(), { target: { value: input().value + ch } });
+    }
+    expect(input().value).toBe("15.");
+    fireEvent.blur(input());
+    expect(input().value).toBe("15");
   });
 
   it("drops a minus unless allowNegative", () => {
