@@ -170,6 +170,21 @@
           <li><strong>Guardar.</strong></li>
         </ol>
 
+        <h3>Exento, no gravado y otros tributos</h3>
+        <p>
+          En una factura <strong>A</strong> fiscal, el <strong>neto</strong> es
+          el neto gravado; el <strong>no gravado</strong> y el
+          <strong>exento</strong> van en sus propios campos. En una
+          <strong>B</strong> o <strong>C</strong>, el IVA, el exento y el no
+          gravado van dentro del neto.
+        </p>
+        <p>
+          Los <strong>otros tributos</strong> se reparten a mano en percepción
+          de IVA, percepción de IIBB, municipales e impuestos internos: ni la
+          factura ni ARCA dicen de qué es cada uno. La percepción de IVA se
+          resta en el estimado de IVA; el resto no.
+        </p>
+
         <div class="callout warn">
           <strong>Anular factura.</strong> Sólo se pueden anular las que aún
           no tienen pagos imputados. Una vez con OPs, se trabaja con NC del
@@ -205,6 +220,38 @@
           remito y cargá el pago en Compras. Si anulás la factura (después de
           anular sus OPs), los remitos vuelven a deberse en Otras compras.
         </div>
+
+        <h2 id="recibidos-arca">Recibidos de ARCA</h2>
+        <p>
+          La bandeja de los comprobantes que tus proveedores informaron a ARCA
+          (Mis Comprobantes → Recibidos). Nada pasa a Compras hasta que una
+          persona lo acepta.
+        </p>
+        <p><strong>Ubicación:</strong> Compras &gt; <em>Recibidos de ARCA</em>
+          (<code>/purchases/arca</code>). La ven quienes cargan compras.</p>
+        <ol class="steps">
+          <li>En ARCA, entrá a <strong>Mis Comprobantes → Recibidos</strong>,
+            elegí el rango de fechas y bajá el archivo (CSV o Excel).</li>
+          <li>Subilo en la bandeja. Lo que ya estaba no se duplica, y lo que ya
+            cargaste como compra fiscal (misma letra y número, no anulada) queda
+            en <em>Cargadas</em>.</li>
+          <li>En <em>Pendientes</em>, <strong>Aceptar y cargar</strong> abre la
+            factura con los importes de ARCA, que no se pueden cambiar. Elegí
+            cuenta y centro de costo, repartí los otros tributos y guardá.</li>
+          <li>Si un comprobante no corresponde, <strong>Descartar</strong>.
+            Desde <em>Descartadas</em> lo podés volver a pendientes.</li>
+        </ol>
+        <div class="callout">
+          <strong>No soportados.</strong> Facturas de crédito MiPyME (FCE) y
+          tipo M todavía no se cargan desde acá: cargalas a mano.
+        </div>
+        <h3>Compras que no son costo de la empresa</h3>
+        <p>
+          Creá una cuenta de gasto hoja «Gastos ajenos a la empresa» y en
+          Gestión → cajas asignala a «Neutro (no suma)». Las compras cargadas
+          a esa cuenta no suman en el resultado de gestión, ni en devengado ni
+          en caja.
+        </p>
 
         <!-- ──────── ÓRDENES DE PAGO ──────── -->
         <h2 id="ordenes-de-pago">Órdenes de pago</h2>

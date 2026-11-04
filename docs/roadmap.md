@@ -1348,7 +1348,8 @@ supplier_id, channel_id, tipo, letter, pos, numero, fecha, fecha_devengado,
 neto, iva, percepciones, total, currency, notes, status, timestamps)`.
 Script `scripts/import-afip-purchases.ts` que pulla las facturas
 recibidas vía AFIP "Mis Comprobantes" y las carga en bulk. 1313 facturas
-reales cargadas / 256 proveedores.
+reales cargadas / 256 proveedores. (Retirado: lo reemplaza la bandeja
+Compras › Recibidos de ARCA, `/purchases/arca`.)
 
 ### K.3 — `feat: payment orders` (PR #47)
 
