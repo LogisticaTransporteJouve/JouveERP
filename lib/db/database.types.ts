@@ -10184,6 +10184,10 @@ export type Database = {
           total: number
         }[]
       }
+      record_arca_web_attempt: {
+        Args: { p_error_code: string; p_ok: boolean; p_version: string }
+        Returns: boolean
+      }
       record_arca_web_sign_in: {
         Args: { p_error_code: string; p_ok: boolean }
         Returns: undefined

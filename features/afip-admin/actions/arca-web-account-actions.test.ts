@@ -52,6 +52,23 @@ beforeEach(() => {
 });
 
 describe("setArcaWebCredentialsAction", () => {
+  it("does not save the same CUIT alone on a stopped account", async () => {
+    account = {
+      cuit: "20123456786",
+      status: "sign_in_failing",
+      secret_id: "s1",
+      updated_at: "2026-11-04T08:00:00Z",
+      last_success_at: null,
+      last_error_code: "NETWORK",
+    };
+    const res = await setArcaWebCredentialsAction({
+      cuit: CUIT,
+      password: "",
+    });
+    expect(res.ok ? null : res.error).toMatch(/cargá la clave/);
+    expect(rpcCalls).toEqual([]);
+  });
+
   it("refuses a role without afip:admin", async () => {
     roles = ["finance"];
     const res = await setArcaWebCredentialsAction({

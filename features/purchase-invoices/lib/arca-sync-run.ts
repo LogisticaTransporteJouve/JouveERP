@@ -2,6 +2,7 @@ import type {
   ArcaSyncRun,
   ArcaSyncRunResult,
 } from "@/lib/afip/arca-web-account";
+import { arcaErrorText } from "@/lib/afip/arca-error-text";
 
 /** A requested run that has not started after this long never will (the
  *  event was lost, or the job is not deployed). */
@@ -28,19 +29,6 @@ export function syncPhase(sync: ArcaSyncRun, now: number): SyncPhase {
   return "idle";
 }
 
-const CODE_TEXT: Record<string, string> = {
-  SIGN_IN_REJECTED: "ARCA rechazó el CUIT o la clave",
-  SIGN_IN_FAILED: "ARCA no completó el ingreso",
-  SERVICE_NOT_AUTHORIZED: "el usuario no tiene Mis Comprobantes habilitado",
-  REPRESENTED_NOT_FOUND: "el usuario no representa a la empresa",
-  NETWORK: "no se pudo conectar con ARCA",
-  QUERY_FAILED: "ARCA no respondió la consulta",
-  TOO_MANY: "demasiados comprobantes en el mes",
-  INGEST_FAILED: "no se pudo guardar en la bandeja",
-};
-
-const codeText = (code: string) => CODE_TEXT[code] ?? `error ${code}`;
-
 const plural = (n: number, one: string, many: string) =>
   `${n} ${n === 1 ? one : many}`;
 
@@ -52,7 +40,7 @@ export function syncResultText(result: ArcaSyncRunResult): string {
         ? "No se entró a ARCA: la clave guardada fue rechazada."
         : "No se entró a ARCA: falta el usuario.";
     case "sign_in_failed":
-      return `No se pudo entrar a ARCA: ${codeText(result.code)}.`;
+      return `No se pudo entrar a ARCA: ${arcaErrorText(result.code)}.`;
     case "done": {
       const c = result.counts;
       const parts = [
@@ -67,7 +55,7 @@ export function syncResultText(result: ArcaSyncRunResult): string {
       const tail =
         failed.length > 0
           ? ` Faltó ${failed
-              .map(([month, code]) => `${month} (${codeText(code)})`)
+              .map(([month, code]) => `${month} (${arcaErrorText(code)})`)
               .join(", ")}.`
           : "";
       return `${parts.join(" · ")}.${tail}`;

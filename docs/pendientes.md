@@ -443,6 +443,14 @@ mitigación en el schema: el límite se respeta operando.
       `retries: 0`) y botón «Traer de ARCA» con período en la bandeja.
 - [ ] Probar el robot contra ARCA desde producción (región `gru1`): el
       recorrido sale de la grabación del owner, nunca corrió de punta a punta.
+- [x] Robot más seguro (auditoría w4): solo habla con `afip.gob.ar` y
+      `afip.gov.ar` por https y la clave no sigue una redirección a otro
+      sitio; dos ingresos fallidos seguidos frenan la cuenta
+      (`20261104120000`, compare-and-set sobre las credenciales leídas); un
+      mes cuyas filas no coinciden con `recordsTotal` falla; tope de 200 s
+      por corrida; un comprobante se vincula solo si el total también
+      coincide; el centavo de redondeo de ARCA va a no gravado (A) o al neto
+      (B/C) al aceptar.
 - [ ] Avisar por notificación a owner y admin cuando ARCA rechaza la clave
       (hoy lo muestran la bandeja y Admin → AFIP).
 - [x] Lector validado con una consulta real de Recibidos (A con otros
