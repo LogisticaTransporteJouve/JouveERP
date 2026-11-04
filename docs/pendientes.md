@@ -451,6 +451,11 @@ mitigación en el schema: el límite se respeta operando.
       por corrida; un comprobante se vincula solo si el total también
       coincide; el centavo de redondeo de ARCA va a no gravado (A) o al neto
       (B/C) al aceptar.
+- [x] Diálogo de aceptar (pedido del owner): botón «Crear proveedor
+      «Razón social»» con el CUIT de ARCA cuando no está cargado; vencimiento
+      en la fecha del comprobante o en la fecha + los días de pago del
+      proveedor; en lugar del selector de ítems, las líneas por alícuota con
+      que se guarda.
 - [ ] Avisar por notificación a owner y admin cuando ARCA rechaza la clave
       (hoy lo muestran la bandeja y Admin → AFIP).
 - [x] Lector validado con una consulta real de Recibidos (A con otros
