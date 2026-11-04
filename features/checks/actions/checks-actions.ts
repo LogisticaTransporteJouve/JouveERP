@@ -3,7 +3,7 @@
 import { logAudit } from "@/lib/actions/audit";
 import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
-import { userCan } from "@/lib/auth/permissions";
+import { userCan, userCanAll } from "@/lib/auth/permissions";
 import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { logger } from "@/lib/logger";
@@ -16,6 +16,10 @@ import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { getServiceClient } from "@/lib/supabase/service";
 
+import {
+  CHECK_CASH_DENIED_REASON,
+  CHECK_CASH_PERMISSIONS,
+} from "../lib/check-cash";
 import {
   CHECK_STATUSES,
   CreditChequeSchema,
@@ -230,6 +234,9 @@ export async function createCheckAction(
   if (!userCan(ctx.access, "cheques:write")) {
     return { ok: false, error: "No tenés permiso para registrar cheques." };
   }
+  if (!userCanAll(ctx.access, CHECK_CASH_PERMISSIONS)) {
+    return { ok: false, error: CHECK_CASH_DENIED_REASON };
+  }
 
   const parsed = ManualChequeCreateSchema.safeParse(input);
   if (!parsed.success) {
@@ -314,6 +321,9 @@ export async function depositCheckAction(
   if (!userCan(ctx.access, "cheques:write")) {
     return { ok: false, error: "No tenés permiso para depositar cheques." };
   }
+  if (!userCanAll(ctx.access, CHECK_CASH_PERMISSIONS)) {
+    return { ok: false, error: CHECK_CASH_DENIED_REASON };
+  }
 
   const parsed = DepositChequeSchema.safeParse(input);
   if (!parsed.success) {
@@ -361,6 +371,9 @@ export async function creditCheckAction(
   if (!userCan(ctx.access, "cheques:write")) {
     return { ok: false, error: "No tenés permiso para acreditar cheques." };
   }
+  if (!userCanAll(ctx.access, CHECK_CASH_PERMISSIONS)) {
+    return { ok: false, error: CHECK_CASH_DENIED_REASON };
+  }
 
   const parsed = CreditChequeSchema.safeParse(input);
   if (!parsed.success) {
@@ -399,6 +412,9 @@ export async function rejectCheckAction(
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "cheques:write")) {
     return { ok: false, error: "No tenés permiso para rechazar cheques." };
+  }
+  if (!userCanAll(ctx.access, CHECK_CASH_PERMISSIONS)) {
+    return { ok: false, error: CHECK_CASH_DENIED_REASON };
   }
 
   const parsed = RejectChequeSchema.safeParse(input);
@@ -482,7 +498,7 @@ export async function rejectCheckAction(
  * the checks leave the cartera as vendido, their face value goes to the
  * destination account, and the interest and commission leave it as expenses
  * imputed to Intereses pagados, so the account keeps the net. Idempotent on
- * the dialog's key. Gated on cheques:write.
+ * the dialog's key. Gated on CHECK_CASH_PERMISSIONS.
  */
 export async function sellChecksAction(
   input: SellChequesInput,
@@ -490,6 +506,9 @@ export async function sellChecksAction(
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "cheques:write")) {
     return { ok: false, error: "No tenés permiso para vender cheques." };
+  }
+  if (!userCanAll(ctx.access, CHECK_CASH_PERMISSIONS)) {
+    return { ok: false, error: CHECK_CASH_DENIED_REASON };
   }
   const parsed = SellChequesSchema.safeParse(input);
   if (!parsed.success) {
