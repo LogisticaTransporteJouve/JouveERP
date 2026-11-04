@@ -2,6 +2,8 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { resolveAccess } from "@/lib/auth/permissions";
+
 type Read = {
   data: unknown;
   isLoading: boolean;
@@ -60,6 +62,8 @@ const report = {
   lines: [],
 };
 
+const finance = resolveAccess(["finance"]);
+
 afterEach(cleanup);
 beforeEach(() => {
   h.billing = loaded(report);
@@ -71,7 +75,7 @@ beforeEach(() => {
 describe("StorageBillingReport", () => {
   it("shows a failed report read with «Reintentar» instead of a skeleton", () => {
     h.billing = failed();
-    render(<StorageBillingReport />);
+    render(<StorageBillingReport actorAccess={finance} />);
     expect(
       screen.getByText("No se pudo cargar la facturación de almacenaje."),
     ).toBeTruthy();
@@ -81,7 +85,7 @@ describe("StorageBillingReport", () => {
 
   it("says the earlier runs could not be read and keeps «Facturar» closed", () => {
     h.runs = failed();
-    render(<StorageBillingReport />);
+    render(<StorageBillingReport actorAccess={finance} />);
     expect(
       screen.getByText("No se pudo leer hasta cuándo se facturó cada cliente."),
     ).toBeTruthy();
@@ -92,8 +96,20 @@ describe("StorageBillingReport", () => {
     expect(h.runs.refetch).toHaveBeenCalled();
   });
 
+  it.each([
+    [
+      "storage_billing:issue",
+      resolveAccess(["finance"], ["storage_billing:issue"]),
+    ],
+    ["invoices:issue", resolveAccess(["finance"], ["invoices:issue"])],
+  ])("hides «Facturar» from finance with %s denied", (_, access) => {
+    render(<StorageBillingReport actorAccess={access} />);
+    expect(screen.getByText("Acme")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Facturar/ })).toBeNull();
+  });
+
   it("offers «Facturar» once the runs are read", () => {
-    render(<StorageBillingReport />);
+    render(<StorageBillingReport actorAccess={finance} />);
     const facturar = screen.getByRole("button", { name: /Facturar/ });
     expect(facturar.hasAttribute("disabled")).toBe(false);
   });

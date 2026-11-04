@@ -33,6 +33,7 @@ export default async function CargasPageRoute({
     <Hydrate state={dehydratedState}>
       <div className="space-y-6">
         <ShipmentsTable
+          actorAccess={ctx.access}
           initialSearch={typeof q === "string" ? q.slice(0, 120) : ""}
         />
       </div>
