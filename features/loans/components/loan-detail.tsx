@@ -54,9 +54,15 @@ function Stat({ label, value }: { label: string; value: string }) {
 export function LoanDetail({
   loanId,
   accountOptions,
+  canWrite,
+  canMoveCash,
 }: {
   loanId: string;
   accountOptions: { id: string; name: string; currency: string }[];
+  /** accounting:write: edit a cuota. */
+  canWrite: boolean;
+  /** Also transactions:write: pay, disburse and link (they move Caja). */
+  canMoveCash: boolean;
 }) {
   const { data: loan } = useLoan(loanId);
   const [payTarget, setPayTarget] = useState<LoanInstallment | null>(null);
@@ -100,7 +106,7 @@ export function LoanDetail({
               <span className="text-muted-foreground">
                 El desembolso no está registrado en Caja.
               </span>
-              {loan.status !== "cancelled" && (
+              {loan.status !== "cancelled" && canMoveCash && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -168,28 +174,34 @@ export function LoanDetail({
                     : "—"}
                 </TableCell>
                 <TableCell className="text-right">
-                  {i.status === "pendiente" && loan.status === "active" && (
-                    <div className="flex justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setEditTarget(i)}
-                      >
-                        Editar
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setAdoptTarget(i)}
-                        title="Usar un egreso ya cargado en Caja"
-                      >
-                        Vincular egreso
-                      </Button>
-                      <Button size="sm" onClick={() => setPayTarget(i)}>
-                        Pagar
-                      </Button>
-                    </div>
-                  )}
+                  {i.status === "pendiente" &&
+                    loan.status === "active" &&
+                    canWrite && (
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setEditTarget(i)}
+                        >
+                          Editar
+                        </Button>
+                        {canMoveCash && (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setAdoptTarget(i)}
+                              title="Usar un egreso ya cargado en Caja"
+                            >
+                              Vincular egreso
+                            </Button>
+                            <Button size="sm" onClick={() => setPayTarget(i)}>
+                              Pagar
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    )}
                 </TableCell>
               </TableRow>
             ))}

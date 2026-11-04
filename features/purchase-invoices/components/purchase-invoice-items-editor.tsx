@@ -182,7 +182,7 @@ export function PurchaseInvoiceItemsEditor({
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="__none">No gravado</SelectItem>
+                        <SelectItem value="__none">Sin alícuota</SelectItem>
                         {PURCHASE_IVA_RATE_IDS.map((id) => (
                           <SelectItem key={id} value={String(id)}>
                             {PURCHASE_IVA_RATE_LABEL[id]}

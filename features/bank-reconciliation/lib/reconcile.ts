@@ -133,6 +133,7 @@ export function summarize(input: {
       m.transaction_date <= input.to,
   );
   const statementBalance = last?.balance ?? null;
+  const statementDate = last?.line_date ?? input.to;
   return {
     statement_balance: statementBalance,
     statement_balance_date: last?.line_date ?? null,
@@ -149,5 +150,10 @@ export function summarize(input: {
     ignored_total: sumAmounts(ignored.map((l) => l.amount)),
     unmatched_book_count: unmatched.length,
     unmatched_book_total: sumAmounts(unmatched.map((m) => m.signed_amount)),
+    unmatched_book_total_at_statement: sumAmounts(
+      unmatched
+        .filter((m) => m.transaction_date <= statementDate)
+        .map((m) => m.signed_amount),
+    ),
   };
 }

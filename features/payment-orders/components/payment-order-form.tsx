@@ -64,6 +64,7 @@ import {
 import {
   PAYMENT_ORDER_CURRENCIES,
   formatPaymentOrderNumber,
+  rejectedCheckOverAllocation,
   type EndorsedCheckJoin,
   type IssuedCheckJoin,
   type PaymentOrderCurrency,
@@ -191,6 +192,14 @@ export function PaymentOrderForm({
         amount_applied: amountToInput(Number(a.amount_applied)),
       }))
     : (presetAllocations ?? []);
+  // What the order applied to bounced checks: the edit keeps it, so it is
+  // imputed and not a cuenta.
+  const rejectedCheckApplied = round2(
+    (paymentOrder?.rejected_check_allocations ?? []).reduce(
+      (acc, a) => acc + a.amount_applied,
+      0,
+    ),
+  );
 
   const form = useForm<FormValues>({
     resolver: zodResolver(FormSchema),
@@ -289,7 +298,10 @@ export function PaymentOrderForm({
         : 0,
     [allocations, allocationMode],
   );
-  const aCuenta = Math.max(0, totalAmount - allocatedAmount);
+  const aCuenta = Math.max(
+    0,
+    totalAmount - allocatedAmount - rejectedCheckApplied,
+  );
 
   const numeroLocked = mode === "edit" || !isFirst;
 
@@ -369,6 +381,15 @@ export function PaymentOrderForm({
       purchase_invoice_id: a.purchase_invoice_id,
       amount_applied: parseArAmount(a.amount_applied) ?? 0,
     }));
+    const overAllocation = rejectedCheckOverAllocation({
+      total: totalAmount,
+      invoices: allocs.reduce((acc, a) => acc + a.amount_applied, 0),
+      rejectedChecks: rejectedCheckApplied,
+    });
+    if (overAllocation) {
+      toast.error(overAllocation);
+      return;
+    }
 
     for (const l of lines) {
       if (l.line_kind === "account" && !l.account_id) {
@@ -624,8 +645,14 @@ export function PaymentOrderForm({
             <div className="font-mono">
               {allocationMode === "fifo"
                 ? "Automático"
-                : `${formatMoney(allocatedAmount)} ${currency}`}
+                : `${formatMoney(allocatedAmount + rejectedCheckApplied)} ${currency}`}
             </div>
+            {rejectedCheckApplied > 0 && (
+              <div className="text-xs text-muted-foreground">
+                {formatMoney(rejectedCheckApplied)} {currency} a cheques
+                rechazados (se mantiene al editar)
+              </div>
+            )}
           </div>
           <div>
             <div className="text-xs text-muted-foreground">A cuenta</div>

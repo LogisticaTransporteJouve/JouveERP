@@ -125,6 +125,28 @@ describe("summarize", () => {
       ignored_count: 1,
       unmatched_book_count: 1,
       unmatched_book_total: -30,
+      unmatched_book_total_at_statement: -30,
+    });
+  });
+
+  it("explains the difference only with book movements up to the statement balance", () => {
+    const s = summarize({
+      lines: [
+        line({ id: "1", amount: 0, balance: 1000, line_date: "2026-10-28" }),
+      ],
+      movements: [
+        mov({ id: "a", signed_amount: -20, transaction_date: "2026-10-20" }),
+        mov({ id: "b", signed_amount: -50, transaction_date: "2026-10-30" }),
+      ],
+      from: "2026-10-01",
+      to: "2026-10-31",
+      bookBalance: 930,
+      bookBalanceAtStatement: 980,
+    });
+    expect(s).toMatchObject({
+      difference: 20,
+      unmatched_book_total: -70,
+      unmatched_book_total_at_statement: -20,
     });
   });
 

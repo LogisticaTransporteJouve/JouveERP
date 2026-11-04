@@ -276,7 +276,14 @@ function ReconciliationBody({
           <p className="text-muted-foreground text-xs">
             {s.difference === 0
               ? "El extracto y los libros coinciden."
-              : `Pendientes del extracto ${money(s.open_total)} · movimientos sin conciliar ${money(s.unmatched_book_total)}`}
+              : `Pendientes del extracto ${money(s.open_total)} · movimientos sin conciliar ${money(s.unmatched_book_total_at_statement)}`}
+            {s.statement_balance_date && s.statement_balance_date < to && (
+              <>
+                {" "}
+                (libros al {formatArgentineDate(s.statement_balance_date)}, el
+                último saldo del extracto)
+              </>
+            )}
           </p>
         </StatTile>
         <StatTile label="Líneas">

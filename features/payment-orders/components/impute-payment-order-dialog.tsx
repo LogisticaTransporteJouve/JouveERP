@@ -90,7 +90,9 @@ export function ImputePaymentOrderDialog({
       },
       {
         onSuccess: (res) => {
-          toast.success(`Imputado ${formatMoney(res.applied)}.`);
+          toast.success(
+            `Imputado ${formatMoney(res.applied, data?.currency)}.`,
+          );
           setOpen(false);
         },
         onError: (err) => toast.error(err.message),
