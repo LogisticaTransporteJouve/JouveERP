@@ -81,14 +81,13 @@ select is(
   'keeping ARCA''s IVA on the header'
 );
 
-set local role anon;
-select throws_ok(
-  $$ select public.purchase_items_change_refused('00000000-0000-0000-0000-0000000c2d11', '[]'::jsonb) $$,
-  '42501',
-  null,
-  'anon cannot call the predicate'
+select ok(
+  not has_function_privilege('anon',
+    'public.purchase_items_change_refused(uuid, jsonb)', 'execute')
+  and has_function_privilege('authenticated',
+    'public.purchase_items_change_refused(uuid, jsonb)', 'execute'),
+  'anon cannot call the predicate; authenticated can (its role check gates writers)'
 );
-reset role;
 
 select * from finish();
 rollback;
