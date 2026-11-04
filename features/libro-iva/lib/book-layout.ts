@@ -412,7 +412,7 @@ export function printCurrency(moneda: string): string {
 
 /** The notes the PDF and the Excel print with the book: what the peso
  *  figures include in foreign currency, vouchers left at rate 1, vouchers
- *  under "Sin alícuota", then the given legends. */
+ *  under "Sin alícuota", B/C purchases, then the given legends. */
 export function bookNotes<F>(
   model: BookModel<F>,
   legends: readonly string[],
