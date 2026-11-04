@@ -12,6 +12,7 @@ import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
+import { round2 } from "@/lib/format";
 import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
 import { getServiceClient } from "@/lib/supabase/service";
@@ -71,6 +72,17 @@ async function carriesNonComputableAmounts(
     .maybeSingle();
   if (error) return { failed: error };
   return data?.is_fiscal === true;
+}
+
+/** The IVA the purchase stores after a save: with items,
+ *  replace_purchase_invoice_items rewrites imp_iva as the sum of the lines,
+ *  whatever the header sent. */
+function storedIva(
+  headerIva: number,
+  items: readonly { line_iva: number }[] | undefined,
+): number {
+  if (!items || items.length === 0) return headerIva;
+  return round2(items.reduce((a, it) => a + it.line_iva, 0));
 }
 
 function narrowRow(row: Record<string, unknown>): PurchaseInvoice | null {
@@ -408,7 +420,7 @@ export async function createPurchaseInvoiceAction(
   const nonComputable = await carriesNonComputableAmounts(supabase, {
     channel_id: parsed.data.channel_id,
     letter: parsed.data.letter ?? null,
-    imp_iva: parsed.data.imp_iva,
+    imp_iva: storedIva(parsed.data.imp_iva, parsed.data.items),
     imp_no_gravado: parsed.data.imp_no_gravado,
     imp_op_exentas: parsed.data.imp_op_exentas,
   });
@@ -576,8 +588,9 @@ export async function updatePurchaseInvoiceAction(
   const supabase = await createClient();
 
   // The letter rule applies to what this edit changes, so an old B purchase
-  // with IVA stays editable. Items are checked against the stored exento too:
-  // replace_purchase_invoice_items refuses them only after the header is saved.
+  // with IVA stays editable. Items are checked against the stored exento too,
+  // and their IVA is what the letter rule reads: replace_purchase_invoice_items
+  // rewrites imp_iva from the lines, after the header is saved.
   // The total rule applies to an edit that changes an amount, so an old
   // purchase whose total and parts differ still saves its other fields.
   const sendsAmounts = PURCHASE_TOTAL_PART_FIELDS.some(
@@ -587,7 +600,7 @@ export async function updatePurchaseInvoiceAction(
     sendsAmounts ||
     rest.channel_id !== undefined ||
     rest.letter !== undefined ||
-    rest.items?.some((item) => item.iva_rate_id === null)
+    (rest.items !== undefined && rest.items.length > 0)
   ) {
     const { data: stored, error: storedError } = await supabase
       .from("purchase_invoices")
@@ -608,7 +621,7 @@ export async function updatePurchaseInvoiceAction(
     const next: LetterAmounts = {
       channel_id: rest.channel_id ?? stored.channel_id,
       letter: rest.letter !== undefined ? (rest.letter ?? null) : stored.letter,
-      imp_iva: rest.imp_iva ?? stored.imp_iva,
+      imp_iva: storedIva(rest.imp_iva ?? stored.imp_iva, rest.items),
       imp_no_gravado: rest.imp_no_gravado ?? stored.imp_no_gravado,
       imp_op_exentas: rest.imp_op_exentas ?? stored.imp_op_exentas,
     };
@@ -617,7 +630,7 @@ export async function updatePurchaseInvoiceAction(
     }
     const amounts: PurchaseTotalParts = {
       imp_neto: rest.imp_neto ?? stored.imp_neto,
-      imp_iva: next.imp_iva,
+      imp_iva: rest.imp_iva ?? stored.imp_iva,
       imp_trib: rest.imp_trib ?? stored.imp_trib,
       imp_no_gravado: next.imp_no_gravado,
       imp_op_exentas: next.imp_op_exentas,

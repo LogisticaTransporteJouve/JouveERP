@@ -289,6 +289,17 @@ vigentes.
       `select pi.id, pi.fecha, pi.letter, pi.punto_venta, pi.numero, pi.imp_total - (pi.imp_neto + pi.imp_iva + pi.imp_trib + pi.imp_no_gravado + pi.imp_op_exentas) as gap, exists (select 1 from public.accounting_closed_periods cp where cp.period = to_char(pi.fecha, 'YYYY-MM')) as closed from public.purchase_invoices pi where pi.status = 'received' and public.is_channel_fiscal(pi.channel_id) and abs(pi.imp_total - (pi.imp_neto + pi.imp_iva + pi.imp_trib + pi.imp_no_gravado + pi.imp_op_exentas)) > 0.01 order by pi.fecha;`
       Rollback: el código anterior escribe las mismas columnas; una compra
       fiscal que no cierra recibe el mensaje del guard.
+- [ ] **Aprobar `20261104120500`** (auditoría w4, compras): una compra fiscal
+      nueva, o editada en sus importes, tiene que cerrar al centavo (antes
+      aceptaba un centavo de diferencia, que quedaba en proveedores), y una B
+      o C fiscal no puede guardar IVA, exento ni no gravado por ningún camino,
+      ítems incluidos. Las existentes siguen guardando ediciones que no tocan
+      esas columnas. Producción no tiene compras (N/A); si las tuviera, las
+      que quedan a un centavo (sobre el schema de `production-latest`):
+      `select pi.id, pi.fecha, pi.letter, pi.punto_venta, pi.numero from public.purchase_invoices pi where pi.status = 'received' and public.is_channel_fiscal(pi.channel_id) and abs(pi.imp_total - (pi.imp_neto + pi.imp_iva + pi.imp_trib + coalesce((to_jsonb(pi) ->> 'imp_no_gravado')::numeric, 0) + coalesce((to_jsonb(pi) ->> 'imp_op_exentas')::numeric, 0))) between 0.005 and 0.01;`
+      Rollback: el código anterior escribe las mismas columnas; lo que rompe
+      una de las dos reglas recibe el mensaje del guard.
+- [ ] **Decidir las compras fiscales B y C con IVA** (auditoría w3, S1 F2;
 - [x] **N/A en producción (base sin compras/cheques/OP/préstamos/RRHH a 2026-11-04).** **Decidir las compras fiscales B y C con IVA** (auditoría w3, S1 F2;
       no se cambian datos). Las cargadas antes de #339 pueden tener IVA,
       exento o no gravado aparte: el libro IVA, el estimado y `iva_credito`
@@ -417,7 +428,7 @@ mitigación en el schema: el límite se respeta operando.
       completar con:»), con Canal | Plazo de pago y Cuenta de gasto | Centro
       de costo; «Ninguno» en vez de «Sin default»; los selects abren hacia
       abajo, alineados con su campo.
-- [x] Centro de costo `FLOTA_DZ` desactivado (`20261104120300`): DZ
+- [x] Centro de costo `FLOTA_DZ` desactivado (`20261104120700`): DZ
       Instalaciones se retiró. Los pickers ya no lo ofrecen; un registro que
       lo usa lo sigue mostrando como «FLOTA_DZ Flota DZ (inactivo)».
 - [ ] Candidatos al mismo «Nuevo …» en línea (sin cambiar todavía): centro
@@ -609,6 +620,17 @@ mitigación en el schema: el límite se respeta operando.
   promover**.
 - [ ] Las compras internas no tienen el guard en la base (no generan asiento);
       la app las valida igual.
+- [x] **Auditoría w4** (`20261104120500`): el total de una compra cierra al
+      centavo (formulario, Zod, acción y base); una B o C fiscal no guarda
+      IVA, exento ni no gravado aunque venga de los ítems (la acción lee el
+      IVA de las líneas y el guard ve lo que escribe
+      `replace_purchase_invoice_items`); el renglón de totales del libro IVA
+      Ventas (pantalla y PDF) muestra un total negativo de no gravado, exento
+      u otros tributos.
+- [ ] El lector de ARCA (`lib/afip/mis-comprobantes/parse.ts`) sigue
+      aceptando un comprobante cuyo total difiere de sus partes en un
+      centavo; al aceptarlo, la compra se rechaza con el mensaje del total.
+      Lo ajusta la sesión dueña del robot y la bandeja.
 ## Tesorería y Gestión: auditoría w4 (2026-11-04)
 
 - [x] **Cheque propio de una OP fijo a la OP** (`20261104120200`): la base
