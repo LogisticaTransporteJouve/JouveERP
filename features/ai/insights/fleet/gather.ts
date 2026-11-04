@@ -82,7 +82,7 @@ export async function gatherTripMargins(
       paginateRange((from, to) =>
         service
           .from("v_trip_revenue")
-          .select("trip_id, revenue, uninvoiced_freight")
+          .select("trip_id, revenue, uninvoiced_shipments")
           .in("trip_id", ids)
           .order("trip_id", { ascending: true })
           .range(from, to),
@@ -104,12 +104,16 @@ export async function gatherTripMargins(
     "fleet.fuel_loads",
   );
 
-  const revenueByTrip = new Map<string, { revenue: number; pending: number }>();
+  const revenueByTrip = new Map<
+    string,
+    { revenue: number; uninvoiced: number }
+  >();
   for (const r of revenue) {
     if (!r.trip_id) continue;
     revenueByTrip.set(r.trip_id, {
       revenue: Number(r.revenue ?? 0),
-      pending: Number(r.uninvoiced_freight ?? 0),
+      // A count: a shipment priced by tariff has no freight until invoiced.
+      uninvoiced: Number(r.uninvoiced_shipments ?? 0),
     });
   }
   const fuelByTrip = new Map<string, number>();
@@ -134,7 +138,7 @@ export async function gatherTripMargins(
       label: `${t.trip_date} ${route}`,
       net:
         tripRevenue.revenue - Number(t.cost ?? 0) - (fuelByTrip.get(t.id) ?? 0),
-      pendingInvoicing: tripRevenue.pending > 0,
+      pendingInvoicing: tripRevenue.uninvoiced > 0,
     });
   }
   return detectLossTrips(tripRows);

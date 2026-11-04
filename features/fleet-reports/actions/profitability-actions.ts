@@ -66,7 +66,7 @@ export async function getFleetProfitabilityAction(
         supabase
           .from("v_trip_revenue")
           .select(
-            "trip_id, revenue, revenue_source, invoiced_revenue, uninvoiced_freight",
+            "trip_id, revenue, revenue_source, invoiced_revenue, uninvoiced_freight, uninvoiced_shipments",
           )
           .gte("trip_date", input.periodStart)
           .lte("trip_date", input.periodEnd)
@@ -120,7 +120,11 @@ export async function getFleetProfitabilityAction(
     string,
     Pick<
       TripInput,
-      "revenue" | "revenue_source" | "invoiced_revenue" | "uninvoiced_freight"
+      | "revenue"
+      | "revenue_source"
+      | "invoiced_revenue"
+      | "uninvoiced_freight"
+      | "uninvoiced_shipments"
     >
   >();
   for (const r of revenueRes.data ?? []) {
@@ -130,6 +134,7 @@ export async function getFleetProfitabilityAction(
       revenue_source: r.revenue_source,
       invoiced_revenue: Number(r.invoiced_revenue ?? 0),
       uninvoiced_freight: Number(r.uninvoiced_freight ?? 0),
+      uninvoiced_shipments: Number(r.uninvoiced_shipments ?? 0),
     });
   }
 
@@ -178,12 +183,13 @@ export async function getFleetProfitabilityAction(
   };
 }
 
-/** A trip's revenue as the report counts it, and its freight still to
- *  invoice (not in revenue). */
+/** A trip's revenue as the report counts it, and its freight and shipments
+ *  still to invoice (not in revenue; any shipment makes the net not final). */
 export type TripRevenue = {
   trip_id: string;
   revenue: number;
   uninvoiced_freight: number;
+  uninvoiced_shipments: number;
 };
 
 /**
@@ -205,7 +211,7 @@ export async function listTripRevenueAction(): Promise<
   const { data, error } = await paginateRange((from, to) =>
     supabase
       .from("v_trip_revenue")
-      .select("trip_id, revenue, uninvoiced_freight")
+      .select("trip_id, revenue, uninvoiced_freight, uninvoiced_shipments")
       .order("trip_id")
       .range(from, to),
   );
@@ -220,6 +226,7 @@ export async function listTripRevenueAction(): Promise<
         trip_id: r.trip_id,
         revenue: Number(r.revenue ?? 0),
         uninvoiced_freight: Number(r.uninvoiced_freight ?? 0),
+        uninvoiced_shipments: Number(r.uninvoiced_shipments ?? 0),
       });
   }
   return { ok: true, data: rows };

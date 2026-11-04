@@ -21,6 +21,24 @@ function row(p: Partial<PurchaseRow> & { id: string }): PurchaseRow {
   };
 }
 
+/** One invoice of the same amount every Monday to Friday from 2026-01-01. */
+function weekdayRows(count: number): PurchaseRow[] {
+  const rows: PurchaseRow[] = [];
+  for (let d = 0; rows.length < count; d++) {
+    const date = new Date(Date.UTC(2026, 0, 1 + d));
+    const dow = date.getUTCDay();
+    if (dow === 0 || dow === 6) continue;
+    rows.push(
+      row({
+        id: `d${rows.length + 1}`,
+        numero: rows.length + 1,
+        fecha: date.toISOString().slice(0, 10),
+      }),
+    );
+  }
+  return rows;
+}
+
 describe("statistics", () => {
   it("quartiles interpolate", () => {
     const { q1, q3 } = quartiles([1, 2, 3, 4, 5]);
@@ -111,6 +129,31 @@ describe("detectDuplicateInvoices", () => {
       row({ id: "c", numero: 12, fecha: "2026-06-03" }),
     ]);
     expect(f.map((x) => x.source_refs)).toEqual([["a", "b", "c"]]);
+  });
+
+  it("does not flag a fixed fee billed every working day", () => {
+    const weekdays = weekdayRows(250);
+    expect(detectDuplicateInvoices(weekdays)).toEqual([]);
+
+    const daily = Array.from({ length: 60 }, (_, i) =>
+      row({
+        id: `e${i + 1}`,
+        supplier_id: "s2",
+        numero: i + 1,
+        fecha: new Date(Date.UTC(2026, 0, 1 + i)).toISOString().slice(0, 10),
+      }),
+    );
+    expect(detectDuplicateInvoices(daily)).toEqual([]);
+  });
+
+  it("flags only the same-day repeat of a fixed daily fee", () => {
+    const weekdays = weekdayRows(250);
+    const target = weekdays[100]!;
+    const twice = row({ id: "dup", numero: 999, fecha: target.fecha });
+    const f = detectDuplicateInvoices([...weekdays, twice]);
+    expect(f).toHaveLength(1);
+    expect(f[0]?.source_refs).toEqual([target.id, "dup"]);
+    expect(f[0]?.finding).toMatch(/2 facturas por \$1\.000 con la misma fecha/);
   });
 
   it("does not flag when outside the 30-day window", () => {

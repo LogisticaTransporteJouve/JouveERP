@@ -3,7 +3,9 @@
 // shipments, or its manual revenue when it has no shipments (v_trip_revenue);
 // both figures travel along. Trip net = revenue − trip cost − fuel tied to
 // that trip. Vehicle net = Σ trip revenue − Σ trip cost − ALL fuel for the
-// vehicle − ALL maintenance for the vehicle (over the period). docs/roadmap.md
+// vehicle − ALL maintenance for the vehicle (over the period). The trips
+// without a vehicle come as one more row (without_vehicle), and the totals
+// cover the vehicles and that row: every trip listed. docs/roadmap.md
 // Fase G.7.
 
 export type TripInput = {
@@ -17,9 +19,12 @@ export type TripInput = {
   revenue_source: RevenueSource;
   /** Freight of the trip's invoiced shipments. */
   invoiced_revenue: number;
-  /** Freight of its shipments still to invoice: not in revenue, so the net
-   *  of a trip that has some is not final. */
+  /** Freight of its shipments still to invoice: not in revenue. */
   uninvoiced_freight: number;
+  /** How many of its shipments are still to invoice: with any, the net is
+   *  not final. A shipment priced by tariff has no freight until invoiced,
+   *  so the count, not the amount, says it is pending. */
+  uninvoiced_shipments: number;
   /** trips.revenue as typed on the trip. */
   manual_revenue: number | null;
   cost: number | null;
@@ -67,6 +72,7 @@ export type TripProfit = {
   revenue_source: RevenueSource;
   invoiced_revenue: number;
   uninvoiced_freight: number;
+  uninvoiced_shipments: number;
   manual_revenue: number;
   trip_cost: number;
   fuel_cost: number;
@@ -80,28 +86,52 @@ export type VehicleProfit = {
   revenue: number;
   invoiced_revenue: number;
   uninvoiced_freight: number;
+  uninvoiced_shipments: number;
   manual_revenue: number;
   trip_cost: number;
   fuel_cost: number;
   maintenance_cost: number;
+  /** Services with no cost typed: unknown, not in maintenance_cost. */
+  maintenance_without_cost: number;
   net: number;
 };
+
+/** The trips without a vehicle, summed. Their fuel loads have a vehicle
+ *  and count there. */
+export type WithoutVehicleProfit = Omit<
+  VehicleProfit,
+  | "vehicle_id"
+  | "patente"
+  | "fuel_cost"
+  | "maintenance_cost"
+  | "maintenance_without_cost"
+>;
 
 export type FleetProfitability = {
   trips: TripProfit[];
   vehicles: VehicleProfit[];
+  /** Null when every trip has a vehicle. */
+  without_vehicle: WithoutVehicleProfit | null;
+  /** Over the vehicles and the trips without one. */
   totals: {
     revenue: number;
     invoiced_revenue: number;
     manual_revenue: number;
     cost: number;
     net: number;
-    /** Freight still to invoice and the trips that have some. */
+    /** Freight still to invoice, the shipments and the trips that have some
+     *  (a trip with any has a net that is not final). */
     uninvoiced_freight: number;
+    uninvoiced_shipments: number;
     pending_invoicing_trips: number;
+    /** Services with no cost typed (not in cost). */
+    maintenance_without_cost: number;
   };
   unvouchered: Unvouchered;
 };
+
+/** Key of the trips without a vehicle in the per-vehicle maps. */
+const NO_VEHICLE = "";
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
@@ -125,8 +155,10 @@ export function computeProfitability(input: {
   }
 
   const maintenanceByVehicle = new Map<string, number>();
+  const noCostByVehicle = new Map<string, number>();
   for (const m of input.maintenance) {
     add(maintenanceByVehicle, m.vehicle_id, m.cost ?? 0);
+    if (m.cost === null) add(noCostByVehicle, m.vehicle_id, 1);
   }
 
   const trips: TripProfit[] = input.trips.map((t) => {
@@ -144,6 +176,7 @@ export function computeProfitability(input: {
       revenue_source: t.revenue_source,
       invoiced_revenue: round2(t.invoiced_revenue),
       uninvoiced_freight: round2(t.uninvoiced_freight),
+      uninvoiced_shipments: t.uninvoiced_shipments,
       manual_revenue: round2(t.manual_revenue ?? 0),
       trip_cost: round2(tripCost),
       fuel_cost: round2(fuelCost),
@@ -151,21 +184,24 @@ export function computeProfitability(input: {
     };
   });
 
-  // Per-vehicle: revenue + trip cost from trips, fuel/maintenance from all rows.
+  // Per-vehicle: revenue + trip cost from trips, fuel/maintenance from all
+  // rows. The trips without a vehicle go under NO_VEHICLE.
   const revByVehicle = new Map<string, number>();
   const invoicedByVehicle = new Map<string, number>();
   const uninvoicedByVehicle = new Map<string, number>();
+  const uninvoicedCountByVehicle = new Map<string, number>();
   const manualByVehicle = new Map<string, number>();
   const costByVehicle = new Map<string, number>();
   const tripsByVehicle = new Map<string, number>();
   for (const t of input.trips) {
-    if (!t.vehicle_id) continue;
-    add(revByVehicle, t.vehicle_id, t.revenue);
-    add(invoicedByVehicle, t.vehicle_id, t.invoiced_revenue);
-    add(uninvoicedByVehicle, t.vehicle_id, t.uninvoiced_freight);
-    add(manualByVehicle, t.vehicle_id, t.manual_revenue ?? 0);
-    add(costByVehicle, t.vehicle_id, t.cost ?? 0);
-    add(tripsByVehicle, t.vehicle_id, 1);
+    const key = t.vehicle_id ?? NO_VEHICLE;
+    add(revByVehicle, key, t.revenue);
+    add(invoicedByVehicle, key, t.invoiced_revenue);
+    add(uninvoicedByVehicle, key, t.uninvoiced_freight);
+    add(uninvoicedCountByVehicle, key, t.uninvoiced_shipments);
+    add(manualByVehicle, key, t.manual_revenue ?? 0);
+    add(costByVehicle, key, t.cost ?? 0);
+    add(tripsByVehicle, key, 1);
   }
 
   const vehicleIds = new Set<string>([
@@ -173,6 +209,7 @@ export function computeProfitability(input: {
     ...fuelByVehicle.keys(),
     ...maintenanceByVehicle.keys(),
   ]);
+  vehicleIds.delete(NO_VEHICLE);
 
   const vehicles: VehicleProfit[] = [...vehicleIds]
     .map((vid) => {
@@ -187,27 +224,51 @@ export function computeProfitability(input: {
         revenue: round2(revenue),
         invoiced_revenue: round2(invoicedByVehicle.get(vid) ?? 0),
         uninvoiced_freight: round2(uninvoicedByVehicle.get(vid) ?? 0),
+        uninvoiced_shipments: uninvoicedCountByVehicle.get(vid) ?? 0,
         manual_revenue: round2(manualByVehicle.get(vid) ?? 0),
         trip_cost: round2(tripCost),
         fuel_cost: round2(fuelCost),
         maintenance_cost: round2(maintenanceCost),
+        maintenance_without_cost: noCostByVehicle.get(vid) ?? 0,
         net: round2(revenue - tripCost - fuelCost - maintenanceCost),
       };
     })
     .sort((a, b) => b.net - a.net);
 
-  const revenue = round2(vehicles.reduce((s, v) => s + v.revenue, 0));
+  const unassignedTrips = tripsByVehicle.get(NO_VEHICLE) ?? 0;
+  const unassignedRevenue = revByVehicle.get(NO_VEHICLE) ?? 0;
+  const unassignedCost = costByVehicle.get(NO_VEHICLE) ?? 0;
+  const withoutVehicle: WithoutVehicleProfit | null =
+    unassignedTrips === 0
+      ? null
+      : {
+          trips: unassignedTrips,
+          revenue: round2(unassignedRevenue),
+          invoiced_revenue: round2(invoicedByVehicle.get(NO_VEHICLE) ?? 0),
+          uninvoiced_freight: round2(uninvoicedByVehicle.get(NO_VEHICLE) ?? 0),
+          uninvoiced_shipments: uninvoicedCountByVehicle.get(NO_VEHICLE) ?? 0,
+          manual_revenue: round2(manualByVehicle.get(NO_VEHICLE) ?? 0),
+          trip_cost: round2(unassignedCost),
+          net: round2(unassignedRevenue - unassignedCost),
+        };
+
+  // Every trip once: the vehicles' and those without one.
+  const revenue = round2(
+    vehicles.reduce((s, v) => s + v.revenue, 0) + unassignedRevenue,
+  );
   const invoicedRevenue = round2(
-    vehicles.reduce((s, v) => s + v.invoiced_revenue, 0),
+    vehicles.reduce((s, v) => s + v.invoiced_revenue, 0) +
+      (withoutVehicle?.invoiced_revenue ?? 0),
   );
   const manualRevenue = round2(
-    vehicles.reduce((s, v) => s + v.manual_revenue, 0),
+    vehicles.reduce((s, v) => s + v.manual_revenue, 0) +
+      (withoutVehicle?.manual_revenue ?? 0),
   );
   const cost = round2(
     vehicles.reduce(
       (s, v) => s + v.trip_cost + v.fuel_cost + v.maintenance_cost,
       0,
-    ),
+    ) + unassignedCost,
   );
 
   const fuelUnvouchered = input.fuel.filter((f) => !f.has_voucher);
@@ -218,19 +279,25 @@ export function computeProfitability(input: {
   return {
     trips,
     vehicles,
+    without_vehicle: withoutVehicle,
     totals: {
       revenue,
       invoiced_revenue: invoicedRevenue,
       manual_revenue: manualRevenue,
       cost,
       net: round2(revenue - cost),
-      // Over every trip, with or without a vehicle.
       uninvoiced_freight: round2(
         input.trips.reduce((s, t) => s + t.uninvoiced_freight, 0),
       ),
+      uninvoiced_shipments: input.trips.reduce(
+        (s, t) => s + t.uninvoiced_shipments,
+        0,
+      ),
       pending_invoicing_trips: input.trips.filter(
-        (t) => t.uninvoiced_freight > 0,
+        (t) => t.uninvoiced_shipments > 0,
       ).length,
+      maintenance_without_cost: input.maintenance.filter((m) => m.cost === null)
+        .length,
     },
     unvouchered: {
       fuel_count: fuelUnvouchered.length,

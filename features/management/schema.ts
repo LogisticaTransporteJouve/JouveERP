@@ -1083,6 +1083,7 @@ export type RawVehicleMarginRow = {
   center_cost: number | string;
   net: number | string;
   pending_usd: number | string;
+  maintenance_without_cost: number;
 };
 
 /** Costs are positive amounts; net = revenue − every cost. */
@@ -1097,6 +1098,8 @@ export type VehicleMarginRow = {
   tripCost: number;
   fuelCost: number;
   maintenanceCost: number;
+  /** Services with no cost typed: unknown, not in maintenanceCost. */
+  maintenanceWithoutCost: number;
   /** Operating cost loaded with the truck's cost center (apart: with a
    *  center no truck owns, or without a center). */
   centerCost: number;
@@ -1149,6 +1152,7 @@ export function narrowVehicleMargin(raw: readonly RawVehicleMarginRow[]): {
       tripCost: Number(r.trip_cost),
       fuelCost: Number(r.fuel_cost),
       maintenanceCost: Number(r.maintenance_cost),
+      maintenanceWithoutCost: Number(r.maintenance_without_cost),
       centerCost: Number(r.center_cost),
       net,
       marginPct: marginPct(net, revenue),

@@ -616,6 +616,22 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
     Rollback: el código anterior borra solo reservas sin factura vinculada
     y sin factura viva bajo su id (emite con una clave al azar, o la
     emisión falló), así que esos borrados pasan.
+- [ ] **Aprobar `20261104170200` y `170201`** (auditoría w10, gestión). No
+      tocan filas existentes. Rollback de cada una:
+  - `170200`: el trigger de herencia de las NC/ND de compra deja como está
+    lo que escribe `recategorize_expense`, así que recategorizar una NC/ND
+    a «Sin cuenta» o «Sin centro» guarda el vacío. El código anterior llama
+    a la misma RPC; la edición desde el formulario sigue heredando. Las
+    recategorizadas a vacío antes de esto:
+    `docs/pendientes/2026-11-04-gestion-recategorizar-nc-nd-y-flota-pendiente-por-cargas-w10.md`.
+  - `170201`: `v_trip_revenue` suma `uninvoiced_shipments` al final
+    (`create or replace`, mismas opciones y permisos). `ai_fleet_margin` y
+    `get_vehicle_margin` suman columnas al final con `drop` y `create` en la
+    misma transacción (permisos repuestos). `ai_fleet_margin` por vehículo
+    trae además el grupo `none` («Sin vehículo»). El código anterior lee
+    todo por nombre e ignora las columnas nuevas; con el grupo `none`,
+    `getVehicleEconomics` del código anterior lo listaría como un vehículo
+    más llamado «Sin vehículo» (cosmético; el resto lo ignora por id).
 
 ## Después de promover
 

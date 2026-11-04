@@ -8730,6 +8730,7 @@ export type Database = {
           trip_date: string | null
           trip_id: string | null
           uninvoiced_freight: number | null
+          uninvoiced_shipments: number | null
         }
         Relationships: []
       }
@@ -8920,17 +8921,21 @@ export type Database = {
           invoiced_revenue: number
           label: string
           maintenance_cost: number
+          maintenance_without_cost: number
           manual_revenue: number
           margin_pct: number
           net: number
           revenue: number
           total_groups: number
+          total_maintenance_without_cost: number
           total_net: number
           total_revenue: number
           total_uninvoiced_freight: number
+          total_uninvoiced_shipments: number
           trip_cost: number
           trips: number
           uninvoiced_freight: number
+          uninvoiced_shipments: number
         }[]
       }
       ai_leaves_summary: {
@@ -9726,6 +9731,7 @@ export type Database = {
           fuel_cost: number
           is_active: boolean
           maintenance_cost: number
+          maintenance_without_cost: number
           net: number
           patente: string
           pending_usd: number

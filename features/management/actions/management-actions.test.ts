@@ -281,6 +281,7 @@ describe("getVehicleMarginAction", () => {
     center_cost: "400",
     net: "200",
     pending_usd: "0",
+    maintenance_without_cost: 2,
     ...over,
   });
 
@@ -337,6 +338,7 @@ describe("getVehicleMarginAction", () => {
         centerCost: 400,
         net: 200,
         marginPct: 20,
+        maintenanceWithoutCost: 2,
       }),
     ]);
     expect(res.data.withoutVehicle).toEqual(

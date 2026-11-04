@@ -121,6 +121,47 @@ describe("getFleetProfitabilityAction", () => {
     expect(res.data.totals.revenue).toBe(300);
   });
 
+  it("counts a trip with a carga still to invoice as pending, even with no freight", async () => {
+    fake = pagedSupabase({
+      trips: [
+        {
+          id: "t1",
+          trip_date: "2026-03-01",
+          vehicle_id: null,
+          origin: null,
+          destination: null,
+          revenue: null,
+          cost: 400,
+          vehicle: null,
+          driver: null,
+        },
+      ],
+      v_trip_revenue: [
+        {
+          trip_id: "t1",
+          revenue: 0,
+          revenue_source: "invoiced",
+          invoiced_revenue: 0,
+          uninvoiced_freight: 0,
+          uninvoiced_shipments: 1,
+        },
+      ],
+      fuel_loads: [],
+      maintenance_records: [],
+      vehicles: [],
+    });
+    const res = await getFleetProfitabilityAction(range);
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.data.trips[0]).toMatchObject({ uninvoiced_shipments: 1 });
+    expect(res.data.without_vehicle).toMatchObject({ trips: 1, net: -400 });
+    expect(res.data.totals).toMatchObject({
+      cost: 400,
+      net: -400,
+      pending_invoicing_trips: 1,
+    });
+  });
+
   it("leaves a cancelled trip out, keeping its fuel at vehicle level", async () => {
     const trip = (id: string, status: string) => ({
       id,

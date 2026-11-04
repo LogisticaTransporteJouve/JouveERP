@@ -21,6 +21,7 @@ describe("computeProfitability", () => {
           revenue_source: "manual",
           invoiced_revenue: 0,
           uninvoiced_freight: 0,
+          uninvoiced_shipments: 0,
           manual_revenue: 1000,
           cost: 100,
           vehicle: { patente: "AAA111" },
@@ -51,6 +52,7 @@ describe("computeProfitability", () => {
           revenue_source: "manual",
           invoiced_revenue: 0,
           uninvoiced_freight: 0,
+          uninvoiced_shipments: 0,
           manual_revenue: 1000,
           cost: 100,
           vehicle: { patente: "AAA111" },
@@ -84,6 +86,7 @@ describe("computeProfitability", () => {
           revenue_source: "manual",
           invoiced_revenue: 0,
           uninvoiced_freight: 0,
+          uninvoiced_shipments: 0,
           manual_revenue: 5000,
           cost: 0,
           vehicle: { patente: "BBB222" },
@@ -136,6 +139,7 @@ describe("computeProfitability", () => {
       revenue_source: "invoiced" as const,
       invoiced_revenue: 100,
       uninvoiced_freight: uninvoiced,
+      uninvoiced_shipments: uninvoiced > 0 ? 1 : 0,
       manual_revenue: null,
       cost: 50,
       vehicle: null,
@@ -172,6 +176,7 @@ describe("computeProfitability", () => {
           revenue_source: "invoiced",
           invoiced_revenue: 300,
           uninvoiced_freight: 0,
+          uninvoiced_shipments: 0,
           manual_revenue: 1000,
           cost: 100,
           vehicle: { patente: "AAA111" },
@@ -187,6 +192,7 @@ describe("computeProfitability", () => {
           revenue_source: "manual",
           invoiced_revenue: 0,
           uninvoiced_freight: 0,
+          uninvoiced_shipments: 0,
           manual_revenue: 800,
           cost: 50,
           vehicle: { patente: "AAA111" },
@@ -217,5 +223,134 @@ describe("computeProfitability", () => {
       manual_revenue: 1800,
       net: 950,
     });
+  });
+
+  it("counts the trips without a vehicle in the totals and in their own row", () => {
+    const r = computeProfitability({
+      trips: [
+        {
+          id: "t1",
+          trip_date: "2026-07-01",
+          vehicle_id: "v1",
+          origin: null,
+          destination: null,
+          revenue: 1000,
+          revenue_source: "invoiced",
+          invoiced_revenue: 1000,
+          uninvoiced_freight: 0,
+          uninvoiced_shipments: 0,
+          manual_revenue: null,
+          cost: 100,
+          vehicle: { patente: "AAA111" },
+          driver: null,
+        },
+        {
+          id: "t2",
+          trip_date: "2026-07-02",
+          vehicle_id: null,
+          origin: null,
+          destination: null,
+          revenue: 500,
+          revenue_source: "invoiced",
+          invoiced_revenue: 500,
+          uninvoiced_freight: 0,
+          uninvoiced_shipments: 0,
+          manual_revenue: 50,
+          cost: 400,
+          vehicle: null,
+          driver: null,
+        },
+      ],
+      // The load of the trip without a vehicle has its own truck.
+      fuel: [
+        { vehicle_id: "v2", trip_id: "t2", amount: 30, has_voucher: true },
+      ],
+      maintenance: [{ vehicle_id: "v1", cost: 200, has_voucher: true }],
+      vehicleNames: names,
+    });
+    expect(r.without_vehicle).toEqual({
+      trips: 1,
+      revenue: 500,
+      invoiced_revenue: 500,
+      uninvoiced_freight: 0,
+      uninvoiced_shipments: 0,
+      manual_revenue: 50,
+      trip_cost: 400,
+      net: 100,
+    });
+    // Σ trips − the vehicles' fuel and maintenance.
+    expect(r.totals).toMatchObject({
+      revenue: 1500,
+      invoiced_revenue: 1500,
+      manual_revenue: 50,
+      cost: 730,
+      net: 770,
+    });
+    const rowsNet =
+      r.vehicles.reduce((s, v) => s + v.net, 0) + (r.without_vehicle?.net ?? 0);
+    expect(rowsNet).toBe(r.totals.net);
+  });
+
+  it("has no row without a vehicle when every trip has one", () => {
+    const r = computeProfitability({
+      trips: [],
+      fuel: [],
+      maintenance: [],
+      vehicleNames: names,
+    });
+    expect(r.without_vehicle).toBeNull();
+  });
+
+  it("counts a trip whose shipment has no freight yet as pending", () => {
+    const r = computeProfitability({
+      trips: [
+        {
+          id: "t1",
+          trip_date: "2026-07-01",
+          vehicle_id: "v1",
+          origin: null,
+          destination: null,
+          revenue: 0,
+          revenue_source: "invoiced",
+          invoiced_revenue: 0,
+          // Priced by tariff: no freight until the liquidación is invoiced.
+          uninvoiced_freight: 0,
+          uninvoiced_shipments: 1,
+          manual_revenue: null,
+          cost: 300,
+          vehicle: { patente: "AAA111" },
+          driver: null,
+        },
+      ],
+      fuel: [],
+      maintenance: [],
+      vehicleNames: names,
+    });
+    expect(r.trips[0]).toMatchObject({ uninvoiced_shipments: 1, net: -300 });
+    expect(r.vehicles[0]).toMatchObject({ uninvoiced_shipments: 1 });
+    expect(r.totals).toMatchObject({
+      uninvoiced_freight: 0,
+      uninvoiced_shipments: 1,
+      pending_invoicing_trips: 1,
+    });
+  });
+
+  it("counts the services without a cost per vehicle and in the totals", () => {
+    const r = computeProfitability({
+      trips: [],
+      fuel: [],
+      maintenance: [
+        { vehicle_id: "v1", cost: null, has_voucher: false },
+        { vehicle_id: "v1", cost: 100, has_voucher: false },
+        { vehicle_id: "v2", cost: null, has_voucher: false },
+      ],
+      vehicleNames: names,
+    });
+    const v1 = r.vehicles.find((v) => v.vehicle_id === "v1");
+    expect(v1).toMatchObject({
+      maintenance_cost: 100,
+      maintenance_without_cost: 1,
+    });
+    expect(r.totals).toMatchObject({ cost: 100, maintenance_without_cost: 2 });
   });
 });

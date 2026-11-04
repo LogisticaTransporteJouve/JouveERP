@@ -35,25 +35,37 @@ import { readScope } from "../scope";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-/** The freight a fleet read has still to invoice. It is not in the revenue,
- *  so a net that carries it is not final and is not a loss yet: the rule of
- *  the «Viajes con margen negativo» insight, which skips those trips. Null
- *  when there is none. */
-export function pendingFreightNote(
-  amount: number,
-  trips?: number,
-): string | null {
-  if (!(amount > 0)) return null;
+/** The shipments a fleet read has still to invoice and their freight. They
+ *  are not in the revenue, so a net that carries them is not final and is
+ *  not a loss yet: the rule of the «Viajes con margen negativo» insight,
+ *  which skips those trips. A shipment priced by tariff has no freight until
+ *  invoiced, so the count decides. Null when there is none. */
+export function pendingFreightNote(pending: {
+  amount: number;
+  shipments: number;
+  trips?: number;
+}): string | null {
+  const { amount, shipments, trips } = pending;
+  if (!(shipments > 0) && !(amount > 0)) return null;
   const where = trips === undefined ? "" : ` en ${trips} viaje(s)`;
-  return `Flete sin facturar ${money(amount)}${where}: no está en los ingresos, así que esos netos no son definitivos (no es pérdida todavía).`;
+  const freight =
+    amount > 0 ? `flete ${money(amount)}` : "sin flete calculado todavía";
+  return `${shipments} carga(s) sin facturar${where} (${freight}; una carga por tarifa no tiene flete hasta facturarse): no está en los ingresos, así que esos netos no son definitivos (no es pérdida todavía).`;
 }
 
-/** Text to say a trip with freight still to invoice is not a loss yet. */
+/** The services with no cost typed: unknown, not $0. Null when none. */
+export function maintenanceWithoutCostNote(count: number): string | null {
+  if (!(count > 0)) return null;
+  return `${count} service(s) sin costo cargado: no están en el mantenimiento (costo desconocido, no $0).`;
+}
+
+/** Text to say a trip with shipments still to invoice is not a loss yet. */
 const PENDING_FREIGHT_RULE =
-  "uninvoiced_freight is the freight of its shipments still to invoice: it " +
-  "is not in revenue, so a trip or group with uninvoiced_freight > 0 has a " +
-  "net that is not final; never call it a loss (the loss-trip insight " +
-  "skips it).";
+  "uninvoiced_shipments counts its shipments still to invoice and " +
+  "uninvoiced_freight is their freight (a shipment priced by tariff has " +
+  "none until invoiced, so it can be 0): neither is in revenue, so a trip " +
+  "or group with uninvoiced_shipments > 0 has a net that is not final; " +
+  "never call it a loss (the loss-trip insight skips it).";
 
 export async function runVehicles(input: {
   onlyActive?: boolean | null;
@@ -101,6 +113,7 @@ export async function runTrips(access: Access): Promise<AiRunResult> {
   let total = 0;
   let missing = 0;
   let uninvoiced = 0;
+  let pendingShipments = 0;
   let pendingTrips = 0;
   for (const t of live) {
     const tripRevenue = byTrip.get(t.id);
@@ -110,12 +123,17 @@ export async function runTrips(access: Access): Promise<AiRunResult> {
       continue;
     }
     total += tripRevenue.revenue;
-    if (tripRevenue.uninvoiced_freight > 0) {
+    if (tripRevenue.uninvoiced_shipments > 0) {
       uninvoiced += tripRevenue.uninvoiced_freight;
+      pendingShipments += tripRevenue.uninvoiced_shipments;
       pendingTrips += 1;
     }
   }
-  const pending = pendingFreightNote(uninvoiced, pendingTrips);
+  const pending = pendingFreightNote({
+    amount: uninvoiced,
+    shipments: pendingShipments,
+    trips: pendingTrips,
+  });
   return okResult(
     `${head} · revenue of the ${live.length - missing} not cancelled ${money(total)} ` +
       "(invoiced freight of their shipments; a trip without shipments, its manual revenue)" +
@@ -127,6 +145,7 @@ export async function runTrips(access: Access): Promise<AiRunResult> {
       ...t,
       revenue: byTrip.get(t.id)?.revenue ?? null,
       uninvoiced_freight: byTrip.get(t.id)?.uninvoiced_freight ?? null,
+      uninvoiced_shipments: byTrip.get(t.id)?.uninvoiced_shipments ?? null,
       manual_revenue: t.revenue,
     })),
     { currency: "ARS", partial: missing > 0 },
@@ -273,20 +292,26 @@ export async function runFleetProfitability(input: {
   }
   const res = await getFleetProfitabilityAction(input);
   if (!res.ok) return errResult(res.error);
-  const { totals, trips, vehicles } = res.data;
-  const pending = pendingFreightNote(
-    totals.uninvoiced_freight,
-    totals.pending_invoicing_trips,
-  );
+  const { totals, trips, vehicles, without_vehicle } = res.data;
+  const pending = pendingFreightNote({
+    amount: totals.uninvoiced_freight,
+    shipments: totals.uninvoiced_shipments,
+    trips: totals.pending_invoicing_trips,
+  });
+  const noCost = maintenanceWithoutCostNote(totals.maintenance_without_cost);
   return okResult(
     `Fleet profitability ${input.periodStart}→${input.periodEnd}: ` +
-      `${trips.length} trips, ${vehicles.length} vehicles · ` +
-      `net $${totals.net.toLocaleString("es-AR")} ` +
+      `${trips.length} trips, ${vehicles.length} vehicles` +
+      (without_vehicle
+        ? ` (+ ${without_vehicle.trips} trip(s) without a vehicle, in the totals)`
+        : "") +
+      ` · net $${totals.net.toLocaleString("es-AR")} ` +
       `(revenue $${totals.revenue.toLocaleString("es-AR")} − cost $${totals.cost.toLocaleString(
         "es-AR",
       )}; invoiced $${totals.invoiced_revenue.toLocaleString("es-AR")}, ` +
       `manual $${totals.manual_revenue.toLocaleString("es-AR")}).` +
-      (pending ? ` ${pending}` : ""),
+      (pending ? ` ${pending}` : "") +
+      (noCost ? ` ${noCost}` : ""),
     res.data,
   );
 }
@@ -309,10 +334,12 @@ export const getFleetProfitability = defineAiAction({
     "(revenue − cost − fuel) and per vehicle (includes maintenance). " +
     "A trip with shipments earns the freight of its invoiced shipments; " +
     "without shipments, its manual revenue. Both figures (invoiced, manual) " +
-    "come per trip, per vehicle and in the totals. " +
+    "come per trip, per vehicle and in the totals. The trips without a " +
+    "vehicle come in without_vehicle, and the totals cover them too. " +
     PENDING_FREIGHT_RULE +
     " The totals give it with the count of such trips " +
-    "(pending_invoicing_trips). " +
+    "(pending_invoicing_trips). maintenance_without_cost counts services " +
+    "with no cost typed: unknown, not in the maintenance cost. " +
     "Requires date from and to (YYYY-MM-DD). For trip or truck profitability.",
   input: z.object({
     periodStart: z.string().describe("Date from, format YYYY-MM-DD."),
@@ -335,7 +362,7 @@ export const getFleetMargin = defineAiAction({
     "shipments",
   ],
   description:
-    "Margen de flota en un rango de fechas agrupado por viaje, chofer, vehículo o cliente: ingresos (el flete facturado de las cargas del viaje; sin cargas, el ingreso manual del viaje), facturado y manual por separado, costo del viaje, combustible imputado, mantenimiento (por vehículo), neto y margen %, con totales del rango. uninvoiced_freight (y total_uninvoiced_freight) es el flete de las cargas todavía sin facturar: no está en los ingresos, así que el neto de un grupo que lo tiene no es definitivo y no hay que llamarlo pérdida. Por cliente, cada carga aporta su flete facturado y los costos se reparten según el flete. Alcance opcional (fiscal/internal/all) por el canal del viaje; con un alcance, el combustible sin viaje y el mantenimiento (sin canal) no cuentan.",
+    "Margen de flota en un rango de fechas agrupado por viaje, chofer, vehículo o cliente: ingresos (el flete facturado de las cargas del viaje; sin cargas, el ingreso manual del viaje), facturado y manual por separado, costo del viaje, combustible imputado, mantenimiento (por vehículo), neto y margen %, con totales del rango. Por vehículo, los viajes sin vehículo son el grupo none («Sin vehículo»), así que el ingreso total es el mismo que por viaje (el neto por vehículo además descuenta el combustible sin viaje y el mantenimiento). uninvoiced_shipments (y total_uninvoiced_shipments) cuenta las cargas todavía sin facturar y uninvoiced_freight (y total_uninvoiced_freight) es su flete (una carga por tarifa no tiene flete hasta facturarse, así que puede ser 0): no están en los ingresos, así que el neto de un grupo con uninvoiced_shipments > 0 no es definitivo y no hay que llamarlo pérdida. maintenance_without_cost (y total_maintenance_without_cost) cuenta los services sin costo cargado: no están en el mantenimiento. Por cliente, cada carga aporta su flete facturado y los costos se reparten según el flete. Alcance opcional (fiscal/internal/all) por el canal del viaje; con un alcance, el combustible sin viaje y el mantenimiento (sin canal) no cuentan.",
   input: FleetMarginInputSchema,
   run: async (_ctx, input) => {
     const { label } = readScope(input.scope);
@@ -343,14 +370,21 @@ export const getFleetMargin = defineAiAction({
     if (!res.ok) return errResult(res.error);
     const first = res.data[0];
     const groups = first?.total_groups ?? 0;
-    const pending = pendingFreightNote(first?.total_uninvoiced_freight ?? 0);
+    const pending = pendingFreightNote({
+      amount: first?.total_uninvoiced_freight ?? 0,
+      shipments: first?.total_uninvoiced_shipments ?? 0,
+    });
+    const noCost = maintenanceWithoutCostNote(
+      first?.total_maintenance_without_cost ?? 0,
+    );
     return okResult(
       `${label}: margen ${input.from}→${input.to} por ${input.groupBy ?? "vehicle"}: ${groups} grupos · ` +
         `ingresos ${money(first?.total_revenue ?? 0)} · neto ${money(first?.total_net ?? 0)}` +
         (groups > res.data.length
           ? ` (se muestran ${res.data.length}).`
           : ".") +
-        (pending ? ` ${pending}` : ""),
+        (pending ? ` ${pending}` : "") +
+        (noCost ? ` ${noCost}` : ""),
       { rows: res.data },
       { currency: "ARS", partial: groups > res.data.length },
     );
