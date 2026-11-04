@@ -18,6 +18,9 @@ let priorInvoices: { id: string; status: string; idempotency_key: string }[] =
   [];
 // What the live one bills.
 let priorBills = { client_id: "c1", imp_neto: 1000 };
+// What the invoice reads as when its link is refused.
+let invoiceStatus = "emitting";
+let link: { data: unknown; error: unknown } = { data: null, error: null };
 let fake = recordingSupabase(respond);
 const key = (attempt: number) =>
   sourceInvoiceKey("shipment_freight", SHIPMENT_ID, attempt);
@@ -31,6 +34,13 @@ function respond(call: RecordedCall) {
       call.payload.invoicing_claimed_at !== null;
     if (isClaim) {
       return { data: claimed ? [{ id: SHIPMENT_ID }] : [], error: null };
+    }
+    if (
+      typeof call.payload === "object" &&
+      call.payload !== null &&
+      "invoice_id" in call.payload
+    ) {
+      return link;
     }
     return { data: null, error: null };
   }
@@ -54,7 +64,7 @@ function respond(call: RecordedCall) {
   if (call.table === "invoices") {
     return filterValue(call, "eq", "id") === undefined
       ? { data: priorInvoices, error: null }
-      : { data: priorBills, error: null };
+      : { data: { ...priorBills, status: invoiceStatus }, error: null };
   }
   return { data: null, error: null };
 }
@@ -87,6 +97,8 @@ beforeEach(() => {
   claimed = true;
   priorInvoices = [];
   priorBills = { client_id: "c1", imp_neto: 1000 };
+  invoiceStatus = "emitting";
+  link = { data: null, error: null };
   fake = recordingSupabase(respond);
 });
 
@@ -197,5 +209,40 @@ describe("invoiceFreightAction", () => {
     expect(issue).not.toHaveBeenCalled();
     const claim = updates()[0];
     expect(claim && filterValue(claim, "is", "invoice_id")).toBeNull();
+  });
+
+  it("frees the carga when the link finds its invoice void", async () => {
+    shipmentChannel = null;
+    link = {
+      data: null,
+      error: { message: "falló", hint: "jouve_guard", code: "55006" },
+    };
+    invoiceStatus = "failed";
+    const res = await invoiceFreightAction({
+      shipmentId: SHIPMENT_ID,
+      channel_id: "jouve_fiscal",
+      punto_venta: 3,
+    });
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error).toMatch(/quedó libre/);
+    const release = updates().at(-1);
+    expect(release?.payload).toEqual({ invoicing_claimed_at: null });
+    expect(release && filterValue(release, "is", "invoice_id")).toBeNull();
+  });
+
+  it("keeps the claim when a live invoice's link is lost", async () => {
+    shipmentChannel = null;
+    link = { data: null, error: { message: "timeout", code: "57014" } };
+    const res = await invoiceFreightAction({
+      shipmentId: SHIPMENT_ID,
+      channel_id: "jouve_fiscal",
+      punto_venta: 3,
+    });
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error).toMatch(/sin emitir otra/);
+    expect(updates().at(-1)?.payload).toEqual({
+      invoice_id: "inv1",
+      invoicing_claimed_at: null,
+    });
   });
 });
