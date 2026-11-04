@@ -31,7 +31,13 @@ describe("canCancelLoan", () => {
 // A cuota saved at $0 drops out of the schedule (w7-s6 F3).
 describe("UpdateInstallmentSchema", () => {
   const id = "00000000-0000-4000-8000-000000000001";
-  const zeroSplit = { capital: 0, interest: 0, iva: 0, perception: 0, other: 0 };
+  const zeroSplit = {
+    capital: 0,
+    interest: 0,
+    iva: 0,
+    perception: 0,
+    other: 0,
+  };
 
   it("refuses an amount of 0", () => {
     expect(UpdateInstallmentSchema.safeParse({ id, amount: 0 }).success).toBe(

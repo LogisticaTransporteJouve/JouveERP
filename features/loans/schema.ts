@@ -160,7 +160,8 @@ export const InstallmentSplitSchema = z.object({
   other: splitPart,
 });
 
-export const INSTALLMENT_ZERO_ERROR = "El monto de la cuota tiene que ser mayor a 0.";
+export const INSTALLMENT_ZERO_ERROR =
+  "El monto de la cuota tiene que ser mayor a 0.";
 
 // A cuota of $0 drops out of the schedule: neither the amount nor a split
 // summing to 0 is a valid edit.
