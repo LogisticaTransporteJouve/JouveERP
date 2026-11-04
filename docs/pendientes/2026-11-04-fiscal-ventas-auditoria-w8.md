@@ -26,6 +26,10 @@ Decisión: `docs/decisions/2026-11-04-pdf-factura-b-e-iva-por-alicuota-de-arca.m
       pudo abrir afip.gob.ar ni argentina.gob.ar: el contador tiene que
       confirmar que el bloque de transparencia va en toda B, y que una venta
       exenta se declara con una alícuota 0003 en cero.
+- [ ] **Ubicación del bloque de transparencia.** La RG 5614 lo ubica en el
+      espacio inferior izquierdo del comprobante. El PDF lo pone debajo de los
+      totales, a todo el ancho, con el texto alineado a la izquierda, igual
+      que antes de este cambio. Hay que confirmar con el contador si alcanza.
 - [ ] **Leyenda «A CONSUMIDOR FINAL».** La RG 1415 (Anexo II) la pide en un
       comprobante a consumidor final, y el PDF no la imprime. Queda fuera de
       este frente: hay que confirmarla con el contador antes de agregarla.
