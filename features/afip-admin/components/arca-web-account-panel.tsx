@@ -38,8 +38,12 @@ function statusText(s: ArcaWebAccountStatus): string {
       const access = s.lastSuccessAt
         ? `Funcionando · último ingreso ${formatArgentineDateTime(s.lastSuccessAt)}`
         : "Configurado · todavía no se usó";
-      if (syncPhase(s.sync, Date.now()) === "died") {
+      const phase = syncPhase(s.sync, Date.now());
+      if (phase === "died") {
         return `${access} · la última corrida se cortó sin terminar`;
+      }
+      if (phase === "not_started") {
+        return `${access} · el último pedido de «Traer de ARCA» no arrancó`;
       }
       // A sign-in that worked says nothing of the months it then read.
       const last = s.sync.result;

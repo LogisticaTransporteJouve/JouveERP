@@ -99,18 +99,24 @@ export async function requestArcaReceivedSyncAction(
   }
 
   // Stamped before the send: the tray starts following the run at once, and a
-  // send that fails leaves a request that never starts, which the tray reads
-  // as «no arrancó».
+  // send that fails after it leaves a request that never starts, which the
+  // tray reads as «no arrancó».
   const service = getServiceClient();
   const { error: stampError } = await service
     .from("arca_web_account")
     .update({ sync_requested_at: new Date().toISOString() })
     .eq("id", true);
+  // Without the stamp the tray cannot follow the run it is told about: the
+  // request is not sent, and the user tries again.
   if (stampError) {
     logger.error("arca_received_sync.stamp_failed", {
       userId: ctx.userId,
       code: stampError.code,
     });
+    return {
+      ok: false,
+      error: "No se pudo pedir a ARCA. Probá de nuevo en un rato.",
+    };
   }
 
   const { inngest } = await import("@/lib/inngest/client");
