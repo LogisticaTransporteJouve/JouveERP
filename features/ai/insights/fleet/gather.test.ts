@@ -31,6 +31,7 @@ const trip = (id: string, cost = 0) => ({
 const revenue = (tripId: string, amount: number) => ({
   trip_id: tripId,
   revenue: amount,
+  uninvoiced_freight: 0,
 });
 
 beforeEach(() => {
@@ -76,6 +77,23 @@ describe("gatherTripMargins", () => {
     expect(revenueRead && filterValue(revenueRead, "in", "trip_id")).toEqual([
       "t1",
     ]);
+  });
+
+  it("does not judge a trip whose cargas are still to invoice", async () => {
+    pages.trips = [{ data: [trip("t1", 300), trip("t2", 300)], error: null }];
+    pages.v_trip_revenue = [
+      {
+        data: [
+          // Nothing invoiced yet: 800 of freight still pending.
+          { trip_id: "t1", revenue: 0, uninvoiced_freight: 800 },
+          { trip_id: "t2", revenue: 100, uninvoiced_freight: 0 },
+        ],
+        error: null,
+      },
+    ];
+    const findings = await gatherTripMargins("2026-11-03");
+    expect(findings[0]?.source_refs).toEqual(["t2"]);
+    expect(findings[0]?.metrics.pending_invoicing_count).toBe(1);
   });
 
   it("throws when the revenue read fails", async () => {

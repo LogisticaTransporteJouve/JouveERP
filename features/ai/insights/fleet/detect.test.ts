@@ -18,7 +18,9 @@ const doc = (over: Partial<FleetDocRow>): FleetDocRow => ({
 
 describe("detectFleetDocExpiry", () => {
   it("returns nothing when all documents are far from expiring", () => {
-    expect(detectFleetDocExpiry([doc({ expires_at: "2027-01-01" })], TODAY)).toEqual([]);
+    expect(
+      detectFleetDocExpiry([doc({ expires_at: "2027-01-01" })], TODAY),
+    ).toEqual([]);
   });
 
   it("flags critical when a document is already expired", () => {
@@ -47,12 +49,15 @@ const trip = (over: Partial<TripMarginRow>): TripMarginRow => ({
   id: "t1",
   label: "2026-06-30 Rosario → CABA",
   net: 0,
+  pendingInvoicing: false,
   ...over,
 });
 
 describe("detectLossTrips", () => {
   it("returns nothing when no trip loses money", () => {
-    expect(detectLossTrips([trip({ net: 1000 }), trip({ net: 0 })])).toEqual([]);
+    expect(detectLossTrips([trip({ net: 1000 }), trip({ net: 0 })])).toEqual(
+      [],
+    );
   });
 
   it("flags loss trips and reports the worst", () => {
@@ -67,5 +72,26 @@ describe("detectLossTrips", () => {
     expect(out[0]?.metrics.total_loss).toBe(-25000);
     expect(out[0]?.finding).toContain("peor");
     expect(out[0]?.source_refs).toEqual(["a", "b"]);
+    expect(out[0]?.finding).not.toContain("sin facturar");
+  });
+
+  it("leaves out a trip with cargas still to invoice and says how many", () => {
+    const out = detectLossTrips([
+      trip({ id: "a", net: -5000 }),
+      trip({ id: "p", net: -30000, pendingInvoicing: true }),
+      trip({ id: "q", net: 100, pendingInvoicing: true }),
+    ]);
+    expect(out[0]?.source_refs).toEqual(["a"]);
+    expect(out[0]?.metrics).toMatchObject({
+      loss_count: 1,
+      total_loss: -5000,
+      pending_invoicing_count: 2,
+    });
+    expect(out[0]?.finding).toContain(
+      "2 viaje(s) con cargas sin facturar no se evaluaron.",
+    );
+    expect(
+      detectLossTrips([trip({ net: -1, pendingInvoicing: true })]),
+    ).toEqual([]);
   });
 });
