@@ -8,7 +8,7 @@ y qué se descartó.
 **Decisión.** El total de una compra tiene que ser exactamente neto + IVA +
 otros tributos + no gravado + exento: se quitó la tolerancia de un centavo
 (formulario, Zod, acción y `guard_purchase_invoice_total`,
-`20261104114000`). El mismo guard rechaza una B o C fiscal con IVA, exento o
+`20261104120100`). El mismo guard rechaza una B o C fiscal con IVA, exento o
 no gravado, sea del encabezado o de lo que `replace_purchase_invoice_items`
 reescribe desde las líneas; la acción mira el IVA de los ítems antes de
 guardar. Las dos reglas corren al insertar y cuando una edición cambia lo que
@@ -24,6 +24,22 @@ RPC guardaba el IVA de las líneas como crédito fiscal.
 cuenta de redondeo: no hay cuenta de redondeo en el plan y el asiento de
 compras en moneda extranjera ya redondea cada parte por separado; cambiar
 `build_purchase_invoice_journal_lines` era más riesgo que pedir el cierre.
+## 2026-11-04 — Presupuesto de ejecuciones de Inngest
+
+**Decisión.** El plan gratis de Inngest da 50.000 ejecuciones por mes, y
+cuenta cada corrida más cada paso. Un cron frecuente que casi nunca encuentra
+trabajo lee todo en un solo paso, o lo hace sin pasos cuando hace una sola
+cosa (el reintento de la función alcanza). `issue-invoice-reconcile` lee todo
+en un paso: de 4 a 2 ejecuciones por corrida vacía.
+
+**Por qué.** Al ritmo del 2026-11-04 eran ~110.000 por mes, el doble del
+límite. ~86.000 eran de `search-index-refresh` (cada minuto con un paso), que
+se va con la búsqueda global que el owner decidió sacar. Sin ella, quedan
+~26.000.
+
+**Descartado.** Bajar la frecuencia de `arca-issued-sync` y de las tareas de
+IA: cambia cuándo ve el usuario lo nuevo, y no hace falta.
+
 ## 2026-11-04 — Estado de producción: solo clientes y ventas en pesos
 
 **Decisión (owner).** La base de producción tiene solo clientes y facturas de

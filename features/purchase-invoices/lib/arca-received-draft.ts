@@ -28,6 +28,9 @@ export type ReceivedAmounts = {
   imp_total: number;
 };
 
+/** The gap ARCA's rounding may leave between a voucher's parts and total. */
+const ROUNDING_CENT = 0.01;
+
 /** The amounts a purchase from this voucher carries: letter A as ARCA lists
  *  them; on B and C, IVA, exento and no gravado go inside the net. Shared by
  *  the accept dialog and the action that checks what it sends. */
@@ -49,6 +52,24 @@ export function receivedVoucherAmounts(
     imp_op_exentas: voucher.imp_op_exentas,
     imp_iva: voucher.imp_iva,
   });
+  // A purchase's parts add up to its total to the cent; ARCA's own rounding
+  // can leave one. It goes where it changes no tax: no gravado on an A (the
+  // net when that would go negative), the net on a B or C (all net there).
+  const gap = round2(
+    voucher.imp_total -
+      (parts.imp_neto +
+        parts.imp_no_gravado +
+        parts.imp_op_exentas +
+        parts.imp_iva +
+        voucher.imp_trib),
+  );
+  if (gap !== 0 && Math.abs(gap) <= ROUNDING_CENT) {
+    if (voucher.letter === "A" && parts.imp_no_gravado + gap >= 0) {
+      parts.imp_no_gravado = round2(parts.imp_no_gravado + gap);
+    } else {
+      parts.imp_neto = round2(parts.imp_neto + gap);
+    }
+  }
   return { ...parts, imp_trib: voucher.imp_trib, imp_total: voucher.imp_total };
 }
 

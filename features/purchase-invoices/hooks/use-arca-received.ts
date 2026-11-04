@@ -22,6 +22,7 @@ import {
   getArcaSyncStatusAction,
   requestArcaReceivedSyncAction,
 } from "../actions/arca-received-sync-actions";
+import { syncPhase } from "../lib/arca-sync-run";
 import type { PurchaseInvoiceCreateRawInput } from "../lib/purchase-invoice-draft";
 import {
   arcaReceivedKeys,
@@ -56,7 +57,7 @@ export function useReceivedVoucherCounts(enabled = true) {
   });
 }
 
-function useInvalidateTray() {
+export function useInvalidateTray() {
   const qc = useQueryClient();
   return () => qc.invalidateQueries({ queryKey: arcaReceivedKeys.all });
 }
@@ -103,18 +104,29 @@ export function useSubmitReceivedVoucher(voucherId: string) {
     );
 }
 
+const SYNC_POLL_MS = 4000;
+
+/** The ARCA user's state and its last run, polled while a run is pending. */
 export function useArcaSyncStatus() {
   return useQuery({
     queryKey: arcaReceivedKeys.syncStatus(),
     queryFn: () => runAction(() => getArcaSyncStatusAction()),
+    refetchInterval: (query) => {
+      const sync = query.state.data?.sync;
+      if (!sync) return false;
+      const phase = syncPhase(sync, Date.now());
+      return phase === "waiting" || phase === "running" ? SYNC_POLL_MS : false;
+    },
   });
 }
 
 export function useRequestArcaSync() {
-  const invalidate = useInvalidateTray();
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: { fromMonth: string; toMonth: string }) =>
       runAction(() => requestArcaReceivedSyncAction(input)),
-    onSettled: invalidate,
+    // The status starts polling once it sees the request.
+    onSettled: () =>
+      qc.invalidateQueries({ queryKey: arcaReceivedKeys.syncStatus() }),
   });
 }

@@ -289,7 +289,7 @@ vigentes.
       `select pi.id, pi.fecha, pi.letter, pi.punto_venta, pi.numero, pi.imp_total - (pi.imp_neto + pi.imp_iva + pi.imp_trib + pi.imp_no_gravado + pi.imp_op_exentas) as gap, exists (select 1 from public.accounting_closed_periods cp where cp.period = to_char(pi.fecha, 'YYYY-MM')) as closed from public.purchase_invoices pi where pi.status = 'received' and public.is_channel_fiscal(pi.channel_id) and abs(pi.imp_total - (pi.imp_neto + pi.imp_iva + pi.imp_trib + pi.imp_no_gravado + pi.imp_op_exentas)) > 0.01 order by pi.fecha;`
       Rollback: el código anterior escribe las mismas columnas; una compra
       fiscal que no cierra recibe el mensaje del guard.
-- [ ] **Aprobar `20261104114000`** (auditoría w4, compras): una compra fiscal
+- [ ] **Aprobar `20261104120100`** (auditoría w4, compras): una compra fiscal
       nueva, o editada en sus importes, tiene que cerrar al centavo (antes
       aceptaba un centavo de diferencia, que quedaba en proveedores), y una B
       o C fiscal no puede guardar IVA, exento ni no gravado por ningún camino,
@@ -454,6 +454,14 @@ mitigación en el schema: el límite se respeta operando.
       `retries: 0`) y botón «Traer de ARCA» con período en la bandeja.
 - [ ] Probar el robot contra ARCA desde producción (región `gru1`): el
       recorrido sale de la grabación del owner, nunca corrió de punta a punta.
+- [x] Robot más seguro (auditoría w4): solo habla con `afip.gob.ar` y
+      `afip.gov.ar` por https y la clave no sigue una redirección a otro
+      sitio; dos ingresos fallidos seguidos frenan la cuenta
+      (`20261104120000`, compare-and-set sobre las credenciales leídas); un
+      mes cuyas filas no coinciden con `recordsTotal` falla; tope de 200 s
+      por corrida; un comprobante se vincula solo si el total también
+      coincide; el centavo de redondeo de ARCA va a no gravado (A) o al neto
+      (B/C) al aceptar.
 - [ ] Avisar por notificación a owner y admin cuando ARCA rechaza la clave
       (hoy lo muestran la bandeja y Admin → AFIP).
 - [x] Lector validado con una consulta real de Recibidos (A con otros
@@ -588,7 +596,7 @@ mitigación en el schema: el límite se respeta operando.
   promover**.
 - [ ] Las compras internas no tienen el guard en la base (no generan asiento);
       la app las valida igual.
-- [x] **Auditoría w4** (`20261104114000`): el total de una compra cierra al
+- [x] **Auditoría w4** (`20261104120100`): el total de una compra cierra al
       centavo (formulario, Zod, acción y base); una B o C fiscal no guarda
       IVA, exento ni no gravado aunque venga de los ítems (la acción lee el
       IVA de las líneas y el guard ve lo que escribe
