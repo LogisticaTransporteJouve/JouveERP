@@ -491,10 +491,18 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
     la RPC pasa a llamarla; rechaza exactamente lo mismo que antes. El
     código anterior no llama al predicado.
   - `140101`: el CUIT de un proveedor con compras fiscales en un período
-    cerrado no cambia (55006). El código anterior recibe el mensaje por
-    `mapDbGuardError`, como las otras guardas de proveedores. Ver si hay
+    cerrado no cambia (55006). El código anterior recibe un error genérico
+    («No se pudo actualizar el proveedor.»): no muestra el motivo, pero el
+    cambio se rechaza igual. Ver si hay
     proveedores afectados (N/A en producción, sin compras):
     `select distinct s.id, s.cuit from public.suppliers s join public.purchase_invoices p on p.supplier_id = s.id join public.invoicing_channels c on c.id = p.channel_id and c.is_fiscal join public.accounting_closed_periods cp on cp.period = to_char(p.fecha, 'YYYY-MM') where p.status = 'received';`
+- [ ] **Aprobar `20261104141000`** (ARCA, #390): cambiar el CUIT de un
+      proveedor devuelve a Pendientes los comprobantes de Recibidos ligados
+      a sus compras con el CUIT viejo y vincula los del CUIT nuevo. Es una
+      función nueva y un trigger nuevo en `suppliers`, y no toca filas
+      existentes. Rollback: el código anterior edita el CUIT igual y el
+      trigger corre, pero solo toca la bandeja, que el código anterior no
+      tiene.
 - [ ] **Aprobar `20261104150000`** (auditoría w8): `guard_document_insert`
       en `receipts` y `payment_orders`. Una cabecera se inserta solo dentro
       de `create_receipt` / `create_payment_order`. No toca filas
