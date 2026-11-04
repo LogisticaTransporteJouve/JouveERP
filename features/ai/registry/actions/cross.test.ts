@@ -297,6 +297,34 @@ describe("getClientMargin", () => {
     expect(meta.partial).toBe(false);
   });
 
+  it("carries the cargas still to invoice per client and says the margin is not final", async () => {
+    vi.mocked(getFleetMarginAction).mockImplementation(async (input) => {
+      const groupBy = (input as { groupBy: string }).groupBy;
+      return {
+        ok: true,
+        data:
+          groupBy === "client"
+            ? [
+                margin("c1", "Acme", {
+                  trips: 1,
+                  trip_cost: 900,
+                  uninvoiced_shipments: 2,
+                }),
+              ]
+            : [margin("v1", "AA123BB", {})],
+      };
+    });
+    const { data, meta } = okData(
+      await getClientMargin.execute(ctx(["owner"]), RANGE),
+    );
+    expect(data.rows[0]).toEqual(
+      expect.objectContaining({ client: "Acme", uninvoiced_shipments: 2 }),
+    );
+    expect(meta.note).toContain(
+      "1 cliente(s) con cargas sin facturar en sus viajes",
+    );
+  });
+
   it("leaves the costs out (null, not 0) and says so without trips and shipments", async () => {
     const { data, meta } = okData(
       await getClientMargin.execute(ctx(["finance"]), RANGE),
@@ -306,6 +334,7 @@ describe("getClientMargin", () => {
       expect.objectContaining({
         direct_cost_ars: null,
         contribution_ars: null,
+        uninvoiced_shipments: null,
       }),
     );
     expect(meta.note).toContain("Costos directos omitidos");

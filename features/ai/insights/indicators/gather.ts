@@ -95,12 +95,18 @@ async function netRevenueByClient(
 /** Direct cost per group key (trips + the fuel imputed to them), as
  *  getClientMargin and the profitability report count it. With maintenance,
  *  a group with a service of unknown cost is in `incomplete`: its cost is
- *  not known, not lower (#396). */
+ *  not known, not lower (#396). A group with cargas still to invoice is in
+ *  `pending`: by client, its revenue or its share of a trip's cost is not
+ *  final yet. */
 async function fleetCostBy(
   groupBy: "client" | "vehicle",
   range: Range,
   withMaintenance: boolean,
-): Promise<{ cost: Map<string, number>; incomplete: Set<string> }> {
+): Promise<{
+  cost: Map<string, number>;
+  incomplete: Set<string>;
+  pending: Set<string>;
+}> {
   const { data, error } = await getServiceClient().rpc("ai_fleet_margin", {
     p_from: range.from,
     p_to: range.to,
@@ -117,6 +123,7 @@ async function fleetCostBy(
   }
   const cost = new Map<string, number>();
   const incomplete = new Set<string>();
+  const pending = new Set<string>();
   for (const r of rows) {
     if (!r.group_key) continue;
     cost.set(
@@ -128,8 +135,9 @@ async function fleetCostBy(
     if (withMaintenance && Number(r.maintenance_without_cost) > 0) {
       incomplete.add(r.group_key);
     }
+    if (Number(r.uninvoiced_shipments) > 0) pending.add(r.group_key);
   }
-  return { cost, incomplete };
+  return { cost, incomplete, pending };
 }
 
 async function clientMarginPairs(today: string): Promise<ClientMarginPair[]> {
@@ -143,6 +151,9 @@ async function clientMarginPairs(today: string): Promise<ClientMarginPair[]> {
   return [...revNow.entries()].flatMap(([id, r]) => {
     const before = revPrev.get(id);
     if (!before) return [];
+    // Cargas still to invoice in either period: the margin is not final, so
+    // a drop would not be known.
+    if (costNow.pending.has(id) || costPrev.pending.has(id)) return [];
     return [
       {
         client_id: id,

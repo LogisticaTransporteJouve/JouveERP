@@ -735,6 +735,20 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
     «Modificar»: con el trigger, sus NC/ND también se mueven. Las facturas
     ya editadas antes no se corrigen:
     `docs/pendientes/2026-11-04-gestion-margen-por-camion-nc-nd-y-escaneo-w11.md`.
+- [ ] **Aprobar `20261104194200` y `194201`** (auditoría w12, gestión). No
+      tocan filas existentes ni cambian políticas RLS ni permisos. Conviene
+      promoverlas junto con `190201`. Rollback de cada una:
+  - `194200`: `purchase_nc_nd_inherit_account` se reemplaza desde su última
+    versión (`170200`). Tampoco rellena lo que fija el trigger
+    `purchase_nc_nd_follow_factura`, así que una NC/ND que tenía la cuenta o
+    el centro vacíos a propósito los mantiene vacíos cuando se edita la
+    factura. El código anterior escribe las mismas columnas.
+  - `194201`: `ai_fleet_margin` se reemplaza (`create or replace`, misma
+    firma y mismos permisos). Por cliente, `uninvoiced_shipments` suma las
+    cargas sin facturar y sin flete de otros clientes en sus viajes.
+    `total_uninvoiced_shipments` no cambia. El código anterior lee las mismas
+    columnas y ese número como «no definitivo».
+    `docs/pendientes/2026-11-04-gestion-nc-nd-vacia-y-reparto-por-cliente-w12.md`.
 
 ## Después de promover
 
