@@ -41,6 +41,7 @@ import {
 } from "@/components/ui/select";
 import type { TransactionListItem } from "@/features/transactions/actions/transactions-actions";
 import { useAccountOptions } from "@/features/accounts/hooks/use-accounts";
+import { AccountOptionsError } from "@/features/accounts/components/account-options-gate";
 import { useScopeIsFiscal } from "@/components/providers/scope-provider";
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime-invalidate";
@@ -506,7 +507,8 @@ function AccountFilter({
   value: string;
   onChange: (next: string) => void;
 }) {
-  const { accounts } = useAccountOptions();
+  const { accounts, error, retry } = useAccountOptions();
+  if (error) return <AccountOptionsError message={error} onRetry={retry} />;
   return (
     <Select value={value} onValueChange={onChange}>
       <SelectTrigger className="w-[200px]" aria-label="Cuenta">
