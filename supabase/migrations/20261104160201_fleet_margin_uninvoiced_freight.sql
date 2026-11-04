@@ -6,7 +6,7 @@ SET LOCAL statement_timeout = '15min';
 -- groups). The revenue and the net stay as they were (invoiced freight,
 -- same as «Rentabilidad de flota» and get_vehicle_margin), so the AI tools
 -- can tell a trip waiting for its invoice from a loss, the rule of the
--- «Viajes con margen negativo» insight (20261104 #392).
+-- «Viajes con margen negativo» insight (#392).
 --
 -- Same body as 20261104050000 (its latest definition) plus the two columns,
 -- appended. A new OUT column needs a drop; nothing depends on the function

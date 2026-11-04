@@ -27,7 +27,7 @@ proveedor con el mismo importe se miran de a una con la anterior: dos que
 están cerca son un posible doble cargo, aunque el proveedor tenga el mismo
 importe todo el año. Antes, el grupo del año entero tenía que entrar en 30
 días, y un abono mensual cargado dos veces nunca aparecía. "Cerca" es hasta
-30 días; con 3 o más facturas del mismo importe, menos de la mitad de su
+30 días; con 3 o más facturas del mismo importe, hasta la mitad de su
 espaciado habitual (el cuartil superior de las distancias, al menos un
 día). Así un abono mensual o semanal sin duplicados no se marca. Cada tramo
 de facturas cercanas es una tarjeta.
