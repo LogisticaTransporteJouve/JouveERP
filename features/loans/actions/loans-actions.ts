@@ -296,9 +296,14 @@ export async function createLoanAction(
   const d = parsed.data;
   const supabase = await createSupabaseClient();
 
-  const { data: loan, error } = await supabase
-    .from("loans")
-    .insert({
+  const schedule = generateInstallments(
+    d.principal,
+    d.installments_count,
+    d.first_due_date,
+  );
+  // One transaction: the loan never exists without its schedule.
+  const { data: loanId, error } = await supabase.rpc("create_loan", {
+    p_loan: {
       kind: d.kind,
       description: d.description,
       lender: d.lender ?? null,
@@ -308,40 +313,25 @@ export async function createLoanAction(
       installments_count: d.installments_count,
       first_due_date: d.first_due_date,
       notes: d.notes ?? null,
-      created_by: ctx.userId,
-    })
-    .select("id")
-    .single();
-  if (error || !loan) {
-    logger.error("loans.create.failed", { userId: ctx.userId, error });
-    return { ok: false, error: "No se pudo crear el préstamo." };
-  }
-
-  const schedule = generateInstallments(
-    d.principal,
-    d.installments_count,
-    d.first_due_date,
-  );
-  const { error: instErr } = await supabase.from("loan_installments").insert(
-    schedule.map((s) => ({
-      loan_id: loan.id,
+    },
+    p_installments: schedule.map((s) => ({
       number: s.number,
       due_date: s.due_date,
       amount: s.amount,
     })),
-  );
-  if (instErr) {
-    // Roll back the loan so we never leave one without its schedule.
-    await supabase.from("loans").delete().eq("id", loan.id);
-    logger.error("loans.installments.create.failed", {
+  });
+  if (error || !loanId) {
+    const guardError = mapDbGuardError(error, {
+      slug: "loans.create.rejected",
       userId: ctx.userId,
-      error: instErr,
     });
-    return { ok: false, error: "No se pudo generar el cronograma de cuotas." };
+    if (guardError) return { ok: false, error: guardError };
+    logger.error("loans.create.failed", { userId: ctx.userId, error });
+    return { ok: false, error: "No se pudo crear el préstamo." };
   }
 
-  await logAudit("loan.created", ctx.userId, { kind: d.kind }, loan.id);
-  return { ok: true, data: { id: loan.id } };
+  await logAudit("loan.created", ctx.userId, { kind: d.kind }, loanId);
+  return { ok: true, data: { id: loanId } };
 }
 
 export async function updateInstallmentAction(

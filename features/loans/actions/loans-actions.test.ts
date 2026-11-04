@@ -22,6 +22,7 @@ vi.mock("@/lib/actions/audit", () => ({ logAudit: vi.fn() }));
 const {
   adoptInstallmentPaymentAction,
   cancelLoanAction,
+  createLoanAction,
   listLoansAction,
   payInstallmentAction,
   recordLoanDisbursementAction,
@@ -77,6 +78,64 @@ describe("listLoansAction", () => {
     );
     const res = await listLoansAction();
     expect(res.ok).toBe(false);
+  });
+});
+
+describe("createLoanAction", () => {
+  const input = {
+    kind: "prestamo",
+    description: "Préstamo camión",
+    principal: 1000,
+    currency: "ARS",
+    channel_id: "jouve_fiscal",
+    installments_count: 3,
+    first_due_date: "2026-11-10",
+  };
+  const rpc = vi.fn();
+  const from = vi.fn();
+
+  beforeEach(() => {
+    rpc.mockReset();
+    from.mockReset();
+    clientOverride = { rpc, from };
+  });
+
+  it("writes the loan and its schedule in one RPC, never table by table", async () => {
+    rpc.mockResolvedValue({ data: "l9", error: null });
+    const res = await createLoanAction(input);
+    expect(res).toEqual({ ok: true, data: { id: "l9" } });
+    expect(from).not.toHaveBeenCalled();
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(rpc).toHaveBeenCalledWith("create_loan", {
+      p_loan: expect.objectContaining({
+        principal: 1000,
+        installments_count: 3,
+        lender: null,
+        notes: null,
+      }),
+      p_installments: [
+        { number: 1, due_date: "2026-11-10", amount: 333.33 },
+        { number: 2, due_date: "2026-12-10", amount: 333.33 },
+        { number: 3, due_date: "2027-01-10", amount: 333.34 },
+      ],
+    });
+  });
+
+  it("shows the guard's message when the database refuses it", async () => {
+    const message =
+      "El cronograma no coincide con la cantidad de cuotas del préstamo";
+    rpc.mockResolvedValue({
+      data: null,
+      error: { message, hint: "jouve_guard" },
+    });
+    const res = await createLoanAction(input);
+    expect(res).toEqual({ ok: false, error: message });
+  });
+
+  it("keeps the generic message for any other error", async () => {
+    rpc.mockResolvedValue({ data: null, error: { message: "boom" } });
+    const res = await createLoanAction(input);
+    expect(res).toEqual({ ok: false, error: "No se pudo crear el préstamo." });
   });
 });
 
