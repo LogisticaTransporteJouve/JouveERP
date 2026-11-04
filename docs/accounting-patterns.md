@@ -742,7 +742,9 @@ USD pendiente)`; importe > 0 suma al resultado.
   operativo cargado con su centro (`management_pnl_lines`), sin volver a
   contar la compra o el movimiento al que apunta una carga o un service. Lo
   que no es de un camión (viajes sin vehículo, centros sin camión, sin
-  centro) va aparte y no se reparte.
+  centro) va aparte y no se reparte. Cuenta por camión los services sin
+  costo cargado (`maintenance_without_cost`), que no están en el
+  mantenimiento.
 
 **Balance general (fix del mismo PR):** el balance es acumulado al corte
 aunque se elija "Desde"; el PN muestra "Resultados de períodos anteriores" y
