@@ -188,6 +188,13 @@ describe("invoice PDF", () => {
     expect(data.emittedAt).toBe("2026-10-01T12:00:00-03:00");
   });
 
+  it("fiscal without items (imported from ARCA): the header IVA under its inferred rate", async () => {
+    isFiscal = true;
+    const data = await buildTemplateData("i1");
+    expect(data.items).toEqual([]);
+    expect(data.per_rate).toEqual([{ id: 5, base: 100, importe: 21 }]);
+  });
+
   it("internal: no CUIT, IVA condition, IIBB or address", async () => {
     isFiscal = false;
     const data = await buildTemplateData("i1");
