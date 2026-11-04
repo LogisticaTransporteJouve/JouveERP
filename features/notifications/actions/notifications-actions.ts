@@ -4,11 +4,22 @@ import { z } from "zod";
 
 import { requireUserContext } from "@/lib/auth/context";
 import { resolveAvatarUrl } from "@/lib/avatar-url";
+import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { createClient } from "@/lib/supabase/server";
 import { UuidSchema } from "@/lib/validation/common";
 
 import type { Notification } from "../types";
+
+/** A failed read or write: the database text goes to the log, not the UI. */
+function failed(
+  event: string,
+  error: unknown,
+  message: string,
+): { ok: false; error: string } {
+  logger.error(event, { error });
+  return { ok: false, error: message };
+}
 
 const ListNotificationsInput = z.object({
   filter: z.enum(["all", "unread"]).optional(),
@@ -22,7 +33,10 @@ export async function listNotificationsAction(input: {
   await requireUserContext();
   const parsed = ListNotificationsInput.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? "Input inválido." };
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Input inválido.",
+    };
   }
   input = parsed.data;
   const supabase = await createClient();
@@ -31,11 +45,19 @@ export async function listNotificationsAction(input: {
     p_filter: input.filter ?? "all",
     p_limit: input.limit ?? 50,
   });
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    return failed(
+      "notifications.list.failed",
+      error,
+      "No se pudieron leer los avisos.",
+    );
+  }
 
   const items: Notification[] = (data ?? []).map((row) => {
     const metadataObj =
-      row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
+      row.metadata &&
+      typeof row.metadata === "object" &&
+      !Array.isArray(row.metadata)
         ? (row.metadata as Record<string, unknown>)
         : {};
     return {
@@ -64,7 +86,13 @@ export async function getUnreadCountAction(): Promise<ActionResult<number>> {
   const { data, error } = await supabase.rpc(
     "get_my_unread_notification_count",
   );
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    return failed(
+      "notifications.unread_count.failed",
+      error,
+      "No se pudo leer la cantidad de avisos.",
+    );
+  }
   return { ok: true, data: data ?? 0 };
 }
 
@@ -83,14 +111,28 @@ export async function markNotificationReadAction(
     .update({ read_at: new Date().toISOString() })
     .eq("id", id)
     .eq("recipient_id", ctx.userId);
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    return failed(
+      "notifications.mark_read.failed",
+      error,
+      "No se pudo marcar el aviso como leído.",
+    );
+  }
   return { ok: true, data: { marked: true } };
 }
 
-export async function markAllReadAction(): Promise<ActionResult<{ count: number }>> {
+export async function markAllReadAction(): Promise<
+  ActionResult<{ count: number }>
+> {
   await requireUserContext();
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("mark_all_my_notifications_read");
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    return failed(
+      "notifications.mark_all_read.failed",
+      error,
+      "No se pudieron marcar los avisos como leídos.",
+    );
+  }
   return { ok: true, data: { count: data ?? 0 } };
 }
