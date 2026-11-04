@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatArgentineDateTime } from "@/lib/format";
 import { arcaErrorText } from "@/lib/afip/arca-error-text";
-import { syncResultText } from "@/lib/afip/arca-sync-run";
+import { syncPhase, syncResultText } from "@/lib/afip/arca-sync-run";
 import type { ArcaWebAccountStatus } from "@/lib/afip/arca-web-account";
 import { formatCuitInput } from "@/lib/validation/cuit";
 
@@ -38,6 +38,9 @@ function statusText(s: ArcaWebAccountStatus): string {
       const access = s.lastSuccessAt
         ? `Funcionando · último ingreso ${formatArgentineDateTime(s.lastSuccessAt)}`
         : "Configurado · todavía no se usó";
+      if (syncPhase(s.sync, Date.now()) === "died") {
+        return `${access} · la última corrida se cortó sin terminar`;
+      }
       // A sign-in that worked says nothing of the months it then read.
       const last = s.sync.result;
       const troubled =

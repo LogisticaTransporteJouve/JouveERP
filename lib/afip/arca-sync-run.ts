@@ -5,8 +5,9 @@ import type {
 import { arcaErrorText } from "@/lib/afip/arca-error-text";
 
 /** A requested run that has not started after this long never will (the
- *  event was lost, or the job is not deployed). */
-export const SYNC_START_TIMEOUT_MS = 3 * 60_000;
+ *  event was lost, or the job is not deployed). Room for a whole run ahead
+ *  of it (one at a time, up to 300 s) and the queue. */
+export const SYNC_START_TIMEOUT_MS = 8 * 60_000;
 /** A started run with no end after this long died (the function timed out). */
 export const SYNC_RUN_TIMEOUT_MS = 15 * 60_000;
 
@@ -27,7 +28,10 @@ export function syncPhase(sync: ArcaSyncRun, now: number): SyncPhase {
   const requested = ms(sync.requestedAt);
   const started = ms(sync.startedAt);
   const finished = ms(sync.finishedAt);
-  if (requested > started && requested > finished) {
+  // Ours has not started until a run starts after the request: one that
+  // started before it (the daily run, another tab) and ends meanwhile is not
+  // its result.
+  if (requested > started) {
     return now - requested < SYNC_START_TIMEOUT_MS ? "waiting" : "not_started";
   }
   if (started > finished) {

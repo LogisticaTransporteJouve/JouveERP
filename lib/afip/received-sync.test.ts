@@ -162,12 +162,12 @@ describe("runReceivedSync", () => {
     expect(ingest).not.toHaveBeenCalled();
   });
 
-  it("keeps reading after a month with too many results, stops on a broken query", async () => {
+  it("keeps reading after a month with too many results, stops on a lost connection", async () => {
     const queryReceived = vi
       .fn()
       .mockRejectedValueOnce(new ArcaRobotError("TOO_MANY", "x"))
       .mockResolvedValueOnce({ vouchers: [voucher], skippedByReason: {} })
-      .mockRejectedValueOnce(new ArcaRobotError("QUERY_FAILED", "x"));
+      .mockRejectedValueOnce(new ArcaRobotError("NETWORK", "x"));
     const out = await runReceivedSync(
       supabase,
       { from: "2026-08-01", to: "2026-11-30" },
@@ -179,7 +179,7 @@ describe("runReceivedSync", () => {
       counts: { inserted: 1 },
       failedMonths: {
         "2026-08": "TOO_MANY",
-        "2026-10": "QUERY_FAILED",
+        "2026-10": "NETWORK",
         "2026-11": "NOT_READ",
       },
     });
@@ -194,7 +194,7 @@ describe("runReceivedSync", () => {
         {
           representedCuit: COMPANY,
           signIn: async () => {
-            throw new ArcaRobotError("SIGN_IN_FAILED", "x", true);
+            throw new ArcaRobotError("SIGN_IN_FAILED", "x", "clave");
           },
         },
       ),
@@ -306,5 +306,41 @@ describe("runReceivedSync", () => {
         { representedCuit: COMPANY, signIn: vi.fn() },
       ),
     ).toEqual({ outcome: "skipped", reason: "read_failed" });
+  });
+
+  it("reads the newer months after one ARCA answered badly", async () => {
+    const queryReceived = vi
+      .fn()
+      .mockRejectedValueOnce(new ArcaRobotError("QUERY_FAILED", "x"))
+      .mockResolvedValueOnce({ vouchers: [voucher], skippedByReason: {} });
+    const out = await runReceivedSync(
+      supabase,
+      { from: "2026-10-01", to: "2026-11-30" },
+      { representedCuit: COMPANY, signIn: async () => ({ queryReceived }) },
+    );
+    expect(queryReceived).toHaveBeenCalledTimes(2);
+    expect(out).toMatchObject({
+      counts: { inserted: 1 },
+      failedMonths: { "2026-10": "QUERY_FAILED" },
+    });
+  });
+
+  it("takes a failure after ARCA accepted the clave as proof the clave works", async () => {
+    const out = await runReceivedSync(
+      supabase,
+      { from: "2026-11-01", to: "2026-11-04" },
+      {
+        representedCuit: COMPANY,
+        signIn: async () => {
+          throw new ArcaRobotError("SIGN_IN_FAILED", "portal", "after_clave");
+        },
+      },
+    );
+    expect(out).toEqual({ outcome: "sign_in_failed", code: "SIGN_IN_FAILED" });
+    expect(rpc).toHaveBeenCalledWith("record_arca_web_attempt", {
+      p_ok: true,
+      p_error_code: "",
+      p_version: "2026-11-04T08:00:00Z",
+    });
   });
 });
