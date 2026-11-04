@@ -181,11 +181,16 @@
         <div class="callout warn">
           <strong>Advertencias en pantalla:</strong> comprobantes
           <em>sin CAE</em> (revisar emisión AFIP) y comprobantes
-          <em>sin ítems</em>, como los importados de ARCA: su neto y su IVA van
-          en la alícuota que surge de IVA / neto, la misma que declara el TXT.
-          Si no cierra con ninguna alícuota, el comprobante queda en la columna
+          <em>sin ítems</em>. Desde esta versión, la importación nocturna de
+          ARCA trae las alícuotas de cada comprobante y las guarda como ítems
+          «Importado de ARCA», así que esos comprobantes van en sus alícuotas
+          reales. Los importados antes, o aquellos cuyo detalle ARCA no
+          devolvió completo, siguen sin ítems: su neto y su IVA van en la
+          alícuota que surge de IVA / neto, la misma que declara el TXT. Si no
+          cierra con ninguna alícuota, el comprobante queda en la columna
           <strong>Sin alícuota</strong> y el TXT lo excluye: revisalo antes de
-          presentar. En Compras, las facturas <em>B y C</em> no discriminan
+          presentar. Una venta solo exenta o no gravada sí va al TXT, con una
+          alícuota de 0% y código de operación E o N. En Compras, las facturas <em>B y C</em> no discriminan
           IVA: van en la columna <strong>Sin discriminar (B/C)</strong> con el
           IVA incluido, como las declara el TXT (sin alícuota).
         </div>
