@@ -620,18 +620,22 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
       tocan filas existentes. Rollback de cada una:
   - `170200`: el trigger de herencia de las NC/ND de compra deja como está
     lo que escribe `recategorize_expense`, así que recategorizar una NC/ND
-    a «Sin cuenta» o «Sin centro» guarda el vacío. El código anterior llama
-    a la misma RPC; la edición desde el formulario sigue heredando. Las
-    recategorizadas a vacío antes de esto:
+    a «Sin cuenta» o «Sin centro» guarda el vacío. El código de
+    `production-latest` no tiene «Recategorizar» ni llama a
+    `recategorize_expense`: el rollback no cambia nada. Las recategorizadas
+    a vacío antes de esto:
     `docs/pendientes/2026-11-04-gestion-recategorizar-nc-nd-y-flota-pendiente-por-cargas-w10.md`.
   - `170201`: `v_trip_revenue` suma `uninvoiced_shipments` al final
     (`create or replace`, mismas opciones y permisos). `ai_fleet_margin` y
     `get_vehicle_margin` suman columnas al final con `drop` y `create` en la
     misma transacción (permisos repuestos). `ai_fleet_margin` por vehículo
     trae además el grupo `none` («Sin vehículo»). El código anterior lee
-    todo por nombre e ignora las columnas nuevas; con el grupo `none`,
-    `getVehicleEconomics` del código anterior lo listaría como un vehículo
-    más llamado «Sin vehículo» (cosmético; el resto lo ignora por id).
+    todo por nombre e ignora las columnas nuevas. Con el grupo `none`,
+    `getFleetMargin` (asistente) del código anterior muestra por vehículo
+    una fila «Sin vehículo», y sus totales (grupos, ingreso, neto) incluyen
+    esos viajes (cosmético). El código de `production-latest` no llama a
+    `get_vehicle_margin`. Corrección de los encabezados:
+    `docs/pendientes/2026-11-04-lecturas-fallidas-y-notas-de-rollback-w11.md`.
 
 ## Después de promover
 

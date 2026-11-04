@@ -6,7 +6,7 @@ Decisiones: `docs/decisions/2026-11-04-gestion-recategorizar-nc-nd-y-flota-pendi
       trigger les puso el valor del origen y la auditoría
       (`expense.recategorized`) registró vacío. `20261104170200` no las
       corrige. Para verlas (la auditoría dice vacío y la fila no lo está):
-      `select a.created_at, a.target_resource_id, a.payload from public.audit_events a join public.purchase_invoices p on p.id::text = a.target_resource_id::text where a.event_type = 'expense.recategorized' and a.payload ->> 'source' = 'purchase_invoices' and p.kind in ('nc', 'nd') and ((a.payload ->> 'cost_center_id' is null and p.cost_center_id is not null) or (a.payload ->> 'expense_account_id' is null and p.account_id is not null)) order by a.created_at desc;`
+      `select a.ts, a.target_resource_id, a.payload from public.audit_events a join public.purchase_invoices p on p.id::text = a.target_resource_id::text where a.event_type = 'expense.recategorized' and a.payload ->> 'source' = 'purchase_invoices' and p.kind in ('nc', 'nd') and ((a.payload ->> 'cost_center_id' is null and p.cost_center_id is not null) or (a.payload ->> 'expense_account_id' is null and p.account_id is not null)) order by a.ts desc;`
       Si la última recategorización de la fila es la que aparece, hay que
       volver a recategorizarla a vacío. En producción no hay compras al
       2026-11-04.
