@@ -212,6 +212,138 @@ describe("parseReceivedTable", () => {
     });
   });
 
+  // The Excel export of today's Mis Comprobantes page (its 30 columns, as
+  // DataTables writes them); synthetic values in the shape the page returns.
+  it("reads the Excel export of the current page, C and NC C with only the total", () => {
+    const header = [
+      "Fecha",
+      "Tipo",
+      "Punto de Venta",
+      "Número Desde",
+      "Número Hasta",
+      "Cód. Autorización",
+      "Tipo Doc. Emisor",
+      "Nro. Doc. Emisor",
+      "Denominación Emisor",
+      "Tipo Doc. Receptor",
+      "Nro. Doc. Receptor",
+      "Tipo Cambio",
+      "Moneda",
+      "Neto Grav. IVA 0%",
+      "IVA 2,5%",
+      "Neto Grav. IVA 2,5%",
+      "IVA 5%",
+      "Neto Grav. IVA 5%",
+      "IVA 10,5%",
+      "Neto Grav. IVA 10,5%",
+      "IVA 21%",
+      "Neto Grav. IVA 21%",
+      "IVA 27%",
+      "Neto Grav. IVA 27%",
+      "Neto Gravado Total",
+      "Neto No Gravado",
+      "Op. Exentas",
+      "Otros Tributos",
+      "Total IVA",
+      "Imp. Total",
+    ];
+    const row = (
+      tipo: string,
+      numero: string,
+      amounts: Partial<Record<number, string>>,
+      total: string,
+    ) => {
+      const r = [
+        "01/11/2026",
+        tipo,
+        "3",
+        numero,
+        numero,
+        "86439009998337",
+        "CUIT",
+        "30711111118",
+        "Proveedor SA",
+        "CUIT",
+        "30722222229",
+        "1",
+        "$",
+        ...Array.from({ length: 16 }, () => ""),
+        total,
+      ];
+      for (const [i, v] of Object.entries(amounts)) r[Number(i)] = v!;
+      return r;
+    };
+    const out = parseReceivedTable({
+      truncated: false,
+      rows: [
+        header,
+        row(
+          "1 - Factura A",
+          "120",
+          {
+            20: "210.5",
+            21: "1002.38",
+            24: "1002.38",
+            25: "0",
+            26: "0",
+            27: "30",
+            28: "210.5",
+          },
+          "1242.88",
+        ),
+        row("11 - Factura C", "121", { 25: "0", 26: "0" }, "95000"),
+        row("13 - Nota de Crédito C", "7", {}, "95000"),
+      ],
+    });
+    if (typeof out === "string") throw new Error(out);
+    expect(out.skippedByReason).toEqual({});
+    expect(out.vouchers[0]).toMatchObject({
+      letter: "A",
+      moneda: "PES",
+      cae: "86439009998337",
+      imp_neto_gravado: 1002.38,
+      imp_iva: 210.5,
+      imp_trib: 30,
+      imp_total: 1242.88,
+      iva_breakdown: [{ iva_rate_id: 5, neto: 1002.38, iva: 210.5 }],
+    });
+    expect(out.vouchers[1]).toMatchObject({
+      kind: "factura",
+      letter: "C",
+      imp_neto_gravado: 95000,
+      imp_iva: 0,
+      imp_total: 95000,
+    });
+    expect(out.vouchers[2]).toMatchObject({
+      kind: "nc",
+      letter: "C",
+      imp_neto_gravado: 95000,
+      imp_total: 95000,
+    });
+  });
+
+  it("still skips an A that lists only the total", () => {
+    const out = parseReceivedTable({
+      truncated: false,
+      rows: [
+        [
+          "Fecha",
+          "Tipo",
+          "Punto de Venta",
+          "Número Desde",
+          "Nro. Doc. Emisor",
+          "Neto Gravado Total",
+          "Imp. Total",
+        ],
+        ["01/11/2026", "1", "3", "1", "30711111118", "0", "100"],
+      ],
+    });
+    expect(out).toEqual({
+      vouchers: [],
+      skippedByReason: { amount_mismatch: 1 },
+    });
+  });
+
   it("refuses more than 5000 vouchers", () => {
     expect(parseReceivedTable({ truncated: true, rows: [] })).toMatch(
       /más de 5000/,
