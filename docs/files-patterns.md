@@ -246,6 +246,10 @@ create policy "files_delete_uploader_or_admin"
   );
 ```
 
+Desde `20261104194101`, el INSERT («Files write requires uploader = self»)
+además exige un rol con `files:write`, el bucket `files` y una key que no
+nombre una fila de otro usuario (`files_storage_key_is_free`).
+
 ### 3.2 Tabla `file_attachments`
 
 Mismo predicate: leer es libre dentro de la app, atachar requiere que el
