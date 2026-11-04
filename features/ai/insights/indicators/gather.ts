@@ -93,12 +93,14 @@ async function netRevenueByClient(
 }
 
 /** Direct cost per group key (trips + the fuel imputed to them), as
- *  getClientMargin and the profitability report count it. */
+ *  getClientMargin and the profitability report count it. With maintenance,
+ *  a group with a service of unknown cost is in `incomplete`: its cost is
+ *  not known, not lower (#396). */
 async function fleetCostBy(
   groupBy: "client" | "vehicle",
   range: Range,
   withMaintenance: boolean,
-): Promise<Map<string, number>> {
+): Promise<{ cost: Map<string, number>; incomplete: Set<string> }> {
   const { data, error } = await getServiceClient().rpc("ai_fleet_margin", {
     p_from: range.from,
     p_to: range.to,
@@ -113,17 +115,21 @@ async function fleetCostBy(
       `insights.gather.fleet_margin_${groupBy}: more than ${RPC_PAGE} groups`,
     );
   }
-  const out = new Map<string, number>();
+  const cost = new Map<string, number>();
+  const incomplete = new Set<string>();
   for (const r of rows) {
     if (!r.group_key) continue;
-    out.set(
+    cost.set(
       r.group_key,
       Number(r.trip_cost) +
         Number(r.fuel_cost) +
         (withMaintenance ? Number(r.maintenance_cost) : 0),
     );
+    if (withMaintenance && Number(r.maintenance_without_cost) > 0) {
+      incomplete.add(r.group_key);
+    }
   }
-  return out;
+  return { cost, incomplete };
 }
 
 async function clientMarginPairs(today: string): Promise<ClientMarginPair[]> {
@@ -142,9 +148,9 @@ async function clientMarginPairs(today: string): Promise<ClientMarginPair[]> {
         client_id: id,
         name: r.name,
         revenueNow: r.revenue,
-        costNow: costNow.get(id) ?? 0,
+        costNow: costNow.cost.get(id) ?? 0,
         revenuePrev: before.revenue,
-        costPrev: costPrev.get(id) ?? 0,
+        costPrev: costPrev.cost.get(id) ?? 0,
       },
     ];
   });
@@ -204,13 +210,16 @@ async function vehicleFigures(
     });
     const before = actPrev.get(id);
     if (!before) continue;
+    // A service with no cost in either period: the comparison would show a
+    // rise (or hide one) that is not known.
+    if (costNow.incomplete.has(id) || costPrev.incomplete.has(id)) continue;
     cost.push({
       vehicle_id: id,
       patente: a.patente,
       kmNow: a.km,
-      costNow: costNow.get(id) ?? 0,
+      costNow: costNow.cost.get(id) ?? 0,
       kmPrev: before.km,
-      costPrev: costPrev.get(id) ?? 0,
+      costPrev: costPrev.cost.get(id) ?? 0,
     });
   }
   return { cost, fuel };
