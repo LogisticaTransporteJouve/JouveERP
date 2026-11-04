@@ -9,7 +9,7 @@ const CHANNEL = "jouve_fiscal";
 let roles: string[] = ["finance"];
 let voucherRow: Record<string, unknown> | null;
 let linkMakesConfirmed = false;
-let cancelledCount = 0;
+let sameKeyRows: { status: string; imp_total: number }[] = [];
 let claimWins: boolean | "error" = true;
 const writes: string[] = [];
 
@@ -45,12 +45,8 @@ function row(over: Record<string, unknown> = {}) {
 
 function builder(table: string) {
   let op: "select" | "update" = "select";
-  let head = false;
   const b = {
-    select: (_cols?: string, opts?: { head?: boolean }) => {
-      head = opts?.head ?? false;
-      return b;
-    },
+    select: () => b,
     update: () => {
       op = "update";
       writes.push(`update:${table}`);
@@ -78,8 +74,8 @@ function builder(table: string) {
       return { data: null, error: null };
     },
     then: (resolve: (v: unknown) => void) => {
-      if (table === "purchase_invoices" && head) {
-        return resolve({ count: cancelledCount, error: null });
+      if (table === "purchase_invoices") {
+        return resolve({ data: sameKeyRows, error: null });
       }
       if (table === "suppliers") {
         return resolve({
@@ -162,7 +158,7 @@ beforeEach(() => {
   roles = ["finance"];
   voucherRow = row();
   linkMakesConfirmed = false;
-  cancelledCount = 0;
+  sameKeyRows = [];
   claimWins = true;
   writes.length = 0;
   createPurchase.mockClear();
@@ -238,7 +234,7 @@ describe("createPurchaseInvoiceFromReceivedAction", () => {
   });
 
   it("does not create over a cancelled purchase with the same number", async () => {
-    cancelledCount = 1;
+    sameKeyRows = [{ status: "cancelled", imp_total: 1310 }];
     const res = await createPurchaseInvoiceFromReceivedAction({
       voucherId: VOUCHER_ID,
       invoice,
@@ -247,6 +243,16 @@ describe("createPurchaseInvoiceFromReceivedAction", () => {
       ok: false,
       error: "Ya existe esta factura anulada en Compras.",
     });
+    expect(createPurchase).not.toHaveBeenCalled();
+  });
+
+  it("does not create a second purchase when one has this number and another total", async () => {
+    sameKeyRows = [{ status: "received", imp_total: 999 }];
+    const res = await createPurchaseInvoiceFromReceivedAction({
+      voucherId: VOUCHER_ID,
+      invoice,
+    });
+    expect(res.ok ? null : res.error).toMatch(/otro total/);
     expect(createPurchase).not.toHaveBeenCalled();
   });
 

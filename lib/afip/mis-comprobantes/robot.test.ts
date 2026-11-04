@@ -36,7 +36,9 @@ function row(cells: Record<number, string>): (string | null)[] {
 
 type Call = { url: string; method: string; body: string; cookie: string };
 
-function fakeArca(opts: { claveOk?: boolean; serverSide?: boolean } = {}) {
+function fakeArca(
+  opts: { claveOk?: boolean; serverSide?: boolean; recordsTotal?: number } = {},
+) {
   const calls: Call[] = [];
   const respond = (
     body: string,
@@ -105,6 +107,7 @@ function fakeArca(opts: { claveOk?: boolean; serverSide?: boolean } = {}) {
         return respond(
           JSON.stringify({
             estado: "ok",
+            recordsTotal: opts.recordsTotal ?? 1,
             datos: {
               data: [
                 row({
@@ -197,6 +200,46 @@ describe("signInToMisComprobantes", () => {
     await expect(
       robot.queryReceived("2026-01-01", "2026-12-31"),
     ).rejects.toMatchObject({ code: "TOO_MANY" });
+  });
+
+  it("refuses a page with fewer rows than ARCA counted", async () => {
+    const { fetchImpl } = fakeArca({ recordsTotal: 2 });
+    const robot = await signInToMisComprobantes(credentials, fetchImpl);
+    await expect(
+      robot.queryReceived("2026-11-01", "2026-11-30"),
+    ).rejects.toMatchObject({ code: "QUERY_FAILED" });
+  });
+
+  it("never sends the clave outside ARCA, even on a 307", async () => {
+    const { calls, fetchImpl } = fakeArca();
+    const hijacked = async (url: string, init: RequestInit) =>
+      url.includes("loginClave.xhtml")
+        ? new Response("", {
+            status: 307,
+            headers: { location: "https://example.com/steal" },
+          })
+        : fetchImpl(url, init);
+    await expect(
+      signInToMisComprobantes(credentials, hijacked),
+    ).rejects.toMatchObject({ code: "SIGN_IN_FAILED" });
+    expect(calls.some((c) => c.url.includes("example.com"))).toBe(false);
+  });
+
+  it("does not follow a form action outside ARCA", async () => {
+    const { fetchImpl } = fakeArca();
+    const evil = async (url: string, init: RequestInit) =>
+      url === "https://auth.afip.gob.ar/contribuyente_/login.xhtml" &&
+      (init.method ?? "GET") === "GET"
+        ? new Response(
+            loginHtml.replace(
+              "/contribuyente_/login.xhtml;jsessionid=abc",
+              "http://auth.afip.gob.ar/contribuyente_/login.xhtml",
+            ),
+          )
+        : fetchImpl(url, init);
+    await expect(
+      signInToMisComprobantes(credentials, evil),
+    ).rejects.toMatchObject({ code: "SIGN_IN_FAILED" });
   });
 
   it("refuses when the user does not represent the company", async () => {

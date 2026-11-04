@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { arcaErrorText } from "@/lib/afip/arca-error-text";
 import { formatArgentineDate, formatArgentineDateTime } from "@/lib/format";
 
 import type { ArcaSyncStatus } from "../actions/arca-received-sync-actions";
@@ -47,7 +48,9 @@ function statusText(s: ArcaSyncStatus, phase: SyncPhase): string {
     return "El último pedido no arrancó. Probá de nuevo; si se repite, revisá Inngest.";
   }
   if (s.state === "rejected") {
-    return "ARCA rechazó la clave guardada: un owner o admin tiene que actualizarla en Admin → AFIP → Puntos de venta.";
+    return s.lastErrorCode === "SIGN_IN_REJECTED"
+      ? "ARCA rechazó la clave guardada: un owner o admin tiene que actualizarla en Admin → AFIP → Puntos de venta."
+      : `JouveERP dejó de entrar a ARCA tras dos ingresos fallidos (${arcaErrorText(s.lastErrorCode ?? "SIGN_IN_FAILED")}). Un owner o admin vuelve a cargar la clave en Admin → AFIP → Puntos de venta.`;
   }
   const last = s.sync.finishedAt
     ? `Última vez ${formatArgentineDateTime(s.sync.finishedAt)}${s.sync.result ? `: ${syncResultText(s.sync.result)}` : "."}`

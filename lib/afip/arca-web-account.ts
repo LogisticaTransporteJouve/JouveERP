@@ -43,6 +43,8 @@ export type ArcaSyncRun = {
 export type ArcaWebAccountStatus = {
   state: ArcaWebAccountState;
   cuit: string | null;
+  /** Moves on every save: the version a sign-in result is recorded against. */
+  version: string | null;
   lastSuccessAt: string | null;
   lastErrorCode: string | null;
   sync: ArcaSyncRun;
@@ -63,7 +65,7 @@ export async function getArcaWebAccountStatus(
   const { data, error } = await supabase
     .from("arca_web_account")
     .select(
-      "cuit, status, secret_id, last_success_at, last_error_code, sync_requested_at, sync_started_at, sync_finished_at, sync_result",
+      "cuit, status, secret_id, updated_at, last_success_at, last_error_code, sync_requested_at, sync_started_at, sync_finished_at, sync_result",
     )
     .maybeSingle();
   if (error) return null;
@@ -80,6 +82,7 @@ export async function getArcaWebAccountStatus(
     return {
       state: "missing",
       cuit: data?.cuit ?? null,
+      version: data?.updated_at ?? null,
       lastSuccessAt: null,
       lastErrorCode: null,
       sync,
@@ -88,6 +91,7 @@ export async function getArcaWebAccountStatus(
   return {
     state: data.status === "sign_in_failing" ? "rejected" : "ok",
     cuit: data.cuit,
+    version: data.updated_at,
     lastSuccessAt: data.last_success_at,
     lastErrorCode: data.last_error_code,
     sync,

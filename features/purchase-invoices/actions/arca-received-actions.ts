@@ -9,6 +9,7 @@ import { parseReceivedExport } from "@/lib/afip/mis-comprobantes/parse";
 import { ingestReceivedVouchers } from "@/lib/afip/received-vouchers";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
+import { formatMoney } from "@/lib/format";
 import { logger } from "@/lib/logger";
 import { latestTributeSplits } from "@/lib/purchases/tribute-split";
 import type { ActionResult } from "@/lib/query/run-action";
@@ -478,17 +479,35 @@ export async function createPurchaseInvoiceFromReceivedAction(input: {
     };
   }
 
-  const { count: cancelled, error: cancelledError } = await supabase
+  // Not linked above, so a fiscal purchase with this key (same letter, or an
+  // old one without letter) is cancelled or has another total: creating a
+  // second one would hide that.
+  const { data: sameKey, error: sameKeyError } = await supabase
     .from("purchase_invoices")
-    .select("id, suppliers!inner(cuit)", { count: "exact", head: true })
+    .select(
+      "status, imp_total, suppliers!inner(cuit), invoicing_channels!inner(is_fiscal)",
+    )
     .eq("suppliers.cuit", voucher.issuer_cuit)
+    .eq("invoicing_channels.is_fiscal", true)
     .eq("kind", invoice.data.kind)
     .eq("punto_venta", voucher.punto_venta)
     .eq("numero", voucher.numero)
-    .eq("status", "cancelled");
-  if (cancelledError) return fail(cancelledError.code);
-  if ((cancelled ?? 0) > 0) {
+    .or(
+      voucher.letter
+        ? `letter.eq.${voucher.letter},letter.is.null`
+        : "letter.is.null",
+    )
+    .limit(1);
+  if (sameKeyError) return fail(sameKeyError.code);
+  const existing = sameKey?.[0];
+  if (existing?.status === "cancelled") {
     return { ok: false, error: "Ya existe esta factura anulada en Compras." };
+  }
+  if (existing) {
+    return {
+      ok: false,
+      error: `Ya hay una compra con este número y otro total (${formatMoney(existing.imp_total)}): revisala antes de aceptar.`,
+    };
   }
 
   const items = receivedVoucherItems(voucher);

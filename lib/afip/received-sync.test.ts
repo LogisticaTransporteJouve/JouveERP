@@ -35,7 +35,11 @@ const voucher = { kind: "factura" } as never;
 beforeEach(() => {
   vi.clearAllMocks();
   marks.length = 0;
-  status.mockResolvedValue({ state: "ok", cuit: "20111111112" });
+  status.mockResolvedValue({
+    state: "ok",
+    cuit: "20111111112",
+    version: "2026-11-04T08:00:00Z",
+  });
   password.mockResolvedValue("clave");
   ingest.mockResolvedValue({
     inserted: 1,
@@ -87,9 +91,10 @@ describe("runReceivedSync", () => {
     expect(ingest).toHaveBeenCalledWith(supabase, [voucher], {
       origin: "sync",
     });
-    expect(rpc).toHaveBeenCalledWith("record_arca_web_sign_in", {
+    expect(rpc).toHaveBeenCalledWith("record_arca_web_attempt", {
       p_ok: true,
       p_error_code: "",
+      p_version: "2026-11-04T08:00:00Z",
     });
     expect(out).toEqual({
       outcome: "done",
@@ -117,7 +122,11 @@ describe("runReceivedSync", () => {
         },
       ),
     ).toEqual({ outcome: "skipped", reason: "not_configured" });
-    status.mockResolvedValueOnce({ state: "rejected", cuit: "20111111112" });
+    status.mockResolvedValueOnce({
+      state: "rejected",
+      cuit: "20111111112",
+      version: "v",
+    });
     expect(
       await runReceivedSync(
         supabase,
@@ -145,9 +154,10 @@ describe("runReceivedSync", () => {
       outcome: "sign_in_failed",
       code: "SIGN_IN_REJECTED",
     });
-    expect(rpc).toHaveBeenCalledWith("record_arca_web_sign_in", {
+    expect(rpc).toHaveBeenCalledWith("record_arca_web_attempt", {
       p_ok: false,
       p_error_code: "SIGN_IN_REJECTED",
+      p_version: "2026-11-04T08:00:00Z",
     });
     expect(ingest).not.toHaveBeenCalled();
   });
@@ -168,6 +178,48 @@ describe("runReceivedSync", () => {
       outcome: "done",
       counts: { inserted: 1 },
       failedMonths: { "2026-08": "TOO_MANY", "2026-10": "QUERY_FAILED" },
+    });
+  });
+
+  it("fails loudly when a failed sign-in cannot be recorded", async () => {
+    rpc.mockResolvedValueOnce({ error: { code: "XX000" } } as never);
+    await expect(
+      runReceivedSync(
+        supabase,
+        { from: "2026-11-01", to: "2026-11-04" },
+        {
+          representedCuit: COMPANY,
+          signIn: async () => {
+            throw new ArcaRobotError("SIGN_IN_FAILED", "x");
+          },
+        },
+      ),
+    ).rejects.toThrow();
+    expect(marks.at(-1)).toEqual({
+      sync_finished_at: expect.any(String),
+      sync_result: { outcome: "sign_in_failed", code: "RECORD_FAILED" },
+    });
+  });
+
+  it("reports the months left past the time budget", async () => {
+    let t = 0;
+    const queryReceived = vi.fn(async () => {
+      t += 150_000;
+      return { vouchers: [], skippedByReason: {} };
+    });
+    const out = await runReceivedSync(
+      supabase,
+      { from: "2026-08-01", to: "2026-11-30" },
+      {
+        representedCuit: COMPANY,
+        signIn: async () => ({ queryReceived }),
+        now: () => t,
+      },
+    );
+    expect(queryReceived).toHaveBeenCalledTimes(2);
+    expect(out).toMatchObject({
+      outcome: "done",
+      failedMonths: { "2026-10": "TIME_BUDGET", "2026-11": "TIME_BUDGET" },
     });
   });
 });

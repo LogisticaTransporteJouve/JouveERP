@@ -94,7 +94,7 @@ export async function requestArcaReceivedSyncAction(
     return {
       ok: false,
       error:
-        "ARCA rechazó la clave guardada: un owner o admin tiene que actualizarla en Admin → AFIP → Puntos de venta.",
+        "JouveERP dejó de entrar a ARCA con la clave guardada: un owner o admin tiene que volver a cargarla en Admin → AFIP → Puntos de venta.",
     };
   }
 

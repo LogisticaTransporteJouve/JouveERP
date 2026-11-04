@@ -16,6 +16,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatArgentineDateTime } from "@/lib/format";
+import { arcaErrorText } from "@/lib/afip/arca-error-text";
 import type { ArcaWebAccountStatus } from "@/lib/afip/arca-web-account";
 import { formatCuitInput } from "@/lib/validation/cuit";
 
@@ -29,7 +30,9 @@ function statusText(s: ArcaWebAccountStatus): string {
     case "missing":
       return "Sin configurar";
     case "rejected":
-      return "ARCA rechazó la clave: actualizala";
+      return s.lastErrorCode === "SIGN_IN_REJECTED"
+        ? "ARCA rechazó la clave: actualizala"
+        : `Pausado tras dos ingresos fallidos (${arcaErrorText(s.lastErrorCode ?? "SIGN_IN_FAILED")}): volvé a cargar la clave para reintentar`;
     case "ok":
       return s.lastSuccessAt
         ? `Funcionando · último acceso ${formatArgentineDateTime(s.lastSuccessAt)}`

@@ -110,13 +110,13 @@ describe("requestArcaReceivedSyncAction", () => {
       fromMonth: "2026-11",
       toMonth: "2026-11",
     });
-    expect(missing).toMatchObject({ ok: false, error: /Falta cargar/ });
+    expect(missing.ok ? null : missing.error).toMatch(/Falta cargar/);
     account = { ...active, status: "sign_in_failing" };
     const rejected = await requestArcaReceivedSyncAction({
       fromMonth: "2026-11",
       toMonth: "2026-11",
     });
-    expect(rejected).toMatchObject({ ok: false, error: /rechazó la clave/ });
+    expect(rejected.ok ? null : rejected.error).toMatch(/dejó de entrar/);
     expect(sent).toEqual([]);
   });
 });
