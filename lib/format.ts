@@ -369,7 +369,7 @@ export function moneyInputCaret(
   const digits = raw.slice(0, caret).replace(/\D/g, "").length;
   let pos = 0;
   for (let seen = 0; pos < text.length && seen < digits; pos++) {
-    if (/\d/.test(text[pos])) seen++;
+    if (/\d/.test(text.charAt(pos))) seen++;
   }
   const before = raw[caret - 1];
   if (before !== undefined && !/\d/.test(before) && text[pos] === before) {

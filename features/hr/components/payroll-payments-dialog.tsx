@@ -36,8 +36,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { AccountOptionsGate } from "@/features/accounts/components/account-options-gate";
-import type { Account } from "@/features/accounts/schema";
+import { AccountOptionsError } from "@/features/accounts/components/account-options-gate";
+import { useAccountOptions } from "@/features/accounts/hooks/use-accounts";
 import {
   amountToInput,
   formatArgentineDate,
@@ -166,22 +166,23 @@ type PaymentsBodyProps = {
   disabled: boolean;
 };
 
-function PaymentsBody(props: PaymentsBodyProps) {
-  return (
-    <AccountOptionsGate>
-      {(accounts) => <PaymentsBodyFields {...props} accounts={accounts} />}
-    </AccountOptionsGate>
-  );
-}
-
-function PaymentsBodyFields({
+/** The payments already made always list, with delete. Adding or editing one
+ *  picks an account: without accounts (a per-user deny of accounts:read, or a
+ *  failed read) the form says why instead. */
+function PaymentsBody({
   entryId,
   year,
   month,
   saldo,
   disabled,
-  accounts,
-}: PaymentsBodyProps & { accounts: Account[] }) {
+}: PaymentsBodyProps) {
+  const {
+    accounts,
+    error: accountsError,
+    pending: accountsPending,
+    retry: retryAccounts,
+  } = useAccountOptions();
+  const canPickAccount = !accountsError && !accountsPending;
   const { data: payments = [], isLoading } = usePayrollPayments(entryId);
   const { channels } = useScope();
   const defaultChannel = useDefaultChannel();
@@ -306,9 +307,7 @@ function PaymentsBodyFields({
           <li className="text-sm text-muted-foreground">Sin pagos todavía.</li>
         ) : (
           payments.map((payment) => {
-            const account = (accounts ?? []).find(
-              (a) => a.id === payment.account_id,
-            );
+            const account = accounts.find((a) => a.id === payment.account_id);
             return (
               <li
                 key={payment.id}
@@ -332,16 +331,18 @@ function PaymentsBodyFields({
                 </span>
                 {!disabled && (
                   <>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="size-7"
-                      onClick={() => startEdit(payment.id)}
-                      disabled={saving || deleteMut.isPending}
-                      aria-label="Editar pago"
-                    >
-                      <Pencil className="size-3.5" />
-                    </Button>
+                    {canPickAccount && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="size-7"
+                        onClick={() => startEdit(payment.id)}
+                        disabled={saving || deleteMut.isPending}
+                        aria-label="Editar pago"
+                      >
+                        <Pencil className="size-3.5" />
+                      </Button>
+                    )}
                     <Button
                       size="icon"
                       variant="ghost"
@@ -360,180 +361,197 @@ function PaymentsBodyFields({
         )}
       </ul>
 
-      {!disabled && payableAccounts.length === 0 && (
+      {!disabled && accountsPending && (
+        <p className="border-t pt-4 text-sm text-muted-foreground">
+          Cargando cuentas…
+        </p>
+      )}
+
+      {!disabled && accountsError && (
+        <AccountOptionsError
+          message={accountsError}
+          onRetry={retryAccounts}
+          className="justify-start border-t pt-4"
+        />
+      )}
+
+      {!disabled && canPickAccount && payableAccounts.length === 0 && (
         <p className="text-sm text-muted-foreground">
           No hay cuentas activas en pesos para pagar sueldos. Creá o activá una
           caja o banco en ARS en Tesorería.
         </p>
       )}
 
-      {!disabled && payableAccounts.length > 0 && activeChannels.length > 0 && (
-        <Form {...form}>
-          <form
-            onSubmit={form.handleSubmit(onSubmit)}
-            className="grid grid-cols-2 gap-3 border-t pt-4"
-          >
-            <FormField
-              control={form.control}
-              name="account_id"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Cuenta</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {payableAccounts.map((a) => (
-                        <SelectItem key={a.id} value={a.id}>
-                          {a.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="channel_id"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Canal</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {activeChannels.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="method"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Método</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {PAYROLL_PAYMENT_METHODS.map((m) => (
-                        <SelectItem key={m} value={m}>
-                          {PAYROLL_PAYMENT_METHOD_LABEL[m]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="paid_at"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Fecha</FormLabel>
-                  <FormControl>
-                    <Input {...field} type="date" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="amount"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Monto</FormLabel>
-                  <FormControl>
-                    <MoneyInput {...field} className="text-right font-mono" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="notes"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Notas</FormLabel>
-                  <FormControl>
-                    <Input {...field} autoComplete="off" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            {overpays && (
+      {!disabled &&
+        canPickAccount &&
+        payableAccounts.length > 0 &&
+        activeChannels.length > 0 && (
+          <Form {...form}>
+            <form
+              onSubmit={form.handleSubmit(onSubmit)}
+              className="grid grid-cols-2 gap-3 border-t pt-4"
+            >
               <FormField
                 control={form.control}
-                name="allow_overpay"
+                name="account_id"
                 render={({ field }) => (
-                  <FormItem className="col-span-2 space-y-1">
-                    <div className="flex items-center gap-2">
+                  <FormItem>
+                    <FormLabel>Cuenta</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          onCheckedChange={(v) => field.onChange(v === true)}
-                        />
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
                       </FormControl>
-                      <FormLabel className="font-normal">
-                        Pagar más que el saldo
-                      </FormLabel>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      El monto supera el saldo pendiente (
-                      {money(Math.max(available, 0))}). Marcalo solo si es un
-                      adelanto o un pago a cuenta del mes siguiente.
-                    </p>
+                      <SelectContent>
+                        {payableAccounts.map((a) => (
+                          <SelectItem key={a.id} value={a.id}>
+                            {a.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
                   </FormItem>
                 )}
               />
-            )}
-            <div className="col-span-2 flex justify-end gap-2">
-              {editing && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={cancelEdit}
-                  disabled={saving}
-                >
-                  Cancelar
-                </Button>
+              <FormField
+                control={form.control}
+                name="channel_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Canal</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {activeChannels.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="method"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Método</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {PAYROLL_PAYMENT_METHODS.map((m) => (
+                          <SelectItem key={m} value={m}>
+                            {PAYROLL_PAYMENT_METHOD_LABEL[m]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="paid_at"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Fecha</FormLabel>
+                    <FormControl>
+                      <Input {...field} type="date" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="amount"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Monto</FormLabel>
+                    <FormControl>
+                      <MoneyInput {...field} className="text-right font-mono" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="notes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Notas</FormLabel>
+                    <FormControl>
+                      <Input {...field} autoComplete="off" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              {overpays && (
+                <FormField
+                  control={form.control}
+                  name="allow_overpay"
+                  render={({ field }) => (
+                    <FormItem className="col-span-2 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <FormControl>
+                          <Checkbox
+                            checked={field.value}
+                            onCheckedChange={(v) => field.onChange(v === true)}
+                          />
+                        </FormControl>
+                        <FormLabel className="font-normal">
+                          Pagar más que el saldo
+                        </FormLabel>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        El monto supera el saldo pendiente (
+                        {money(Math.max(available, 0))}). Marcalo solo si es un
+                        adelanto o un pago a cuenta del mes siguiente.
+                      </p>
+                    </FormItem>
+                  )}
+                />
               )}
-              <Button type="submit" disabled={saving}>
-                {editing
-                  ? updateMut.isPending
-                    ? "Guardando…"
-                    : "Guardar cambios"
-                  : createMut.isPending
-                    ? "Registrando…"
-                    : "Registrar pago"}
-              </Button>
-            </div>
-          </form>
-        </Form>
-      )}
+              <div className="col-span-2 flex justify-end gap-2">
+                {editing && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={cancelEdit}
+                    disabled={saving}
+                  >
+                    Cancelar
+                  </Button>
+                )}
+                <Button type="submit" disabled={saving}>
+                  {editing
+                    ? updateMut.isPending
+                      ? "Guardando…"
+                      : "Guardar cambios"
+                    : createMut.isPending
+                      ? "Registrando…"
+                      : "Registrar pago"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        )}
     </div>
   );
 }
