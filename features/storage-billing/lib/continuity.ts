@@ -6,6 +6,54 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 export type BilledPeriod = { period_start: string; period_end: string };
 
+export type ClaimedRun = BilledPeriod & {
+  client_id: string;
+  invoice_id: string | null;
+  channel_id: string | null;
+};
+
+function onChannel(run: ClaimedRun, channelId: string | null): boolean {
+  return (
+    channelId === null ||
+    run.channel_id === null ||
+    run.channel_id === channelId
+  );
+}
+
+/**
+ * The client's runs that bill their days on `channelId`, by the rule of
+ * claim_storage_billing_period: a run linked to an invoice, on that channel
+ * or with none (an older run). A pending claim is not billed yet: the server
+ * refuses it while fresh, and once stale it links the invoice issued under
+ * it or frees the days. With no channel chosen, every channel counts.
+ */
+export function billedRuns<T extends ClaimedRun>(
+  runs: T[],
+  clientId: string,
+  channelId: string | null,
+): T[] {
+  return runs.filter(
+    (r) =>
+      r.client_id === clientId &&
+      r.invoice_id !== null &&
+      onChannel(r, channelId),
+  );
+}
+
+/** The client's pending claims (no invoice linked yet) on `channelId`. */
+export function pendingRuns<T extends ClaimedRun>(
+  runs: T[],
+  clientId: string,
+  channelId: string | null,
+): T[] {
+  return runs.filter(
+    (r) =>
+      r.client_id === clientId &&
+      r.invoice_id === null &&
+      onChannel(r, channelId),
+  );
+}
+
 function dayNum(date: string): number {
   return Math.floor(Date.parse(`${date}T00:00:00Z`) / DAY_MS);
 }

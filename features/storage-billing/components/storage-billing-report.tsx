@@ -21,7 +21,7 @@ import {
   useStorageBilling,
   useStorageBillingRuns,
 } from "../hooks/use-storage-billing";
-import { lastBilledEnd } from "../lib/continuity";
+import { billedRuns, lastBilledEnd } from "../lib/continuity";
 
 import { StorageInvoiceDialog } from "./storage-invoice-dialog";
 
@@ -156,7 +156,7 @@ export function StorageBillingReport() {
                   ) : (
                     data.byClient.map((c) => {
                       const lastEnd = lastBilledEnd(
-                        (runs ?? []).filter((r) => r.client_id === c.client_id),
+                        billedRuns(runs ?? [], c.client_id, null),
                       );
                       return (
                         <TableRow key={c.client_id}>
