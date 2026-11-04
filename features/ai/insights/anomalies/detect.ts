@@ -61,12 +61,17 @@ function pvNum(r: PurchaseRow): string {
 /** How far apart two consecutive invoices of one group may be to look like
  *  one charge loaded twice: DUP_WINDOW_DAYS, or with 3+ invoices half the
  *  group's usual spacing (the upper quartile of its gaps, so a few duplicates
- *  do not set it), at least a day. A fixed monthly or weekly fee is measured
- *  against its own cadence instead of being taken for a duplicate. */
+ *  do not set it). A fixed monthly, weekly or daily fee is measured against
+ *  its own cadence instead of being taken for a duplicate: with a daily one
+ *  (MIN_HISTORY invoices or more), only a second invoice on the same day
+ *  counts. A shorter history cannot tell a daily fee from loads on
+ *  consecutive days, so it keeps a window of at least a day. */
 function duplicateWindow(gaps: number[]): number {
   if (gaps.length < 2) return DUP_WINDOW_DAYS;
   const { q3 } = quartiles([...gaps].sort((a, b) => a - b));
-  return Math.min(DUP_WINDOW_DAYS, Math.max(1, q3 / 2));
+  const half = q3 / 2;
+  const floor = gaps.length + 1 >= MIN_HISTORY ? 0 : 1;
+  return Math.min(DUP_WINDOW_DAYS, Math.max(floor, half));
 }
 
 /**
