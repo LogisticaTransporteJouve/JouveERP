@@ -217,6 +217,7 @@ describe("invoiceStorageAction claim", () => {
     ];
     runInvoices = [
       { id: "inv-orphan", idempotency_key: RUN_ID },
+      { id: "inv-f", idempotency_key: "run-fiscal" },
       { id: "inv-old", idempotency_key: "random-key" },
     ];
     await invoiceStorageAction(october);
