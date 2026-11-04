@@ -153,8 +153,8 @@ select throws_ok(
 
 select throws_ok(
   $$insert into public.purchase_invoices
-      (channel_id, supplier_id, kind, letter, punto_venta, numero, fecha, imp_total, invoice_origin_id, status)
-    values ('jouve_fiscal', '00000000-0000-0000-0000-00000000b001', 'nc', 'A', 5, 21, current_date, 10,
+      (channel_id, supplier_id, kind, letter, punto_venta, numero, fecha, imp_neto, imp_total, invoice_origin_id, status)
+    values ('jouve_fiscal', '00000000-0000-0000-0000-00000000b001', 'nc', 'A', 5, 21, current_date, 10, 10,
        '00000000-0000-0000-0000-0000000003f2', 'received')$$,
   '23514',
   'La factura de origen es de otro proveedor',

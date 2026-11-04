@@ -65,6 +65,7 @@ const GUARDS = [
   "guard_purchase_invoice_edit",
   "guard_purchase_invoice_open_after_edit",
   "guard_purchase_invoice_fiscal_letter",
+  "guard_purchase_invoice_total",
   "build_receipt_journal_lines",
   "build_payment_order_journal_lines",
   "journal_entry_status",

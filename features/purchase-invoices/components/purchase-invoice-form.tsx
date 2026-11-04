@@ -14,6 +14,7 @@ import {
   useSideChannels,
 } from "@/components/providers/scope-provider";
 import { DialogFormFooter } from "@/components/dialog-form-footer";
+import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
   Form,
@@ -61,12 +62,17 @@ import {
   type PurchaseInvoiceCreateRawInput,
   type PurchaseInvoiceDraft,
 } from "../lib/purchase-invoice-draft";
-import { followHeaderTotal } from "../lib/header-total";
+import {
+  amountsDiffer,
+  followHeaderTotal,
+  partsGapFix,
+} from "../lib/header-total";
 import {
   PURCHASE_INVOICE_KINDS,
   PURCHASE_INVOICE_KIND_LABEL,
   PURCHASE_INVOICE_LETTERS,
   PURCHASE_INVOICES_PATH,
+  PURCHASE_TOTAL_MISMATCH_MESSAGE,
   PURCHASE_TRIBUTE_FIELDS,
   formatInvoiceNumber,
   type PurchaseAmountBreakdown,
@@ -622,31 +628,45 @@ export function PurchaseInvoiceForm({
   }, [mode, watchedSupplierId, watchedKind, debouncedPv, debouncedNumero]);
   const duplicate = usePurchaseInvoiceDuplicate(duplicateLookup).data ?? null;
 
-  // Only document-filled invoices are checked: a manual header-only load may
-  // legitimately carry amounts the form has no field for. With items, the
-  // computed total is checked against the total printed on the document.
+  // Header mode: the total must equal its parts (the journal credits the
+  // supplier the parts, the statement the total), so a gap blocks the save
+  // and can be moved into no gravado or the net. An edit that leaves the
+  // amounts of an older purchase as they are still saves. With items the total
+  // is computed from the lines; a scanned document's printed total is only
+  // compared, and the user may keep the lines.
   const watchedTotal = useWatch({ control: form.control, name: "imp_total" });
-  const gap = !createDraft
-    ? null
-    : watchedWithItems
+  const watchedAmounts = {
+    imp_neto: watchedNeto,
+    imp_iva: watchedIva,
+    imp_trib: watchedTrib,
+    imp_no_gravado: watchedNoGravado,
+    imp_op_exentas: watchedExentas,
+    imp_total: watchedTotal,
+  };
+  const amountsChanged =
+    mode === "create" ||
+    amountsDiffer(watchedAmounts, form.formState.defaultValues);
+  const partsGap =
+    watchedWithItems || !breakdownKnown ? null : totalsGap(watchedAmounts);
+  const documentGap =
+    createDraft && watchedWithItems
       ? documentTotalGap(createDraft.data.imp_total, Number(watchedTotal))
-      : totalsGap({
-          imp_neto: watchedNeto,
-          imp_iva: watchedIva,
-          imp_trib: watchedTrib,
-          imp_no_gravado: watchedNoGravado,
-          imp_op_exentas: watchedExentas,
-          imp_total: watchedTotal,
-        });
+      : null;
+  const gap = partsGap ?? documentGap;
+  const gapFix = partsGapFix(partsGap, showsExempt, watchedAmounts);
 
   function onSubmit(values: FormValues) {
     if (!values.supplier) {
       toast.error("Seleccioná un proveedor.");
       return;
     }
-    if (gap !== null && !acceptTotalsGap) {
+    if (partsGap !== null && amountsChanged) {
+      toast.error(PURCHASE_TOTAL_MISMATCH_MESSAGE);
+      return;
+    }
+    if (documentGap !== null && !acceptTotalsGap) {
       toast.error(
-        "Los importes no cierran: revisá neto, IVA, otros tributos y total.",
+        "Los ítems no dan el total del comprobante: revisalos o confirmá que son correctos.",
       );
       return;
     }
@@ -1094,6 +1114,7 @@ export function PurchaseInvoiceForm({
                     inputMode="decimal"
                     step="0.01"
                     readOnly={watchedWithItems}
+                    disabled={!breakdownKnown}
                     className={watchedWithItems ? "bg-muted/40" : undefined}
                   />
                 </FormControl>
@@ -1121,6 +1142,7 @@ export function PurchaseInvoiceForm({
                     inputMode="decimal"
                     step="0.01"
                     readOnly={watchedWithItems}
+                    disabled={!breakdownKnown}
                     className={watchedWithItems ? "bg-muted/40" : undefined}
                   />
                 </FormControl>
@@ -1167,6 +1189,7 @@ export function PurchaseInvoiceForm({
                     inputMode="decimal"
                     step="0.01"
                     readOnly={watchedWithItems}
+                    disabled={!breakdownKnown}
                     className={
                       watchedWithItems
                         ? "bg-muted/40 font-semibold"
@@ -1179,6 +1202,14 @@ export function PurchaseInvoiceForm({
             )}
           />
         </div>
+
+        {!breakdownKnown && (
+          <p className="text-xs text-muted-foreground">
+            {detailQuery.isError
+              ? `No se pudo leer el desglose de la factura: los importes${chargeKnown ? "" : " y «A cargo de empleado»"} no se pueden editar. Cerrá y volvé a abrirla para reintentar.`
+              : "Cargando el desglose de la factura…"}
+          </p>
+        )}
 
         {showsExempt && (
           <div className="grid gap-4 sm:grid-cols-4">
@@ -1236,25 +1267,48 @@ export function PurchaseInvoiceForm({
             <p className="flex items-start gap-2">
               <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
               <span>
-                {watchedWithItems
-                  ? "Los ítems más otros tributos no dan el total del comprobante"
-                  : "Neto + IVA + otros tributos no da el total"}{" "}
+                {partsGap !== null
+                  ? "Neto + IVA + otros tributos + no gravado + exento no da el total"
+                  : "Los ítems más otros tributos no dan el total del comprobante"}{" "}
                 (diferencia{" "}
                 <span className="font-mono">
                   {gap.toLocaleString("es-AR", { minimumFractionDigits: 2 })}
                 </span>
-                ). Revisá los importes contra el comprobante.
+                ).{" "}
+                {partsGap === null
+                  ? "Revisá los ítems contra el comprobante."
+                  : amountsChanged
+                    ? "Corregí los importes para guardar."
+                    : "Para cambiar un importe, primero corregí la diferencia."}
               </span>
             </p>
-            <label className="flex items-center gap-2 text-muted-foreground">
-              <input
-                type="checkbox"
-                checked={acceptTotalsGap}
-                onChange={(e) => setAcceptTotalsGap(e.target.checked)}
-                className="size-3.5 accent-foreground"
-              />
-              Los importes son correctos, guardar igual
-            </label>
+            {gapFix ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  form.setValue(gapFix.field, gapFix.value, {
+                    shouldDirty: true,
+                  })
+                }
+              >
+                {gapFix.field === "imp_no_gravado"
+                  ? "Pasar la diferencia a No gravado"
+                  : "Sumar la diferencia al neto"}
+              </Button>
+            ) : null}
+            {partsGap === null ? (
+              <label className="flex items-center gap-2 text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={acceptTotalsGap}
+                  onChange={(e) => setAcceptTotalsGap(e.target.checked)}
+                  className="size-3.5 accent-foreground"
+                />
+                Los ítems son correctos, guardar igual
+              </label>
+            ) : null}
           </div>
         )}
 

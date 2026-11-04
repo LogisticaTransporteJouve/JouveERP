@@ -20,6 +20,8 @@ import type { SupplierIdentityJoin } from "@/features/suppliers/schema";
 import {
   EXEMPT_ITEMS_MESSAGE,
   PURCHASE_INVOICE_KINDS,
+  PURCHASE_TOTAL_MISMATCH_MESSAGE,
+  PURCHASE_TOTAL_PART_FIELDS,
   PurchaseInvoiceCancelSchema,
   PurchaseInvoiceCreateSchema,
   PurchaseInvoiceUpdateSchema,
@@ -28,12 +30,14 @@ import {
   isPurchaseInvoiceLetter,
   isPurchaseInvoiceStatus,
   isPurchaseIvaRateId,
+  purchaseTotalGap,
   type PurchaseInvoice,
   type PurchaseInvoiceKind,
   type PurchaseInvoiceItem,
   type PurchaseInvoiceItemInput,
   type PurchaseInvoiceLetter,
   type PurchaseIvaRateId,
+  type PurchaseTotalParts,
 } from "../schema";
 
 const EMPLOYEE_CHARGE_DENIED =
@@ -581,17 +585,22 @@ export async function updatePurchaseInvoiceAction(
   // The letter rule applies to what this edit changes, so an old B purchase
   // with IVA stays editable. Items are checked against the stored exento too:
   // replace_purchase_invoice_items refuses them only after the header is saved.
+  // The total rule applies to an edit that changes an amount, so an old
+  // purchase whose total and parts differ still saves its other fields.
+  const sendsAmounts = PURCHASE_TOTAL_PART_FIELDS.some(
+    (f) => rest[f] !== undefined,
+  );
   if (
+    sendsAmounts ||
     rest.channel_id !== undefined ||
     rest.letter !== undefined ||
-    rest.imp_iva !== undefined ||
-    rest.imp_no_gravado !== undefined ||
-    rest.imp_op_exentas !== undefined ||
     rest.items?.some((item) => item.iva_rate_id === null)
   ) {
     const { data: stored, error: storedError } = await supabase
       .from("purchase_invoices")
-      .select("channel_id, letter, imp_iva, imp_no_gravado, imp_op_exentas")
+      .select(
+        "channel_id, letter, imp_neto, imp_iva, imp_trib, imp_no_gravado, imp_op_exentas, imp_total",
+      )
       .eq("id", id)
       .maybeSingle();
     if (storedError) {
@@ -612,6 +621,20 @@ export async function updatePurchaseInvoiceAction(
     };
     if (itemsDoubleCountExempt({ ...next, items: rest.items })) {
       return { ok: false, error: EXEMPT_ITEMS_MESSAGE };
+    }
+    const amounts: PurchaseTotalParts = {
+      imp_neto: rest.imp_neto ?? stored.imp_neto,
+      imp_iva: next.imp_iva,
+      imp_trib: rest.imp_trib ?? stored.imp_trib,
+      imp_no_gravado: next.imp_no_gravado,
+      imp_op_exentas: next.imp_op_exentas,
+      imp_total: rest.imp_total ?? stored.imp_total,
+    };
+    if (
+      PURCHASE_TOTAL_PART_FIELDS.some((f) => amounts[f] !== stored[f]) &&
+      purchaseTotalGap(amounts) !== null
+    ) {
+      return { ok: false, error: PURCHASE_TOTAL_MISMATCH_MESSAGE };
     }
     const changed =
       next.letter !== stored.letter ||
