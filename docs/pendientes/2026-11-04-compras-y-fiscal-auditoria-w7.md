@@ -12,8 +12,10 @@
 - [x] **Editar sin haber leído los ítems no los borra**: mientras los ítems
       cargan, o si su lectura falló, «Cargar con detalle por ítem» queda
       deshabilitado, el formulario lo avisa (con «Reintentar» si falló) y el
-      guardado no manda `items`, así el servidor no los toca. Manda `[]`
-      solo si la compra tenía ítems leídos y el usuario apagó el detalle.
+      guardado no manda `items`, así el servidor no los toca; un cambio de
+      importes se frena hasta que carguen, para que el encabezado no deje de
+      coincidir con ellos. Manda `[]` solo si la compra tenía ítems leídos y
+      el usuario apagó el detalle.
 - [x] **Los ítems que no se tocan conservan su neto e IVA guardados**: una
       compra aceptada de ARCA guarda el IVA de ARCA, que no siempre es
       neto × alícuota. El formulario de edición recalcula solo la línea a la

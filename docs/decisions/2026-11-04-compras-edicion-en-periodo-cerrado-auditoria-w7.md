@@ -18,7 +18,8 @@ solo la descripción no recalcula.
 
 **Decisión 3: sin leer los ítems, no se mandan.** `items: []` borra los
 ítems; se manda solo si se leyeron y el usuario apagó «con detalle». Mientras
-cargan o si falló la lectura, la casilla queda deshabilitada y no se mandan.
+cargan o si falló la lectura, la casilla queda deshabilitada, no se mandan y
+no se aceptan importes nuevos (no coincidirían con los ítems guardados).
 
 **Decisión 4: el CUIT de un proveedor con compras en un período cerrado no
 cambia.** Se rechaza en la base (trigger en `suppliers`, `SECURITY DEFINER`
