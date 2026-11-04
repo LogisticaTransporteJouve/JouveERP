@@ -516,9 +516,9 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
   - `guard_loan`: el desembolso se liga solo dentro de
     `record_loan_disbursement`, y no se inserta.
   - `create_loan`: el préstamo y sus cuotas en una transacción.
-  - Rollback: el código anterior paga y desembolsa por esas RPC, e inserta
-    cuotas pendientes y préstamos sin desembolso, de forma directa, lo que
-    sigue permitido.
+  - Rollback: el código anterior paga por `pay_loan_installment` y no
+    registra desembolsos; inserta préstamos y cuotas pendientes de forma
+    directa, lo que sigue permitido.
 - [ ] **Aprobar `20261104150002`** (auditoría w8): una línea de OP en una
       cartera tiene que endosar un cheque (trigger en la línea), y
       `create_receipt` / `update_receipt` rechazan una línea en cartera sin
@@ -543,7 +543,34 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
     `docs/pendientes/2026-11-04-gestion-flota-y-rrhh-auditoria-w8.md`.
   - `150201`: `get_vehicle_margin` cuenta en su centro la NC/ND de una
     compra vinculada a una carga de combustible o un service. Mismas
-    columnas; el código anterior lee `center_cost` como un número.
+    columnas; el código anterior no llama a `get_vehicle_margin`.
+- [ ] **Aprobar `20261104160000`** (auditoría w9, sueldos):
+      `guard_payroll_payment_transaction`. El movimiento de un pago de sueldo
+      es el que creó su alta: `transaction_id` no cambia después. No toca
+      filas existentes. Rollback: el código anterior nunca escribe la
+      columna.
+- [ ] **Aprobar `20261104160001`** (auditoría w9, préstamos). No toca filas
+      existentes.
+  - `guard_loan_installment_payment`: una cuota pagada no se borra, salvo
+    con su préstamo (que `guard_loan` ya solo deja borrar sin nada pagado).
+  - `guard_loan`: el capital, la moneda y el canal no cambian una vez
+    registrado el desembolso, importado el préstamo o pagada una cuota; el
+    estado pasa solo de activo a anulado («Anular») o a pagado dentro de
+    las RPC de pago.
+  - Rollback: el código anterior no borra cuotas sueltas, anula con el
+    mismo UPDATE, marca pagado por las mismas RPC y no edita las condiciones
+    de un préstamo.
+- [ ] **Aprobar `20261104160002`** (auditoría w9, almacenaje). No toca filas
+      existentes.
+  - `claim_storage_billing_period`: un período con una factura viva emitida
+    bajo el id de su reserva vencida la vincula, en vez de borrar la reserva
+    y dejar emitir otra factura.
+  - `guard_storage_billing_run_invoice`: un período se vincula solo a una
+    factura de su cliente que no falló ni se anuló.
+  - Rollback: el código anterior emite con una clave al azar, así que sus
+    reservas vencidas se borran como antes. Una reserva que deja el código
+    nuevo y que el anterior vincula al reclamar devuelve null, y el código
+    anterior muestra «No se pudo validar el período.» sin emitir nada.
 
 ## Después de promover
 

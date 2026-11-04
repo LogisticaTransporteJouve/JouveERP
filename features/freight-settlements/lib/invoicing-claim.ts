@@ -26,24 +26,3 @@ export async function releaseInvoicingClaim(
     });
   }
 }
-
-/** The invoice failed or was cancelled. A read error answers false, so the
- *  claim is kept (the safe side: no second invoice before the TTL). */
-export async function invoiceIsVoid(
-  supabase: Service,
-  invoiceId: string,
-): Promise<boolean> {
-  const { data, error } = await supabase
-    .from("invoices")
-    .select("status")
-    .eq("id", invoiceId)
-    .maybeSingle();
-  if (error) {
-    logger.error("freight_settlements.invoice.status_read_failed", {
-      invoiceId,
-      error,
-    });
-    return false;
-  }
-  return data?.status === "failed" || data?.status === "cancelled";
-}

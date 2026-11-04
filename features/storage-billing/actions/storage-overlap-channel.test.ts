@@ -15,6 +15,8 @@ const OVERLAP_MESSAGE =
 const issue = vi.fn();
 let claim: { data: unknown; error: unknown } = { data: RUN_ID, error: null };
 let pallets: unknown[] = [];
+let link: { data: unknown; error: unknown } = { data: null, error: null };
+let invoiceStatus = "emitting";
 let fake = recordingSupabase(respond);
 // paginateRange reads until an empty page; the fake ignores `.range()`, so
 // each paged table answers its rows once and then an empty page.
@@ -27,6 +29,18 @@ const page = (table: string, rows: unknown[]) => {
 
 function respond(call: RecordedCall) {
   if (call.table === "claim_storage_billing_period") return claim;
+  if (
+    call.table === "storage_billing_runs" &&
+    call.op === "update" &&
+    typeof call.payload === "object" &&
+    call.payload !== null &&
+    "invoice_id" in call.payload
+  ) {
+    return link;
+  }
+  if (call.table === "invoices") {
+    return { data: { status: invoiceStatus }, error: null };
+  }
   if (call.table === "clients") {
     return {
       data: {
@@ -90,6 +104,8 @@ beforeEach(() => {
   issue.mockReset();
   issue.mockResolvedValue({ ok: true, data: { id: "inv1" } });
   claim = { data: RUN_ID, error: null };
+  link = { data: null, error: null };
+  invoiceStatus = "emitting";
   pallets = [
     {
       id: "p1",
@@ -124,12 +140,51 @@ describe("invoiceStorageAction claim", () => {
       p_client_id: CLIENT_ID,
       p_channel_id: "jouve_internal",
     });
-    const link = runCalls().at(-1);
-    expect(link?.op).toBe("update");
-    expect(link?.payload).toMatchObject({
+    const linkCall = runCalls().at(-1);
+    expect(linkCall?.op).toBe("update");
+    expect(linkCall?.payload).toEqual({
       invoice_id: "inv1",
       pending_since: null,
     });
+  });
+
+  it("issues under the run's id, with the totals already on the run", async () => {
+    await invoiceStorageAction(october);
+    expect(issue).toHaveBeenCalledWith(
+      expect.objectContaining({ idempotency_key: RUN_ID }),
+    );
+    const [totals] = runCalls();
+    expect(totals?.op).toBe("update");
+    expect(totals?.payload).toMatchObject({ storage_total: 310, total: 310 });
+    expect(totals?.payload).not.toHaveProperty("invoice_id");
+  });
+
+  it("issues nothing when the claim linked the period's earlier invoice", async () => {
+    claim = { data: null, error: null };
+    const res = await invoiceStorageAction(october);
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error).toMatch(/ya está facturado/);
+    expect(issue).not.toHaveBeenCalled();
+    expect(runCalls()).toHaveLength(0);
+  });
+
+  it("frees the period when the link finds the invoice void", async () => {
+    link = {
+      data: null,
+      error: { message: "falló", hint: "jouve_guard", code: "55006" },
+    };
+    invoiceStatus = "failed";
+    const res = await invoiceStorageAction(october);
+    expect(res.ok).toBe(false);
+    expect(runCalls().at(-1)?.op).toBe("delete");
+  });
+
+  it("keeps the run when a live invoice's link is lost, without inviting a reissue", async () => {
+    link = { data: null, error: { message: "timeout", code: "57014" } };
+    const res = await invoiceStorageAction(october);
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error).toMatch(/No la emitas de nuevo/);
+    expect(runCalls().some((c) => c.op === "delete")).toBe(false);
   });
 
   it("drops the claimed run when the issue fails", async () => {
