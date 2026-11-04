@@ -3,6 +3,7 @@
 import { Pencil, Trash2 } from "lucide-react";
 
 import { useConfirm } from "@/components/providers/confirm-provider";
+import { ReadError } from "@/components/read-error";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -56,10 +57,7 @@ export function EmployeeDocumentsCard({
           </p>
         </div>
         {canWrite && (
-          <EmployeeDocumentDialog
-            mode="create"
-            employeeId={employeeId}
-          />
+          <EmployeeDocumentDialog mode="create" employeeId={employeeId} />
         )}
       </div>
 
@@ -68,6 +66,12 @@ export function EmployeeDocumentsCard({
           <Skeleton className="h-10 w-full" />
           <Skeleton className="h-10 w-full" />
         </div>
+      ) : query.isError && !query.data ? (
+        <ReadError
+          message="No se pudieron cargar los documentos del empleado."
+          onRetry={() => void query.refetch()}
+          className="justify-center p-6"
+        />
       ) : !query.data || query.data.length === 0 ? (
         <p className="p-6 text-center text-sm text-muted-foreground">
           Sin documentos cargados.
@@ -137,11 +141,7 @@ function DocumentsTable({
                       employeeId={employeeId}
                       document={d}
                       trigger={
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-8 w-8"
-                        >
+                        <Button size="icon" variant="ghost" className="h-8 w-8">
                           <Pencil className="size-4" />
                           <span className="sr-only">Editar</span>
                         </Button>

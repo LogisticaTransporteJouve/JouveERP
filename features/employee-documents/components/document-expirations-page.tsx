@@ -4,6 +4,7 @@ import { ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
+import { ReadError } from "@/components/read-error";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
@@ -156,17 +157,24 @@ export function DocumentExpirationsPage() {
         )}
       </div>
 
-      <DataTable
-        columns={columns}
-        data={filtered}
-        getRowId={(d) => d.id}
-        isLoading={query.isLoading}
-        emptyMessage={
-          (query.data?.length ?? 0) === 0
-            ? "Ningún documento por vencer en los próximos 30 días. 🎉"
-            : "Sin resultados para el filtro actual."
-        }
-      />
+      {query.isError && !query.data ? (
+        <ReadError
+          message="No se pudieron cargar los vencimientos de documentos."
+          onRetry={() => void query.refetch()}
+        />
+      ) : (
+        <DataTable
+          columns={columns}
+          data={filtered}
+          getRowId={(d) => d.id}
+          isLoading={query.isLoading}
+          emptyMessage={
+            (query.data?.length ?? 0) === 0
+              ? "Ningún documento por vencer en los próximos 30 días."
+              : "Sin resultados para el filtro actual."
+          }
+        />
+      )}
     </div>
   );
 }
