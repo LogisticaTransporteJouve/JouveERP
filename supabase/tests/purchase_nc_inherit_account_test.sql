@@ -7,6 +7,10 @@ select plan(7);
 
 select set_config('request.jwt.claims', '{"role":"service_role"}', true);
 
+-- Case 5 needs an NC left empty while its factura gets an account, as a row
+-- from before 20261104190201 (which moves it along) is.
+alter table public.purchase_invoices disable trigger purchase_invoices_nc_nd_follow_factura;
+
 insert into public.suppliers (id, is_fiscal, cuit, legal_name, iva_condition) values
   ('00000000-0000-0000-0000-0000000851f1', true, '30999999994', 'Proveedor NC Cuenta', 'responsable_inscripto');
 insert into public.chart_of_accounts (id, code, name, level, account_type) values
