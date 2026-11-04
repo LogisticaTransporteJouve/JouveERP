@@ -394,7 +394,9 @@ export async function recoverOnFailure(
 }
 
 /** A deterministic refusal (AFIP rejected the request, the row left
- *  emission): no request of the run can still be in flight. Inngest
+ *  emission): no request of the run can still be in flight. The CAE step
+ *  throws it only on an attempt that started with no unresolved earlier
+ *  attempt; after one, an AFIP rejection stays retriable. Inngest
  *  deserializes it as a NonRetriableError, or keeps its name on a StepError. */
 function isNonRetriable(error: Error): boolean {
   return (

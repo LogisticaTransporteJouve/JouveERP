@@ -110,8 +110,8 @@ select throws_ok(
   'an internal purchase cannot come from a fiscal supplier');
 select throws_ok(
   $$insert into public.purchase_invoices
-      (channel_id, supplier_id, kind, letter, punto_venta, numero, fecha, imp_total, status)
-    values ('jouve_fiscal', '00000000-0000-0000-0000-00000005d0a1', 'factura', 'A', 1, 99950, current_date, 10, 'received')$$,
+      (channel_id, supplier_id, kind, letter, punto_venta, numero, fecha, imp_neto, imp_total, status)
+    values ('jouve_fiscal', '00000000-0000-0000-0000-00000005d0a1', 'factura', 'A', 1, 99950, current_date, 10, 10, 'received')$$,
   '23514', 'Un comprobante de Compras necesita un proveedor de Compras.',
   'a fiscal purchase cannot come from an internal supplier');
 select throws_ok(

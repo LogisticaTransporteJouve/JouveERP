@@ -14,6 +14,7 @@ import {
   IVA_RATES,
   KIND_LABEL,
   libroIvaVoucherNumber,
+  VENTAS_AMOUNT_COLUMNS,
 } from "../schema";
 
 import { CurrencyNote, OriginalCurrencyCell } from "./currency-note";
@@ -103,7 +104,11 @@ export function LibroIvaVentasTable({
               <th className="border-l px-2 py-2 text-right font-medium">
                 Perc.
               </th>
-              <th className="px-2 py-2 text-right font-medium">No grav.</th>
+              {VENTAS_AMOUNT_COLUMNS.map((c) => (
+                <th key={c.header} className="px-2 py-2 text-right font-medium">
+                  {c.header}
+                </th>
+              ))}
               <th className="px-2 py-2 text-right font-medium">Total $</th>
               <th className="px-2 py-2 text-right font-medium">Moneda orig.</th>
               <th className="px-2 py-2 font-medium">CAE</th>
@@ -123,7 +128,9 @@ export function LibroIvaVentasTable({
                 </Fragment>
               ))}
               <th className="border-l" />
-              <th />
+              {VENTAS_AMOUNT_COLUMNS.map((c) => (
+                <th key={c.header} />
+              ))}
               <th />
               <th />
               <th />
@@ -178,9 +185,14 @@ export function LibroIvaVentasTable({
                   <td className="border-l px-2 py-1 text-right font-mono text-xs">
                     {row.imp_trib > 0 ? money(row.imp_trib) : ""}
                   </td>
-                  <td className="px-2 py-1 text-right font-mono text-xs">
-                    {row.imp_op_ex > 0 ? money(row.imp_op_ex) : ""}
-                  </td>
+                  {VENTAS_AMOUNT_COLUMNS.map((c) => (
+                    <td
+                      key={c.header}
+                      className="px-2 py-1 text-right font-mono text-xs"
+                    >
+                      {c.value(row) > 0 ? money(c.value(row)) : ""}
+                    </td>
+                  ))}
                   <td className="px-2 py-1 text-right font-mono text-xs font-medium">
                     {money(row.imp_total)}
                   </td>
@@ -228,9 +240,11 @@ export function LibroIvaVentasTable({
               <td className="border-l px-2 py-2 text-right font-mono">
                 {totals.imp_trib > 0 ? money(totals.imp_trib) : ""}
               </td>
-              <td className="px-2 py-2 text-right font-mono">
-                {totals.imp_op_ex > 0 ? money(totals.imp_op_ex) : ""}
-              </td>
+              {VENTAS_AMOUNT_COLUMNS.map((c) => (
+                <td key={c.header} className="px-2 py-2 text-right font-mono">
+                  {c.value(totals) > 0 ? money(c.value(totals)) : ""}
+                </td>
+              ))}
               <td className="px-2 py-2 text-right font-mono">
                 {money(totals.imp_total)}
               </td>
