@@ -90,6 +90,28 @@ describe("classifyTaxDocuments", () => {
     expect(g.open_estimates.map((r) => r.id)).toEqual(["estimate"]);
   });
 
+  it("an IVA DDJJ that only leaves a saldo a favor is neither overdue nor due", () => {
+    const g = classifyTaxDocuments(
+      [
+        doc({
+          id: "credit-past",
+          due_date: "2026-11-05",
+          amount: null,
+          credit_balance: 500,
+        }),
+        doc({
+          id: "credit-soon",
+          due_date: "2026-11-18",
+          amount: null,
+          credit_balance: 500,
+        }),
+      ],
+      { today: "2026-11-10", withinDays: 15, period: "2026-11" },
+    );
+    expect(g.overdue).toEqual([]);
+    expect(g.due_soon).toEqual([]);
+  });
+
   it("an annulled document counts nowhere", () => {
     const g = classifyTaxDocuments([DOCS[5]!], {
       today: "2026-11-10",

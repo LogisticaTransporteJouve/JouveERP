@@ -193,7 +193,9 @@ los días trabajados en él; sin viático. Editable. Ruta `/hr/payroll/sac/[year
 `getFinalSettlementAction` sugiere sueldo por días trabajados del último mes
 (sueldo/30 × día de baja, tope 30), vacaciones no gozadas (saldos activos +
 proporcional del año si todavía no se otorgó, × sueldo/25, LCT art. 155/156) y
-SAC proporcional; `applyFinalSettlementAction` lo carga en la planilla mensual
+SAC proporcional. El sueldo es `employee_salary_for_month` del mes de baja o,
+sin sueldo base, el `sueldo_neto` de la planilla del mes anterior (nunca el del
+mes de baja, que la liquidación pisa). `applyFinalSettlementAction` lo carga en la planilla mensual
 del mes de baja (la crea si falta): `sueldo_neto`, `vacaciones_monto` y un extra
 "Liquidación final: SAC proporcional …" (volver a cargar reemplaza).
 

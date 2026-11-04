@@ -15,6 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { MoneyInput } from "@/components/money-input";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -592,12 +593,11 @@ function ManualMovementDialog({
           </div>
           <div className="space-y-2">
             <Label htmlFor="manual-amount">Importe</Label>
-            <Input
+            <MoneyInput
               id="manual-amount"
-              inputMode="decimal"
               className="text-right font-mono"
               value={amount}
-              onChange={(e) => setAmount(e.target.value)}
+              onChange={setAmount}
             />
           </div>
           <div className="space-y-2">
@@ -763,22 +763,20 @@ function PlanDialog({
           </div>
           <div className="space-y-2">
             <Label htmlFor="plan-total">Total</Label>
-            <Input
+            <MoneyInput
               id="plan-total"
-              inputMode="decimal"
               className="text-right font-mono"
               value={total}
-              onChange={(e) => setTotal(e.target.value)}
+              onChange={setTotal}
             />
           </div>
           <div className="space-y-2">
             <Label htmlFor="plan-installment">Cuota mensual</Label>
-            <Input
+            <MoneyInput
               id="plan-installment"
-              inputMode="decimal"
               className="text-right font-mono"
               value={installment}
-              onChange={(e) => setInstallment(e.target.value)}
+              onChange={setInstallment}
             />
           </div>
           <div className="space-y-2">

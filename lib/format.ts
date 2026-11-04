@@ -226,12 +226,13 @@ export function round2(n: number): number {
 }
 
 /** Parses an amount in es-AR format ("1.234,56" → 1234.56). Returns null
- *  if the string does not represent a finite number. It is the semantic inverse of
- *  `formatAmountInput` / `amountToInput`. */
+ *  unless the whole string is a number: "12abc" and "1e3" are null, not 12
+ *  and 1000. It is the semantic inverse of `formatAmountInput` /
+ *  `amountToInput`. */
 export function parseArAmount(raw: string): number | null {
   const cleaned = raw.replace(/\s/g, "").replace(/\./g, "").replace(/,/g, ".");
-  if (cleaned.length === 0) return null;
-  const n = Number.parseFloat(cleaned);
+  if (!/^-?(\d+\.?\d*|\.\d+)$/.test(cleaned)) return null;
+  const n = Number(cleaned);
   return Number.isFinite(n) ? n : null;
 }
 

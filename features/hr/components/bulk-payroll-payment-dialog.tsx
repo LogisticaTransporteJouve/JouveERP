@@ -28,7 +28,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/money-input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -331,17 +331,15 @@ export function BulkPayrollPaymentDialog({
                       <span className="hidden font-mono text-xs text-muted-foreground sm:inline">
                         {formatMoney(e.saldo)}
                       </span>
-                      <Input
+                      <MoneyInput
                         aria-label={`Monto para ${e.employee_legal_name}`}
-                        inputMode="decimal"
                         className="h-8 w-32 text-right font-mono"
                         value={amounts[e.id] ?? ""}
                         disabled={!isSelected}
                         aria-invalid={isSelected && (amount === null || over)}
-                        onChange={(ev) => {
-                          const value = ev.target.value;
-                          setAmounts((prev) => ({ ...prev, [e.id]: value }));
-                        }}
+                        onChange={(value) =>
+                          setAmounts((prev) => ({ ...prev, [e.id]: value }))
+                        }
                       />
                     </div>
                   );

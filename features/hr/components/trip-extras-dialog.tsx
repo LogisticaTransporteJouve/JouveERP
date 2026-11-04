@@ -15,7 +15,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/money-input";
 import {
   amountToInput,
   formatArgentineDate,
@@ -221,12 +221,11 @@ function SuggestedLine({
         </Badge>
       ) : (
         <span className="flex items-center gap-1">
-          <Input
+          <MoneyInput
             aria-label={`Importe de ${line.description}`}
-            inputMode="decimal"
             className="h-8 w-32 text-right font-mono"
             value={amount}
-            onChange={(e) => setAmount(e.target.value)}
+            onChange={setAmount}
           />
           <Button size="sm" onClick={onAdd} disabled={addMut.isPending}>
             Agregar

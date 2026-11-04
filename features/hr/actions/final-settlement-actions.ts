@@ -40,6 +40,35 @@ export type FinalSettlementSuggestion = {
   sac_amount: number;
 };
 
+async function previousMonthSalary(
+  supabase: Supabase,
+  employeeId: string,
+  year: number,
+  month: number,
+): Promise<{ ok: true; data: number | null } | { ok: false; error: string }> {
+  const { data: period, error: periodErr } = await supabase
+    .from("payroll_periods")
+    .select("id")
+    .eq("year", year)
+    .eq("month", month)
+    .eq("kind", "monthly")
+    .maybeSingle();
+  if (periodErr) {
+    return { ok: false, error: "No se pudo leer la planilla anterior." };
+  }
+  if (!period) return { ok: true, data: null };
+  const { data: entry, error } = await supabase
+    .from("payroll_entries")
+    .select("sueldo_neto")
+    .eq("period_id", period.id)
+    .eq("employee_id", employeeId)
+    .maybeSingle();
+  if (error) {
+    return { ok: false, error: "No se pudo leer la planilla anterior." };
+  }
+  return { ok: true, data: entry ? Number(entry.sueldo_neto) : null };
+}
+
 async function loadSuggestion(
   supabase: Supabase,
   employeeId: string,
@@ -48,7 +77,7 @@ async function loadSuggestion(
 > {
   const { data: employee, error: empErr } = await supabase
     .from("employees")
-    .select("id, hire_date, termination_date, base_salary")
+    .select("id, hire_date, termination_date")
     .eq("id", employeeId)
     .maybeSingle();
   if (empErr) return { ok: false, error: "No se pudo leer el empleado." };
@@ -61,33 +90,42 @@ async function loadSuggestion(
   const month = Number(termination.slice(5, 7));
   const half = sacHalfOfMonth(month);
 
-  const [periodRes, sacPeriodRes, balancesRes, sacRes] = await Promise.all([
-    supabase
-      .from("payroll_periods")
-      .select("id, status")
-      .eq("year", year)
-      .eq("month", month)
-      .eq("kind", "monthly")
-      .maybeSingle(),
-    supabase
-      .from("payroll_periods")
-      .select("id")
-      .eq("year", year)
-      .eq("month", sacMonth(half))
-      .eq("kind", "sac")
-      .maybeSingle(),
-    supabase
-      .from("v_employee_vacation_balances")
-      .select("period_year, remaining_days, status")
-      .eq("employee_id", employeeId),
-    supabase.rpc("payroll_sac_suggestion", {
-      p_employee_id: employeeId,
-      p_year: year,
-      p_half: half,
-    }),
-  ]);
+  const [periodRes, sacPeriodRes, balancesRes, sacRes, salaryRes] =
+    await Promise.all([
+      supabase
+        .from("payroll_periods")
+        .select("id, status")
+        .eq("year", year)
+        .eq("month", month)
+        .eq("kind", "monthly")
+        .maybeSingle(),
+      supabase
+        .from("payroll_periods")
+        .select("id")
+        .eq("year", year)
+        .eq("month", sacMonth(half))
+        .eq("kind", "sac")
+        .maybeSingle(),
+      supabase
+        .from("v_employee_vacation_balances")
+        .select("period_year, remaining_days, status")
+        .eq("employee_id", employeeId),
+      supabase.rpc("payroll_sac_suggestion", {
+        p_employee_id: employeeId,
+        p_year: year,
+        p_half: half,
+      }),
+      supabase.rpc("employee_salary_for_month", {
+        p_employee_id: employeeId,
+        p_month: `${termination.slice(0, 7)}-01`,
+      }),
+    ]);
   const readError =
-    periodRes.error ?? sacPeriodRes.error ?? balancesRes.error ?? sacRes.error;
+    periodRes.error ??
+    sacPeriodRes.error ??
+    balancesRes.error ??
+    sacRes.error ??
+    salaryRes.error;
   if (readError) {
     logger.error("payroll.final_settlement.read_failed", {
       employeeId,
@@ -96,18 +134,19 @@ async function loadSuggestion(
     return { ok: false, error: "No se pudo calcular la liquidación final." };
   }
 
-  let entrySalary: number | null = null;
-  if (periodRes.data) {
-    const { data: entry, error } = await supabase
-      .from("payroll_entries")
-      .select("sueldo_neto")
-      .eq("period_id", periodRes.data.id)
-      .eq("employee_id", employeeId)
-      .maybeSingle();
-    if (error) {
-      return { ok: false, error: "No se pudo leer la planilla del mes." };
-    }
-    entrySalary = entry ? Number(entry.sueldo_neto) : null;
+  // Without a base salary for the month, the previous month's planilla line:
+  // the leaving month's own line is what applying overwrites, so reading it
+  // would prorate the prorated salary again on every reload.
+  let monthlySalary = salaryRes.data === null ? null : Number(salaryRes.data);
+  if (monthlySalary === null) {
+    const previous = await previousMonthSalary(
+      supabase,
+      employeeId,
+      month === 1 ? year - 1 : year,
+      month === 1 ? 12 : month - 1,
+    );
+    if (!previous.ok) return previous;
+    monthlySalary = previous.data ?? 0;
   }
 
   // The half's SAC planilla, filled while the employee was still active,
@@ -132,10 +171,6 @@ async function loadSuggestion(
   const pending = balances
     .filter((b) => b.status === "active" || b.status === "extended")
     .reduce((sum, b) => sum + Number(b.remaining_days ?? 0), 0);
-  const monthlySalary =
-    employee.base_salary !== null
-      ? Number(employee.base_salary)
-      : (entrySalary ?? 0);
   const settlement = finalSettlement({
     terminationDate: termination,
     hireDate: employee.hire_date,

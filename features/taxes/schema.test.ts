@@ -17,6 +17,7 @@ import {
   TAX_KINDS,
   TAX_STATUSES,
   taxDocumentLabel,
+  taxDocumentNeedsPayment,
   TaxDocumentCreateSchema,
   TaxPaymentCandidatesSchema,
   TaxStatusChangeSchema,
@@ -146,24 +147,41 @@ describe("labels and dates", () => {
   });
 
   it("an open document past its due date is overdue; a paid one never", () => {
+    const amounts = { amount: null, credit_balance: null };
     expect(
       isTaxDocumentOverdue(
-        { status: "pendiente", due_date: "2026-11-01" },
+        { ...amounts, status: "pendiente", due_date: "2026-11-01" },
         "2026-11-03",
       ),
     ).toBe(true);
     expect(
       isTaxDocumentOverdue(
-        { status: "liquidado", due_date: "2026-11-03" },
+        { ...amounts, status: "liquidado", due_date: "2026-11-03" },
         "2026-11-03",
       ),
     ).toBe(false);
     expect(
       isTaxDocumentOverdue(
-        { status: "pagado", due_date: "2026-10-01" },
+        { ...amounts, status: "pagado", due_date: "2026-10-01" },
         "2026-11-03",
       ),
     ).toBe(false);
+  });
+
+  it("a DDJJ that only leaves a saldo a favor has nothing to pay", () => {
+    const creditOnly: Parameters<typeof isTaxDocumentOverdue>[0] = {
+      status: "pendiente",
+      due_date: "2026-11-01",
+      amount: null,
+      credit_balance: 5000,
+    };
+    expect(taxDocumentNeedsPayment(creditOnly)).toBe(false);
+    expect(isTaxDocumentOverdue(creditOnly, "2026-11-03")).toBe(false);
+    // An amount still owed, or one not typed yet, keeps it payable.
+    expect(taxDocumentNeedsPayment({ ...creditOnly, amount: 100 })).toBe(true);
+    expect(
+      taxDocumentNeedsPayment({ ...creditOnly, credit_balance: null }),
+    ).toBe(true);
   });
 
   it("moves periods and due dates by a month", () => {

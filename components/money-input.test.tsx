@@ -1,0 +1,62 @@
+// @vitest-environment jsdom
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { useState } from "react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import { parseArAmount } from "@/lib/format";
+
+import { MoneyInput } from "./money-input";
+
+afterEach(cleanup);
+
+function Harness({
+  initial,
+  onSave,
+}: {
+  initial: string;
+  onSave: (value: number | null) => void;
+}) {
+  const [value, setValue] = useState(initial);
+  return (
+    <>
+      <MoneyInput aria-label="Importe" value={value} onChange={setValue} />
+      <button type="button" onClick={() => onSave(parseArAmount(value))}>
+        Guardar
+      </button>
+    </>
+  );
+}
+
+function input(): HTMLInputElement {
+  const el = screen.getByLabelText("Importe");
+  if (!(el instanceof HTMLInputElement)) throw new Error("not an input");
+  return el;
+}
+
+function typeAndSave(text: string, initial = ""): number | null {
+  const onSave = vi.fn();
+  render(<Harness initial={initial} onSave={onSave} />);
+  for (const ch of text) {
+    fireEvent.change(input(), { target: { value: input().value + ch } });
+  }
+  fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
+  return onSave.mock.calls[0]?.[0];
+}
+
+describe("MoneyInput", () => {
+  it("is a decimal text field, so an es-AR prefill shows", () => {
+    render(<Harness initial="850.000,00" onSave={vi.fn()} />);
+    expect(input().type).toBe("text");
+    expect(input().inputMode).toBe("decimal");
+    expect(input().value).toBe("850.000,00");
+  });
+
+  it.each([
+    ["1500,50", "1.500,50", 1500.5],
+    ["850.000,00", "850.000,00", 850_000],
+    ["1500.50", "150.050", 150_050],
+  ])("typing %s shows %s and saves %s", (typed, shown, saved) => {
+    expect(typeAndSave(typed)).toBe(saved);
+    expect(input().value).toBe(shown);
+  });
+});

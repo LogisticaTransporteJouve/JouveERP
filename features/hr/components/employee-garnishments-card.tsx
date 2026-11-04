@@ -13,6 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { MoneyInput } from "@/components/money-input";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -76,6 +77,12 @@ function toDraft(g: Garnishment | null): Draft {
     beneficiary: g.beneficiary ?? "",
     court_note: g.court_note ?? "",
   };
+}
+
+/** "1.500" is 1500 pesos but 1.5 %: the value never carries over a mode
+ *  change. */
+export function withGarnishmentMode(draft: Draft, mode: Draft["mode"]): Draft {
+  return mode === draft.mode ? draft : { ...draft, mode, value: "" };
 }
 
 function describe(g: Garnishment): string {
@@ -266,7 +273,9 @@ function GarnishmentDialog({
             <Select
               value={draft.mode}
               onValueChange={(v) => {
-                if (isGarnishmentMode(v)) set("mode", v);
+                if (isGarnishmentMode(v)) {
+                  setDraft((d) => withGarnishmentMode(d, v));
+                }
               }}
             >
               <SelectTrigger id="garnishment-mode">
@@ -285,12 +294,20 @@ function GarnishmentDialog({
             <Label htmlFor="garnishment-value">
               {draft.mode === "percentage" ? "Porcentaje" : "Monto mensual"}
             </Label>
-            <Input
-              id="garnishment-value"
-              inputMode="decimal"
-              value={draft.value}
-              onChange={(e) => set("value", e.target.value)}
-            />
+            {draft.mode === "percentage" ? (
+              <Input
+                id="garnishment-value"
+                inputMode="decimal"
+                value={draft.value}
+                onChange={(e) => set("value", e.target.value)}
+              />
+            ) : (
+              <MoneyInput
+                id="garnishment-value"
+                value={draft.value}
+                onChange={(value) => set("value", value)}
+              />
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="garnishment-from">Vigente desde</Label>

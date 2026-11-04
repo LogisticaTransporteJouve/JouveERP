@@ -121,12 +121,31 @@ export function isOpenTaxStatus(status: TaxStatus): boolean {
   return status === "pendiente" || status === "liquidado";
 }
 
-/** An open document whose due date is before `today` (YYYY-MM-DD). */
+/** Open and with something to pay: an IVA DDJJ that only leaves a saldo a
+ *  favor (no amount, a credit balance) has nothing to pay, the same rule
+ *  `sync_automatic_tasks` applies to the "Pagar" task. */
+export function taxDocumentNeedsPayment(doc: {
+  status: TaxStatus;
+  amount: number | null;
+  credit_balance: number | null;
+}): boolean {
+  return (
+    isOpenTaxStatus(doc.status) &&
+    !(doc.amount === null && doc.credit_balance !== null)
+  );
+}
+
+/** A document still to pay whose due date is before `today` (YYYY-MM-DD). */
 export function isTaxDocumentOverdue(
-  doc: { status: TaxStatus; due_date: string },
+  doc: {
+    status: TaxStatus;
+    due_date: string;
+    amount: number | null;
+    credit_balance: number | null;
+  },
   today: string,
 ): boolean {
-  return isOpenTaxStatus(doc.status) && doc.due_date < today;
+  return taxDocumentNeedsPayment(doc) && doc.due_date < today;
 }
 
 export function taxPeriodLabel(period: string): string {

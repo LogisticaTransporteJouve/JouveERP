@@ -8,6 +8,7 @@ import {
   isOpenTaxStatus,
   previousPeriod,
   taxDocumentLabel,
+  taxDocumentNeedsPayment,
   type IvaPositionEstimate,
   type TaxDocument,
 } from "@/features/taxes/schema";
@@ -69,9 +70,10 @@ export function classifyTaxDocuments(
   const horizon = addDaysIso(opts.today, opts.withinDays);
   const rows = docs.map(toRow);
   const open = rows.filter((r) => isOpenTaxStatus(r.status));
+  const payable = rows.filter(taxDocumentNeedsPayment);
   return {
-    overdue: open.filter((r) => r.due_date < opts.today),
-    due_soon: open.filter(
+    overdue: payable.filter((r) => r.due_date < opts.today),
+    due_soon: payable.filter(
       (r) => r.due_date >= opts.today && r.due_date <= horizon,
     ),
     paid_in_period: rows.filter(

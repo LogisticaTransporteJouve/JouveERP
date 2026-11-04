@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/money-input";
 import { amountToInput, parseArAmount } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -87,13 +87,11 @@ export function InlineMoneyInput(props: Props) {
   }
 
   return (
-    <Input
-      type="text"
-      inputMode="decimal"
+    <MoneyInput
       value={text}
       placeholder={placeholder}
       disabled={disabled || saving}
-      onChange={(e) => setText(e.target.value)}
+      onChange={setText}
       onBlur={() => void commitIfChanged()}
       onKeyDown={(e) => {
         if (e.key === "Enter") {

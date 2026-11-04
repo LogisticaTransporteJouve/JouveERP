@@ -13,7 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/money-input";
 import { Label } from "@/components/ui/label";
 import { amountToInput, formatMoney, parseArAmount } from "@/lib/format";
 
@@ -133,14 +133,11 @@ function TripRatesDialog({
           {FIELDS.map(([key, label]) => (
             <div key={key} className="space-y-2">
               <Label htmlFor={`rate-${key}`}>{label}</Label>
-              <Input
+              <MoneyInput
                 id={`rate-${key}`}
-                inputMode="decimal"
                 className="text-right font-mono"
                 value={draft[key]}
-                onChange={(e) =>
-                  setDraft((d) => ({ ...d, [key]: e.target.value }))
-                }
+                onChange={(value) => setDraft((d) => ({ ...d, [key]: value }))}
               />
             </div>
           ))}
