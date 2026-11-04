@@ -1,8 +1,7 @@
 import type { Permission } from "@/lib/auth/permissions";
 
-// The entities files hang off and search finds, with the read permission of
-// each: a file or a search hit is shown only to whoever can read what it
-// belongs to.
+// The entities files hang off, with the read permission of each: a file is
+// shown only to whoever can read what it belongs to.
 
 export const ENTITY_TYPES = [
   "purchase_invoice",

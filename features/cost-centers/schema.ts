@@ -43,6 +43,8 @@ export type CostTagOption = { id: string; code: string; name: string };
 export type CostTagOptions = {
   expenseAccounts: CostTagOption[];
   costCenters: CostTagOption[];
+  /** Only to name a saved value; never offered for a new selection. */
+  inactiveCostCenters: CostTagOption[];
 };
 
 // ─── Recategorizing an expense ───────────────────────────────────────────────

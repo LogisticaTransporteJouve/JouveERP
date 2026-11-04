@@ -21,7 +21,8 @@ const COST_TAG_READERS: readonly Permission[] = [
 /**
  * The postable expense accounts (active leaves of the chart, the ones the
  * database accepts on a purchase, a manual expense or a supplier default) and
- * the active cost centers, for the pickers of those forms.
+ * the active cost centers, for the pickers of those forms. Inactive centers
+ * come apart: a picker names one only when a saved record already uses it.
  */
 export async function listCostTagOptionsAction(): Promise<
   ActionResult<CostTagOptions>
@@ -35,8 +36,7 @@ export async function listCostTagOptionsAction(): Promise<
     supabase.from("expense_leaf_accounts").select("id, code, name"),
     supabase
       .from("cost_centers")
-      .select("id, code, name")
-      .eq("is_active", true)
+      .select("id, code, name, is_active")
       .order("code"),
   ]);
   if (accounts.error || centers.error) {
@@ -59,7 +59,12 @@ export async function listCostTagOptionsAction(): Promise<
             : [],
         )
         .sort((a, b) => compareCodes(a.code, b.code)),
-      costCenters: centers.data ?? [],
+      costCenters: (centers.data ?? []).flatMap(({ is_active, ...c }) =>
+        is_active ? [c] : [],
+      ),
+      inactiveCostCenters: (centers.data ?? []).flatMap(
+        ({ is_active, ...c }) => (is_active ? [] : [c]),
+      ),
     },
   };
 }

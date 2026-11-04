@@ -27,7 +27,11 @@ const COPY = {
 /**
  * Expense account (a postable leaf of the chart) or cost center of a cost.
  * `value` is the id, "" for none. A saved value the options no longer list
- * (an inactive center, an account that got subaccounts) stays selected.
+ * (an inactive center, an account that got subaccounts) stays selected; an
+ * inactive center keeps its name, marked "(inactivo)".
+ *
+ * `id` and the aria props come from `FormControl`, so the trigger is the
+ * element its `FormLabel` names.
  */
 export function CostTagSelect({
   kind,
@@ -35,6 +39,12 @@ export function CostTagSelect({
   onChange,
   noneLabel,
   disabled,
+  side,
+  avoidCollisions,
+  id,
+  "aria-describedby": ariaDescribedBy,
+  "aria-invalid": ariaInvalid,
+  "aria-label": ariaLabel,
 }: {
   kind: "expenseAccount" | "costCenter";
   value: string;
@@ -42,6 +52,13 @@ export function CostTagSelect({
   /** Copy for the empty choice, when "none" means something else here. */
   noneLabel?: string;
   disabled?: boolean;
+  /** Where the list opens; by default below, flipping up when it does not fit. */
+  side?: "top" | "bottom";
+  avoidCollisions?: boolean;
+  id?: string;
+  "aria-describedby"?: string;
+  "aria-invalid"?: boolean;
+  "aria-label"?: string;
 }) {
   const query = useCostTagOptions();
   const list: CostTagOption[] =
@@ -49,6 +66,10 @@ export function CostTagSelect({
       ? query.data?.expenseAccounts
       : query.data?.costCenters) ?? [];
   const missing = value !== "" && !list.some((o) => o.id === value);
+  const inactive =
+    missing && kind === "costCenter"
+      ? query.data?.inactiveCostCenters.find((o) => o.id === value)
+      : undefined;
 
   return (
     <Select
@@ -56,27 +77,60 @@ export function CostTagSelect({
       onValueChange={(v) => onChange(v === NONE ? "" : v)}
       disabled={disabled || query.isPending}
     >
-      <SelectTrigger className="w-full min-w-0">
+      <SelectTrigger
+        className="w-full min-w-0"
+        id={id}
+        aria-describedby={ariaDescribedBy}
+        aria-invalid={ariaInvalid}
+        aria-label={ariaLabel}
+      >
         <SelectValue
           placeholder={
             query.isError ? "No se pudieron cargar las opciones" : "Cargando…"
           }
         />
       </SelectTrigger>
-      <SelectContent position="popper" className="max-h-72">
+      <SelectContent
+        position="popper"
+        side={side}
+        avoidCollisions={avoidCollisions}
+        align="start"
+        className="max-h-[min(18rem,var(--radix-select-content-available-height))]"
+      >
         <SelectItem value={NONE}>{noneLabel ?? COPY[kind].none}</SelectItem>
         {missing && query.isSuccess && (
-          <SelectItem value={value}>{COPY[kind].missing}</SelectItem>
+          <SelectItem value={value}>
+            {inactive ? (
+              <OptionLabel option={inactive} suffix=" (inactivo)" />
+            ) : (
+              COPY[kind].missing
+            )}
+          </SelectItem>
         )}
         {list.map((o) => (
           <SelectItem key={o.id} value={o.id}>
-            <span className="font-mono text-xs text-muted-foreground">
-              {o.code}
-            </span>{" "}
-            {o.name}
+            <OptionLabel option={o} />
           </SelectItem>
         ))}
       </SelectContent>
     </Select>
+  );
+}
+
+function OptionLabel({
+  option,
+  suffix,
+}: {
+  option: CostTagOption;
+  suffix?: string;
+}) {
+  return (
+    <>
+      <span className="font-mono text-xs text-muted-foreground">
+        {option.code}
+      </span>{" "}
+      {option.name}
+      {suffix}
+    </>
   );
 }

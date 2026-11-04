@@ -1,9 +1,10 @@
 "use client";
 
 import { Pencil, Wallet } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { toast } from "sonner";
 
+import { MoneyInput } from "@/components/money-input";
 import { useConfirm } from "@/components/providers/confirm-provider";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -15,11 +16,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { todayIsoLocal as todayIso } from "@/lib/date-range";
-import { formatNumber2, parseArAmount } from "@/lib/format";
+import {
+  formatNumber2,
+  parseArAmount,
+  signedAmountToInput,
+} from "@/lib/format";
 
 import {
   useClearSupplierOpeningBalance,
@@ -44,13 +48,14 @@ export function SupplierOpeningBalanceDialog({
 
   const [openingDate, setOpeningDate] = useState(todayIso());
   const [targetRaw, setTargetRaw] = useState("");
+  const targetId = useId();
   const [notes, setNotes] = useState("");
 
   useEffect(() => {
     if (!open) return;
     if (prefill && existing) {
       setOpeningDate(existing.opening_date);
-      setTargetRaw(String(existing.target_balance));
+      setTargetRaw(signedAmountToInput(existing.target_balance));
       setNotes(existing.notes ?? "");
     } else {
       setOpeningDate(todayIso());
@@ -139,12 +144,14 @@ export function SupplierOpeningBalanceDialog({
               <DatePicker value={openingDate} onChange={setOpeningDate} />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">Saldo real al corte ($)</Label>
-              <Input
-                inputMode="decimal"
+              <Label htmlFor={targetId} className="text-xs">
+                Saldo real al corte ($)
+              </Label>
+              <MoneyInput
+                id={targetId}
                 placeholder="0,00"
                 value={targetRaw}
-                onChange={(e) => setTargetRaw(e.target.value)}
+                onChange={setTargetRaw}
               />
             </div>
           </div>

@@ -59,4 +59,16 @@ describe("MoneyInput", () => {
     expect(typeAndSave(typed)).toBe(saved);
     expect(input().value).toBe(shown);
   });
+
+  it("drops a minus unless allowNegative", () => {
+    render(<MoneyInput aria-label="A" value="" onChange={onA} />);
+    render(<MoneyInput aria-label="B" value="" onChange={onB} allowNegative />);
+    fireEvent.change(screen.getByLabelText("A"), { target: { value: "-15" } });
+    fireEvent.change(screen.getByLabelText("B"), { target: { value: "-15" } });
+    expect(onA).toHaveBeenCalledWith("15");
+    expect(onB).toHaveBeenCalledWith("-15");
+  });
 });
+
+const onA = vi.fn();
+const onB = vi.fn();

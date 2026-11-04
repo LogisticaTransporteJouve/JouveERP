@@ -92,6 +92,78 @@ B sola y C (una programación perdida o un paso que agota reintentos deja la
 tarea sin correr para siempre); C además no se puede cancelar y deja un run
 _stale_ por cada edición; el loop de B (tope de steps); `singleton` por tarea
 (semántica con runs dormidos sin verificar).
+## 2026-11-04 — Saldos de apertura en `MoneyInput`, con signo en cuentas
+
+**Decisión.** Los diálogos de saldo de apertura de clientes, proveedores y
+cuentas usan `MoneyInput` y precargan con `signedAmountToInput`. `MoneyInput`
+acepta `allowNegative` (formatea con `formatSignedAmountInput`, que conserva
+un "-" inicial); solo el de cuentas lo usa, porque el saldo de una cuenta
+puede ser negativo y el de clientes y proveedores no (`check >= 0`).
+
+**Por qué.** `String(1234.56)` precargaba "1234.56" y `parseArAmount` lo leía
+como 123456. `amountToInput` descarta el signo: precargar con él un saldo
+negativo lo guardaría positivo sin aviso.
+
+Todo formulario cuyo monto lee un preprocess es-AR del server
+(`moneyAmountPreprocess`, `openingBalancePreprocess`, el `amount` de
+cheques emitidos) tipea en `MoneyInput`, valida con `positiveArAmountField`
+(`lib/validation/common.ts`) y manda el número ya leído con `parseArAmount`,
+nunca el texto. `MoneyInput` acepta `decimals` para los ítems de compra
+(`numeric(15, 4)`) y las cotizaciones: `COTIZACION_DECIMALS` (4) en
+comprobantes, recibos y OP, 6 en la tabla de cotizaciones.
+
+**Descartado.** Hacer que `amountToInput` conserve el signo: tiene unas 50
+llamadas que hoy reciben montos no negativos y no se revisaron una por una.
+Un selector de signo aparte en cuentas: un "-" tipeado es lo que el usuario
+espera y `parseArAmount` ya lo lee.
+## 2026-11-04 — Se retira la búsqueda global (⌘K)
+
+**Decisión (owner).** Sale la búsqueda global: el botón y el atajo ⌘K del
+topbar, su diálogo, `searchGlobalAction`, la herramienta `searchGlobal` del
+AI CFO y la función Inngest `search-index-refresh`. Nadie la va a usar todavía.
+⌘K queda solo para la búsqueda de chat, dentro de `/chat`. El AI CFO encuentra
+clientes, proveedores y empleados con `searchClients` / `searchSuppliers` /
+`searchEmployees`.
+
+**Por qué.** Mantenerla cuesta (un cron por minuto que refresca la vista
+materializada, y cada módulo nuevo tiene que sumarse al índice y a los
+permisos por tipo) sin un uso hoy. La herramienta del AI CFO se va con ella:
+sin el cron, `search_index` deja de refrescarse y respondería con datos
+viejos, y el contrato posterior borra `search_global`.
+
+**Expand/contract.** Este cambio es solo código. Quedan en la DB la vista
+materializada `search_index`, `search_global`, `refresh_search_index*`, los
+triggers `search_index_mark_dirty` y `search_index_state`, para que un
+rollback a un SHA anterior siga buscando (su cron vuelve a refrescar el
+índice). Se borran en una migración de contrato cuando la próxima promoción
+quede firme (`docs/pendientes.md`).
+
+**Descartado.** Dejar la herramienta `searchGlobal` del AI CFO sola: leería un
+índice que ya nadie refresca. Borrar los objetos de la DB en el mismo cambio:
+rompe el rollback de código.
+## 2026-11-04 — Categoría de proveedor en línea; centros inactivos con nombre
+
+**Decisión.** El select de Categoría del proveedor
+(`SupplierCategorySelect`) termina en «Nueva categoría», que abre un `Dialog`
+centrado anidado y llama a `createSupplierCategoryAction`, la misma acción
+de Proveedores › Categorías (`suppliers:write`). La acción rechaza un nombre
+que ya existe sin importar mayúsculas con «Ya existe la categoría "X".»
+(la constraint de la tabla distingue mayúsculas). El ítem se muestra según
+`canCreateSupplierCategoryAction`, porque el formulario también se abre desde
+el selector de proveedor de una compra, donde no llega el `Access`.
+
+`listCostTagOptionsAction` devuelve aparte los centros inactivos
+(`inactiveCostCenters`): `CostTagSelect` no los ofrece, pero nombra el valor
+guardado de un registro («FLOTA_DZ Flota DZ (inactivo)»). `FLOTA_DZ` se
+desactiva, no se borra: lo referencian movimientos, facturas y asientos.
+
+**Por qué.** Crear una categoría obligaba a cerrar el alta del proveedor (y la
+compra). El submit del diálogo anidado frena la propagación: React lo
+burbujea por el portal hasta el formulario del proveedor.
+
+**Descartado.** Un input dentro del popover del select (Radix Select no
+admite foco en un input propio); pasar `Access` por props hasta el selector
+de proveedor de cada formulario de compra.
 ## 2026-11-04 — Compras: total al centavo y sin IVA en B/C por ítems
 
 **Decisión.** El total de una compra tiene que ser exactamente neto + IVA +

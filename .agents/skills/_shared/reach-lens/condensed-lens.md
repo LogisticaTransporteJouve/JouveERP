@@ -109,12 +109,11 @@ JOUVEERP PEER SETS (the diff touches the left → open every right-hand peer):
   tool's `permission` (`features/ai/registry/define.ts`); per-user denies (`lib/auth/denies.ts`,
   `lib/auth/entity-permissions.ts`) — every gate calls `userCan(ctx.access, "<perm>")`, role-level
   questions (recipients, "por rol" UI) use `roleGrants`/`rolePermissions`; headless paths
-  (`lib/auth/headless-user.ts`, Inngest recipients) and search (`features/search/`).
+  (`lib/auth/headless-user.ts`, Inngest recipients).
 - A table or column → RLS in the same migration; `lib/db/database.types.ts` regenerated; seeds
   (`supabase/seed.sql`, `scripts/seed-everything.mjs`); `logAudit()` (`lib/actions/audit.ts`) on
   audited writes; RLS on every table embedded in the same PostgREST read; `supabase/tests/`;
-  search indexing and TTL cleanup (`lib/inngest/functions/search-index-refresh.ts`,
-  `lib/inngest/functions/ttl-cleanup.ts`) when the table is searchable or expiring.
+  TTL cleanup (`lib/inngest/functions/ttl-cleanup.ts`) when the table is expiring.
 - An Inngest function or event → registered in `app/api/inngest/route.ts`; payload schema in
   `lib/inngest/events.ts`; every sender of the event; idempotency key and retry behaviour.
 - AFIP issuance → CAE path and CAEA path (`lib/inngest/functions/issue-invoice.ts`,

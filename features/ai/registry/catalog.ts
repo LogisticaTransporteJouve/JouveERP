@@ -38,7 +38,7 @@ import {
   getVehicleKm,
   getVehicles,
 } from "./actions/fleet";
-import { getAttachments, searchGlobal } from "./actions/general";
+import { getAttachments } from "./actions/general";
 import {
   getAttendance,
   getEmployees,
@@ -225,7 +225,6 @@ export const AI_ACTIONS: readonly AiAction[] = [
   // AFIP
   getAfipStatus,
   // General
-  searchGlobal,
   getAttachments,
   getTasks,
   proposeTask,

@@ -29,9 +29,6 @@ export function ChannelList({ activeChannelId, currentUserId }: Props) {
   const [searchOpen, setSearchOpen] = useState(false);
 
   // ⌘K (Ctrl+K on Windows) opens chat search while /chat is mounted.
-  // Capture phase + stopImmediatePropagation so the global search's
-  // ⌘K listener doesn't also open its dialog, whose focus would dismiss
-  // this one.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {

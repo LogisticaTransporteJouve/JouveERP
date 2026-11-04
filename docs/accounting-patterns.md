@@ -524,7 +524,8 @@ genérico de `app/api/export/[resource]` cubre otros recursos, no estos).
 Dimensión contable opcional. Migración `…517200000_l_closure`.
 
 **`cost_centers`:** `code text UNIQUE` (regex `^[A-Z0-9_-]+$`, inmutable post-creación),
-`name`, `description`, `is_active`. Seed: `FLOTA_DZ`, `FLOTA_JOUVE`, `ADMIN`.
+`name`, `description`, `is_active`. Seed: `FLOTA_JOUVE`, `ADMIN` y
+`FLOTA_DZ` (inactivo desde `20261104120700`: DZ Instalaciones se retiró).
 RLS: SELECT `authenticated`; manage owner/admin/finance. CRUD vía
 `{list,create,update,delete}CostCenterAction` (`accounting:read`/`write`),
 `/accounting/cost-centers`.

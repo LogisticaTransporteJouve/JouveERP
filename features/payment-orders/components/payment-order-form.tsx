@@ -31,7 +31,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { UsdRateField } from "@/components/usd-rate-field";
+import { parseUsdRate, UsdRateField } from "@/components/usd-rate-field";
 import { useUsdRatePrefill } from "@/hooks/use-usd-rate-prefill";
 import type { Account, AccountNameJoin } from "@/features/accounts/schema";
 import { listEnCarteraChecksAction } from "@/features/checks/actions/checks-actions";
@@ -43,6 +43,7 @@ import {
 } from "@/features/suppliers/components/supplier-picker";
 import {
   amountToInput,
+  COTIZACION_DECIMALS,
   round2,
   formatNumber2 as formatMoney,
   parseArAmount,
@@ -212,7 +213,10 @@ export function PaymentOrderForm({
           PaymentOrderCurrency | undefined) ?? "ARS",
       cotizacion:
         paymentOrder?.paymentOrder.cotizacion != null
-          ? String(Number(paymentOrder.paymentOrder.cotizacion))
+          ? amountToInput(
+              Number(paymentOrder.paymentOrder.cotizacion),
+              COTIZACION_DECIMALS,
+            )
           : "",
       supplier: initialSupplier ?? null,
       notes: paymentOrder?.paymentOrder.notes ?? "",
@@ -321,7 +325,8 @@ export function PaymentOrderForm({
       return;
     }
 
-    const rate = values.currency === "USD" ? Number(values.cotizacion) : null;
+    const rate =
+      values.currency === "USD" ? parseUsdRate(values.cotizacion) : null;
     if (rate !== null && !(rate > 1)) {
       form.setError("cotizacion", { message: USD_RATE_REQUIRED_MESSAGE });
       return;

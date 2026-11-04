@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { MoneyInput } from "@/components/money-input";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
@@ -26,6 +27,8 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { amountToInput, parseArAmount } from "@/lib/format";
+import { positiveArAmountField } from "@/lib/validation/common";
 
 import { CostTagSelect } from "@/features/cost-centers/components/cost-tag-select";
 
@@ -34,7 +37,7 @@ import { useUpdateTransaction } from "../hooks/use-transactions";
 import { defaultAccrualMonth, TRANSACTION_KIND_LABEL } from "../schema";
 
 const FormSchema = z.object({
-  amount: z.string().regex(/^\d+(\.\d+)?$/, "Monto requerido."),
+  amount: positiveArAmountField,
   transaction_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida."),
   accrual_month: z
     .string()
@@ -49,7 +52,7 @@ type FormValues = z.infer<typeof FormSchema>;
 
 function toValues(tx: TransactionListItem): FormValues {
   return {
-    amount: String(tx.amount),
+    amount: amountToInput(tx.amount),
     transaction_date: tx.transaction_date,
     accrual_month: tx.accrual_month,
     description: tx.description ?? "",
@@ -89,7 +92,7 @@ export function EditTransactionDialog({
     updateMut.mutate(
       {
         id: transaction.id,
-        amount: values.amount,
+        amount: parseArAmount(values.amount),
         transaction_date: values.transaction_date,
         accrual_month: values.accrual_month,
         description: values.description,
@@ -144,7 +147,7 @@ export function EditTransactionDialog({
                     Monto ({transaction?.currency})
                   </FormLabel>
                   <FormControl>
-                    <Input inputMode="decimal" disabled={locked} {...field} />
+                    <MoneyInput disabled={locked} {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

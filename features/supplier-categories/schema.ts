@@ -22,9 +22,19 @@ const slugFromName = (name: string): string =>
     .replace(/^_+|_+$/g, "")
     .replace(/^[^a-z]/, "x");
 
+/** A category name: its slug is derived from it, so it needs a letter or digit. */
+export const SupplierCategoryNameSchema = z
+  .string()
+  .trim()
+  .min(1, "Ingresá un nombre.")
+  .max(60, "Máximo 60 caracteres.")
+  .refine((name) => slugFromName(name).length > 0, {
+    message: "El nombre necesita al menos una letra o un número.",
+  });
+
 export const SupplierCategoryCreateSchema = z
   .object({
-    name: z.string().trim().min(2, "Nombre requerido.").max(60),
+    name: SupplierCategoryNameSchema,
     slug: z
       .string()
       .trim()
@@ -42,7 +52,7 @@ export const SupplierCategoryCreateSchema = z
 
 export const SupplierCategoryUpdateSchema = z.object({
   id: z.string().uuid(),
-  name: z.string().trim().min(2).max(60).optional(),
+  name: SupplierCategoryNameSchema.optional(),
   slug: slugTransform.optional(),
   is_active: z.boolean().optional(),
 });

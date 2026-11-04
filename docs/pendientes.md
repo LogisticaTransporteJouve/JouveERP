@@ -389,7 +389,8 @@ mitigación en el schema: el límite se respeta operando.
 - [x] ~~**M.5** — aprobaciones de montos altos~~ (decisión #20, 2026-06-22).
 - [x] ~~**M.6** — portal cliente~~ (decisión #19, 2026-06-22).
 - [x] ~~**RAG / embeddings (pgvector)**~~ (decisión 2026-07-04): infra paga
-      nueva sin caso de uso; la FTS `search_global` cubre free-text.
+      nueva sin caso de uso; la FTS `search_global` cubría free-text (retirada
+      2026-11-04).
 - [x] ~~**Write-tools IA + NL→SQL**~~ (decisión 2026-07-04): el agente queda
       read-only; las escrituras pasan por los flujos normales con confirmación
       humana (Document Intelligence incluida). Vale a 2026-07-04: hoy el
@@ -434,6 +435,75 @@ mitigación en el schema: el límite se respeta operando.
       supuestos de la doc, no verificados.
 - [ ] Editar una tarea (título, pedido u horario) no existe todavía; cuando
       se agregue, tiene que llamar a `announceWorkflowChange`.
+
+## Saldos de apertura con centavos (2026-11-04, auditoría w4)
+
+- [x] Ajustar saldo de clientes, proveedores y cuentas (Caja/banco): el campo
+      usa `MoneyInput` y se precarga en es-AR ("1.234,56"). Antes mostraba
+      "1234.56" y guardar sin tocar nada fijaba un saldo 100 veces mayor
+      (123.456). El de cuentas acepta negativo (`allowNegative`); el de
+      clientes y proveedores muestra el signo y rechaza el negativo en vez de
+      guardarlo positivo.
+- [x] Mismo error al crear y al editar, con el parser del server: el
+      formulario mandaba un texto con punto decimal ("1234.56") y el server
+      lo leía en es-AR (123456). Nuevo movimiento y transferencia, editar
+      movimiento, saldo inicial de una cuenta (acepta negativo), cheque
+      emitido y cheque recibido a mano: el campo es `MoneyInput` y el
+      formulario manda el número ya leído con `parseArAmount`.
+- [x] Mismo error dentro del cliente: el monto de una retención del recibo
+      (un `type="number"` leído con `parseArAmount`) y la cantidad y el
+      precio unitario de los ítems de una compra (la línea se calculaba con
+      el parser es-AR y el ítem se mandaba con `Number`, también al
+      precargar una compra existente o un documento escaneado) usan
+      `MoneyInput`; los ítems con 4 decimales (`numeric(15, 4)`).
+- [x] Venta de cheques: intereses y comisiones se leían con
+      `Number(v.replace(",", "."))`, así que "1.500" se guardaba 1,50.
+      Ahora `MoneyInput` + `parseArAmount`.
+- [x] Cotizaciones: "Cargar cotización USD" leía el texto con
+      `Number(v.replace(",", "."))`, así que "1.180" se guardaba 1,18 y
+      pasaba el control `> 1`. Ahora `MoneyInput` con 6 decimales
+      (`numeric(18, 6)`) y `parseArAmount`. La cotización de recibos, OP,
+      compras y NC/ND también es `MoneyInput` (4 decimales,
+      `numeric(10, 4)`), se precarga en es-AR (edición, cotización cargada
+      del día y documento escaneado) y se lee con `parseUsdRate`.
+- [ ] Sin migraciones. Rollback: el código anterior vuelve al campo sin
+      formato; los saldos ya guardados no cambian.
+## Búsqueda global retirada (2026-11-04)
+
+- [x] Sale la búsqueda global ⌘K: UI, `searchGlobalAction`, la herramienta
+      `searchGlobal` del AI CFO y la función Inngest `search-index-refresh`
+      (`docs/decisions.md`). Solo código; la DB no cambia.
+- [ ] **Migración de contrato:** borrar la vista materializada
+      `search_index`, `search_global`, `refresh_search_index*`, los triggers
+      `search_index_mark_dirty` y `search_index_state` cuando la próxima
+      promoción quede firme. Con ella, sacar los pgTAP que los cubren
+      (`supabase/tests/user_access_test.sql`, `receipts_letter_x_test.sql`,
+      `definer_hardening_test.sql`, `schema_rls_and_grants_test.sql`) y
+      regenerar `lib/db/database.types.ts`. Después ya no se puede volver a un
+      SHA anterior a este cambio.
+## Proveedores: categoría en línea y defaults de compra (2026-11-04)
+
+- [x] «Nueva categoría» al pie del select de Categoría del alta/edición de
+      proveedor (también desde «Nuevo proveedor» dentro de una compra): un
+      diálogo la crea, queda elegida y el resto del formulario no se toca.
+      Solo con `suppliers:write`. Nombre de 1 a 60 caracteres, único sin
+      importar mayúsculas.
+- [x] Defaults de compra agrupados («Al cargar una compra de este proveedor,
+      completar con:»), con Canal | Plazo de pago y Cuenta de gasto | Centro
+      de costo; «Ninguno» en vez de «Sin default»; los selects abren hacia
+      abajo, alineados con su campo.
+- [x] Centro de costo `FLOTA_DZ` desactivado (`20261104120700`): DZ
+      Instalaciones se retiró. Los pickers ya no lo ofrecen; un registro que
+      lo usa lo sigue mostrando como «FLOTA_DZ Flota DZ (inactivo)».
+- [ ] Candidatos al mismo «Nuevo …» en línea (sin cambiar todavía): centro
+      de costo y cuenta de gasto en `CostTagSelect` (compras, movimientos de
+      caja, conciliación bancaria, recategorizar, defaults del proveedor),
+      cuenta de caja/banco en recibos y OP, y banco en cheques.
+- [ ] El select de Categoría del proveedor lista solo las activas: un
+      proveedor con una categoría desactivada la ve vacía al editar.
+- [ ] La propuesta de gasto de la IA (`features/ai/registry/actions/expense-proposals.ts`)
+      sigue mostrando «Centro actual (inactivo)» sin el nombre; ya puede
+      usar `inactiveCostCenters`.
 
 ## Decisiones del owner, tanda 1 (2026-11-04)
 
@@ -1649,9 +1719,9 @@ mitigación en el schema: el límite se respeta operando.
 ## Accesos por usuario — follow-ups (2026-10-28)
 
 - [ ] **Aprobar la migración `20261028140000_user_permission_denies`** apenas
-      mergea el PR; después quitar las tolerancias de ventana de deploy en
-      `lib/auth/denies.ts` (tabla faltante) y `features/search/actions/search-actions.ts`
-      (firma vieja de `search_global`).
+      mergea el PR; después quitar la tolerancia de ventana de deploy en
+      `lib/auth/denies.ts` (tabla faltante). La de `search_global` se fue con la
+      búsqueda global (2026-11-04).
 - [ ] **Denegaciones en la DB** (overlays RESTRICTIVE por tabla + storage + RPC
       DEFINER). Hoy la DB aplica solo el techo del rol; ver `docs/decisions.md`.
 - [ ] Suite pgTAP rol × tabla contra `ROLE_PERMISSIONS` (y auditar el desvío

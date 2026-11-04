@@ -14,7 +14,6 @@ import { ScopeProvider } from "@/components/providers/scope-provider";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { Toaster } from "@/components/ui/sonner";
 import { NotificationBell } from "@/features/notifications/components/notification-bell";
-import { GlobalSearchTrigger } from "@/features/search/components/global-search-trigger";
 import { isFiscalOnly, isRole, resolveAccess } from "@/lib/auth/permissions";
 import type { InvoicingChannelSummary, ScopeSide } from "@/lib/scope";
 import { cn } from "@/lib/utils";
@@ -57,12 +56,7 @@ function Shell({ config, stage, onReady }: { config: ShellConfig; stage: HTMLEle
           />
           <SidebarInset className="min-h-0 min-w-0 overflow-y-auto md:shadow-none md:ring-1 md:ring-border">
             <AppHeader
-              actions={
-                <>
-                  <GlobalSearchTrigger />
-                  <NotificationBell currentUserId="mock-user" />
-                </>
-              }
+              actions={<NotificationBell currentUserId="mock-user" />}
             />
             <div className="min-w-0 flex-1 px-4 py-6 max-md:pb-24 sm:px-6 lg:px-8">
               <div
