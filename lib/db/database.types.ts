@@ -878,6 +878,42 @@ export type Database = {
         }
         Relationships: []
       }
+      arca_web_account: {
+        Row: {
+          consecutive_failures: number
+          cuit: string
+          id: boolean
+          last_error_code: string | null
+          last_success_at: string | null
+          secret_id: string | null
+          status: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          consecutive_failures?: number
+          cuit: string
+          id?: boolean
+          last_error_code?: string | null
+          last_success_at?: string | null
+          secret_id?: string | null
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          consecutive_failures?: number
+          cuit?: string
+          id?: boolean
+          last_error_code?: string | null
+          last_success_at?: string | null
+          secret_id?: string | null
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       attendance_records: {
         Row: {
           created_at: string
@@ -9573,6 +9609,7 @@ export type Database = {
           total_debit: number
         }[]
       }
+      get_arca_web_password: { Args: never; Returns: string }
       get_exchange_rate: {
         Args: { p_currency: string; p_date: string }
         Returns: number
@@ -10130,6 +10167,10 @@ export type Database = {
           total: number
         }[]
       }
+      record_arca_web_sign_in: {
+        Args: { p_error_code: string; p_ok: boolean }
+        Returns: undefined
+      }
       record_employee_account_cash: {
         Args: {
           p_account_id: string
@@ -10434,6 +10475,10 @@ export type Database = {
           p_user_id: string
         }
         Returns: string
+      }
+      set_arca_web_credentials: {
+        Args: { p_cuit: string; p_password?: string; p_user_id: string }
+        Returns: undefined
       }
       set_bank_statement_line_ignored: {
         Args: { p_line_id: string; p_reason: string; p_user_id: string }

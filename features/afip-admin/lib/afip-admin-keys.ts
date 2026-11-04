@@ -8,4 +8,5 @@ export const afipAdminKeys = {
   caea: () => [...afipAdminKeys.all, "caea"] as const,
   reconciliation: () => [...afipAdminKeys.all, "reconciliation"] as const,
   syncProgress: () => [...afipAdminKeys.all, "syncProgress"] as const,
+  arcaWebAccount: () => [...afipAdminKeys.all, "arcaWebAccount"] as const,
 };
