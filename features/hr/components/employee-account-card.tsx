@@ -452,7 +452,20 @@ function MovementRow({
       </td>
       {canWrite && (
         <td className="px-1 py-2 text-right">
-          {deletable && (
+          {deletable && cashDenied && (
+            // A disabled button gets no pointer events: the span shows why.
+            <span title={HR_CASH_DENIED_REASON}>
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-label={`Borrar el movimiento y su movimiento de caja: ${HR_CASH_DENIED_REASON}`}
+                disabled
+              >
+                <Trash2 className="size-3.5" />
+              </Button>
+            </span>
+          )}
+          {deletable && !cashDenied && (
             <Button
               variant="ghost"
               size="sm"
@@ -462,13 +475,11 @@ function MovementRow({
                   : "Borrar movimiento"
               }
               title={
-                cashDenied
-                  ? HR_CASH_DENIED_REASON
-                  : source === "cash"
-                    ? "Borra también el movimiento de caja"
-                    : undefined
+                source === "cash"
+                  ? "Borra también el movimiento de caja"
+                  : undefined
               }
-              disabled={deleting || cashDenied}
+              disabled={deleting}
               onClick={onDelete}
             >
               <Trash2 className="size-3.5" />
