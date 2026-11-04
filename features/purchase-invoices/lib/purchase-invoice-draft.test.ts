@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { parseUsdRate } from "@/components/usd-rate-field";
+
 import {
   documentTotalGap,
   draftToFormPatch,
@@ -92,13 +94,13 @@ describe("draftToFormPatch", () => {
       fecha: "2026-09-01",
       imp_total: "121",
       moneda: "DOL",
-      cotizacion: "1200",
+      cotizacion: "1.200,00",
       with_items: true,
       items: [
         {
           description: "Flete",
-          quantity: "1",
-          unit_price: "100",
+          quantity: "1,00",
+          unit_price: "100,00",
           iva_rate_id: 5,
         },
       ],
@@ -119,6 +121,17 @@ describe("draftToFormPatch", () => {
     expect(filled).toContain("kind");
     expect(filled).not.toContain("fch_vto_pago");
   });
+
+  it.each([1180, 1180.5, 1180.1234])(
+    "prefills a rate of %s in es-AR, read back as the same rate",
+    (rate) => {
+      const { patch } = draftToFormPatch(
+        { ...EMPTY, moneda: "DOL", cotizacion: rate },
+        { fecha: "2026-10-16" },
+      );
+      expect(parseUsdRate(patch.cotizacion)).toBe(rate);
+    },
+  );
 
   it("leaves the rate empty for a foreign-currency draft without one", () => {
     const { patch, filled } = draftToFormPatch(

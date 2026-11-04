@@ -9,6 +9,9 @@ import type {
   PurchaseInvoiceLetter,
   PurchaseIvaRateId,
 } from "../schema";
+import { amountToInput, COTIZACION_DECIMALS } from "@/lib/format";
+
+import { itemNumberToInput } from "../schema";
 
 type PurchaseTributeField = (typeof PURCHASE_TRIBUTE_FIELDS)[number];
 
@@ -218,13 +221,18 @@ export function draftToFormPatch(
       imp_total: str(data.imp_total, ""),
       moneda: data.moneda,
       // A foreign-currency draft without a rate stays empty: the user types it.
-      cotizacion: str(data.cotizacion, data.moneda === "PES" ? "1" : ""),
+      cotizacion:
+        data.cotizacion === null
+          ? data.moneda === "PES"
+            ? "1"
+            : ""
+          : amountToInput(data.cotizacion, COTIZACION_DECIMALS),
       motivo_nc_nd: data.motivo_nc_nd ?? "",
       with_items: data.items.length > 0,
       items: data.items.map((it) => ({
         description: it.description,
-        quantity: String(it.quantity),
-        unit_price: String(it.unit_price),
+        quantity: itemNumberToInput(it.quantity),
+        unit_price: itemNumberToInput(it.unit_price),
         iva_rate_id: it.iva_rate_id,
       })),
     },

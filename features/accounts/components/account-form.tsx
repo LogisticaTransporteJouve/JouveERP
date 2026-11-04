@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 
 import { DialogFormFooter } from "@/components/dialog-form-footer";
+import { MoneyInput } from "@/components/money-input";
 import {
   Form,
   FormControl,
@@ -24,6 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { parseArAmount, signedAmountToInput } from "@/lib/format";
 
 import {
   useAccountHasMovements,
@@ -43,7 +45,12 @@ const FormSchema = z.object({
   name: z.string().trim().min(2, "Nombre requerido.").max(120),
   type: z.enum(ACCOUNT_TYPES),
   currency: z.enum(ACCOUNT_CURRENCIES),
-  opening_balance: z.string(),
+  opening_balance: z
+    .string()
+    .refine(
+      (v) => v.trim() === "" || parseArAmount(v) !== null,
+      "Saldo inicial inválido.",
+    ),
   notes: z.string().trim().max(2000),
 });
 
@@ -55,7 +62,9 @@ function accountToValues(account: Account | undefined): FormValues {
     type: account?.type ?? "bank",
     currency: account?.currency ?? "ARS",
     opening_balance:
-      account?.opening_balance != null ? String(account.opening_balance) : "0",
+      account?.opening_balance != null
+        ? signedAmountToInput(account.opening_balance)
+        : "0",
     notes: account?.notes ?? "",
   };
 }
@@ -88,7 +97,12 @@ export function AccountForm({
     defaultValues: accountToValues(account),
   });
 
-  function onSubmit(values: FormValues) {
+  function onSubmit(raw: FormValues) {
+    // Empty means no opening balance, as on the server.
+    const values = {
+      ...raw,
+      opening_balance: parseArAmount(raw.opening_balance) ?? 0,
+    };
     if (mode === "create") {
       createMut.mutate(values, {
         onSuccess: (data) => {
@@ -203,12 +217,10 @@ export function AccountForm({
             <FormItem>
               <FormLabel>Saldo inicial</FormLabel>
               <FormControl>
-                <Input
+                <MoneyInput
                   {...field}
-                  type="number"
-                  step="0.01"
-                  inputMode="decimal"
-                  placeholder="0.00"
+                  allowNegative
+                  placeholder="0,00"
                   className="sm:max-w-[240px]"
                   disabled={frozen}
                 />

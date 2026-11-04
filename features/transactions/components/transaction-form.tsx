@@ -5,6 +5,7 @@ import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { MoneyInput } from "@/components/money-input";
 import { useDefaultChannel } from "@/components/providers/scope-provider";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -25,7 +26,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { todayInAR } from "@/lib/format";
+import { parseArAmount, todayInAR } from "@/lib/format";
+import { positiveArAmountField } from "@/lib/validation/common";
 import { useAccountsList } from "@/features/accounts/hooks/use-accounts";
 import { CostTagSelect } from "@/features/cost-centers/components/cost-tag-select";
 import { PayDialog } from "@/features/payment-orders/components/pay-dialog";
@@ -53,7 +55,7 @@ const FormSchema = z
     account_id: z.string().optional(),
     account_from_id: z.string().optional(),
     account_to_id: z.string().optional(),
-    amount: z.string().regex(/^\d+(\.\d+)?$/, "Monto requerido."),
+    amount: positiveArAmountField,
     currency: z.enum(TRANSACTION_CURRENCIES),
     transaction_date: z
       .string()
@@ -185,7 +187,7 @@ export function TransactionForm({
           account_from_id: values.account_from_id!,
           account_to_id: values.account_to_id!,
           channel_id: values.channel_id,
-          amount: values.amount,
+          amount: parseArAmount(values.amount),
           currency: values.currency,
           transaction_date: values.transaction_date,
           accrual_month: values.accrual_month,
@@ -207,7 +209,7 @@ export function TransactionForm({
         account_id: values.account_id!,
         channel_id: values.channel_id,
         kind: values.kind,
-        amount: values.amount,
+        amount: parseArAmount(values.amount),
         currency: values.currency,
         transaction_date: values.transaction_date,
         accrual_month: values.accrual_month,
@@ -419,13 +421,7 @@ export function TransactionForm({
               <FormItem>
                 <FormLabel className="text-xs">Monto</FormLabel>
                 <FormControl>
-                  <Input
-                    {...field}
-                    type="number"
-                    step="0.01"
-                    inputMode="decimal"
-                    placeholder="0.00"
-                  />
+                  <MoneyInput {...field} placeholder="0,00" />
                 </FormControl>
                 <FormMessage />
               </FormItem>
