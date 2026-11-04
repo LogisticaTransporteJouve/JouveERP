@@ -90,6 +90,7 @@ import {
   PurchaseInvoicePicker,
   type PickedPurchaseInvoice,
 } from "./purchase-invoice-picker";
+import { ArcaLinesNote } from "./arca-lines-note";
 import {
   PurchaseInvoiceItemsEditor,
   computeLine,
@@ -529,8 +530,14 @@ export function PurchaseInvoiceForm({
     // has default days.
     const fchVtoPago = form.getValues("fch_vto_pago");
     const fecha = form.getValues("fecha");
+    // An ARCA voucher starts due on its date: the supplier's term replaces
+    // that until the user picks another.
+    const startsAtFecha =
+      arcaLocked &&
+      fchVtoPago === fecha &&
+      !form.getFieldState("fch_vto_pago").isDirty;
     if (
-      !fchVtoPago &&
+      (!fchVtoPago || startsAtFecha) &&
       fecha &&
       supplierDetail.default_payment_term_days != null
     ) {
@@ -1073,60 +1080,63 @@ export function PurchaseInvoiceForm({
           />
         </div>
 
-        <div className="space-y-3 rounded-md border bg-muted/10 p-4">
-          <FormField
-            control={form.control}
-            name="with_items"
-            render={({ field }) => (
-              <FormItem className="flex items-start gap-3 space-y-0">
-                <FormControl>
-                  <input
-                    disabled={arcaLocked}
-                    type="checkbox"
-                    checked={field.value}
-                    onChange={(e) => {
-                      field.onChange(e.target.checked);
-                      if (
-                        e.target.checked &&
-                        form.getValues("items").length === 0
-                      ) {
-                        form.setValue("items", [emptyItem()]);
-                      }
-                    }}
-                    className="mt-1 size-4 accent-foreground"
-                  />
-                </FormControl>
-                <div className="space-y-1">
-                  <FormLabel className="cursor-pointer">
-                    Cargar con detalle por ítem{aiMark("items")}
-                  </FormLabel>
-                  <p className="text-xs text-muted-foreground">
-                    Discrimina IVA por alícuota (necesario para libro IVA
-                    Compras). Si lo dejás apagado, cargás solo los totales del
-                    header.
-                  </p>
-                </div>
-              </FormItem>
-            )}
-          />
-          {watchedWithItems && (
+        {arcaLocked ? (
+          <ArcaLinesNote lines={createDraft?.data.arca_lines ?? []} />
+        ) : (
+          <div className="space-y-3 rounded-md border bg-muted/10 p-4">
             <FormField
               control={form.control}
-              name="items"
+              name="with_items"
               render={({ field }) => (
-                <FormItem>
+                <FormItem className="flex items-start gap-3 space-y-0">
                   <FormControl>
-                    <PurchaseInvoiceItemsEditor
-                      items={field.value}
-                      onChange={field.onChange}
+                    <input
+                      type="checkbox"
+                      checked={field.value}
+                      onChange={(e) => {
+                        field.onChange(e.target.checked);
+                        if (
+                          e.target.checked &&
+                          form.getValues("items").length === 0
+                        ) {
+                          form.setValue("items", [emptyItem()]);
+                        }
+                      }}
+                      className="mt-1 size-4 accent-foreground"
                     />
                   </FormControl>
-                  <FormMessage />
+                  <div className="space-y-1">
+                    <FormLabel className="cursor-pointer">
+                      Cargar con detalle por ítem{aiMark("items")}
+                    </FormLabel>
+                    <p className="text-xs text-muted-foreground">
+                      Discrimina IVA por alícuota (necesario para libro IVA
+                      Compras). Si lo dejás apagado, cargás solo los totales del
+                      header.
+                    </p>
+                  </div>
                 </FormItem>
               )}
             />
-          )}
-        </div>
+            {watchedWithItems && (
+              <FormField
+                control={form.control}
+                name="items"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <PurchaseInvoiceItemsEditor
+                        items={field.value}
+                        onChange={field.onChange}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+          </div>
+        )}
 
         <div className="grid gap-4 sm:grid-cols-4">
           <FormField

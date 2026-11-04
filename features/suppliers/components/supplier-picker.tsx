@@ -178,26 +178,22 @@ export function SupplierPicker({
       )}
 
       {!value && suggestedNew && (
-        <div className="mt-2 flex flex-col gap-2 rounded-md border border-dashed px-3 py-2 text-xs sm:flex-row sm:items-center">
-          <p className="min-w-0 flex-1">
-            <span className="text-muted-foreground">
-              El proveedor del comprobante no está cargado:{" "}
-            </span>
-            <span className="font-medium">
-              {suggestedNew.legal_name ?? "sin razón social"}
-            </span>
-            {suggestedNew.cuit && (
-              <span className="font-mono"> · CUIT {suggestedNew.cuit}</span>
-            )}
+        <div className="mt-2 space-y-2 rounded-md border px-3 py-3">
+          <p className="text-xs text-muted-foreground">
+            El proveedor del comprobante todavía no está cargado.
           </p>
           <Button
             type="button"
-            variant="outline"
-            size="sm"
+            className="h-auto w-full justify-start whitespace-normal py-2 text-left"
             onClick={() => setShowCreate(true)}
           >
-            <Plus />
-            Crear proveedor
+            <Plus className="shrink-0" />
+            <span className="min-w-0">
+              Crear proveedor «{suggestedNew.legal_name ?? "sin razón social"}»
+              {suggestedNew.cuit && (
+                <span className="font-mono"> · CUIT {suggestedNew.cuit}</span>
+              )}
+            </span>
           </Button>
         </div>
       )}
