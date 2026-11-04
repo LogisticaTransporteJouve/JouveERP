@@ -128,4 +128,19 @@ describe("CheckSalesSection · Pagar gate", () => {
     render(<CheckSalesSection canWrite canPay={false} />);
     expect(screen.queryByRole("button", { name: "Pagar" })).toBeNull();
   });
+
+  it("shows Pagar disabled, with the reason, without transactions:write", () => {
+    render(
+      <CheckSalesSection
+        canWrite
+        canPay={false}
+        payDeniedReason="Necesitás permiso para cargar movimientos."
+      />,
+    );
+    const buttons = screen.getAllByRole("button", {
+      name: "Pagar: Necesitás permiso para cargar movimientos.",
+    });
+    expect(buttons.length).toBeGreaterThan(0);
+    for (const b of buttons) expect(b.hasAttribute("disabled")).toBe(true);
+  });
 });

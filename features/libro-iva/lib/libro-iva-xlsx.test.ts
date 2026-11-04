@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import type { LibroIvaVentasRow } from "../schema";
+import type { LibroIvaComprasRow, LibroIvaVentasRow } from "../schema";
 
-import { libroIvaVentasSheet } from "./libro-iva-xlsx";
+import { libroIvaComprasSheet, libroIvaVentasSheet } from "./libro-iva-xlsx";
 
 const row = (over: Partial<LibroIvaVentasRow>): LibroIvaVentasRow => ({
   invoice_id: "i1",
@@ -183,5 +183,84 @@ describe("libroIvaVentasSheet", () => {
       rows: [row({ moneda: "DOL", cotizacion: "1" })],
     });
     expect(sheet.preamble?.at(-1)).toMatch(/sin cotización \(cotización 1\)/);
+  });
+});
+
+const compra = (over: Partial<LibroIvaComprasRow>): LibroIvaComprasRow => ({
+  purchase_invoice_id: "p1",
+  fecha: "2026-09-01",
+  kind: "factura",
+  letter: "A",
+  punto_venta: 840,
+  numero: 686943,
+  supplier_legal_name: "Proveedor Peaje SA",
+  supplier_cuit: "30711111118",
+  cae_proveedor: null,
+  cae_vto_proveedor: null,
+  iva_rate_id: 5,
+  iva_rate_pct: 21,
+  neto: 17746.86,
+  iva: 3726.84,
+  imp_trib: 842.98,
+  imp_total: 22316.68,
+  channel_id: "jouve_fiscal",
+  channel_name: "Jouve fiscal",
+  has_items: true,
+  moneda: "PES",
+  cotizacion: 1,
+  neto_orig: 17746.86,
+  iva_orig: 3726.84,
+  imp_trib_orig: 842.98,
+  imp_total_orig: 22316.68,
+  no_gravado: 0,
+  exentas: 0,
+  perc_iva: 532.41,
+  perc_iibb: 310.57,
+  perc_nacionales: 0,
+  perc_municipales: 0,
+  impuestos_internos: 0,
+  no_gravado_orig: 0,
+  exentas_orig: 0,
+  perc_iva_orig: 532.41,
+  perc_iibb_orig: 310.57,
+  perc_nacionales_orig: 0,
+  perc_municipales_orig: 0,
+  impuestos_internos_orig: 0,
+  ...over,
+});
+
+describe("libroIvaComprasSheet", () => {
+  it("writes the perceptions in one column, with each one's code beside", () => {
+    const sheet = libroIvaComprasSheet({
+      ...book,
+      rows: [
+        compra({}),
+        compra({
+          purchase_invoice_id: "nc",
+          kind: "nc",
+          perc_iva: 0,
+          perc_iibb: 0,
+          perc_nacionales: 10,
+          imp_trib: 10,
+        }),
+      ],
+    });
+    const headers = sheet.columns.map((c) => c.header);
+    const col = (header: string) => headers.indexOf(header);
+    for (const gone of ["Perc. IVA", "Perc. IIBB", "Otros trib."]) {
+      expect(headers).not.toContain(gone);
+    }
+    expect(sheet.rows[0]?.[col("Percepciones")]).toEqual({
+      money: 842.98,
+      currency: "ARS",
+    });
+    expect(sheet.rows[0]?.[col("Detalle percepciones")]).toBe(
+      "310,57 B · 532,41 I",
+    );
+    expect(sheet.rows[1]?.[col("Detalle percepciones")]).toBe("-10,00 G");
+    expect(sheet.totals?.[col("Percepciones")]).toEqual({
+      money: 832.98,
+      currency: "ARS",
+    });
   });
 });

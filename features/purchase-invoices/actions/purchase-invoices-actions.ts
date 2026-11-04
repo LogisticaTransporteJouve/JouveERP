@@ -165,7 +165,7 @@ export async function searchPurchaseInvoicesAction(
 }
 
 const DETAIL_COLS =
-  "id, channel_id, account_id, cost_center_id, charged_employee_id, supplier_id, kind, letter, punto_venta, numero, fecha, fch_vto_pago, imp_neto, imp_iva, imp_trib, imp_total, imp_no_gravado, imp_op_exentas, imp_perc_iva, imp_perc_iibb, imp_perc_municipales, imp_impuestos_internos, moneda, cotizacion, cae_proveedor, cae_vto_proveedor, status, invoice_origin_id, motivo_nc_nd, notes, created_by, cancelled_at, cancelled_by, created_at, updated_at, suppliers!inner(legal_name, cuit)";
+  "id, channel_id, account_id, cost_center_id, charged_employee_id, supplier_id, kind, letter, punto_venta, numero, fecha, fch_vto_pago, imp_neto, imp_iva, imp_trib, imp_total, imp_no_gravado, imp_op_exentas, imp_perc_iva, imp_perc_nacionales, imp_perc_iibb, imp_perc_municipales, imp_impuestos_internos, moneda, cotizacion, cae_proveedor, cae_vto_proveedor, status, invoice_origin_id, motivo_nc_nd, notes, created_by, cancelled_at, cancelled_by, created_at, updated_at, suppliers!inner(legal_name, cuit)";
 
 export async function getPurchaseInvoiceByIdAction(
   id: string,
@@ -200,6 +200,7 @@ export async function getPurchaseInvoiceByIdAction(
     imp_no_gravado,
     imp_op_exentas,
     imp_perc_iva,
+    imp_perc_nacionales,
     imp_perc_iibb,
     imp_perc_municipales,
     imp_impuestos_internos,
@@ -213,6 +214,7 @@ export async function getPurchaseInvoiceByIdAction(
       imp_no_gravado,
       imp_op_exentas,
       imp_perc_iva,
+      imp_perc_nacionales,
       imp_perc_iibb,
       imp_perc_municipales,
       imp_impuestos_internos,
@@ -453,6 +455,7 @@ export async function createPurchaseInvoiceAction(
       imp_no_gravado: parsed.data.imp_no_gravado,
       imp_op_exentas: parsed.data.imp_op_exentas,
       imp_perc_iva: parsed.data.imp_perc_iva,
+      imp_perc_nacionales: parsed.data.imp_perc_nacionales,
       imp_perc_iibb: parsed.data.imp_perc_iibb,
       imp_perc_municipales: parsed.data.imp_perc_municipales,
       imp_impuestos_internos: parsed.data.imp_impuestos_internos,
@@ -692,6 +695,9 @@ export async function updatePurchaseInvoiceAction(
       }),
       ...(rest.imp_perc_iva !== undefined && {
         imp_perc_iva: rest.imp_perc_iva,
+      }),
+      ...(rest.imp_perc_nacionales !== undefined && {
+        imp_perc_nacionales: rest.imp_perc_nacionales,
       }),
       ...(rest.imp_perc_iibb !== undefined && {
         imp_perc_iibb: rest.imp_perc_iibb,

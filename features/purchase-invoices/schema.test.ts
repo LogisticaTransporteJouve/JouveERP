@@ -133,10 +133,21 @@ describe("PurchaseInvoiceCreateSchema", () => {
       imp_no_gravado: 0,
       imp_op_exentas: 0,
       imp_perc_iva: 0,
+      imp_perc_nacionales: 0,
       imp_perc_iibb: 0,
       imp_perc_municipales: 0,
       imp_impuestos_internos: 0,
     });
+  });
+
+  it("keeps the Ganancias part a purchase sends", () => {
+    const r = PurchaseInvoiceCreateSchema.parse({
+      ...valid,
+      imp_trib: 5,
+      imp_perc_nacionales: 5,
+      imp_total: 126,
+    });
+    expect(r.imp_perc_nacionales).toBe(5);
   });
 
   it("refuses items without a rate next to header exento", () => {

@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  COMPRAS_PERCEPTIONS_LEGEND,
   IVA_RATES,
+  comprasPerceptions,
   computeComprasTotals,
   computeTotals,
   countSuspectRates,
@@ -33,12 +35,14 @@ const baseCompraRow = (
   exentas: 0,
   perc_iva: 0,
   perc_iibb: 0,
+  perc_nacionales: 0,
   perc_municipales: 0,
   impuestos_internos: 0,
   no_gravado_orig: 0,
   exentas_orig: 0,
   perc_iva_orig: 0,
   perc_iibb_orig: 0,
+  perc_nacionales_orig: 0,
   perc_municipales_orig: 0,
   impuestos_internos_orig: 0,
   purchase_invoice_id: "pi-1",
@@ -372,6 +376,44 @@ describe("libro IVA in pesos (multicurrency)", () => {
     expect(g!.orig.per_rate[5]).toEqual({ neto: 100, iva: 21 });
     expect(foreignCurrencyTotals([g!])).toEqual([
       { moneda: "DOL", count: 1, imp_total_orig: 121, imp_total_ars: 114_950 },
+    ]);
+  });
+});
+
+describe("comprasPerceptions", () => {
+  it("lists each perception with its code, Ganancias as G and never in the IVA", () => {
+    const [g] = groupComprasByInvoice([
+      baseCompraRow({
+        perc_iibb: 310.57,
+        perc_iva: 532.41,
+        perc_nacionales: 40,
+        imp_trib: 882.98,
+      }),
+    ]);
+    expect(comprasPerceptions(g!.breakdown)).toEqual([
+      { code: "B", amount: 310.57 },
+      { code: "I", amount: 532.41 },
+      { code: "G", amount: 40 },
+    ]);
+    expect(g!.per_rate[5]).toEqual({ neto: 1000, iva: 210 });
+    expect(COMPRAS_PERCEPTIONS_LEGEND).toBe(
+      "Percepciones: B = IIBB, I = IVA, G = Ganancias y otros nacionales, M = municipales.",
+    );
+  });
+
+  it("nets an NC's perceptions in the totals", () => {
+    const totals = computeComprasTotals(
+      groupComprasByInvoice([
+        baseCompraRow({ purchase_invoice_id: "f", perc_nacionales: 50 }),
+        baseCompraRow({
+          purchase_invoice_id: "nc",
+          kind: "nc",
+          perc_nacionales: 20,
+        }),
+      ]),
+    );
+    expect(comprasPerceptions(totals.breakdown)).toEqual([
+      { code: "G", amount: 30 },
     ]);
   });
 });

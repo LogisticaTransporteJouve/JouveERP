@@ -133,6 +133,7 @@ export type PurchaseInvoiceDraftPatch = {
   imp_no_gravado: string;
   imp_op_exentas: string;
   imp_perc_iva: string;
+  imp_perc_nacionales: string;
   imp_perc_iibb: string;
   imp_perc_municipales: string;
   imp_impuestos_internos: string;
@@ -159,6 +160,7 @@ function tributePatch(
   const split = data.tributes ?? { imp_perc_iibb: data.imp_trib ?? 0 };
   return {
     imp_perc_iva: String(split.imp_perc_iva ?? 0),
+    imp_perc_nacionales: String(split.imp_perc_nacionales ?? 0),
     imp_perc_iibb: String(split.imp_perc_iibb ?? 0),
     imp_perc_municipales: String(split.imp_perc_municipales ?? 0),
     imp_impuestos_internos: String(split.imp_impuestos_internos ?? 0),
