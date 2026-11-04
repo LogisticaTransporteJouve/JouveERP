@@ -10,6 +10,11 @@ begin;
 
 select plan(8);
 
+-- The fixture inserts an imported check by hand; in the app only
+-- commit_import_run does (guard_check_import_run). Disabled before any write,
+-- while no trigger event is pending.
+alter table public.checks disable trigger checks_guard_import_run;
+
 select set_config('request.jwt.claims', '{"role":"service_role"}', true);
 
 insert into public.accounts (id, name, type, currency) values
