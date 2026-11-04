@@ -1,7 +1,7 @@
 # Tesorería: guardas de cheques, auditoría w6 (2026-11-04)
 
 - [x] **Un cheque de terceros entra solo como cargado a mano o desde su
-      recibo** (`20261104130000`): `guard_check_edit` corre también en
+      recibo** (`20261104132000`): `guard_check_edit` corre también en
       INSERT. Fuera de `create_receipt` / `update_receipt`, un cheque nuevo
       tiene que ser manual, en cartera y sin recibo: lo que cargan «Nuevo
       cheque», el escaneo IA y el importador, y lo que `checks_manual_inflow`

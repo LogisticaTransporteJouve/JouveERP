@@ -438,7 +438,7 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
   - `123001`: monto, moneda, cartera, recibo y estado de un cheque de
     terceros cambian solo por sus RPC. El código anterior nunca hace PATCH
     de `checks`.
-- [ ] **Aprobar `20261104130000`** (auditoría w6): `guard_check_edit` corre
+- [ ] **Aprobar `20261104132000`** (auditoría w6): `guard_check_edit` corre
       también en INSERT (un cheque de terceros nuevo es manual, en cartera y
       sin recibo, salvo que lo cargue `create_receipt`/`update_receipt`),
       fija además `source_kind`, `source_client_id` y
