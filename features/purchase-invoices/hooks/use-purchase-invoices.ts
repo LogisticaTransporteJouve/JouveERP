@@ -178,7 +178,9 @@ export function useCreatePurchaseInvoice(
 ) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: PurchaseInvoiceCreateRawInput) =>
+    mutationFn: (
+      input: PurchaseInvoiceCreateRawInput,
+    ): Promise<{ id: string; linkedExisting?: boolean }> =>
       submit
         ? submit(input)
         : runAction(() => createPurchaseInvoiceAction(input)),

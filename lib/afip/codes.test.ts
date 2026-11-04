@@ -10,7 +10,9 @@ import {
   isReceptorConditionValidForLetter,
   isServiciosConcepto,
   ivaIsComputable,
+  ivaRateIdForPercent,
   ivaRatePercent,
+  kindLetterForCbteTipo,
   letterFor,
 } from "./codes";
 import type { IvaCondition } from "@/features/clients/schema";
@@ -160,5 +162,33 @@ describe("foldNonComputable", () => {
       imp_iva: 0,
     });
     expect(foldNonComputable("C", parts).imp_neto).toBe(136);
+  });
+});
+
+describe("kindLetterForCbteTipo", () => {
+  it("inverts cbteTipoFor for every kind and letter", () => {
+    for (const kind of ["factura", "nc", "nd"] as const) {
+      for (const letter of ["A", "B", "C"] as const) {
+        expect(kindLetterForCbteTipo(cbteTipoFor(kind, letter))).toEqual({
+          kind,
+          letter,
+        });
+      }
+    }
+  });
+
+  it("returns null for a type the ERP does not model (FCE, M)", () => {
+    expect(kindLetterForCbteTipo(201)).toBeNull();
+    expect(kindLetterForCbteTipo(51)).toBeNull();
+  });
+});
+
+describe("ivaRateIdForPercent", () => {
+  it("maps every AFIP alícuota and nothing else", () => {
+    expect(ivaRateIdForPercent(21)).toBe(IVA_RATE.TWENTY_ONE);
+    expect(ivaRateIdForPercent(10.5)).toBe(IVA_RATE.TEN_FIVE);
+    expect(ivaRateIdForPercent(0)).toBe(IVA_RATE.ZERO);
+    expect(ivaRateIdForPercent(2.5)).toBe(IVA_RATE.TWO_FIVE);
+    expect(ivaRateIdForPercent(19)).toBeNull();
   });
 });
