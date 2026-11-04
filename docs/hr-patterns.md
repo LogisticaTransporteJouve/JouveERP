@@ -205,12 +205,16 @@ RLS de las 4 tablas: SELECT/INSERT/UPDATE/DELETE para
 ### 3.2 Lifecycle e inmutabilidad
 
 - `status: draft → closed` (`closePayrollPeriodAction`). Reabrir `closed →
-  draft` (`reopenPayrollPeriodAction`) **requiere `hr:admin`** — RLS dejaría a
-  finance, pero el gate del action lo bloquea.
-- Trigger `enforce_payroll_period_immutability()`: al estar el período `closed`,
-  bloquea (SQLSTATE 23514) cualquier INSERT/UPDATE/DELETE de `payroll_entries` y
-  `payroll_entry_extras`. En `payroll_periods` solo bloquea cambios de
-  `year/month` y **permite** la transición `closed → draft`.
+  draft` (`reopenPayrollPeriodAction`) **requiere `hr:admin`**, y la base lo
+  aplica también: la RLS deja a finance actualizar el período, pero el trigger
+  rechaza (SQLSTATE 42501) que un usuario sin rol owner/admin saque un período
+  de `closed` (`20261104190100`).
+- Trigger `enforce_payroll_period_immutability()` (`SECURITY DEFINER`): al
+  estar el período `closed`, bloquea (SQLSTATE 23514) cualquier
+  INSERT/UPDATE/DELETE de `payroll_entries` y `payroll_entry_extras`, y también
+  el UPDATE que saca una entry (`period_id`) o un extra (`entry_id`) de un
+  período cerrado hacia otro. En `payroll_periods` bloquea cambios
+  de `year/month` mientras está cerrado y deja reabrir solo a owner/admin.
 - **Los pagos sí se permiten sobre un período cerrado** — `payroll_payments`
   **no** tiene trigger de inmutabilidad. La intención: cerrar los valores de la
   planilla y después pagar en cuotas. `canManagePayments = hr:write && period`

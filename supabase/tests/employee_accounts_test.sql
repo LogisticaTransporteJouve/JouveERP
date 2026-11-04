@@ -178,7 +178,11 @@ select throws_ok(
   'an advance whose plan was already discounted cannot be deleted'
 );
 
+-- Reopening needs owner/admin (20261104190100); the fixture's user is finance.
+select set_config('request.jwt.claims', '{"role":"service_role"}', true);
 update public.payroll_periods set status = 'draft' where id = '00000000-0000-0000-0000-000000000ed1';
+select set_config('request.jwt.claims',
+  '{"sub":"00000000-0000-0000-0000-000000000ea1","role":"authenticated"}', true);
 select is(
   (select count(*)::int from public.employee_account_movements
     where payroll_entry_id = '00000000-0000-0000-0000-000000000ee1'),
