@@ -165,6 +165,7 @@ const GUARDS = [
   "guard_payment_order_rejected_check_allocation",
   "guard_invoice_cotizacion",
   "issued_check_rejected_inflow",
+  "guard_supplier_cuit_closed_period",
 ];
 
 describe("guard hints in migrations", () => {
