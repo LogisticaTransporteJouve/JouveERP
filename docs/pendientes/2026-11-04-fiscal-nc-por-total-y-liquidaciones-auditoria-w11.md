@@ -32,12 +32,13 @@ Decisión: `docs/decisions/2026-11-04-nc-de-arca-por-total-y-reabrir-liquidacion
       `check (moneda in ('PES','DOL'))` a `invoices` (como `NOT VALID` y
       luego `validate`). Solo lectura:
       `select moneda, count(*) from public.invoices group by moneda order by moneda;`
-- [ ] **Una NC por total más vieja que las 100 facturas más recientes del
-      mismo total** queda sin origen aunque una factura más vieja tenga
-      lugar. Es lo seguro (el aging reparte su crédito); se puede
-      vincular a mano.
-- [ ] **`payroll_periods` en estado cerrado todavía deja cambiar `kind`,
-      `notes` y `posts_employee_accounts`** a quien tiene `hr:write`. Un
+- [ ] **La búsqueda por total mira las 100 facturas más recientes del mismo
+      total.** Si todas ya están acreditadas, la NC queda sin origen aunque
+      una factura más vieja tenga lugar. Es lo seguro (el aging reparte su
+      crédito).
+- [ ] **`payroll_periods` todavía deja cambiar `kind`, `notes` y
+      `posts_employee_accounts`** a finance (RLS), también con el período
+      cerrado. Un
       cambio de `posts_employee_accounts` antes de cerrar evita escribir los
       descuentos en la cuenta del empleado. Ninguna pantalla los escribe; si
       se quiere cerrar, va en un trigger aparte.

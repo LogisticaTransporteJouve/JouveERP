@@ -642,7 +642,8 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
   - Con este deploy, la importación de ventas de ARCA vincula una NC sin
     `CbtesAsoc` solo a una factura de su moneda a la que le queda lugar, y
     no trae comprobantes en otra moneda que pesos o dólares
-    (`lib/afip/sync-issued.ts`, sin migración). Producción tiene ventas y
+    (`lib/afip/sync-issued.ts`, sin migración; un rollback vuelve a vincular
+    por total sin mirar lugar ni moneda). Producción tiene ventas y
     NC reales importadas de ARCA, y el cambio no las toca. Antes de
     promover, correr esta consulta de solo lectura (válida sobre el
     esquema de `20261102170000`). Lista cada NC de una factura cuyas NC
