@@ -14,6 +14,7 @@ import {
   formatMoneyWithCode,
 } from "@/lib/format";
 
+import { checksInCartera } from "../lib/checks-in-cartera";
 import type { DashboardAgingKpis, DashboardTreasuryKpis } from "../schema";
 
 export function FinanceKpis({
@@ -82,21 +83,21 @@ export function FinanceKpis({
         )}
       </StatGrid>
 
-      {treasury && treasury.checks_now > 0 && (
+      {treasury && (treasury.checks_now > 0 || treasury.checks_usd_now > 0) && (
         <Link
           href="/checks"
           className="block rounded-lg border bg-card p-3 text-sm hover:bg-accent/50"
         >
           Cheques en cartera:{" "}
           <span className="font-mono font-medium">
-            {formatMoneyWithCode(treasury.checks_now, "ARS")}
+            {checksInCartera(treasury)}
           </span>
           {treasury.checks_due_soon.count > 0 && (
             <span className="text-muted-foreground">
               {" "}
-              · {treasury.checks_due_soon.count} acreditan ≤ 7 días por{" "}
+              · {treasury.checks_due_soon.count} en pesos acreditan ≤ 7 días por{" "}
               <span className="font-mono">
-                {formatMoney(treasury.checks_due_soon.amount)}
+                {formatMoneyWithCode(treasury.checks_due_soon.amount, "ARS")}
               </span>
             </span>
           )}

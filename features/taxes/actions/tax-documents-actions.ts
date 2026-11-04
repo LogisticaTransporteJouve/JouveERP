@@ -5,6 +5,7 @@ import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
+import { ivaIsComputable } from "@/lib/afip/codes";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { paginateRange } from "@/lib/supabase/paginate";
@@ -326,7 +327,12 @@ export async function getIvaPositionEstimateAction(input: {
   const estimate = computeIvaPosition({
     period,
     debito: sumIva(computeTotals(ventasGrouped).per_rate),
-    credito: sumIva(comprasTotals.per_rate),
+    // Only a letter A purchase gives IVA crédito, as the CITI TXT declares.
+    credito: sumIva(
+      computeComprasTotals(
+        comprasGrouped.filter((r) => ivaIsComputable(r.letter)),
+      ).per_rate,
+    ),
     retenciones: retentionsArs.reduce((acc, amount) => acc + amount, 0),
     saldoAnterior: previousIvaCreditBalance(
       (previousDocs ?? []).map((d) => ({

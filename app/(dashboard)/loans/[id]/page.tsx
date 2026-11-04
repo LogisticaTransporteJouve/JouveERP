@@ -3,9 +3,14 @@ import { redirect } from "next/navigation";
 import { listAccountsAction } from "@/features/accounts/actions/accounts-actions";
 import { getLoanAction } from "@/features/loans/actions/loans-actions";
 import { LoanDetail } from "@/features/loans/components/loan-detail";
+import { LOAN_CASH_PERMISSIONS } from "@/features/loans/lib/loan-cash";
 import { loansKeys } from "@/features/loans/lib/loans-keys";
 import { requireUserContext } from "@/lib/auth/context";
-import { TREASURY_PERMISSIONS, userCanAll } from "@/lib/auth/permissions";
+import {
+  TREASURY_PERMISSIONS,
+  userCan,
+  userCanAll,
+} from "@/lib/auth/permissions";
 import { Hydrate } from "@/lib/query/hydrate";
 import { prefetchQueries } from "@/lib/query/prefetch";
 import { runAction } from "@/lib/query/run-action";
@@ -41,7 +46,12 @@ export default async function LoanDetailRoute({
 
   return (
     <Hydrate state={dehydratedState}>
-      <LoanDetail loanId={id} accountOptions={accountOptions} />
+      <LoanDetail
+        loanId={id}
+        accountOptions={accountOptions}
+        canWrite={userCan(ctx.access, "accounting:write")}
+        canMoveCash={userCanAll(ctx.access, LOAN_CASH_PERMISSIONS)}
+      />
     </Hydrate>
   );
 }

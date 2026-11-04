@@ -99,7 +99,7 @@ describe("letter rule on create", () => {
       expect(res).toEqual({
         ok: false,
         error:
-          "En facturas B y C el IVA, el exento y el no gravado van incluidos en el neto: cargá el IVA en 0 y, si hay ítems, con alícuota «No gravado».",
+          "En facturas B y C el IVA, el exento y el no gravado van incluidos en el neto: cargá el IVA en 0 y, si hay ítems, con «Sin alícuota».",
       });
       expect(writes).toEqual([]);
     },

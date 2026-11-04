@@ -13,7 +13,7 @@ import { fetchInChunks, paginateRange } from "@/lib/supabase/paginate";
 import { getServiceClient } from "@/lib/supabase/service";
 import { findHeaderRowIndex, suggestColumnMapping } from "@/lib/tables/columns";
 import type { TableLimits } from "@/lib/tables/csv";
-import { readUploadedTable } from "@/lib/tables/read-upload";
+import { decodeText, readUploadedTable } from "@/lib/tables/read-upload";
 import { MAX_UPLOAD_TABLE_BYTES } from "@/lib/tables/limits";
 
 import { isAccountType, isCheckAccount } from "@/features/accounts/schema";
@@ -482,7 +482,10 @@ async function prepare(
     return { error: "El archivo supera los 4 MB." };
   }
   const bytes = new Uint8Array(await file.arrayBuffer());
-  const table = readUploadedTable(file.name, bytes, IMPORT_LIMITS);
+  // A bank or a Spanish-locale Excel writes CSV in windows-1252.
+  const table = readUploadedTable(file.name, bytes, IMPORT_LIMITS, {
+    decode: decodeText,
+  });
   if (typeof table === "string") return { error: table };
 
   const keys = fieldKeys(kind);
