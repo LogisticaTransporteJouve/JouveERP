@@ -3,15 +3,24 @@ import "server-only";
 import { parseCsv, type ParsedTable, type TableLimits } from "./csv";
 import { XlsxReadError, readXlsxFirstSheet } from "./xlsx";
 
-/** Server actions take the request body whole; Vercel caps it at 4.5 MB. */
-export const MAX_UPLOAD_TABLE_BYTES = 4 * 1024 * 1024;
+/** UTF-8 when the bytes are valid UTF-8, else windows-1252 (what ARCA and a
+ *  Spanish-locale Excel write a CSV in). */
+export function decodeText(bytes: Uint8Array): string {
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    return new TextDecoder("windows-1252").decode(bytes);
+  }
+}
 
 /** An uploaded .xlsx (first sheet) or .csv as a text table, or the message
- *  for the user when it cannot be read. */
+ *  for the user when it cannot be read. A CSV is read as UTF-8 unless
+ *  `decode` says otherwise. */
 export function readUploadedTable(
   fileName: string,
   bytes: Uint8Array,
   limits: TableLimits,
+  opts?: { decode?: (bytes: Uint8Array) => string },
 ): ParsedTable | string {
   const name = fileName.toLowerCase();
   if (name.endsWith(".xls")) {
@@ -22,7 +31,9 @@ export function readUploadedTable(
       return readXlsxFirstSheet(bytes, limits);
     }
     if (name.endsWith(".csv") || name.endsWith(".txt")) {
-      return parseCsv(new TextDecoder("utf-8").decode(bytes), limits);
+      const decode =
+        opts?.decode ?? ((b: Uint8Array) => new TextDecoder("utf-8").decode(b));
+      return parseCsv(decode(bytes), limits);
     }
   } catch (err) {
     if (err instanceof XlsxReadError) return "No se pudo leer el Excel.";

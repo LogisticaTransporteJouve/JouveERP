@@ -4,6 +4,7 @@ import type { PostgrestError } from "@supabase/supabase-js";
 import { z } from "zod";
 
 import { logAudit } from "@/lib/actions/audit";
+import type { PartialCreateFailure } from "@/lib/actions/claim";
 import { ivaIsComputable } from "@/lib/afip/codes";
 import type { JsonValue } from "@/lib/actions/audit";
 import type { ActionResult } from "@/lib/query/run-action";
@@ -373,17 +374,6 @@ export async function findPurchaseInvoiceDuplicateAction(
     },
   };
 }
-
-/**
- * The header row was inserted but a later step failed (e.g. its items). The
- * invoice exists: callers that track what they created (AI drafts) must link
- * `createdId` instead of treating this as "nothing was created".
- */
-export type PartialCreateFailure = {
-  ok: false;
-  error: string;
-  createdId: string;
-};
 
 export async function createPurchaseInvoiceAction(
   input: unknown,

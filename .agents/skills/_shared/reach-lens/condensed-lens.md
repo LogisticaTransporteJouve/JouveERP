@@ -42,7 +42,7 @@ THE FIVE CO-EQUAL LAWS — check and REPORT each (an unstated law is UNCHECKED, 
    validation, side effect, field, parameter, default, key format, constant, signature, return
    shape, meaning), name its ANCHOR (the noun it changes — a column, figure, permission, event,
    RPC, query key — not the function it sits in) and fill five peer lists:
-   - WRITERS: create, update, bulk, import (`scripts/import-afip-purchases.mjs`), retry, Inngest
+   - WRITERS: create, update, bulk, import (the ARCA received tray, `lib/afip/received-vouchers.ts`), retry, Inngest
      step, trigger, backfill, seed (`supabase/seed.sql`, `scripts/seed-everything.mjs`), Document
      Intelligence confirm.
    - READERS: every query or figure over the anchor — list, count, total, badge, drill-down, PDF,
