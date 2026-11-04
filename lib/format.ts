@@ -100,6 +100,11 @@ export function formatAmountInput(raw: string, decimals = 2): string {
   return decPart === null ? grouped : `${grouped},${decPart}`;
 }
 
+/** Decimals of a document's cotización (`numeric(10, 4)` on invoices,
+ *  purchases, receipts and payment orders), for its `MoneyInput` and its
+ *  prefill: `amountToInput(rate, COTIZACION_DECIMALS)`. */
+export const COTIZACION_DECIMALS = 4;
+
 /** `formatAmountInput` that keeps a leading minus ("-1500,5" → "-1.500,5"),
  *  for amounts that can be negative, such as an account balance. */
 export function formatSignedAmountInput(raw: string, decimals = 2): string {

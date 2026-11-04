@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
 import { ExportButton } from "@/components/export-button";
+import { MoneyInput } from "@/components/money-input";
 import { useConfirm } from "@/components/providers/confirm-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -29,7 +30,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { formatArgentineDate } from "@/lib/format";
+import { formatArgentineDate, parseArAmount } from "@/lib/format";
 
 import {
   useCreateExchangeRate,
@@ -37,6 +38,9 @@ import {
   useExchangeRates,
 } from "../hooks/use-exchange-rates";
 import type { ExchangeRate } from "../schema";
+
+/** `exchange_rates.rate` is numeric(18, 6). */
+const EXCHANGE_RATE_DECIMALS = 6;
 
 const rateFmt = new Intl.NumberFormat("es-AR", {
   minimumFractionDigits: 2,
@@ -176,7 +180,11 @@ function ExchangeRateDialog({
   });
 
   function onSubmit(values: DialogFormValues) {
-    const num = Number(values.rate.replace(",", "."));
+    const num = parseArAmount(values.rate);
+    if (num === null || num <= 0) {
+      form.setError("rate", { message: "Cotización inválida." });
+      return;
+    }
     createMut.mutate(
       {
         rate_date: values.rate_date,
@@ -226,14 +234,15 @@ function ExchangeRateDialog({
                 <FormItem>
                   <FormLabel>ARS por USD</FormLabel>
                   <FormControl>
-                    <Input
+                    <MoneyInput
                       {...field}
-                      placeholder="1180,50"
+                      decimals={EXCHANGE_RATE_DECIMALS}
+                      placeholder="1.180,50"
                       className="font-mono"
                     />
                   </FormControl>
                   <FormDescription className="text-xs">
-                    Cotización oficial. Ejemplo: 1180,50 = $1.180,50 por USD.
+                    Cotización oficial. Ejemplo: 1.180,50 = $1.180,50 por USD.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>

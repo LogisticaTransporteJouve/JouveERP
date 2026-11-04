@@ -405,10 +405,13 @@ mitigación en el schema: el límite se respeta operando.
 - [x] Venta de cheques: intereses y comisiones se leían con
       `Number(v.replace(",", "."))`, así que "1.500" se guardaba 1,50.
       Ahora `MoneyInput` + `parseArAmount`.
-- [ ] Tipo de cambio (`features/exchange-rates/components/exchange-rates-page.tsx`):
-      el campo de texto se lee con `Number(v.replace(",", "."))`, así que
-      "1.180" se guarda 1,18. No es un monto de dinero y `MoneyInput` corta a
-      2 decimales; queda para revisar con el criterio de las tasas.
+- [x] Cotizaciones: "Cargar cotización USD" leía el texto con
+      `Number(v.replace(",", "."))`, así que "1.180" se guardaba 1,18 y
+      pasaba el control `> 1`. Ahora `MoneyInput` con 6 decimales
+      (`numeric(18, 6)`) y `parseArAmount`. La cotización de recibos, OP,
+      compras y NC/ND también es `MoneyInput` (4 decimales,
+      `numeric(10, 4)`), se precarga en es-AR (edición, cotización cargada
+      del día y documento escaneado) y se lee con `parseUsdRate`.
 - [ ] Sin migraciones. Rollback: el código anterior vuelve al campo sin
       formato; los saldos ya guardados no cambian.
 

@@ -30,7 +30,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { UsdRateField } from "@/components/usd-rate-field";
+import { parseUsdRate, UsdRateField } from "@/components/usd-rate-field";
 import { useUsdRatePrefill } from "@/hooks/use-usd-rate-prefill";
 import {
   ClientPicker,
@@ -39,6 +39,7 @@ import {
 import type { Account } from "@/features/accounts/schema";
 import {
   amountToInput,
+  COTIZACION_DECIMALS,
   round2,
   formatNumber2,
   parseArAmount,
@@ -193,7 +194,10 @@ export function ReceiptForm({
         (receipt?.receipt.currency as ReceiptCurrency | undefined) ?? "ARS",
       cotizacion:
         receipt?.receipt.cotizacion != null
-          ? String(Number(receipt.receipt.cotizacion))
+          ? amountToInput(
+              Number(receipt.receipt.cotizacion),
+              COTIZACION_DECIMALS,
+            )
           : "",
       client: initialClient ?? null,
       notes: receipt?.receipt.notes ?? "",
@@ -296,7 +300,8 @@ export function ReceiptForm({
       return;
     }
 
-    const rate = values.currency === "USD" ? Number(values.cotizacion) : null;
+    const rate =
+      values.currency === "USD" ? parseUsdRate(values.cotizacion) : null;
     if (rate !== null && !(rate > 1)) {
       form.setError("cotizacion", { message: USD_RATE_REQUIRED_MESSAGE });
       return;

@@ -25,6 +25,13 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/money-input";
+import { parseUsdRate } from "@/components/usd-rate-field";
+import {
+  amountToInput,
+  COTIZACION_DECIMALS,
+  parseArAmount,
+} from "@/lib/format";
 import {
   Select,
   SelectContent,
@@ -208,7 +215,9 @@ function invoiceToValues(
     ...breakdownToValues(inv),
     imp_total: inv ? String(inv.imp_total) : "",
     moneda: inv?.moneda ?? "PES",
-    cotizacion: inv ? String(inv.cotizacion) : "1",
+    cotizacion: inv
+      ? amountToInput(Number(inv.cotizacion), COTIZACION_DECIMALS)
+      : "1",
     cae_proveedor: inv?.cae_proveedor ?? "",
     cae_vto_proveedor: inv?.cae_vto_proveedor ?? "",
     origin_invoice: null,
@@ -680,7 +689,7 @@ export function PurchaseInvoiceForm({
       );
       return;
     }
-    if (values.moneda !== "PES" && !(Number(values.cotizacion) > 1)) {
+    if (values.moneda !== "PES" && !(parseUsdRate(values.cotizacion) > 1)) {
       form.setError("cotizacion", {
         message: "Cargá la cotización del dólar (tiene que ser mayor a 1).",
       });
@@ -794,7 +803,7 @@ export function PurchaseInvoiceForm({
       ...breakdown,
       imp_total: Number(values.imp_total),
       moneda: values.moneda,
-      cotizacion: Number(values.cotizacion || 1),
+      cotizacion: parseArAmount(values.cotizacion) ?? 1,
       cae_proveedor: isInternal ? null : values.cae_proveedor || null,
       cae_vto_proveedor: isInternal ? null : values.cae_vto_proveedor || null,
       invoice_origin_id:
@@ -1440,12 +1449,7 @@ export function PurchaseInvoiceForm({
                 <FormItem>
                   <FormLabel>Cotización{aiMark("cotizacion")}</FormLabel>
                   <FormControl>
-                    <Input
-                      {...field}
-                      type="number"
-                      inputMode="decimal"
-                      step="0.0001"
-                    />
+                    <MoneyInput {...field} decimals={COTIZACION_DECIMALS} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/money-input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -35,7 +36,13 @@ import {
 } from "@/lib/afip/codes";
 import type { IvaCondition } from "@/features/clients/schema";
 
-import { formatNumber2, todayInAR } from "@/lib/format";
+import {
+  amountToInput,
+  COTIZACION_DECIMALS,
+  formatNumber2,
+  parseArAmount,
+  todayInAR,
+} from "@/lib/format";
 
 import { useIssueFiscalInvoice } from "../hooks/use-invoices";
 import { computeTotals, type RevenueKind } from "../schema";
@@ -112,7 +119,9 @@ export function NcNdForm({
   // A note is in its origin's currency; a foreign one takes the cotización of
   // the day, prefilled with the origin's.
   const isForeign = origin.moneda !== "PES";
-  const [cotizacion, setCotizacion] = useState(() => String(origin.cotizacion));
+  const [cotizacion, setCotizacion] = useState(() =>
+    amountToInput(origin.cotizacion, COTIZACION_DECIMALS),
+  );
   const [items, setItems] = useState<ItemDraft[]>(() =>
     origin.items.length === 0
       ? [
@@ -200,7 +209,9 @@ export function NcNdForm({
           origin.client.iva_condition,
         ),
         moneda: isForeign ? "DOL" : "PES",
-        cotizacion: isForeign ? Number(cotizacion) || origin.cotizacion : 1,
+        cotizacion: isForeign
+          ? parseArAmount(cotizacion) || origin.cotizacion
+          : 1,
         invoice_origin_id: origin.id,
         motivo_nc_nd: motivo.trim(),
         items: items.map((it) => ({
@@ -241,11 +252,11 @@ export function NcNdForm({
         {isForeign && (
           <div className="space-y-1">
             <Label className="text-xs">Cotización {origin.moneda}</Label>
-            <Input
-              type="number"
-              step="0.0001"
+            <MoneyInput
+              aria-label={`Cotización ${origin.moneda}`}
+              decimals={COTIZACION_DECIMALS}
               value={cotizacion}
-              onChange={(e) => setCotizacion(e.target.value)}
+              onChange={setCotizacion}
             />
           </div>
         )}
