@@ -9739,6 +9739,7 @@ export type Database = {
           row_kind: string
           trip_cost: number
           trips: number
+          uninvoiced_shipments: number
           vehicle_id: string
         }[]
       }

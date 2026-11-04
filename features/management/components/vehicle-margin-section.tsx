@@ -5,7 +5,6 @@ import Link from "next/link";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatNumber2 } from "@/lib/format";
-import { cn } from "@/lib/utils";
 
 import { useVehicleMargin } from "../hooks/use-management";
 import { money } from "../lib/format";
@@ -88,6 +87,10 @@ function VehicleMarginTable({
     (s, v) => s + v.maintenanceWithoutCost,
     0,
   );
+  const withPending = [...vehicles, ...(withoutVehicle ? [withoutVehicle] : [])]
+    .map((r) => r.uninvoicedShipments)
+    .filter((n) => n > 0);
+  const uninvoicedShipments = withPending.reduce((s, n) => s + n, 0);
 
   if (vehicles.length === 0 && !withoutVehicle && unattributed.length === 0) {
     return (
@@ -142,7 +145,7 @@ function VehicleMarginTable({
                 <Num value={v.fuelCost} />
                 <Num value={v.maintenanceCost} />
                 <Num value={v.centerCost} />
-                <Num value={v.net} strong />
+                <NetCell value={v.net} pending={v.uninvoicedShipments > 0} />
                 <td className="px-3 py-1.5 text-right font-mono">
                   {pct(v.marginPct)}
                 </td>
@@ -155,7 +158,10 @@ function VehicleMarginTable({
                 <Num value={withoutVehicle.revenue} />
                 <Num value={withoutVehicle.tripCost} />
                 <td colSpan={3} />
-                <Num value={withoutVehicle.net} strong />
+                <NetCell
+                  value={withoutVehicle.net}
+                  pending={withoutVehicle.uninvoicedShipments > 0}
+                />
                 <td className="px-3 py-1.5 text-right font-mono">
                   {pct(withoutVehicle.marginPct)}
                 </td>
@@ -194,6 +200,9 @@ function VehicleMarginTable({
             suman.
           </li>
         )}
+        {uninvoicedShipments > 0 && (
+          <li>{pendingNote(uninvoicedShipments, withPending.length)}</li>
+        )}
         {withoutCost > 0 && (
           <li>
             {withoutCost === 1
@@ -218,22 +227,33 @@ function VehicleMarginTable({
   );
 }
 
-function Num({
-  value,
-  plain,
-  strong,
-}: {
-  value: number;
-  plain?: boolean;
-  strong?: boolean;
-}) {
+function pendingNote(shipments: number, rows: number): string {
+  const cargas =
+    shipments === 1
+      ? "1 carga sin facturar"
+      : `${shipments} cargas sin facturar`;
+  const where = rows === 1 ? "en 1 fila" : `en ${rows} filas`;
+  return `${cargas} ${where} («pendiente de facturar»): no están en el ingreso, así que ese neto no es definitivo.`;
+}
+
+/** A net with cargas still to invoice is not final (as in «Rentabilidad de
+ *  flota»). */
+function NetCell({ value, pending }: { value: number; pending: boolean }) {
   return (
-    <td
-      className={cn(
-        "px-3 py-1.5 text-right font-mono",
-        strong && "font-semibold",
+    <td className="px-3 py-1.5 text-right font-mono font-semibold">
+      {money(value)}
+      {pending && (
+        <span className="block font-sans font-normal text-muted-foreground">
+          pendiente de facturar
+        </span>
       )}
-    >
+    </td>
+  );
+}
+
+function Num({ value, plain }: { value: number; plain?: boolean }) {
+  return (
+    <td className="px-3 py-1.5 text-right font-mono">
       {plain ? value : money(value)}
     </td>
   );

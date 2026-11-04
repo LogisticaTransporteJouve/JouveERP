@@ -157,6 +157,7 @@ function vehicleMargin(v: Partial<VehicleMarginRow>): VehicleMarginRow {
     net: 0,
     marginPct: null,
     pendingUsd: 0,
+    uninvoicedShipments: 0,
     ...v,
   };
 }
