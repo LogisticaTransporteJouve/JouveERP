@@ -31,21 +31,43 @@ export function supplierCostDefaults(
   return result;
 }
 
-/** The defaults for the type picked: an NC/ND takes none, so its account and
- *  center stay empty and the trigger copies its origin's
- *  (purchase_invoices_nc_nd_inherit_account). */
-export function supplierCostDefaultsForKind(
-  kind: PurchaseInvoiceKind,
-  supplier: Parameters<typeof supplierCostDefaults>[0],
-  options: CostTagOptions | undefined,
+/** The account and center a scanned document suggested (its draft). */
+export function suggestedCostDefaults(
+  draft: {
+    account: { id: string } | null;
+    cost_center_id: string | null;
+  } | null,
 ): CostDefault[] {
-  return kind === "factura" ? supplierCostDefaults(supplier, options) : [];
+  const result: CostDefault[] = [];
+  if (draft?.account) result.push({ name: "account_id", id: draft.account.id });
+  if (draft?.cost_center_id) {
+    result.push({ name: "cost_center_id", id: draft.cost_center_id });
+  }
+  return result;
 }
 
-/** What a new purchase's account and center fields take when its supplier's
- *  defaults (or its type) change: the new defaults, and "" for a field the
- *  previous defaults prefilled that still holds it. A field the user touched
- *  is kept. */
+/** The defaults for the type picked: for a factura, the supplier's over the
+ *  scanned document's suggestion, field by field. An NC/ND takes none, so
+ *  its account and center stay empty and the trigger copies its origin's
+ *  (purchase_invoices_nc_nd_inherit_account). */
+export function purchaseCostDefaults(
+  kind: PurchaseInvoiceKind,
+  suggested: readonly CostDefault[],
+  supplier: readonly CostDefault[],
+): CostDefault[] {
+  if (kind !== "factura") return [];
+  return COST_FIELDS.flatMap((name) => {
+    const pick =
+      supplier.find((d) => d.name === name) ??
+      suggested.find((d) => d.name === name);
+    return pick ? [pick] : [];
+  });
+}
+
+/** What a new purchase's account and center fields take when its defaults
+ *  (its supplier, or its type) change: the new defaults, and "" for a field
+ *  the previous defaults prefilled that still holds it. A field the user
+ *  touched is kept. */
 export function supplierCostWrites(
   previous: readonly CostDefault[],
   next: readonly CostDefault[],

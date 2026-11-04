@@ -234,9 +234,12 @@ transaction_date)` (la cotización de esa fecha o la anterior más cercana),
   nunca a IVA, `20261104113001`). `imp_trib` es la suma de las cinco partes
   (CHECK); una compra que solo trae `imp_trib` (código anterior) lo toma como
   IIBB. Una **NC/ND de compra sin cuenta hereda la de su comprobante de
-  origen** (y su centro de costo si no tiene), así revierte la misma cuenta que
-  la factura (trigger `purchase_invoices_nc_nd_inherit_account`,
-  `20261102230100`); una cuenta elegida en la NC/ND se respeta.
+  origen**, y sin centro de costo hereda el de su origen, cada uno por
+  separado, así revierte la misma cuenta y el mismo centro que la factura
+  (trigger `purchase_invoices_nc_nd_inherit_account`, `20261102230100`,
+  `20261104150200`); una cuenta o un centro elegidos en la NC/ND se respetan.
+  El formulario no le pone a una NC/ND los valores por defecto del proveedor
+  ni la sugerencia del escaneo.
 - **Costo cargado una vez con rubro y centro (roadmap 1.1/1.2/1.8,
   `20261103010000`):** el formulario de compras (fiscal e interno) tiene
   "Cuenta de gasto" y "Centro de costo"; una factura nueva arranca con los

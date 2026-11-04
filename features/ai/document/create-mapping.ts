@@ -281,8 +281,10 @@ export function buildPurchaseInvoiceDraft(
     cotizacion: moneda === "DOL" ? opts.usdRate : null,
     motivo_nc_nd: kind === "factura" ? null : "Según documento escaneado",
     items,
-    account: opts.account,
-    cost_center_id: opts.costCenterId,
+    // The expense suggestion is an invoice's: an NC/ND is saved without one,
+    // so it takes its origin's (purchase_nc_nd_inherit_account).
+    account: kind === "factura" ? opts.account : null,
+    cost_center_id: kind === "factura" ? opts.costCenterId : null,
     warnings,
   };
 }

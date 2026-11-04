@@ -78,7 +78,9 @@ import {
 } from "../lib/header-total";
 import {
   type CostDefault,
-  supplierCostDefaultsForKind,
+  purchaseCostDefaults,
+  suggestedCostDefaults,
+  supplierCostDefaults,
   supplierCostWrites,
 } from "../lib/supplier-defaults";
 import {
@@ -499,22 +501,31 @@ export function PurchaseInvoiceForm({
     mode === "create" ? watchedSupplierId : null,
   );
   const supplierDetail = supplierDetailQuery.data ?? null;
+  const supplierDetailFetching = supplierDetailQuery.isFetching;
   // Which accounts and centers are still offered (active), for the defaults.
   const costTagOptions = useCostTagOptions().data;
-  // The account and center the last supplier's defaults wrote, so switching
-  // supplier does not leave them on the new one's purchase.
-  const appliedCostDefaults = useRef<CostDefault[]>([]);
+  // The account and center the defaults last wrote (at mount, the scanned
+  // document's suggestion), so switching supplier or type does not leave
+  // them on a purchase they no longer belong to.
+  const appliedCostDefaults = useRef<CostDefault[]>(
+    suggestedCostDefaults(createDraft?.data ?? null),
+  );
 
   // Expense account and cost center: the supplier's, over the AI's
   // suggestion, unless the user already picked one, and only while still
   // active (a retired FLOTA_DZ is not copied). Switching the type to NC/ND
-  // clears what the supplier wrote, so the origin's is inherited.
+  // clears what the supplier or the scan wrote, so the origin's is inherited.
   useEffect(() => {
-    if (mode !== "create" || !supplierDetail) return;
-    const next = supplierCostDefaultsForKind(
+    if (mode !== "create") return;
+    // The supplier is being read: wait for its defaults instead of clearing
+    // and rewriting the fields.
+    if (watchedSupplierId && !supplierDetail && supplierDetailFetching) return;
+    const next = purchaseCostDefaults(
       watchedKind,
-      supplierDetail,
-      costTagOptions,
+      suggestedCostDefaults(createDraft?.data ?? null),
+      supplierDetail
+        ? supplierCostDefaults(supplierDetail, costTagOptions)
+        : [],
     );
     for (const { name, id } of supplierCostWrites(
       appliedCostDefaults.current,
@@ -527,7 +538,16 @@ export function PurchaseInvoiceForm({
       form.setValue(name, id, { shouldDirty: false });
     }
     appliedCostDefaults.current = next;
-  }, [mode, supplierDetail, costTagOptions, watchedKind, form]);
+  }, [
+    mode,
+    createDraft,
+    watchedSupplierId,
+    supplierDetail,
+    supplierDetailFetching,
+    costTagOptions,
+    watchedKind,
+    form,
+  ]);
 
   useEffect(() => {
     if (mode !== "create" || !supplierDetail) return;
