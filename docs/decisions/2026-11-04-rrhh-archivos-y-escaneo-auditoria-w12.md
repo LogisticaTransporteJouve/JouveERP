@@ -25,9 +25,9 @@ En el bucket `files` (`20261104194101`):
 
 - **Borrar:** quien subió los bytes (`storage.objects.owner_id`) u
   owner/admin, el mismo techo que borrar la fila («Uploader or admin»). Se usa
-  `owner_id` y no `files.uploaded_by` porque cualquier usuario con
-  `files:write` puede crear una fila que nombre cualquier key: la fila no
-  prueba quién escribió los bytes.
+  `owner_id` (lo pone storage al subir) y no `files.uploaded_by`: una fila
+  puede nombrar una key que ninguna otra fila nombra, como un blob ajeno que
+  quedó sin fila, así que no prueba quién escribió los bytes.
 - **Subir:** solo los roles con `files:write`, y nunca a una key que nombra
   una fila de otro usuario (`files_storage_key_is_free`, DEFINER, porque la
   RLS del caller puede ocultar esa fila).

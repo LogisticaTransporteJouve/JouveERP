@@ -13,12 +13,12 @@ SET LOCAL statement_timeout = '15min';
 -- and its attachments kept pointing at it.
 --
 -- Buckets: `files` (this one), `avatars` (own policies, untouched),
--- `invoices` (legacy, read-only), `backups` (service role). Writers of
--- `files`, latest code:
+-- `invoices-pdf` (legacy, read-only), `backups-daily` (service role).
+-- Writers of `files`, latest code:
 --   * user client: storeUploadedFile (lib/files/store.ts: uploadFileAction,
 --     uploadFleetDocumentFileAction; both gated by files:write) and
 --     scanDocumentAction (files:write) upload a fresh random key with
---     upsert: false, and remove it again if the row insert fails;
+--     upsert: false, and try to remove it if the row insert fails;
 --     discardStoredFile removes its own just-uploaded blob; detachFileAction
 --     removes the blob of a file whose last link it removed.
 --   * service role (bypasses RLS): chat attachments
@@ -29,9 +29,9 @@ SET LOCAL statement_timeout = '15min';
 -- New rules:
 --   * DELETE: the user who uploaded the bytes (storage.objects.owner_id), or
 --     owner/admin for an object a registry row they can see names. The
---     storage side of "Uploader or admin can delete files". owner_id, not
---     files.uploaded_by: any files:write user may insert a files row naming
---     any key, so the row does not prove who wrote the bytes.
+--     storage side of "Uploader or admin can delete files". owner_id (what
+--     storage stamps on the upload), not files.uploaded_by: a row may name a
+--     key no other row names, so it does not prove who wrote the bytes.
 --   * INSERT: only the files:write roles (owner, admin, finance, operations,
 --     warehouse), with the same key shape, and never a key that a registry
 --     row of another user names (read without the caller's RLS, so a row
@@ -87,7 +87,7 @@ alter policy "files_storage_insert" on storage.objects
 -- naming another user's key (only its shape is checked). The row reads the
 -- bytes, and once it is an hour old and unlinked the orphan sweep deletes it
 -- and removes the blob with the service role, under the real file's feet.
--- The same holds for a row naming another bucket (backups, avatars). The app
+-- The same holds for a row naming another bucket (avatars, backups). The app
 -- inserts rows only in `files`, for the fresh key it just uploaded.
 alter policy "Files write requires uploader = self" on public.files
   with check (

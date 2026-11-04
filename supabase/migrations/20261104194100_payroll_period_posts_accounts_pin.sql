@@ -14,8 +14,8 @@ SET LOCAL statement_timeout = '15min';
 --
 -- Writers, latest definitions:
 --   * the column default (true) on every INSERT: seed_payroll_period and
---     seed_sac_period (20261103050100), the createPayroll* actions through
---     them. None names the column.
+--     seed_sac_period (20261103050100), called by the seed actions in
+--     features/hr/actions/payroll-actions.ts. None names the column.
 --   * the one-off backfill in 20261103060100 (closed periods → false), which
 --     runs before this guard.
 --   * the app never writes it (features/hr/payroll-schema.ts drops it from
@@ -26,8 +26,9 @@ SET LOCAL statement_timeout = '15min';
 --   * INSERT: a value other than the default (true) is refused;
 --   * UPDATE: a change of the column is refused;
 -- both unless the caller is service_role (no service writer today; a future
--- backfill passes). The trigger now also fires BEFORE INSERT on
--- payroll_periods; the other branches only run on UPDATE, as before.
+-- backfill migration sets request.jwt.claims to that role first). The
+-- trigger now also fires BEFORE INSERT on payroll_periods; the other
+-- branches only run on UPDATE, as before.
 --
 -- Existing rows are not touched. Rollback: older code never writes the
 -- column, so it still works.
