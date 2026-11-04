@@ -6,6 +6,7 @@ import {
   buildPaymentOrderTemplateData,
   renderPaymentOrderPdf,
 } from "@/lib/pdf/payment-order-render";
+import { pdfFailureResponse } from "@/lib/pdf/pdf-failure-response";
 
 // Payment orders are internal (not AFIP) — rendered on-the-fly on every request.
 // Inline cache 60s for quick refresh / re-prints. Same pattern as
@@ -34,9 +35,6 @@ export async function GET(
       },
     });
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Error generando PDF." },
-      { status: 500 },
-    );
+    return pdfFailureResponse("payment_order.pdf.failed", err, { id });
   }
 }

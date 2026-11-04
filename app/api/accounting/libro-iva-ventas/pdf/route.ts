@@ -4,6 +4,7 @@ import {
   buildLibroIvaVentasTemplateData,
   renderLibroIvaVentasPdf,
 } from "@/lib/pdf/libro-iva-ventas-render";
+import { pdfFailureResponse } from "@/lib/pdf/pdf-failure-response";
 
 import { readLibroIvaRequest } from "../../libro-iva-request";
 
@@ -23,9 +24,6 @@ export async function GET(req: Request) {
       },
     });
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Error generando PDF." },
-      { status: 500 },
-    );
+    return pdfFailureResponse("libro_iva.ventas.pdf.failed", err, { period });
   }
 }

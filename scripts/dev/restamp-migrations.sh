@@ -42,23 +42,39 @@ for f in $selected; do
   fi
 done
 
-# The new stamps must sort after every migration on main (CI rejects an older one).
+# The new stamps must sort after every migration on main (CI rejects an older
+# one). While main is stamped ahead of the clock they start one second after
+# its max, read as a real time: a merged ...096100 (minute 61) counts as
+# 10:01:00, so the next stamp is ...100101, never the impossible ...096101
+# that CI rejects.
 main_max=$(git ls-tree --name-only "origin/$base_ref" "$dir/" | sed 's#.*/##' | grep -E "$name_re" | sort | tail -1 | cut -c1-14)
-now=$(date -u +%Y%m%d%H%M%S)
-if [ -n "$main_max" ] && [ "$now" -le "$main_max" ]; then
-  echo "refusing: newest stamp on origin/$base_ref ($main_max) is not older than now ($now UTC); restamp by hand past it" >&2
-  exit 1
+
+# Seconds since the epoch of a UTC YYYYMMDDHHMMSS; hours, minutes and seconds
+# past their range carry over. GNU date first, then BSD (macOS).
+to_epoch() {
+  local day
+  day=$(date -u -d "${1:0:8}" +%s 2>/dev/null || date -u -j -f '%Y%m%d%H%M%S' "${1:0:8}000000" +%s)
+  echo $((day + 10#${1:8:2} * 3600 + 10#${1:10:2} * 60 + 10#${1:12:2}))
+}
+from_epoch() {
+  date -u -d "@$1" +%Y%m%d%H%M%S 2>/dev/null || date -u -r "$1" +%Y%m%d%H%M%S
+}
+
+next=$(date -u +%s)
+if [ -n "$main_max" ]; then
+  after_main=$(($(to_epoch "$main_max") + 1))
+  [ "$next" -ge "$after_main" ] || next=$after_main
 fi
 
-# Sorted so relative order survives; sleep 1 keeps stamps unique. UTC, as
-# `supabase migration new` writes: a local stamp from a timezone ahead of UTC
+# Sorted so relative order survives; one second apart keeps stamps unique. UTC,
+# as `supabase migration new` writes: a local stamp from a timezone ahead of UTC
 # pushes the shared head into the future, and every teammate's next migration
 # is then rejected as out of order until the clock catches up.
 for f in $selected; do
   name=${f#*_}
-  new="$(date -u +%Y%m%d%H%M%S)_$name"
+  new="$(from_epoch "$next")_$name"
+  next=$((next + 1))
   [ "$f" != "$new" ] || continue
   git mv "$dir/$f" "$dir/$new" 2>/dev/null || mv "$dir/$f" "$dir/$new"
   echo "$f -> $new"
-  sleep 1
 done

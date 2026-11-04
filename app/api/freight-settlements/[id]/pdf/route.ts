@@ -6,6 +6,7 @@ import {
   buildFreightSettlementTemplateData,
   renderFreightSettlementPdf,
 } from "@/lib/pdf/freight-settlement-render";
+import { pdfFailureResponse } from "@/lib/pdf/pdf-failure-response";
 
 // The liquidación's R document is internal (not AFIP): rendered on every
 // request, like /api/receipts/[id]/pdf.
@@ -33,9 +34,6 @@ export async function GET(
       },
     });
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Error generando PDF." },
-      { status: 500 },
-    );
+    return pdfFailureResponse("freight_settlement.pdf.failed", err, { id });
   }
 }

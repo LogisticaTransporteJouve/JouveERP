@@ -14,7 +14,11 @@ allowed-tools: Bash, Read
 
 Renames the selected `supabase/migrations/<stamp>_<name>.sql` files to
 `$(date -u +%Y%m%d%H%M%S)_<name>.sql` with `git mv`, one second apart so the selection keeps its
-relative order. The script is `scripts/dev/restamp-migrations.sh`; its comments say why stamps are UTC.
+relative order. When `origin/main`'s newest stamp is ahead of the clock, the first new stamp is
+instead the next real second after it (a merged `…096100`, minute 61, counts as 10:01:00, so the
+next stamp is `…100101`). The script is `scripts/dev/restamp-migrations.sh`; its comments say why
+stamps are UTC. `scripts/check-migrations.sh` rejects a new stamp that is not a real UTC date and
+time, or that is more than a day ahead of the clock.
 
 ```shell
 pnpm db:restamp                 # every migration this branch adds on top of origin/main, plus untracked ones
@@ -25,8 +29,7 @@ The script refuses, before renaming anything, when a selected file:
 
 - is already on `origin/main` — a merged migration is never renamed (CLAUDE.md: never edit a merged
   migration; production has applied it);
-- does not match `^[0-9]{14}_[a-z0-9_]+\.sql$`;
-- would not sort after the newest stamp on `origin/main`.
+- does not match `^[0-9]{14}_[a-z0-9_]+\.sql$`.
 
 With substrings and no terminal it aborts; an agent shows the user the list and pipes `y` only after
 they confirm.
