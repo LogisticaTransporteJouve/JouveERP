@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { MoneyInput } from "@/components/money-input";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
@@ -24,7 +25,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useAccountsList } from "@/features/accounts/hooks/use-accounts";
-import { formatMoney, round2, todayInAR } from "@/lib/format";
+import { formatMoney, parseArAmount, round2, todayInAR } from "@/lib/format";
 
 import { useSellCheques } from "../hooks/use-checks";
 import type { Cheque } from "../schema";
@@ -32,8 +33,9 @@ import type { Cheque } from "../schema";
 import type { CheckChannelOption } from "./check-action-dialogs";
 
 function amountOf(value: string): number {
-  const n = Number(value.replace(",", "."));
-  return Number.isFinite(n) && n >= 0 ? n : NaN;
+  if (value.trim() === "") return 0;
+  const n = parseArAmount(value);
+  return n !== null && n >= 0 ? n : NaN;
 }
 
 /**
@@ -249,22 +251,20 @@ export function SellChequesDialog({
                 <Label htmlFor="sell-interest" className="text-xs">
                   Intereses
                 </Label>
-                <Input
+                <MoneyInput
                   id="sell-interest"
                   value={interest}
-                  onChange={(e) => setInterest(e.target.value)}
-                  inputMode="decimal"
+                  onChange={setInterest}
                 />
               </div>
               <div className="space-y-1">
                 <Label htmlFor="sell-commission" className="text-xs">
                   Comisiones y gastos
                 </Label>
-                <Input
+                <MoneyInput
                   id="sell-commission"
                   value={commission}
-                  onChange={(e) => setCommission(e.target.value)}
-                  inputMode="decimal"
+                  onChange={setCommission}
                 />
               </div>
             </div>

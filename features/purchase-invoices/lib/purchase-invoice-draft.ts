@@ -9,6 +9,9 @@ import type {
   PurchaseInvoiceLetter,
   PurchaseIvaRateId,
 } from "../schema";
+import { amountToInput, COTIZACION_DECIMALS } from "@/lib/format";
+
+import { itemNumberToInput } from "../schema";
 
 type PurchaseTributeField = (typeof PURCHASE_TRIBUTE_FIELDS)[number];
 
@@ -221,13 +224,18 @@ export function draftToFormPatch(
       imp_total: str(data.imp_total, ""),
       moneda: data.moneda,
       // A foreign-currency draft without a rate stays empty: the user types it.
-      cotizacion: str(data.cotizacion, data.moneda === "PES" ? "1" : ""),
+      cotizacion:
+        data.cotizacion === null
+          ? data.moneda === "PES"
+            ? "1"
+            : ""
+          : amountToInput(data.cotizacion, COTIZACION_DECIMALS),
       motivo_nc_nd: data.motivo_nc_nd ?? "",
       with_items: data.items.length > 0,
       items: data.items.map((it) => ({
         description: it.description,
-        quantity: String(it.quantity),
-        unit_price: String(it.unit_price),
+        quantity: itemNumberToInput(it.quantity),
+        unit_price: itemNumberToInput(it.unit_price),
         iva_rate_id: it.iva_rate_id,
       })),
     },
@@ -237,8 +245,8 @@ export function draftToFormPatch(
 
 /**
  * Header totals check: neto + no gravado + exento + IVA + otros tributos must
- * equal the total (±1 cent). Returns the gap, or null when the amounts close
- * or are incomplete.
+ * equal the total to the cent (purchaseTotalGap). Returns the gap, or null
+ * when the amounts close or are incomplete.
  */
 export function totalsGap(values: {
   imp_neto: string;
@@ -262,7 +270,7 @@ export function totalsGap(values: {
   if (values.imp_total === "" || total === 0) return null;
   const gap =
     Math.round((total - (neto + iva + trib + noGravado + exentas)) * 100) / 100;
-  return Math.abs(gap) > 0.01 ? gap : null;
+  return gap !== 0 ? gap : null;
 }
 
 /**

@@ -11,7 +11,6 @@ import {
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { BrowserNotifier } from "@/features/notifications/components/browser-notifier";
 import { NotificationBell } from "@/features/notifications/components/notification-bell";
-import { GlobalSearchTrigger } from "@/features/search/components/global-search-trigger";
 import { getCurrentUserContext } from "@/lib/auth/context";
 import { isFiscalOnly } from "@/lib/auth/permissions";
 import { resolveAvatarUrl } from "@/lib/avatar-url";
@@ -87,12 +86,7 @@ export default async function DashboardLayout({
         {/* The canvas card scrolls on its own, under its sticky header. */}
         <SidebarInset className="min-h-0 min-w-0 overflow-y-auto md:shadow-none md:ring-1 md:ring-border">
           <AppHeader
-            actions={
-              <>
-                <GlobalSearchTrigger />
-                <NotificationBell currentUserId={ctx.userId} />
-              </>
-            }
+            actions={<NotificationBell currentUserId={ctx.userId} />}
           />
           <div className="min-w-0 flex-1 px-4 py-6 max-md:pb-24 sm:px-6 lg:px-8">
             <SideKeyed>{children}</SideKeyed>

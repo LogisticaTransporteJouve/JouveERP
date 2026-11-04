@@ -70,6 +70,31 @@ export type AiWorkflowRunRequested = z.infer<
   typeof AiWorkflowRunRequestedSchema
 >;
 
+export const AI_WORKFLOW_SCHEDULED = "ai/workflow.scheduled" as const;
+
+export const AiWorkflowScheduledSchema = z.object({
+  workflow_id: z.string().uuid(),
+  // The occurrence to sleep until (the workflow's `next_run_at`).
+  next_run_at: z.string().datetime({ offset: true }),
+  // The workflow's `updated_at` when this was sent: any later write changes
+  // it, so a scheduler holding an older one is stale.
+  version: z.string().min(1),
+});
+
+export type AiWorkflowScheduled = z.infer<typeof AiWorkflowScheduledSchema>;
+
+/** A task was created, edited, paused, resumed or deleted: cancels every
+ *  scheduler of that task holding another version. */
+export const AI_WORKFLOW_CHANGED = "ai/workflow.changed" as const;
+
+export const AiWorkflowChangedSchema = z.object({
+  workflow_id: z.string().uuid(),
+  // The new `updated_at`, or "deleted".
+  version: z.string().min(1),
+});
+
+export type AiWorkflowChanged = z.infer<typeof AiWorkflowChangedSchema>;
+
 export const AI_WEEKLY_SUMMARY_REQUESTED =
   "ai/weekly-summary.requested" as const;
 

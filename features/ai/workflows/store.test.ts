@@ -46,7 +46,23 @@ beforeEach(() => {
 
 describe("workflow store", () => {
   it("creates the task for its owner with the first occurrence after now", async () => {
-    await createWorkflow("u1", draft, NOW);
+    respond = () => ({
+      data: {
+        id: "w1",
+        is_active: true,
+        next_run_at: "2026-10-19T11:00:00+00:00",
+        updated_at: "2026-10-16T12:00:00.5+00:00",
+      },
+      error: null,
+    });
+    expect(await createWorkflow("u1", draft, NOW)).toEqual({
+      id: "w1",
+      schedule: {
+        active: true,
+        nextRunAt: "2026-10-19T11:00:00+00:00",
+        version: "2026-10-16T12:00:00.5+00:00",
+      },
+    });
     const insert = fake.calls.find((c) => c.op === "insert");
     expect(insert?.payload).toMatchObject({
       user_id: "u1",
@@ -105,8 +121,22 @@ describe("workflow store", () => {
             },
             error: null,
           }
-        : { data: [{ id: "w1" }], error: null };
-    await setWorkflowActive("u1", "w1", true, NOW);
+        : {
+            data: [
+              {
+                id: "w1",
+                is_active: true,
+                next_run_at: "2026-10-16T12:30:00+00:00",
+                updated_at: "v2",
+              },
+            ],
+            error: null,
+          };
+    expect(await setWorkflowActive("u1", "w1", true, NOW)).toEqual({
+      active: true,
+      nextRunAt: "2026-10-16T12:30:00+00:00",
+      version: "v2",
+    });
     await deleteWorkflow("u1", "w1");
     await listRuns("u1", "w1");
     for (const call of fake.calls) {
@@ -121,7 +151,38 @@ describe("workflow store", () => {
 
   it("does not resume another user's task", async () => {
     respond = () => ({ data: null, error: null });
-    expect(await setWorkflowActive("u1", "w-other", true, NOW)).toBe(false);
+    expect(await setWorkflowActive("u1", "w-other", true, NOW)).toBeNull();
     expect(fake.calls.some((c) => c.op === "update")).toBe(false);
+  });
+
+  it("reports a pause with its new version and no next occurrence", async () => {
+    respond = (call) =>
+      call.op === "select" && call.table === "ai_workflows" && !call.payload
+        ? {
+            data: {
+              cadence: "daily",
+              run_hour: 9,
+              run_minute: 30,
+              weekday: null,
+              month_day: null,
+            },
+            error: null,
+          }
+        : {
+            data: [
+              {
+                is_active: false,
+                next_run_at: "2026-10-16T12:30:00+00:00",
+                updated_at: "v3",
+              },
+            ],
+            error: null,
+          };
+    expect(await setWorkflowActive("u1", "w1", false, NOW)).toEqual({
+      active: false,
+      version: "v3",
+    });
+    const pause = fake.calls.find((c) => c.op === "update");
+    expect(pause?.payload).toEqual({ is_active: false });
   });
 });

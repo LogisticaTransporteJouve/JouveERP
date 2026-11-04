@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { IvaCondition } from "@/features/clients/schema";
+import { amountToInput } from "@/lib/format";
 import type {
   IvaBreakdownLine,
   TribBreakdown,
@@ -121,6 +122,15 @@ const letterNullable = z
 // via the RPC `replace_purchase_invoice_items`. When there are no items (typical
 // case: the 1313 invoices imported from AFIP in K.2), the header keeps the
 // totals that were entered by hand.
+/** Item quantity and unit price are numeric(15, 4). */
+export const ITEM_DECIMALS = 4;
+
+/** An item quantity or unit price as the items editor shows it (es-AR:
+ *  1234.5 → "1.234,50"), which is what its parser reads back. */
+export function itemNumberToInput(value: number): string {
+  return amountToInput(value, ITEM_DECIMALS);
+}
+
 export const PurchaseInvoiceItemSchema = z.object({
   description: z.string().trim().min(1, "Descripción requerida.").max(500),
   quantity: amount.refine((v) => v > 0, { message: "Cantidad > 0." }),
@@ -184,10 +194,11 @@ export const PURCHASE_TOTAL_PART_FIELDS = [
   "imp_total",
 ] as const satisfies readonly (keyof PurchaseTotalParts)[];
 
-/** imp_total minus the sum of its parts, rounded to cents; null within a
- *  cent (the journal credits the supplier the parts, the statement the
- *  total). Same formula as guard_purchase_invoice_total, which the database
- *  applies to fiscal purchases only. */
+/** imp_total minus the sum of its parts, rounded to cents; null when they
+ *  match to the cent (the journal credits the supplier the parts, the
+ *  statement the total: any gap stays in proveedores). Same formula as
+ *  guard_purchase_invoice_total, which the database applies to fiscal
+ *  purchases only. */
 export function purchaseTotalGap(p: PurchaseTotalParts): number | null {
   const gap =
     Math.round(
@@ -199,7 +210,7 @@ export function purchaseTotalGap(p: PurchaseTotalParts): number | null {
           p.imp_op_exentas)) *
         100,
     ) / 100;
-  return Math.abs(gap) > 0.01 ? gap : null;
+  return gap !== 0 ? gap : null;
 }
 
 const optionalUuid = z

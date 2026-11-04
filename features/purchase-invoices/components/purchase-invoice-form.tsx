@@ -25,6 +25,13 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/money-input";
+import { parseUsdRate } from "@/components/usd-rate-field";
+import {
+  amountToInput,
+  COTIZACION_DECIMALS,
+  parseArAmount,
+} from "@/lib/format";
 import {
   Select,
   SelectContent,
@@ -75,6 +82,7 @@ import {
   PURCHASE_TOTAL_MISMATCH_MESSAGE,
   PURCHASE_TRIBUTE_FIELDS,
   formatInvoiceNumber,
+  itemNumberToInput,
   type PurchaseAmountBreakdown,
   type PurchaseInvoice,
   type PurchaseInvoiceKind,
@@ -96,6 +104,7 @@ import {
   computeLine,
   computeTotals,
   emptyItem,
+  parseItemNumber,
   type PurchaseInvoiceItemDraft,
 } from "./purchase-invoice-items-editor";
 
@@ -211,7 +220,9 @@ function invoiceToValues(
     ...breakdownToValues(inv),
     imp_total: inv ? String(inv.imp_total) : "",
     moneda: inv?.moneda ?? "PES",
-    cotizacion: inv ? String(inv.cotizacion) : "1",
+    cotizacion: inv
+      ? amountToInput(Number(inv.cotizacion), COTIZACION_DECIMALS)
+      : "1",
     cae_proveedor: inv?.cae_proveedor ?? "",
     cae_vto_proveedor: inv?.cae_vto_proveedor ?? "",
     origin_invoice: null,
@@ -339,8 +350,8 @@ export function PurchaseInvoiceForm({
       "items",
       itemsData.map((it) => ({
         description: it.description,
-        quantity: String(it.quantity),
-        unit_price: String(it.unit_price),
+        quantity: itemNumberToInput(it.quantity),
+        unit_price: itemNumberToInput(it.unit_price),
         iva_rate_id: it.iva_rate_id,
       })),
       { shouldDirty: false },
@@ -689,7 +700,7 @@ export function PurchaseInvoiceForm({
       );
       return;
     }
-    if (values.moneda !== "PES" && !(Number(values.cotizacion) > 1)) {
+    if (values.moneda !== "PES" && !(parseUsdRate(values.cotizacion) > 1)) {
       form.setError("cotizacion", {
         message: "Cargá la cotización del dólar (tiene que ser mayor a 1).",
       });
@@ -710,8 +721,8 @@ export function PurchaseInvoiceForm({
             const c = computeLine(it);
             return {
               description: it.description.trim(),
-              quantity: Number(it.quantity),
-              unit_price: Number(it.unit_price),
+              quantity: parseItemNumber(it.quantity),
+              unit_price: parseItemNumber(it.unit_price),
               iva_rate_id: it.iva_rate_id,
               line_neto: c.line_neto,
               line_iva: c.line_iva,
@@ -805,7 +816,7 @@ export function PurchaseInvoiceForm({
       ...breakdown,
       imp_total: Number(values.imp_total),
       moneda: values.moneda,
-      cotizacion: Number(values.cotizacion || 1),
+      cotizacion: parseArAmount(values.cotizacion) ?? 1,
       cae_proveedor: isInternal ? null : values.cae_proveedor || null,
       cae_vto_proveedor: isInternal ? null : values.cae_vto_proveedor || null,
       invoice_origin_id:
@@ -1454,12 +1465,7 @@ export function PurchaseInvoiceForm({
                 <FormItem>
                   <FormLabel>Cotización{aiMark("cotizacion")}</FormLabel>
                   <FormControl>
-                    <Input
-                      {...field}
-                      type="number"
-                      inputMode="decimal"
-                      step="0.0001"
-                    />
+                    <MoneyInput {...field} decimals={COTIZACION_DECIMALS} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

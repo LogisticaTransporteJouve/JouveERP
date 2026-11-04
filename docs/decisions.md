@@ -3,6 +3,208 @@
 Registro fechado, la más nueva arriba. Cada entrada: qué se decidió, por qué,
 y qué se descartó.
 
+## 2026-11-04 — Tareas IA: programación por eventos en vez de polling
+
+**Pregunta (owner).** "¿Por qué consultar cada 15 minutos si cada tarea tiene
+su propio horario?"
+
+**Decisión.** Opción D sobre B: un `ai-workflow-scheduler` por ocurrencia
+(`step.sleepUntil(next_run_at)`, `cancelOn` sobre `ai/workflow.changed`, se
+reprograma mandándose el `ai/workflow.scheduled` siguiente) más un
+`ai-workflows-reconcile` diario (04:52 AR, fuera de 6–9 AM Pacific) como red
+de seguridad. Se borra `ai-workflows-materialize` (cron `*/15`); su re-envío
+de corridas en cola y el cierre por `expired` pasan al reconcile. Detalle en
+`docs/ai-cfo.md` (Tareas IA recurrentes).
+
+|                                          | A. Poll cada 15 min                          | B. sleepUntil + cancelOn                        | C. Evento con `ts` futuro                                      | **D. B + reconcile diario**                           |
+| ---------------------------------------- | -------------------------------------------- | ----------------------------------------------- | -------------------------------------------------------------- | ----------------------------------------------------- |
+| Corre una vez, a la hora                 | sí (en la grilla)                            | sí, exacto                                      | sí, exacto                                                     | sí, exacto                                            |
+| Editar antes de la hora                  | sí                                           | sí (cancela el viejo)                           | sí, pero el evento viejo igual arranca un run que sale _stale_ | sí                                                    |
+| Pausar / borrar                          | sí                                           | sí                                              | sí (run _stale_ por cada evento viejo)                         | sí                                                    |
+| Acción repetida                          | sí                                           | sí (id con versión)                             | sí (id con versión)                                            | sí                                                    |
+| Paso que tira error                      | reintenta; si se agotan, la pasada siguiente | reintenta; si se agotan, **la cadena se corta** | igual que B                                                    | reintenta; si se agotan, la recupera el reconcile     |
+| Inngest pierde la programación           | no aplica                                    | **la tarea no vuelve a correr**                 | **igual**                                                      | la recupera la pasada siguiente (corre tarde una vez) |
+| Runs/día con 0 / 10 / 100 tareas diarias | 96 / 96 / 96                                 | 0 / 10 / 100                                    | 0 / 10 / 100                                                   | 1 / 11 / 101                                          |
+| Steps/día con 0 / 10 / 100               | 96 / 106 / 192                               | 0 / 50 / 500                                    | 0 / 40 / 400                                                   | 2 / 53 / 503                                          |
+| Cancelable / visible                     | —                                            | sí: run durmiendo en el dashboard               | no: no se puede cancelar un evento programado                  | sí                                                    |
+| Límites que pesan                        | ninguno                                      | sleep máx. (tramos de 6 días)                   | horizonte máx. de `ts` (no verificado)                         | sleep máx.                                            |
+
+Las cifras salen de ejecutar las cuatro opciones
+(`lib/inngest/functions/ai-workflow-scheduling.compare.test.ts`, 42 tests en
+verde): un modelo en proceso de Inngest (`tests/helpers/inngest-sim.ts`:
+entrega con `ts`, dedupe de ids e `idempotency` por 24 h, `cancelOn` con `if`
+o `match`, `step.run` memoizado con reintentos, `sleepUntil`, `sendEvent`,
+cron) corre las definiciones reales de `ai-workflow-scheduler` y
+`ai-workflows-reconcile` y las candidatas A y C sobre un store en memoria con
+la misma idempotencia que `runs.ts`. Por opción: "fires exactly once per
+occurrence, at the due time", "an edit before the due time drops the old
+occurrence and runs the new one", "pause stops it and resume starts it again;
+delete stops it", "a repeated create or edit (retried action) does not
+double-run", "a step that throws is retried and still runs the occurrence
+once", "after retries run out or Inngest loses the schedule, only A and D
+recover" y el costo por día. Las funciones reales, además, con
+`InngestTestEngine` (`@inngest/test` 1.0.0) en
+`ai-workflow-scheduler.test.ts`.
+
+**Por qué cadena de eventos y no un loop en un run.** El loop suma ~4–5 steps
+por ocurrencia en un solo run ("B as one looping run grows by ~5 steps per
+occurrence": 120 steps en 30 días, el tope de 1.000 a las ~250 ocurrencias) y
+re-ejecuta toda su historia en cada paso. La cadena deja cada run en 4–5
+steps y cualquier deploy toma la ocurrencia siguiente con el código nuevo.
+
+**Por qué `if` y no `match` en `cancelOn`.** El SDK (`InngestFunction.getConfig`)
+reemplaza `if` por `match` cuando están los dos. Con `match` solo, el
+`changed` de una reanudación que llega después de su `scheduled` cancela la
+programación nueva ("`match` alone would let the change event cancel the new
+schedule it precedes"); con `version !=` no ("the shipped `if` keeps that
+schedule alive").
+
+**Por qué un id propio para las vencidas en el reconcile.** Se probó primero
+con el mismo id de la programación: una tarea cuyo scheduler falló el mismo
+día queda deduplicada (el evento original tiene menos de 24 h) y se
+recupera recién un día después. Ahora una tarea vencida lleva
+`…-reconcile-<fecha>`; una futura conserva su id. Costo: una tarea semanal o
+mensual recibe un gemelo por ocurrencia (su evento tiene más de 24 h), que
+pierde el compare-and-set y no corre nada ("D: a weekly task gets one
+reconcile twin per occurrence").
+
+**Versión.** `updated_at` (lo mueve el trigger `set_updated_at` en cada
+escritura, también al avanzar `next_run_at`): sin columna nueva. No hay acción
+de editar tarea: crear, pausar/reanudar y borrar anuncian el cambio, y una
+edición futura tiene que llamar a `announceWorkflowChange`.
+
+**Límites de Inngest** (inngest.com no era accesible desde esta sesión):
+verificado en el SDK 4.25 — `cancelOn` con `if`/`match` y que `match` pisa a
+`if`, `step.sleepUntil` acepta `Date`, `ts` es "milisegundos desde epoch,
+default ahora", sin tope documentado en el tipo. Supuesto, sin verificar en la
+doc: sleep máximo 7 días en Hobby y 1 año en planes pagos (por eso los tramos
+de 6 días), 1.000 steps por run, dedupe de ids de evento por 24 h (ya lo
+suponía `RESEND_WINDOW_MS`), y que un evento con `ts` futuro se entrega en
+esa fecha con algún horizonte máximo (C queda descartada igual).
+
+**Granularidad.** La grilla de 15 minutos (`runTimeSchema`, `CHECK
+run_minute in (0, 15, 30, 45)`) queda como decisión de producto: el
+scheduler duerme hasta el instante exacto, así que ahora podría ser cualquier
+minuto.
+
+**Descartado.** A (96 runs/día aunque no haya tareas, y atado a la grilla);
+B sola y C (una programación perdida o un paso que agota reintentos deja la
+tarea sin correr para siempre); C además no se puede cancelar y deja un run
+_stale_ por cada edición; el loop de B (tope de steps); `singleton` por tarea
+(semántica con runs dormidos sin verificar).
+## 2026-11-04 — Saldos de apertura en `MoneyInput`, con signo en cuentas
+
+**Decisión.** Los diálogos de saldo de apertura de clientes, proveedores y
+cuentas usan `MoneyInput` y precargan con `signedAmountToInput`. `MoneyInput`
+acepta `allowNegative` (formatea con `formatSignedAmountInput`, que conserva
+un "-" inicial); solo el de cuentas lo usa, porque el saldo de una cuenta
+puede ser negativo y el de clientes y proveedores no (`check >= 0`).
+
+**Por qué.** `String(1234.56)` precargaba "1234.56" y `parseArAmount` lo leía
+como 123456. `amountToInput` descarta el signo: precargar con él un saldo
+negativo lo guardaría positivo sin aviso.
+
+Todo formulario cuyo monto lee un preprocess es-AR del server
+(`moneyAmountPreprocess`, `openingBalancePreprocess`, el `amount` de
+cheques emitidos) tipea en `MoneyInput`, valida con `positiveArAmountField`
+(`lib/validation/common.ts`) y manda el número ya leído con `parseArAmount`,
+nunca el texto. `MoneyInput` acepta `decimals` para los ítems de compra
+(`numeric(15, 4)`) y las cotizaciones: `COTIZACION_DECIMALS` (4) en
+comprobantes, recibos y OP, 6 en la tabla de cotizaciones.
+
+**Descartado.** Hacer que `amountToInput` conserve el signo: tiene unas 50
+llamadas que hoy reciben montos no negativos y no se revisaron una por una.
+Un selector de signo aparte en cuentas: un "-" tipeado es lo que el usuario
+espera y `parseArAmount` ya lo lee.
+## 2026-11-04 — Se retira la búsqueda global (⌘K)
+
+**Decisión (owner).** Sale la búsqueda global: el botón y el atajo ⌘K del
+topbar, su diálogo, `searchGlobalAction`, la herramienta `searchGlobal` del
+AI CFO y la función Inngest `search-index-refresh`. Nadie la va a usar todavía.
+⌘K queda solo para la búsqueda de chat, dentro de `/chat`. El AI CFO encuentra
+clientes, proveedores y empleados con `searchClients` / `searchSuppliers` /
+`searchEmployees`.
+
+**Por qué.** Mantenerla cuesta (un cron por minuto que refresca la vista
+materializada, y cada módulo nuevo tiene que sumarse al índice y a los
+permisos por tipo) sin un uso hoy. La herramienta del AI CFO se va con ella:
+sin el cron, `search_index` deja de refrescarse y respondería con datos
+viejos, y el contrato posterior borra `search_global`.
+
+**Expand/contract.** Este cambio es solo código. Quedan en la DB la vista
+materializada `search_index`, `search_global`, `refresh_search_index*`, los
+triggers `search_index_mark_dirty` y `search_index_state`, para que un
+rollback a un SHA anterior siga buscando (su cron vuelve a refrescar el
+índice). Se borran en una migración de contrato cuando la próxima promoción
+quede firme (`docs/pendientes.md`).
+
+**Descartado.** Dejar la herramienta `searchGlobal` del AI CFO sola: leería un
+índice que ya nadie refresca. Borrar los objetos de la DB en el mismo cambio:
+rompe el rollback de código.
+## 2026-11-04 — Categoría de proveedor en línea; centros inactivos con nombre
+
+**Decisión.** El select de Categoría del proveedor
+(`SupplierCategorySelect`) termina en «Nueva categoría», que abre un `Dialog`
+centrado anidado y llama a `createSupplierCategoryAction`, la misma acción
+de Proveedores › Categorías (`suppliers:write`). La acción rechaza un nombre
+que ya existe sin importar mayúsculas con «Ya existe la categoría "X".»
+(la constraint de la tabla distingue mayúsculas). El ítem se muestra según
+`canCreateSupplierCategoryAction`, porque el formulario también se abre desde
+el selector de proveedor de una compra, donde no llega el `Access`.
+
+`listCostTagOptionsAction` devuelve aparte los centros inactivos
+(`inactiveCostCenters`): `CostTagSelect` no los ofrece, pero nombra el valor
+guardado de un registro («FLOTA_DZ Flota DZ (inactivo)»). `FLOTA_DZ` se
+desactiva, no se borra: lo referencian movimientos, facturas y asientos.
+
+**Por qué.** Crear una categoría obligaba a cerrar el alta del proveedor (y la
+compra). El submit del diálogo anidado frena la propagación: React lo
+burbujea por el portal hasta el formulario del proveedor.
+
+**Descartado.** Un input dentro del popover del select (Radix Select no
+admite foco en un input propio); pasar `Access` por props hasta el selector
+de proveedor de cada formulario de compra.
+## 2026-11-04 — Compras: total al centavo y sin IVA en B/C por ítems
+
+**Decisión.** El total de una compra tiene que ser exactamente neto + IVA +
+otros tributos + no gravado + exento: se quitó la tolerancia de un centavo
+(formulario, Zod, acción y `guard_purchase_invoice_total`,
+`20261104120500`). El mismo guard rechaza una B o C fiscal con IVA, exento o
+no gravado, sea del encabezado o de lo que `replace_purchase_invoice_items`
+reescribe desde las líneas; la acción mira el IVA de los ítems antes de
+guardar. Las dos reglas corren al insertar y cuando una edición cambia lo que
+leen.
+
+**Por qué.** El asiento acredita a proveedores las partes y la cuenta
+corriente, el aging y la OP usan el total: el centavo quedaba en proveedores
+por cada compra. Pedir el cierre exacto deja proveedores en cero sin tocar el
+asiento. En una B con ítems de alícuota, la acción validaba el encabezado y la
+RPC guardaba el IVA de las líneas como crédito fiscal.
+
+**Descartado.** Acreditar a proveedores el total y mandar el centavo a una
+cuenta de redondeo: no hay cuenta de redondeo en el plan y el asiento de
+compras en moneda extranjera ya redondea cada parte por separado; cambiar
+`build_purchase_invoice_journal_lines` era más riesgo que pedir el cierre.
+## 2026-11-04 — Cheque propio de una OP fijo; OP que paga un cheque rechazado en Gestión
+
+**Decisión.** Un cheque propio que emitió una OP queda fijo a esa OP: la base
+(`guard_issued_check_edit`) rechaza cambiarle la OP, el monto, la moneda o la
+cuenta; se cambian editando la OP, que borra y vuelve a crear sus cheques.
+
+En Gestión (percibido), la parte de una OP imputada a un cheque rechazado
+toma las proporciones de empleado, flota y neutro de la OP que entregó ese
+cheque (`issued_checks.payment_order_id` para uno propio; la OP no anulada
+cuya línea tiene el endosado). Las calcula `management_payment_order_shares`,
+que sigue la cadena hasta 3 OP hacia atrás.
+
+**Por qué.** Los triggers de cobro, rechazo y asiento leen las columnas del
+cheque; sin la guarda, un PATCH por PostgREST hacía que la plata contara dos
+veces. En Gestión, la OP nueva caía entera en Proveedores aunque pagara una
+compra neutra, de flota o a cargo de un empleado.
+
+**Descartado.** Leer el importe de la línea de la OP en cada trigger (más
+cambios para el mismo efecto); seguir la cadena sin límite (una OP imputada a
+su propio cheque rechazado no termina).
 ## 2026-11-04 — Presupuesto de ejecuciones de Inngest
 
 **Decisión.** El plan gratis de Inngest da 50.000 ejecuciones por mes, y
@@ -149,6 +351,7 @@ prorratear.
 formatea al tipear y es lo que el usuario conoce. Guardar el sueldo previo en
 el payload de auditoría y leerlo de ahí: depende de una auditoría como dato
 de negocio.
+
 ## 2026-11-04 — Consultas de "Antes de promover" sobre el schema de hoy
 
 **Decisión.** Cada consulta de **Antes de promover** (`docs/pendientes.md`)
@@ -163,6 +366,7 @@ Lo que solo se puede ver con la migración aplicada (un asiento que quedó
 **Descartado.** Llamar a la función que crea la migración (falla en el schema
 de hoy) o mostrar el importe actual en vez del que se va a escribir (no deja
 ver qué cambia).
+
 ## 2026-11-04 — Total de una compra = suma de sus partes
 
 **Decisión.** Una compra tiene que cumplir total = neto + IVA + otros
@@ -201,6 +405,7 @@ agotarse, `onFailure` deja el comprobante a `issue-invoice-reconcile`.
 transporte: pide columna y migración, y el número ya guardado alcanza como
 señal. Quitar el atajo de `onFailure` para todo rechazo: haría esperar 30 a
 45 min a un rechazo del primer intento, que no deja nada en camino.
+
 ## 2026-11-04 — Clave fiscal de ARCA en Vault
 
 **Decisión.** El usuario de ARCA con el que se baja Mis Comprobantes →
@@ -244,6 +449,7 @@ una cuota piden `accounting:write` y `transactions:write`
 
 **Descartado.** Mover el pago de la deuda de un cheque vendido en el mismo
 cambio: queda en la decisión abierta de RRHH (`docs/pendientes.md`).
+
 ## 2026-11-04 — Bandeja de Recibidos de ARCA y compras fuera de gestión
 
 **Decisión.** Lo que ARCA lista en Mis Comprobantes → Recibidos entra a una
@@ -297,6 +503,7 @@ también a la invitación, y una cuenta que ya tiene roles se rechaza en la mism
 transacción (antes: una lectura y después la escritura). La tolerancia "antes
 de que exista el RPC" no hace falta: `promote-to-production.yml` aplica las
 migraciones antes del código, y el RPC (`20261028140000`) es anterior.
+
 ## 2026-11-04 — Diferencias de cambio en Gestión: resultado financiero
 
 **Decisión.** La cuenta "Diferencias de cambio" (rol `diferencia_cambio`)
@@ -341,6 +548,7 @@ gasto que nunca fue de la empresa: Gestión mostraba una ganancia.
 
 **Descartado.** Rechazar la NC mientras la compra tenga el cargo: obliga a
 sacarlo, y al volver a ponerlo se carga entero otra vez.
+
 ## 2026-11-04 — Cheque entregado a un proveedor que rebota
 
 **Decisión.** Un cheque que una OP emitida le entregó al proveedor (de
@@ -405,6 +613,7 @@ se rechaza en la base (solo al insertar o al cambiar moneda o cotización: las
 filas existentes no se tocan). El total del listado de Comprobantes suma solo
 los emitidos; la cantidad sigue contando todas las filas, porque rotula el
 grupo de filas listadas.
+
 ## 2026-11-04 — Insights y propuestas: cortar después de ordenar, avisar antes de reofrecer
 
 **Decisión.** `listInsightsAction` lee todas las tarjetas vivas (el set lo
@@ -497,6 +706,7 @@ de las abiertas o vistas). Si la lectura de un tipo falla, ese tipo queda
 fuera del reemplazo y conserva sus tarjetas. Las lecturas se drenan completas
 en vez de marcarse parciales: el tope de drenado devuelve error, que también
 conserva las tarjetas.
+
 ## 2026-11-04 — Auditoría RRHH y rendiciones: SAC, embargo, compra a cargo de empleado, diferencia de la rendición
 
 **SAC de la liquidación final.** `payroll_sac_suggestion` no cuenta los
@@ -551,6 +761,7 @@ cargo que nadie cargó.
 **Extras de viajes paginados.** Los viajes y las descargas del mes se leen
 paginados (`paginateRange`) hasta un tope explícito; pasado el tope, la
 sugerencia sale marcada como parcial.
+
 ## 2026-11-04 — Saldos de apertura, NC sin origen y diferencia de cambio
 
 **Saldos de apertura.** Cliente y proveedor saldan lo mismo: saldo real al
@@ -574,6 +785,7 @@ informa a ARCA); solo clientes va a la del origen. No se toca
 
 **Descartado.** Revaluar saldos USD a fin de mes (asiento de ajuste por
 cotización): pide un cierre mensual que hoy no existe.
+
 ## 2026-11-04 — Tesorería: cheques endosados, préstamos, cheques propios y mora (auditoría)
 
 **OP con un cheque endosado rechazado.** Anular o editar la OP se rechaza
@@ -605,6 +817,7 @@ moneda ni cuenta, y una OP se le liga solo cargándolo desde la OP.
 **Listados de cheques.** Se listan completos los que se operan (en cartera y
 depositados; propios emitidos) y los 500 más recientes del resto, con aviso
 si quedaron afuera.
+
 ## 2026-11-04 — Auditoría: impuestos y gestión
 
 **Cheques en percibido.** Un cheque de terceros importado al arranque es una
@@ -640,6 +853,7 @@ del camión, igual que en Gestión.
 **IA, libros IVA.** Las herramientas devuelven `{ rows, totals }`: los
 totales con signo (NC restadas, cada comprobante una vez) son los mismos que
 la pantalla (`computeTotals`), para que el modelo no sume filas.
+
 ## 2026-11-04 — Liquidaciones: alcance fiscal y una factura por fuente
 
 **`fiscal_reader` en liquidaciones.** Ve las del lado fiscal
@@ -664,6 +878,7 @@ clave por fuente (migración, tipos y otra transición que mantener) y un
 guard en SQL (la clave se deriva en la app). La reserva se mantiene como
 estaba: se libera si la factura falló, si no se emitió o si la búsqueda
 falló; un vínculo perdido con la factura viva la deja hasta que vence.
+
 ## 2026-11-04 — Emisión AFIP: resultado desconocido, reintentos y CAEA
 
 **Quién es dueño de un número.** Lo tiene quien lo guardó en `numero`. Un

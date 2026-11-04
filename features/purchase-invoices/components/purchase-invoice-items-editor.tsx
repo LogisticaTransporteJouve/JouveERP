@@ -3,6 +3,7 @@
 import { Plus, Trash2 } from "lucide-react";
 import { useEffect } from "react";
 
+import { MoneyInput } from "@/components/money-input";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -16,6 +17,7 @@ import {
 import { formatMoney } from "@/lib/format";
 
 import {
+  ITEM_DECIMALS,
   PURCHASE_IVA_RATE_IDS,
   PURCHASE_IVA_RATE_LABEL,
   PURCHASE_IVA_RATE_PERCENT,
@@ -37,7 +39,9 @@ export type PurchaseInvoiceItemsTotals = {
 
 const ARS = { format: (n: number) => formatMoney(n, "ARS") };
 
-function parseNumber(v: string): number {
+/** Reads an es-AR item field ("1.234,5678"): the same number the line totals
+ *  and the saved quantity / unit price use. */
+export function parseItemNumber(v: string): number {
   if (v === "") return 0;
   const cleaned = v
     .replace(/[^0-9.,-]/g, "")
@@ -48,8 +52,8 @@ function parseNumber(v: string): number {
 }
 
 export function computeLine(draft: PurchaseInvoiceItemDraft) {
-  const qty = parseNumber(draft.quantity);
-  const price = parseNumber(draft.unit_price);
+  const qty = parseItemNumber(draft.quantity);
+  const price = parseItemNumber(draft.unit_price);
   const neto = +(qty * price).toFixed(2);
   const rate =
     draft.iva_rate_id != null
@@ -143,22 +147,20 @@ export function PurchaseInvoiceItemsEditor({
                     />
                   </td>
                   <td className="px-2 py-1">
-                    <Input
+                    <MoneyInput
+                      aria-label="Cantidad"
+                      decimals={ITEM_DECIMALS}
                       value={it.quantity}
-                      onChange={(e) =>
-                        updateAt(idx, { quantity: e.target.value })
-                      }
-                      inputMode="decimal"
+                      onChange={(quantity) => updateAt(idx, { quantity })}
                       className="h-8 text-right font-mono"
                     />
                   </td>
                   <td className="px-2 py-1">
-                    <Input
+                    <MoneyInput
+                      aria-label="Precio unitario"
+                      decimals={ITEM_DECIMALS}
                       value={it.unit_price}
-                      onChange={(e) =>
-                        updateAt(idx, { unit_price: e.target.value })
-                      }
-                      inputMode="decimal"
+                      onChange={(unit_price) => updateAt(idx, { unit_price })}
                       className="h-8 text-right font-mono"
                     />
                   </td>

@@ -21,6 +21,13 @@ export const CHECK_STATUSES = [
 ] as const;
 export type ChequeStatus = (typeof CHECK_STATUSES)[number];
 
+/** Checks still in the company's hands (in cartera or deposited, not yet
+ *  credited): the list moves them forward and the portfolio counts them. */
+export const OPEN_CHECK_STATUSES = [
+  "en_cartera",
+  "depositado",
+] as const satisfies readonly ChequeStatus[];
+
 export const CHECK_STATUS_LABEL: Record<ChequeStatus, string> = {
   en_cartera: "En cartera",
   depositado: "Depositado",

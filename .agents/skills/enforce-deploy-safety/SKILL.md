@@ -37,8 +37,7 @@ that reads it.**
 - **The house tolerance pattern** for that window: a read of a table the pending migration
   creates treats `42P01` / `PGRST205` as "not there yet", returns the safe empty answer and warns
   once per instance (`lib/auth/denies.ts`); a call to an RPC whose new signature is pending
-  catches `PGRST202` and retries the old signature, narrowing in TS
-  (`features/search/actions/search-actions.ts`). Each tolerance branch names its death condition
+  catches `PGRST202` and retries the old signature, narrowing in TS. Each tolerance branch names its death condition
   (the migration is in production) and is listed under the PR's `## Follow-ups`. Postgres codes the
   app checks live in `lib/db/pg-error-codes.ts`.
 - **CI applies migrations only fresh.** The `database` job starts a local stack from every file in

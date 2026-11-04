@@ -14,6 +14,7 @@ import { DialogFormFooter } from "@/components/dialog-form-footer";
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -33,13 +34,22 @@ import {
   useScope,
 } from "@/components/providers/scope-provider";
 import { CostTagSelect } from "@/features/cost-centers/components/cost-tag-select";
-import { useSupplierCategoriesList } from "@/features/supplier-categories/hooks/use-supplier-categories";
+import { SupplierCategorySelect } from "@/features/supplier-categories/components/supplier-category-select";
 
 import { findSupplierByCuitAction } from "../actions/suppliers-actions";
 import { useCreateSupplier, useUpdateSupplier } from "../hooks/use-suppliers";
 import type { Supplier } from "../schema";
 
 type Mode = "create" | "edit";
+
+/** "Vence N días después…", with the typed term once there is one. */
+function paymentTermHint(days: string): string {
+  const n = Number(days);
+  if (!Number.isInteger(n) || n < 1) {
+    return "Vence N días después de la fecha de la factura.";
+  }
+  return `Vence ${n} ${n === 1 ? "día" : "días"} después de la fecha de la factura.`;
+}
 
 type FormValues = CounterpartyIdentityValues & {
   default_channel_id: string;
@@ -100,8 +110,6 @@ export function SupplierForm({
     () => channels.filter((c) => c.is_active && c.is_fiscal === isFiscal),
     [channels, isFiscal],
   );
-  const categoriesQuery = useSupplierCategoriesList({ onlyActive: true });
-  const categories = categoriesQuery.data ?? [];
 
   const form = useForm<FormValues>({
     defaultValues: {
@@ -152,12 +160,30 @@ export function SupplierForm({
           findByCuit={findSupplierByCuitAction}
         />
 
+        <FormField
+          control={form.control}
+          name="category_id"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Categoría</FormLabel>
+              <FormControl>
+                <SupplierCategorySelect
+                  value={field.value}
+                  onChange={field.onChange}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
         <div className="space-y-4 rounded-md border bg-muted/10 p-4">
           <div className="space-y-1">
-            <h3 className="text-sm font-medium">Defaults para compras</h3>
+            <h3 className="text-sm font-medium">
+              Al cargar una compra de este proveedor, completar con:
+            </h3>
             <p className="text-xs text-muted-foreground">
-              Opcional. Pre-completan campos al cargar una factura de este
-              proveedor. Siempre se pueden sobreescribir.
+              Opcional. Se puede cambiar en cada factura.
             </p>
           </div>
 
@@ -167,28 +193,33 @@ export function SupplierForm({
               name="default_channel_id"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Canal por defecto</FormLabel>
-                  <FormControl>
-                    <Select
-                      value={field.value || "__none"}
-                      onValueChange={(v) =>
-                        field.onChange(v === "__none" ? "" : v)
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Sin default" />
+                  <FormLabel>Canal</FormLabel>
+                  <Select
+                    value={field.value || "__none"}
+                    onValueChange={(v) =>
+                      field.onChange(v === "__none" ? "" : v)
+                    }
+                  >
+                    <FormControl>
+                      <SelectTrigger className="w-full min-w-0">
+                        <SelectValue placeholder="Ninguno" />
                       </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none">Sin default</SelectItem>
-                        {activeChannels.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>
-                            {c.name}
-                            {c.is_fiscal ? " · fiscal" : " · interno"}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </FormControl>
+                    </FormControl>
+                    <SelectContent
+                      position="popper"
+                      side="bottom"
+                      avoidCollisions={false}
+                      align="start"
+                    >
+                      <SelectItem value="__none">Ninguno</SelectItem>
+                      {activeChannels.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name}
+                          {c.is_fiscal ? " · fiscal" : " · interno"}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}
@@ -199,7 +230,7 @@ export function SupplierForm({
               name="default_payment_term_days"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Días de pago default</FormLabel>
+                  <FormLabel>Plazo de pago (días)</FormLabel>
                   <FormControl>
                     <Input
                       {...field}
@@ -210,56 +241,28 @@ export function SupplierForm({
                       placeholder="Ej: 30"
                     />
                   </FormControl>
+                  <FormDescription className="text-xs">
+                    {paymentTermHint(field.value)}
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
             />
-          </div>
 
-          <FormField
-            control={form.control}
-            name="category_id"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Categoría</FormLabel>
-                <FormControl>
-                  <Select
-                    value={field.value || "__none"}
-                    onValueChange={(v) =>
-                      field.onChange(v === "__none" ? "" : v)
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sin categoría" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none">Sin categoría</SelectItem>
-                      {categories.map((cat) => (
-                        <SelectItem key={cat.id} value={cat.id}>
-                          {cat.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <div className="grid gap-4 sm:grid-cols-2">
             <FormField
               control={form.control}
               name="default_expense_account_id"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Cuenta de gasto por defecto</FormLabel>
+                  <FormLabel>Cuenta de gasto</FormLabel>
                   <FormControl>
                     <CostTagSelect
                       kind="expenseAccount"
                       value={field.value}
                       onChange={field.onChange}
-                      noneLabel="Sin default"
+                      noneLabel="Ninguna"
+                      side="bottom"
+                      avoidCollisions={false}
                     />
                   </FormControl>
                   <FormMessage />
@@ -271,13 +274,15 @@ export function SupplierForm({
               name="default_cost_center_id"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Centro de costo por defecto</FormLabel>
+                  <FormLabel>Centro de costo</FormLabel>
                   <FormControl>
                     <CostTagSelect
                       kind="costCenter"
                       value={field.value}
                       onChange={field.onChange}
-                      noneLabel="Sin default"
+                      noneLabel="Ninguno"
+                      side="bottom"
+                      avoidCollisions={false}
                     />
                   </FormControl>
                   <FormMessage />

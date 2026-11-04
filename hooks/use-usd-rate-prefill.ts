@@ -2,6 +2,8 @@
 
 import { useEffect, useRef } from "react";
 
+import { amountToInput, COTIZACION_DECIMALS } from "@/lib/format";
+
 /** The value to write into a cotización input, or null to leave it alone: the
  *  loaded rate when the input is empty or still holds the last prefill. */
 export function usdRatePrefill(
@@ -11,7 +13,7 @@ export function usdRatePrefill(
 ): string | null {
   if (rate == null) return null;
   if (value !== "" && value !== lastPrefill) return null;
-  return String(rate);
+  return amountToInput(rate, COTIZACION_DECIMALS);
 }
 
 /**

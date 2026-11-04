@@ -10,8 +10,10 @@ import {
   formatMoney,
   formatMoneySigned,
   formatNumber2,
+  formatSignedAmountInput,
   parseArAmount,
   parseStatementNumber,
+  signedAmountToInput,
   todayInAR,
 } from "./format";
 
@@ -90,6 +92,17 @@ describe("formatArDateShort", () => {
     expect(formatArDateShort(null)).toBe("—");
     expect(formatArDateShort("xx")).toBe("—");
     expect(formatArDateShort(new Date("xx"))).toBe("—");
+  });
+});
+
+describe("formatSignedAmountInput / signedAmountToInput", () => {
+  it("mantiene el signo menos", () => {
+    expect(formatSignedAmountInput("-1500,5")).toBe("-1.500,5");
+    expect(formatSignedAmountInput(" -")).toBe("-");
+    expect(formatSignedAmountInput("15-00")).toBe("1.500");
+    expect(signedAmountToInput(-1234.56)).toBe("-1.234,56");
+    expect(signedAmountToInput(1234.56)).toBe("1.234,56");
+    expect(parseArAmount(signedAmountToInput(-1234.56))).toBe(-1234.56);
   });
 });
 

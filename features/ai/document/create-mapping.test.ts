@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { draftToFormPatch } from "@/features/purchase-invoices/lib/purchase-invoice-draft";
 import { PurchaseInvoiceCreateSchema } from "@/features/purchase-invoices/schema";
+import { parseArAmount } from "@/lib/format";
 import { TRIBUTE_SUGGESTION_NOTE } from "@/lib/purchases/tribute-split";
 
 import {
@@ -123,13 +124,20 @@ describe("buildPurchaseInvoiceDraft", () => {
       ...patch,
       supplier_id: patch.supplier?.id,
       channel_id: "ch1",
-      items: patch.items.map((it, i) => ({
-        ...it,
-        line_neto: Number(it.quantity) * Number(it.unit_price),
-        line_iva: 0,
-        line_total: Number(it.quantity) * Number(it.unit_price),
-        sort_order: i,
-      })),
+      // The form sends the es-AR item fields as numbers.
+      items: patch.items.map((it, i) => {
+        const quantity = parseArAmount(it.quantity) ?? 0;
+        const unit_price = parseArAmount(it.unit_price) ?? 0;
+        return {
+          ...it,
+          quantity,
+          unit_price,
+          line_neto: quantity * unit_price,
+          line_iva: 0,
+          line_total: quantity * unit_price,
+          sort_order: i,
+        };
+      }),
     });
     expect(result.success).toBe(true);
   });

@@ -9,7 +9,8 @@ import {
   aiWeeklySummaryFanOut,
 } from "@/lib/inngest/functions/ai-weekly-summary";
 import { aiWorkflowRun } from "@/lib/inngest/functions/ai-workflow-run";
-import { aiWorkflowsMaterialize } from "@/lib/inngest/functions/ai-workflows-materialize";
+import { aiWorkflowScheduler } from "@/lib/inngest/functions/ai-workflow-scheduler";
+import { aiWorkflowsReconcile } from "@/lib/inngest/functions/ai-workflows-reconcile";
 import { arcaIssuedSync } from "@/lib/inngest/functions/arca-issued-sync";
 import { arcaReceivedSync } from "@/lib/inngest/functions/arca-received-sync";
 import { auditRetention } from "@/lib/inngest/functions/audit-retention";
@@ -24,7 +25,6 @@ import { filesSweepOrphans } from "@/lib/inngest/functions/files-sweep-orphans";
 import { issueInvoice } from "@/lib/inngest/functions/issue-invoice";
 import { issueInvoiceReconcile } from "@/lib/inngest/functions/issue-invoice-reconcile";
 import { notificationsDispatch } from "@/lib/inngest/functions/notifications-dispatch";
-import { searchIndexRefresh } from "@/lib/inngest/functions/search-index-refresh";
 import { tasksDaily } from "@/lib/inngest/functions/tasks-daily";
 import { ttlCleanup } from "@/lib/inngest/functions/ttl-cleanup";
 import { vacationBalancesGrant } from "@/lib/inngest/functions/vacation-balances-grant";
@@ -50,7 +50,6 @@ export const { GET, POST, PUT } = serve({
     agingSnapshot,
     notificationsDispatch,
     filesSweepOrphans,
-    searchIndexRefresh,
     ttlCleanup,
     vacationBalancesGrant,
     documentExpiryAlerts,
@@ -62,7 +61,8 @@ export const { GET, POST, PUT } = serve({
     caeaInform,
     arcaIssuedSync,
     arcaReceivedSync,
-    aiWorkflowsMaterialize,
+    aiWorkflowScheduler,
+    aiWorkflowsReconcile,
     aiWorkflowRun,
     aiWeeklySummaryFanOut,
     aiWeeklySummary,
