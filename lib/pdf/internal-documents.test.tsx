@@ -199,6 +199,7 @@ describe("invoice PDF", () => {
     isFiscal = false;
     const data = await buildTemplateData("i1");
     expect(data.isFiscal).toBe(false);
+    expect(data.per_rate).toEqual([]);
     expect(data.emisor).toEqual({
       legal_name: "Logística Jouve",
       cuit: "",

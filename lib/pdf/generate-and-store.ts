@@ -130,7 +130,7 @@ export async function buildTemplateData(
   // An invoice imported from ARCA without its breakdown has only the header:
   // its one bucket goes under the rate the Libro IVA infers for it, so the
   // PDF adds up (Subtotal + IVA = Total) and agrees with the book.
-  if (items.length === 0 && Number(row.imp_neto) > 0) {
+  if (isFiscal && items.length === 0 && Number(row.imp_neto) > 0) {
     const id = inferIvaRateId({
       neto: Number(row.imp_neto),
       iva: Number(row.imp_iva),

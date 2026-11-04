@@ -34,5 +34,9 @@ Decisión: `docs/decisions/2026-11-04-pdf-factura-b-e-iva-por-alicuota-de-arca.m
       es un impuesto nacional indirecto. Las ventas del ERP no tienen
       tributos. La importación no guarda el tipo de tributo de ARCA, así que
       hoy no hay cómo distinguirlo.
+- [ ] **NC total de una venta importada con ítems.** El diálogo copia los
+      ítems «Importado de ARCA» y recalcula el IVA como neto × alícuota. Si
+      ARCA redondeó distinto, la NC puede quedar un centavo por encima del
+      saldo y el tope la rechaza: hay que ajustar el precio a mano.
 - [ ] **La pantalla de detalle de una B muestra el precio unitario neto.** El
       PDF lo muestra con IVA. Los totales sí coinciden.
