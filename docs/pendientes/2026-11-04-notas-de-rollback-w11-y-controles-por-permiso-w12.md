@@ -7,7 +7,7 @@ que ya tiene el texto corregido.
 
 ## Encabezados de migraciones mergeadas (w12 S7 F2)
 
-- [ ] **`20261104190201_purchase_nc_nd_follow_factura_edit`** (líneas 24-25).
+- [ ] **`20261104190201_purchase_nc_nd_follow_factura_edit`** (líneas 25-26).
       Dice "older code writes the same columns; the NC/ND follow". No es así:
       `updatePurchaseInvoiceAction` de `production-latest` no manda
       `account_id` ni `cost_center_id`, y el trigger es `after update of
@@ -23,7 +23,7 @@ que ya tiene el texto corregido.
       clave siguiente») está en el párrafo de rollback de
       [`2026-11-04-tesoreria-vinculos-de-facturacion-auditoria-w11.md`](../decisions/2026-11-04-tesoreria-vinculos-de-facturacion-auditoria-w11.md):
       vale para `main`, no para `production-latest`.
-- [ ] **`20261104190302_check_import_run_guard`** (líneas 28-29). Dice "older
+- [ ] **`20261104190302_check_import_run_guard`** (líneas 31-32). Dice "older
       code writes the column only through commit_import_run".
       `production-latest` no tiene importador (`commit_import_run` nace en
       `20261103110000`) y nunca escribe `checks.import_run_id`.
