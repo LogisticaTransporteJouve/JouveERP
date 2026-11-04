@@ -6,6 +6,7 @@ const h = vi.hoisted(() => ({
   current: null as Record<string, unknown> | null,
   updates: [] as Record<string, unknown>[],
   inserts: [] as Record<string, unknown>[],
+  insertError: null as { message: string; hint?: string; code?: string } | null,
 }));
 
 function fakeClient() {
@@ -28,7 +29,10 @@ function fakeClient() {
         h.inserts.push(values);
         return {
           select: () => ({
-            single: async () => ({ data: { id: "c1" }, error: null }),
+            single: async () =>
+              h.insertError
+                ? { data: null, error: h.insertError }
+                : { data: { id: "c1" }, error: null },
           }),
         };
       },
@@ -66,6 +70,7 @@ beforeEach(() => {
   h.current = { ...handLoaded };
   h.updates = [];
   h.inserts = [];
+  h.insertError = null;
 });
 
 describe("updateIssuedCheckAction", () => {
@@ -138,5 +143,18 @@ describe("createIssuedCheckAction", () => {
     const res = await createIssuedCheckAction(input);
     expect(res.ok).toBe(true);
     expect(h.inserts[0]).not.toHaveProperty("payment_order_id");
+  });
+
+  it("shows a database guard's reason instead of the generic error", async () => {
+    const message = "El canal jouve_fiscal está inactivo";
+    h.insertError = { message, hint: "jouve_guard", code: "55006" };
+    const res = await createIssuedCheckAction(input);
+    expect(res).toEqual({ ok: false, error: message });
+  });
+
+  it("keeps the generic message for any other error", async () => {
+    h.insertError = { message: "boom" };
+    const res = await createIssuedCheckAction(input);
+    expect(res).toEqual({ ok: false, error: "No se pudo cargar el cheque." });
   });
 });

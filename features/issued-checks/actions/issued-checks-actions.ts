@@ -174,6 +174,11 @@ export async function createIssuedCheckAction(
         error: "Ya cargaste un cheque con ese número del mismo banco.",
       };
     }
+    const guardError = mapDbGuardError(error, {
+      slug: "issued_checks.create.rejected",
+      userId: ctx.userId,
+    });
+    if (guardError) return { ok: false, error: guardError };
     logger.error("issued_checks.create.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo cargar el cheque." };
   }
