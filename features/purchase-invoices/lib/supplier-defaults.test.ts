@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import type { CostTagOptions } from "@/features/cost-centers/schema";
 
-import { supplierCostDefaults, supplierCostWrites } from "./supplier-defaults";
+import {
+  supplierCostDefaults,
+  supplierCostDefaultsForKind,
+  supplierCostWrites,
+} from "./supplier-defaults";
 
 describe("supplierCostWrites", () => {
   const A = [
@@ -103,5 +107,44 @@ describe("supplierCostDefaults", () => {
         undefined,
       ),
     ).toEqual([]);
+  });
+});
+
+describe("supplierCostDefaultsForKind", () => {
+  const supplier = {
+    default_expense_account_id: "acc-fuel",
+    default_cost_center_id: "cc-jouve",
+  };
+  const asFactura = supplierCostDefaultsForKind("factura", supplier, OPTIONS);
+
+  it("clears what the supplier prefilled as factura when the type becomes NC or ND", () => {
+    for (const kind of ["nc", "nd"] as const) {
+      expect(
+        supplierCostWrites(
+          asFactura,
+          supplierCostDefaultsForKind(kind, supplier, OPTIONS),
+          (name) => ({
+            value: name === "account_id" ? "acc-fuel" : "cc-jouve",
+            dirty: false,
+          }),
+        ),
+      ).toEqual([
+        { name: "account_id", id: "" },
+        { name: "cost_center_id", id: "" },
+      ]);
+    }
+  });
+
+  it("keeps an account the user picked on the NC", () => {
+    expect(
+      supplierCostWrites(
+        asFactura,
+        supplierCostDefaultsForKind("nc", supplier, OPTIONS),
+        (name) =>
+          name === "account_id"
+            ? { value: "acc-other", dirty: true }
+            : { value: "cc-jouve", dirty: false },
+      ),
+    ).toEqual([{ name: "cost_center_id", id: "" }]);
   });
 });

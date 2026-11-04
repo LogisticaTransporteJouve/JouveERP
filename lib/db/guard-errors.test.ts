@@ -168,6 +168,7 @@ const GUARDS = [
   "guard_document_header",
   "guard_document_line",
   "deposit_check",
+  "guard_supplier_cuit_closed_period",
 ];
 
 describe("guard hints in migrations", () => {

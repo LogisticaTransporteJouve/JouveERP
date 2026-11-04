@@ -1,5 +1,7 @@
 import type { CostTagOptions } from "@/features/cost-centers/schema";
 
+import type { PurchaseInvoiceKind } from "../schema";
+
 type CostField = "account_id" | "cost_center_id";
 export type CostDefault = { name: CostField; id: string };
 
@@ -29,9 +31,21 @@ export function supplierCostDefaults(
   return result;
 }
 
-/** What a new factura's account and center fields take when its supplier's
- *  defaults arrive: the new supplier's, and "" for a field the previous
- *  supplier prefilled that still holds it. A field the user touched is kept. */
+/** The defaults for the type picked: an NC/ND takes none, so its account and
+ *  center stay empty and the trigger copies its origin's
+ *  (purchase_invoices_nc_nd_inherit_account). */
+export function supplierCostDefaultsForKind(
+  kind: PurchaseInvoiceKind,
+  supplier: Parameters<typeof supplierCostDefaults>[0],
+  options: CostTagOptions | undefined,
+): CostDefault[] {
+  return kind === "factura" ? supplierCostDefaults(supplier, options) : [];
+}
+
+/** What a new purchase's account and center fields take when its supplier's
+ *  defaults (or its type) change: the new defaults, and "" for a field the
+ *  previous defaults prefilled that still holds it. A field the user touched
+ *  is kept. */
 export function supplierCostWrites(
   previous: readonly CostDefault[],
   next: readonly CostDefault[],

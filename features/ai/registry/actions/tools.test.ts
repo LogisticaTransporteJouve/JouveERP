@@ -526,6 +526,41 @@ describe("libro IVA totals", () => {
       },
     });
   });
+
+  it("compras: a B purchase's amount, IVA inside, stays out of neto", async () => {
+    vi.mocked(listLibroIvaComprasAction).mockResolvedValue({
+      ok: true,
+      data: [
+        compraRow({ neto: 1000, iva: 210, imp_total: 1210 }),
+        compraRow({
+          purchase_invoice_id: "b1",
+          letter: "B",
+          numero: 3,
+          iva_rate_id: null,
+          iva_rate_pct: null,
+          neto: 1210,
+          iva: 0,
+          imp_total: 1210,
+          neto_orig: 1210,
+        }),
+      ],
+    });
+    const r = await runLibroIvaCompras({ period: "2026-05" });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.data).toMatchObject({
+      totals: {
+        neto: 1000,
+        iva: 210,
+        sin_discriminar: 1210,
+        imp_total: 2420,
+        per_rate: expect.arrayContaining([
+          { alicuota: "Sin discriminar (B/C)", neto: 1210, iva: 0 },
+        ]),
+      },
+    });
+    expect(r.summary).toContain("sin discriminar (B/C, IVA incluido)");
+  });
 });
 
 describe("runInvoices", () => {

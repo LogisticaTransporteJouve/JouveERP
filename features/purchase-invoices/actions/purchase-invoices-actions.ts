@@ -538,6 +538,19 @@ export async function createPurchaseInvoiceAction(
   return { ok: true, data: { id: data.id } };
 }
 
+function itemsParam(items: PurchaseInvoiceItemInput[]) {
+  return items.map((it, idx) => ({
+    description: it.description,
+    quantity: it.quantity,
+    unit_price: it.unit_price,
+    iva_rate_id: it.iva_rate_id,
+    line_neto: it.line_neto,
+    line_iva: it.line_iva,
+    line_total: it.line_total,
+    sort_order: it.sort_order ?? idx,
+  }));
+}
+
 async function applyItems(
   supabase: Awaited<ReturnType<typeof createClient>>,
   invoiceId: string,
@@ -545,19 +558,13 @@ async function applyItems(
 ): Promise<PostgrestError | null> {
   const { error } = await supabase.rpc("replace_purchase_invoice_items", {
     p_invoice_id: invoiceId,
-    p_items: items.map((it, idx) => ({
-      description: it.description,
-      quantity: it.quantity,
-      unit_price: it.unit_price,
-      iva_rate_id: it.iva_rate_id,
-      line_neto: it.line_neto,
-      line_iva: it.line_iva,
-      line_total: it.line_total,
-      sort_order: it.sort_order ?? idx,
-    })),
+    p_items: itemsParam(items),
   });
   return error;
 }
+
+const CLOSED_PERIOD_ITEMS_MESSAGE =
+  "El período contable de la factura está cerrado: los ítems figuran en el Libro IVA Compras y no se pueden cambiar. No se guardó ningún cambio.";
 
 export async function updatePurchaseInvoiceAction(
   input: unknown,
@@ -662,6 +669,24 @@ export async function updatePurchaseInvoiceAction(
     }
   }
 
+  // The header and the items are two writes: refuse a closed period's item
+  // change before the header is saved, with the rule the items RPC applies.
+  if (rest.items !== undefined) {
+    const { data: refused, error: checkError } = await supabase.rpc(
+      "purchase_items_change_refused",
+      { p_invoice_id: id, p_items: itemsParam(rest.items) },
+    );
+    if (checkError) {
+      logger.error("purchase_invoices.items.check_failed", {
+        userId: ctx.userId,
+        id,
+        error: checkError,
+      });
+      return { ok: false, error: "No se pudo actualizar la factura." };
+    }
+    if (refused) return { ok: false, error: CLOSED_PERIOD_ITEMS_MESSAGE };
+  }
+
   const { error } = await supabase
     .from("purchase_invoices")
     .update({
@@ -758,15 +783,28 @@ export async function updatePurchaseInvoiceAction(
         userId: ctx.userId,
         id,
       });
-      if (guardError) return { ok: false, error: guardError };
-      logger.error("purchase_invoices.items.update.failed", {
-        userId: ctx.userId,
+      if (!guardError) {
+        logger.error("purchase_invoices.items.update.failed", {
+          userId: ctx.userId,
+          id,
+          error: itemsError,
+        });
+      }
+      // The header is already saved: audit it and say so.
+      await logAudit(
+        "purchase_invoice.updated",
+        ctx.userId,
+        {
+          fields: Object.keys(rest).filter((f) => f !== "items") as JsonValue[],
+          items_saved: false,
+        },
         id,
-        error: itemsError,
-      });
+      );
       return {
         ok: false,
-        error: "Factura actualizada pero no se pudieron guardar los ítems.",
+        error: guardError
+          ? `Se guardó la factura, pero no los ítems: ${guardError}`
+          : "Factura actualizada pero no se pudieron guardar los ítems.",
       };
     }
   }

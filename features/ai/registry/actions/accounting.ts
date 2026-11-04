@@ -19,6 +19,7 @@ import {
   groupByInvoice,
   groupComprasByInvoice,
   perRateLabel,
+  SIN_DISCRIMINAR,
   type PerRate,
 } from "@/features/libro-iva/schema";
 
@@ -137,7 +138,9 @@ const LIBRO_IVA_ROWS_RULE =
   "under 'Sin discriminar (B/C)' with the IVA inside its neto, never as 0%, " +
   "and the TXT declares it with no alícuota.";
 
-/** The period's signed totals of a libro IVA, per alícuota labelled. */
+/** The period's signed totals of a libro IVA, per alícuota labelled. `neto`
+ *  is the discriminated net: a B/C purchase's amount (IVA inside) stays in its
+ *  own `per_rate` bucket and out of it. */
 function libroIvaTotals(t: {
   count: number;
   per_rate: PerRate;
@@ -149,7 +152,11 @@ function libroIvaTotals(t: {
     .sort((a, b) => a.id - b.id);
   return {
     documents: t.count,
-    neto: round2(rates.reduce((acc, r) => acc + r.neto, 0)),
+    neto: round2(
+      rates
+        .filter((r) => r.id !== SIN_DISCRIMINAR)
+        .reduce((acc, r) => acc + r.neto, 0),
+    ),
     iva: round2(rates.reduce((acc, r) => acc + r.iva, 0)),
     imp_trib: round2(t.imp_trib),
     imp_total: round2(t.imp_total),
@@ -212,12 +219,14 @@ export async function runLibroIvaCompras(input: {
 }): Promise<AiRunResult> {
   const res = await listLibroIvaComprasAction({ period: input.period });
   if (!res.ok) return errResult(res.error);
-  const totals = libroIvaTotals(
-    computeComprasTotals(groupComprasByInvoice(res.data)),
-  );
+  const sums = computeComprasTotals(groupComprasByInvoice(res.data));
+  const totals = {
+    ...libroIvaTotals(sums),
+    sin_discriminar: round2(sums.per_rate[SIN_DISCRIMINAR]?.neto ?? 0),
+  };
   return okResult(
     `${SCOPE_LABEL.fiscal}: VAT Purchases ${input.period}: ${totals.documents} documents (${res.data.length} rows, one per document × rate) · ` +
-      `IVA crédito ${money(totals.iva)} · neto ${money(totals.neto)} · otros tributos ${money(totals.imp_trib)} · total ${money(totals.imp_total)} (NC subtracted).`,
+      `IVA crédito ${money(totals.iva)} · neto ${money(totals.neto)} · sin discriminar (B/C, IVA incluido) ${money(totals.sin_discriminar)} · otros tributos ${money(totals.imp_trib)} · total ${money(totals.imp_total)} (NC subtracted).`,
     {
       rows: res.data.map((r) => ({
         comprobante: `${formatInvoiceNumber(r)} · ${r.supplier_legal_name}`,
@@ -238,7 +247,9 @@ export const getLibroIvaCompras = defineAiAction({
   description:
     "VAT Purchases book (RG 1361) for a YYYY-MM period, fiscal channels only: " +
     "`rows` (one per purchase invoice × rate) and `totals`, whose `iva` is " +
-    "the period's input VAT (IVA crédito); imp_trib is the sum of perc_iva " +
+    "the period's input VAT (IVA crédito); `neto` is the discriminated net " +
+    "(the alícuota buckets) only, and `sin_discriminar` comes apart: the " +
+    "B/C purchases' amount with their IVA inside, never net. imp_trib is the sum of perc_iva " +
     "(IVA perceptions), perc_iibb, perc_nacionales (Ganancias and other " +
     "national taxes, not IVA), perc_municipales and impuestos_internos. " +
     LIBRO_IVA_ROWS_RULE +
