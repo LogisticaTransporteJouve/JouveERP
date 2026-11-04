@@ -216,4 +216,68 @@ describe("LibroIvaComprasTable", () => {
     expect(within(table).getByText("Imp. int.")).toBeTruthy();
     expect(within(table).queryByText("10.5%")).toBeNull();
   });
+
+  it("prints a B purchase under «Sin discriminar (B/C)», not 0%", async () => {
+    const noTrib = {
+      imp_trib: 0,
+      imp_trib_orig: 0,
+      perc_iva: 0,
+      perc_iibb: 0,
+      perc_iva_orig: 0,
+      perc_iibb_orig: 0,
+    };
+    listCompras.mockResolvedValue({
+      ok: true,
+      data: [
+        compra({
+          ...noTrib,
+          letter: "B",
+          iva_rate_id: null,
+          has_items: false,
+          neto: 1210,
+          iva: 0,
+          imp_total: 1210,
+          neto_orig: 1210,
+          iva_orig: 0,
+          imp_total_orig: 1210,
+        }),
+      ],
+    });
+    header.mockResolvedValue(okHeader);
+    renderWithQuery(<LibroIvaComprasTable period="2026-09" channelId={null} />);
+    const table = await screen.findByRole("table");
+    expect(within(table).getByText("Sin discriminar (B/C)")).toBeTruthy();
+    expect(within(table).queryByText("0%")).toBeNull();
+    expect(within(table).getByText("Importe")).toBeTruthy();
+    expect(screen.getByText(/1 comprobante\(s\) B o C/)).toBeTruthy();
+    expect(screen.queryByText(/sin ítems/)).toBeNull();
+  });
+});
+
+describe("a failed book read", () => {
+  it.each([
+    ["ventas", LibroIvaVentasTable, listVentas, /No hay comprobantes/],
+    ["compras", LibroIvaComprasTable, listCompras, /No hay compras/],
+  ] as const)(
+    "%s: shows the error with a retry, not an empty period, and no export",
+    async (_book, Table, list, emptyCopy) => {
+      list.mockResolvedValue({
+        ok: false,
+        error: "No se pudo leer el libro IVA del período.",
+      });
+      header.mockResolvedValue(okHeader);
+      renderWithQuery(<Table period="2026-09" channelId={null} />);
+      expect(
+        await screen.findByText("No se pudo leer el libro IVA del período."),
+      ).toBeTruthy();
+      expect(screen.getByRole("alert")).toBeTruthy();
+      expect(screen.getByRole("button", { name: /Reintentar/ })).toBeTruthy();
+      expect(screen.queryByText(emptyCopy)).toBeNull();
+      expect(screen.queryByText("Exportar PDF")).toBeNull();
+      expect(screen.queryByText("Exportar Excel")).toBeNull();
+      expect(
+        screen.getByText(/Exportar PDF y Excel no está disponible/),
+      ).toBeTruthy();
+    },
+  );
 });
