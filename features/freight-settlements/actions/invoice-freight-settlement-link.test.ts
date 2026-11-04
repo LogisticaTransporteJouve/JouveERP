@@ -107,12 +107,15 @@ function respond(call: RecordedCall) {
     return { data: null, error: null };
   }
   // The key probe (no invoice under the liquidación's keys yet), then the
-  // status read after a refused link.
+  // void read after a refused link.
   if (call.table === "invoices" && call.filters.some(([k]) => k === "in")) {
     return { data: [], error: null };
   }
-  if (call.table === "invoices") {
-    return { data: { status: invoiceStatus }, error: null };
+  if (call.table === "billing_invoice_is_void") {
+    return {
+      data: invoiceStatus === "failed" || invoiceStatus === "cancelled",
+      error: null,
+    };
   }
   if (call.table === "link_freight_settlement_invoice") {
     return { data: null, error: linkError };

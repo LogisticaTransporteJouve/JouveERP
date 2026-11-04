@@ -12,6 +12,7 @@ import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { findSourceInvoiceSlot, invoiceIsVoid } from "@/lib/source-invoice-key";
+import { fetchInChunks } from "@/lib/supabase/paginate";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createSupabaseClient>>;
@@ -41,12 +42,18 @@ const UNASSIGNED_LIMIT = 200;
 const SELECT_COLUMNS =
   "id, client_id, trip_id, channel_id, remito_number, origin,destination, description, scheduled_date, status, delivery_date, failure_reason, freight_amount, cod_amount, invoice_id, notes, created_at, updated_at, client:clients(legal_name, display_name, cuit, iva_condition, is_fiscal), trip:trips(trip_date)";
 
-function narrow(row: {
+type ShipmentRow = {
   status: string;
   freight_amount: number | null;
   cod_amount: number | null;
+  invoice_id: string | null;
   [key: string]: unknown;
-}): Shipment | null {
+};
+
+function narrow(
+  row: ShipmentRow,
+  voidInvoices: ReadonlySet<string>,
+): Shipment | null {
   if (!isShipmentStatus(row.status)) {
     logger.error("shipments.unknown_enum", { status: row.status });
     return null;
@@ -56,7 +63,35 @@ function narrow(row: {
     freight_amount:
       row.freight_amount === null ? null : Number(row.freight_amount),
     cod_amount: row.cod_amount === null ? null : Number(row.cod_amount),
+    invoice_void: row.invoice_id !== null && voidInvoices.has(row.invoice_id),
   } as Shipment;
+}
+
+/** The rows as Shipments, each marked when its invoice no longer bills it
+ *  (billing_void_invoice_ids). Null when that read fails: a void invoice
+ *  must not read as billing its carga. */
+async function narrowRows(
+  supabase: SupabaseServerClient,
+  rows: ShipmentRow[],
+  userId: string,
+): Promise<Shipment[] | null> {
+  const invoiceIds = rows.flatMap((row) =>
+    row.invoice_id === null ? [] : [row.invoice_id],
+  );
+  const voidRes = await fetchInChunks(invoiceIds, (ids) =>
+    supabase.rpc("billing_void_invoice_ids", { p_invoice_ids: ids }),
+  );
+  if (voidRes.error) {
+    logger.error("shipments.invoice_void.failed", {
+      userId,
+      error: voidRes.error,
+    });
+    return null;
+  }
+  const voidInvoices = new Set(voidRes.data);
+  return rows
+    .map((row) => narrow(row, voidInvoices))
+    .filter((row): row is Shipment => row !== null);
 }
 
 const REMITO_UNIQUE_INDEX = "shipments_client_remito_unique";
@@ -129,9 +164,8 @@ export async function listShipmentsAction(): Promise<ActionResult<Shipment[]>> {
     logger.error("shipments.list.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudieron listar las cargas." };
   }
-  const rows = (data ?? [])
-    .map((row) => narrow(row))
-    .filter((row): row is Shipment => row !== null);
+  const rows = await narrowRows(supabase, data ?? [], ctx.userId);
+  if (!rows) return { ok: false, error: "No se pudieron listar las cargas." };
   return { ok: true, data: rows };
 }
 
@@ -444,9 +478,10 @@ export async function listShipmentsByTripAction(
     logger.error("shipments.by_trip.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudieron cargar las cargas del viaje." };
   }
-  const rows = (data ?? [])
-    .map((row) => narrow(row))
-    .filter((row): row is Shipment => row !== null);
+  const rows = await narrowRows(supabase, data ?? [], ctx.userId);
+  if (!rows) {
+    return { ok: false, error: "No se pudieron cargar las cargas del viaje." };
+  }
   return { ok: true, data: rows };
 }
 
@@ -471,9 +506,10 @@ export async function listUnassignedShipmentsAction(): Promise<
     logger.error("shipments.unassigned.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudieron cargar las cargas sin viaje." };
   }
-  const rows = (data ?? [])
-    .map((row) => narrow(row))
-    .filter((row): row is Shipment => row !== null);
+  const rows = await narrowRows(supabase, data ?? [], ctx.userId);
+  if (!rows) {
+    return { ok: false, error: "No se pudieron cargar las cargas sin viaje." };
+  }
   return { ok: true, data: rows };
 }
 
@@ -531,7 +567,8 @@ export async function setShipmentsTripAction(
  * "Facturar flete": issues a sales invoice for a shipment's freight, reusing the
  * proven issueFiscalInvoiceAction (handles fiscal AFIP vs internal per channel).
  * A single "Flete" service line at 21% IVA, billed to the shipment's client.
- * Claims the shipment first (UPDATE ... WHERE invoice_id IS NULL), so two
+ * Claims the shipment first (claim_shipment_for_invoicing, which also frees a
+ * carga whose invoice no longer bills it), so two
  * concurrent clicks cannot both issue, and issues under a key derived from
  * the carga (lib/source-invoice-key), so a click after an expired claim links
  * the invoice already issued; links invoice_id on success and releases the
@@ -612,14 +649,14 @@ export async function invoiceFreightAction(
       invoiceId: result.data.id,
       error: linkErr,
     });
-    // The invoice already failed or was cancelled (the link guard refuses
-    // it): nothing bills the carga, so free it now.
+    // The invoice no longer bills the carga (the link guard refuses it):
+    // nothing bills the carga, so free it now.
     if (await invoiceIsVoid(supabase, result.data.id)) {
       await releaseClaim();
       return {
         ok: false,
         error:
-          "La factura falló o se anuló antes de vincularla a la carga: la carga quedó libre para facturarla de nuevo.",
+          "La factura falló, se anuló o se acreditó por el total antes de vincularla a la carga: la carga quedó libre para facturarla de nuevo.",
       };
     }
     // Any other error keeps the claim; once it expires, "Facturar flete"
@@ -639,23 +676,18 @@ export async function invoiceFreightAction(
   return { ok: true, data: { invoiceId: result.data.id } };
 }
 
-/** A claim older than this is an abandoned request (same window as the
- *  guard_billed_shipment trigger). */
-const CLAIM_TTL_MS = 15 * 60 * 1000;
-
+/** claim_shipment_for_invoicing: claims an unbilled carga (a claim older
+ *  than 15 minutes is abandoned), dropping first a link to an invoice that
+ *  no longer bills it (a fiscal factura credited in full), which is
+ *  audited. */
 async function claimShipmentForInvoicing(
   supabase: SupabaseServerClient,
   shipmentId: string,
   userId: string,
 ): Promise<ActionResult> {
-  const staleBefore = new Date(Date.now() - CLAIM_TTL_MS).toISOString();
-  const { data, error } = await supabase
-    .from("shipments")
-    .update({ invoicing_claimed_at: new Date().toISOString() })
-    .eq("id", shipmentId)
-    .is("invoice_id", null)
-    .or(`invoicing_claimed_at.is.null,invoicing_claimed_at.lt.${staleBefore}`)
-    .select("id");
+  const { data, error } = await supabase.rpc("claim_shipment_for_invoicing", {
+    p_shipment_id: shipmentId,
+  });
   if (error) {
     // A carga in a live liquidación is billed from the liquidación.
     const guardError = mapDbGuardError(error, {
@@ -670,11 +702,20 @@ async function claimShipmentForInvoicing(
     });
     return { ok: false, error: "No se pudo reservar la carga para facturar." };
   }
-  if (data.length === 0) {
+  const row = data?.[0];
+  if (!row?.claimed) {
     return {
       ok: false,
       error: "La carga ya tiene una factura o se está facturando.",
     };
+  }
+  if (row.freed_invoice_id) {
+    await logAudit(
+      "shipment.invoice_unlinked",
+      userId,
+      { invoice_id: row.freed_invoice_id, reason: "invoice_void" },
+      shipmentId,
+    );
   }
   return { ok: true, data: undefined };
 }

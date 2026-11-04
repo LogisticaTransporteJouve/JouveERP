@@ -44,6 +44,9 @@ export interface Shipment {
   /** Cash on delivery: what the driver collects at delivery (null = no). */
   cod_amount: number | null;
   invoice_id: string | null;
+  /** invoice_id points at an invoice that no longer bills the carga (a
+   *  fiscal factura credited in full): it can be invoiced again. */
+  invoice_void: boolean;
   notes: string | null;
   created_at: string;
   updated_at: string;

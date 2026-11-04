@@ -208,27 +208,27 @@ function fmtDate(iso: string): string {
 }
 
 /**
- * claim_storage_billing_period links a stale run's orphan invoice (issued
- * under the run's id) instead of deleting the run, for any of the client's
- * periods and channels. That lost link never wrote `storage.invoiced`, so
- * write it now, marked `relinked`, for each linked run of the client whose
- * invoice carries the run's id and has no event yet. Runs after every claim
- * (an invoice already audited is skipped). Best effort, like logAudit: a
- * failed read only logs.
+ * claim_storage_billing_period_with_relinks links a stale run's orphan
+ * invoice (issued under the run's id) instead of deleting the run, for any
+ * of the client's periods and channels, and returns those runs. That lost
+ * link never wrote `storage.invoiced`, so write it now, marked `relinked`,
+ * for each of them whose invoice carries the run's id and has no event yet.
+ * A run linked on the normal path is never among them. Best effort, like
+ * logAudit: a failed read only logs.
  */
 async function auditRelinkedRuns(
   supabase: Awaited<ReturnType<typeof createSupabaseClient>>,
   userId: string,
   clientId: string,
+  relinkedRunIds: string[],
 ): Promise<void> {
-  const runsRes = await paginateRange((from, to) =>
+  if (relinkedRunIds.length === 0) return;
+  const runsRes = await fetchInChunks(relinkedRunIds, (ids) =>
     supabase
       .from("storage_billing_runs")
       .select("id, invoice_id, period_start, period_end, total")
-      .eq("client_id", clientId)
-      .not("invoice_id", "is", null)
-      .order("id")
-      .range(from, to),
+      .in("id", ids)
+      .not("invoice_id", "is", null),
   );
   if (runsRes.error) {
     logger.error("storage.invoice.relink_audit.failed", {
@@ -507,8 +507,8 @@ export async function invoiceStorageAction(
   // of billing the same days twice. The invoice is issued under the run's id,
   // so a later claim links an invoice whose link was lost instead of billing
   // the days again; such a claim returns no run.
-  const { data: runId, error: claimErr } = await supabase.rpc(
-    "claim_storage_billing_period",
+  const { data: claimRows, error: claimErr } = await supabase.rpc(
+    "claim_storage_billing_period_with_relinks",
     {
       p_client_id: client_id,
       p_channel_id: channel_id,
@@ -528,8 +528,15 @@ export async function invoiceStorageAction(
     });
     return { ok: false, error: "No se pudo validar el período." };
   }
+  const claimRow = claimRows?.[0];
   // The claim may have linked the orphan invoice of another period too.
-  await auditRelinkedRuns(supabase, ctx.userId, client_id);
+  await auditRelinkedRuns(
+    supabase,
+    ctx.userId,
+    client_id,
+    claimRow?.relinked_run_ids ?? [],
+  );
+  const runId: string | null = claimRow?.run_id ?? null;
   if (!runId) {
     return {
       ok: false,
