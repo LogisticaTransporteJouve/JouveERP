@@ -61,6 +61,7 @@ import {
   useSetDebtPlanStatus,
   useUpdateDebtPlan,
 } from "../hooks/use-employee-account";
+import { HR_CASH_DENIED_REASON, movementMovesCash } from "../lib/hr-cash";
 
 import { EmployeeCashDialog } from "./employee-cash-dialog";
 
@@ -255,6 +256,7 @@ export function EmployeeAccountCard({
                         key={m.id}
                         movement={m}
                         canWrite={canWrite}
+                        canMoveCash={canMoveCash}
                         deleting={deleteMovement.isPending}
                         onDelete={() =>
                           deleteMovement.mutate(m.id, {
@@ -413,17 +415,21 @@ function PlanRow({
 function MovementRow({
   movement: m,
   canWrite,
+  canMoveCash,
   deleting,
   onDelete,
 }: {
   movement: AccountMovement;
   canWrite: boolean;
+  canMoveCash: boolean;
   deleting: boolean;
   onDelete: () => void;
 }) {
   const source = movementSource(m);
   const debit = isDebitKind(m.kind);
   const deletable = source === "manual" || source === "cash";
+  // Same predicate as deleteAccountMovementAction.
+  const cashDenied = movementMovesCash(m) && !canMoveCash;
   const amount = formatMoneyWithCode(m.amount, m.currency);
   return (
     <tr className="border-b last:border-0">
@@ -446,7 +452,20 @@ function MovementRow({
       </td>
       {canWrite && (
         <td className="px-1 py-2 text-right">
-          {deletable && (
+          {deletable && cashDenied && (
+            // A disabled button gets no pointer events: the span shows why.
+            <span title={HR_CASH_DENIED_REASON}>
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-label={`Borrar el movimiento y su movimiento de caja: ${HR_CASH_DENIED_REASON}`}
+                disabled
+              >
+                <Trash2 className="size-3.5" />
+              </Button>
+            </span>
+          )}
+          {deletable && !cashDenied && (
             <Button
               variant="ghost"
               size="sm"

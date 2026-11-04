@@ -10,6 +10,7 @@ import { ingestReceivedVouchers } from "@/lib/afip/received-vouchers";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { logger } from "@/lib/logger";
+import { latestTributeSplits } from "@/lib/purchases/tribute-split";
 import type { ActionResult } from "@/lib/query/run-action";
 import { getServiceClient } from "@/lib/supabase/service";
 import { MAX_UPLOAD_TABLE_BYTES } from "@/lib/tables/limits";
@@ -65,6 +66,7 @@ const RowSchema = z.object({
   trib_breakdown: z
     .object({
       perc_iva: money.optional(),
+      perc_nacionales: money.optional(),
       perc_iibb: money.optional(),
       municipales: money.optional(),
       internos: money.optional(),
@@ -302,11 +304,25 @@ export async function listReceivedVouchersAction(
     });
     return { ok: false, error: "No se pudieron leer los comprobantes." };
   }
+  // Only for the split suggestion: a failed read suggests without history.
+  const supplierIds = page
+    .filter((r) => r.imp_trib > 0 && Object.keys(r.trib_breakdown).length === 0)
+    .flatMap((r) => suppliers.get(r.issuer_cuit)?.id ?? []);
+  const history = await latestTributeSplits(supabase, supplierIds);
+  if (!history) {
+    logger.warn("arca_received.list.tribute_history_failed", {
+      userId: ctx.userId,
+    });
+  }
   const last = page[page.length - 1];
   return {
     ok: true,
     data: {
-      vouchers: page.map((r) => toVoucher(r, suppliers)),
+      vouchers: page.map((r) => {
+        const v = toVoucher(r, suppliers);
+        const h = v.supplier ? history?.get(v.supplier.id) : undefined;
+        return { ...v, tribute_history: h ?? null };
+      }),
       nextCursor:
         rows.length > PAGE_SIZE && last
           ? { fecha: last.fecha, id: last.id }

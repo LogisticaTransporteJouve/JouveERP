@@ -11,6 +11,7 @@ let denied: Permission[] = [];
 const rpc = vi.fn(async () => ({ data: "mov-1", error: null }));
 const insert = vi.fn();
 const logAudit = vi.fn();
+let movementRow: { id: string; transaction_id: string | null } | null = null;
 
 vi.mock("@/lib/auth/context", () => ({
   requireUserContext: async () => ({
@@ -22,6 +23,11 @@ vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({
     rpc,
     from: () => ({
+      select: () => ({
+        eq: () => ({
+          maybeSingle: async () => ({ data: movementRow, error: null }),
+        }),
+      }),
       insert: (row: unknown) => {
         insert(row);
         return {
@@ -35,8 +41,11 @@ vi.mock("@/lib/supabase/server", () => ({
 }));
 vi.mock("@/lib/actions/audit", () => ({ logAudit }));
 
-const { createManualMovementAction, recordEmployeeAccountCashAction } =
-  await import("./employee-account-actions");
+const {
+  createManualMovementAction,
+  deleteAccountMovementAction,
+  recordEmployeeAccountCashAction,
+} = await import("./employee-account-actions");
 
 const EMP = "00000000-0000-4000-8000-000000000001";
 const ACC = "00000000-0000-4000-8000-000000000002";
@@ -57,6 +66,7 @@ beforeEach(() => {
   rpc.mockClear();
   insert.mockClear();
   logAudit.mockClear();
+  movementRow = null;
 });
 
 describe("recordEmployeeAccountCashAction", () => {
@@ -146,5 +156,37 @@ describe("createManualMovementAction", () => {
         created_by: "u1",
       }),
     );
+  });
+});
+
+describe("deleteAccountMovementAction", () => {
+  const MOV = "00000000-0000-4000-8000-000000000009";
+
+  it("needs transactions:write to delete a movement with a Caja movement", async () => {
+    roles = ["finance"];
+    denied = ["transactions:write"];
+    movementRow = { id: MOV, transaction_id: "tx-1" };
+    const res = await deleteAccountMovementAction({ id: MOV });
+    expect(res.ok).toBe(false);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("deletes a manual movement with hr:write alone", async () => {
+    roles = ["finance"];
+    denied = ["transactions:write"];
+    movementRow = { id: MOV, transaction_id: null };
+    const res = await deleteAccountMovementAction({ id: MOV });
+    expect(res).toEqual({ ok: true, data: undefined });
+    expect(rpc).toHaveBeenCalledWith("delete_employee_account_movement", {
+      p_movement_id: MOV,
+    });
+  });
+
+  it("deletes a cash movement for a user with both permissions", async () => {
+    roles = ["finance"];
+    movementRow = { id: MOV, transaction_id: "tx-1" };
+    const res = await deleteAccountMovementAction({ id: MOV });
+    expect(res).toEqual({ ok: true, data: undefined });
+    expect(rpc).toHaveBeenCalledOnce();
   });
 });

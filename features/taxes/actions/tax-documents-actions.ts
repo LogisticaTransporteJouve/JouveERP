@@ -221,8 +221,8 @@ const ISSUED_RECEIPT: ReceiptStatus = "issued";
  * débito of the sales book − crédito of the purchases book − IVA retentions
  * and perceptions suffered on the period's receipts − the saldo a favor
  * técnico the previous period's IVA document carries − the IVA perceptions
- * of the period's purchases. The purchases' other taxes (IIBB, municipales,
- * internos) are returned apart, not subtracted.
+ * of the period's purchases. The purchases' other taxes (IIBB, Ganancias,
+ * municipales, internos) are returned apart, not subtracted.
  */
 export async function getIvaPositionEstimateAction(input: {
   period: string;

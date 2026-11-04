@@ -77,9 +77,10 @@ UNIQUE` (regex `^[0-9]+(\.[0-9]+)*$`, ej. `1.1.2.3`), `name`, `level int` (CHECK
 - **`account_type`** (enum `coa_account_type`, 6): `activo, pasivo, patrimonio,
 resultado_positivo, resultado_negativo, orden` (`orden` = cuentas de orden, sin
   impacto patrimonial).
-- **`system_role`** (enum `coa_system_role`, **25**): `caja, banco, clientes,
+- **`system_role`** (enum `coa_system_role`, **27**): `caja, banco, clientes,
 proveedores, iva_debito, iva_credito, iva_percibido, iva_retenido,
-percepciones_iibb_pagadas, percepciones_iibb_cobradas, retenciones_pagadas,
+percepciones_iibb_pagadas, percepciones_iva_pagadas, percepciones_ganancias,
+percepciones_iibb_cobradas, retenciones_pagadas,
 retenciones_cobradas, ventas, compras, gastos, cheques_cartera,
 cheques_rechazados, anticipos_personal, cheques_diferidos_emitidos, prestamos,
 caja_apertura, ajustes_caja, sueldos, intereses_pagados, diferencia_cambio`.
@@ -227,9 +228,12 @@ transaction_date)` (la cotización de esa fecha o la anterior más cercana),
   impuestos internos van a la cuenta de gasto de la compra (`account_id`) si tiene
   una, si no a `compras`; la percepción de IVA va a `percepciones_iva_pagadas`
   (a `iva_credito` mientras ninguna cuenta activa tenga el rol) y la de IIBB a
-  `percepciones_iibb_pagadas` (`20261104096400`). `imp_trib` es la suma de las
-  cuatro partes (CHECK); una compra que solo trae `imp_trib` (código anterior)
-  lo toma como IIBB. Una **NC/ND de compra sin cuenta hereda la de su comprobante de
+  `percepciones_iibb_pagadas` (`20261104096400`); la de Ganancias y otros
+  impuestos nacionales (`imp_perc_nacionales`) a `percepciones_ganancias` (a
+  `percepciones_iibb_pagadas` mientras ninguna cuenta activa tenga el rol;
+  nunca a IVA, `20261104113001`). `imp_trib` es la suma de las cinco partes
+  (CHECK); una compra que solo trae `imp_trib` (código anterior) lo toma como
+  IIBB. Una **NC/ND de compra sin cuenta hereda la de su comprobante de
   origen** (y su centro de costo si no tiene), así revierte la misma cuenta que
   la factura (trigger `purchase_invoices_nc_nd_inherit_account`,
   `20261102230100`); una cuenta elegida en la NC/ND se respeta.

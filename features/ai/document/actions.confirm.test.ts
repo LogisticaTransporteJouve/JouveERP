@@ -51,6 +51,11 @@ function query(table: string) {
       return builder;
     },
     limit: () => builder,
+    order: () => builder,
+    gt: (col: string, v: number) => {
+      filters.push((r) => Number(r[col]) > v);
+      return builder;
+    },
     lt: (col: string, v: string) => {
       filters.push((r) => typeof r[col] === "string" && String(r[col]) < v);
       return builder;
