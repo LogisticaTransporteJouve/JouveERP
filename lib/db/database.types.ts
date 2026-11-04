@@ -10147,6 +10147,10 @@ export type Database = {
           supplier_id: string
         }[]
       }
+      purchase_items_period_closed: {
+        Args: { p_invoice_id: string }
+        Returns: boolean
+      }
       purchase_matches_received: {
         Args: {
           p_iva: number
