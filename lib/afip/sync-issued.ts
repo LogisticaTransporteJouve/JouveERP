@@ -10,6 +10,7 @@ import {
   CBTE_TIPO,
   CONDICION_IVA_RECEPTOR,
   DOC_TIPO,
+  IVA_RATE_PERCENT,
   kindLetterForCbteTipo,
 } from "./codes";
 import { PadronNoConstanciaError } from "./padron";
@@ -23,6 +24,8 @@ import type { VoucherInfo } from "./wsfev1";
 
 type Supabase = SupabaseClient<Database>;
 type InvoiceInsert = Database["public"]["Tables"]["invoices"]["Insert"];
+type InvoiceItemInsert =
+  Database["public"]["Tables"]["invoice_items"]["Insert"];
 
 export interface ArcaVoucherPort {
   getLastAuthorizedNumber(ptoVta: number, cbteTipo: number): Promise<number>;
@@ -161,6 +164,43 @@ export function voucherToInvoiceInsert(
     emitted_at: `${fecha}T12:00:00-03:00`,
     idempotency_key: `arca-sync-${info.ptoVta}-${info.cbteTipo}-${info.cbteNro}`,
   };
+}
+
+const cents = (n: number) => Math.round(n * 100);
+
+/** One `invoice_items` row per ARCA alícuota, so the Libro IVA, its TXT and
+ *  the PDF read the voucher's own rates instead of inferring one from the
+ *  header. Empty (the header-only import) when the breakdown is missing, names
+ *  a rate the ERP does not model, or does not add up to the header neto and
+ *  IVA to the cent. */
+export function voucherToInvoiceItems(
+  info: VoucherInfo,
+  invoiceId: string,
+): InvoiceItemInsert[] {
+  if (info.iva.length === 0) return [];
+  const valid = info.iva.every(
+    (a) =>
+      a.id in IVA_RATE_PERCENT &&
+      Number.isFinite(a.baseImp) &&
+      Number.isFinite(a.importe) &&
+      a.baseImp >= 0 &&
+      a.importe >= 0,
+  );
+  if (!valid) return [];
+  const base = info.iva.reduce((s, a) => s + cents(a.baseImp), 0);
+  const iva = info.iva.reduce((s, a) => s + cents(a.importe), 0);
+  if (base !== cents(info.impNeto) || iva !== cents(info.impIva)) return [];
+  return info.iva.map((a, i) => ({
+    invoice_id: invoiceId,
+    sort_order: i,
+    description: "Importado de ARCA",
+    quantity: 1,
+    unit_price: a.baseImp,
+    iva_rate_id: a.id,
+    line_neto: a.baseImp,
+    line_iva: a.importe,
+    line_total: (cents(a.baseImp) + cents(a.importe)) / 100,
+  }));
 }
 
 /** Points of sale on an active fiscal channel: the only ones ARCA numbers. */
@@ -428,13 +468,47 @@ async function importVoucher(
   });
   if (!row) return { kind: "missing" };
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("invoices")
-    .upsert(row, { onConflict: "idempotency_key", ignoreDuplicates: true });
+    .upsert(row, { onConflict: "idempotency_key", ignoreDuplicates: true })
+    .select("id");
   if (error && error.code !== PG_UNIQUE_VIOLATION) {
     return { kind: "failed", message: error.message };
   }
-  return error ? { kind: "missing" } : { kind: "imported", unlinked };
+  if (error) return { kind: "missing" };
+  // Only the row this call inserted gets items: a duplicate comes back empty.
+  const insertedId = data?.[0]?.id;
+  if (insertedId) await storeIvaBreakdown(supabase, info, insertedId);
+  return { kind: "imported", unlinked };
+}
+
+/** Best effort: without the items the invoice stays header-only, as every
+ *  import was before, and the books infer its rate. */
+async function storeIvaBreakdown(
+  supabase: Supabase,
+  info: VoucherInfo,
+  invoiceId: string,
+): Promise<void> {
+  const items = voucherToInvoiceItems(info, invoiceId);
+  if (items.length === 0) {
+    if (info.iva.length > 0) {
+      logger.warn("arca_sync.iva_breakdown_skipped", {
+        punto_venta: info.ptoVta,
+        cbte_tipo: info.cbteTipo,
+        numero: info.cbteNro,
+      });
+    }
+    return;
+  }
+  const { error } = await supabase.from("invoice_items").insert(items);
+  if (error) {
+    logger.warn("arca_sync.iva_breakdown_insert_failed", {
+      punto_venta: info.ptoVta,
+      cbte_tipo: info.cbteTipo,
+      numero: info.cbteNro,
+      error: error.message,
+    });
+  }
 }
 
 const GAP_PAGE = 1000;

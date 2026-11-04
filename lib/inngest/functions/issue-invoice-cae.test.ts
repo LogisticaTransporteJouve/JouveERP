@@ -58,6 +58,11 @@ function fakeAfip(opts: { last?: number } = {}) {
       caeFchVto: "20260530",
       emisionTipo: "CAE",
       cbtesAsoc: [],
+      iva: (input.iva ?? []).map((i) => ({
+        id: i.id,
+        baseImp: i.baseImp,
+        importe: i.importe,
+      })),
     };
     vouchers.set(input.cbteNro, info);
     return info;
@@ -426,6 +431,7 @@ describe("voucherMatches", () => {
     caeFchVto: "20260530",
     emisionTipo: "CAE",
     cbtesAsoc: [],
+    iva: [{ id: 5, baseImp: 100, importe: 21 }],
   };
   const expected = draft("a").expected;
 

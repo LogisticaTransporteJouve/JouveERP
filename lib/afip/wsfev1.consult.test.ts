@@ -47,6 +47,26 @@ describe("getVoucherInfo", () => {
     await expect(getVoucherInfo(3, 1, 42)).resolves.toMatchObject({
       cbteNro: 42,
       impTotal: 121,
+      iva: [],
+    });
+  });
+
+  it("reads ARCA's per-alícuota IVA breakdown", async () => {
+    h.text = envelope(
+      "<ResultGet><PtoVta>3</PtoVta><CbteTipo>1</CbteTipo><CbteDesde>42</CbteDesde><CbteFch>20261103</CbteFch><ImpTotal>1226</ImpTotal><ImpNeto>1100</ImpNeto><ImpIVA>126</ImpIVA><Iva><AlicIva><Id>5</Id><BaseImp>100</BaseImp><Importe>21</Importe></AlicIva><AlicIva><Id>4</Id><BaseImp>1000</BaseImp><Importe>105</Importe></AlicIva></Iva><CodAutorizacion>75000000000001</CodAutorizacion></ResultGet>",
+    );
+    await expect(getVoucherInfo(3, 1, 42)).resolves.toMatchObject({
+      iva: [
+        { id: 5, baseImp: 100, importe: 21 },
+        { id: 4, baseImp: 1000, importe: 105 },
+      ],
+    });
+
+    h.text = envelope(
+      "<ResultGet><CbteDesde>43</CbteDesde><Iva><AlicIva><Id>5</Id><BaseImp>100.5</BaseImp><Importe>21.11</Importe></AlicIva></Iva></ResultGet>",
+    );
+    await expect(getVoucherInfo(3, 1, 43)).resolves.toMatchObject({
+      iva: [{ id: 5, baseImp: 100.5, importe: 21.11 }],
     });
   });
 

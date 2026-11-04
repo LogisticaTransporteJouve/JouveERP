@@ -11,6 +11,7 @@ import {
   receiverCuit,
   syncIssuedPair,
   voucherToInvoiceInsert,
+  voucherToInvoiceItems,
   type ArcaVoucherPort,
 } from "./sync-issued";
 import type { VoucherInfo } from "./wsfev1";
@@ -40,6 +41,7 @@ function voucher(over: Partial<VoucherInfo> = {}): VoucherInfo {
     caeFchVto: "20261109",
     emisionTipo: "CAE",
     cbtesAsoc: [],
+    iva: [{ id: 5, baseImp: 1000, importe: 210 }],
     ...over,
   };
 }
@@ -107,12 +109,18 @@ function fakeSupabase(tables: Record<string, Row[]>) {
       },
       maybeSingle: async () => ({ data: rows()[0] ?? null, error: null }),
       single: async () => ({ data: rows()[0], error: null }),
-      upsert: async (row: Row, opts: { onConflict: string }) => {
+      upsert: (row: Row, opts: { onConflict: string }) => {
         const list = (tables[table] ??= []);
-        if (list.some((r) => r[opts.onConflict] === row[opts.onConflict])) {
-          return { error: null };
+        const inserted: Row[] = [];
+        if (!list.some((r) => r[opts.onConflict] === row[opts.onConflict])) {
+          const stored = { id: `${table}-${++seq}`, ...row };
+          list.push(stored);
+          inserted.push({ id: stored.id });
         }
-        list.push({ id: `${table}-${++seq}`, ...row });
+        return { select: async () => ({ data: inserted, error: null }) };
+      },
+      insert: async (rows: Row[]) => {
+        (tables[table] ??= []).push(...rows);
         return { error: null };
       },
       then: (resolve: (v: { data: Row[]; error: null }) => void) => {
@@ -203,6 +211,75 @@ describe("voucherToInvoiceInsert", () => {
         originId: null,
       }),
     ).toBeNull();
+  });
+});
+
+describe("ARCA IVA breakdown", () => {
+  const twoRates = voucher({
+    impNeto: 1100,
+    impIva: 126,
+    impTotal: 1226,
+    iva: [
+      { id: 5, baseImp: 100, importe: 21 },
+      { id: 4, baseImp: 1000, importe: 105 },
+    ],
+  });
+
+  it("maps each AlicIva to one item with its own rate", () => {
+    expect(voucherToInvoiceItems(twoRates, "inv-1")).toEqual([
+      expect.objectContaining({
+        invoice_id: "inv-1",
+        iva_rate_id: 5,
+        line_neto: 100,
+        line_iva: 21,
+        line_total: 121,
+        quantity: 1,
+        unit_price: 100,
+      }),
+      expect.objectContaining({
+        iva_rate_id: 4,
+        line_neto: 1000,
+        line_iva: 105,
+        line_total: 1105,
+      }),
+    ]);
+  });
+
+  it("keeps the header-only import when the breakdown is missing, unknown or does not add up", () => {
+    expect(voucherToInvoiceItems(voucher({ iva: [] }), "i")).toEqual([]);
+    expect(
+      voucherToInvoiceItems(
+        voucher({ iva: [{ id: 7, baseImp: 1000, importe: 210 }] }),
+        "i",
+      ),
+    ).toEqual([]);
+    expect(
+      voucherToInvoiceItems(
+        voucher({ iva: [{ id: 5, baseImp: 999, importe: 210 }] }),
+        "i",
+      ),
+    ).toEqual([]);
+  });
+
+  it("stores the items of the voucher it imports, and none for a duplicate", async () => {
+    const db = {
+      clients: [] as Row[],
+      invoices: [] as Row[],
+      invoice_items: [] as Row[],
+    };
+    const afip = fakeAfip([{ ...twoRates, cbteNro: 1 }]);
+
+    await syncIssuedPair(fakeSupabase(db), afip, target, 1, 5);
+    expect(db.invoices).toHaveLength(1);
+    expect(db.invoice_items.map((r) => [r.invoice_id, r.iva_rate_id])).toEqual([
+      [db.invoices[0]!.id, 5],
+      [db.invoices[0]!.id, 4],
+    ]);
+
+    // A re-run that finds the row already there adds nothing.
+    db.invoices[0]!.numero = 0;
+    await syncIssuedPair(fakeSupabase(db), afip, target, 1, 5);
+    expect(db.invoice_items).toHaveLength(2);
   });
 });
 
