@@ -99,7 +99,7 @@ export const getTransactions = defineAiAction({
   run: (_ctx, input) => runTransactions(input),
 });
 
-const CAPPED_NOTE = ` (every open check is listed, but only the latest ${SETTLED_LIST_CAP} settled ones: the count covers only these; the outstanding total covers every open check).`;
+const CAPPED_NOTE = ` (every open check is listed, but only the latest ${SETTLED_LIST_CAP} settled ones: the count covers only these; the total covers every open check).`;
 
 export async function runChecks(
   input: { scope?: FiscalFilter | null } = {},
@@ -119,8 +119,8 @@ export async function runChecks(
   const open = res.data.items.filter(isOpen).length;
   const capped = res.data.truncated;
   return okResult(
-    `${label}: ${res.data.items.length} checks received (${open} in portfolio or deposited) · ` +
-      `in portfolio or deposited ${total} (per currency)${capped ? CAPPED_NOTE : "."}`,
+    `${label}: ${res.data.items.length} checks received · ${open} in portfolio ` +
+      `or deposited, total ${total} (per currency)${capped ? CAPPED_NOTE : "."}`,
     res.data,
     { partial: capped },
   );
@@ -160,8 +160,8 @@ export async function runIssuedChecks(
   ).length;
   const capped = res.data.truncated;
   return okResult(
-    `${label}: ${res.data.items.length} own checks issued (${outstanding} not yet cashed) · ` +
-      `outstanding ${total} (per currency)${capped ? CAPPED_NOTE : "."}`,
+    `${label}: ${res.data.items.length} own checks issued · ${outstanding} not ` +
+      `yet cashed, total ${total} (per currency)${capped ? CAPPED_NOTE : "."}`,
     res.data.items,
     { partial: capped },
   );

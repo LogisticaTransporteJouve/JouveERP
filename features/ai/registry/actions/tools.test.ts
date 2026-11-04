@@ -704,11 +704,10 @@ describe("runChecks", () => {
       },
     });
     const r = await runChecks();
-    expect(r.summary).toContain("(2 in portfolio or deposited)");
     expect(r.summary).toContain(
-      `in portfolio or deposited ${totalsByCurrency([
-        { amount: 150, currency: "ARS", counts: true },
-      ])} (per currency).`,
+      `5 checks received · 2 in portfolio or deposited, total ${totalsByCurrency(
+        [{ amount: 150, currency: "ARS", counts: true }],
+      )} (per currency).`,
     );
   });
 });
@@ -780,9 +779,8 @@ describe("runIssuedChecks", () => {
     });
     const r = await runIssuedChecks();
     expect(r.ok && r.partial).toBe(true);
-    expect(r.summary).toContain("5 own checks issued (2 not yet cashed)");
     expect(r.summary).toContain(
-      `outstanding ${totalsByCurrency([
+      `5 own checks issued · 2 not yet cashed, total ${totalsByCurrency([
         { amount: 200, currency: "ARS", counts: true },
       ])} (per currency)`,
     );
