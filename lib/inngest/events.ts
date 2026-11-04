@@ -93,6 +93,21 @@ export type ArcaIssuedSyncRequested = z.infer<
   typeof ArcaIssuedSyncRequestedSchema
 >;
 
+export const ARCA_RECEIVED_SYNC_REQUESTED =
+  "afip/received-sync.requested" as const;
+
+const IsoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+
+export const ArcaReceivedSyncRequestedSchema = z.object({
+  requested_by: z.string().uuid(),
+  from: IsoDate,
+  to: IsoDate,
+});
+
+export type ArcaReceivedSyncRequested = z.infer<
+  typeof ArcaReceivedSyncRequestedSchema
+>;
+
 /** The original event's `data` inside an `onFailure` payload
  *  (`event.data.event.data`), or undefined when it is not there. */
 export function failedEventData(data: unknown): unknown {
