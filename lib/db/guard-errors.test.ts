@@ -179,6 +179,7 @@ const GUARDS = [
   "guard_payroll_payment_transaction",
   "claim_storage_billing_period",
   "guard_storage_billing_run_invoice",
+  "guard_storage_billing_run_delete",
 ];
 
 describe("guard hints in migrations", () => {
