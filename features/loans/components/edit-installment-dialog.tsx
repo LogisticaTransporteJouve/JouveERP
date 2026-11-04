@@ -22,6 +22,7 @@ import { useUpdateInstallment } from "../hooks/use-loans";
 import {
   INSTALLMENT_SPLIT_KEYS,
   INSTALLMENT_SPLIT_LABEL,
+  INSTALLMENT_ZERO_ERROR,
   splitTotal,
   type InstallmentSplit,
   type LoanInstallment,
@@ -29,9 +30,14 @@ import {
 
 type SplitDraft = Record<keyof InstallmentSplit, string>;
 
-function draftOf(split: InstallmentSplit | null, amount: number): SplitDraft {
+// A blank amount seeds a blank capital, not "0,00": blank is no amount.
+function draftOf(
+  split: InstallmentSplit | null,
+  amount: number | null,
+): SplitDraft {
+  const capital = split?.capital ?? amount;
   return {
-    capital: amountToInput(split?.capital ?? amount),
+    capital: capital === null ? "" : amountToInput(capital),
     interest: amountToInput(split?.interest ?? 0),
     iva: amountToInput(split?.iva ?? 0),
     perception: amountToInput(split?.perception ?? 0),
@@ -78,9 +84,15 @@ export function EditInstallmentDialog({
     if (!installment) return;
     const parsedAmount = parseArAmount(amount);
     // A blank amount is no amount: saving it as 0 dropped the cuota from the
-    // schedule.
-    if (!splitOn && parsedAmount === null) {
+    // schedule. With the split on, blank parts are optional but the cuota
+    // still needs a total.
+    const splitBlank = Object.values(split).every((v) => v.trim() === "");
+    if (splitOn ? splitBlank : parsedAmount === null) {
       toast.error("Monto requerido.");
+      return;
+    }
+    if (splitOn ? splitSum <= 0 : (parsedAmount ?? 0) <= 0) {
+      toast.error(INSTALLMENT_ZERO_ERROR);
       return;
     }
     const input =
@@ -147,10 +159,7 @@ export function EditInstallmentDialog({
                 setSplitOn(on);
                 if (on)
                   setSplit(
-                    draftOf(
-                      installment?.split ?? null,
-                      parseArAmount(amount) ?? 0,
-                    ),
+                    draftOf(installment?.split ?? null, parseArAmount(amount)),
                   );
               }}
             />

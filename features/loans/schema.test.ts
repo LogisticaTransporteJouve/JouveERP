@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { canCancelLoan } from "./schema";
+import { UpdateInstallmentSchema, canCancelLoan } from "./schema";
 
 describe("canCancelLoan", () => {
   const loan = {
@@ -25,5 +25,38 @@ describe("canCancelLoan", () => {
 
   it("hides it for a loan already closed", () => {
     expect(canCancelLoan({ ...loan, status: "paid" })).toBe(false);
+  });
+});
+
+// A cuota saved at $0 drops out of the schedule (w7-s6 F3).
+describe("UpdateInstallmentSchema", () => {
+  const id = "00000000-0000-4000-8000-000000000001";
+  const zeroSplit = { capital: 0, interest: 0, iva: 0, perception: 0, other: 0 };
+
+  it("refuses an amount of 0", () => {
+    expect(UpdateInstallmentSchema.safeParse({ id, amount: 0 }).success).toBe(
+      false,
+    );
+  });
+
+  it("refuses a split that sums to 0", () => {
+    expect(
+      UpdateInstallmentSchema.safeParse({ id, split: zeroSplit }).success,
+    ).toBe(false);
+  });
+
+  it("takes a positive amount, a positive split and removing the split", () => {
+    expect(UpdateInstallmentSchema.safeParse({ id, amount: 10 }).success).toBe(
+      true,
+    );
+    expect(
+      UpdateInstallmentSchema.safeParse({
+        id,
+        split: { ...zeroSplit, interest: 5 },
+      }).success,
+    ).toBe(true);
+    expect(UpdateInstallmentSchema.safeParse({ id, split: null }).success).toBe(
+      true,
+    );
   });
 });
