@@ -374,8 +374,8 @@ select throws_ok(
 
 select throws_ok(
   $$insert into public.purchase_invoices
-      (channel_id, supplier_id, kind, punto_venta, numero, fecha, imp_total, status)
-    values ('jouve_fiscal', '00000000-0000-0000-0000-00000000b901', 'factura', 7, 99010, current_date, 10, 'received')$$,
+      (channel_id, supplier_id, kind, punto_venta, numero, fecha, imp_neto, imp_total, status)
+    values ('jouve_fiscal', '00000000-0000-0000-0000-00000000b901', 'factura', 7, 99010, current_date, 10, 10, 'received')$$,
   '23514',
   'Una factura de compra fiscal lleva letra (A, B o C)',
   'a fiscal purchase needs a letter'

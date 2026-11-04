@@ -107,9 +107,21 @@ describe("libroIvaVentasSheet", () => {
       money: -2,
       currency: "ARS",
     });
-    // The PDF hides a non-positive No grav.; so does the sheet.
-    expect(sheet.rows[1]?.[col("No grav.")]).toBeNull();
-    expect(sheet.totals?.[col("No grav.")]).toBeNull();
+    // The PDF hides a non-positive exento; so does the sheet.
+    expect(sheet.rows[1]?.[col("Exento")]).toBeNull();
+    expect(sheet.totals?.[col("Exento")]).toBeNull();
+  });
+
+  it("prints no gravado and exento under their own headings", () => {
+    const sheet = libroIvaVentasSheet({
+      ...book,
+      rows: [row({ imp_tot_conc: "20", imp_op_ex: "10", imp_total: "151" })],
+    });
+    const headers = sheet.columns.map((c) => c.header);
+    const at = (header: string) => sheet.rows[0]?.[headers.indexOf(header)];
+    expect(at("No gravado")).toEqual({ money: 20, currency: "ARS" });
+    expect(at("Exento")).toEqual({ money: 10, currency: "ARS" });
+    expect(headers).not.toContain("No grav.");
   });
 
   it("keeps pesos in the book columns and the original currency beside them", () => {

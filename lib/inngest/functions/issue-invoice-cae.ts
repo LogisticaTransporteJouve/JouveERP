@@ -24,7 +24,8 @@ import { NonRetriableError } from "inngest";
 // (`AttemptStore.record`). A retry first asks AFIP about that number and adopts
 // the CAE only if the registered voucher is this invoice's (same total, date
 // and receptor, and no other live invoice holds that number); otherwise it
-// starts over from the last authorized number. Another live invoice that only
+// starts over from the last authorized number, asking about its number once
+// more when AFIP's last number has reached it. Another live invoice that only
 // ATTEMPTED the number does not block the adoption: an attempt is not proof of
 // a CAE, and an invoice whose outcome stayed unknown keeps its attempt for
 // good (honoring it would request a second CAE for an invoice AFIP already
@@ -104,23 +105,34 @@ function adopt(info: VoucherInfo): InvoiceCAEResult | null {
   };
 }
 
+type RecoverParams = {
+  invoiceId: string;
+  ptoVta: number;
+  cbteTipo: number;
+  expected: VoucherIdentity;
+  afip: Pick<AfipCaePort, "getVoucherInfo">;
+  attempts: Pick<AttemptStore, "othersAt">;
+};
+
 /**
  * The CAE AFIP holds for the number this invoice last sent, when the voucher
  * registered there is this invoice's (same total, date and receptor) and no
  * other live invoice holds that number. Null otherwise. Throws when another
  * live invoice attempted the same number and the voucher matches it too.
  */
-export async function recoverAttempt(params: {
-  invoiceId: string;
-  ptoVta: number;
-  cbteTipo: number;
-  expected: VoucherIdentity;
-  afip: Pick<AfipCaePort, "getVoucherInfo">;
-  attempts: Pick<AttemptStore, "read" | "othersAt">;
-}): Promise<InvoiceCAEResult | null> {
-  const { invoiceId, ptoVta, cbteTipo, expected, afip, attempts } = params;
-  const previous = await attempts.read();
+export async function recoverAttempt(
+  params: RecoverParams & { attempts: Pick<AttemptStore, "read"> },
+): Promise<InvoiceCAEResult | null> {
+  const previous = await params.attempts.read();
   if (previous === null) return null;
+  return recoverNumber(params, previous);
+}
+
+async function recoverNumber(
+  params: RecoverParams,
+  previous: number,
+): Promise<InvoiceCAEResult | null> {
+  const { invoiceId, ptoVta, cbteTipo, expected, afip, attempts } = params;
   const info = await afip.getVoucherInfo(ptoVta, cbteTipo, previous);
   if (!info || !voucherMatches(info, expected)) return null;
   const others = await attempts.othersAt(previous);
@@ -163,17 +175,21 @@ export async function reserveNumberAndRequestCae(params: {
   // A previous attempt of this step may have reached AFIP and lost the
   // response (or crashed before the step finished). Recover that CAE instead
   // of authorizing the same invoice a second time under a new number.
-  const recovered = await recoverAttempt({
-    invoiceId,
-    ptoVta,
-    cbteTipo,
-    expected,
-    afip,
-    attempts,
-  });
-  if (recovered) return recovered;
+  const recover = { invoiceId, ptoVta, cbteTipo, expected, afip, attempts };
+  const previous = await attempts.read();
+  if (previous !== null) {
+    const recovered = await recoverNumber(recover, previous);
+    if (recovered) return recovered;
+  }
 
-  const cbteNro = (await afip.getLastAuthorizedNumber(ptoVta, cbteTipo)) + 1;
+  const last = await afip.getLastAuthorizedNumber(ptoVta, cbteTipo);
+  if (previous !== null && last >= previous) {
+    // AFIP may have committed the timed-out request between the consult above
+    // and this read: ask about that number again before taking a new one.
+    const recovered = await recoverNumber(recover, previous);
+    if (recovered) return recovered;
+  }
+  const cbteNro = last + 1;
   await attempts.record(cbteNro);
 
   try {
@@ -205,6 +221,12 @@ export async function reserveNumberAndRequestCae(params: {
       }
       throw err; // genuine transport failure — let Inngest retry
     }
+    // An earlier attempt of this run sent a number and never learned its
+    // outcome, so AFIP may still be processing that request: keep retrying
+    // (recovery adopts that CAE once AFIP commits it), and once retries run
+    // out onFailure leaves the invoice to issue-invoice-reconcile instead of
+    // failing it at once.
+    if (previous !== null) throw err;
     // service / soap-fault / config / input errors are deterministic:
     // retrying re-sends the same rejected payload and holds the invoice in
     // "emitting" for the whole retry schedule. Fail fast.

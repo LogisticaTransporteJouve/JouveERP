@@ -207,11 +207,16 @@ export const caeaInform = inngest.createFunction(
             }
           }
           alreadyDone.add(pv);
-          declared += 1;
-          await supabase
+          // emit_caea_invoice refuses a voucher only for a PV listed here: a
+          // lost write throws, and the retry re-files idempotently.
+          const { error: recordErr } = await supabase
             .from("caea_codes")
             .update({ no_movement_pvs: [...alreadyDone] })
             .eq("id", code.id);
+          if (recordErr) {
+            throw new Error(`caea-no-movement-record: ${recordErr.message}`);
+          }
+          declared += 1;
         }
       }
       return declared;

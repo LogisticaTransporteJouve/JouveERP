@@ -162,6 +162,45 @@ export function itemsDoubleCountExempt(d: {
   );
 }
 
+export const PURCHASE_TOTAL_MISMATCH_MESSAGE =
+  "Los importes no suman el total: neto + IVA + otros tributos + no gravado + exento tienen que dar el total del comprobante.";
+
+export type PurchaseTotalParts = {
+  imp_neto: number;
+  imp_iva: number;
+  imp_trib: number;
+  imp_no_gravado: number;
+  imp_op_exentas: number;
+  imp_total: number;
+};
+
+export const PURCHASE_TOTAL_PART_FIELDS = [
+  "imp_neto",
+  "imp_iva",
+  "imp_trib",
+  "imp_no_gravado",
+  "imp_op_exentas",
+  "imp_total",
+] as const satisfies readonly (keyof PurchaseTotalParts)[];
+
+/** imp_total minus the sum of its parts, rounded to cents; null within a
+ *  cent (the journal credits the supplier the parts, the statement the
+ *  total). Same formula as guard_purchase_invoice_total, which the database
+ *  applies to fiscal purchases only. */
+export function purchaseTotalGap(p: PurchaseTotalParts): number | null {
+  const gap =
+    Math.round(
+      (p.imp_total -
+        (p.imp_neto +
+          p.imp_iva +
+          p.imp_trib +
+          p.imp_no_gravado +
+          p.imp_op_exentas)) *
+        100,
+    ) / 100;
+  return Math.abs(gap) > 0.01 ? gap : null;
+}
+
 const optionalUuid = z
   .union([z.literal(""), z.string().uuid()])
   .transform((v) => (v === "" ? null : v))
@@ -231,8 +270,15 @@ export const PurchaseInvoiceCreateSchema = z
   .refine((d) => !itemsDoubleCountExempt(d), {
     message: EXEMPT_ITEMS_MESSAGE,
     path: ["items"],
+  })
+  .refine((d) => purchaseTotalGap(d) === null, {
+    message: PURCHASE_TOTAL_MISMATCH_MESSAGE,
+    path: ["imp_total"],
   });
 
+// An edit sends only what it changes: no field here has a default (Zod applies
+// an inner default under .optional(), which would overwrite the stored value),
+// and the action checks the total against the amounts merged with the row.
 export const PurchaseInvoiceUpdateSchema = z
   .object({
     id: z.string().uuid(),
@@ -247,8 +293,6 @@ export const PurchaseInvoiceUpdateSchema = z
     numero: baseFields.numero.optional(),
     fecha: baseFields.fecha.optional(),
     fch_vto_pago: baseFields.fch_vto_pago,
-    // No defaults here: a field the edit leaves out stays as it is (a
-    // .default() inside .optional() would fill it and overwrite the row).
     imp_neto: positiveAmount.optional(),
     imp_iva: positiveAmount.optional(),
     imp_trib: positiveAmount.optional(),

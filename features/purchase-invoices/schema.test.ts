@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  PURCHASE_TOTAL_MISMATCH_MESSAGE,
   PurchaseInvoiceCancelSchema,
   PurchaseInvoiceCreateSchema,
   PurchaseInvoiceItemSchema,
@@ -117,6 +118,8 @@ describe("PurchaseInvoiceCreateSchema", () => {
     punto_venta: 1,
     numero: 1,
     fecha: "2026-05-17",
+    imp_neto: 100,
+    imp_iva: 21,
     imp_total: 121,
   };
 
@@ -150,12 +153,37 @@ describe("PurchaseInvoiceCreateSchema", () => {
       PurchaseInvoiceCreateSchema.safeParse({
         ...valid,
         imp_op_exentas: 50,
+        imp_total: 171,
         items: [item],
       }).success,
     ).toBe(false);
     expect(
       PurchaseInvoiceCreateSchema.safeParse({ ...valid, items: [item] })
         .success,
+    ).toBe(true);
+  });
+
+  it("refuses a total that is not the sum of its parts", () => {
+    // 290 of peajes left out of "No gravado".
+    const r = PurchaseInvoiceCreateSchema.safeParse({
+      ...valid,
+      imp_neto: 1000,
+      imp_iva: 210,
+      imp_total: 1500,
+    });
+    expect(r.success).toBe(false);
+    expect(r.error?.issues[0]).toMatchObject({
+      path: ["imp_total"],
+      message: PURCHASE_TOTAL_MISMATCH_MESSAGE,
+    });
+    expect(
+      PurchaseInvoiceCreateSchema.safeParse({
+        ...valid,
+        imp_neto: 1000,
+        imp_iva: 210,
+        imp_no_gravado: 290,
+        imp_total: 1500.01,
+      }).success,
     ).toBe(true);
   });
 
@@ -203,6 +231,8 @@ describe("PurchaseInvoiceCreateSchema — foreign currency", () => {
     punto_venta: 1,
     numero: 1,
     fecha: "2026-10-16",
+    imp_neto: 100,
+    imp_iva: 21,
     imp_total: 121,
   };
 
@@ -235,6 +265,11 @@ describe("PurchaseInvoiceUpdateSchema", () => {
     const r = PurchaseInvoiceUpdateSchema.parse({ id: UUID, notes: "x" });
     expect(r.imp_perc_iibb).toBeUndefined();
     expect(r.imp_op_exentas).toBeUndefined();
+  });
+
+  it("leaves the amounts and the currency out when the edit does not send them", () => {
+    const r = PurchaseInvoiceUpdateSchema.parse({ id: UUID, notes: "x" });
+    expect(r).toEqual({ id: UUID, notes: "x" });
   });
 });
 

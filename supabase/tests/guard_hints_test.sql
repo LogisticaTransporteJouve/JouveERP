@@ -42,8 +42,8 @@ select is(
 
 select is(
   pg_temp.hint_of($$insert into public.purchase_invoices
-      (channel_id, supplier_id, kind, letter, punto_venta, numero, fecha, imp_total, status, invoice_origin_id)
-    values ('jouve_fiscal', '00000000-0000-0000-0000-00000000b302', 'nc', 'A', 1, 51, current_date, 10,
+      (channel_id, supplier_id, kind, letter, punto_venta, numero, fecha, imp_neto, imp_total, status, invoice_origin_id)
+    values ('jouve_fiscal', '00000000-0000-0000-0000-00000000b302', 'nc', 'A', 1, 51, current_date, 10, 10,
             'received', '00000000-0000-0000-0000-0000000005c1')$$),
   'jouve_guard',
   'guard_purchase_invoice_origin'

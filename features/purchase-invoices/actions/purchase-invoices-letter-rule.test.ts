@@ -77,9 +77,12 @@ beforeEach(() => {
   stored = {
     channel_id: CHANNEL_FISCAL,
     letter: "A",
+    imp_neto: 100,
     imp_iva: 21,
+    imp_trib: 0,
     imp_no_gravado: 0,
     imp_op_exentas: 40,
+    imp_total: 161,
   };
 });
 
@@ -111,14 +114,71 @@ describe("letter rule on create", () => {
       letter: "A",
       imp_iva: 21,
       imp_op_exentas: 10,
+      imp_total: 131,
     });
     expect(writes).toEqual(["insert:purchase_invoices"]);
   });
 });
 
+describe("total rule", () => {
+  const MISMATCH =
+    "Los importes no suman el total: neto + IVA + otros tributos + no gravado + exento tienen que dar el total del comprobante.";
+
+  it("refuses a create whose parts do not add up to the total", async () => {
+    const res = await createPurchaseInvoiceAction({
+      ...create,
+      letter: "A",
+      imp_neto: 1000,
+      imp_iva: 210,
+      imp_total: 1500,
+    });
+    expect(res).toEqual({ ok: false, error: MISMATCH });
+    expect(writes).toEqual([]);
+  });
+
+  it("refuses an edit whose amounts, merged with the stored ones, leave a gap", async () => {
+    const res = await updatePurchaseInvoiceAction({
+      id: INVOICE_ID,
+      imp_neto: 150,
+    });
+    expect(res).toEqual({ ok: false, error: MISMATCH });
+    expect(writes).toEqual([]);
+  });
+
+  it("checks an internal purchase too", async () => {
+    stored = { ...stored, channel_id: CHANNEL_INTERNAL, letter: null };
+    const res = await updatePurchaseInvoiceAction({
+      id: INVOICE_ID,
+      imp_total: 200,
+    });
+    expect(res).toEqual({ ok: false, error: MISMATCH });
+  });
+
+  it("lets an old row whose total and parts differ save an edit that keeps its amounts", async () => {
+    stored = { ...stored, imp_total: 451 };
+    await updatePurchaseInvoiceAction({
+      id: INVOICE_ID,
+      imp_neto: 100,
+      imp_iva: 21,
+      imp_total: 451,
+      notes: "revisada",
+    });
+    expect(writes).toEqual(["update:purchase_invoices"]);
+  });
+
+  it("lets that row through once the gap goes to no gravado", async () => {
+    stored = { ...stored, imp_total: 451 };
+    await updatePurchaseInvoiceAction({
+      id: INVOICE_ID,
+      imp_no_gravado: 290,
+    });
+    expect(writes).toEqual(["update:purchase_invoices"]);
+  });
+});
+
 describe("letter rule and items on update", () => {
   it("refuses switching a stored A with IVA to B", async () => {
-    stored = { ...stored, imp_op_exentas: 0 };
+    stored = { ...stored, imp_op_exentas: 0, imp_total: 121 };
     const res = await updatePurchaseInvoiceAction({
       id: INVOICE_ID,
       letter: "B",
@@ -168,11 +228,13 @@ describe("letter rule and items on update", () => {
       channel_id: CHANNEL_INTERNAL,
       letter: "B",
       imp_op_exentas: 0,
+      imp_total: 121,
     };
     await updatePurchaseInvoiceAction({
       id: INVOICE_ID,
       letter: "B",
       imp_iva: 30,
+      imp_total: 130,
     });
     expect(writes).toEqual(["update:purchase_invoices"]);
   });
@@ -183,6 +245,7 @@ describe("letter rule and items on update", () => {
       channel_id: CHANNEL_INTERNAL,
       letter: "B",
       imp_op_exentas: 0,
+      imp_total: 121,
     };
     const res = await updatePurchaseInvoiceAction({
       id: INVOICE_ID,
