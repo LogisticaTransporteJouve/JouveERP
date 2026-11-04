@@ -86,9 +86,10 @@ export const ChequeCreateSchema = z.object({
   amount: moneyAmount,
   currency: z.enum(CHEQUE_CURRENCIES),
   cartera_account_id: z.string().uuid("Cuenta de cartera requerida."),
-  source_kind: z.enum(["receipt", "manual"]).default("manual"),
-  source_receipt_id: z.string().uuid().nullable().optional(),
-  source_payment_line_id: z.string().uuid().nullable().optional(),
+  // A receipt's check is written only by its receipt (create_receipt /
+  // update_receipt); a check loaded here is always manual and tied to no
+  // receipt (guard_check_edit refuses anything else).
+  source_kind: z.literal("manual").default("manual"),
   source_client_id: z.string().uuid().nullable().optional(),
   notes: trimmedNullable,
 });
