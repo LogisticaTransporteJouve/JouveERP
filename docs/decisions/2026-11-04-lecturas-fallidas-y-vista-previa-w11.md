@@ -25,4 +25,5 @@ una factura de compra escaneada y en la revisión de un documento): el
 spinner «Cargando archivo…» se muestra solo mientras se pide la URL
 firmada. Si el pedido falla, dice «No se pudo cargar el archivo.» con
 «Reintentar», que vuelve a pedirla. Antes, una URL que no llegaba quedaba
-cargando para siempre.
+cargando para siempre. En el celular, donde el borrador muestra solo el
+enlace «Ver <archivo>», el error y «Reintentar» van en su lugar.

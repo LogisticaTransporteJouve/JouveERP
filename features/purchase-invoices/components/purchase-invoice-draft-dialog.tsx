@@ -4,6 +4,7 @@ import { ExternalLink } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { FilePreviewSurface } from "@/components/file-preview/file-preview-surface";
+import { ReadError } from "@/components/read-error";
 import {
   Dialog,
   DialogContent,
@@ -56,6 +57,13 @@ function SourcePreview({ source }: { source: PurchaseInvoiceDraftSource }) {
           className="h-full w-full"
         />
       </div>
+      {!url && !loading && (
+        <ReadError
+          message="No se pudo cargar el archivo."
+          onRetry={retry}
+          className="px-4 pt-3 text-xs lg:hidden"
+        />
+      )}
       {url && (
         <a
           href={url}
