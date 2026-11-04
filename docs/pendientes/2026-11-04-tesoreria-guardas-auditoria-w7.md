@@ -4,9 +4,10 @@ Ver [la decisión](../decisions/2026-11-04-tesoreria-documentos-escritos-por-sus
 
 - [x] **Un cheque propio sale de «emitido» una sola vez** (`20261104140000`).
       Un PATCH de un cheque cobrado a «emitido», o de cobrado a rechazado,
-      se rechaza. Antes, el segundo «Cobrado» registraba otra vez el egreso
-      y el asiento, y el rechazo de un cheque cobrado creaba deuda con el
-      proveedor.
+      se rechaza. Antes, en un cheque cobrado de una OP, volverlo a
+      «emitido» y cobrarlo otra vez duplicaba el asiento, y rechazarlo
+      registraba un ingreso al banco. Pasarlo de cobrado a rechazado creaba
+      deuda con el proveedor.
 - [x] **La cabecera de un recibo o de una OP cambia solo por su RPC**
       (`20261104140001`). Un documento anulado no vuelve a emitido. El
       monto, el cliente o proveedor, el canal, la fecha y el número cambian

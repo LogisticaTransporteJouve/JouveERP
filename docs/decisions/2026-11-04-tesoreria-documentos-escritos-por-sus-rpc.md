@@ -6,9 +6,10 @@ reescribir la plata de Tesorería.
 
 - **Cheque propio.** Sale de «emitido» una sola vez: a cobrado, rechazado o
   anulado (`guard_issued_check_edit`, `20261104140000`). Se inserta
-  emitido. Volver a «emitido», o pasar de cobrado a rechazado, duplicaba el
-  egreso del banco y el asiento, o inventaba una deuda con el proveedor por
-  un cheque que el banco pagó.
+  emitido. Antes, un cheque cobrado de una OP podía volver a «emitido». Un
+  segundo «Cobrado» duplicaba el asiento del cobro. Un «Rechazado» registraba
+  un ingreso al banco y la reversión de la deuda por un cheque que el banco
+  pagó. Pasarlo de cobrado a rechazado dejaba al proveedor debiéndolo.
 - **Cabecera de recibo y de OP.** El estado pasa solo de emitido a anulado.
   El monto, la moneda, la cotización, el cliente o proveedor, el canal, la
   fecha y el número cambian solo dentro de `update_receipt` /

@@ -6,10 +6,10 @@ SET LOCAL statement_timeout = '15min';
 -- (issued_check_cashed_outflow, issued_check_rejected_inflow,
 -- emit_journal_for_issued_check_transition) and trusts that the check never
 -- left it before. RLS lets owner, admin and finance PATCH every column, so
--- {"status":"emitted","cashed_at":null} on a cashed check, then «Cobrado»
--- again, booked the bank outflow and its entry twice; cashed → rejected
--- invented a supplier debt (v_supplier_rejected_check_open) for a check the
--- bank paid.
+-- {"status":"emitted","cashed_at":null} on an order's cashed check, then
+-- «Cobrado» again, posted the cashing entry twice; «Rechazado» instead booked
+-- a bank inflow and a reversal for a check the bank paid; and cashed →
+-- rejected made the supplier owe it (v_supplier_rejected_check_open).
 --
 -- The writers only move a check out of 'emitted':
 -- transitionIssuedCheckAction (filtered on status = 'emitted') and
