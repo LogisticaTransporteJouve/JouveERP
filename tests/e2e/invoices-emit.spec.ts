@@ -21,14 +21,12 @@ test.describe("AFIP smoke — emite factura y espera CAE", () => {
     const dialog = page.getByRole("dialog", { name: /nuevo comprobante/i });
     await expect(dialog).toBeVisible();
 
-    // No default channel with several active ones: pick Jouve Fiscal.
-    await dialog
-      .getByRole("combobox")
-      .filter({ hasText: /elegí un canal/i })
-      .click();
-    await page
-      .getByRole("option", { name: /logística jouve.*fiscal/i })
-      .click();
+    // Ventas preselects Jouve Fiscal.
+    await expect(
+      dialog
+        .getByRole("combobox")
+        .filter({ hasText: /logística jouve.*fiscal/i }),
+    ).toBeVisible();
 
     const search = dialog.getByPlaceholder(/buscar por razón social/i);
     await search.click();
