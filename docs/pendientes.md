@@ -443,6 +443,14 @@ mitigación en el schema: el límite se respeta operando.
       `retries: 0`) y botón «Traer de ARCA» con período en la bandeja.
 - [ ] Probar el robot contra ARCA desde producción (región `gru1`): el
       recorrido sale de la grabación del owner, nunca corrió de punta a punta.
+- [x] Robot más seguro (auditoría w4): solo habla con `afip.gob.ar` y
+      `afip.gov.ar` por https y la clave no sigue una redirección a otro
+      sitio; dos ingresos fallidos seguidos frenan la cuenta
+      (`20261104120000`, compare-and-set sobre las credenciales leídas); un
+      mes cuyas filas no coinciden con `recordsTotal` falla; tope de 200 s
+      por corrida; un comprobante se vincula solo si el total también
+      coincide; el centavo de redondeo de ARCA va a no gravado (A) o al neto
+      (B/C) al aceptar.
 - [ ] Avisar por notificación a owner y admin cuando ARCA rechaza la clave
       (hoy lo muestran la bandeja y Admin → AFIP).
 - [x] Lector validado con una consulta real de Recibidos (A con otros
@@ -579,13 +587,13 @@ mitigación en el schema: el límite se respeta operando.
       la app las valida igual.
 ## Tesorería y Gestión: auditoría w4 (2026-11-04)
 
-- [x] **Cheque propio de una OP fijo a la OP** (`20261104114500`): la base
+- [x] **Cheque propio de una OP fijo a la OP** (`20261104120200`): la base
       rechaza cambiarle la OP, el monto, la moneda o la cuenta (antes solo
       lo frenaba la app; un PATCH por PostgREST hacía que cobrarlo o
       rechazarlo contara la plata dos veces). Las filas existentes no se
       tocan; producción no tiene OP.
 - [x] **Gestión en percibido, OP que paga un cheque rechazado**
-      (`20261104114501`): esa parte de la OP toma las proporciones de la OP
+      (`20261104120201`): esa parte de la OP toma las proporciones de la OP
       que entregó el cheque (empleado, flota, neutro), así una compra neutra
       pagada con un cheque que rebotó y se volvió a pagar suma 0.
 - [ ] La cadena de rebotes se sigue hasta 3 OP hacia atrás; más allá, esa

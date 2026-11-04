@@ -1,4 +1,4 @@
--- Resultado de gestión, cash basis (20261104114501): a payment order that
+-- Resultado de gestión, cash basis (20261104120201): a payment order that
 -- pays a bounced check takes the shares of the order that delivered it. A
 -- purchase on an account mapped to neutral, paid with a check that bounced
 -- and then paid again, adds 0, for an own check and for an endorsed one.

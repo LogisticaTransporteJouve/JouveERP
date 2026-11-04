@@ -5,6 +5,7 @@ import { z } from "zod";
 import { logAudit } from "@/lib/actions/audit";
 import {
   getArcaWebAccountStatus,
+  type ArcaSyncRun,
   type ArcaWebAccountState,
 } from "@/lib/afip/arca-web-account";
 import { requireUserContext } from "@/lib/auth/context";
@@ -21,6 +22,7 @@ export type ArcaSyncStatus = {
   state: ArcaWebAccountState;
   lastSuccessAt: string | null;
   lastErrorCode: string | null;
+  sync: ArcaSyncRun;
 };
 
 /** Whether «Traer de ARCA» can run: the stored user's state, never the clave
@@ -42,6 +44,7 @@ export async function getArcaSyncStatusAction(): Promise<
       state: status.state,
       lastSuccessAt: status.lastSuccessAt,
       lastErrorCode: status.lastErrorCode,
+      sync: status.sync,
     },
   };
 }
@@ -91,8 +94,23 @@ export async function requestArcaReceivedSyncAction(
     return {
       ok: false,
       error:
-        "ARCA rechazó la clave guardada: un owner o admin tiene que actualizarla en Admin → AFIP → Puntos de venta.",
+        "JouveERP dejó de entrar a ARCA con la clave guardada: un owner o admin tiene que volver a cargarla en Admin → AFIP → Puntos de venta.",
     };
+  }
+
+  // Stamped before the send: the tray starts following the run at once, and a
+  // send that fails leaves a request that never starts, which the tray reads
+  // as «no arrancó».
+  const service = getServiceClient();
+  const { error: stampError } = await service
+    .from("arca_web_account")
+    .update({ sync_requested_at: new Date().toISOString() })
+    .eq("id", true);
+  if (stampError) {
+    logger.error("arca_received_sync.stamp_failed", {
+      userId: ctx.userId,
+      code: stampError.code,
+    });
   }
 
   const { inngest } = await import("@/lib/inngest/client");

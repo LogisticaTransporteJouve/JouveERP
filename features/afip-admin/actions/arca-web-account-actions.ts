@@ -54,6 +54,19 @@ export async function setArcaWebCredentialsAction(
   if (before.state === "missing" && parsed.data.password === null) {
     return { ok: false, error: "Falta la clave." };
   }
+  // A stopped account starts again only with a new clave (or a new user):
+  // saving the same CUIT alone would leave it stopped and look saved.
+  if (
+    before.state === "rejected" &&
+    parsed.data.password === null &&
+    before.cuit === parsed.data.cuit
+  ) {
+    return {
+      ok: false,
+      error:
+        "JouveERP dejó de entrar a ARCA con esta clave: cargá la clave para volver a intentar.",
+    };
+  }
   const { error } = await supabase.rpc("set_arca_web_credentials", {
     p_cuit: parsed.data.cuit,
     p_user_id: ctx.userId,

@@ -1,5 +1,5 @@
 -- Audit w4-s2 F1: an own check a payment order issued keeps that order,
--- amount, currency and bank account (20261104114500); the order's own edit
+-- amount, currency and bank account (20261104120200); the order's own edit
 -- and cancellation still work. One transaction, rolled back.
 
 select set_config('request.jwt.claims', '{"role":"service_role"}', true);
