@@ -131,6 +131,7 @@ type FormValues = {
   imp_no_gravado: string;
   imp_op_exentas: string;
   imp_perc_iva: string;
+  imp_perc_nacionales: string;
   imp_perc_iibb: string;
   imp_perc_municipales: string;
   imp_impuestos_internos: string;
@@ -151,6 +152,7 @@ type BreakdownValues = Pick<
   | "imp_no_gravado"
   | "imp_op_exentas"
   | "imp_perc_iva"
+  | "imp_perc_nacionales"
   | "imp_perc_iibb"
   | "imp_perc_municipales"
   | "imp_impuestos_internos"
@@ -161,6 +163,7 @@ function breakdownValues(b: PurchaseAmountBreakdown): BreakdownValues {
     imp_no_gravado: String(b.imp_no_gravado),
     imp_op_exentas: String(b.imp_op_exentas),
     imp_perc_iva: String(b.imp_perc_iva),
+    imp_perc_nacionales: String(b.imp_perc_nacionales),
     imp_perc_iibb: String(b.imp_perc_iibb),
     imp_perc_municipales: String(b.imp_perc_municipales),
     imp_impuestos_internos: String(b.imp_impuestos_internos),
@@ -175,6 +178,7 @@ function breakdownToValues(inv: PurchaseInvoice | undefined): BreakdownValues {
     imp_no_gravado: "0",
     imp_op_exentas: "0",
     imp_perc_iva: "0",
+    imp_perc_nacionales: "0",
     imp_perc_iibb: inv ? String(inv.imp_trib) : "0",
     imp_perc_municipales: "0",
     imp_impuestos_internos: "0",
@@ -753,12 +757,14 @@ export function PurchaseInvoiceForm({
       isInternal || trib === 0
         ? {
             imp_perc_iva: 0,
+            imp_perc_nacionales: 0,
             imp_perc_iibb: trib,
             imp_perc_municipales: 0,
             imp_impuestos_internos: 0,
           }
         : {
             imp_perc_iva: Number(values.imp_perc_iva || 0),
+            imp_perc_nacionales: Number(values.imp_perc_nacionales || 0),
             imp_perc_iibb: Number(values.imp_perc_iibb || 0),
             imp_perc_municipales: Number(values.imp_perc_municipales || 0),
             imp_impuestos_internos: Number(values.imp_impuestos_internos || 0),

@@ -1,5 +1,14 @@
-import { foldNonComputable } from "@/lib/afip/codes";
-import { formatMoney, round2 } from "@/lib/format";
+import {
+  foldNonComputable,
+  IVA_RATE,
+  IVA_RATE_PERCENT,
+  ivaIsComputable,
+} from "@/lib/afip/codes";
+import { round2 } from "@/lib/format";
+import {
+  suggestTributeSplit,
+  TRIBUTE_SUGGESTION_NOTE,
+} from "@/lib/purchases/tribute-split";
 
 import type {
   PURCHASE_TRIBUTE_FIELDS,
@@ -18,6 +27,9 @@ export type ReceivedAmounts = {
   imp_trib: number;
   imp_total: number;
 };
+
+/** The gap ARCA's rounding may leave between a voucher's parts and total. */
+const ROUNDING_CENT = 0.01;
 
 /** The amounts a purchase from this voucher carries: letter A as ARCA lists
  *  them; on B and C, IVA, exento and no gravado go inside the net. Shared by
@@ -40,6 +52,24 @@ export function receivedVoucherAmounts(
     imp_op_exentas: voucher.imp_op_exentas,
     imp_iva: voucher.imp_iva,
   });
+  // A purchase's parts add up to its total to the cent; ARCA's own rounding
+  // can leave one. It goes where it changes no tax: no gravado on an A (the
+  // net when that would go negative), the net on a B or C (all net there).
+  const gap = round2(
+    voucher.imp_total -
+      (parts.imp_neto +
+        parts.imp_no_gravado +
+        parts.imp_op_exentas +
+        parts.imp_iva +
+        voucher.imp_trib),
+  );
+  if (gap !== 0 && Math.abs(gap) <= ROUNDING_CENT) {
+    if (voucher.letter === "A" && parts.imp_no_gravado + gap >= 0) {
+      parts.imp_no_gravado = round2(parts.imp_no_gravado + gap);
+    } else {
+      parts.imp_neto = round2(parts.imp_neto + gap);
+    }
+  }
   return { ...parts, imp_trib: voucher.imp_trib, imp_total: voucher.imp_total };
 }
 
@@ -50,15 +80,59 @@ export function receivedTributeSplit(
   const b = voucher.trib_breakdown;
   const split: Partial<Record<TributeField, number>> = {};
   if (b.perc_iva !== undefined) split.imp_perc_iva = b.perc_iva;
+  if (b.perc_nacionales !== undefined) {
+    split.imp_perc_nacionales = b.perc_nacionales;
+  }
   if (b.perc_iibb !== undefined) split.imp_perc_iibb = b.perc_iibb;
   if (b.municipales !== undefined) split.imp_perc_municipales = b.municipales;
   if (b.internos !== undefined) split.imp_impuestos_internos = b.internos;
   return split;
 }
 
+/** The alícuotas a received voucher with only neto and IVA totals is read
+ *  against: 21 % (most), 10,5 % (vehicles, bank interest), 27 % (telephony,
+ *  energy). */
+const HEADER_ONLY_RATES = [
+  IVA_RATE.TWENTY_ONE,
+  IVA_RATE.TEN_FIVE,
+  IVA_RATE.TWENTY_SEVEN,
+] as const;
+
+/** How far the IVA may be from neto × alícuota: 0,5 % of that amount, and at
+ *  least a cent for rounding. */
+const HEADER_ONLY_RATE_TOLERANCE = 0.005;
+
+/**
+ * The alícuota of a voucher that gives only its neto and IVA totals: the
+ * nearest of 21, 10,5 and 27 % within tolerance. Anything else (several
+ * alícuotas mixed) falls back to 21 % with `mixed`, for the user to review.
+ * Null when there is no IVA to read a rate from.
+ */
+export function inferVoucherIvaRate(
+  neto: number,
+  iva: number,
+): { iva_rate_id: (typeof HEADER_ONLY_RATES)[number]; mixed: boolean } | null {
+  if (!(neto > 0) || !(iva > 0)) return null;
+  let best: { id: (typeof HEADER_ONLY_RATES)[number]; gap: number } | null =
+    null;
+  for (const id of HEADER_ONLY_RATES) {
+    const expected = (neto * IVA_RATE_PERCENT[id]) / 100;
+    const gap = Math.abs(iva - expected);
+    if (gap > Math.max(0.01, expected * HEADER_ONLY_RATE_TOLERANCE)) continue;
+    if (!best || gap < best.gap) best = { id, gap };
+  }
+  return best
+    ? { iva_rate_id: best.id, mixed: false }
+    : { iva_rate_id: IVA_RATE.TWENTY_ONE, mixed: true };
+}
+
+const MIXED_RATES_WARNING =
+  "ARCA no detalla las alícuotas y el IVA no coincide con 21 %, 10,5 % ni 27 % del neto: se carga al 21 %. Revisá las alícuotas.";
+
 /** One line per alícuota for a letter A voucher whose export lists them and
  *  ties to the cent with its neto and IVA (the items would rewrite the
- *  header); empty otherwise, and the purchase is saved header-only. */
+ *  header); one line at the inferred alícuota when the export gives only the
+ *  totals; empty otherwise, and the purchase is saved header-only. */
 export function receivedVoucherItems(
   voucher: Pick<
     ReceivedVoucher,
@@ -74,7 +148,25 @@ export function receivedVoucherItems(
   line_total: number;
   sort_order: number;
 }[] {
-  if (voucher.letter !== "A" || voucher.iva_breakdown.length === 0) return [];
+  if (voucher.letter !== "A") return [];
+  if (voucher.iva_breakdown.length === 0) {
+    const neto = round2(voucher.imp_neto_gravado);
+    const iva = round2(voucher.imp_iva);
+    const rate = inferVoucherIvaRate(neto, iva);
+    if (!rate) return [];
+    return [
+      {
+        description: "Según ARCA → Mis Comprobantes",
+        quantity: 1,
+        unit_price: neto,
+        iva_rate_id: rate.iva_rate_id,
+        line_neto: neto,
+        line_iva: iva,
+        line_total: round2(neto + iva),
+        sort_order: 0,
+      },
+    ];
+  }
   const sum = (pick: (l: ReceivedVoucher["iva_breakdown"][number]) => number) =>
     round2(voucher.iva_breakdown.reduce((a, l) => a + pick(l), 0));
   if (
@@ -100,15 +192,30 @@ export function arcaVoucherToDraft(
   voucher: ReceivedVoucher,
 ): PurchaseInvoiceDraftData {
   const amounts = receivedVoucherAmounts(voucher);
-  const tributes = receivedTributeSplit(voucher);
+  let tributes = receivedTributeSplit(voucher);
   const kind = voucher.kind ?? "factura";
   const warnings: string[] = [];
   if (kind !== "factura") warnings.push("NC/ND: elegí la factura de origen.");
   if (voucher.moneda === "DOL") warnings.push("USD: revisá la cotización.");
+  if (
+    voucher.letter === "A" &&
+    voucher.iva_breakdown.length === 0 &&
+    inferVoucherIvaRate(voucher.imp_neto_gravado, voucher.imp_iva)?.mixed
+  ) {
+    warnings.push(MIXED_RATES_WARNING);
+  }
   if (amounts.imp_trib > 0 && Object.keys(tributes).length === 0) {
-    warnings.push(
-      `Repartí los otros tributos (${formatMoney(amounts.imp_trib)}) entre percepción IVA, IIBB, municipales e impuestos internos.`,
-    );
+    // ARCA gives only the total: a suggestion the user confirms or edits.
+    const suggestion = suggestTributeSplit({
+      trib: amounts.imp_trib,
+      netoGravado: amounts.imp_neto,
+      ivaComputable: ivaIsComputable(voucher.letter),
+      history: voucher.tribute_history ?? null,
+    });
+    if (suggestion) {
+      tributes = suggestion.split;
+      warnings.push(TRIBUTE_SUGGESTION_NOTE[suggestion.basis]);
+    }
   }
   return {
     supplier: voucher.supplier,

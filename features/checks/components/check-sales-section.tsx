@@ -201,10 +201,14 @@ function PayDebtDialog({
 export function CheckSalesSection({
   canWrite,
   canPay,
+  payDeniedReason = null,
 }: {
   canWrite: boolean;
-  /** cheques:write plus accounts:read: paying picks the account. */
+  /** CHECK_SALE_DEBT_PAY_PERMISSIONS plus accounts:read: paying moves money
+   *  from an account the user picks. */
   canPay: boolean;
+  /** Shown on a disabled Pagar when the user lacks transactions:write. */
+  payDeniedReason?: string | null;
 }) {
   const sales = useCheckSales();
   const debts = useCheckSaleDebts();
@@ -299,7 +303,7 @@ export function CheckSalesSection({
                     <span className="tabular-nums">
                       {formatMoneyWithCode(d.amount, d.currency)}
                     </span>
-                    {canPay && (
+                    {canPay ? (
                       <Button
                         variant="outline"
                         size="sm"
@@ -308,6 +312,20 @@ export function CheckSalesSection({
                         <Banknote className="size-4" />
                         Pagar
                       </Button>
+                    ) : (
+                      payDeniedReason && (
+                        <span title={payDeniedReason}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled
+                            aria-label={`Pagar: ${payDeniedReason}`}
+                          >
+                            <Banknote className="size-4" />
+                            Pagar
+                          </Button>
+                        </span>
+                      )
                     )}
                   </span>
                 </li>

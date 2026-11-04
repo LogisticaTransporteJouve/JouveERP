@@ -438,7 +438,7 @@ export async function requestCaeaNowAction(): Promise<
   return { ok: true, data: { current: currentCaea, next: nextCaea } };
 }
 
-/** Queues the ARCA → ERP import of issued vouchers (same job as the hourly
+/** Queues the ARCA → ERP import of issued vouchers (same job as the nightly
  *  cron). Returns when it was queued so the caller can count what lands. */
 export async function requestArcaSyncAction(): Promise<
   ActionResult<{ requestedAt: string }>

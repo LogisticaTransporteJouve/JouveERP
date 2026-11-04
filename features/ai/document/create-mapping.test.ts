@@ -3,11 +3,14 @@ import { describe, expect, it } from "vitest";
 import { draftToFormPatch } from "@/features/purchase-invoices/lib/purchase-invoice-draft";
 import { PurchaseInvoiceCreateSchema } from "@/features/purchase-invoices/schema";
 import { parseArAmount } from "@/lib/format";
+import { TRIBUTE_SUGGESTION_NOTE } from "@/lib/purchases/tribute-split";
 
 import {
   buildPurchaseInvoiceDraft,
   buildSalesInvoiceItems,
 } from "./create-mapping";
+
+const IVA_NOTE = TRIBUTE_SUGGESTION_NOTE.iva_rate;
 
 const SUPPLIER = {
   id: "11111111-1111-4111-8111-111111111111",
@@ -84,8 +87,33 @@ describe("buildPurchaseInvoiceDraft", () => {
           iva_rate_id: 5,
         },
       ],
+      // 30 is 3 % of the neto gravado: suggested as an IVA perception.
+      tributes: { imp_perc_iva: 30 },
     });
-    expect(draft?.warnings).toEqual([]);
+    expect(draft?.warnings).toEqual([IVA_NOTE]);
+  });
+
+  it("suggests the supplier's last split on this neto, and nothing without tributes", () => {
+    const draft = buildPurchaseInvoiceDraft(COMPLETE, {
+      ...OPTS,
+      tributeHistory: {
+        imp_neto: 2000,
+        split: {
+          imp_perc_iva: 30,
+          imp_perc_nacionales: 0,
+          imp_perc_iibb: 30,
+          imp_perc_municipales: 0,
+          imp_impuestos_internos: 0,
+        },
+      },
+    });
+    expect(draft?.tributes).toEqual({ imp_perc_iva: 15, imp_perc_iibb: 15 });
+    expect(draft?.warnings).toEqual([TRIBUTE_SUGGESTION_NOTE.history]);
+    const none = buildPurchaseInvoiceDraft(
+      { ...COMPLETE, other_taxes_amount: 0, total_amount: 1210 },
+      OPTS,
+    );
+    expect(none?.tributes).toBeUndefined();
   });
 
   it("produces form values the create schema accepts once channel is chosen", () => {
@@ -224,6 +252,7 @@ describe("buildPurchaseInvoiceDraft", () => {
     expect(draft?.warnings).toEqual([
       "La lectura tiene confianza baja: revisá todos los campos contra el archivo.",
       "Este comprobante parece estar ya cargado.",
+      IVA_NOTE,
     ]);
   });
 
@@ -234,6 +263,7 @@ describe("buildPurchaseInvoiceDraft", () => {
     });
     expect(draft?.warnings).toEqual([
       "No se pudo verificar si este comprobante ya está cargado: revisalo antes de guardar.",
+      IVA_NOTE,
     ]);
   });
 
@@ -279,7 +309,7 @@ describe("buildPurchaseInvoiceDraft", () => {
       imp_total: 1240,
       items: [{ quantity: 2, unit_price: 500, iva_rate_id: 5 }],
     });
-    expect(draft?.warnings).toEqual([]);
+    expect(draft?.warnings).toEqual([IVA_NOTE]);
   });
 
   it("keeps the lines of a factura C, without alícuota", () => {

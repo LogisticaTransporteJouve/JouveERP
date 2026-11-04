@@ -30,7 +30,7 @@ export function tributesRemainingMessage(remaining: number): string | null {
   return null;
 }
 
-/** The "otros tributos" total split into the four kinds a supplier charges. */
+/** The "otros tributos" total split into the five kinds a supplier charges. */
 export function TributesSplitFields({
   control,
   total,
@@ -48,7 +48,7 @@ export function TributesSplitFields({
       <legend className="px-1 text-sm font-medium">
         Otros tributos: cómo se reparten
       </legend>
-      <div className="grid gap-3 sm:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-3">
         {PURCHASE_TRIBUTE_FIELDS.map((name) => (
           <FormField
             key={name}
