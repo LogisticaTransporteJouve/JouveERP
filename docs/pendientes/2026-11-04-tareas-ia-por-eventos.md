@@ -4,7 +4,8 @@
       cada tarea, `cancelOn` + _stale guard_ ante crear, pausar, reanudar o
       borrar, y `ai-workflows-reconcile` diario (04:52 AR) reemplaza al cron
       `ai-workflows-materialize` cada 15 min. Comparación de opciones,
-      evidencia y límites en `docs/decisions.md`.
+      evidencia y límites en
+      `docs/decisions/2026-11-04-tareas-ia-programacion-por-eventos-en-vez-de-polling.md`.
 - [ ] **Después de promover:** correr `ai-workflows-reconcile` a mano desde el
       dashboard de Inngest. Las tareas existentes no tienen scheduler
       durmiendo; sin la corrida manual, las que vencen antes de la primera
