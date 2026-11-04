@@ -4,7 +4,7 @@
 > (60+ archivos: `agent.ts`, 25 tools de lectura, chat + historial, insights
 > proactivos, Document Intelligence, reconciliación bancaria, skills). Este
 > documento fue el plan de Fase 0 y se conserva como diseño de referencia; el
-> estado real y lo pendiente están en `docs/pendientes.md`. Este es el plan de
+> estado real y lo pendiente están en `docs/pendientes/`. Este es el plan de
 > la feature de IA Intelligence: un agente LLM con acceso de lectura a todo el
 > negocio, expuesto tanto como chat on-demand como insights proactivos que se
 > surfacean automáticamente.
@@ -151,7 +151,7 @@ arbitrario. Si a futuro se revierte la decisión, el diseño guardado era:
 Decisión 2026-07-04: no se agrega pgvector ni proveedor de embeddings (infra
 paga nueva sin caso de uso que lo justifique). La búsqueda free-text queda
 cubierta por la RPC FTS `search_global`, que a su vez se retiró el 2026-11-04
-(`docs/decisions.md`); el agente busca con `searchClients` / `searchSuppliers` /
+(`docs/decisions/2026-11-04-se-retira-la-busqueda-global-k.md`); el agente busca con `searchClients` / `searchSuppliers` /
 `searchEmployees`.
 
 ### 2.4 El agente

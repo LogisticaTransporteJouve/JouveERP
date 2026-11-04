@@ -1,0 +1,301 @@
+# Antes de promover
+
+Lo que el owner revisa y aprueba antes de correr **Promote to production**
+con cualquier commit posterior a `production-latest` que traiga estas
+migraciones (#339–#351 y la auditoría w3). Las consultas son de solo lectura
+y se corren en el SQL editor de producción **antes** de promover, sobre el
+schema que hay hoy (sin las migraciones de esta lista):
+`promote-to-production.yml` aplica todas las migraciones pendientes juntas.
+Las de cada sección más vieja siguen con su ítem "Aprobar …" en su sección.
+
+**Estado de producción (owner, 2026-11-04):** la base tiene solo clientes y
+facturas de venta en pesos: ni recibos, ni comprobantes en dólares, ni
+compras, cheques, órdenes de pago, préstamos, planillas o movimientos de
+empleados. Todo backfill sobre esas tablas es un no-op en producción y no
+hace falta re-asentar nada viejo. Los ítems de revisión de esos datos quedan
+marcados **N/A en producción** con su SQL (sirven si se promueve sobre otra
+base). La única revisión real que queda antes de promover es la lista de
+borradores del reconciliador (#340), que revisa el owner. Los ítems
+"Aprobar …" de cada migración (irreversibles y límites de rollback) siguen
+vigentes.
+
+- [x] **N/A en producción (base sin compras/cheques/OP/préstamos/RRHH a 2026-11-04).** **Antes de aprobar `20261104096400`** (#339, exento, no gravado y
+      tributos por compra): el backfill pasa el `imp_trib` de cada compra a
+      percepción de IIBB. El asiento no cambia, pero el TXT del libro IVA
+      Compras de un período ya presentado declara esos tributos en el campo de
+      IIBB y no en "Otros tributos": lo aprueban el dueño y el contador
+      (`docs/decisions.md`). Compras que cambian, por período:
+      `select to_char(fecha, 'YYYY-MM') as periodo, count(*), sum(imp_trib) from purchase_invoices where imp_trib <> 0 group by 1 order by 1;`
+- [ ] **Aprobar `20261104096200`–`20261104096700`** (#339). `096200` agrega
+      el rol `percepciones_iva_pagadas` al enum del plan de cuentas: no se
+      puede quitar. Rollback: un trigger pasa a IIBB el `imp_trib` que manda
+      el código anterior, pero cambiar los tributos desde el código anterior en
+      una compra que ya los tiene repartidos (percepción de IVA, municipales o
+      internos) se rechaza ("Los tributos no suman…"); el código anterior no
+      ve el exento ni el no gravado. Con código anterior a #339 no editar la
+      cuenta "Percepciones IVA sufridas" en Plan de cuentas (no conoce el
+      rol, como "Diferencias de cambio" abajo).
+- [ ] **Reconciliador de emisiones** (#340, `issue-invoice-reconcile`, sin
+      migración). **Revisión real: el owner revisa la lista de borradores de
+      abajo antes de promover.** Su primera corrida vuelve a mandar a AFIP los borradores de
+      los últimos 3 días y resuelve las emisiones trabadas que ya existen. Un
+      borrador que el usuario ya volvió a facturar con otro comprobante se
+      borra antes, o se emitiría dos veces:
+      `select id, status, created_at, updated_at from invoices where (status = 'draft' and created_at > now() - interval '3 days') or status = 'emitting';`
+- [ ] **Aprobar `20261104090500`** (#340, importación de ARCA en período
+      cerrado). Rollback: es un trigger; con código anterior la importación
+      guarda igual el comprobante y deja su asiento en
+      `pending_journal_entries`. Sin #340 el cron de reconciliación no corre.
+- [ ] **Aprobar `20261104092000`–`20261104092300`** (#342: cheques en
+      percibido, "Sin clasificar" en el margen por camión, deshacer pago de
+      impuestos, NC/ND que siguen a su compra). Rollback: mismas firmas y
+      columnas; el código anterior ya conoce los rubros de gestión, ignora la
+      clave nueva de `recategorize_expense` y no escribe las columnas
+      `payment_previous_*` (un impuesto pagado con código nuevo, deshecho y
+      vuelto a pagar con el viejo conserva los valores del primer pago).
+- [ ] **Aprobar `20261104093000`–`20261104093400`** (#343, tesorería).
+      Rollback: mismas funciones y argumentos; lo que el código anterior
+      dejaba editar después de cobrar un cheque propio o anular un préstamo
+      con plata ahora recibe el mensaje del guard.
+- [x] **N/A en producción (base sin recibos ni comprobantes en dólares a 2026-11-04).** Sin recibos, OP ni NC en dólares, el
+      re-asiento no toca nada. **Antes de aprobar `20261104094300`** (#344, diferencia de cambio): su
+      backfill re-asienta, en los períodos abiertos, los recibos y OP en
+      dólares emitidos contra comprobantes a otra cotización y las NC en
+      dólares emitidas contra un origen a otra cotización. Cambian asientos de
+      meses pasados sin cerrar; los de períodos cerrados conservan el suyo
+      (los cuenta un NOTICE). Lista de lo que entra (los de un período
+      cerrado salen también, y no cambian):
+      `sql
+    select 'recibo' as doc, r.id, r.receipt_date as fecha
+      from receipts r
+      join receipt_allocations ra on ra.receipt_id = r.id
+      join invoices i on i.id = ra.invoice_id
+     where r.status = 'issued' and r.currency = 'USD'
+       and coalesce(i.moneda, 'PES') in ('DOL', 'USD')
+       and nullif(coalesce(nullif(i.cotizacion, 0), get_exchange_rate('USD', i.fecha)), 1)
+           is distinct from nullif(coalesce(nullif(r.cotizacion, 0), get_exchange_rate('USD', r.receipt_date)), 1)
+    union
+    select 'orden de pago', po.id, po.payment_date
+      from payment_orders po
+      join payment_order_allocations poa on poa.payment_order_id = po.id
+      join purchase_invoices pi on pi.id = poa.purchase_invoice_id
+     where po.status = 'issued' and po.currency = 'USD'
+       and coalesce(pi.moneda, 'PES') in ('DOL', 'USD')
+       and nullif(coalesce(nullif(pi.cotizacion, 0), get_exchange_rate('USD', pi.fecha)), 1)
+           is distinct from nullif(coalesce(nullif(po.cotizacion, 0), get_exchange_rate('USD', po.payment_date)), 1)
+    union
+    select 'NC', n.id, n.fecha
+      from invoices n
+      join invoices o on o.id = n.invoice_origin_id
+     where n.kind = 'nc' and n.status = 'emitted'
+       and coalesce(n.moneda, 'PES') <> 'PES' and coalesce(o.moneda, 'PES') <> 'PES'
+       and nullif(coalesce(nullif(o.cotizacion, 0), get_exchange_rate('USD', o.fecha)), 1)
+           is distinct from nullif(coalesce(nullif(n.cotizacion, 0), get_exchange_rate('USD', n.fecha)), 1)
+    order by fecha;
+    `
+- [ ] **Aprobar `20261104094000`–`20261104094300`** (#344). `094000` agrega
+      el valor `diferencia_cambio` al enum de roles del plan de cuentas: no se
+      puede quitar. Rollback: las RPC de saldos de apertura y el aging tienen
+      las mismas firmas y columnas; los asientos re-hechos quedan. Con código
+      anterior a #344 **no editar la cuenta "Diferencias de cambio"** en Plan
+      de cuentas: el código viejo no conoce el rol (la insignia sale vacía y
+      guardar falla con "Datos inválidos").
+- [x] **N/A en producción (base sin compras/cheques/OP/préstamos/RRHH a 2026-11-04).** **Antes de aprobar `20261104095200`** (#345), el dueño revisa los
+      cargos que el backfill baja del total al neto (los saldos de esos
+      empleados bajan el IVA y las percepciones; si un cierre de planilla ya
+      descontó el total, queda saldo a favor del empleado):
+      `select m.employee_id, m.amount, pi.imp_neto from employee_account_movements m join purchase_invoices pi on pi.id = m.purchase_invoice_id where is_channel_fiscal(pi.channel_id) and m.amount <> pi.imp_neto;`
+- [ ] **Aprobar `20261104095000`–`20261104095300`** (#345). Rollback: el
+      código anterior llama a las RPC de la rendición con sus argumentos
+      viejos (resuelven a las nuevas con "a cargo del chofer"), lista un
+      faltante asentado como adelanto como "sin asentar" (volver a asentar
+      devuelve el mismo), rechaza asentar un sobrante al chofer y no ve
+      `embargo_override` (el trigger lo respeta igual).
+- [ ] **Aprobar `20261104096000`** (insights) **y `20261104096100`**
+      (denegaciones de permisos quitados) (#346). Sin la primera, el analista
+      falla (no existe el RPC) y las tarjetas quedan como estaban. Rollback:
+      el código anterior borra e inserta con el service client; el índice
+      único hace fallar el insert de dos corridas viejas simultáneas en vez de
+      duplicar las tarjetas. La segunda solo inserta denegaciones de la
+      escritura que cubría cada `:read` quitado; las filas viejas quedan y el
+      código anterior las lee como antes.
+- [ ] **Aprobar `20261104100000`–`20261104100300`** (#350, emisión AFIP).
+      No tocan filas existentes: - `100000` agrega el guard de cotización USD mayor a 1 para comprobantes
+      fiscales en dólares. - `100100` cambia el total de la lista de comprobantes a solo emitidos. - `100200` impide emitir con un CAEA declarado "sin movimiento". - `100300` agrega el RPC `delete_orphan_files`.
+
+      **N/A en producción (base sin recibos ni comprobantes en dólares a 2026-11-04).** Antes de aprobar, ver si hay comprobantes USD guardados con cotización 1
+      (el guard no los repara):
+      `select id, fecha, cotizacion from public.invoices where moneda <> 'PES' and coalesce(cotizacion, 0) <= 1;`
+      Rollback: firmas sin cambio; el código anterior reintenta y falla la
+      emisión con un CAEA "sin movimiento".
+
+- [ ] **Aprobar `20261104101000`–`20261104101400`** (#351, tesorería). - Los cheques USD de proveedores y las cuotas de préstamos USD **nuevos**
+      se asientan a la cotización de la OP y del desembolso. - Los asientos ya existentes no se reasientan. Reasentarlos cambia
+      períodos pasados y lo decide el dueño. - Las cuentas con movimientos quedan con moneda, tipo y saldo inicial
+      congelados. - Un rechazo de cheque con fecha en un período cerrado ahora se rechaza
+      (antes se asentaba con fecha de hoy).
+
+      **N/A en producción (base sin compras/cheques/OP/préstamos/RRHH a 2026-11-04).** Ver las cuentas que quedan congeladas (lo que va a mirar
+      `account_has_movements`, que crea `101100`):
+      ```sql
+      select a.id, a.name from public.accounts a
+       where exists (select 1 from public.transactions t where t.account_id = a.id)
+          or exists (select 1 from public.checks c where c.cartera_account_id = a.id)
+          or exists (select 1 from public.issued_checks ic where ic.bank_account_id = a.id)
+          or exists (select 1 from public.bank_statement_lines l where l.account_id = a.id)
+          or exists (select 1 from public.account_opening_balances o where o.account_id = a.id);
+      ```
+      Rollback: columnas agregadas al final, firmas sin cambio; la cuenta
+      corriente vieja muestra la fila del cheque rechazado sin link.
+
+- [x] **N/A en producción (base sin compras/cheques/OP/préstamos/RRHH a 2026-11-04).** **Antes de aprobar `20261104102300`** (#349): el backfill resincroniza
+      los cargos de compras a cargo de empleados que tienen NC y reasienta
+      esas NC a `anticipos_personal`. Saltea los períodos cerrados. El cargo
+      nuevo es la cifra de la factura (canal fiscal: neto + no gravado +
+      exento + municipales + internos; interno: total) menos la de sus NC
+      vigentes en la misma moneda; si queda en cero o menos, o la factura
+      está anulada, el cargo se borra (`nuevo` vacío). Las consultas calculan
+      eso mismo sobre el schema de hoy (no gravado, exento, municipales e
+      internos todavía no existen, y `096400` los deja en 0 en las compras
+      que ya están).
+
+      Cargos que cambian (`actual` vacío: el backfill lo crea):
+      ```sql
+      with fig as (
+        select p.id, p.invoice_origin_id, p.kind, p.status, p.charged_employee_id,
+               p.channel_id, p.imp_neto, p.moneda,
+               case when is_channel_fiscal(p.channel_id)
+                    then p.imp_neto
+                         + coalesce((to_jsonb(p) ->> 'imp_no_gravado')::numeric, 0)
+                         + coalesce((to_jsonb(p) ->> 'imp_op_exentas')::numeric, 0)
+                         + coalesce((to_jsonb(p) ->> 'imp_perc_municipales')::numeric, 0)
+                         + coalesce((to_jsonb(p) ->> 'imp_impuestos_internos')::numeric, 0)
+                    else p.imp_total end as figura
+          from purchase_invoices p
+      ),
+      con_nc as (
+        select f.id,
+               case when f.status = 'received' then nullif(greatest(f.figura - coalesce(
+                 sum(nc.figura) filter (where coalesce(nc.moneda, 'PES') = coalesce(f.moneda, 'PES')),
+                 0), 0), 0) end as nuevo
+          from fig f
+          join fig nc on nc.invoice_origin_id = f.id and nc.kind = 'nc' and nc.status = 'received'
+         where f.charged_employee_id is not null
+         group by f.id, f.status, f.figura, f.moneda
+      )
+      select c.id as compra, f.charged_employee_id as empleado, m.amount as actual, c.nuevo
+        from con_nc c
+        join fig f on f.id = c.id
+        left join employee_account_movements m on m.purchase_invoice_id = c.id
+       where m.amount is distinct from c.nuevo
+       order by 2;
+      ```
+      Planes de deuda activos cuyo total supera el cargo que queda (el de
+      `095200` en canal fiscal, el de arriba si la compra tiene NC):
+      ```sql
+      with fig as (
+        select p.id, p.invoice_origin_id, p.kind, p.status, p.charged_employee_id,
+               p.channel_id, p.imp_neto, p.moneda,
+               case when is_channel_fiscal(p.channel_id)
+                    then p.imp_neto
+                         + coalesce((to_jsonb(p) ->> 'imp_no_gravado')::numeric, 0)
+                         + coalesce((to_jsonb(p) ->> 'imp_op_exentas')::numeric, 0)
+                         + coalesce((to_jsonb(p) ->> 'imp_perc_municipales')::numeric, 0)
+                         + coalesce((to_jsonb(p) ->> 'imp_impuestos_internos')::numeric, 0)
+                    else p.imp_total end as figura
+          from purchase_invoices p
+      ),
+      con_nc as (
+        select f.id,
+               case when f.status = 'received' then nullif(greatest(f.figura - coalesce(
+                 sum(nc.figura) filter (where coalesce(nc.moneda, 'PES') = coalesce(f.moneda, 'PES')),
+                 0), 0), 0) end as nuevo
+          from fig f
+          join fig nc on nc.invoice_origin_id = f.id and nc.kind = 'nc' and nc.status = 'received'
+         where f.charged_employee_id is not null
+         group by f.id, f.status, f.figura, f.moneda
+      ),
+      cargo as (
+        select m.employee_id, m.purchase_invoice_id, m.amount as actual,
+               case when c.id is not null then c.nuevo
+                    when is_channel_fiscal(f.channel_id) and f.imp_neto > 0 then f.imp_neto
+                    else m.amount end as nuevo
+          from employee_account_movements m
+          join fig f on f.id = m.purchase_invoice_id
+          left join con_nc c on c.id = m.purchase_invoice_id
+      )
+      select p.id, p.employee_id, p.description, p.total, k.purchase_invoice_id as compra,
+             k.actual, k.nuevo
+        from employee_debt_plans p
+        join cargo k on k.employee_id = p.employee_id
+       where p.status = 'activo' and p.total > coalesce(k.nuevo, 0);
+      ```
+      Las NC que quedan con su asiento viejo por período cerrado se ven
+      **después** de promover (sección de #349 más abajo).
+
+- [ ] **Aprobar `20261104102000`–`20261104102400`** (#349, RRHH y Gestión). - `102000` reescribe `management_pnl_lines`. Las diferencias de cambio
+      pasan a "Intereses" (fuera del margen operativo), y en las cuotas sin
+      desglose los intereses ya no cuentan como capital. - `102100` corrige el mensaje de la rendición. - `102400` reescribe `sync_automatic_tasks` sobre la versión de `101400`.
+
+      Rollback: el código anterior lee las mismas columnas; Gestión con
+      código viejo muestra los mismos buckets.
+
+- [ ] **Aprobar `20261104104000`** (valida seis CHECK que habían quedado
+      `NOT VALID`; no cambia datos). Toda fila existente los cumple; si una
+      validación igual fallara, la migración entera se revierte y el promote
+      frena. Ver cuáles siguen sin validar:
+      `select conrelid::regclass, conname from pg_constraint where not convalidated and connamespace = 'public'::regnamespace;`
+      Rollback: nada que hacer, el código no lee el flag.
+- [x] **N/A en producción (base sin compras/cheques/OP/préstamos/RRHH a 2026-11-04).** **Antes de aprobar `20261104112000`** (auditoría w3, compras): una
+      compra fiscal nueva, o editada en sus importes, cuyo total no da neto +
+      IVA + otros tributos + no gravado + exento se rechaza. Las existentes no
+      se tocan: siguen guardando ediciones que no cambian importes, y en
+      proveedores queda la diferencia (el asiento acredita las partes, la
+      cuenta corriente y el aging el total). Ver cuáles son; para cada una el
+      dueño decide pasar la diferencia a no gravado (re-asienta) o anularla y
+      recargarla, y las de período cerrado piden reabrirlo:
+      `select pi.id, pi.fecha, pi.letter, pi.punto_venta, pi.numero, pi.imp_total - (pi.imp_neto + pi.imp_iva + pi.imp_trib + pi.imp_no_gravado + pi.imp_op_exentas) as gap, exists (select 1 from public.accounting_closed_periods cp where cp.period = to_char(pi.fecha, 'YYYY-MM')) as closed from public.purchase_invoices pi where pi.status = 'received' and public.is_channel_fiscal(pi.channel_id) and abs(pi.imp_total - (pi.imp_neto + pi.imp_iva + pi.imp_trib + pi.imp_no_gravado + pi.imp_op_exentas)) > 0.01 order by pi.fecha;`
+      Rollback: el código anterior escribe las mismas columnas; una compra
+      fiscal que no cierra recibe el mensaje del guard.
+- [ ] **Aprobar `20261104120500`** (auditoría w4, compras): una compra fiscal
+      nueva, o editada en sus importes, tiene que cerrar al centavo (antes
+      aceptaba un centavo de diferencia, que quedaba en proveedores), y una B
+      o C fiscal no puede guardar IVA, exento ni no gravado por ningún camino,
+      ítems incluidos. Las existentes siguen guardando ediciones que no tocan
+      esas columnas. Producción no tiene compras (N/A); si las tuviera, las
+      que quedan a un centavo (sobre el schema de `production-latest`):
+      `select pi.id, pi.fecha, pi.letter, pi.punto_venta, pi.numero from public.purchase_invoices pi where pi.status = 'received' and public.is_channel_fiscal(pi.channel_id) and abs(pi.imp_total - (pi.imp_neto + pi.imp_iva + pi.imp_trib + coalesce((to_jsonb(pi) ->> 'imp_no_gravado')::numeric, 0) + coalesce((to_jsonb(pi) ->> 'imp_op_exentas')::numeric, 0))) between 0.005 and 0.01;`
+      Rollback: el código anterior escribe las mismas columnas; lo que rompe
+      una de las dos reglas recibe el mensaje del guard.
+- [ ] **Decidir las compras fiscales B y C con IVA** (auditoría w3, S1 F2;
+- [x] **N/A en producción (base sin compras/cheques/OP/préstamos/RRHH a 2026-11-04).** **Decidir las compras fiscales B y C con IVA** (auditoría w3, S1 F2;
+      no se cambian datos). Las cargadas antes de #339 pueden tener IVA,
+      exento o no gravado aparte: el libro IVA, el estimado y `iva_credito`
+      cuentan ese IVA como crédito fiscal y el TXT no. El dueño y el contador
+      deciden si se pliegan al neto en los períodos abiertos (re-asienta) y
+      qué hacer con las de períodos cerrados. Contarlas:
+      `select exists (select 1 from public.accounting_closed_periods cp where cp.period = to_char(pi.fecha, 'YYYY-MM')) as closed, count(*), sum(pi.imp_iva) as iva from public.purchase_invoices pi where pi.status = 'received' and pi.letter in ('B', 'C') and public.is_channel_fiscal(pi.channel_id) and pi.imp_iva + pi.imp_no_gravado + pi.imp_op_exentas > 0 group by 1;`
+- [x] **N/A en producción (base sin compras/cheques/OP/préstamos/RRHH a 2026-11-04).** **Antes de aprobar `20261104110600`** (tesorería w3): desde esa
+      migración, un cheque propio de una OP que el banco rechaza devuelve en
+      Caja el egreso de la OP. Los ya rechazados antes no lo tienen: su banco
+      sigue con el egreso de más. El owner decide si cargarles el ingreso a
+      mano ("Rechazo cheque propio #…", en la fecha del rechazo):
+      `select ic.id, ic.check_number, ic.bank_name, ic.amount, ic.currency, ic.rejected_at, po.punto_venta, po.numero from issued_checks ic join payment_orders po on po.id = ic.payment_order_id where ic.status = 'rejected' and not exists (select 1 from transactions t where t.issued_check_id = ic.id) order by ic.rejected_at;`
+      Las OP con un cheque propio anulado por fuera de la orden (antes de
+      `20261102210000`) ya no se pueden anular ni editar: esa anulación
+      devolvió la deuda en el diario, y anular la OP la devolvería otra vez.
+      El owner revisa cada una con el contador:
+      `select ic.id, ic.check_number, ic.amount, ic.currency, po.punto_venta, po.numero from issued_checks ic join payment_orders po on po.id = ic.payment_order_id where ic.status = 'cancelled' and po.status = 'issued';`
+      Rollback: mismas funciones y argumentos; el código anterior lee el
+      movimiento nuevo como cualquier movimiento de cheque propio.
+- [ ] **Aprobar `20261104113000`–`20261104113002`** (percepciones de
+      Ganancias y otros impuestos nacionales en compras). `113000` agrega el
+      rol `percepciones_ganancias` al enum del plan de cuentas: no se puede
+      quitar. `113001` agrega `imp_perc_nacionales` (0 en toda fila: sin
+      backfill) y crea la cuenta 1.1.3.N "Percepciones y pagos a cuenta de
+      Ganancias"; `113002` suma la columna al libro IVA Compras. Rollback: el
+      código anterior no manda la columna (queda en 0) y lee las columnas del
+      libro que nombra; editar los tributos desde el código anterior en una
+      compra que tiene Ganancias se rechaza ("Los tributos no suman…"). Con
+      código anterior no editar la cuenta nueva en Plan de cuentas (no conoce
+      el rol).

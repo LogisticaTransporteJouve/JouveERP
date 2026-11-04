@@ -547,7 +547,8 @@ da el default de compras.
   y el Resultado de gestión abre por centro (§10b).
 - **Falta:** un costo de flota (combustible, mantenimiento) no toma el centro
   del camión: `vehicles` no tiene centro y la carga de combustible solo
-  referencia la compra. Ver `docs/pendientes.md`.
+  referencia la compra. Ver
+  `docs/pendientes/2026-11-02-bases-contables-costo-con-rubro-y-centro.md`.
 
 ---
 

@@ -33,7 +33,7 @@ regression — fix the lens, not the label.
 - A KEEP that restates a constant's **value** instead of its **name**: `// stale after 24 hours` will
   drift the moment `EXCHANGE_RATE_STALE_HOURS` changes. Reference the name.
 - A `TODO` with no reference: `// TODO: handle the CAEA retry case` → REWRITE with an issue reference
-  or a pointer to `docs/pendientes.md`, not DELETE.
+  or a pointer to a file in `docs/pendientes/`, not DELETE.
 - Three sentences of preamble around one load-bearing clause → cut to the clause.
 
 ## HOIST

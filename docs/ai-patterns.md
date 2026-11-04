@@ -7,7 +7,7 @@
 > Estado: referencia. **IMPLEMENTADO** — la IA (AI.0–AI.8) ya está en
 > `features/ai/` (chat, tools, insights, Document Intelligence, reconciliación).
 > Este doc queda como referencia de patrones; el estado real vive en
-> `docs/pendientes.md`. Aún NO construido: prompt caching (recién cableado en
+> `docs/pendientes/`. Aún NO construido: prompt caching (recién cableado en
 > el chat), fallback multi-proveedor (Gemini/GPT instalados, sin cablear).
 
 ---

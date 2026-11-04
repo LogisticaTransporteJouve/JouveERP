@@ -18,6 +18,12 @@ Los comandos están en [`README.md`](README.md); las reglas no negociables, en
 3. `pnpm lint && pnpm typecheck && pnpm test` antes de pushear (el hook de
    pre-push lo corre igual).
 4. Probá el flujo real en `pnpm dev:up`, no solo los tests.
+5. Lo que queda pendiente o lo que decidiste: agregá un archivo en
+   `docs/pendientes/` o `docs/decisions/` (`YYYY-MM-DD-<tema>.md`); no edites
+   archivos de otros PRs salvo para marcar un ítem. Un ítem nuevo de
+   "Antes de promover" o un límite de rollback va en
+   `docs/pendientes/antes-de-promover.md` o
+   `docs/pendientes/limites-de-rollback.md`.
 
 ## Commits
 

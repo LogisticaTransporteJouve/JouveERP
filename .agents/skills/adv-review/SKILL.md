@@ -68,7 +68,7 @@ obvious bug/dup — fix it.
   (`git log origin/main --since=<branch base date> -- <paths>`) and pass them to the subagents: CI
   runs the merge with `main`, not the branch alone.
 - **What it claims.** The PR title and body, the linked issue's acceptance criteria (GitHub issue, or
-  Linear only if one is named), the matching `docs/pendientes.md` entry if any.
+  Linear only if one is named), the matching `docs/pendientes/` file if any.
 - **What is settled.** Every existing review thread and the author's replies (catalog premise rule 8).
 - **What it touches.** The list of paths; it drives routing in Step 3.
 - **Commands.** `pnpm test` (Vitest), `pnpm lint`, `pnpm typecheck`, `pnpm build`; plus

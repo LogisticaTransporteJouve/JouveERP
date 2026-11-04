@@ -2,7 +2,7 @@
 
 > Cómo ejecutar todo cuando llegues a casa, en **Claude Code** (no Cowork).
 > Cada ítem = **una corrida = un PR draft**. Pegás el prompt, revisás el PR,
-> mergeás, seguís. Fuente de verdad: `docs/ai-overview.md`, `docs/pendientes.md`,
+> mergeás, seguís. Fuente de verdad: `docs/ai-overview.md`, `docs/pendientes/`,
 > `docs/roadmap.md`, `CLAUDE.md`.
 >
 > **Antes de empezar:** `pnpm install`; levantar Supabase local + Next + Inngest
@@ -25,7 +25,7 @@
 ## Plantilla de prompt (goal por fase)
 
 ```
-Trabajás en JouveERP. Leé CLAUDE.md, docs/ai-overview.md y docs/pendientes.md.
+Trabajás en JouveERP. Leé CLAUDE.md, docs/ai-overview.md y docs/pendientes/.
 Implementá <ÍTEM>: <SCOPE>.
 Seguí las convenciones del repo (skills /new-feature, /new-migration,
 /new-inngest-fn; estudiá features/invoices y features/aging como template).
@@ -87,6 +87,6 @@ Migrations / Test plan. No commitees a main. Parate al terminar para que revise.
   bucket `files`. No agregar colas/sandboxes.
 - **Document Intelligence ≠ chat:** usa `generateObject` directo, no el agente.
   Por eso solo depende de AI.0, puede ir en paralelo al track de chat.
-- Al cerrar cada ítem: actualizar `docs/pendientes.md` (tildar) y `docs/roadmap.md`
+- Al cerrar cada ítem: tildarlo en su archivo de `docs/pendientes/` y actualizar `docs/roadmap.md`
   (regla §7.13: en el mismo PR).
 ```
