@@ -249,7 +249,8 @@ export function round2(n: number): number {
  *  - both "." and ",": the last one ("1.234,56", "1,234.56" → "1234,56");
  *  - only ",": a single comma is the decimal mark (several are unreadable);
  *  - only one ".": thousands with exactly 3 digits after it ("15.000" →
- *    "15000"), otherwise decimal ("1500.5" → "1500,5");
+ *    "15000"), otherwise decimal ("1500.5" → "1500,5"); a thousands group
+ *    never starts with 0, so after "0" or nothing it is decimal ("0.125");
  *  - several ".": thousands ("1.234.567" → "1234567").
  *  A trailing mark stays ("15," / "15." → "15,"). */
 export function normalizeAmountText(raw: string): string | null {
@@ -265,7 +266,9 @@ export function normalizeAmountText(raw: string): string | null {
     if (body.indexOf(",") !== lastComma) return null;
     mark = lastComma;
   } else if (lastDot >= 0 && body.indexOf(".") === lastDot) {
-    if (body.length - lastDot - 1 !== 3) mark = lastDot;
+    if (body.length - lastDot - 1 !== 3 || /^0*\./.test(body)) {
+      mark = lastDot;
+    }
   }
   if (mark < 0) return sign + body.replace(/\./g, "");
   const decimals = body.slice(mark + 1);
@@ -288,8 +291,9 @@ export function parseArAmount(raw: string): number | null {
 
 type MoneyInputOptions = { decimals?: number; allowNegative?: boolean };
 
-/** Text in the field's own es-AR grouping ("1.500", "-1.234,56"). */
-const GROUPED_AMOUNT = /^-?\d{1,3}(\.\d{3})+(,\d*)?$/;
+/** Text in the field's own es-AR grouping ("1.500", "-1.234,56"); "0.125"
+ *  is not grouped, a thousands group never follows a lone 0. */
+const GROUPED_AMOUNT = /^-?[1-9]\d{0,2}(\.\d{3})+(,\d*)?$/;
 
 function formatMoneyText(
   text: string,
@@ -350,6 +354,28 @@ export function nextMoneyInputText(
     return prev;
   }
   return sign + body.slice(0, comma + 1 + decimals);
+}
+
+/** Where the caret goes in `text` (what `nextMoneyInputText` made of the
+ *  edited `raw`) so it stays after the same digit it followed at `caret` in
+ *  `raw`: dropping the thousands dots or reformatting a paste must not jump
+ *  it to the end ("1.24,56" after the "2" → "124,56" after the "2"). A mark
+ *  typed right before the caret (",", ".", "-") is kept before it too. */
+export function moneyInputCaret(
+  raw: string,
+  caret: number,
+  text: string,
+): number {
+  const digits = raw.slice(0, caret).replace(/\D/g, "").length;
+  let pos = 0;
+  for (let seen = 0; pos < text.length && seen < digits; pos++) {
+    if (/\d/.test(text[pos])) seen++;
+  }
+  const before = raw[caret - 1];
+  if (before !== undefined && !/\d/.test(before) && text[pos] === before) {
+    pos++;
+  }
+  return pos;
 }
 
 /** A MoneyInput's text in canonical es-AR form ("1500.5" → "1.500,5",
