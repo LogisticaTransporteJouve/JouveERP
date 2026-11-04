@@ -36,8 +36,9 @@ diálogo lo dice con «Reintentar» en vez de «Sin pagos todavía.».
 `2026-11-04-sin-permiso-de-cuentas-se-ocultan-los-selectores-de-cuenta.md`:
 sin `accounts:read`, o si la lectura falla, se ocultan «Cargar cheque» y
 «Editar», y la tabla dice por qué (con «Reintentar» si falló la lectura).
-Cobrado, rechazado y anular siguen. La página ya no lee las cuentas en el
-servidor: la tabla usa `useAccountOptions`.
+Cobrado, rechazado y anular siguen. La tabla lee las cuentas con
+`useAccountOptions`; la página solo las precarga si el usuario tiene
+`accounts:read`.
 
 **Cotización desde el AI CFO.** La tarjeta de `proposeExchangeRate` muestra
 el mismo aviso de salto de más de un 30% que la página de Cotizaciones
