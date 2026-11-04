@@ -35,13 +35,16 @@ export type ArcaRobotErrorCode =
   | "TOO_MANY"
   | "NETWORK";
 
+export type SignInStage = "before_clave" | "clave" | "after_clave";
+
 export class ArcaRobotError extends Error {
   constructor(
     readonly code: ArcaRobotErrorCode,
     message: string,
-    /** Whether the clave had been sent to ARCA when it failed: only those
-     *  failures can lock the user, and only those count toward the stop. */
-    readonly claveSent = false,
+    /** Where the sign-in was: before the clave was sent, while ARCA judged
+     *  it, or after ARCA accepted it (the jwt came back). Only a failure at
+     *  the clave can lock the user, so only that counts toward the stop. */
+    readonly stage: SignInStage = "before_clave",
   ) {
     super(message);
     this.name = "ArcaRobotError";
@@ -310,7 +313,8 @@ export async function signInToMisComprobantes(
     );
   }
 
-  // 2. Clave onwards: a failure from here on was with the clave sent.
+  // 2. Clave onwards: a failure from here on is tagged with where it was.
+  let stage: SignInStage = "clave";
   try {
     // 2. Clave: a good one answers with a form that posts a jwt to the portal.
     const afterClave = await session.request(claveForm.action, {
@@ -339,6 +343,8 @@ export async function signInToMisComprobantes(
         "ARCA no completó el ingreso (puede pedir cambiar la clave o aceptar términos).",
       );
     }
+    // ARCA accepted the clave: what fails after this is not about it.
+    stage = "after_clave";
     await session.request(jwtForm.action, { method: "POST", form: { jwt } });
 
     // 3. Ticket for Mis Comprobantes.
@@ -377,8 +383,8 @@ export async function signInToMisComprobantes(
       );
     }
   } catch (err) {
-    if (err instanceof ArcaRobotError && !err.claveSent) {
-      throw new ArcaRobotError(err.code, err.message, true);
+    if (err instanceof ArcaRobotError && err.stage === "before_clave") {
+      throw new ArcaRobotError(err.code, err.message, stage);
     }
     throw err;
   }

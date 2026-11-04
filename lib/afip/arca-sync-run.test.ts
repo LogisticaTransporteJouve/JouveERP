@@ -32,7 +32,7 @@ describe("syncPhase", () => {
   });
 
   it("says when a request never started, or a run never ended", () => {
-    expect(syncPhase({ ...idle, requestedAt: t("05") }, now)).toBe(
+    expect(syncPhase({ ...idle, requestedAt: t("01") }, now)).toBe(
       "not_started",
     );
     expect(
@@ -62,5 +62,19 @@ describe("syncResultText", () => {
     expect(
       syncResultText({ outcome: "sign_in_failed", code: "SIGN_IN_REJECTED" }),
     ).toBe("No se pudo entrar a ARCA: ARCA rechazó el CUIT o la clave.");
+  });
+
+  it("keeps waiting while a run that started before the request ends", () => {
+    expect(
+      syncPhase(
+        {
+          ...idle,
+          startedAt: t("01"),
+          finishedAt: t("09"),
+          requestedAt: t("05"),
+        },
+        now,
+      ),
+    ).toBe("waiting");
   });
 });

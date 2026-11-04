@@ -37,15 +37,11 @@ import {
   useDeleteExchangeRate,
   useExchangeRates,
 } from "../hooks/use-exchange-rates";
+import { rateFmt, rateJumpWarning } from "../lib/rate-jump";
 import type { ExchangeRate } from "../schema";
 
 /** `exchange_rates.rate` is numeric(18, 6). */
 const EXCHANGE_RATE_DECIMALS = 6;
-
-const rateFmt = new Intl.NumberFormat("es-AR", {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 6,
-});
 
 export function ExchangeRatesPage() {
   const { data: items } = useExchangeRates();
@@ -156,7 +152,11 @@ export function ExchangeRatesPage() {
         emptyMessage="No hay cotizaciones cargadas."
       />
 
-      <ExchangeRateDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+      <ExchangeRateDialog
+        rates={items}
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+      />
     </div>
   );
 }
@@ -168,21 +168,35 @@ type DialogFormValues = {
 };
 
 function ExchangeRateDialog({
+  rates,
   open,
   onOpenChange,
 }: {
+  rates: ExchangeRate[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
   const createMut = useCreateExchangeRate();
+  const confirm = useConfirm();
   const form = useForm<DialogFormValues>({
     defaultValues: { rate_date: "", rate: "", notes: "" },
   });
 
-  function onSubmit(values: DialogFormValues) {
+  async function onSubmit(values: DialogFormValues) {
     const num = parseArAmount(values.rate);
     if (num === null || num <= 0) {
       form.setError("rate", { message: "Cotización inválida." });
+      return;
+    }
+    const jump = rateJumpWarning(rates, values.rate_date, num);
+    if (
+      jump &&
+      !(await confirm({
+        title: "¿Seguro?",
+        description: jump,
+        confirmLabel: "Guardar igual",
+      }))
+    ) {
       return;
     }
     createMut.mutate(

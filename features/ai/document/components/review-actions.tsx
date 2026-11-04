@@ -5,12 +5,14 @@ import { useState } from "react";
 import { PageSideProvider } from "@/components/providers/scope-provider";
 import { Button } from "@/components/ui/button";
 import { PurchaseInvoiceDraftDialog } from "@/features/purchase-invoices/components/purchase-invoice-draft-dialog";
+import type { Access } from "@/lib/auth/permissions";
 
 import type { ExtractionDetail } from "../actions";
 import {
   usePurchaseInvoiceDraft,
   useSubmitPurchaseInvoiceDraft,
 } from "../hooks/use-documents";
+import { reviewCreateDeniedReason } from "../lib/review-gates";
 import { ChequeBatchExtractionSchema, duplicateCheckOf } from "../schemas";
 
 import { CreateChequesDialog } from "./create-cheques-dialog";
@@ -55,12 +57,18 @@ function DialogTrigger({
   );
 }
 
+function FooterHint({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-muted-foreground border-t pt-3 text-xs">{children}</p>
+  );
+}
+
 function MissingMatchHint({ entity }: { entity: "cliente" | "proveedor" }) {
   return (
-    <p className="text-muted-foreground border-t pt-3 text-xs">
+    <FooterHint>
       No se encontró el {entity} por CUIT. Cargá el {entity} y volvé a escanear
       para crear el documento automáticamente.
-    </p>
+    </FooterHint>
   );
 }
 
@@ -90,11 +98,7 @@ function PurchaseDraftAction({
     : result?.state === "closed"
       ? "Este documento ya fue procesado o descartado."
       : null;
-  if (problem) {
-    return (
-      <p className="text-muted-foreground border-t pt-3 text-xs">{problem}</p>
-    );
-  }
+  if (problem) return <FooterHint>{problem}</FooterHint>;
   return (
     <div className="flex items-center gap-2 border-t pt-3">
       <Button
@@ -135,6 +139,8 @@ export function ReviewActions(props: ReviewActionsProps) {
 
 type ReviewActionsProps = {
   extraction: ExtractionDetail;
+  /** The viewer's access: each create action shows only when it passes. */
+  access: Access;
   onCreated: () => void;
   /** Signals when a nested action dialog opens/closes (to hide the sidecar). */
   onNestedOpenChange?: (open: boolean) => void;
@@ -142,6 +148,7 @@ type ReviewActionsProps = {
 
 function ReviewActionsInner({
   extraction,
+  access,
   onCreated,
   onNestedOpenChange,
 }: ReviewActionsProps) {
@@ -163,6 +170,8 @@ function ReviewActionsInner({
   const supplierId = matchString(extraction.matches, "supplier_id");
   const supplierName = matchString(extraction.matches, "supplier_name");
   const duplicate = duplicateCheckOf(extraction.matches);
+  const denied = reviewCreateDeniedReason(access, kind);
+  if (denied) return <FooterHint>{denied}</FooterHint>;
 
   if (kind === "check") {
     const count = chequeCount(extraction.payload);

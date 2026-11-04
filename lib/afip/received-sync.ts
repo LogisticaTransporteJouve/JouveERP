@@ -191,14 +191,18 @@ async function syncReceived(
       err instanceof ArcaRobotError && SIGN_IN_CODES.includes(err.code)
         ? err.code
         : "SIGN_IN_FAILED";
-    // Only an attempt that sent the clave can lock the user, so only that
+    // Only ARCA judging the clave can lock the user, so only a failure there
     // counts toward the stop; a refused CUIT will not change by retrying.
-    // ARCA down or a captcha before the clave leaves the account as it is.
-    const counts =
-      code === "SIGN_IN_REJECTED" ||
-      (err instanceof ArcaRobotError && err.claveSent);
-    if (counts) await recordAttempt(supabase, version, false, code);
-    logger.warn("arca_received_sync.sign_in_failed", { code, counts });
+    // ARCA down or a captcha before the clave leaves the account as it is,
+    // and a failure after ARCA accepted the clave (portal, Mis Comprobantes)
+    // proves the clave good.
+    const stage = err instanceof ArcaRobotError ? err.stage : "before_clave";
+    if (code === "SIGN_IN_REJECTED" || stage === "clave") {
+      await recordAttempt(supabase, version, false, code);
+    } else if (stage === "after_clave") {
+      await recordAttempt(supabase, version, true, null);
+    }
+    logger.warn("arca_received_sync.sign_in_failed", { code, stage });
     return { outcome: "sign_in_failed", code };
   }
   await recordAttempt(supabase, version, true, null);
@@ -234,9 +238,10 @@ async function syncReceived(
         err instanceof ArcaRobotError ? err.code : ("QUERY_FAILED" as const);
       failedMonths[month] = code;
       logger.warn("arca_received_sync.month_failed", { month, code });
-      // The session may be gone: the next months would fail the same way,
-      // so they are reported as not read.
-      if (code === "NETWORK" || code === "QUERY_FAILED") stopped = true;
+      // A lost connection would fail the next months the same way, so they
+      // are reported as not read. A month ARCA answered badly is only that
+      // month: the newer ones are still read.
+      if (code === "NETWORK") stopped = true;
       continue;
     }
     skippedRows += Object.values(parsed.skippedByReason).reduce(

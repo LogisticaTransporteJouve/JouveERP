@@ -12,6 +12,7 @@ import {
   formatNumber2,
   formatSignedAmountInput,
   moneyInputBlurText,
+  moneyInputCaret,
   nextMoneyInputText,
   normalizeAmountText,
   parseArAmount,
@@ -301,6 +302,10 @@ describe("normalizeAmountText", () => {
     ["1500.5", "1500,5"],
     ["1500.50", "1500,50"],
     ["15.", "15,"],
+    // a thousands group never starts after a lone 0, so that dot is decimal
+    ["0.125", "0,125"],
+    ["-0.125", "-0,125"],
+    [".125", ",125"],
     // several dots: thousands
     ["1.234.567", "1234567"],
     ["-1.234,5", "-1234,5"],
@@ -320,6 +325,8 @@ describe("parseArAmount separator rules", () => {
     ["1500.5", 1500.5],
     ["15.000", 15000],
     ["1.234.567", 1234567],
+    ["0.125", 0.125],
+    ["-0.125", -0.125],
   ])("lee %s como %s", (raw, expected) => {
     expect(parseArAmount(raw)).toBe(expected);
   });
@@ -363,6 +370,12 @@ describe("nextMoneyInputText", () => {
     expect(parseArAmount(typeKeys("1.2345", { decimals: 4 }))).toBe(12345);
   });
 
+  it("reads a dot after a lone 0 as the decimal mark while typing", () => {
+    expect(parseArAmount(typeKeys("0.125", { decimals: 4 }))).toBe(0.125);
+    expect(parseArAmount(typeKeys("0.1234", { decimals: 4 }))).toBe(0.1234);
+    expect(parseArAmount(typeKeys("0.0825", { decimals: 6 }))).toBe(0.0825);
+  });
+
   it("reads digits typed into a grouped value as more digits", () => {
     expect(parseArAmount(typeKeys("0", undefined, "1.500"))).toBe(15000);
     expect(parseArAmount(typeKeys(",5", undefined, "1.500"))).toBe(1500.5);
@@ -400,6 +413,24 @@ describe("nextMoneyInputText", () => {
     );
     expect(nextMoneyInputText("", "-1500.5")).toBe("1.500,5");
     expect(typeKeys("-15")).toBe("15");
+  });
+});
+
+describe("moneyInputCaret", () => {
+  it.each([
+    // "1.234,56", Backspace on the "3": the dots drop, caret stays after "2"
+    ["1.24,56", 3, "124,56", 2],
+    // "1.234,56", "0" typed after the "1"
+    ["10.234,56", 2, "10234,56", 2],
+    // a paste reformatted: caret after the same last digit
+    ["1,234.56", 8, "1.234,56", 8],
+    // a typed mark stays before the caret
+    ["1.500.", 6, "1500.", 5],
+    ["-", 1, "-", 1],
+    // a refused second comma: caret back where it was typed
+    ["1,2,5", 2, "12,5", 1],
+  ])("in %s at %i → %s at %i", (raw, caret, text, expected) => {
+    expect(moneyInputCaret(raw, caret, text)).toBe(expected);
   });
 });
 

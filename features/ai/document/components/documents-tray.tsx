@@ -8,6 +8,7 @@ import { useConfirm } from "@/components/providers/confirm-provider";
 import { FileDropzone } from "@/components/file-upload/file-dropzone";
 import { DataTable } from "@/components/ui/data-table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import type { Access } from "@/lib/auth/permissions";
 
 import {
   useDiscardExtraction,
@@ -25,7 +26,7 @@ const STATUS_TABS = [
   { value: "failed", label: "Fallidos" },
 ];
 
-export function DocumentsTray() {
+export function DocumentsTray({ access }: { access: Access }) {
   const [status, setStatus] = useState("pending_review");
   const { data: rows = [], isLoading } = useExtractions(status);
   const scan = useScanDocument();
@@ -105,6 +106,7 @@ export function DocumentsTray() {
 
       <ReviewSheet
         extractionId={reviewId}
+        access={access}
         onOpenChange={(open) => {
           if (!open) setReviewId(null);
         }}

@@ -31,6 +31,7 @@ import { formatArgentineDate, formatMoney } from "@/lib/format";
 
 import type { Account } from "@/features/accounts/schema";
 import { useAccountOptions } from "@/features/accounts/hooks/use-accounts";
+import { AccountOptionsError } from "@/features/accounts/components/account-options-gate";
 
 import { usePaymentOrdersSearchInfinite } from "../hooks/use-payment-orders";
 import {
@@ -191,9 +192,15 @@ export function PaymentOrdersTable({
   actorAccess: Access;
   initialParams: PaymentOrderListParams;
 }) {
-  // A per-user deny of accounts:read hides what picks an account, not the list.
-  const canPickAccount = userCan(actorAccess, "accounts:read");
-  const { accounts } = useAccountOptions(canPickAccount);
+  // A per-user deny of accounts:read hides what picks an account, not the list;
+  // so does a failed read, which says so with a retry.
+  const canReadAccounts = userCan(actorAccess, "accounts:read");
+  const {
+    accounts,
+    error: accountsError,
+    retry: retryAccounts,
+  } = useAccountOptions(canReadAccounts);
+  const canPickAccount = canReadAccounts && accountsError === null;
   const canWrite = userCan(actorAccess, "payment_orders:write");
 
   const { params, committed, update, reset, isFiltered } = useListParams({
@@ -234,6 +241,12 @@ export function PaymentOrdersTable({
         actions={
           <>
             <ExportButton resource="payment-orders" />
+            {canWrite && canReadAccounts && accountsError && (
+              <AccountOptionsError
+                message={accountsError}
+                onRetry={retryAccounts}
+              />
+            )}
             {canWrite && canPickAccount && (
               <NewPaymentOrderDialog channels={channels} accounts={accounts} />
             )}
