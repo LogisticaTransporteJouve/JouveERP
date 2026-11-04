@@ -411,9 +411,9 @@ export function TaxDocumentDialog({
                   <p className="text-muted-foreground">
                     Las compras tienen además{" "}
                     {formatMoney(estimate.tributos_compras)} de otros tributos
-                    que no se restan (IIBB, municipales, internos y los que no
-                    se repartieron): si alguno es percepción de IVA, repartilo
-                    en la compra.
+                    que no se restan (IIBB, Ganancias y otros nacionales,
+                    municipales, internos y los que no se repartieron): si
+                    alguno es percepción de IVA, repartilo en la compra.
                   </p>
                 )}
               </div>

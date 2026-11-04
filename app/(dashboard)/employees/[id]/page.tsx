@@ -19,9 +19,10 @@ import { FinalSettlementCard } from "@/features/hr/components/final-settlement-c
 import { SalaryHistoryCard } from "@/features/hr/components/salary-history-card";
 import { TerminateEmployeeDialog } from "@/features/hr/components/terminate-employee-dialog";
 import { TripRatesCard } from "@/features/hr/components/trip-rates-card";
+import { HR_CASH_PERMISSIONS } from "@/features/hr/lib/hr-cash";
 import { PAY_FREQUENCY_LABEL } from "@/features/hr/schema";
 import { requireUserContext } from "@/lib/auth/context";
-import { userCan } from "@/lib/auth/permissions";
+import { userCan, userCanAll } from "@/lib/auth/permissions";
 import { formatArgentineDate, formatNumber2 } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -54,7 +55,7 @@ export default async function EmployeeDetailPage({
 
   const employee = result.data;
   const canWrite = userCan(ctx.access, "hr:write");
-  const canMoveCash = canWrite && userCan(ctx.access, "transactions:write");
+  const canMoveCash = userCanAll(ctx.access, HR_CASH_PERMISSIONS);
 
   return (
     <div className="space-y-6">

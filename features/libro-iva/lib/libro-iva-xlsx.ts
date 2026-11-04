@@ -4,6 +4,9 @@ import { formatNumber2 } from "@/lib/format";
 
 import {
   COMPRAS_AMOUNT_COLUMNS,
+  COMPRAS_PERCEPTIONS_HEADER,
+  comprasPerceptions,
+  comprasPerceptionsTotal,
   countSuspectRates,
   foreignCurrencyTotals,
   groupByInvoice,
@@ -90,7 +93,8 @@ function bookSheet<V extends Voucher>(
     cuit: (v: V) => string | null;
   },
   amounts: readonly Amount<V>[],
-  cae: { header: string; value: (v: V) => string | null },
+  /** Text columns after the original currency (CAE, perception codes). */
+  texts: readonly { header: string; value: (v: V) => string | null }[],
 ): XlsxSheet {
   const sums = amounts.map(() => 0);
   const rows = vouchers.map((v) => {
@@ -119,7 +123,7 @@ function bookSheet<V extends Voucher>(
           }
         : null,
       foreign ? v.cotizacion : null,
-      cae.value(v),
+      ...texts.map((t) => t.value(v)),
     ];
   });
 
@@ -142,7 +146,7 @@ function bookSheet<V extends Voucher>(
       { header: "Moneda orig." },
       { header: "Importe orig.", type: "money" },
       { header: "Cotización", type: "number" },
-      { header: cae.header },
+      ...texts.map((t): XlsxColumn => ({ header: t.header })),
     ],
     rows,
     totals: [
@@ -159,7 +163,7 @@ function bookSheet<V extends Voucher>(
       null,
       null,
       null,
-      null,
+      ...texts.map(() => null),
     ],
   };
 }
@@ -188,7 +192,7 @@ export function libroIvaVentasSheet(
       })),
       { header: "Total $", value: (v) => v.imp_total, show: "always" },
     ],
-    { header: "CAE", value: (v) => v.cae },
+    [{ header: "CAE", value: (v) => v.cae }],
   );
 }
 
@@ -213,8 +217,26 @@ export function libroIvaComprasSheet(
         value: (v) => c.value(v.breakdown),
         show: "positive",
       })),
+      {
+        header: COMPRAS_PERCEPTIONS_HEADER,
+        value: (v) => comprasPerceptionsTotal(v.breakdown),
+        show: "positive",
+      },
       { header: "Total $", value: (v) => v.imp_total, show: "always" },
     ],
-    { header: "CAE prov.", value: (v) => v.cae_proveedor },
+    [
+      { header: "CAE prov.", value: (v) => v.cae_proveedor },
+      {
+        // Each perception with its code, as the PDF prints it.
+        header: "Detalle percepciones",
+        value: (v) =>
+          comprasPerceptions(v.breakdown)
+            .map(
+              (p) =>
+                `${formatNumber2((v.kind === "nc" ? -1 : 1) * p.amount)} ${p.code}`,
+            )
+            .join(" · ") || null,
+      },
+    ],
   );
 }

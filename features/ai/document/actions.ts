@@ -35,6 +35,7 @@ import type { Json } from "@/lib/db/database.types";
 import { buildStorageKey } from "@/lib/files/storage-path";
 import { logger } from "@/lib/logger";
 import type { UsdRate } from "@/lib/fx";
+import { latestTributeSplits } from "@/lib/purchases/tribute-split";
 import {
   createWithClaim as createWithClaimOn,
   type PartialCreateFailure,
@@ -335,6 +336,17 @@ export async function getPurchaseInvoiceDraftAction(
     usdRate = rate.ok ? rate.data.rate : null;
   }
 
+  // Only for the otros tributos suggestion: a failed read suggests without it.
+  const histories = supplier
+    ? await latestTributeSplits(supabase, [supplier.id])
+    : null;
+  if (supplier && !histories) {
+    logger.warn("ai_document.purchase_draft.tribute_history_failed", {
+      userId: ctx.userId,
+    });
+  }
+  const tributeHistory = (supplier && histories?.get(supplier.id)) || null;
+
   const draft = buildPurchaseInvoiceDraft(ext.payload, {
     fallbackKind: ext.detected_type === "credit_debit_note" ? "nc" : "factura",
     supplier,
@@ -343,6 +355,7 @@ export async function getPurchaseInvoiceDraftAction(
     usdRate,
     confidence: ext.confidence,
     duplicate: duplicateCheckOf(ext.matches),
+    tributeHistory,
   });
   if (!draft) return { ok: false, error: "No se pudieron mapear los datos." };
 
