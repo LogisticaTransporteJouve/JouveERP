@@ -17,6 +17,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { MoneyInput } from "@/components/money-input";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -342,13 +343,7 @@ export function EmployeeForm({
               <FormItem>
                 <FormLabel>Sueldo base mensual</FormLabel>
                 <FormControl>
-                  <Input
-                    {...field}
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    autoComplete="off"
-                  />
+                  <MoneyInput {...field} />
                 </FormControl>
                 <FormDescription>
                   El sueldo pactado. Un chofer mensual lleva su sueldo acá;
@@ -365,13 +360,7 @@ export function EmployeeForm({
               <FormItem>
                 <FormLabel>Viático mensual</FormLabel>
                 <FormControl>
-                  <Input
-                    {...field}
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    autoComplete="off"
-                  />
+                  <MoneyInput {...field} />
                 </FormControl>
                 <FormDescription>Default $20.000.</FormDescription>
                 <FormMessage />
@@ -512,13 +501,7 @@ export function EmployeeForm({
                 <FormItem>
                   <FormLabel>Retribución formal</FormLabel>
                   <FormControl>
-                    <Input
-                      {...field}
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      autoComplete="off"
-                    />
+                    <MoneyInput {...field} />
                   </FormControl>
                   <FormDescription>
                     Bruto del recibo. Solo informativo.

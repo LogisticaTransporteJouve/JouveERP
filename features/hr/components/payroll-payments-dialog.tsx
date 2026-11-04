@@ -27,6 +27,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { MoneyInput } from "@/components/money-input";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -447,11 +448,7 @@ function PaymentsBody({
                 <FormItem>
                   <FormLabel>Monto</FormLabel>
                   <FormControl>
-                    <Input
-                      {...field}
-                      inputMode="decimal"
-                      className="text-right font-mono"
-                    />
+                    <MoneyInput {...field} className="text-right font-mono" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

@@ -21,6 +21,7 @@ import {
   FormItem,
   FormMessage,
 } from "@/components/ui/form";
+import { MoneyInput } from "@/components/money-input";
 import { Input } from "@/components/ui/input";
 
 import {
@@ -209,11 +210,9 @@ function ExtrasBody({
               render={({ field }) => (
                 <FormItem className="w-28">
                   <FormControl>
-                    <Input
+                    <MoneyInput
                       {...field}
-                      inputMode="decimal"
                       placeholder="Monto"
-                      autoComplete="off"
                       className="text-right font-mono"
                     />
                   </FormControl>

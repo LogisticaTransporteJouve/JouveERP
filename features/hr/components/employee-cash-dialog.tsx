@@ -19,6 +19,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { MoneyInput } from "@/components/money-input";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -283,12 +284,11 @@ function CashForm({
         </div>
         <div className="space-y-2">
           <Label htmlFor="cash-amount">Importe ({currency})</Label>
-          <Input
+          <MoneyInput
             id="cash-amount"
-            inputMode="decimal"
             className="text-right font-mono"
             value={amount}
-            onChange={(e) => setAmount(e.target.value)}
+            onChange={setAmount}
           />
         </div>
         <div className="space-y-2 sm:col-span-2">
@@ -321,12 +321,11 @@ function CashForm({
               <Label htmlFor="cash-installment">
                 Cuota mensual (vacío = todo en un mes)
               </Label>
-              <Input
+              <MoneyInput
                 id="cash-installment"
-                inputMode="decimal"
                 className="text-right font-mono"
                 value={installment}
-                onChange={(e) => setInstallment(e.target.value)}
+                onChange={setInstallment}
               />
               {currency !== "ARS" && (
                 <p className="text-xs text-muted-foreground">

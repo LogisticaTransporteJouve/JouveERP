@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { MoneyInput } from "@/components/money-input";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -143,6 +144,7 @@ export function FinalSettlementCard({ employeeId }: { employeeId: string }) {
             <Field
               id="fs-salary"
               label={`Sueldo por ${data.days_worked} días trabajados`}
+              money
               value={draft.prorated_salary}
               onChange={(v) => setDraft({ ...draft, prorated_salary: v })}
             />
@@ -155,12 +157,14 @@ export function FinalSettlementCard({ employeeId }: { employeeId: string }) {
             <Field
               id="fs-vacation-amount"
               label="Vacaciones no gozadas ($)"
+              money
               value={draft.vacation_amount}
               onChange={(v) => setDraft({ ...draft, vacation_amount: v })}
             />
             <Field
               id="fs-sac"
               label={`SAC proporcional (${formatPayrollPeriod(data.year, sacMonth(data.sac_half), "sac")})`}
+              money
               value={draft.sac_amount}
               onChange={(v) => setDraft({ ...draft, sac_amount: v })}
             />
@@ -182,24 +186,36 @@ export function FinalSettlementCard({ employeeId }: { employeeId: string }) {
 function Field({
   id,
   label,
+  money = false,
   value,
   onChange,
 }: {
   id: string;
   label: string;
+  /** An es-AR amount; otherwise a day count. */
+  money?: boolean;
   value: string;
   onChange: (value: string) => void;
 }) {
   return (
     <div className="space-y-1">
       <Label htmlFor={id}>{label}</Label>
-      <Input
-        id={id}
-        inputMode="decimal"
-        className="text-right font-mono"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-      />
+      {money ? (
+        <MoneyInput
+          id={id}
+          className="text-right font-mono"
+          value={value}
+          onChange={onChange}
+        />
+      ) : (
+        <Input
+          id={id}
+          inputMode="decimal"
+          className="text-right font-mono"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      )}
     </div>
   );
 }

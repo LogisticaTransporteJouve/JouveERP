@@ -13,6 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { MoneyInput } from "@/components/money-input";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -285,12 +286,20 @@ function GarnishmentDialog({
             <Label htmlFor="garnishment-value">
               {draft.mode === "percentage" ? "Porcentaje" : "Monto mensual"}
             </Label>
-            <Input
-              id="garnishment-value"
-              inputMode="decimal"
-              value={draft.value}
-              onChange={(e) => set("value", e.target.value)}
-            />
+            {draft.mode === "percentage" ? (
+              <Input
+                id="garnishment-value"
+                inputMode="decimal"
+                value={draft.value}
+                onChange={(e) => set("value", e.target.value)}
+              />
+            ) : (
+              <MoneyInput
+                id="garnishment-value"
+                value={draft.value}
+                onChange={(value) => set("value", value)}
+              />
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="garnishment-from">Vigente desde</Label>

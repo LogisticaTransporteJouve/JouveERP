@@ -42,10 +42,27 @@ describe("InlineMoneyInput", () => {
     expect(onCommit).not.toHaveBeenCalled();
   });
 
-  it("reverts a negative amount without committing", () => {
+  it("drops a typed minus in sight", () => {
+    render(<InlineMoneyInput value={10} onCommit={vi.fn()} />);
+    fireEvent.change(input(), { target: { value: "-0,01" } });
+    expect(input().value).toBe("0,01");
+  });
+
+  it("formats while typing and commits what it shows", () => {
+    const onCommit = vi.fn();
+    render(<InlineMoneyInput value={0} onCommit={onCommit} />);
+    fireEvent.change(input(), { target: { value: "1500.50" } });
+    expect(input().value).toBe("150.050");
+    fireEvent.change(input(), { target: { value: "1500,50" } });
+    expect(input().value).toBe("1.500,50");
+    fireEvent.blur(input());
+    expect(onCommit).toHaveBeenCalledWith(1500.5);
+  });
+
+  it("reverts junk without committing", () => {
     const onCommit = vi.fn();
     render(<InlineMoneyInput value={10} onCommit={onCommit} />);
-    typeAndBlur("-0,01");
+    typeAndBlur("abc");
     expect(onCommit).not.toHaveBeenCalled();
     expect(input().value).toBe("10,00");
   });
