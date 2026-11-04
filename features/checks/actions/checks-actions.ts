@@ -248,6 +248,24 @@ export async function createCheckAction(
   const data = parsed.data;
 
   const supabase = await createSupabaseClient();
+  // A check lives in a cartera account: loaded into a bank or cash account it
+  // would book its inflow there (guard_check_edit refuses it too).
+  const { data: cartera, error: carteraErr } = await supabase
+    .from("accounts")
+    .select("type")
+    .eq("id", data.cartera_account_id)
+    .maybeSingle();
+  if (carteraErr) {
+    logger.error("cheques.create.cartera_read_failed", {
+      userId: ctx.userId,
+      error: carteraErr,
+    });
+    return { ok: false, error: "No se pudo leer la cuenta de cartera." };
+  }
+  if (!cartera || (cartera.type !== "checks" && cartera.type !== "echeq")) {
+    return { ok: false, error: "La cuenta de cartera no es válida." };
+  }
+
   const { data: row, error } = await supabase
     .from("checks")
     .insert({
