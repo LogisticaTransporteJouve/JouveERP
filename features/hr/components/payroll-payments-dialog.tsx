@@ -36,7 +36,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useAccountsList } from "@/features/accounts/hooks/use-accounts";
+import { AccountOptionsGate } from "@/features/accounts/components/account-options-gate";
+import type { Account } from "@/features/accounts/schema";
 import {
   amountToInput,
   formatArgentineDate,
@@ -157,21 +158,31 @@ type AddValues = {
   allow_overpay: boolean;
 };
 
-function PaymentsBody({
-  entryId,
-  year,
-  month,
-  saldo,
-  disabled,
-}: {
+type PaymentsBodyProps = {
   entryId: string;
   year: number;
   month: number;
   saldo: number;
   disabled: boolean;
-}) {
+};
+
+function PaymentsBody(props: PaymentsBodyProps) {
+  return (
+    <AccountOptionsGate>
+      {(accounts) => <PaymentsBodyFields {...props} accounts={accounts} />}
+    </AccountOptionsGate>
+  );
+}
+
+function PaymentsBodyFields({
+  entryId,
+  year,
+  month,
+  saldo,
+  disabled,
+  accounts,
+}: PaymentsBodyProps & { accounts: Account[] }) {
   const { data: payments = [], isLoading } = usePayrollPayments(entryId);
-  const { data: accounts } = useAccountsList();
   const { channels } = useScope();
   const defaultChannel = useDefaultChannel();
   const createMut = useCreatePayrollPayment();
@@ -179,7 +190,7 @@ function PaymentsBody({
   const deleteMut = useDeletePayrollPayment();
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  const payableAccounts = payrollPayableAccounts(accounts ?? []);
+  const payableAccounts = payrollPayableAccounts(accounts);
   const activeChannels = channels.filter((c) => c.is_active);
   const editing = payments.find((p) => p.id === editingId) ?? null;
 

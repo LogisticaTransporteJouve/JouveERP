@@ -26,7 +26,10 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { todayInAR } from "@/lib/format";
-import { useAccountsList } from "@/features/accounts/hooks/use-accounts";
+import {
+  useAccountOptions,
+  useAccountsList,
+} from "@/features/accounts/hooks/use-accounts";
 
 import { useRejectSoldCheckAsDebt } from "../hooks/use-check-sales";
 import {
@@ -304,15 +307,19 @@ const BUYER_LATER = "__later__";
 export function RejectChequeDialog({
   check,
   channels,
+  canPickAccount = true,
 }: {
   check: Cheque;
   channels: CheckChannelOption[];
+  /** Without accounts:read a sold check's repayment cannot pick an account:
+   *  it stays against the sale or the buyer's debt. */
+  canPickAccount?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const rejectMut = useRejectCheque();
   const debtMut = useRejectSoldCheckAsDebt();
   const pending = rejectMut.isPending || debtMut.isPending;
-  const { data: accounts } = useAccountsList();
+  const { accounts } = useAccountOptions(canPickAccount);
   const repayAccounts = accounts.filter(
     (a) =>
       a.is_active &&

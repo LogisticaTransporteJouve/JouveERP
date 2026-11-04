@@ -8,12 +8,15 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
+import { listAccountsAction } from "@/features/accounts/actions/accounts-actions";
+import { accountsKeys } from "@/features/accounts/lib/accounts-keys";
 import { getPayrollPeriodAction } from "@/features/hr/actions/payroll-actions";
+import { HR_CASH_PERMISSIONS } from "@/features/hr/lib/hr-cash";
 import { PayrollPeriodGrid } from "@/features/hr/components/payroll-period-grid";
 import { payrollKeys } from "@/features/hr/lib/payroll-keys";
 import { formatPayrollPeriod } from "@/features/hr/payroll-schema";
 import { requireUserContext } from "@/lib/auth/context";
-import { userCan } from "@/lib/auth/permissions";
+import { userCan, userCanAll } from "@/lib/auth/permissions";
 import { Hydrate } from "@/lib/query/hydrate";
 import { prefetchQueries } from "@/lib/query/prefetch";
 import { runAction } from "@/lib/query/run-action";
@@ -44,11 +47,24 @@ export default async function PayrollPeriodPage({
     notFound();
   }
 
+  // The payment dialogs pick an account: read them here, only for whoever
+  // can pay and read accounts (a deny must not fail the page's prefetch).
+  const canPay =
+    userCanAll(ctx.access, HR_CASH_PERMISSIONS) &&
+    userCan(ctx.access, "accounts:read");
   const dehydratedState = await prefetchQueries([
     {
       queryKey: payrollKeys.periodOfKind(year, month, "monthly"),
       queryFn: () => runAction(() => getPayrollPeriodAction(year, month)),
     },
+    ...(canPay
+      ? [
+          {
+            queryKey: accountsKeys.list(),
+            queryFn: () => runAction(() => listAccountsAction()),
+          },
+        ]
+      : []),
   ]);
 
   return (

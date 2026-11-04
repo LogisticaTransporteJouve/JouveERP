@@ -40,7 +40,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { TransactionListItem } from "@/features/transactions/actions/transactions-actions";
-import { useAccountsList } from "@/features/accounts/hooks/use-accounts";
+import { useAccountOptions } from "@/features/accounts/hooks/use-accounts";
 import { useScopeIsFiscal } from "@/components/providers/scope-provider";
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime-invalidate";
@@ -341,10 +341,14 @@ export function TransactionsTable({
 
   const canWrite = userCan(actorAccess, "transactions:write");
   const canDelete = userCan(actorAccess, "transactions:delete");
-  const canCollect = userCan(actorAccess, "receipts:write");
+  // A per-user deny of accounts:read hides what picks an account (the
+  // account filter, Cobrar, Pagar, Adelanto, Nuevo), not the movements.
+  const canPickAccount = userCan(actorAccess, "accounts:read");
+  const canCollect = canPickAccount && userCan(actorAccess, "receipts:write");
   const canEditRetentions = userCan(actorAccess, "retentions:write");
-  const canPay = userCan(actorAccess, "payment_orders:write");
-  const canAdvance = canWrite && userCan(actorAccess, "hr:write");
+  const canPay = canPickAccount && userCan(actorAccess, "payment_orders:write");
+  const canAdvance =
+    canPickAccount && canWrite && userCan(actorAccess, "hr:write");
   const confirm = useConfirm();
   const deleteMut = useDeleteTransaction();
   const [editing, setEditing] = useState<TransactionListItem | null>(null);
@@ -405,7 +409,7 @@ export function TransactionsTable({
             )}
             {canPay && <PayDialog />}
             {canAdvance && <EmployeeCashDialog kind="advance" />}
-            {canWrite && (
+            {canWrite && canPickAccount && (
               <NewTransactionDialog
                 channels={channels}
                 canCollect={canCollect}
@@ -420,10 +424,14 @@ export function TransactionsTable({
           value={params.period}
           onChange={(period) => update({ period })}
         />
-        <AccountFilter
-          value={params.accountId ?? ANY_ACCOUNT}
-          onChange={(v) => update({ accountId: v === ANY_ACCOUNT ? null : v })}
-        />
+        {canPickAccount && (
+          <AccountFilter
+            value={params.accountId ?? ANY_ACCOUNT}
+            onChange={(v) =>
+              update({ accountId: v === ANY_ACCOUNT ? null : v })
+            }
+          />
+        )}
         <Select
           value={params.kind ?? ANY_KIND}
           onValueChange={(v) =>
@@ -498,7 +506,7 @@ function AccountFilter({
   value: string;
   onChange: (next: string) => void;
 }) {
-  const { data: accounts } = useAccountsList();
+  const { accounts } = useAccountOptions();
   return (
     <Select value={value} onValueChange={onChange}>
       <SelectTrigger className="w-[200px]" aria-label="Cuenta">

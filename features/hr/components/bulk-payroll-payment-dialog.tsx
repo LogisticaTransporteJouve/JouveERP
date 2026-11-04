@@ -38,7 +38,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { useAccountsList } from "@/features/accounts/hooks/use-accounts";
+import { useAccountOptions } from "@/features/accounts/hooks/use-accounts";
 import {
   amountToInput,
   formatMoney,
@@ -106,9 +106,12 @@ export function BulkPayrollPaymentDialog({
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [amounts, setAmounts] = useState<Record<string, string>>({});
-  const { data: accountsData } = useAccountsList();
+  // Read once opened, never thrown: the button is mounted on the payroll
+  // month, which must not fall over when accounts cannot be read.
+  const { accounts: accountsData, error: accountsError } =
+    useAccountOptions(open);
   const payableAccounts = useMemo(
-    () => payrollPayableAccounts(accountsData ?? []),
+    () => payrollPayableAccounts(accountsData),
     [accountsData],
   );
   const [allowOverpay, setAllowOverpay] = useState(false);
@@ -154,6 +157,14 @@ export function BulkPayrollPaymentDialog({
     applySuggestions("transferencia");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  // The accounts may arrive after the dialog opened: default to the first.
+  const firstAccountId = payableAccounts[0]?.id ?? "";
+  useEffect(() => {
+    if (open && firstAccountId && !form.getValues("account_id")) {
+      form.setValue("account_id", firstAccountId);
+    }
+  }, [open, firstAccountId, form]);
 
   const selectedEntries = entries.filter((e) => selected.has(e.id));
   const invalidCount = selectedEntries.filter(
@@ -236,6 +247,9 @@ export function BulkPayrollPaymentDialog({
             o el efectivo (el resto); sin recibo, el saldo.
           </DialogDescription>
         </DialogHeader>
+        {open && accountsError && (
+          <p className="text-sm text-muted-foreground">{accountsError}</p>
+        )}
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">

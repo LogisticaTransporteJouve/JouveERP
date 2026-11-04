@@ -81,6 +81,9 @@ export function PayrollPeriodGrid({
   // moves treasury money: hr:write and transactions:write, as the actions.
   const canMoveCash = userCanAll(actorAccess, HR_CASH_PERMISSIONS);
   const canManagePayments = canMoveCash && !!period;
+  // Paying picks an account: a per-user deny of accounts:read hides the bulk
+  // payment (the per-employee dialog says why).
+  const canPickAccount = userCan(actorAccess, "accounts:read");
 
   const activeChannels = useMemo(
     () => channels.filter((c) => c.is_active),
@@ -188,7 +191,7 @@ export function PayrollPeriodGrid({
         </div>
         {period && (
           <div className="flex items-center gap-2">
-            {canManagePayments && entries.length > 0 && (
+            {canManagePayments && canPickAccount && entries.length > 0 && (
               <BulkPayrollPaymentDialog
                 entries={entries}
                 channels={activeChannels}

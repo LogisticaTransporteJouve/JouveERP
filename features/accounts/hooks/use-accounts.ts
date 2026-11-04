@@ -23,7 +23,7 @@ import {
   updateAccountAction,
 } from "../actions/accounts-actions";
 import { accountsKeys } from "../lib/accounts-keys";
-import type { AccountOpeningBalanceInput } from "../schema";
+import type { Account, AccountOpeningBalanceInput } from "../schema";
 
 const ONE_MINUTE = 60_000;
 
@@ -33,6 +33,50 @@ export function useAccountsList() {
     queryFn: () => runAction(() => listAccountsAction()),
     staleTime: ONE_MINUTE,
   });
+}
+
+const NO_ACCOUNTS: Account[] = [];
+
+/** Shown where an account would be picked when the user cannot read them. */
+export const ACCOUNTS_UNAVAILABLE_MESSAGE =
+  "No tenés permiso para ver cuentas, así que no podés elegir una.";
+
+/** The accounts list for a page or dialog outside Cuentas (Recibos, OP,
+ *  Movimientos, Cheques, Sueldos). It never suspends or throws: a per-user
+ *  deny of accounts:read (`canRead` false, or the read refused) gives no
+ *  accounts and a message instead of taking the page down. Same cache as
+ *  `useAccountsList`. */
+export function useAccountOptions(canRead = true): {
+  accounts: Account[];
+  error: string | null;
+  pending: boolean;
+} {
+  const query = useQuery({
+    queryKey: accountsKeys.list(),
+    queryFn: () => runAction(() => listAccountsAction()),
+    staleTime: ONE_MINUTE,
+    enabled: canRead,
+  });
+  if (!canRead) {
+    return {
+      accounts: NO_ACCOUNTS,
+      error: ACCOUNTS_UNAVAILABLE_MESSAGE,
+      pending: false,
+    };
+  }
+  // The refused read says why ("No tenés permiso para ver cuentas.").
+  if (query.isError) {
+    return {
+      accounts: NO_ACCOUNTS,
+      error: query.error.message,
+      pending: false,
+    };
+  }
+  return {
+    accounts: query.data ?? NO_ACCOUNTS,
+    error: null,
+    pending: query.isPending,
+  };
 }
 
 export function useCreateAccount() {
