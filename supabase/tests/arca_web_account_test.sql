@@ -1,7 +1,7 @@
 -- ARCA web account (20261104104003): only the service role saves or reads
 -- the clave (Vault); a null clave keeps the stored one; a new clave or CUIT
 -- resets the failures; a rejected clave stops automatic sign-ins; owner and
--- admin read the status but not the secret id; finance reads nothing. One
+-- admin read the status; finance reads nothing. One
 -- transaction, rolled back.
 
 begin;
@@ -39,9 +39,11 @@ select ok(
 );
 
 select ok(
-  not has_column_privilege('authenticated', 'public.arca_web_account', 'secret_id', 'select')
-  and has_column_privilege('authenticated', 'public.arca_web_account', 'status', 'select'),
-  'authenticated reads the status columns, not the secret id'
+  has_table_privilege('authenticated', 'public.arca_web_account', 'select')
+  and not has_table_privilege('authenticated', 'public.arca_web_account', 'insert')
+  and not has_table_privilege('authenticated', 'public.arca_web_account', 'update')
+  and not has_table_privilege('authenticated', 'public.arca_web_account', 'delete'),
+  'authenticated only reads the account row'
 );
 
 -- 2. Round trip --------------------------------------------------------------------
@@ -70,7 +72,7 @@ select is(public.get_arca_web_password(), null::text, 'and is not handed out unt
 select public.set_arca_web_credentials('30711111118', '00000000-0000-0000-0000-0000000ae001');
 
 select results_eq(
-  $$ select (select decrypted_secret from vault.decrypted_secrets where name = 'arca_web_password'), status
+  $$ select (select decrypted_secret collate "default" from vault.decrypted_secrets where name = 'arca_web_password'), status
        from public.arca_web_account $$,
   $$ values ('clave-uno'::text, 'sign_in_failing'::text) $$,
   'saving without a clave keeps the stored one and the failing state'
@@ -79,7 +81,7 @@ select results_eq(
 select public.set_arca_web_credentials('30711111118', '00000000-0000-0000-0000-0000000ae001', 'clave-dos');
 
 select results_eq(
-  $$ select public.get_arca_web_password(), status, consecutive_failures from public.arca_web_account $$,
+  $$ select public.get_arca_web_password() collate "default", status, consecutive_failures from public.arca_web_account $$,
   $$ values ('clave-dos'::text, 'active'::text, 0::bigint) $$,
   'a new clave replaces the secret and resets the failures'
 );
@@ -93,7 +95,7 @@ select is(
 delete from public.arca_web_account;
 select public.set_arca_web_credentials('30711111118', '00000000-0000-0000-0000-0000000ae001', 'clave-tres');
 select results_eq(
-  $$ select public.get_arca_web_password(),
+  $$ select public.get_arca_web_password() collate "default",
             (select count(*)::int from vault.secrets where name = 'arca_web_password') $$,
   $$ values ('clave-tres'::text, 1) $$,
   'a secret left by a deleted row is reused, not created again'

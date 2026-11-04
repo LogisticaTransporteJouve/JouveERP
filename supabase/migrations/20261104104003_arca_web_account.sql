@@ -36,9 +36,10 @@ create policy "AFIP admins view the ARCA web account" on public.arca_web_account
   for select to authenticated
   using ( (select public.user_has_role(array['owner', 'admin'])) );
 
+-- The secret id opens nothing by itself: vault.decrypted_secrets is not
+-- granted to authenticated, and only owner and admin see the row.
 revoke all on table public.arca_web_account from public, anon, authenticated;
-grant select (id, cuit, status, consecutive_failures, last_success_at, last_error_code, updated_by, updated_at)
-  on table public.arca_web_account to authenticated;
+grant select on table public.arca_web_account to authenticated;
 grant all on table public.arca_web_account to service_role;
 
 ------------------------------------------------------------------------------
