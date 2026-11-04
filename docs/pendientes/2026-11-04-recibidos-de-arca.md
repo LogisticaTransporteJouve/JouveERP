@@ -44,6 +44,10 @@
       frena la cuenta (cuenta como ingreso que anduvo); un mes que ARCA
       contestó mal no corta los siguientes; un pedido en cola detrás de otra
       corrida no toma su resultado; Admin → AFIP muestra una corrida cortada.
+- [x] Auditoría w7: cambiar el CUIT de un proveedor vuelve a revisar sus
+      comprobantes (`20261104141000`); «Traer de ARCA» no se pide si no se
+      pudo registrar el pedido; Admin → AFIP dice cuando el último pedido no
+      arrancó.
 - [ ] Avisar por notificación a owner y admin cuando ARCA rechaza la clave
       (hoy lo muestran la bandeja y Admin → AFIP).
 - [x] Lector validado con una consulta real de Recibidos (A con otros

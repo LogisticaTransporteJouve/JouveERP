@@ -8,6 +8,7 @@ const sent: unknown[] = [];
 const audit = vi.fn();
 
 const stamps: Record<string, unknown>[] = [];
+let stampFails = false;
 const service = {
   from: () => ({
     select: () => ({
@@ -16,7 +17,7 @@ const service = {
     update: (fields: Record<string, unknown>) => ({
       eq: async () => {
         stamps.push(fields);
-        return { error: null };
+        return { error: stampFails ? { code: "XX000" } : null };
       },
     }),
   }),
@@ -63,6 +64,7 @@ beforeEach(() => {
   account = active;
   sent.length = 0;
   stamps.length = 0;
+  stampFails = false;
   audit.mockClear();
 });
 
@@ -101,6 +103,16 @@ describe("requestArcaReceivedSyncAction", () => {
       toMonth: "2026-11",
     });
     expect(res.ok).toBe(false);
+    expect(sent).toEqual([]);
+  });
+
+  it("does not queue a run the tray could not follow", async () => {
+    stampFails = true;
+    const res = await requestArcaReceivedSyncAction({
+      fromMonth: "2026-11",
+      toMonth: "2026-11",
+    });
+    expect(res.ok ? null : res.error).toMatch(/No se pudo pedir/);
     expect(sent).toEqual([]);
   });
 
