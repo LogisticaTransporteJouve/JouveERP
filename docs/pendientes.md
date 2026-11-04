@@ -289,6 +289,17 @@ vigentes.
       `select pi.id, pi.fecha, pi.letter, pi.punto_venta, pi.numero, pi.imp_total - (pi.imp_neto + pi.imp_iva + pi.imp_trib + pi.imp_no_gravado + pi.imp_op_exentas) as gap, exists (select 1 from public.accounting_closed_periods cp where cp.period = to_char(pi.fecha, 'YYYY-MM')) as closed from public.purchase_invoices pi where pi.status = 'received' and public.is_channel_fiscal(pi.channel_id) and abs(pi.imp_total - (pi.imp_neto + pi.imp_iva + pi.imp_trib + pi.imp_no_gravado + pi.imp_op_exentas)) > 0.01 order by pi.fecha;`
       Rollback: el código anterior escribe las mismas columnas; una compra
       fiscal que no cierra recibe el mensaje del guard.
+- [ ] **Aprobar `20261104120500`** (auditoría w4, compras): una compra fiscal
+      nueva, o editada en sus importes, tiene que cerrar al centavo (antes
+      aceptaba un centavo de diferencia, que quedaba en proveedores), y una B
+      o C fiscal no puede guardar IVA, exento ni no gravado por ningún camino,
+      ítems incluidos. Las existentes siguen guardando ediciones que no tocan
+      esas columnas. Producción no tiene compras (N/A); si las tuviera, las
+      que quedan a un centavo (sobre el schema de `production-latest`):
+      `select pi.id, pi.fecha, pi.letter, pi.punto_venta, pi.numero from public.purchase_invoices pi where pi.status = 'received' and public.is_channel_fiscal(pi.channel_id) and abs(pi.imp_total - (pi.imp_neto + pi.imp_iva + pi.imp_trib + coalesce((to_jsonb(pi) ->> 'imp_no_gravado')::numeric, 0) + coalesce((to_jsonb(pi) ->> 'imp_op_exentas')::numeric, 0))) between 0.005 and 0.01;`
+      Rollback: el código anterior escribe las mismas columnas; lo que rompe
+      una de las dos reglas recibe el mensaje del guard.
+- [ ] **Decidir las compras fiscales B y C con IVA** (auditoría w3, S1 F2;
 - [x] **N/A en producción (base sin compras/cheques/OP/préstamos/RRHH a 2026-11-04).** **Decidir las compras fiscales B y C con IVA** (auditoría w3, S1 F2;
       no se cambian datos). Las cargadas antes de #339 pueden tener IVA,
       exento o no gravado aparte: el libro IVA, el estimado y `iva_credito`
@@ -617,6 +628,41 @@ mitigación en el schema: el límite se respeta operando.
   promover**.
 - [ ] Las compras internas no tienen el guard en la base (no generan asiento);
       la app las valida igual.
+- [x] **Auditoría w4** (`20261104120500`): el total de una compra cierra al
+      centavo (formulario, Zod, acción y base); una B o C fiscal no guarda
+      IVA, exento ni no gravado aunque venga de los ítems (la acción lee el
+      IVA de las líneas y el guard ve lo que escribe
+      `replace_purchase_invoice_items`); el renglón de totales del libro IVA
+      Ventas (pantalla y PDF) muestra un total negativo de no gravado, exento
+      u otros tributos.
+- [ ] El lector de ARCA (`lib/afip/mis-comprobantes/parse.ts`) sigue
+      aceptando un comprobante cuyo total difiere de sus partes en un
+      centavo; al aceptarlo, la compra se rechaza con el mensaje del total.
+      Lo ajusta la sesión dueña del robot y la bandeja.
+## Tesorería y Gestión: auditoría w4 (2026-11-04)
+
+- [x] **Cheque propio de una OP fijo a la OP** (`20261104120200`): la base
+      rechaza cambiarle la OP, el monto, la moneda o la cuenta (antes solo
+      lo frenaba la app; un PATCH por PostgREST hacía que cobrarlo o
+      rechazarlo contara la plata dos veces). Las filas existentes no se
+      tocan; producción no tiene OP.
+- [x] **Gestión en percibido, OP que paga un cheque rechazado**
+      (`20261104120201`): esa parte de la OP toma las proporciones de la OP
+      que entregó el cheque (empleado, flota, neutro), así una compra neutra
+      pagada con un cheque que rebotó y se volvió a pagar suma 0.
+- [ ] La cadena de rebotes se sigue hasta 3 OP hacia atrás; más allá, esa
+      parte queda en Proveedores.
+- [x] La IA (`getIssuedChecks`, `getChecks`) suma solo los cheques abiertos
+      (propios sin cobrar; de terceros en cartera o depositados) y dice que
+      la lista de los cerrados está recortada. `getTreasurySummary` y el
+      recuadro de Tesorería dicen que los cheques por acreditar son en pesos.
+- [x] Préstamos: «Nuevo préstamo» y «Anular» de la lista piden
+      `accounting:write`, como el detalle.
+- [x] Conciliación no ofrece pagar una DDJJ de IVA que solo deja saldo a
+      favor (`taxDocumentNeedsPayment`).
+- [ ] No verificado contra una base real: las migraciones y sus pgTAP
+      (`issued_check_pinned_to_order`, `management_rejected_check_op_shares`).
+
 ## Tesorería: auditoría w3 (2026-11-04)
 
 - [x] **Cheque propio de una OP que rebota** (`20261104110600`): el rechazo

@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { listAccountsAction } from "@/features/accounts/actions/accounts-actions";
 import { listChecksAction } from "@/features/checks/actions/checks-actions";
+import { OPEN_CHECK_STATUSES } from "@/features/checks/schema";
 import { listIssuedChecksAction } from "@/features/issued-checks/actions/issued-checks-actions";
 import { listRecurringPaymentsAction } from "@/features/recurring-payments/actions/recurring-payments-actions";
 import { listTransactionsAction } from "@/features/transactions/actions/transactions-actions";
@@ -98,7 +99,7 @@ export const getTransactions = defineAiAction({
   run: (_ctx, input) => runTransactions(input),
 });
 
-const CAPPED_NOTE = ` (every open check is listed, but only the latest ${SETTLED_LIST_CAP} settled ones: count and total cover only these).`;
+const CAPPED_NOTE = ` (every open check is listed, but only the latest ${SETTLED_LIST_CAP} settled ones: the count covers only these; the total covers every open check).`;
 
 export async function runChecks(
   input: { scope?: FiscalFilter | null } = {},
@@ -106,20 +107,20 @@ export async function runChecks(
   const { isFiscal, label } = readScope(input.scope);
   const res = await listChecksAction({ isFiscal });
   if (!res.ok) return errResult(res.error);
+  const isOpen = (c: { status: string }) =>
+    (OPEN_CHECK_STATUSES as readonly string[]).includes(c.status);
   const total = totalsByCurrency(
     res.data.items.map((c) => ({
       amount: Number(c.amount),
       currency: c.currency,
-      counts: true,
+      counts: isOpen(c),
     })),
   );
-  const enCartera = res.data.items.filter(
-    (c) => c.status === "en_cartera",
-  ).length;
+  const open = res.data.items.filter(isOpen).length;
   const capped = res.data.truncated;
   return okResult(
-    `${label}: ${res.data.items.length} checks received (${enCartera} in portfolio) · ` +
-      `total ${total} (per currency)${capped ? CAPPED_NOTE : "."}`,
+    `${label}: ${res.data.items.length} checks received · ${open} in portfolio ` +
+      `or deposited, total ${total} (per currency)${capped ? CAPPED_NOTE : "."}`,
     res.data,
     { partial: capped },
   );
@@ -135,7 +136,8 @@ export const getChecks = defineAiAction({
     "Third-party checks received: number, bank, drawer, due date, amount, " +
     "currency and status (in portfolio / deposited / credited / endorsed / " +
     "bounced / sold to a bank or financiera). Optional scope (fiscal/internal/all; checks with no channel " +
-    "only under 'all'). For the check portfolio or collections by check.",
+    "only under 'all'). The total covers only the checks in portfolio or " +
+    "deposited. For the check portfolio or collections by check.",
   input: z.object({ scope: ScopeInputSchema }),
   run: (_ctx, input) => runChecks(input),
 });
@@ -150,14 +152,16 @@ export async function runIssuedChecks(
     res.data.items.map((c) => ({
       amount: c.amount,
       currency: c.currency,
-      counts: true,
+      counts: c.status === "emitted",
     })),
   );
+  const outstanding = res.data.items.filter(
+    (c) => c.status === "emitted",
+  ).length;
   const capped = res.data.truncated;
   return okResult(
-    `${label}: ${res.data.items.length} own checks issued · total ${total} (per currency)${
-      capped ? CAPPED_NOTE : "."
-    }`,
+    `${label}: ${res.data.items.length} own checks issued · ${outstanding} not ` +
+      `yet cashed, total ${total} (per currency)${capped ? CAPPED_NOTE : "."}`,
     res.data.items,
     { partial: capped },
   );
@@ -172,7 +176,7 @@ export const getIssuedChecks = defineAiAction({
   description:
     "Own checks issued to suppliers: number, bank, payee, due date, amount, " +
     "currency and status (issued / cashed / bounced / voided). Optional scope " +
-    "(fiscal/internal/all). " +
+    "(fiscal/internal/all). The total covers only the checks not yet cashed. " +
     "For payments by own check or upcoming check due dates.",
   input: z.object({ scope: ScopeInputSchema }),
   run: (_ctx, input) => runIssuedChecks(input),

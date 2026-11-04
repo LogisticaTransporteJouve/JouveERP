@@ -151,9 +151,9 @@ describe("totalsGap", () => {
     imp_total: "121",
   };
 
-  it("is null when the amounts close (within a cent)", () => {
+  it("is null only when the amounts close to the cent", () => {
     expect(totalsGap(base)).toBeNull();
-    expect(totalsGap({ ...base, imp_total: "121.01" })).toBeNull();
+    expect(totalsGap({ ...base, imp_total: "121.01" })).toBe(0.01);
   });
 
   it("returns the difference when they do not", () => {

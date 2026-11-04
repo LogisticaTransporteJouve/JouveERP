@@ -108,6 +108,32 @@ describe("letter rule on create", () => {
     },
   );
 
+  it("reads the IVA from the items, which the items RPC writes over the header", async () => {
+    const res = await createPurchaseInvoiceAction({
+      ...create,
+      letter: "B",
+      imp_neto: 1210,
+      imp_total: 1210,
+      items: [
+        {
+          description: "Servicio",
+          quantity: 1,
+          unit_price: 1000,
+          iva_rate_id: 5,
+          line_neto: 1000,
+          line_iva: 210,
+          line_total: 1210,
+        },
+      ],
+    });
+    expect(res).toEqual({
+      ok: false,
+      error:
+        "En facturas B y C el IVA, el exento y el no gravado van incluidos en el neto: cargá el IVA en 0 y, si hay ítems, con «Sin alícuota».",
+    });
+    expect(writes).toEqual([]);
+  });
+
   it("lets a fiscal A with IVA and exento through to the insert", async () => {
     await createPurchaseInvoiceAction({
       ...create,
@@ -208,6 +234,33 @@ describe("letter rule and items on update", () => {
       error:
         "Con exento o no gravado en el encabezado, los ítems deben tener alícuota.",
     });
+    expect(writes).toEqual([]);
+  });
+
+  it("refuses items with IVA on a stored fiscal B", async () => {
+    stored = {
+      ...stored,
+      letter: "B",
+      imp_neto: 121,
+      imp_iva: 0,
+      imp_op_exentas: 0,
+      imp_total: 121,
+    };
+    const res = await updatePurchaseInvoiceAction({
+      id: INVOICE_ID,
+      items: [
+        {
+          description: "Servicio",
+          quantity: 1,
+          unit_price: 100,
+          iva_rate_id: 5,
+          line_neto: 100,
+          line_iva: 21,
+          line_total: 121,
+        },
+      ],
+    });
+    expect(res.ok).toBe(false);
     expect(writes).toEqual([]);
   });
 
