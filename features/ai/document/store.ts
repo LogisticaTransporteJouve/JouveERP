@@ -68,7 +68,8 @@ export type ExtractionMatches = {
   /** The duplicate lookup failed: whether it is already loaded is unknown. */
   duplicate_unknown?: true;
   /** The uploader may not read the counterparty's table (or is unknown): the
-   *  CUIT lookup did not run, so no client/supplier here is not "none". */
+   *  CUIT lookup did not run, so a missing client/supplier means "not
+   *  checked", not "none". */
   counterparty_unchecked?: true;
   /** Expense classification suggestion (purchase_invoice). Human-confirmed. */
   expense?: ExpenseClassifyResult;
