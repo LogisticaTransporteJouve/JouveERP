@@ -58,6 +58,49 @@ async function failIfNotAuthorized(
   return (data ?? []).length > 0 ? "failed" : "changed";
 }
 
+async function loadStuck() {
+  const { data, error } = await getServiceClient()
+    .from("invoices")
+    .select("id, updated_at")
+    .eq("status", "emitting")
+    .is("numero", null)
+    .not("cbte_tipo_afip", "is", null)
+    // Only a number sent to AFIP leaves the outcome unknown; a run that never
+    // sent one fails on its own (onFailure).
+    .not("afip_attempted_numero", "is", null)
+    .lt("updated_at", new Date(Date.now() - STUCK_AFTER_MS).toISOString())
+    .order("updated_at")
+    .limit(BATCH);
+  if (error) throw new Error(`load-stuck: ${error.message}`);
+  return data ?? [];
+}
+
+/** Drafts old enough to have missed their send, with at least one item: a
+ *  draft with no items is a half-written insert, not a voucher. */
+async function loadUnsentWithItems() {
+  const supabase = getServiceClient();
+  const now = Date.now();
+  const { data, error } = await supabase
+    .from("invoices")
+    .select("id, idempotency_key, channel_id, punto_venta")
+    .eq("status", "draft")
+    .lt("created_at", new Date(now - UNSENT_AFTER_MS).toISOString())
+    .gt("created_at", new Date(now - UNSENT_MAX_AGE_MS).toISOString())
+    .order("created_at")
+    .limit(BATCH);
+  if (error) throw new Error(`load-unsent: ${error.message}`);
+  const kept: NonNullable<typeof data> = [];
+  for (const draft of data ?? []) {
+    const { count, error: itemsError } = await supabase
+      .from("invoice_items")
+      .select("id", { count: "exact", head: true })
+      .eq("invoice_id", draft.id);
+    if (itemsError) throw new Error(`load-unsent-items: ${itemsError.message}`);
+    if ((count ?? 0) > 0) kept.push(draft);
+  }
+  return kept;
+}
+
 export const issueInvoiceReconcile = inngest.createFunction(
   {
     id: "issue-invoice-reconcile",
@@ -67,22 +110,12 @@ export const issueInvoiceReconcile = inngest.createFunction(
     triggers: [{ cron: "TZ=America/Argentina/Buenos_Aires */15 * * * *" }],
   },
   async ({ step }) => {
-    const stuck = await step.run("load-stuck", async () => {
-      const { data, error } = await getServiceClient()
-        .from("invoices")
-        .select("id, updated_at")
-        .eq("status", "emitting")
-        .is("numero", null)
-        .not("cbte_tipo_afip", "is", null)
-        // Only a number sent to AFIP leaves the outcome unknown; a run that
-        // never sent one fails on its own (onFailure).
-        .not("afip_attempted_numero", "is", null)
-        .lt("updated_at", new Date(Date.now() - STUCK_AFTER_MS).toISOString())
-        .order("updated_at")
-        .limit(BATCH);
-      if (error) throw new Error(`load-stuck: ${error.message}`);
-      return data ?? [];
-    });
+    // One step for every read: a run with nothing to do costs two executions
+    // (the run and this step), and it runs every 15 minutes.
+    const { stuck, resend } = await step.run("load-work", async () => ({
+      stuck: await loadStuck(),
+      resend: await loadUnsentWithItems(),
+    }));
 
     const outcomes: Record<string, number> = {};
     for (const row of stuck) {
@@ -103,35 +136,6 @@ export const issueInvoiceReconcile = inngest.createFunction(
       }
       outcomes[outcome] = (outcomes[outcome] ?? 0) + 1;
     }
-
-    const unsent = await step.run("load-unsent", async () => {
-      const now = Date.now();
-      const { data, error } = await getServiceClient()
-        .from("invoices")
-        .select("id, idempotency_key, channel_id, punto_venta")
-        .eq("status", "draft")
-        .lt("created_at", new Date(now - UNSENT_AFTER_MS).toISOString())
-        .gt("created_at", new Date(now - UNSENT_MAX_AGE_MS).toISOString())
-        .order("created_at")
-        .limit(BATCH);
-      if (error) throw new Error(`load-unsent: ${error.message}`);
-      return data ?? [];
-    });
-
-    const resend = await step.run("filter-unsent", async () => {
-      // A draft with no items is a half-written insert, not a voucher.
-      const supabase = getServiceClient();
-      const kept: typeof unsent = [];
-      for (const draft of unsent) {
-        const { count, error } = await supabase
-          .from("invoice_items")
-          .select("id", { count: "exact", head: true })
-          .eq("invoice_id", draft.id);
-        if (error) throw new Error(`load-unsent-items: ${error.message}`);
-        if ((count ?? 0) > 0) kept.push(draft);
-      }
-      return kept;
-    });
 
     if (resend.length > 0) {
       await step.sendEvent(

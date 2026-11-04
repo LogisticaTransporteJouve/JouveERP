@@ -3,6 +3,22 @@
 Registro fechado, la más nueva arriba. Cada entrada: qué se decidió, por qué,
 y qué se descartó.
 
+## 2026-11-04 — Presupuesto de ejecuciones de Inngest
+
+**Decisión.** El plan gratis de Inngest da 50.000 ejecuciones por mes, y
+cuenta cada corrida más cada paso. Un cron frecuente se escribe sin pasos
+cuando hace una sola cosa (el reintento de la función alcanza), o con un solo
+paso de lectura cuando casi nunca encuentra trabajo. `search-index-refresh`
+pasó de cada minuto con un paso (~86.000 por mes) a cada 5 minutos sin paso
+(~8.600), e `issue-invoice-reconcile` lee todo en un paso (de 4 a 2 por
+corrida vacía). Total estimado: ~29.000 por mes.
+
+**Por qué.** Al ritmo anterior eran ~110.000 por mes: el doble del límite.
+
+**Descartado.** pg_cron en Supabase para el índice (habilitar una extensión
+nueva en producción); bajar la frecuencia de `arca-issued-sync` y de las
+tareas de IA (cambia cuándo ve el usuario lo nuevo, y no hace falta).
+
 ## 2026-11-04 — Montos de RRHH con formato al tipear; sueldo de la liquidación final
 
 **Decisión.** Todo monto de RRHH se tipea en `MoneyInput`
