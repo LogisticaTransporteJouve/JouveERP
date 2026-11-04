@@ -2,7 +2,7 @@
 
 import { logAudit } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
-import { scopeIsFiscalFor, userCan } from "@/lib/auth/permissions";
+import { scopeIsFiscalFor, userCan, userCanAll } from "@/lib/auth/permissions";
 import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { todayInAR } from "@/lib/format";
 import { logger } from "@/lib/logger";
@@ -26,6 +26,10 @@ import {
   type RejectSoldCheckAsDebtInput,
   type SoldChecksExposure,
 } from "../lib/check-sales";
+import {
+  CHECK_SALE_DEBT_PAY_DENIED_REASON,
+  CHECK_SALE_DEBT_PAY_PERMISSIONS,
+} from "../lib/check-sale-cash";
 
 // Check sales after the fact: the list (to anul one entered by mistake), the
 // debt to the buyer of a rejected sold check, and the exposure Tesorería
@@ -245,6 +249,9 @@ export async function payCheckSaleDebtAction(
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "cheques:write")) {
     return { ok: false, error: WRITE_DENIED };
+  }
+  if (!userCanAll(ctx.access, CHECK_SALE_DEBT_PAY_PERMISSIONS)) {
+    return { ok: false, error: CHECK_SALE_DEBT_PAY_DENIED_REASON };
   }
   const parsed = PayCheckSaleDebtSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) };

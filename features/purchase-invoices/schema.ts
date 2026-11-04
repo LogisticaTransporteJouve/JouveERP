@@ -4,6 +4,7 @@ import type {
   IvaBreakdownLine,
   TribBreakdown,
 } from "@/lib/afip/mis-comprobantes/parse";
+import type { TributeHistory } from "@/lib/purchases/tribute-split";
 
 export const PURCHASE_INVOICE_KINDS = ["factura", "nc", "nd"] as const;
 export type PurchaseInvoiceKind = (typeof PURCHASE_INVOICE_KINDS)[number];
@@ -231,6 +232,8 @@ const baseFields = {
   imp_op_exentas: positiveAmount.default(0),
   /** imp_trib split; sent with every new purchase. */
   imp_perc_iva: positiveAmount.default(0),
+  /** Ganancias and other national taxes that are not IVA. */
+  imp_perc_nacionales: positiveAmount.default(0),
   imp_perc_iibb: positiveAmount.default(0),
   imp_perc_municipales: positiveAmount.default(0),
   imp_impuestos_internos: positiveAmount.default(0),
@@ -299,6 +302,7 @@ export const PurchaseInvoiceUpdateSchema = z
     imp_no_gravado: positiveAmount.optional(),
     imp_op_exentas: positiveAmount.optional(),
     imp_perc_iva: positiveAmount.optional(),
+    imp_perc_nacionales: positiveAmount.optional(),
     imp_perc_iibb: positiveAmount.optional(),
     imp_perc_municipales: positiveAmount.optional(),
     imp_impuestos_internos: positiveAmount.optional(),
@@ -383,6 +387,7 @@ export type PurchaseAmountBreakdown = {
   imp_no_gravado: number;
   imp_op_exentas: number;
   imp_perc_iva: number;
+  imp_perc_nacionales: number;
   imp_perc_iibb: number;
   imp_perc_municipales: number;
   imp_impuestos_internos: number;
@@ -390,6 +395,7 @@ export type PurchaseAmountBreakdown = {
 
 export const PURCHASE_TRIBUTE_FIELDS = [
   "imp_perc_iva",
+  "imp_perc_nacionales",
   "imp_perc_iibb",
   "imp_perc_municipales",
   "imp_impuestos_internos",
@@ -400,6 +406,7 @@ export const PURCHASE_TRIBUTE_LABEL: Record<
   string
 > = {
   imp_perc_iva: "Percepción IVA",
+  imp_perc_nacionales: "Percepción Ganancias y otros nacionales",
   imp_perc_iibb: "Percepción IIBB",
   imp_perc_municipales: "Municipales",
   imp_impuestos_internos: "Impuestos internos",
@@ -530,6 +537,9 @@ export type ReceivedVoucher = {
     status: PurchaseInvoiceStatus;
     is_fiscal: boolean;
   } | null;
+  /** That supplier's latest split of otros tributos, for the suggestion
+   *  when ARCA gives only the total. Left out when not read. */
+  tribute_history?: TributeHistory | null;
   /** The fiscal supplier with the issuer's CUIT, if loaded. */
   supplier: {
     id: string;

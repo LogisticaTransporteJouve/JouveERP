@@ -2,6 +2,9 @@ import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 
 import {
   COMPRAS_AMOUNT_COLUMNS,
+  COMPRAS_PERCEPTIONS_HEADER,
+  COMPRAS_PERCEPTIONS_LEGEND,
+  comprasPerceptions,
   computeComprasTotals,
   groupComprasByInvoice,
   IVA_RATES,
@@ -15,6 +18,12 @@ const fmt = new Intl.NumberFormat("es-AR", {
   maximumFractionDigits: 2,
 });
 const money = (n: number) => fmt.format(n);
+
+/** One line per perception, amount and code ("5.115,78 B"). */
+const perceptionLines = (b: Parameters<typeof comprasPerceptions>[0]) =>
+  comprasPerceptions(b)
+    .map((p) => `${money(p.amount)} ${p.code}`)
+    .join("\n");
 
 const styles = StyleSheet.create({
   page: { padding: 24, fontSize: 7, fontFamily: "Helvetica", color: "#111" },
@@ -72,6 +81,7 @@ const COL_W = {
   cuit: 46,
   rate: 28,
   perc: 26,
+  percepciones: 40,
   total: 40,
   cae: 40,
 };
@@ -131,6 +141,11 @@ export function LibroIvaComprasDocument({
                 {c.header}
               </Text>
             ))}
+            <Text
+              style={[styles.th, styles.right, { width: COL_W.percepciones }]}
+            >
+              {COMPRAS_PERCEPTIONS_HEADER}
+            </Text>
             <Text style={[styles.th, styles.right, { width: COL_W.total }]}>
               Total
             </Text>
@@ -172,6 +187,7 @@ export function LibroIvaComprasDocument({
                 {
                   width:
                     COL_W.perc * COMPRAS_AMOUNT_COLUMNS.length +
+                    COL_W.percepciones +
                     COL_W.total +
                     COL_W.cae,
                 },
@@ -247,6 +263,16 @@ export function LibroIvaComprasDocument({
                     </Text>
                   );
                 })}
+                <Text
+                  style={[
+                    styles.td,
+                    styles.right,
+                    styles.mono,
+                    { width: COL_W.percepciones },
+                  ]}
+                >
+                  {perceptionLines(row.breakdown)}
+                </Text>
                 <Text
                   style={[
                     styles.td,
@@ -331,6 +357,16 @@ export function LibroIvaComprasDocument({
                 styles.td,
                 styles.right,
                 styles.mono,
+                { width: COL_W.percepciones },
+              ]}
+            >
+              {perceptionLines(totals.breakdown)}
+            </Text>
+            <Text
+              style={[
+                styles.td,
+                styles.right,
+                styles.mono,
                 { width: COL_W.total },
               ]}
             >
@@ -340,6 +376,7 @@ export function LibroIvaComprasDocument({
           </View>
         </View>
 
+        <Text style={styles.footer}>{COMPRAS_PERCEPTIONS_LEGEND}</Text>
         <Text style={styles.footer}>
           JouveERP · RG 1361 · Página generada el {generatedAt}
         </Text>

@@ -300,7 +300,12 @@ describe("getIvaPositionEstimateAction", () => {
           imp_trib_orig: 75,
           imp_total_orig: 6125,
           cotizacion: 1,
-          ...breakdownCols({ perc_iva: 25, perc_iibb: 50 }),
+          // Ganancias is not IVA: among the other taxes, never subtracted.
+          ...breakdownCols({
+            perc_iva: 25,
+            perc_iibb: 30,
+            perc_nacionales: 20,
+          }),
         },
       ],
     });
@@ -431,12 +436,17 @@ describe("getIvaPositionEstimateAction", () => {
 });
 
 /** The libro IVA compras breakdown columns, in pesos and in the document's currency. */
-function breakdownCols(parts: { perc_iva?: number; perc_iibb?: number }) {
+function breakdownCols(parts: {
+  perc_iva?: number;
+  perc_iibb?: number;
+  perc_nacionales?: number;
+}) {
   const b = {
     no_gravado: 0,
     exentas: 0,
     perc_iva: parts.perc_iva ?? 0,
     perc_iibb: parts.perc_iibb ?? 0,
+    perc_nacionales: parts.perc_nacionales ?? 0,
     perc_municipales: 0,
     impuestos_internos: 0,
   };

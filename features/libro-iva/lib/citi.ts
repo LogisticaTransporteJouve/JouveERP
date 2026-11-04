@@ -395,7 +395,9 @@ export function buildComprasTxt(
         amount(b.no_gravado) +
         amount(b.exentas) +
         amount(b.perc_iva) +
-        amount(0) + // percepciones de otros impuestos nacionales
+        // Campo 13: percepciones o pagos a cuenta de otros impuestos
+        // nacionales (Ganancias…), not IVA.
+        amount(b.perc_nacionales) +
         amount(b.perc_iibb) +
         amount(b.perc_municipales) +
         amount(b.impuestos_internos) +
