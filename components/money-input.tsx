@@ -3,7 +3,7 @@
 import type { ComponentProps } from "react";
 
 import { Input } from "@/components/ui/input";
-import { formatAmountInput, formatSignedAmountInput } from "@/lib/format";
+import { nextMoneyInputText } from "@/lib/format";
 
 type Props = Omit<
   ComponentProps<"input">,
@@ -18,8 +18,9 @@ type Props = Omit<
 };
 
 /** es-AR amount field that formats on every keystroke ("1500,5" shows as
- *  "1.500,5"), so what it shows is what `parseArAmount` reads: a typed dot
- *  is dropped in sight instead of silently multiplying the amount. */
+ *  "1.500,5"), so what it shows is what `parseArAmount` reads. It groups
+ *  thousands itself, so a typed "." is the decimal mark like "," (numpad
+ *  keys send "."); a paste follows `normalizeAmountText`. */
 export function MoneyInput({
   value,
   onChange,
@@ -27,7 +28,6 @@ export function MoneyInput({
   decimals = 2,
   ...props
 }: Props) {
-  const format = allowNegative ? formatSignedAmountInput : formatAmountInput;
   return (
     <Input
       autoComplete="off"
@@ -35,7 +35,14 @@ export function MoneyInput({
       type="text"
       inputMode="decimal"
       value={value}
-      onChange={(e) => onChange(format(e.target.value, decimals))}
+      onChange={(e) =>
+        onChange(
+          nextMoneyInputText(value, e.target.value, {
+            decimals,
+            allowNegative,
+          }),
+        )
+      }
     />
   );
 }

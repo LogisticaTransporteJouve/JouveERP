@@ -112,7 +112,7 @@ describe("EmployeeForm money fields", () => {
     renderForm();
     type(field("Sueldo base mensual"), "1500,50");
     expect(field("Sueldo base mensual").value).toBe("1.500,50");
-    type(field("Viático mensual"), "850.000,00");
+    type(field("Viático mensual"), "850000,00");
     expect(field("Viático mensual").value).toBe("850.000,00");
     expect(await saved()).toMatchObject({
       base_salary: 1500.5,
@@ -120,10 +120,16 @@ describe("EmployeeForm money fields", () => {
     });
   });
 
-  it("drops a typed dot in sight instead of saving 100 times the amount", async () => {
+  it("reads a typed dot (numpad) as the decimal mark", async () => {
     renderForm();
     type(field("Sueldo base mensual"), "1500.50");
-    expect(field("Sueldo base mensual").value).toBe("150.050");
-    expect(await saved()).toMatchObject({ base_salary: 150_050 });
+    expect(field("Sueldo base mensual").value).toBe("1.500,50");
+    expect(await saved()).toMatchObject({ base_salary: 1500.5 });
+  });
+
+  it("ignores a second decimal mark typed after the first", async () => {
+    renderForm();
+    type(field("Sueldo base mensual"), "1500.5.0");
+    expect(field("Sueldo base mensual").value).toBe("1.500,50");
   });
 });

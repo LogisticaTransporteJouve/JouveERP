@@ -52,8 +52,6 @@ describe("InlineMoneyInput", () => {
     const onCommit = vi.fn();
     render(<InlineMoneyInput value={0} onCommit={onCommit} />);
     fireEvent.change(input(), { target: { value: "1500.50" } });
-    expect(input().value).toBe("150.050");
-    fireEvent.change(input(), { target: { value: "1500,50" } });
     expect(input().value).toBe("1.500,50");
     fireEvent.blur(input());
     expect(onCommit).toHaveBeenCalledWith(1500.5);

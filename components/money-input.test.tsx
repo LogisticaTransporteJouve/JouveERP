@@ -53,11 +53,28 @@ describe("MoneyInput", () => {
 
   it.each([
     ["1500,50", "1.500,50", 1500.5],
-    ["850.000,00", "850.000,00", 850_000],
-    ["1500.50", "150.050", 150_050],
+    // A typed dot is the decimal mark (numpad), like the comma.
+    ["1500.50", "1.500,50", 1500.5],
+    // The field groups thousands itself; a second decimal mark is ignored.
+    ["850000,00", "850.000,00", 850_000],
+    ["850.000,00", "850,00", 850],
   ])("typing %s shows %s and saves %s", (typed, shown, saved) => {
     expect(typeAndSave(typed)).toBe(saved);
     expect(input().value).toBe(shown);
+  });
+
+  it.each([
+    ["1.234,56", "1.234,56", 1234.56],
+    ["1,234.56", "1.234,56", 1234.56],
+    ["15.000", "15.000", 15000],
+    ["1500.5", "1.500,5", 1500.5],
+  ])("pasting %s shows %s and saves %s", (pasted, shown, saved) => {
+    const onSave = vi.fn();
+    render(<Harness initial="" onSave={onSave} />);
+    fireEvent.change(input(), { target: { value: pasted } });
+    fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
+    expect(input().value).toBe(shown);
+    expect(onSave).toHaveBeenCalledWith(saved);
   });
 
   it("drops a minus unless allowNegative", () => {

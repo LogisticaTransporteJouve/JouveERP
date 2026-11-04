@@ -78,12 +78,12 @@ describe("purchase items: quantity and unit price", () => {
     expect(parseItemNumber(itemNumberToInput(1234.5678))).toBe(1234.5678);
   });
 
-  it("drops a typed dot in sight and saves a typed 1.234,56 as 1234.56", () => {
+  it("reads a typed dot as the decimal mark and saves a typed 1.234,56 as 1234.56", () => {
     render(<Harness initial={[ITEM]} />);
     fireEvent.change(field("Precio unitario"), {
       target: { value: "1234.56" },
     });
-    expect(field("Precio unitario").value).toBe("123.456");
+    expect(field("Precio unitario").value).toBe("1.234,56");
     fireEvent.change(field("Precio unitario"), {
       target: { value: "1.234,56" },
     });

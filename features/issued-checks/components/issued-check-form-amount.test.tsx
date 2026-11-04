@@ -100,10 +100,10 @@ describe("IssuedCheckForm amount", () => {
     expect(await savedAmount()).toBe(1234.56);
   });
 
-  it("saves a typed 1.234,56 as 1234.56 and drops a typed dot in sight", async () => {
+  it("saves a typed 1.234,56 as 1234.56 and reads a typed dot as the decimal mark", async () => {
     renderForm(10);
     fireEvent.change(amountField(), { target: { value: "1234.56" } });
-    expect(amountField().value).toBe("123.456");
+    expect(amountField().value).toBe("1.234,56");
     fireEvent.change(amountField(), { target: { value: "1.234,56" } });
     expect(await savedAmount()).toBe(1234.56);
   });

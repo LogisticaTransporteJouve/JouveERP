@@ -243,15 +243,90 @@ export function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
-/** Parses an amount in es-AR format ("1.234,56" → 1234.56). Returns null
- *  unless the whole string is a number: "12abc" and "1e3" are null, not 12
- *  and 1000. It is the semantic inverse of `formatAmountInput` /
+/** An amount written either way ("1.234,56", "1,234.56", "1500.5") as
+ *  ungrouped es-AR text ("1234,56"), or null when it is not one. Decides
+ *  which mark is the decimal one:
+ *  - both "." and ",": the last one ("1.234,56", "1,234.56" → "1234,56");
+ *  - only ",": a single comma is the decimal mark (several are unreadable);
+ *  - only one ".": thousands with exactly 3 digits after it ("15.000" →
+ *    "15000"), otherwise decimal ("1500.5" → "1500,5");
+ *  - several ".": thousands ("1.234.567" → "1234567").
+ *  A trailing mark stays ("15," / "15." → "15,"). */
+export function normalizeAmountText(raw: string): string | null {
+  const sign = raw.startsWith("-") ? "-" : "";
+  const body = sign ? raw.slice(1) : raw;
+  if (!/^[\d.,]*$/.test(body) || !/\d/.test(body)) return null;
+  const lastDot = body.lastIndexOf(".");
+  const lastComma = body.lastIndexOf(",");
+  let mark = -1;
+  if (lastDot >= 0 && lastComma >= 0) {
+    mark = Math.max(lastDot, lastComma);
+  } else if (lastComma >= 0) {
+    if (body.indexOf(",") !== lastComma) return null;
+    mark = lastComma;
+  } else if (lastDot >= 0 && body.indexOf(".") === lastDot) {
+    if (body.length - lastDot - 1 !== 3) mark = lastDot;
+  }
+  if (mark < 0) return sign + body.replace(/\./g, "");
+  const decimals = body.slice(mark + 1);
+  if (!/^\d*$/.test(decimals)) return null;
+  const int = body.slice(0, mark).replace(/[.,]/g, "");
+  return `${sign}${int},${decimals}`;
+}
+
+/** Parses an amount in es-AR format ("1.234,56" → 1234.56), with the
+ *  separator rules of `normalizeAmountText` ("1500.5" → 1500.5). Returns
+ *  null unless the whole string is a number: "12abc" and "1e3" are null, not
+ *  12 and 1000. It is the semantic inverse of `formatAmountInput` /
  *  `amountToInput`. */
 export function parseArAmount(raw: string): number | null {
-  const cleaned = raw.replace(/\s/g, "").replace(/\./g, "").replace(/,/g, ".");
-  if (!/^-?(\d+\.?\d*|\.\d+)$/.test(cleaned)) return null;
-  const n = Number(cleaned);
+  const text = normalizeAmountText(raw.replace(/\s/g, ""));
+  if (text === null) return null;
+  const n = Number(text.replace(",", "."));
   return Number.isFinite(n) ? n : null;
+}
+
+/** The text a MoneyInput shows after an edit from `prev` to `raw`. A single
+ *  typed "." or "," is the decimal mark (numpad keys send "."), and a second
+ *  one is ignored; thousands dots are the field's own. A paste goes through
+ *  `normalizeAmountText`, so "1,234.56" and "15.000" read as written. */
+export function nextMoneyInputText(
+  prev: string,
+  raw: string,
+  { decimals = 2, allowNegative = false } = {},
+): string {
+  const format = (text: string) =>
+    allowNegative
+      ? formatSignedAmountInput(text, decimals)
+      : formatAmountInput(text, decimals);
+  let start = 0;
+  while (
+    start < prev.length &&
+    start < raw.length &&
+    prev[start] === raw[start]
+  )
+    start++;
+  let end = 0;
+  while (
+    end < prev.length - start &&
+    end < raw.length - start &&
+    prev[prev.length - 1 - end] === raw[raw.length - 1 - end]
+  )
+    end++;
+  const before = raw.slice(0, start);
+  const after = raw.slice(raw.length - end);
+  const inserted = raw.slice(start, raw.length - end);
+  if (inserted === "." || inserted === ",") {
+    if ((before + after).includes(",")) return prev;
+    return format(`${before},${after}`);
+  }
+  // A paste with its own marks ("1,234.56", "15.000") is read as a whole
+  // value; digits alone just join what was there.
+  if (inserted.length > 1 && /[.,]/.test(inserted)) {
+    const pasted = normalizeAmountText(raw.replace(/[^\d.,-]/g, ""));
+    return pasted === null ? prev : format(pasted);
+  }
+  return format(raw);
 }
 
 /** A number from an imported statement cell, in either shape a spreadsheet

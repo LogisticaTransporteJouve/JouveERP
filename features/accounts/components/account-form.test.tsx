@@ -77,13 +77,13 @@ describe("AccountForm opening balance", () => {
     ).toBe(balance);
   });
 
-  it("saves a typed -1.234,56 as -1234.56 and drops a typed dot in sight", async () => {
+  it("saves a typed -1.234,56 as -1234.56 and reads a typed dot as the decimal mark", async () => {
     render(<AccountForm mode="create" />);
     fireEvent.change(screen.getByLabelText("Nombre"), {
       target: { value: "Caja" },
     });
     fireEvent.change(balanceField(), { target: { value: "1234.56" } });
-    expect(balanceField().value).toBe("123.456");
+    expect(balanceField().value).toBe("1.234,56");
     fireEvent.change(balanceField(), { target: { value: "-1.234,56" } });
     fireEvent.click(screen.getByRole("button", { name: "Crear cuenta" }));
     await vi.waitFor(() => expect(create).toHaveBeenCalledTimes(1));
