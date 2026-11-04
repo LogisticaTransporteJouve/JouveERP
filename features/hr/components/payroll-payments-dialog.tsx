@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2, Pencil, RotateCw, Trash2 } from "lucide-react";
+import { Loader2, Pencil, Trash2 } from "lucide-react";
 import { Suspense, useEffect, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
@@ -28,6 +28,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { MoneyInput } from "@/components/money-input";
+import { ReadError } from "@/components/read-error";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -320,20 +321,11 @@ function PaymentsBody({
         {isLoading ? (
           <li className="text-sm text-muted-foreground">Cargando…</li>
         ) : paymentsFailed && !paymentsData ? (
-          <li
-            role="alert"
-            className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground"
-          >
-            <span>No se pudieron cargar los pagos.</span>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => void refetchPayments()}
-            >
-              <RotateCw />
-              Reintentar
-            </Button>
+          <li>
+            <ReadError
+              message="No se pudieron cargar los pagos."
+              onRetry={() => void refetchPayments()}
+            />
           </li>
         ) : payments.length === 0 ? (
           <li className="text-sm text-muted-foreground">Sin pagos todavía.</li>

@@ -4,6 +4,7 @@ import { Loader2, Plus, Trash2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
+import { ReadError } from "@/components/read-error";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -71,10 +72,16 @@ export function EmployeeVacationsCard({
 }) {
   const canWrite = userCan(actorAccess, "hr:write");
   const canSetVacations = userCan(actorAccess, "hr:admin");
-  const { data: balances = [], isLoading: balancesLoading } =
-    useVacationBalances(employeeId);
-  const { data: leaves = [], isLoading: leavesLoading } =
-    useEmployeeLeaves(employeeId);
+  const balancesQuery = useVacationBalances(employeeId);
+  const leavesQuery = useEmployeeLeaves(employeeId);
+  const balances = balancesQuery.data ?? [];
+  const leaves = leavesQuery.data ?? [];
+  const balancesLoading = balancesQuery.isLoading;
+  const leavesLoading = leavesQuery.isLoading;
+  // A failed read is not "none": «Cargar saldo» would prefill 0 pending days
+  // and overwrite the stored ones, a new leave could be loaded twice.
+  const balancesFailed = balancesQuery.isError && !balancesQuery.data;
+  const leavesFailed = leavesQuery.isError && !leavesQuery.data;
   const createMut = useCreateLeave();
   const deleteMut = useDeleteLeave();
 
@@ -87,7 +94,7 @@ export function EmployeeVacationsCard({
 
   return (
     <div className="space-y-6">
-      {canSetVacations && !balancesLoading && (
+      {canSetVacations && !balancesLoading && !balancesFailed && (
         <div className="flex justify-end">
           <VacationOpeningDialog
             employeeId={employeeId}
@@ -102,11 +109,18 @@ export function EmployeeVacationsCard({
           />
         </div>
       )}
-      <BalancesSection balances={balances} loading={balancesLoading} />
+      <BalancesSection
+        balances={balances}
+        loading={balancesLoading}
+        onRetry={
+          balancesFailed ? () => void balancesQuery.refetch() : undefined
+        }
+      />
 
       <LeavesSection
         leaves={leaves}
         loading={leavesLoading}
+        onRetry={leavesFailed ? () => void leavesQuery.refetch() : undefined}
         canWrite={canWrite}
         onDelete={(id) =>
           deleteMut.mutate(
@@ -120,7 +134,7 @@ export function EmployeeVacationsCard({
         deleteBusy={deleteMut.isPending}
       />
 
-      {canWrite && (
+      {canWrite && !leavesFailed && (
         <NewLeaveForm
           employeeId={employeeId}
           remaining={activeBalance?.remaining_days ?? 0}
@@ -147,6 +161,7 @@ export function EmployeeVacationsCard({
 function BalancesSection({
   balances,
   loading,
+  onRetry,
 }: {
   balances: Array<{
     id: string;
@@ -161,12 +176,19 @@ function BalancesSection({
     status: "active" | "expired" | "extended";
   }>;
   loading: boolean;
+  /** Set when the read failed. */
+  onRetry: (() => void) | undefined;
 }) {
   return (
     <div className="space-y-2">
       <h3 className="text-sm font-medium">Saldos de vacaciones</h3>
       {loading ? (
         <p className="text-sm text-muted-foreground">Cargando…</p>
+      ) : onRetry ? (
+        <ReadError
+          message="No se pudieron leer los saldos."
+          onRetry={onRetry}
+        />
       ) : balances.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           Sin saldos. Se generan solos el 1 de octubre de cada año; los días de
@@ -238,6 +260,7 @@ function BalancesSection({
 function LeavesSection({
   leaves,
   loading,
+  onRetry,
   canWrite,
   onDelete,
   deleteBusy,
@@ -251,6 +274,8 @@ function LeavesSection({
     notes: string | null;
   }>;
   loading: boolean;
+  /** Set when the read failed. */
+  onRetry: (() => void) | undefined;
   canWrite: boolean;
   onDelete: (id: string) => void;
   deleteBusy: boolean;
@@ -260,6 +285,11 @@ function LeavesSection({
       <h3 className="text-sm font-medium">Licencias</h3>
       {loading ? (
         <p className="text-sm text-muted-foreground">Cargando…</p>
+      ) : onRetry ? (
+        <ReadError
+          message="No se pudieron leer las licencias."
+          onRetry={onRetry}
+        />
       ) : leaves.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           Sin licencias registradas.

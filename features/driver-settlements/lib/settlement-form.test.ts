@@ -6,6 +6,7 @@ import {
   rowReceived,
   rowsProblem,
   rowsToItems,
+  withDefaultAccount,
   type RowDraft,
 } from "./settlement-form";
 
@@ -98,5 +99,21 @@ describe("rendición form", () => {
       "Elegí al menos una carga.",
     );
     expect(rowsProblem([row()], isCheck)).toBeNull();
+  });
+
+  it("fills the default account only on lines without one, keeping the rest", () => {
+    const untouched = row({
+      shipment_id: "s1",
+      included: false,
+      lines: [emptyLine("", "700"), emptyLine(CHECKS, "300")],
+    });
+    const picked = row({ shipment_id: "s2", lines: [emptyLine(CHECKS, "1")] });
+    const [a, b] = withDefaultAccount([untouched, picked], CASH);
+    expect(a?.included).toBe(false);
+    expect(a?.lines.map((l) => [l.account_id, l.amount])).toEqual([
+      [CASH, "700"],
+      [CHECKS, "300"],
+    ]);
+    expect(b).toBe(picked);
   });
 });

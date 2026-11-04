@@ -14,6 +14,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { AccountOptionsError } from "@/features/accounts/components/account-options-gate";
+import { useAccountOptions } from "@/features/accounts/hooks/use-accounts";
 import { formatMoney } from "@/lib/format";
 
 import { useLoan } from "../hooks/use-loans";
@@ -53,12 +55,10 @@ function Stat({ label, value }: { label: string; value: string }) {
 
 export function LoanDetail({
   loanId,
-  accountOptions,
   canWrite,
   canMoveCash,
 }: {
   loanId: string;
-  accountOptions: { id: string; name: string; currency: string }[];
   /** accounting:write: edit a cuota. */
   canWrite: boolean;
   /** Also transactions:write: pay, disburse and link (they move Caja). */
@@ -69,8 +69,22 @@ export function LoanDetail({
   const [editTarget, setEditTarget] = useState<LoanInstallment | null>(null);
   const [adoptTarget, setAdoptTarget] = useState<LoanInstallment | null>(null);
   const [disbursing, setDisbursing] = useState(false);
-  const loanAccounts = accountOptions.filter(
-    (a) => a.currency === loan.currency,
+  const {
+    accounts,
+    error: accountsError,
+    pending: accountsPending,
+    retry: retryAccounts,
+  } = useAccountOptions();
+  // «Pagar» and «Registrar desembolso» pick an account: offered once the
+  // accounts are read, with the reason in their place otherwise.
+  const canPickAccount = !accountsError && !accountsPending;
+  // An active account in the loan's currency that moves money (not a cartera).
+  const loanAccounts = accounts.filter(
+    (a) =>
+      a.is_active &&
+      a.type !== "checks" &&
+      a.type !== "echeq" &&
+      a.currency === loan.currency,
   );
 
   return (
@@ -106,7 +120,7 @@ export function LoanDetail({
               <span className="text-muted-foreground">
                 El desembolso no está registrado en Caja.
               </span>
-              {loan.status !== "cancelled" && canMoveCash && (
+              {loan.status !== "cancelled" && canMoveCash && canPickAccount && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -118,6 +132,13 @@ export function LoanDetail({
             </>
           )}
         </div>
+        {canMoveCash && accountsError && (
+          <AccountOptionsError
+            message={accountsError}
+            onRetry={retryAccounts}
+            className="mt-2 justify-start"
+          />
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
@@ -195,9 +216,11 @@ export function LoanDetail({
                             >
                               Vincular egreso
                             </Button>
-                            <Button size="sm" onClick={() => setPayTarget(i)}>
-                              Pagar
-                            </Button>
+                            {canPickAccount && (
+                              <Button size="sm" onClick={() => setPayTarget(i)}>
+                                Pagar
+                              </Button>
+                            )}
                           </>
                         )}
                       </div>

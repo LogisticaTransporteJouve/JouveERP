@@ -43,6 +43,24 @@ export function emptyLine(accountId: string, amount = ""): LineDraft {
   };
 }
 
+/** The rows with `accountId` on every line that has no account yet (the
+ *  default arriving after the rows were built); the rest is kept as is. */
+export function withDefaultAccount(
+  rows: readonly RowDraft[],
+  accountId: string,
+): RowDraft[] {
+  return rows.map((row) =>
+    row.lines.some((l) => l.account_id === "")
+      ? {
+          ...row,
+          lines: row.lines.map((l) =>
+            l.account_id === "" ? { ...l, account_id: accountId } : l,
+          ),
+        }
+      : row,
+  );
+}
+
 /** A positive es-AR amount ("1.500,50") rounded to cents, or 0 for blank /
  *  invalid / ≤ 0. */
 export function parseAmount(raw: string): number {

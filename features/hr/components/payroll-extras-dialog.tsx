@@ -22,6 +22,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { MoneyInput } from "@/components/money-input";
+import { ReadError } from "@/components/read-error";
 import { Input } from "@/components/ui/input";
 
 import {
@@ -94,7 +95,15 @@ function ExtrasBody({
   month: number;
   disabled: boolean;
 }) {
-  const { data: extras = [], isLoading } = usePayrollEntryExtras(entryId);
+  const {
+    data: extrasData,
+    isLoading,
+    isError,
+    refetch,
+  } = usePayrollEntryExtras(entryId);
+  const extras = extrasData ?? [];
+  // Unknown extras: not "none", and no add (it could be loaded twice).
+  const readFailed = isError && !extrasData;
   const addMut = useAddPayrollEntryExtra();
   const removeMut = useRemovePayrollEntryExtra();
 
@@ -136,20 +145,24 @@ function ExtrasBody({
     );
   }
 
-  const totalLocal = (extras ?? []).reduce(
-    (acc, x) => acc + Number(x.amount),
-    0,
-  );
+  const totalLocal = extras.reduce((acc, x) => acc + Number(x.amount), 0);
 
   return (
     <div className="space-y-3">
       <ul className="space-y-1.5">
         {isLoading ? (
           <li className="text-sm text-muted-foreground">Cargando…</li>
-        ) : (extras ?? []).length === 0 ? (
+        ) : readFailed ? (
+          <li>
+            <ReadError
+              message="No se pudieron cargar los extras."
+              onRetry={() => void refetch()}
+            />
+          </li>
+        ) : extras.length === 0 ? (
           <li className="text-sm text-muted-foreground">Sin extras todavía.</li>
         ) : (
-          (extras ?? []).map((extra) => (
+          extras.map((extra) => (
             <li
               key={extra.id}
               className="flex items-center gap-2 rounded-md border bg-card px-3 py-1.5 text-sm"
@@ -175,14 +188,14 @@ function ExtrasBody({
         )}
       </ul>
 
-      {(extras ?? []).length > 0 && (
+      {extras.length > 0 && (
         <div className="flex items-center justify-between border-t pt-2 text-sm font-medium">
           <span>Total</span>
           <span className="font-mono">$ {ARS.format(totalLocal)}</span>
         </div>
       )}
 
-      {!disabled && (
+      {!disabled && !readFailed && (
         <Form {...form}>
           <form
             onSubmit={form.handleSubmit(onAdd)}
