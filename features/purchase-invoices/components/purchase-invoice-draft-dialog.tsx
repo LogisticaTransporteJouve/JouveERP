@@ -66,7 +66,8 @@ function SourcePreview({ source }: { source: PurchaseInvoiceDraftSource }) {
 
 /**
  * Dialog body once a document filled the invoice: the source file on the left
- * (desktop) and the editable form on the right.
+ * (desktop) and the editable form on the right. An ARCA voucher has no file:
+ * the form alone.
  */
 export function PurchaseInvoiceDraftDialogContent({
   draft,
@@ -77,26 +78,53 @@ export function PurchaseInvoiceDraftDialogContent({
   onCreated: (id: string) => void;
   onClose: () => void;
 }) {
+  const source = draft.source;
+  const form = (
+    <div className="min-h-0 overflow-y-auto p-4">
+      <PurchaseInvoiceForm
+        mode="create"
+        draft={draft}
+        onSuccess={onCreated}
+        onCancel={onClose}
+      />
+    </div>
+  );
   return (
-    <DialogContent className="flex max-h-[92vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl lg:h-[92vh] lg:max-w-6xl">
+    <DialogContent
+      className={
+        source
+          ? "flex max-h-[92vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl lg:h-[92vh] lg:max-w-6xl"
+          : "flex max-h-[92vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl"
+      }
+    >
       <DialogHeader className="border-b px-4 py-3 text-left">
-        <DialogTitle>Cargar factura de compra</DialogTitle>
-        <DialogDescription>
-          Datos leídos de {draft.source.filename}. Revisalos y corregí lo que
-          haga falta; el archivo queda adjunto a la factura.
-        </DialogDescription>
+        {draft.origin === "arca" ? (
+          <>
+            <DialogTitle>Aceptar comprobante recibido de ARCA</DialogTitle>
+            <DialogDescription>
+              Elegí cuenta, centro de costo y repartí los otros tributos. Los
+              importes vienen de ARCA → Mis Comprobantes y no se pueden cambiar.
+            </DialogDescription>
+          </>
+        ) : (
+          <>
+            <DialogTitle>Cargar factura de compra</DialogTitle>
+            <DialogDescription>
+              {source
+                ? `Datos leídos de ${source.filename}. Revisalos y corregí lo que haga falta; el archivo queda adjunto a la factura.`
+                : "Revisá los datos y corregí lo que haga falta."}
+            </DialogDescription>
+          </>
+        )}
       </DialogHeader>
-      <div className="grid min-h-0 flex-1 lg:grid-cols-2">
-        <SourcePreview source={draft.source} />
-        <div className="min-h-0 overflow-y-auto p-4">
-          <PurchaseInvoiceForm
-            mode="create"
-            draft={draft}
-            onSuccess={onCreated}
-            onCancel={onClose}
-          />
+      {source ? (
+        <div className="grid min-h-0 flex-1 lg:grid-cols-2">
+          <SourcePreview source={source} />
+          {form}
         </div>
-      </div>
+      ) : (
+        form
+      )}
     </DialogContent>
   );
 }

@@ -734,6 +734,120 @@ export type Database = {
         }
         Relationships: []
       }
+      arca_received_vouchers: {
+        Row: {
+          cae: string | null
+          cbte_tipo: number
+          claimed_at: string | null
+          cotizacion: number | null
+          discard_reason: string | null
+          fecha: string
+          first_seen_at: string
+          id: string
+          imp_iva: number
+          imp_neto_gravado: number
+          imp_no_gravado: number
+          imp_op_exentas: number
+          imp_total: number
+          imp_trib: number
+          issuer_cuit: string
+          issuer_name: string
+          iva_breakdown: Json
+          kind: string | null
+          letter: string | null
+          moneda: string
+          numero: number
+          origin: string
+          punto_venta: number
+          purchase_invoice_id: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          run_id: string | null
+          status: string
+          trib_breakdown: Json
+          updated_at: string
+        }
+        Insert: {
+          cae?: string | null
+          cbte_tipo: number
+          claimed_at?: string | null
+          cotizacion?: number | null
+          discard_reason?: string | null
+          fecha: string
+          first_seen_at?: string
+          id?: string
+          imp_iva?: number
+          imp_neto_gravado?: number
+          imp_no_gravado?: number
+          imp_op_exentas?: number
+          imp_total: number
+          imp_trib?: number
+          issuer_cuit: string
+          issuer_name: string
+          iva_breakdown?: Json
+          kind?: string | null
+          letter?: string | null
+          moneda?: string
+          numero: number
+          origin: string
+          punto_venta: number
+          purchase_invoice_id?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          run_id?: string | null
+          status?: string
+          trib_breakdown?: Json
+          updated_at?: string
+        }
+        Update: {
+          cae?: string | null
+          cbte_tipo?: number
+          claimed_at?: string | null
+          cotizacion?: number | null
+          discard_reason?: string | null
+          fecha?: string
+          first_seen_at?: string
+          id?: string
+          imp_iva?: number
+          imp_neto_gravado?: number
+          imp_no_gravado?: number
+          imp_op_exentas?: number
+          imp_total?: number
+          imp_trib?: number
+          issuer_cuit?: string
+          issuer_name?: string
+          iva_breakdown?: Json
+          kind?: string | null
+          letter?: string | null
+          moneda?: string
+          numero?: number
+          origin?: string
+          punto_venta?: number
+          purchase_invoice_id?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          run_id?: string | null
+          status?: string
+          trib_breakdown?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "arca_received_vouchers_purchase_invoice_id_fkey"
+            columns: ["purchase_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "arca_received_vouchers_purchase_invoice_id_fkey"
+            columns: ["purchase_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_purchase_invoice_open"
+            referencedColumns: ["purchase_invoice_id"]
+          },
+        ]
+      }
       arca_sync_runs: {
         Row: {
           error: string | null
@@ -9764,6 +9878,7 @@ export type Database = {
         Args: { p_invoice_id: string; p_settlement_id: string }
         Returns: undefined
       }
+      link_received_vouchers: { Args: { p_ids: string[] }; Returns: number }
       link_tax_document_payment: {
         Args: {
           p_allow_difference?: boolean

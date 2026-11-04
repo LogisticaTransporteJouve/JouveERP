@@ -121,17 +121,19 @@ export function FileDropzone({
       <div className="flex flex-col gap-2 sm:flex-row">
         {/* Camera button: only on touch devices. capture="environment"
             launches the rear camera (better for scanning a comprobante). */}
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={busy}
-          onClick={() => cameraRef.current?.click()}
-          className="hidden pointer-coarse:inline-flex"
-        >
-          <Camera className="size-4" />
-          Tomar foto
-        </Button>
+        {preset.cameraAccept && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={busy}
+            onClick={() => cameraRef.current?.click()}
+            className="hidden pointer-coarse:inline-flex"
+          >
+            <Camera className="size-4" />
+            Tomar foto
+          </Button>
+        )}
 
         <Button
           type="button"
@@ -144,14 +146,16 @@ export function FileDropzone({
         </Button>
       </div>
 
-      <input
-        ref={cameraRef}
-        type="file"
-        accept={preset.cameraAccept}
-        capture="environment"
-        className="hidden"
-        onChange={onPicked}
-      />
+      {preset.cameraAccept && (
+        <input
+          ref={cameraRef}
+          type="file"
+          accept={preset.cameraAccept}
+          capture="environment"
+          className="hidden"
+          onChange={onPicked}
+        />
+      )}
       <input
         ref={pickerRef}
         type="file"

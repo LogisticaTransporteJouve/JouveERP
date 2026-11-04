@@ -160,6 +160,17 @@ export const ROUTE_GUIDES: readonly RouteGuide[] = [
     },
   },
   {
+    prefix: "/purchases/arca",
+    title: "Recibidos de ARCA",
+    summary:
+      "Los comprobantes que tus proveedores informaron a ARCA: aceptá cada uno para cargarlo como compra o descartalo.",
+    manual: {
+      page: "purchases.html",
+      anchor: "recibidos-arca",
+      label: "Compras › Recibidos de ARCA",
+    },
+  },
+  {
     prefix: "/purchases",
     title: "Compras",
     summary:
