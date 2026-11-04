@@ -188,13 +188,17 @@ export function buildVentasTxt(
       continue;
     }
     const { orig } = doc;
-    const alicuotas = resolveAlicuotas(orig.per_rate);
-    if (alicuotas === null || alicuotas.length === 0) {
+    const resolved = resolveAlicuotas(orig.per_rate);
+    const outsideNet = orig.imp_op_ex + orig.imp_tot_conc;
+    if (resolved === null || (resolved.length === 0 && outsideNet === 0)) {
       warnings.push(
         `Venta ${label}: no se pudo derivar la alícuota — excluida.`,
       );
       continue;
     }
+    // A sale with nothing gravado still lists one 0% alícuota, as compras.
+    const alicuotas =
+      resolved.length > 0 ? resolved : [{ rateId: 3, neto: 0, iva: 0 }];
     const currency = resolveCurrency(doc.moneda, doc.cotizacion);
     if (!currency.ok) {
       warnings.push(`Venta ${label}: ${currency.reason} — excluida.`);
