@@ -177,6 +177,19 @@ Las de cada sección más vieja siguen con su ítem "Aprobar …" en su sección
       frena. Ver cuáles siguen sin validar:
       `select conrelid::regclass, conname from pg_constraint where not convalidated and connamespace = 'public'::regnamespace;`
       Rollback: nada que hacer, el código no lee el flag.
+- [ ] **Antes de aprobar `20261104106000`** (tesorería w3): desde esa
+      migración, un cheque propio de una OP que el banco rechaza devuelve en
+      Caja el egreso de la OP. Los ya rechazados antes no lo tienen: su banco
+      sigue con el egreso de más. El owner decide si cargarles el ingreso a
+      mano ("Rechazo cheque propio #…", en la fecha del rechazo):
+      `select ic.id, ic.check_number, ic.bank_name, ic.amount, ic.currency, ic.rejected_at, po.punto_venta, po.numero from issued_checks ic join payment_orders po on po.id = ic.payment_order_id where ic.status = 'rejected' and not exists (select 1 from transactions t where t.issued_check_id = ic.id) order by ic.rejected_at;`
+      Las OP con un cheque propio anulado por fuera de la orden (antes de
+      `20261102210000`) ya no se pueden anular ni editar: esa anulación
+      devolvió la deuda en el diario, y anular la OP la devolvería otra vez.
+      El owner revisa cada una con el contador:
+      `select ic.id, ic.check_number, ic.amount, ic.currency, po.punto_venta, po.numero from issued_checks ic join payment_orders po on po.id = ic.payment_order_id where ic.status = 'cancelled' and po.status = 'issued';`
+      Rollback: mismas funciones y argumentos; el código anterior lee el
+      movimiento nuevo como cualquier movimiento de cheque propio.
 
 ## Límites de rollback (vigentes)
 
@@ -312,6 +325,36 @@ mitigación en el schema: el límite se respeta operando.
 - [ ] Una emisión en `emitting` sin número enviado (el `onFailure` no pudo
       leer la fila, o el run se canceló) no la resuelve el cron: frena la
       importación de ARCA de su par hasta que alguien la marque fallida.
+## Tesorería: auditoría w3 (2026-11-04)
+
+- [x] **Cheque propio de una OP que rebota** (`20261104106000`): el rechazo
+      devuelve en Caja el egreso de la OP (ingreso en el banco del cheque, en
+      la fecha del rechazo, sin asiento propio). Antes, pagar la deuda con
+      una OP nueva sacaba la plata del banco dos veces.
+- [x] Una OP con un cheque propio anulado por fuera de ella no se anula ni
+      se edita (la deuda volvería dos veces). Anular solo el cheque de una OP
+      viva ya lo rechaza la base desde `20261102210000`.
+- [x] El PDF, el detalle y la edición de una OP cuentan lo que imputó a
+      cheques rechazados ("Cheque rechazado …"), y "A cuenta" lo excluye.
+      Editar por debajo de eso se rechaza con un mensaje en castellano.
+- [x] Pagar una cuota, registrar el desembolso y vincular un egreso a una
+      cuota piden también `transactions:write`; sin él, el detalle del
+      préstamo no muestra esos botones.
+- [x] El dashboard muestra los cheques en cartera en USD aparte de los de
+      pesos.
+- [x] Conciliación: la explicación de la diferencia cuenta solo los
+      movimientos de libros hasta la fecha del último saldo del extracto, y
+      lo dice cuando esa fecha no es el fin del período.
+- [x] El aviso de "Imputar" una OP o un recibo en USD dice US$.
+- [ ] El movimiento que devuelve el egreso de un cheque propio rechazado,
+      si se intenta borrar desde Caja, dice que es "el cobro de un cheque
+      propio" (el guard de borrado nombra igual a los dos).
+- [ ] Un cheque propio USD de una OP que rebota vuelve en Caja en dólares;
+      Gestión en percibido valúa la OP a su cotización y el ingreso a la del
+      día del rechazo, así que queda la diferencia entre las dos.
+- [ ] No verificado contra una base real: la migración y su pgTAP
+      (`issued_check_rejection`, `supplier_rejected_checks`).
+
 ## Tesorería: auditoría w2 (2026-11-04)
 
 - [x] **Cheques en USD entregados a un proveedor** (`20261104101000`): el
@@ -517,7 +560,10 @@ mitigación en el schema: el límite se respeta operando.
       (`deleteEmployeeAccountMovementAction`) mueven o borran tesorería con
       `hr:write` solo. El adelanto manual y la rendición piden también
       `transactions:write`. Decidir si todo lo de RRHH que mueve plata lo
-      pide, y aplicarlo a todos.
+      pide, y aplicarlo a todos. Entra en la misma decisión pagar la deuda
+      de un cheque vendido (`payCheckSaleDebtAction`): saca plata de Caja
+      con `cheques:write` solo (`docs/decisions.md` lo eligió para la venta
+      de cheques).
 - [ ] Antes de aprobar `20261104102300`, el dueño revisa los cargos que baja
       el backfill (compras a cargo de empleado con NC):
       `select f.id, f.charged_employee_id, m.amount from purchase_invoices f
