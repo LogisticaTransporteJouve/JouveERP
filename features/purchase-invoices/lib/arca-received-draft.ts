@@ -133,12 +133,7 @@ const MIXED_RATES_WARNING =
  *  ties to the cent with its neto and IVA (the items would rewrite the
  *  header); one line at the inferred alícuota when the export gives only the
  *  totals; empty otherwise, and the purchase is saved header-only. */
-export function receivedVoucherItems(
-  voucher: Pick<
-    ReceivedVoucher,
-    "letter" | "iva_breakdown" | "imp_neto_gravado" | "imp_iva"
-  >,
-): {
+type ReceivedItem = {
   description: string;
   quantity: number;
   unit_price: number;
@@ -147,7 +142,40 @@ export function receivedVoucherItems(
   line_iva: number;
   line_total: number;
   sort_order: number;
-}[] {
+};
+
+export function receivedVoucherItems(
+  voucher: Parameters<typeof receivedVoucherAmounts>[0] &
+    Pick<ReceivedVoucher, "iva_breakdown">,
+): ReceivedItem[] {
+  const lines = arcaLines(voucher);
+  // The purchase's total is recomputed from its lines: a rounding cent
+  // receivedVoucherAmounts moved into the net goes to the largest line too,
+  // or the saved total would drift a cent from ARCA's.
+  const neto = receivedVoucherAmounts(voucher).imp_neto;
+  const gap = round2(neto - lines.reduce((a, l) => a + l.line_neto, 0));
+  if (lines.length === 0 || gap === 0) return lines;
+  const largest = lines.reduce((best, l) =>
+    l.line_neto > best.line_neto ? l : best,
+  );
+  return lines.map((l) => {
+    if (l !== largest) return l;
+    const lineNeto = round2(l.line_neto + gap);
+    return {
+      ...l,
+      unit_price: lineNeto,
+      line_neto: lineNeto,
+      line_total: round2(lineNeto + l.line_iva),
+    };
+  });
+}
+
+function arcaLines(
+  voucher: Pick<
+    ReceivedVoucher,
+    "letter" | "iva_breakdown" | "imp_neto_gravado" | "imp_iva"
+  >,
+): ReceivedItem[] {
   if (voucher.letter !== "A") return [];
   if (voucher.iva_breakdown.length === 0) {
     const neto = round2(voucher.imp_neto_gravado);

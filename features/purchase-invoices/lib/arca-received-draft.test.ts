@@ -105,6 +105,31 @@ describe("receivedVoucherAmounts", () => {
   );
 });
 
+describe("receivedVoucherItems and the rounding cent", () => {
+  it("moves a cent that went into the net into the largest line, so the lines add up to ARCA's total", () => {
+    // 1000 + 210 against 1209.99: no gravado cannot take −0.01, the net does.
+    const v = voucher({
+      imp_neto_gravado: 1000,
+      imp_no_gravado: 0,
+      imp_op_exentas: 0,
+      imp_iva: 210,
+      imp_trib: 0,
+      imp_total: 1209.99,
+      iva_breakdown: [{ iva_rate_id: 5, neto: 1000, iva: 210 }],
+    });
+    const items = receivedVoucherItems(v);
+    expect(items).toMatchObject([
+      {
+        line_neto: 999.99,
+        unit_price: 999.99,
+        line_iva: 210,
+        line_total: 1209.99,
+      },
+    ]);
+    expect(receivedVoucherAmounts(v).imp_neto).toBe(999.99);
+  });
+});
+
 describe("arcaVoucherToDraft", () => {
   it("starts due on the voucher's date and carries ARCA's lines to show", () => {
     const draft = arcaVoucherToDraft(
