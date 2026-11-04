@@ -24,9 +24,7 @@ function tables(accounts: unknown[], centers: unknown[]) {
       ? { select: async () => ({ data: accounts, error: null }) }
       : {
           select: () => ({
-            eq: () => ({
-              order: async () => ({ data: centers, error: null }),
-            }),
+            order: async () => ({ data: centers, error: null }),
           }),
         },
   );
@@ -59,7 +57,7 @@ describe("listCostTagOptionsAction", () => {
         { id: "b", code: "5.10.1", name: "Peajes" },
         { id: "a", code: "5.2.1", name: "Combustible" },
       ],
-      [{ id: "c", code: "ADMIN", name: "Administración" }],
+      [{ id: "c", code: "ADMIN", name: "Administración", is_active: true }],
     );
     const res = await listCostTagOptionsAction();
     expect(res.ok && res.data.expenseAccounts.map((a) => a.id)).toEqual([
@@ -67,6 +65,23 @@ describe("listCostTagOptionsAction", () => {
       "b",
     ]);
     expect(res.ok && res.data.costCenters).toHaveLength(1);
+  });
+
+  it("offers only active centers and keeps the inactive ones apart", async () => {
+    tables(
+      [],
+      [
+        { id: "c1", code: "ADMIN", name: "Administración", is_active: true },
+        { id: "c2", code: "FLOTA_DZ", name: "Flota DZ", is_active: false },
+      ],
+    );
+    const res = await listCostTagOptionsAction();
+    expect(res.ok && res.data.costCenters).toEqual([
+      { id: "c1", code: "ADMIN", name: "Administración" },
+    ]);
+    expect(res.ok && res.data.inactiveCostCenters).toEqual([
+      { id: "c2", code: "FLOTA_DZ", name: "Flota DZ" },
+    ]);
   });
 
   it("reports a failed read as an error, not as no options", async () => {
@@ -77,7 +92,7 @@ describe("listCostTagOptionsAction", () => {
           }
         : {
             select: () => ({
-              eq: () => ({ order: async () => ({ data: [], error: null }) }),
+              order: async () => ({ data: [], error: null }),
             }),
           },
     );
