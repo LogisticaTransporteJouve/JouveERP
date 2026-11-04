@@ -6,6 +6,7 @@ import {
   buildReceiptTemplateData,
   renderReceiptPdf,
 } from "@/lib/pdf/receipt-render";
+import { pdfFailureResponse } from "@/lib/pdf/pdf-failure-response";
 
 // Receipts are non-fiscal in Argentina so we don't persist the PDF in
 // storage — render on-the-fly each request. Inline cache for 60s so
@@ -34,9 +35,6 @@ export async function GET(
       },
     });
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Error generando PDF." },
-      { status: 500 },
-    );
+    return pdfFailureResponse("receipt.pdf.failed", err, { id });
   }
 }

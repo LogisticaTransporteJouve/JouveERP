@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { requireUserContext } from "@/lib/auth/context";
 import { isFiscalOnly, userCan } from "@/lib/auth/permissions";
 import { generateInvoicePdfBuffer } from "@/lib/pdf/generate-and-hash";
+import { pdfFailureResponse } from "@/lib/pdf/pdf-failure-response";
 import { createClient } from "@/lib/supabase/server";
 
 // M.0 — Always regenerate the PDF on-demand. The hash (`pdf_hash` on the
@@ -55,9 +56,6 @@ export async function GET(
       },
     });
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Error generando PDF." },
-      { status: 500 },
-    );
+    return pdfFailureResponse("invoice.pdf.failed", err, { id });
   }
 }

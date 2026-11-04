@@ -67,6 +67,24 @@ if [ -n "$duplicated" ]; then
   errors=$((errors + 1))
 fi
 
+# A version is a real UTC date and time. A typed one like ...096000 (minute
+# 60) sorts fine but invites the next author to stamp ...096001, and the drift
+# compounds. Checked with awk arithmetic, not date, whose parsing differs
+# between GNU and BSD.
+impossible="$(printf '%s\n' "$named" | awk -F/ 'NF {
+    v = substr($3, 1, 14)
+    y = substr(v, 1, 4) + 0; mo = substr(v, 5, 2) + 0; d = substr(v, 7, 2) + 0
+    h = substr(v, 9, 2) + 0; mi = substr(v, 11, 2) + 0; s = substr(v, 13, 2) + 0
+    split("31 28 31 30 31 30 31 31 30 31 30 31", dim, " ")
+    if (y % 4 == 0 && (y % 100 != 0 || y % 400 == 0)) dim[2] = 29
+    if (mo < 1 || mo > 12 || d < 1 || d > dim[mo] || h > 23 || mi > 59 || s > 59) print
+  }')"
+if [ -n "$impossible" ]; then
+  echo "::error::New migration versions are a real UTC date and time (YYYYMMDDHHMMSS, minutes and seconds below 60). Rename with a valid timestamp:"
+  echo "$impossible"
+  errors=$((errors + 1))
+fi
+
 versions_where() {
   printf '%s\n' "$named" | awk -F/ -v limit="$2" -v op="$1" \
     'NF { v = substr($3, 1, 14) + 0; if ((op == "<=" && v <= limit + 0) || (op == ">" && v > limit + 0)) print }'

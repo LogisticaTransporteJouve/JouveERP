@@ -212,6 +212,46 @@ test("the day of slack is counted in UTC", () => {
   assert.match(output, /in the future/);
 });
 
+test("a version that is not a real date and time fails", () => {
+  for (const stamp of [
+    "20260106096000", // minute 60
+    "20260106095960", // second 60
+    "20260106240000", // hour 24
+    "20260132000000", // day 32
+    "20260230000000", // February 30th
+    "20270229000000", // February 29th outside a leap year
+    "20261306000000", // month 13
+  ]) {
+    const { code, output } = check(({ write }) =>
+      write(`${MIGRATIONS}/${stamp}_new.sql`),
+    );
+    assert.equal(code, 1, stamp);
+    assert.match(output, /real UTC date and time/, stamp);
+    assert.match(output, new RegExp(`${stamp}_new\\.sql`), stamp);
+  }
+});
+
+test("a leap day and the last second of the day pass", () => {
+  for (const stamp of ["20960229235959", "20991231235959"]) {
+    const { code, output } = check(
+      ({ write }) => write(`${MIGRATIONS}/${stamp}_new.sql`),
+      { merged: [] },
+    );
+    // Both are far in the future: only the date check must not fire.
+    assert.doesNotMatch(output, /real UTC date and time/, stamp);
+    assert.match(output, /in the future/, stamp);
+    assert.equal(code, 1, stamp);
+  }
+});
+
+test("an impossible merged version does not fail a valid new one", () => {
+  const { code, output } = check(
+    ({ write }) => write(`${MIGRATIONS}/20260106100100_new.sql`),
+    { merged: [...MERGED, `${MIGRATIONS}/20260106096100_typed.sql`] },
+  );
+  assert.equal(code, 0, output);
+});
+
 test("a version before one merged after the branch point fails", () => {
   const { code, output } = check(({ git, write }) => {
     git("checkout", "-q", "main");
