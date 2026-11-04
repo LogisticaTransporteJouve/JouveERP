@@ -75,7 +75,7 @@ export type ExtractionMatches = {
 
 /** Whether the uploader may read a permission's data, resolved at scan time
  *  (roles minus denies). A comparison against data they may not read is not
- *  run, and nothing of it is stored. */
+ *  run, and nothing it would read is stored. */
 export type CanRead = (permission: Permission) => boolean;
 
 /**
