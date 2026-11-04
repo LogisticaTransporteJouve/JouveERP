@@ -23,8 +23,7 @@ vi.mock("@/lib/supabase/server", () => ({
 }));
 vi.mock("@/lib/actions/audit", () => ({ logAudit: vi.fn() }));
 
-const { transitionIssuedCheckAction } =
-  await import("./issued-checks-actions");
+const { transitionIssuedCheckAction } = await import("./issued-checks-actions");
 
 const ID = "00000000-0000-4000-8000-000000000001";
 

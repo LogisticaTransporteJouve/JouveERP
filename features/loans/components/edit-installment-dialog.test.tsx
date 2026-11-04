@@ -44,7 +44,9 @@ function amountInput() {
 
 describe("EditInstallmentDialog", () => {
   it("refuses a blank amount instead of saving a 0 cuota", () => {
-    render(<EditInstallmentDialog installment={installment} onClose={() => {}} />);
+    render(
+      <EditInstallmentDialog installment={installment} onClose={() => {}} />,
+    );
     fireEvent.change(amountInput(), { target: { value: "" } });
     fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
     expect(mutate).not.toHaveBeenCalled();
@@ -52,7 +54,9 @@ describe("EditInstallmentDialog", () => {
   });
 
   it("saves the amount typed", () => {
-    render(<EditInstallmentDialog installment={installment} onClose={() => {}} />);
+    render(
+      <EditInstallmentDialog installment={installment} onClose={() => {}} />,
+    );
     fireEvent.change(amountInput(), { target: { value: "1800" } });
     fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
     expect(mutate).toHaveBeenCalledTimes(1);
