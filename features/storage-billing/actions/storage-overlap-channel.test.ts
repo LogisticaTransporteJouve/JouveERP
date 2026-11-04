@@ -18,6 +18,8 @@ const audit = vi.fn();
 let linkedRuns: unknown[] = [];
 let runInvoices: unknown[] = [];
 let auditedInvoices: unknown[] = [];
+// The runs storage_billing_void_run_ids answers.
+let voidRunIds: string[] = [];
 let claim: { data: unknown; error: unknown } = { data: RUN_ID, error: null };
 let pallets: unknown[] = [];
 let link: { data: unknown; error: unknown } = { data: null, error: null };
@@ -44,7 +46,10 @@ function respond(call: RecordedCall) {
     return link;
   }
   if (call.table === "storage_billing_runs" && call.op === "select") {
-    return { data: linkedRuns, error: null };
+    return page("storage_billing_runs", linkedRuns);
+  }
+  if (call.table === "storage_billing_void_run_ids") {
+    return { data: voidRunIds, error: null };
   }
   if (call.table === "audit_events") {
     return { data: auditedInvoices, error: null };
@@ -103,7 +108,8 @@ vi.mock("@/features/invoices/actions/invoices-actions", () => ({
   issueFiscalInvoiceAction: (input: unknown) => issue(input),
 }));
 
-const { invoiceStorageAction } = await import("./billing-actions");
+const { invoiceStorageAction, listStorageBillingRunsAction } =
+  await import("./billing-actions");
 
 const october = {
   client_id: CLIENT_ID,
@@ -115,6 +121,8 @@ const october = {
 
 const runCalls = () =>
   fake.calls.filter((c) => c.table === "storage_billing_runs");
+// The writes to the claimed run (the relink audit only reads runs).
+const runWrites = () => runCalls().filter((c) => c.op !== "select");
 
 beforeEach(() => {
   issue.mockReset();
@@ -122,6 +130,7 @@ beforeEach(() => {
   linkedRuns = [];
   runInvoices = [];
   auditedInvoices = [];
+  voidRunIds = [];
   issue.mockResolvedValue({ ok: true, data: { id: "inv1" } });
   claim = { data: RUN_ID, error: null };
   link = { data: null, error: null };
@@ -160,7 +169,7 @@ describe("invoiceStorageAction claim", () => {
       p_client_id: CLIENT_ID,
       p_channel_id: "jouve_internal",
     });
-    const linkCall = runCalls().at(-1);
+    const linkCall = runWrites().at(-1);
     expect(linkCall?.op).toBe("update");
     expect(linkCall?.payload).toEqual({
       invoice_id: "inv1",
@@ -173,7 +182,7 @@ describe("invoiceStorageAction claim", () => {
     expect(issue).toHaveBeenCalledWith(
       expect.objectContaining({ idempotency_key: RUN_ID }),
     );
-    const [totals] = runCalls();
+    const [totals] = runWrites();
     expect(totals?.op).toBe("update");
     expect(totals?.payload).toMatchObject({ storage_total: 310, total: 310 });
     expect(totals?.payload).not.toHaveProperty("invoice_id");
@@ -205,19 +214,12 @@ describe("invoiceStorageAction claim", () => {
     claim = { data: null, error: null };
     linkedRuns = [
       relinked,
-      // Another channel's run, and a run whose invoice has another key
-      // (linked normally by older code): not this claim's relink.
-      {
-        ...relinked,
-        id: "run-fiscal",
-        invoice_id: "inv-f",
-        channel_id: "jouve_fiscal",
-      },
+      // A run whose invoice has another key (linked normally by older code):
+      // not a relink.
       { ...relinked, id: "run-old", invoice_id: "inv-old" },
     ];
     runInvoices = [
       { id: "inv-orphan", idempotency_key: RUN_ID },
-      { id: "inv-f", idempotency_key: "run-fiscal" },
       { id: "inv-old", idempotency_key: "random-key" },
     ];
     await invoiceStorageAction(october);
@@ -232,6 +234,40 @@ describe("invoiceStorageAction claim", () => {
         relinked: true,
       }),
       "inv-orphan",
+    );
+  });
+
+  it("audits a relink of another period or channel made by a claim that bills a new one", async () => {
+    // The claim relinked January on the fiscal channel and returned a run
+    // for October.
+    linkedRuns = [
+      {
+        ...relinked,
+        id: "run-january",
+        invoice_id: "inv-january",
+        channel_id: "jouve_fiscal",
+        period_start: "2026-01-01",
+        period_end: "2026-01-31",
+      },
+    ];
+    runInvoices = [{ id: "inv-january", idempotency_key: "run-january" }];
+    const res = await invoiceStorageAction(october);
+    expect(res.ok).toBe(true);
+    expect(audit).toHaveBeenCalledWith(
+      "storage.invoiced",
+      "u1",
+      expect.objectContaining({
+        invoice_id: "inv-january",
+        period_start: "2026-01-01",
+        relinked: true,
+      }),
+      "inv-january",
+    );
+    expect(audit).toHaveBeenCalledWith(
+      "storage.invoiced",
+      "u1",
+      expect.not.objectContaining({ relinked: true }),
+      "inv1",
     );
   });
 
@@ -252,7 +288,7 @@ describe("invoiceStorageAction claim", () => {
     invoiceStatus = "failed";
     const res = await invoiceStorageAction(october);
     expect(res.ok).toBe(false);
-    expect(runCalls().at(-1)?.op).toBe("delete");
+    expect(runWrites().at(-1)?.op).toBe("delete");
   });
 
   it("keeps the run when a live invoice's link is lost, without inviting a reissue", async () => {
@@ -267,7 +303,7 @@ describe("invoiceStorageAction claim", () => {
     issue.mockResolvedValue({ ok: false, error: "AFIP caído" });
     const res = await invoiceStorageAction(october);
     expect(res.ok).toBe(false);
-    expect(runCalls().at(-1)?.op).toBe("delete");
+    expect(runWrites().at(-1)?.op).toBe("delete");
   });
 
   it("claims nothing when there is nothing to bill", async () => {
@@ -277,5 +313,42 @@ describe("invoiceStorageAction claim", () => {
     expect(
       fake.calls.some((c) => c.table === "claim_storage_billing_period"),
     ).toBe(false);
+  });
+});
+
+describe("listStorageBillingRunsAction", () => {
+  const run = (id: string, invoiceId: string | null) => ({
+    id,
+    client_id: CLIENT_ID,
+    period_start: "2026-10-01",
+    period_end: "2026-10-31",
+    storage_total: "310.00",
+    handling_in_total: "0",
+    handling_out_total: "0",
+    total: "310.00",
+    invoice_id: invoiceId,
+    channel_id: "jouve_fiscal",
+    pending_since: null,
+    created_at: "2026-11-01T00:00:00Z",
+    client: { legal_name: "Cliente" },
+  });
+
+  it("leaves out the runs whose invoice no longer bills them", async () => {
+    linkedRuns = [run("run-live", "inv-live"), run("run-credited", "inv-nc")];
+    voidRunIds = ["run-credited"];
+    const res = await listStorageBillingRunsAction();
+    expect(res.ok).toBe(true);
+    if (res.ok) expect(res.data.map((r) => r.id)).toEqual(["run-live"]);
+  });
+
+  it("fails instead of showing a void run as billed when that read fails", async () => {
+    linkedRuns = [run("run-credited", "inv-nc")];
+    fake = recordingSupabase((call) =>
+      call.table === "storage_billing_void_run_ids"
+        ? { data: null, error: { message: "boom" } }
+        : respond(call),
+    );
+    const res = await listStorageBillingRunsAction();
+    expect(res.ok).toBe(false);
   });
 });

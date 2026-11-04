@@ -11,7 +11,7 @@ import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
-import { findSourceInvoiceSlot } from "@/lib/source-invoice-key";
+import { findSourceInvoiceSlot, invoiceIsVoid } from "@/lib/source-invoice-key";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createSupabaseClient>>;
@@ -582,7 +582,7 @@ export async function invoiceFreightAction(
                 ? "No se pudo verificar si la carga ya tiene factura."
                 : "El flete se facturó demasiadas veces sin éxito: revisá sus comprobantes.",
           };
-  if (!result.ok) {
+  const releaseClaim = async () => {
     const { error: releaseErr } = await supabase
       .from("shipments")
       .update({ invoicing_claimed_at: null })
@@ -595,6 +595,9 @@ export async function invoiceFreightAction(
         error: releaseErr,
       });
     }
+  };
+  if (!result.ok) {
+    await releaseClaim();
     return result;
   }
 
@@ -609,8 +612,18 @@ export async function invoiceFreightAction(
       invoiceId: result.data.id,
       error: linkErr,
     });
-    // The claim is kept; once it expires, "Facturar flete" links this same
-    // invoice (its key is the carga's).
+    // The invoice already failed or was cancelled (the link guard refuses
+    // it): nothing bills the carga, so free it now.
+    if (await invoiceIsVoid(supabase, result.data.id)) {
+      await releaseClaim();
+      return {
+        ok: false,
+        error:
+          "La factura falló o se anuló antes de vincularla a la carga: la carga quedó libre para facturarla de nuevo.",
+      };
+    }
+    // Any other error keeps the claim; once it expires, "Facturar flete"
+    // links this same invoice (its key is the carga's).
     return {
       ok: false,
       error:

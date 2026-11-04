@@ -10580,6 +10580,11 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      storage_billing_void_run_ids: { Args: never; Returns: string[] }
+      storage_invoice_is_void: {
+        Args: { p_invoice_id: string }
+        Returns: boolean
+      }
       suppliers:
         | {
             Args: { "": Database["public"]["Views"]["v_supplier_aging"]["Row"] }
