@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import { ReadError } from "@/components/read-error";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -36,7 +37,10 @@ export function ProfitabilityReport() {
     setEnd(todayInAR());
   }, []);
 
-  const { data, isLoading } = useFleetProfitability(start, end);
+  const { data, isLoading, isError, refetch } = useFleetProfitability(
+    start,
+    end,
+  );
 
   return (
     <div className="space-y-6">
@@ -100,7 +104,12 @@ export function ProfitabilityReport() {
         )}
       </div>
 
-      {isLoading || !data ? (
+      {isError && !data ? (
+        <ReadError
+          message="No se pudo cargar la rentabilidad de flota."
+          onRetry={() => void refetch()}
+        />
+      ) : isLoading || !data ? (
         <Skeleton className="h-64 w-full" />
       ) : (
         <>
