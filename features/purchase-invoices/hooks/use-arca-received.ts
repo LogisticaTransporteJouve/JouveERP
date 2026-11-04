@@ -18,6 +18,10 @@ import {
   restoreReceivedVoucherAction,
   uploadReceivedExportAction,
 } from "../actions/arca-received-actions";
+import {
+  getArcaSyncStatusAction,
+  requestArcaReceivedSyncAction,
+} from "../actions/arca-received-sync-actions";
 import type { PurchaseInvoiceCreateRawInput } from "../lib/purchase-invoice-draft";
 import {
   arcaReceivedKeys,
@@ -97,4 +101,20 @@ export function useSubmitReceivedVoucher(voucherId: string) {
     ).finally(() =>
       qc.invalidateQueries({ queryKey: purchaseInvoicesKeys.all }),
     );
+}
+
+export function useArcaSyncStatus() {
+  return useQuery({
+    queryKey: arcaReceivedKeys.syncStatus(),
+    queryFn: () => runAction(() => getArcaSyncStatusAction()),
+  });
+}
+
+export function useRequestArcaSync() {
+  const invalidate = useInvalidateTray();
+  return useMutation({
+    mutationFn: (input: { fromMonth: string; toMonth: string }) =>
+      runAction(() => requestArcaReceivedSyncAction(input)),
+    onSettled: invalidate,
+  });
 }

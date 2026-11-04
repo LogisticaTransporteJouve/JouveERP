@@ -31,6 +31,7 @@ import {
   type ReceivedVoucher,
   type ReceivedVoucherStatus,
 } from "../schema";
+import { ArcaSyncCard } from "./arca-sync-card";
 import { PurchaseInvoiceDraftDialog } from "./purchase-invoice-draft-dialog";
 
 const EMPTY: Record<ReceivedVoucherStatus, string> = {
@@ -286,6 +287,8 @@ export function ArcaReceivedTray() {
 
   return (
     <div className="space-y-6">
+      <ArcaSyncCard />
+
       <FileDropzone
         onFile={(file) =>
           upload.mutate(file, {
@@ -296,7 +299,7 @@ export function ArcaReceivedTray() {
         onError={(message) => toast.error(message)}
         fileType="tables"
         disabled={upload.isPending}
-        placeholder="Subí el archivo de ARCA → Mis Comprobantes → Recibidos"
+        placeholder="O subí el archivo de ARCA → Mis Comprobantes → Recibidos"
         description="CSV, TXT o Excel, tal como lo baja ARCA. Lo que ya está en la bandeja no se duplica."
       />
 

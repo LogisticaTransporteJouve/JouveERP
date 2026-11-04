@@ -229,18 +229,30 @@
         </p>
         <p><strong>Ubicación:</strong> Compras &gt; <em>Recibidos de ARCA</em>
           (<code>/purchases/arca</code>). La ven quienes cargan compras.</p>
+        <p>
+          Los comprobantes llegan solos: todos los días a la mañana JouveERP
+          entra a ARCA con el usuario cargado en Admin → AFIP y trae los
+          últimos 60 días. Lo que ya estaba no se duplica, y lo que ya cargaste
+          como compra fiscal (misma letra y número, no anulada) queda en
+          <em>Cargadas</em>.
+        </p>
         <ol class="steps">
-          <li>En ARCA, entrá a <strong>Mis Comprobantes → Recibidos</strong>,
-            elegí el rango de fechas y bajá el archivo (CSV o Excel).</li>
-          <li>Subilo en la bandeja. Lo que ya estaba no se duplica, y lo que ya
-            cargaste como compra fiscal (misma letra y número, no anulada) queda
-            en <em>Cargadas</em>.</li>
+          <li>Para traer otro período en el momento, <strong>Traer de
+            ARCA</strong>: elegí el mes desde y el mes hasta (hasta 12 meses) y
+            en unos minutos aparecen en <em>Pendientes</em>. También podés
+            bajar el archivo de <strong>Mis Comprobantes → Recibidos</strong>
+            en ARCA (CSV o Excel) y subirlo en la bandeja.</li>
           <li>En <em>Pendientes</em>, <strong>Aceptar y cargar</strong> abre la
             factura con los importes de ARCA, que no se pueden cambiar. Elegí
             cuenta y centro de costo, repartí los otros tributos y guardá.</li>
           <li>Si un comprobante no corresponde, <strong>Descartar</strong>.
             Desde <em>Descartadas</em> lo podés volver a pendientes.</li>
         </ol>
+        <div class="callout">
+          <strong>Si ARCA rechaza la clave</strong>, JouveERP deja de entrar
+          (para no bloquear el usuario) y la bandeja lo avisa. Un owner o admin
+          la actualiza en Admin → AFIP → Puntos de venta.
+        </div>
         <div class="callout">
           <strong>No soportados.</strong> Facturas de crédito MiPyME (FCE) y
           tipo M todavía no se cargan desde acá: cargalas a mano.

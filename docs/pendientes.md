@@ -391,12 +391,13 @@ mitigación en el schema: el límite se respeta operando.
       en caja (`20261104104002`).
 - [x] Clave fiscal del usuario de ARCA en Vault, editable por owner y admin
       en Admin → AFIP (`20261104110601`).
-- [ ] Traer el archivo solo desde ARCA (robot + botón «Traer de ARCA»). Ya
-      está grabada la parte de Mis Comprobantes (`index.do` con token y sign,
-      `setearContribuyente`, `generarConsulta`, `listaResultados`) y el lector
-      de su JSON (`lib/afip/mis-comprobantes/results-json.ts`). Falta grabar
-      el login: de `auth.afip.gob.ar` hasta que el portal abre Mis
-      Comprobantes.
+- [x] Traer de ARCA solo: robot HTTP (`lib/afip/mis-comprobantes/robot.ts`),
+      función Inngest `arca-received-sync` (todos los días, últimos 60 días;
+      `retries: 0`) y botón «Traer de ARCA» con período en la bandeja.
+- [ ] Probar el robot contra ARCA desde producción (región `gru1`): el
+      recorrido sale de la grabación del owner, nunca corrió de punta a punta.
+- [ ] Avisar por notificación a owner y admin cuando ARCA rechaza la clave
+      (hoy lo muestran la bandeja y Admin → AFIP).
 - [x] Lector validado con una consulta real de Recibidos (A con otros
       tributos, C y NC C que traen solo el total, todo en pesos) y con los
       encabezados del Excel que exporta la página.
