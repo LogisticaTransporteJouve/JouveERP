@@ -72,6 +72,8 @@ type Props = {
   year: number;
   month: number;
   disabled: boolean;
+  /** Why the payments are read-only, shown in the dialog. */
+  disabledReason?: string | null;
 };
 
 export function PayrollPaymentsDialog({
@@ -83,6 +85,7 @@ export function PayrollPaymentsDialog({
   year,
   month,
   disabled,
+  disabledReason = null,
 }: Props) {
   const [open, setOpen] = useState(false);
   const trigger = (
@@ -117,6 +120,9 @@ export function PayrollPaymentsDialog({
           <DialogDescription>
             Total {money(total)} · Pagado {money(paid)} · Saldo {money(saldo)}
           </DialogDescription>
+          {disabled && disabledReason && (
+            <p className="text-xs text-muted-foreground">{disabledReason}</p>
+          )}
         </DialogHeader>
         {open ? (
           <Suspense

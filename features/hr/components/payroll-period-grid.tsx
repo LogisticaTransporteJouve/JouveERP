@@ -18,7 +18,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { Access } from "@/lib/auth/permissions";
-import { userCan } from "@/lib/auth/permissions";
+import { userCan, userCanAll } from "@/lib/auth/permissions";
 
 import {
   useAddMissingPayrollEntries,
@@ -28,6 +28,7 @@ import {
   useResetPayrollOverride,
   useUpdatePayrollEntry,
 } from "../hooks/use-payroll";
+import { HR_CASH_DENIED_REASON, HR_CASH_PERMISSIONS } from "../lib/hr-cash";
 import { payrollOtros, suggestedSplit } from "../lib/payroll-split";
 import {
   PAYROLL_STATUS_LABEL,
@@ -76,9 +77,10 @@ export function PayrollPeriodGrid({
   const isClosed = period?.status === "closed";
   const canEdit = canWrite && !!period && !isClosed;
   // Payments can be recorded even when the period is closed (that's the
-  // idea: you lock the amounts and then pay in installments). It only
-  // requires hr:write.
-  const canManagePayments = canWrite && !!period;
+  // idea: you lock the amounts and then pay in installments). A payment
+  // moves treasury money: hr:write and transactions:write, as the actions.
+  const canMoveCash = userCanAll(actorAccess, HR_CASH_PERMISSIONS);
+  const canManagePayments = canMoveCash && !!period;
 
   const activeChannels = useMemo(
     () => channels.filter((c) => c.is_active),
@@ -452,6 +454,11 @@ export function PayrollPeriodGrid({
                         year={year}
                         month={month}
                         disabled={!canManagePayments}
+                        disabledReason={
+                          canWrite && !canMoveCash
+                            ? HR_CASH_DENIED_REASON
+                            : null
+                        }
                       />
                     </TableCell>
                   </TableRow>
