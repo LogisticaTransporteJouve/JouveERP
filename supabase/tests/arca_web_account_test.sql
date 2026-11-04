@@ -1,4 +1,4 @@
--- ARCA web account (20261104104003): only the service role saves or reads
+-- ARCA web account (20261104110601): only the service role saves or reads
 -- the clave (Vault); a null clave keeps the stored one; a new clave or CUIT
 -- resets the failures; a rejected clave stops automatic sign-ins; owner and
 -- admin read the status; finance reads nothing. One

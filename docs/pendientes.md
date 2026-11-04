@@ -284,7 +284,7 @@ mitigación en el schema: el límite se respeta operando.
 - [x] Compras en una cuenta asignada a Neutro no suman en Gestión, tampoco
       en caja (`20261104104002`).
 - [x] Clave fiscal del usuario de ARCA en Vault, editable por owner y admin
-      en Admin → AFIP (`20261104104003`).
+      en Admin → AFIP (`20261104110601`).
 - [ ] Traer el archivo solo desde ARCA (robot + botón «Traer de ARCA»): falta
       que el dueño grabe el flujo de login (HAR).
 - [ ] Validar el lector con un archivo real y actual de ARCA (NC, B/C, USD y
