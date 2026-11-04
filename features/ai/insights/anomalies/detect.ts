@@ -43,6 +43,8 @@ export type AnomalyFinding = {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const DUP_WINDOW_DAYS = 30;
+/** Invoices of one amount it takes to trust their cadence down to a day. */
+const CADENCE_MIN_INVOICES = 5;
 const MIN_HISTORY = 5;
 
 function dayNum(date: string): number {
@@ -63,14 +65,14 @@ function pvNum(r: PurchaseRow): string {
  *  group's usual spacing (the upper quartile of its gaps, so a few duplicates
  *  do not set it). A fixed monthly, weekly or daily fee is measured against
  *  its own cadence instead of being taken for a duplicate: with a daily one
- *  (MIN_HISTORY invoices or more), only a second invoice on the same day
+ *  (CADENCE_MIN_INVOICES or more), only a second invoice on the same day
  *  counts. A shorter history cannot tell a daily fee from loads on
  *  consecutive days, so it keeps a window of at least a day. */
 function duplicateWindow(gaps: number[]): number {
   if (gaps.length < 2) return DUP_WINDOW_DAYS;
   const { q3 } = quartiles([...gaps].sort((a, b) => a - b));
   const half = q3 / 2;
-  const floor = gaps.length + 1 >= MIN_HISTORY ? 0 : 1;
+  const floor = gaps.length + 1 >= CADENCE_MIN_INVOICES ? 0 : 1;
   return Math.min(DUP_WINDOW_DAYS, Math.max(floor, half));
 }
 
