@@ -180,7 +180,8 @@ export const PURCHASE_TOTAL_PART_FIELDS = [
 
 /** imp_total minus the sum of its parts, rounded to cents; null within a
  *  cent (the journal credits the supplier the parts, the statement the
- *  total). Same rule as guard_purchase_invoice_total. */
+ *  total). Same formula as guard_purchase_invoice_total, which the database
+ *  applies to fiscal purchases only. */
 export function purchaseTotalGap(p: PurchaseTotalParts): number | null {
   const gap =
     Math.round(

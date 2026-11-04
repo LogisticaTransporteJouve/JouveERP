@@ -177,7 +177,7 @@ Las de cada sección más vieja siguen con su ítem "Aprobar …" en su sección
       frena. Ver cuáles siguen sin validar:
       `select conrelid::regclass, conname from pg_constraint where not convalidated and connamespace = 'public'::regnamespace;`
       Rollback: nada que hacer, el código no lee el flag.
-- [ ] **Antes de aprobar `20261104105000`** (auditoría w3, compras): una
+- [ ] **Antes de aprobar `20261104112000`** (auditoría w3, compras): una
       compra fiscal nueva, o editada en sus importes, cuyo total no da neto +
       IVA + otros tributos + no gravado + exento se rechaza. Las existentes no
       se tocan: siguen guardando ediciones que no cambian importes, y en

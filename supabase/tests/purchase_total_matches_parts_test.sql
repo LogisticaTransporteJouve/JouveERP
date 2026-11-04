@@ -1,5 +1,5 @@
 -- A fiscal purchase's total equals the sum of its parts
--- (20261104105000_purchase_total_matches_parts): refused on insert and on an
+-- (20261104112000_purchase_total_matches_parts): refused on insert and on an
 -- amount edit; an existing row with a gap still saves when its amounts stay
 -- as they are; internal purchases are left alone. One transaction, rolled back.
 
