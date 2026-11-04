@@ -50,6 +50,7 @@ import {
 } from "@/features/suppliers/components/supplier-picker";
 import { useSupplierByIdOptional } from "@/features/suppliers/hooks/use-suppliers";
 import { CostTagSelect } from "@/features/cost-centers/components/cost-tag-select";
+import { useCostTagOptions } from "@/features/cost-centers/hooks/use-cost-centers";
 import { EmployeeChargeSelect } from "@/features/hr/components/employee-charge-select";
 
 import {
@@ -75,6 +76,7 @@ import {
   followHeaderTotal,
   partsGapFix,
 } from "../lib/header-total";
+import { supplierCostDefaults } from "../lib/supplier-defaults";
 import {
   PURCHASE_INVOICE_KINDS,
   PURCHASE_INVOICE_KIND_LABEL,
@@ -498,19 +500,21 @@ export function PurchaseInvoiceForm({
     mode === "create" ? watchedSupplierId : null,
   );
   const supplierDetail = supplierDetailQuery.data ?? null;
+  // Which accounts and centers are still offered (active), for the defaults.
+  const costTagOptions = useCostTagOptions().data;
 
   useEffect(() => {
     if (mode !== "create" || !supplierDetail) return;
     // Expense account and cost center: the supplier's, over the AI's
-    // suggestion, unless the user already picked one. An NC/ND left empty
-    // takes its origin's (purchase_invoices_nc_nd_inherit_account).
+    // suggestion, unless the user already picked one, and only while still
+    // active (a retired FLOTA_DZ is not copied). An NC/ND left empty takes
+    // its origin's (purchase_invoices_nc_nd_inherit_account).
     if (form.getValues("kind") === "factura") {
-      const defaults = [
-        ["account_id", supplierDetail.default_expense_account_id],
-        ["cost_center_id", supplierDetail.default_cost_center_id],
-      ] as const;
-      for (const [name, id] of defaults) {
-        if (id && !form.getFieldState(name).isDirty) {
+      for (const { name, id } of supplierCostDefaults(
+        supplierDetail,
+        costTagOptions,
+      )) {
+        if (!form.getFieldState(name).isDirty) {
           form.setValue(name, id, { shouldDirty: false });
         }
       }
@@ -553,7 +557,15 @@ export function PurchaseInvoiceForm({
         form.setValue("fch_vto_pago", iso, { shouldDirty: false });
       }
     }
-  }, [mode, supplierDetail, defaultChannelId, channels, form, arcaLocked]);
+  }, [
+    mode,
+    supplierDetail,
+    costTagOptions,
+    defaultChannelId,
+    channels,
+    form,
+    arcaLocked,
+  ]);
 
   const watchedChannelId = useWatch({
     control: form.control,
