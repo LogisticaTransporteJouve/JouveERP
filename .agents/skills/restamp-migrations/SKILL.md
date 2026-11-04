@@ -3,9 +3,9 @@ name: restamp-migrations
 description: >-
   Give one or more of this branch's Supabase migrations in `supabase/migrations/` fresh UTC
   timestamps, preserving their relative order, via `pnpm db:restamp`. Use when a branch's migration
-  is older than the newest one on `origin/main`, CI's "New migration names and timestamps" step
-  fails ("not after …"), two PRs collide on a stamp, or the user says "restamp", "bump the migration
-  timestamp", "my migration is out of order".
+  is older than the newest one on `origin/main`, CI's "New migrations (name, version, …)" step fails
+  ("must have a version after the latest one"), two PRs collide on a stamp, or the user says
+  "restamp", "bump the migration timestamp", "my migration is out of order".
 argument-hint: "[<name-substring>...]"
 allowed-tools: Bash, Read
 ---

@@ -134,7 +134,12 @@ const ALIASES: Readonly<Record<Field, readonly string[]>> = {
   denominacion: ["denominacion emisor", "razon social emisor", "denominacion"],
   tipo_cambio: ["tipo cambio", "tipo de cambio"],
   moneda: ["moneda"],
-  neto_gravado: ["imp neto gravado", "imp neto gravado total", "neto gravado"],
+  neto_gravado: [
+    "imp neto gravado",
+    "imp neto gravado total",
+    "neto gravado total",
+    "neto gravado",
+  ],
   no_gravado: ["imp neto no gravado", "neto no gravado"],
   exentas: ["imp op exentas", "op exentas"],
   otros_tributos: ["otros tributos", "imp otros tributos"],
@@ -187,15 +192,17 @@ function mapColumns(header: readonly string[]): Partial<Record<Field, number>> {
   return mapping;
 }
 
-/** Per-rate columns ("Imp. Neto Gravado IVA 21%", "IVA 21%"), by AFIP rate. */
+/** Per-rate columns ("Imp. Neto Gravado IVA 21%", "Neto Grav. IVA 21%",
+ *  "IVA 21%"), by AFIP rate. */
 function mapRateColumns(
   header: readonly string[],
 ): Map<IvaRateId, { neto?: number; iva?: number }> {
   const out = new Map<IvaRateId, { neto?: number; iva?: number }>();
   header.map(normalizeHeader).forEach((h, i) => {
-    const m = /^(?:(imp neto gravado|neto gravado) )?iva (\d+(?: \d+)?)$/.exec(
-      h,
-    );
+    const m =
+      /^(?:(imp neto gravado|neto gravado|neto grav) )?iva (\d+(?: \d+)?)$/.exec(
+        h,
+      );
     if (!m) return;
     const rate = ivaRateIdForPercent(Number(m[2]!.replace(" ", ".")));
     if (rate === null) return;
@@ -295,7 +302,14 @@ function parseRow(
       ivaBreakdown.push({ iva_rate_id: rate, neto: n, iva: v });
   }
 
-  if (!near(round2(neto + noGravado + exentas + iva + trib), total)) {
+  const kl = kindLetterForCbteTipo(cbteTipo);
+  // ARCA lists a B or C with only its total: it is all net, as the purchase
+  // stores B and C.
+  const onlyTotal =
+    (kl?.letter === "B" || kl?.letter === "C") &&
+    neto + noGravado + exentas + iva + trib === 0;
+  const netoGravado = onlyTotal ? total : neto;
+  if (!near(round2(netoGravado + noGravado + exentas + iva + trib), total)) {
     return "amount_mismatch";
   }
   if (ivaBreakdown.length > 0) {
@@ -317,7 +331,6 @@ function parseRow(
       ? parseStatementNumber(cotizacionRaw)
       : null;
 
-  const kl = kindLetterForCbteTipo(cbteTipo);
   return {
     issuer_cuit: cuit,
     issuer_name: cell("denominacion").slice(0, 300) || cuit,
@@ -330,7 +343,7 @@ function parseRow(
     cae: cell("cae").replace(/\D/g, "").slice(0, 20) || null,
     moneda,
     cotizacion: cotizacion !== null && cotizacion > 0 ? cotizacion : null,
-    imp_neto_gravado: neto,
+    imp_neto_gravado: netoGravado,
     imp_no_gravado: noGravado,
     imp_op_exentas: exentas,
     imp_iva: iva,

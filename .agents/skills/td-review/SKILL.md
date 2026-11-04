@@ -94,9 +94,9 @@ The verdict reaches the PR as a native GitHub review, not a pasted text block. W
 - `commit_id`: the reviewed head SHA (an inline comment on a stale head lands in the wrong place).
 - `event`: `REQUEST_CHANGES` for DO NOT MERGE, `COMMENT` otherwise; `APPROVE` when the user says so
   (they post it, so approval stays their call).
-- A migration older than `main`'s newest (CI's "New migration names and timestamps" step) is fixed
-  with `pnpm db:restamp` (`/restamp-migrations`) and is never blocking: the author restamps before
-  merging anyway. It goes as a plain comment on the migration and doesn't change the verdict.
+- A migration older than `main`'s newest (CI's "New migrations (name, version, …)" step: "must
+  have a version after the latest one") is fixed with `pnpm db:restamp` (`/restamp-migrations`) and
+  is never blocking: the author restamps before merging anyway. It goes as a plain comment on the migration and doesn't change the verdict.
 - Language: Spanish (Argentina), like the PR template, unless the PR is written in English.
 - `body`: the summary, short: the verdict and its reason in one line; open one-way doors
   and findings outside the diff (one line each, they have no single line to anchor to). No link to
