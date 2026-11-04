@@ -7,9 +7,9 @@ import { listChecksAction } from "@/features/checks/actions/checks-actions";
 import { CheckSalesSection } from "@/features/checks/components/check-sales-section";
 import { ChequesTable } from "@/features/checks/components/checks-table";
 import {
-  CHECK_SALE_DEBT_PAY_DENIED_REASON,
-  CHECK_SALE_DEBT_PAY_PERMISSIONS,
-} from "@/features/checks/lib/check-sale-cash";
+  CHECK_CASH_DENIED_REASON,
+  CHECK_CASH_PERMISSIONS,
+} from "@/features/checks/lib/check-cash";
 import { checksKeys } from "@/features/checks/lib/checks-keys";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan, userCanAll } from "@/lib/auth/permissions";
@@ -68,15 +68,15 @@ export default async function ChequesPage() {
         </Suspense>
         <Suspense fallback={null}>
           <CheckSalesSection
-            canWrite={userCan(ctx.access, "cheques:write")}
+            canCancel={userCanAll(ctx.access, CHECK_CASH_PERMISSIONS)}
             canPay={
-              userCanAll(ctx.access, CHECK_SALE_DEBT_PAY_PERMISSIONS) &&
+              userCanAll(ctx.access, CHECK_CASH_PERMISSIONS) &&
               userCan(ctx.access, "accounts:read")
             }
             payDeniedReason={
               userCan(ctx.access, "cheques:write") &&
               !userCan(ctx.access, "transactions:write")
-                ? CHECK_SALE_DEBT_PAY_DENIED_REASON
+                ? CHECK_CASH_DENIED_REASON
                 : null
             }
           />

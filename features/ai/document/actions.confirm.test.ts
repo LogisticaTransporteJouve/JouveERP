@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { isRole, resolveAccess } from "@/lib/auth/permissions";
+
+import { CHECK_CASH_DENIED_REASON } from "@/features/checks/lib/check-cash";
+import { isRole, type Permission, resolveAccess } from "@/lib/auth/permissions";
 
 // ---------------------------------------------------------------------------
 // In-memory stand-in for the RLS Supabase client: enough of the query builder
@@ -80,12 +82,13 @@ const createPurchaseInvoiceAction = vi.fn();
 const logAudit = vi.fn();
 const inngestSend = vi.fn();
 let roles: string[] = ["owner"];
+let denied: Permission[] = [];
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/auth/context", () => ({
   requireUserContext: async () => ({
     userId: "u1",
-    access: resolveAccess(roles.filter(isRole)),
+    access: resolveAccess(roles.filter(isRole), denied),
   }),
 }));
 vi.mock("@/lib/supabase/server", () => ({
@@ -187,6 +190,7 @@ const receiptInput = {
 
 beforeEach(() => {
   roles = ["owner"];
+  denied = [];
   createReceiptAction.mockReset();
   createPaymentOrderAction.mockReset();
   getReceiptUsdRateAction.mockReset();
@@ -752,6 +756,33 @@ describe("attach on create", () => {
     expect(checkIds).toHaveLength(2);
     expect(attachments().map((a) => a.check_id)).toEqual(checkIds);
     expect(attachments().every((a) => a.kind === "foto_cheque")).toBe(true);
+  });
+});
+
+describe("createChecksFromExtractionAction · cash gate", () => {
+  it("refuses a finance user denied transactions:write: each check enters the cartera", async () => {
+    seed("check", {});
+    db.accounts = [{ id: ACCOUNT_ID, type: "checks" }];
+    db.checks = [];
+    roles = ["finance"];
+    denied = ["transactions:write"];
+    const res = await createChecksFromExtractionAction({
+      extractionId: EXTRACTION_ID,
+      cartera_account_id: ACCOUNT_ID,
+      cheques: [
+        {
+          numero: "1",
+          banco: "Banco Nación",
+          librador: "ACME SA",
+          librador_cuit: "",
+          importe: 1000,
+          fecha: "2026-07-01",
+        },
+      ],
+    });
+    expect(res).toEqual({ ok: false, error: CHECK_CASH_DENIED_REASON });
+    expect(db.checks).toEqual([]);
+    expect(extraction()?.status).toBe("pending_review");
   });
 });
 

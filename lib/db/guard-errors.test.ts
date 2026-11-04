@@ -156,6 +156,7 @@ const GUARDS = [
   "update_payment_order",
   "guard_loan",
   "guard_issued_check_edit",
+  "guard_check_edit",
   "create_transfer",
   "reject_check",
   "guard_payment_order_rejected_check_allocation",
