@@ -104,7 +104,7 @@ describe("TaxDocumentDialog · Estimar", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: /Estimar/ }));
     act(() => h.calls[0]!.callbacks.onSuccess(estimate("2026-09", 500)));
-    expect(amountInput().value).toBe("500");
+    expect(amountInput().value).toBe("500,00");
   });
 
   it("drops a late answer once another document is open", () => {

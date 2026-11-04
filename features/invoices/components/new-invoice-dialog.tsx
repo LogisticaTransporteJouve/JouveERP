@@ -71,6 +71,7 @@ import {
 import { cn } from "@/lib/utils";
 
 import type { InvoiceListItem, PosOption } from "../actions/invoices-actions";
+import { ITEM_DECIMALS, itemInput, itemNumber } from "../lib/item-amounts";
 import { posLabel } from "../lib/pos-label";
 import {
   useEnabledPos,
@@ -105,13 +106,6 @@ type ItemDraft = {
 };
 
 const SEGURO_DESCRIPTION = "Seguro";
-
-// invoice_items.quantity and unit_price are numeric(15,4).
-const ITEM_DECIMALS = 4;
-
-function itemNumber(raw: string): number {
-  return parseArAmount(raw) ?? 0;
-}
 
 // A remito interno has no IVA rate on screen: the suggestion reads none.
 function itemRevenueKind(item: ItemDraft, isFiscal: boolean): RevenueKind {
@@ -317,8 +311,8 @@ function NewInvoiceForm({
           ]
         : originDetail.items.map((it) => ({
             description: it.description,
-            quantity: amountToInput(it.quantity, ITEM_DECIMALS),
-            unit_price: amountToInput(it.unit_price, ITEM_DECIMALS),
+            quantity: itemInput(it.quantity),
+            unit_price: itemInput(it.unit_price),
             iva_rate_id: (it.iva_rate_id ?? IVA_RATE.TWENTY_ONE) as IvaRateId,
             revenue_kind: it.revenue_kind,
           })),
@@ -1016,7 +1010,7 @@ function SeguroPercentInput({
           onChange={(text) => {
             setPctText(text);
             const next = parseArAmount(text) ?? 0;
-            onChange(next > 0 ? amountToInput(next / 100, ITEM_DECIMALS) : "0");
+            onChange(next > 0 ? itemInput(next / 100) : "0");
           }}
           onBlur={() => {
             // If user blurs with empty/zero, fall back to the select view.
@@ -1041,7 +1035,7 @@ function SeguroPercentInput({
           setIsCustom(true);
           return;
         }
-        onChange(amountToInput(Number(v) / 100, ITEM_DECIMALS));
+        onChange(itemInput(Number(v) / 100));
       }}
     >
       <SelectTrigger className="w-full" aria-label="Porcentaje del seguro">

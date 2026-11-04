@@ -8,6 +8,7 @@ import {
   useScope,
   useSideChannels,
 } from "@/components/providers/scope-provider";
+import { MoneyInput } from "@/components/money-input";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -26,6 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { amountToInput, parseArAmount } from "@/lib/format";
 import { useAccountsList } from "@/features/accounts/hooks/use-accounts";
 
 import {
@@ -129,7 +131,7 @@ export function CreatePaymentDocDialog({
     setFecha(parsed.success ? (parsed.data.date ?? "") : "");
     setImporte(
       parsed.success && parsed.data.total_amount != null
-        ? String(parsed.data.total_amount)
+        ? amountToInput(parsed.data.total_amount)
         : "",
     );
     setMoneda(parsed.success && parsed.data.currency === "USD" ? "USD" : "ARS");
@@ -158,7 +160,7 @@ export function CreatePaymentDocDialog({
       extractionId,
       channelId,
       numero: Number(numero),
-      total_amount: Number(importe),
+      total_amount: parseArAmount(importe) ?? 0,
       currency: moneda,
       account_id: accountId,
     };
@@ -230,12 +232,10 @@ export function CreatePaymentDocDialog({
             </div>
             <div className="space-y-1">
               <Label htmlFor="pd-importe">Importe</Label>
-              <Input
+              <MoneyInput
                 id="pd-importe"
-                type="number"
-                inputMode="decimal"
                 value={importe}
-                onChange={(e) => setImporte(e.target.value)}
+                onChange={setImporte}
               />
             </div>
             <div className="space-y-1">

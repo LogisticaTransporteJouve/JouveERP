@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 
 import { useScope } from "@/components/providers/scope-provider";
+import { MoneyInput } from "@/components/money-input";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -33,13 +34,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { amountToInput, parseArAmount } from "@/lib/format";
 
 import { useCreateTrip, useUpdateTrip } from "../hooks/use-trips";
-import {
-  TRIP_STATUSES,
-  TRIP_STATUS_LABELS,
-  type Trip,
-} from "../schema";
+import { TRIP_STATUSES, TRIP_STATUS_LABELS, type Trip } from "../schema";
 
 const NONE = "__none__";
 
@@ -70,9 +68,9 @@ function toDefaults(trip?: Trip): FormValues {
     destination: trip?.destination ?? "",
     cargo_description: trip?.cargo_description ?? "",
     status: trip?.status ?? "planned",
-    km: trip?.km != null ? String(trip.km) : "",
-    revenue: trip?.revenue != null ? String(trip.revenue) : "",
-    cost: trip?.cost != null ? String(trip.cost) : "",
+    km: trip?.km != null ? amountToInput(trip.km) : "",
+    revenue: trip?.revenue != null ? amountToInput(trip.revenue) : "",
+    cost: trip?.cost != null ? amountToInput(trip.cost) : "",
     notes: trip?.notes ?? "",
   };
 }
@@ -118,9 +116,9 @@ export function TripDialog({
       destination: values.destination,
       cargo_description: values.cargo_description,
       status: values.status,
-      km: values.km,
-      revenue: values.revenue,
-      cost: values.cost,
+      km: parseArAmount(values.km) ?? "",
+      revenue: parseArAmount(values.revenue) ?? "",
+      cost: parseArAmount(values.cost) ?? "",
       notes: values.notes,
     };
     if (mode === "create") {
@@ -205,9 +203,7 @@ export function TripDialog({
                     <FormLabel>Chofer</FormLabel>
                     <Select
                       value={field.value === "" ? NONE : field.value}
-                      onValueChange={(v) =>
-                        field.onChange(v === NONE ? "" : v)
-                      }
+                      onValueChange={(v) => field.onChange(v === NONE ? "" : v)}
                     >
                       <FormControl>
                         <SelectTrigger>
@@ -235,9 +231,7 @@ export function TripDialog({
                     <FormLabel>Vehículo</FormLabel>
                     <Select
                       value={field.value === "" ? NONE : field.value}
-                      onValueChange={(v) =>
-                        field.onChange(v === NONE ? "" : v)
-                      }
+                      onValueChange={(v) => field.onChange(v === NONE ? "" : v)}
                     >
                       <FormControl>
                         <SelectTrigger>
@@ -335,12 +329,7 @@ export function TripDialog({
                   <FormItem>
                     <FormLabel>Km</FormLabel>
                     <FormControl>
-                      <Input
-                        {...field}
-                        type="number"
-                        inputMode="decimal"
-                        step="0.01"
-                      />
+                      <MoneyInput {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -353,12 +342,7 @@ export function TripDialog({
                   <FormItem>
                     <FormLabel>Ingreso</FormLabel>
                     <FormControl>
-                      <Input
-                        {...field}
-                        type="number"
-                        inputMode="decimal"
-                        step="0.01"
-                      />
+                      <MoneyInput {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -371,12 +355,7 @@ export function TripDialog({
                   <FormItem>
                     <FormLabel>Costo</FormLabel>
                     <FormControl>
-                      <Input
-                        {...field}
-                        type="number"
-                        inputMode="decimal"
-                        step="0.01"
-                      />
+                      <MoneyInput {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

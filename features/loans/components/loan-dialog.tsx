@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { MoneyInput } from "@/components/money-input";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -32,6 +33,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { parseArAmount } from "@/lib/format";
+import { positiveArAmountField } from "@/lib/validation/common";
 
 import { useCreateLoan } from "../hooks/use-loans";
 import { LOAN_KINDS, LOAN_KIND_LABEL } from "../schema";
@@ -40,7 +43,7 @@ const FormSchema = z.object({
   kind: z.enum(LOAN_KINDS),
   description: z.string().trim().min(1, "Descripción requerida.").max(200),
   lender: z.string().trim().max(200),
-  principal: z.string().regex(/^\d+(\.\d{1,2})?$/, "Capital inválido."),
+  principal: positiveArAmountField,
   currency: z.enum(["ARS", "USD"]),
   channel_id: z.string().min(1, "Canal requerido."),
   installments_count: z
@@ -85,13 +88,16 @@ export function LoanDialog({
   }, [open, form]);
 
   function onSubmit(values: FormValues) {
-    createMut.mutate(values, {
-      onSuccess: () => {
-        toast.success("Préstamo creado.");
-        onOpenChange(false);
+    createMut.mutate(
+      { ...values, principal: parseArAmount(values.principal) ?? 0 },
+      {
+        onSuccess: () => {
+          toast.success("Préstamo creado.");
+          onOpenChange(false);
+        },
+        onError: (err) => toast.error(err.message),
       },
-      onError: (err) => toast.error(err.message),
-    });
+    );
   }
 
   return (
@@ -212,7 +218,7 @@ export function LoanDialog({
                   <FormItem>
                     <FormLabel>Capital</FormLabel>
                     <FormControl>
-                      <Input {...field} type="number" inputMode="decimal" step="0.01" />
+                      <MoneyInput {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -225,7 +231,12 @@ export function LoanDialog({
                   <FormItem>
                     <FormLabel>Cuotas</FormLabel>
                     <FormControl>
-                      <Input {...field} type="number" inputMode="numeric" min={1} />
+                      <Input
+                        {...field}
+                        type="number"
+                        inputMode="numeric"
+                        min={1}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

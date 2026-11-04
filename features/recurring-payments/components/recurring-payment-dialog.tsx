@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 
 import { useScope } from "@/components/providers/scope-provider";
+import { MoneyInput } from "@/components/money-input";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -33,6 +34,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { amountToInput, parseArAmount } from "@/lib/format";
 
 import {
   useCreateRecurringPayment,
@@ -54,12 +56,10 @@ const FormSchema = z.object({
   category: z.enum(RECURRING_CATEGORIES),
   amount: z
     .string()
-    .refine((v) => Number(v) > 0, "El monto debe ser mayor a 0."),
+    .refine((v) => (parseArAmount(v) ?? 0) > 0, "El monto debe ser mayor a 0."),
   currency: z.enum(RECURRING_CURRENCIES),
   frequency: z.enum(RECURRING_FREQUENCIES),
-  next_due_date: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha requerida."),
+  next_due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha requerida."),
   end_date: z.string(),
   channel_id: z.string(),
   notes: z.string(),
@@ -71,7 +71,7 @@ function toDefaults(payment?: RecurringPayment): FormValues {
   return {
     description: payment?.description ?? "",
     category: payment?.category ?? "alquiler",
-    amount: payment ? String(payment.amount) : "",
+    amount: payment ? amountToInput(payment.amount) : "",
     currency: payment?.currency ?? "ARS",
     frequency: payment?.frequency ?? "monthly",
     next_due_date: payment?.next_due_date ?? "",
@@ -112,7 +112,7 @@ export function RecurringPaymentDialog({
     const payload = {
       description: values.description,
       category: values.category,
-      amount: Number(values.amount),
+      amount: parseArAmount(values.amount) ?? 0,
       currency: values.currency,
       frequency: values.frequency,
       next_due_date: values.next_due_date,
@@ -227,13 +227,7 @@ export function RecurringPaymentDialog({
                   <FormItem>
                     <FormLabel>Monto</FormLabel>
                     <FormControl>
-                      <Input
-                        {...field}
-                        type="number"
-                        inputMode="decimal"
-                        step="0.01"
-                        placeholder="150000"
-                      />
+                      <MoneyInput {...field} placeholder="150.000" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -300,9 +294,7 @@ export function RecurringPaymentDialog({
                   <FormLabel>Canal (opcional)</FormLabel>
                   <Select
                     value={field.value === "" ? NONE : field.value}
-                    onValueChange={(v) =>
-                      field.onChange(v === NONE ? "" : v)
-                    }
+                    onValueChange={(v) => field.onChange(v === NONE ? "" : v)}
                   >
                     <FormControl>
                       <SelectTrigger>

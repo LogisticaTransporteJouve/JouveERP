@@ -6,6 +6,7 @@ import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { MoneyInput } from "@/components/money-input";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -32,6 +33,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { amountToInput, parseArAmount } from "@/lib/format";
 import { CostVoucherFields } from "@/features/fleet-reports/components/cost-voucher-fields";
 import type { CostVoucherAccess } from "@/lib/cost-vouchers";
 
@@ -62,17 +64,25 @@ const FormSchema = z.object({
 
 type FormValues = z.infer<typeof FormSchema>;
 
+// maintenance_records km columns are numeric(10, 1).
+const KM_DECIMALS = 1;
+
 function toDefaults(record?: MaintenanceRecord): FormValues {
   return {
     vehicle_id: record?.vehicle_id ?? "",
     service_date: record?.service_date ?? "",
     kind: record?.kind ?? "service",
     description: record?.description ?? "",
-    cost: record?.cost != null ? String(record.cost) : "",
-    odometer_km: record?.odometer_km != null ? String(record.odometer_km) : "",
+    cost: record?.cost != null ? amountToInput(record.cost) : "",
+    odometer_km:
+      record?.odometer_km != null
+        ? amountToInput(record.odometer_km, KM_DECIMALS)
+        : "",
     next_service_date: record?.next_service_date ?? "",
     next_service_km:
-      record?.next_service_km != null ? String(record.next_service_km) : "",
+      record?.next_service_km != null
+        ? amountToInput(record.next_service_km, KM_DECIMALS)
+        : "",
     provider: record?.provider ?? "",
     notes: record?.notes ?? "",
     purchase_invoice_id: record?.purchase_invoice_id ?? "",
@@ -120,10 +130,10 @@ export function MaintenanceDialog({
       service_date: values.service_date,
       kind: values.kind,
       description: values.description,
-      cost: values.cost,
-      odometer_km: values.odometer_km,
+      cost: parseArAmount(values.cost) ?? "",
+      odometer_km: parseArAmount(values.odometer_km) ?? "",
       next_service_date: values.next_service_date,
-      next_service_km: values.next_service_km,
+      next_service_km: parseArAmount(values.next_service_km) ?? "",
       provider: values.provider,
       notes: values.notes,
       ...(voucherAccess.purchaseInvoices && {
@@ -255,12 +265,7 @@ export function MaintenanceDialog({
                   <FormItem>
                     <FormLabel>Costo</FormLabel>
                     <FormControl>
-                      <Input
-                        {...field}
-                        type="number"
-                        inputMode="decimal"
-                        step="0.01"
-                      />
+                      <MoneyInput {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -273,12 +278,7 @@ export function MaintenanceDialog({
                   <FormItem>
                     <FormLabel>Km</FormLabel>
                     <FormControl>
-                      <Input
-                        {...field}
-                        type="number"
-                        inputMode="decimal"
-                        step="0.01"
-                      />
+                      <MoneyInput {...field} decimals={KM_DECIMALS} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -306,12 +306,7 @@ export function MaintenanceDialog({
                   <FormItem>
                     <FormLabel>Próx. km</FormLabel>
                     <FormControl>
-                      <Input
-                        {...field}
-                        type="number"
-                        inputMode="decimal"
-                        step="0.01"
-                      />
+                      <MoneyInput {...field} decimals={KM_DECIMALS} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

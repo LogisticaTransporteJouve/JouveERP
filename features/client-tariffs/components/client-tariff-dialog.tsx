@@ -6,6 +6,7 @@ import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { MoneyInput } from "@/components/money-input";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -32,6 +33,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { amountToInput, parseArAmount } from "@/lib/format";
+import { nonNegativeArAmountField } from "@/lib/validation/common";
 
 import {
   useCreateClientTariff,
@@ -58,12 +61,7 @@ export type TariffAreaOption = {
 const FormSchema = z.object({
   concept: z.enum(CLIENT_TARIFF_CONCEPTS),
   unit: z.enum(CLIENT_TARIFF_UNITS),
-  price: z
-    .string()
-    .refine(
-      (v) => v.trim() !== "" && Number(v) >= 0,
-      "Ingresá un precio (0 o más).",
-    ),
+  price: nonNegativeArAmountField("Ingresá un precio (0 o más)."),
   currency: z.enum(CLIENT_TARIFF_CURRENCIES),
   valid_from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha requerida."),
   valid_to: z.string(),
@@ -77,7 +75,7 @@ function toDefaults(tariff?: ClientTariff): FormValues {
   return {
     concept: tariff?.concept ?? "storage",
     unit: tariff?.unit ?? "pallet_month",
-    price: tariff ? String(tariff.price) : "",
+    price: tariff ? amountToInput(tariff.price) : "",
     currency: tariff?.currency ?? "ARS",
     valid_from: tariff?.valid_from ?? "",
     valid_to: tariff?.valid_to ?? "",
@@ -124,7 +122,7 @@ export function ClientTariffDialog({
     const payload = {
       concept: values.concept,
       unit: values.unit,
-      price: values.price,
+      price: parseArAmount(values.price) ?? 0,
       currency: values.currency,
       valid_from: values.valid_from,
       valid_to: values.valid_to,
@@ -290,13 +288,7 @@ export function ClientTariffDialog({
                   <FormItem>
                     <FormLabel>Precio</FormLabel>
                     <FormControl>
-                      <Input
-                        {...field}
-                        type="number"
-                        inputMode="decimal"
-                        step="0.01"
-                        min="0"
-                      />
+                      <MoneyInput {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

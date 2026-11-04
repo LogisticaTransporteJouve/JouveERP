@@ -4,6 +4,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { MoneyInput } from "@/components/money-input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -25,6 +26,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  amountToInput,
   formatArgentineDate,
   formatMoney,
   formatMoneySigned,
@@ -100,7 +102,7 @@ function buildRows(
         item.lines.length === 0
           ? [emptyLine(defaultAccount)]
           : item.lines.map((line) => ({
-              ...emptyLine(line.account_id, String(line.amount)),
+              ...emptyLine(line.account_id, amountToInput(line.amount)),
               reference: line.reference ?? "",
               check_number: line.check_number ?? "",
               bank_name: line.bank_name ?? "",
@@ -118,7 +120,7 @@ function buildRows(
       // A new rendición takes every pending carga, collected in full.
       included: settlement === undefined,
       note: "",
-      lines: [emptyLine(defaultAccount, String(s.cod_amount))],
+      lines: [emptyLine(defaultAccount, amountToInput(s.cod_amount))],
     });
   }
   return rows;
@@ -189,7 +191,7 @@ export function DriverSettlementDialog({
     update(row.shipment_id, {
       lines: [
         ...row.lines,
-        emptyLine(defaultAccount, missing > 0 ? String(missing) : ""),
+        emptyLine(defaultAccount, missing > 0 ? amountToInput(missing) : ""),
       ],
     });
   }
@@ -335,18 +337,12 @@ export function DriverSettlementDialog({
                                   ))}
                                 </SelectContent>
                               </Select>
-                              <Input
-                                type="number"
-                                inputMode="decimal"
-                                step="0.01"
-                                min="0"
+                              <MoneyInput
                                 aria-label={`Importe del pago ${index + 1}`}
                                 placeholder="0 = no cobró"
                                 value={l.amount}
-                                onChange={(e) =>
-                                  updateLine(r.shipment_id, l.key, {
-                                    amount: e.target.value,
-                                  })
+                                onChange={(amount) =>
+                                  updateLine(r.shipment_id, l.key, { amount })
                                 }
                               />
                               <Button

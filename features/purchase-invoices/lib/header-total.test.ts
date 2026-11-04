@@ -48,19 +48,19 @@ describe("amountsDiffer", () => {
 });
 
 describe("partsGapFix", () => {
-  const values = { imp_neto: "1000", imp_no_gravado: "0" };
+  const values = { imp_neto: "1.000", imp_no_gravado: "0" };
 
   it("moves a positive gap into no gravado on a fiscal A", () => {
     expect(partsGapFix(290, true, values)).toEqual({
       field: "imp_no_gravado",
-      value: "290",
+      value: "290,00",
     });
   });
 
   it("adds it to the net otherwise", () => {
     expect(partsGapFix(290.5, false, values)).toEqual({
       field: "imp_neto",
-      value: "1290.5",
+      value: "1.290,50",
     });
   });
 

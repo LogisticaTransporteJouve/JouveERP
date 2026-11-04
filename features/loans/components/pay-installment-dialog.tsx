@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { MoneyInput } from "@/components/money-input";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -21,7 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { todayInAR } from "@/lib/format";
+import { amountToInput, parseArAmount, todayInAR } from "@/lib/format";
 
 import { usePayInstallment } from "../hooks/use-loans";
 import type { LoanInstallment } from "../schema";
@@ -45,7 +46,7 @@ export function PayInstallmentDialog({
     if (open && installment) {
       setPaidDate(todayInAR());
       setAccountId("");
-      setAmount(String(installment.amount));
+      setAmount(amountToInput(installment.amount));
     }
   }, [open, installment]);
 
@@ -60,7 +61,7 @@ export function PayInstallmentDialog({
         id: installment.id,
         paid_date: paidDate,
         account_id: accountId,
-        amount: Number(amount),
+        amount: parseArAmount(amount) ?? 0,
       },
       {
         onSuccess: () => {
@@ -100,15 +101,12 @@ export function PayInstallmentDialog({
             </div>
             <div className="space-y-1">
               <Label htmlFor="pay-amount">Monto</Label>
-              <Input
+              <MoneyInput
                 id="pay-amount"
-                type="number"
-                inputMode="decimal"
-                step="0.01"
                 value={amount}
                 // A split cuota is paid for its amount.
                 disabled={installment?.split != null}
-                onChange={(e) => setAmount(e.target.value)}
+                onChange={setAmount}
               />
             </div>
           </div>

@@ -5,11 +5,10 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/money-input";
 import { Label } from "@/components/ui/label";
 import {
   amountToInput,
-  formatAmountInput,
   formatArgentineDate,
   parseArAmount,
 } from "@/lib/format";
@@ -193,14 +192,10 @@ export function AllocationsPicker({
                       </div>
                     </td>
                     <td className="px-2 py-1.5">
-                      <Input
-                        type="text"
-                        inputMode="decimal"
+                      <MoneyInput
                         disabled={!checked}
                         value={alloc?.amount_applied ?? ""}
-                        onChange={(e) =>
-                          setAlloc(c.id, formatAmountInput(e.target.value))
-                        }
+                        onChange={(v) => setAlloc(c.id, v)}
                         className="h-8 text-right"
                         placeholder="0,00"
                       />

@@ -92,7 +92,7 @@ describe("draftToFormPatch", () => {
       punto_venta: "4",
       numero: "99",
       fecha: "2026-09-01",
-      imp_total: "121",
+      imp_total: "121,00",
       moneda: "DOL",
       cotizacion: "1.200,00",
       with_items: true,
@@ -148,7 +148,7 @@ describe("totalsGap", () => {
     imp_neto: "100",
     imp_iva: "21",
     imp_trib: "0",
-    imp_total: "121",
+    imp_total: "121,00",
   };
 
   it("is null only when the amounts close to the cent", () => {
@@ -158,6 +158,15 @@ describe("totalsGap", () => {
 
   it("returns the difference when they do not", () => {
     expect(totalsGap({ ...base, imp_total: "130" })).toBe(9);
+    // es-AR text, as MoneyInput shows it: "1.210,00" is 1210.
+    expect(
+      totalsGap({
+        imp_neto: "1.000,00",
+        imp_iva: "210,00",
+        imp_trib: "0",
+        imp_total: "1.210,00",
+      }),
+    ).toBeNull();
     expect(totalsGap({ ...base, imp_trib: "9" })).toBe(-9);
     expect(totalsGap({ ...base, imp_trib: "9", imp_total: "130" })).toBeNull();
   });

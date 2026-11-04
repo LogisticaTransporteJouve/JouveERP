@@ -6,6 +6,7 @@ import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { MoneyInput } from "@/components/money-input";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -32,6 +33,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { amountToInput, parseArAmount } from "@/lib/format";
 import { CostVoucherFields } from "@/features/fleet-reports/components/cost-voucher-fields";
 import type { CostVoucherAccess } from "@/lib/cost-vouchers";
 
@@ -56,15 +58,20 @@ const FormSchema = z.object({
 
 type FormValues = z.infer<typeof FormSchema>;
 
+// fuel_loads.odometer_km is numeric(10, 1); liters and amount have 2.
+const ODOMETER_DECIMALS = 1;
+
 function toDefaults(fuelLoad?: FuelLoad): FormValues {
   return {
     vehicle_id: fuelLoad?.vehicle_id ?? "",
     trip_id: fuelLoad?.trip_id ?? "",
     load_date: fuelLoad?.load_date ?? "",
-    liters: fuelLoad?.liters != null ? String(fuelLoad.liters) : "",
-    amount: fuelLoad?.amount != null ? String(fuelLoad.amount) : "",
+    liters: fuelLoad?.liters != null ? amountToInput(fuelLoad.liters) : "",
+    amount: fuelLoad?.amount != null ? amountToInput(fuelLoad.amount) : "",
     odometer_km:
-      fuelLoad?.odometer_km != null ? String(fuelLoad.odometer_km) : "",
+      fuelLoad?.odometer_km != null
+        ? amountToInput(fuelLoad.odometer_km, ODOMETER_DECIMALS)
+        : "",
     station: fuelLoad?.station ?? "",
     card: fuelLoad?.card ?? "",
     notes: fuelLoad?.notes ?? "",
@@ -127,9 +134,9 @@ export function FuelDialog({
       vehicle_id: values.vehicle_id,
       trip_id: values.trip_id,
       load_date: values.load_date,
-      liters: values.liters,
-      amount: values.amount,
-      odometer_km: values.odometer_km,
+      liters: parseArAmount(values.liters) ?? 0,
+      amount: parseArAmount(values.amount) ?? "",
+      odometer_km: parseArAmount(values.odometer_km) ?? "",
       station: values.station,
       card: values.card,
       notes: values.notes,
@@ -248,12 +255,7 @@ export function FuelDialog({
                   <FormItem>
                     <FormLabel>Litros</FormLabel>
                     <FormControl>
-                      <Input
-                        {...field}
-                        type="number"
-                        inputMode="decimal"
-                        step="0.01"
-                      />
+                      <MoneyInput {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -266,12 +268,7 @@ export function FuelDialog({
                   <FormItem>
                     <FormLabel>Importe</FormLabel>
                     <FormControl>
-                      <Input
-                        {...field}
-                        type="number"
-                        inputMode="decimal"
-                        step="0.01"
-                      />
+                      <MoneyInput {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -286,12 +283,7 @@ export function FuelDialog({
                   <FormItem>
                     <FormLabel>Odómetro (km)</FormLabel>
                     <FormControl>
-                      <Input
-                        {...field}
-                        type="number"
-                        inputMode="decimal"
-                        step="0.01"
-                      />
+                      <MoneyInput {...field} decimals={ODOMETER_DECIMALS} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

@@ -7,6 +7,7 @@ import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { MoneyInput } from "@/components/money-input";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -35,7 +36,13 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
-import { formatArgentineDate, formatMoney, todayInAR } from "@/lib/format";
+import {
+  amountToInput,
+  formatArgentineDate,
+  formatMoney,
+  parseArAmount,
+  todayInAR,
+} from "@/lib/format";
 
 import { isIvaCondition } from "@/features/clients/schema";
 import {
@@ -112,8 +119,11 @@ function toDefaults(shipment?: Shipment): FormValues {
     description: shipment?.description ?? "",
     scheduled_date: shipment?.scheduled_date ?? "",
     freight_amount:
-      shipment?.freight_amount != null ? String(shipment.freight_amount) : "",
-    cod_amount: shipment?.cod_amount != null ? String(shipment.cod_amount) : "",
+      shipment?.freight_amount != null
+        ? amountToInput(shipment.freight_amount)
+        : "",
+    cod_amount:
+      shipment?.cod_amount != null ? amountToInput(shipment.cod_amount) : "",
     notes: shipment?.notes ?? "",
   };
 }
@@ -216,8 +226,8 @@ export function ShipmentDialog({
       destination: values.destination,
       description: values.description,
       scheduled_date: values.scheduled_date,
-      freight_amount: values.freight_amount,
-      cod_amount: values.cod_amount,
+      freight_amount: parseArAmount(values.freight_amount) ?? "",
+      cod_amount: parseArAmount(values.cod_amount) ?? "",
       notes: values.notes,
     };
     if (mode === "create") {
@@ -416,12 +426,7 @@ export function ShipmentDialog({
                     <FormItem>
                       <FormLabel>Flete</FormLabel>
                       <FormControl>
-                        <Input
-                          {...field}
-                          type="number"
-                          inputMode="decimal"
-                          step="0.01"
-                        />
+                        <MoneyInput {...field} />
                       </FormControl>
                       {!isEdit && tariffFailed ? (
                         <p className="text-xs text-muted-foreground">
@@ -448,11 +453,8 @@ export function ShipmentDialog({
                   <FormItem>
                     <FormLabel>Cobranza contra entrega</FormLabel>
                     <FormControl>
-                      <Input
+                      <MoneyInput
                         {...field}
-                        type="number"
-                        inputMode="decimal"
-                        step="0.01"
                         placeholder="Vacío si no cobra al entregar"
                       />
                     </FormControl>

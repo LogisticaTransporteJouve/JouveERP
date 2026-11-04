@@ -4,6 +4,7 @@ import { Calculator, Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
+import { MoneyInput } from "@/components/money-input";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -24,7 +25,13 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { AttachmentsZone } from "@/features/files/components/attachments-zone";
-import { formatMoney, formatPeriod, todayInAR } from "@/lib/format";
+import {
+  amountToInput,
+  formatMoney,
+  formatPeriod,
+  parseArAmount,
+  todayInAR,
+} from "@/lib/format";
 
 import {
   useCreateTaxDocument,
@@ -67,11 +74,11 @@ function initialState(doc: TaxDocument | null): FormState {
       jurisdiction: doc.jurisdiction ?? "",
       period: doc.period,
       due_date: doc.due_date,
-      amount: doc.amount === null ? "" : String(doc.amount),
+      amount: doc.amount === null ? "" : amountToInput(doc.amount),
       amount_is_estimate: doc.amount_is_estimate,
       account_id: doc.account_id ?? NO_ACCOUNT,
       credit_balance:
-        doc.credit_balance === null ? "" : String(doc.credit_balance),
+        doc.credit_balance === null ? "" : amountToInput(doc.credit_balance),
       notes: doc.notes ?? "",
     };
   }
@@ -158,7 +165,7 @@ export function TaxDocumentDialog({
         if (result.saldo > 0) {
           setForm((f) => ({
             ...f,
-            amount: String(result.saldo),
+            amount: amountToInput(result.saldo),
             amount_is_estimate: true,
           }));
         } else {
@@ -174,16 +181,21 @@ export function TaxDocumentDialog({
   }
 
   function onSubmit() {
-    const amount = form.amount.trim() === "" ? null : Number(form.amount);
-    if (amount !== null && !Number.isFinite(amount)) {
+    const amount =
+      form.amount.trim() === "" ? null : parseArAmount(form.amount);
+    if (amount === null && form.amount.trim() !== "") {
       toast.error("Importe inválido.");
       return;
     }
     const creditBalance =
       form.kind !== "iva" || form.credit_balance.trim() === ""
         ? null
-        : Number(form.credit_balance);
-    if (creditBalance !== null && !Number.isFinite(creditBalance)) {
+        : parseArAmount(form.credit_balance);
+    if (
+      creditBalance === null &&
+      form.kind === "iva" &&
+      form.credit_balance.trim() !== ""
+    ) {
       toast.error("Saldo a favor inválido.");
       return;
     }
@@ -323,21 +335,13 @@ export function TaxDocumentDialog({
           <div className="space-y-1">
             <Label htmlFor="tax-amount">Importe</Label>
             <div className="flex gap-2">
-              <Input
+              <MoneyInput
                 id="tax-amount"
-                type="number"
-                inputMode="decimal"
-                step="0.01"
-                min="0"
                 value={form.amount}
                 placeholder="Sin liquidar"
                 disabled={readOnly}
-                onChange={(e) =>
-                  setForm((f) => ({
-                    ...f,
-                    amount: e.target.value,
-                    amount_is_estimate: false,
-                  }))
+                onChange={(amount) =>
+                  setForm((f) => ({ ...f, amount, amount_is_estimate: false }))
                 }
               />
               {form.kind === "iva" && !readOnly && canEstimate && (
@@ -425,16 +429,12 @@ export function TaxDocumentDialog({
               <Label htmlFor="tax-credit-balance">
                 Saldo a favor técnico para el mes siguiente
               </Label>
-              <Input
+              <MoneyInput
                 id="tax-credit-balance"
-                type="number"
-                inputMode="decimal"
-                step="0.01"
-                min="0"
                 value={form.credit_balance}
                 placeholder="Sin saldo a favor"
                 disabled={readOnly}
-                onChange={(e) => set("credit_balance", e.target.value)}
+                onChange={(v) => set("credit_balance", v)}
               />
               <p className="text-muted-foreground text-xs">
                 El que deja la DDJJ de este período. El estimado del mes

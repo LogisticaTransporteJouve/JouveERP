@@ -1,7 +1,7 @@
 // Form model of the rendición dialog: per carga, any number of payment lines
 // (cash, transfer, a check…), each with its account and amount.
 
-import { round2 } from "@/lib/format";
+import { parseArAmount, round2 } from "@/lib/format";
 
 import type { DriverSettlementItemInput } from "../schema";
 
@@ -43,10 +43,11 @@ export function emptyLine(accountId: string, amount = ""): LineDraft {
   };
 }
 
-/** A positive amount rounded to cents, or 0 for blank / invalid / ≤ 0. */
+/** A positive es-AR amount ("1.500,50") rounded to cents, or 0 for blank /
+ *  invalid / ≤ 0. */
 export function parseAmount(raw: string): number {
-  const n = Number(raw);
-  return Number.isFinite(n) && n > 0 ? round2(n) : 0;
+  const n = parseArAmount(raw) ?? 0;
+  return n > 0 ? round2(n) : 0;
 }
 
 /** What the driver handed in for one carga (lines with an amount). */

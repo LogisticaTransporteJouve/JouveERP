@@ -9,7 +9,11 @@ import type {
   PurchaseInvoiceLetter,
   PurchaseIvaRateId,
 } from "../schema";
-import { amountToInput, COTIZACION_DECIMALS } from "@/lib/format";
+import {
+  amountToInput,
+  COTIZACION_DECIMALS,
+  parseArAmount,
+} from "@/lib/format";
 
 import { itemNumberToInput } from "../schema";
 
@@ -160,16 +164,21 @@ function str(value: number | string | null, fallback: string): string {
   return value === null ? fallback : String(value);
 }
 
+/** An amount as the form's MoneyInput shows it ("1.234,56"). */
+function amount(value: number | null, fallback: string): string {
+  return value === null ? fallback : amountToInput(value);
+}
+
 function tributePatch(
   data: PurchaseInvoiceDraftData,
 ): Record<PurchaseTributeField, string> {
   const split = data.tributes ?? { imp_perc_iibb: data.imp_trib ?? 0 };
   return {
-    imp_perc_iva: String(split.imp_perc_iva ?? 0),
-    imp_perc_nacionales: String(split.imp_perc_nacionales ?? 0),
-    imp_perc_iibb: String(split.imp_perc_iibb ?? 0),
-    imp_perc_municipales: String(split.imp_perc_municipales ?? 0),
-    imp_impuestos_internos: String(split.imp_impuestos_internos ?? 0),
+    imp_perc_iva: amountToInput(split.imp_perc_iva ?? 0),
+    imp_perc_nacionales: amountToInput(split.imp_perc_nacionales ?? 0),
+    imp_perc_iibb: amountToInput(split.imp_perc_iibb ?? 0),
+    imp_perc_municipales: amountToInput(split.imp_perc_municipales ?? 0),
+    imp_impuestos_internos: amountToInput(split.imp_impuestos_internos ?? 0),
   };
 }
 
@@ -215,13 +224,13 @@ export function draftToFormPatch(
       fch_vto_pago: data.fch_vto_pago ?? "",
       cae_proveedor: data.cae_proveedor ?? "",
       cae_vto_proveedor: data.cae_vto_proveedor ?? "",
-      imp_neto: str(data.imp_neto, "0"),
-      imp_iva: str(data.imp_iva, "0"),
-      imp_trib: str(data.imp_trib, "0"),
-      imp_no_gravado: String(data.imp_no_gravado ?? 0),
-      imp_op_exentas: String(data.imp_op_exentas ?? 0),
+      imp_neto: amount(data.imp_neto, "0"),
+      imp_iva: amount(data.imp_iva, "0"),
+      imp_trib: amount(data.imp_trib, "0"),
+      imp_no_gravado: amountToInput(data.imp_no_gravado ?? 0),
+      imp_op_exentas: amountToInput(data.imp_op_exentas ?? 0),
       ...tributePatch(data),
-      imp_total: str(data.imp_total, ""),
+      imp_total: amount(data.imp_total, ""),
       moneda: data.moneda,
       // A foreign-currency draft without a rate stays empty: the user types it.
       cotizacion:
@@ -263,10 +272,10 @@ export function totalsGap(values: {
     values.imp_no_gravado ?? "",
     values.imp_op_exentas ?? "",
     values.imp_total,
-  ].map((v) => (v === "" ? 0 : Number(v)));
-  if (n.some((v) => !Number.isFinite(v))) return null;
+  ].map((v) => (v === "" ? 0 : parseArAmount(v)));
+  if (n.some((v) => v === null)) return null;
   const [neto = 0, iva = 0, trib = 0, noGravado = 0, exentas = 0, total = 0] =
-    n;
+    n.map((v) => v ?? 0);
   if (values.imp_total === "" || total === 0) return null;
   const gap =
     Math.round((total - (neto + iva + trib + noGravado + exentas)) * 100) / 100;
