@@ -58,6 +58,7 @@ import {
   previousPeriod,
   TAX_STATUS_LABEL,
   taxDocumentLabel,
+  taxDocumentNeedsPayment,
   type TaxDocument,
 } from "../schema";
 
@@ -447,6 +448,7 @@ function TaxesContent({
           }
           if (doc.status === "anulado") return null;
           const open = isOpenTaxStatus(doc.status);
+          const payable = taxDocumentNeedsPayment(doc);
           return (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -459,13 +461,13 @@ function TaxesContent({
                   <Pencil className="size-4" />
                   {open ? "Editar y adjuntar" : "Notas y adjuntos"}
                 </DropdownMenuItem>
-                {open && canMovePayment && (
+                {payable && canMovePayment && (
                   <DropdownMenuItem onClick={() => onPay(doc)}>
                     <Wallet className="size-4" />
                     Pagar
                   </DropdownMenuItem>
                 )}
-                {open && canLinkPayment && (
+                {payable && canLinkPayment && (
                   <DropdownMenuItem onClick={() => onLink(doc)}>
                     <Link2 className="size-4" />
                     Vincular movimiento existente
