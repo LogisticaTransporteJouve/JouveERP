@@ -13,6 +13,12 @@ cantidad × precio unitario da el subtotal del ítem y los ítems suman el
 con IVA incluido. El comprobante interno no tiene IVA (`line_neto` =
 `line_total`).
 
+**Efecto sobre `pdf_hash`.** El PDF de una A emitida antes de este cambio ya
+no sale igual byte a byte al regenerarlo: la columna de los ítems cambia. Los
+importes de la cabecera, el CAE y el QR son los mismos. Nada compara ese
+hash al regenerar, como ya se anotó en
+`2026-11-04-pdf-factura-b-e-iva-por-alicuota-de-arca.md`.
+
 **Decisión 2: el PDF y el detalle leen las mismas funciones.**
 `discriminatesIva`, `invoiceTotalsRows`, `itemUnitPrice`, `itemSubtotal` y
 `invoicePerRate` están en `lib/pdf/invoice-figures.ts`, sin el renderer. El
