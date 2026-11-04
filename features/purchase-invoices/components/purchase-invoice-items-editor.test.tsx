@@ -9,7 +9,10 @@ import { itemNumberToInput } from "../schema";
 import {
   PurchaseInvoiceItemsEditor,
   computeLine,
+  computeTotals,
+  itemsToSave,
   parseItemNumber,
+  storedItemToDraft,
   type PurchaseInvoiceItemDraft,
 } from "./purchase-invoice-items-editor";
 
@@ -134,5 +137,61 @@ describe("purchase items: quantity and unit price", () => {
       unit_price: 1234.56,
       line_neto: 2469.12,
     });
+  });
+});
+
+// An ARCA A voucher without a breakdown: one 21 % line whose IVA is ARCA's
+// (21.050), not round(100.000 × 21 %).
+const ARCA_LINE = {
+  description: "Servicio",
+  quantity: 1,
+  unit_price: 100000,
+  iva_rate_id: 5 as const,
+  line_neto: 100000,
+  line_iva: 21050,
+  line_total: 121050,
+};
+
+describe("purchase items: stored figures on edit", () => {
+  it("re-saves an untouched stored line with its stored neto and IVA", () => {
+    const draft = storedItemToDraft(ARCA_LINE);
+    expect(computeTotals([draft])).toEqual({
+      imp_neto: 100000,
+      imp_iva: 21050,
+      imp_total_lines: 121050,
+    });
+    expect(itemsToSave({ with_items: true, items: [draft] }, 1)).toEqual([
+      { ...ARCA_LINE, sort_order: 0 },
+    ]);
+  });
+
+  it("keeps them when only the description changes", () => {
+    const draft = { ...storedItemToDraft(ARCA_LINE), description: "Flete" };
+    expect(computeLine(draft).line_iva).toBe(21050);
+  });
+
+  it("recomputes a line whose quantity, price or rate is edited", () => {
+    const draft = storedItemToDraft(ARCA_LINE);
+    expect(computeLine({ ...draft, iva_rate_id: 4 }).line_iva).toBe(10500);
+    expect(computeLine({ ...draft, quantity: "2" }).line_iva).toBe(42000);
+    expect(computeLine({ ...draft, unit_price: "100.000,01" }).line_iva).toBe(
+      21000,
+    );
+  });
+});
+
+describe("purchase items: what a save sends", () => {
+  const off = { with_items: false, items: [] };
+
+  it("sends nothing while the stored items load or after their read failed", () => {
+    expect(itemsToSave(off, null)).toBeUndefined();
+  });
+
+  it("clears the stored items when the user turned «con detalle» off", () => {
+    expect(itemsToSave(off, 2)).toEqual([]);
+  });
+
+  it("sends nothing for a purchase that had no items", () => {
+    expect(itemsToSave(off, 0)).toBeUndefined();
   });
 });

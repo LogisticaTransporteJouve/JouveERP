@@ -78,7 +78,7 @@ import {
 } from "../lib/header-total";
 import {
   type CostDefault,
-  supplierCostDefaults,
+  supplierCostDefaultsForKind,
   supplierCostWrites,
 } from "../lib/supplier-defaults";
 import {
@@ -89,7 +89,6 @@ import {
   PURCHASE_TOTAL_MISMATCH_MESSAGE,
   PURCHASE_TRIBUTE_FIELDS,
   formatInvoiceNumber,
-  itemNumberToInput,
   type PurchaseAmountBreakdown,
   type PurchaseInvoice,
   type PurchaseInvoiceKind,
@@ -108,10 +107,10 @@ import {
 import { ArcaLinesNote } from "./arca-lines-note";
 import {
   PurchaseInvoiceItemsEditor,
-  computeLine,
   computeTotals,
   emptyItem,
-  parseItemNumber,
+  itemsToSave,
+  storedItemToDraft,
   type PurchaseInvoiceItemDraft,
 } from "./purchase-invoice-items-editor";
 
@@ -346,6 +345,9 @@ export function PurchaseInvoiceForm({
 
   const itemsQuery = usePurchaseInvoiceItems(invoice?.id ?? null);
   const itemsData = itemsQuery.data ?? null;
+  // Edit: until the stored items are read, "con detalle" cannot be toggled
+  // and the save leaves the items alone.
+  const itemsUnknown = mode === "edit" && !!invoice && itemsData === null;
 
   // In edit mode, if the invoice already has items in the DB → enable "with detail"
   // mode and populate the editor. Only once per load (don't re-apply after the first
@@ -353,16 +355,9 @@ export function PurchaseInvoiceForm({
   useEffect(() => {
     if (!itemsData || itemsData.length === 0) return;
     if (form.getValues("with_items")) return;
-    form.setValue(
-      "items",
-      itemsData.map((it) => ({
-        description: it.description,
-        quantity: itemNumberToInput(it.quantity),
-        unit_price: itemNumberToInput(it.unit_price),
-        iva_rate_id: it.iva_rate_id,
-      })),
-      { shouldDirty: false },
-    );
+    form.setValue("items", itemsData.map(storedItemToDraft), {
+      shouldDirty: false,
+    });
     form.setValue("with_items", true, { shouldDirty: false });
   }, [itemsData, form]);
 
@@ -510,26 +505,32 @@ export function PurchaseInvoiceForm({
   // supplier does not leave them on the new one's purchase.
   const appliedCostDefaults = useRef<CostDefault[]>([]);
 
+  // Expense account and cost center: the supplier's, over the AI's
+  // suggestion, unless the user already picked one, and only while still
+  // active (a retired FLOTA_DZ is not copied). Switching the type to NC/ND
+  // clears what the supplier wrote, so the origin's is inherited.
   useEffect(() => {
     if (mode !== "create" || !supplierDetail) return;
-    // Expense account and cost center: the supplier's, over the AI's
-    // suggestion, unless the user already picked one, and only while still
-    // active (a retired FLOTA_DZ is not copied). An NC/ND left empty takes
-    // its origin's (purchase_invoices_nc_nd_inherit_account).
-    if (form.getValues("kind") === "factura") {
-      const next = supplierCostDefaults(supplierDetail, costTagOptions);
-      for (const { name, id } of supplierCostWrites(
-        appliedCostDefaults.current,
-        next,
-        (name) => ({
-          value: form.getValues(name),
-          dirty: form.getFieldState(name).isDirty,
-        }),
-      )) {
-        form.setValue(name, id, { shouldDirty: false });
-      }
-      appliedCostDefaults.current = next;
+    const next = supplierCostDefaultsForKind(
+      watchedKind,
+      supplierDetail,
+      costTagOptions,
+    );
+    for (const { name, id } of supplierCostWrites(
+      appliedCostDefaults.current,
+      next,
+      (name) => ({
+        value: form.getValues(name),
+        dirty: form.getFieldState(name).isDirty,
+      }),
+    )) {
+      form.setValue(name, id, { shouldDirty: false });
     }
+    appliedCostDefaults.current = next;
+  }, [mode, supplierDetail, costTagOptions, watchedKind, form]);
+
+  useEffect(() => {
+    if (mode !== "create" || !supplierDetail) return;
     // Channel: pre-fill only if the form still has the default-from-scope channel
     // and the supplier has one saved. An ARCA voucher is fiscal whatever the
     // supplier's usual channel.
@@ -568,15 +569,7 @@ export function PurchaseInvoiceForm({
         form.setValue("fch_vto_pago", iso, { shouldDirty: false });
       }
     }
-  }, [
-    mode,
-    supplierDetail,
-    costTagOptions,
-    defaultChannelId,
-    channels,
-    form,
-    arcaLocked,
-  ]);
+  }, [mode, supplierDetail, defaultChannelId, channels, form, arcaLocked]);
 
   const watchedChannelId = useWatch({
     control: form.control,
@@ -728,28 +721,10 @@ export function PurchaseInvoiceForm({
       return;
     }
 
-    // Items: if the "With detail" toggle is on, send the computed
-    // items. On update, send an empty array if it went from with-items to
-    // without-items (clears the table). On create without items, send undefined.
-    const itemsPayload = values.with_items
-      ? values.items
-          .filter((it) => it.description.trim().length > 0)
-          .map((it, idx) => {
-            const c = computeLine(it);
-            return {
-              description: it.description.trim(),
-              quantity: parseItemNumber(it.quantity),
-              unit_price: parseItemNumber(it.unit_price),
-              iva_rate_id: it.iva_rate_id,
-              line_neto: c.line_neto,
-              line_iva: c.line_iva,
-              line_total: c.line_total,
-              sort_order: idx,
-            };
-          })
-      : mode === "edit"
-        ? []
-        : undefined;
+    const itemsPayload = itemsToSave(
+      values,
+      mode === "edit" ? (itemsData?.length ?? null) : 0,
+    );
 
     // If the channel is internal, we force letter/CAE to null even if the form
     // was left with values (e.g. you changed channel after typing).
@@ -1121,6 +1096,7 @@ export function PurchaseInvoiceForm({
                     <input
                       type="checkbox"
                       checked={field.value}
+                      disabled={itemsUnknown}
                       onChange={(e) => {
                         field.onChange(e.target.checked);
                         if (
@@ -1142,6 +1118,26 @@ export function PurchaseInvoiceForm({
                       Compras). Si lo dejás apagado, cargás solo los totales del
                       header.
                     </p>
+                    {itemsUnknown &&
+                      (itemsQuery.isError ? (
+                        <p className="text-xs text-muted-foreground">
+                          No se pudieron leer los ítems: al guardar quedan como
+                          están.{" "}
+                          <Button
+                            type="button"
+                            variant="link"
+                            size="sm"
+                            className="h-auto p-0 text-xs"
+                            onClick={() => void itemsQuery.refetch()}
+                          >
+                            Reintentar
+                          </Button>
+                        </p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">
+                          Leyendo los ítems…
+                        </p>
+                      ))}
                   </div>
                 </FormItem>
               )}

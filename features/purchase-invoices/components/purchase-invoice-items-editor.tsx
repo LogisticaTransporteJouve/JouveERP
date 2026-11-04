@@ -18,6 +18,7 @@ import { formatMoney, parseArAmount } from "@/lib/format";
 
 import {
   ITEM_DECIMALS,
+  itemNumberToInput,
   PURCHASE_IVA_RATE_IDS,
   PURCHASE_IVA_RATE_LABEL,
   PURCHASE_IVA_RATE_PERCENT,
@@ -29,6 +30,18 @@ export type PurchaseInvoiceItemDraft = {
   quantity: string;
   unit_price: string;
   iva_rate_id: PurchaseIvaRateId | null;
+  /** A saved line as stored: its neto and IVA can differ from neto × rate
+   *  (an ARCA voucher's IVA is ARCA's). Kept while the line is not edited. */
+  stored?: StoredItemLine;
+};
+
+export type StoredItemLine = {
+  quantity: number;
+  unit_price: number;
+  iva_rate_id: PurchaseIvaRateId | null;
+  line_neto: number;
+  line_iva: number;
+  line_total: number;
 };
 
 export type PurchaseInvoiceItemsTotals = {
@@ -48,6 +61,19 @@ export function parseItemNumber(v: string): number {
 export function computeLine(draft: PurchaseInvoiceItemDraft) {
   const qty = parseItemNumber(draft.quantity);
   const price = parseItemNumber(draft.unit_price);
+  const s = draft.stored;
+  if (
+    s &&
+    s.quantity === qty &&
+    s.unit_price === price &&
+    s.iva_rate_id === draft.iva_rate_id
+  ) {
+    return {
+      line_neto: s.line_neto,
+      line_iva: s.line_iva,
+      line_total: s.line_total,
+    };
+  }
   const neto = +(qty * price).toFixed(2);
   const rate =
     draft.iva_rate_id != null
@@ -73,6 +99,49 @@ export function computeTotals(
     imp_neto: +neto.toFixed(2),
     imp_iva: +iva.toFixed(2),
     imp_total_lines: total,
+  };
+}
+
+/** The items a purchase save sends. With "con detalle" on, the lines. Off,
+ *  [] (clear the table) only when the purchase had stored items, as read;
+ *  `storedCount` is null while they load or after their read failed, and
+ *  then nothing is sent, so the server leaves them as they are. */
+export function itemsToSave(
+  values: { with_items: boolean; items: PurchaseInvoiceItemDraft[] },
+  storedCount: number | null,
+) {
+  if (!values.with_items) {
+    return storedCount !== null && storedCount > 0 ? [] : undefined;
+  }
+  return values.items
+    .filter((it) => it.description.trim().length > 0)
+    .map((it, idx) => ({
+      description: it.description.trim(),
+      quantity: parseItemNumber(it.quantity),
+      unit_price: parseItemNumber(it.unit_price),
+      iva_rate_id: it.iva_rate_id,
+      ...computeLine(it),
+      sort_order: idx,
+    }));
+}
+
+/** A saved item as the edit form loads it, carrying its stored figures. */
+export function storedItemToDraft(
+  it: StoredItemLine & { description: string },
+): PurchaseInvoiceItemDraft {
+  return {
+    description: it.description,
+    quantity: itemNumberToInput(it.quantity),
+    unit_price: itemNumberToInput(it.unit_price),
+    iva_rate_id: it.iva_rate_id,
+    stored: {
+      quantity: it.quantity,
+      unit_price: it.unit_price,
+      iva_rate_id: it.iva_rate_id,
+      line_neto: it.line_neto,
+      line_iva: it.line_iva,
+      line_total: it.line_total,
+    },
   };
 }
 
