@@ -236,8 +236,8 @@ stateDiagram-v2
           <li>Fecha de emisión, fecha de vencimiento, monto, moneda.</li>
           <li>Cuenta cartera (debe ser tipo <code>checks</code> o
             <code>echeq</code> según el tipo del cheque).</li>
-          <li>Origen: <em>manual</em> o <em>recibo</em> (si lo trae un
-            recibo de cobro queda linkeado).</li>
+          <li>Origen: queda <em>manual</em>. Un cheque que trae un recibo de
+            cobro se registra desde el recibo.</li>
           <li><strong>Guardar.</strong> Queda en <span class="badge">en cartera</span>.</li>
         </ol>
 
@@ -273,7 +273,10 @@ stateDiagram-v2
         <div class="callout">
           <strong>Permisos.</strong>
           <span class="badge">cheques:read</span> ver,
-          <span class="badge">cheques:write</span> registrar/depositar/acreditar/rechazar/endosar.
+          <span class="badge">cheques:write</span> <strong>y</strong>
+          <span class="badge">transactions:write</span>
+          registrar/depositar/acreditar/rechazar/vender (mueven plata de una
+          cuenta). El endose se hace desde la orden de pago.
         </div>
 
         <!-- ──────── CHEQUES PROPIOS ──────── -->
@@ -318,7 +321,9 @@ stateDiagram-v2
         <div class="callout">
           <strong>Permisos.</strong>
           <span class="badge">issued_checks:read</span> ver,
-          <span class="badge">issued_checks:write</span> crear/editar/cambiar estado.
+          <span class="badge">issued_checks:write</span> crear/editar/anular;
+          marcar cobrado o rechazado pide además
+          <span class="badge">transactions:write</span>.
         </div>
 
         <!-- ──────── FLUJO ──────── -->
