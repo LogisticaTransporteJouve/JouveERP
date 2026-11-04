@@ -448,6 +448,29 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
       existentes. Rollback: el código anterior inserta cheques solo con esas
       formas, nunca hace PATCH de esas columnas y escribe `check_movements`
       solo por esas RPC y el «recibido» inicial.
+- [ ] **Aprobar `20261104140000`** (auditoría w7): un cheque propio cambia
+      de estado solo desde «emitido» y se inserta emitido
+      (`guard_issued_check_edit`). No toca filas existentes. Rollback: el
+      código anterior solo mueve cheques desde «emitido» y los inserta así.
+- [ ] **Aprobar `20261104140001`** (auditoría w7): `guard_document_header`
+      en `receipts` y `payment_orders`. El estado pasa solo de emitido a
+      anulado. Monto, moneda, cotización, cliente o proveedor, canal, fecha
+      y número cambian solo dentro de `update_receipt` /
+      `update_payment_order`. No toca filas existentes. Rollback: el código
+      anterior solo anula, edita por esas RPC y escribe notas,
+      `notified_at` y `created_by`.
+- [ ] **Aprobar `20261104140002`** (auditoría w7): `guard_document_line` en
+      `payment_order_payment_lines`, `receipt_payment_lines` y
+      `receipt_retentions`. Las escriben solo `create_*` / `update_*` de su
+      documento y las acciones de clave foránea. No toca filas existentes.
+      Rollback: el código anterior escribe esas filas solo por esas RPC.
+- [ ] **Aprobar `20261104140003`** (auditoría w7): `deposit_check` acepta
+      solo un banco activo de la moneda del cheque. `guard_check_edit`
+      rechaza en INSERT una cartera que no sea `checks`/`echeq`. El
+      «recibido» inicial toma de la base su `created_at`, su `created_by` y
+      la emisión del cheque como fecha. No toca filas existentes. Rollback:
+      el código anterior deposita solo en los bancos del diálogo, carga
+      cheques solo en carteras y manda esos valores en el «recibido».
 
 ## Después de promover
 
