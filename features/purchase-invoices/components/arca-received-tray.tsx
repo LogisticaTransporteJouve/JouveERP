@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, RotateCcw, Trash2 } from "lucide-react";
+import { Check, Eye, RotateCcw, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { Suspense, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -32,6 +32,7 @@ import {
   type ReceivedVoucherStatus,
 } from "../schema";
 import { ArcaSyncCard } from "./arca-sync-card";
+import { ArcaVoucherDetailDialog } from "./arca-voucher-detail";
 import { PurchaseInvoiceDraftDialog } from "./purchase-invoice-draft-dialog";
 
 const EMPTY: Record<ReceivedVoucherStatus, string> = {
@@ -96,6 +97,7 @@ function VoucherTable({ status }: { status: ReceivedVoucherStatus }) {
   const restore = useRestoreReceivedVoucher();
   const confirm = useConfirm();
   const [accepting, setAccepting] = useState<ReceivedVoucher | null>(null);
+  const [viewing, setViewing] = useState<ReceivedVoucher | null>(null);
 
   const columns = useMemo<ColumnDef<ReceivedVoucher>[]>(
     () => [
@@ -112,8 +114,15 @@ function VoucherTable({ status }: { status: ReceivedVoucherStatus }) {
         enableSorting: false,
         meta: { mobile: "primary" },
         cell: ({ row }) => (
-          <div className="min-w-0">
-            <p className="truncate font-medium">
+          <div className="min-w-0 max-w-[14rem] sm:max-w-xs lg:max-w-md">
+            <p
+              className="truncate font-medium"
+              title={
+                row.original.supplier?.display_name ??
+                row.original.supplier?.legal_name ??
+                row.original.issuer_name
+              }
+            >
               {row.original.supplier?.display_name ??
                 row.original.supplier?.legal_name ??
                 row.original.issuer_name}
@@ -157,9 +166,21 @@ function VoucherTable({ status }: { status: ReceivedVoucherStatus }) {
         meta: { mobile: "primary", align: "right" },
         cell: ({ row }) => {
           const v = row.original;
+          const detail = (
+            <Button
+              size="icon"
+              variant="ghost"
+              aria-label="Ver detalle"
+              title="Ver detalle"
+              onClick={() => setViewing(v)}
+            >
+              <Eye className="size-4" />
+            </Button>
+          );
           if (v.status === "pending_review") {
             return (
               <div className="flex justify-end gap-1">
+                {detail}
                 <Button size="sm" onClick={() => setAccepting(v)}>
                   <Check className="size-4" />
                   Aceptar y cargar
@@ -191,25 +212,29 @@ function VoucherTable({ status }: { status: ReceivedVoucherStatus }) {
           }
           if (v.status === "discarded") {
             return (
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={restore.isPending}
-                onClick={() =>
-                  restore.mutate(v.id, {
-                    onError: (err) => toast.error(err.message),
-                  })
-                }
-              >
-                <RotateCcw className="size-4" />
-                Volver a pendientes
-              </Button>
+              <div className="flex justify-end gap-1">
+                {detail}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={restore.isPending}
+                  onClick={() =>
+                    restore.mutate(v.id, {
+                      onError: (err) => toast.error(err.message),
+                    })
+                  }
+                >
+                  <RotateCcw className="size-4" />
+                  Volver a pendientes
+                </Button>
+              </div>
             );
           }
           if (v.status === "confirmed" && v.purchase) {
             const state = linkedState(v);
             return (
               <div className="flex items-center justify-end gap-2">
+                {detail}
                 {state && <Badge variant="outline">{state}</Badge>}
                 <Link
                   href={`/purchases/${v.purchase.id}`}
@@ -220,7 +245,7 @@ function VoucherTable({ status }: { status: ReceivedVoucherStatus }) {
               </div>
             );
           }
-          return null;
+          return <div className="flex justify-end">{detail}</div>;
         },
       },
     ],
@@ -252,6 +277,13 @@ function VoucherTable({ status }: { status: ReceivedVoucherStatus }) {
             {isFetchingNextPage ? "Cargando…" : "Cargar más"}
           </Button>
         </div>
+      )}
+      {viewing && (
+        <ArcaVoucherDetailDialog
+          voucher={viewing}
+          number={voucherNumber(viewing)}
+          onClose={() => setViewing(null)}
+        />
       )}
       {accepting && (
         <AcceptDialog voucher={accepting} onClose={() => setAccepting(null)} />

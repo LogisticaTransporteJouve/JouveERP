@@ -525,7 +525,7 @@ Dimensión contable opcional. Migración `…517200000_l_closure`.
 
 **`cost_centers`:** `code text UNIQUE` (regex `^[A-Z0-9_-]+$`, inmutable post-creación),
 `name`, `description`, `is_active`. Seed: `FLOTA_JOUVE`, `ADMIN` y
-`FLOTA_DZ` (inactivo desde `20261104115000`: DZ Instalaciones se retiró).
+`FLOTA_DZ` (inactivo desde `20261104120300`: DZ Instalaciones se retiró).
 RLS: SELECT `authenticated`; manage owner/admin/finance. CRUD vía
 `{list,create,update,delete}CostCenterAction` (`accounting:read`/`write`),
 `/accounting/cost-centers`.

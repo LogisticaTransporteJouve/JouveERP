@@ -41,6 +41,44 @@ function voucher(over: Partial<ReceivedVoucher> = {}): ReceivedVoucher {
 }
 
 describe("receivedVoucherAmounts", () => {
+  it("puts ARCA's rounding cent where it changes no tax", () => {
+    // As two real vouchers came: 14049.58 + 2950.41 against 17000.
+    expect(
+      receivedVoucherAmounts(
+        voucher({
+          imp_neto_gravado: 14049.58,
+          imp_no_gravado: 0,
+          imp_op_exentas: 0,
+          imp_iva: 2950.41,
+          imp_trib: 0,
+          imp_total: 17000,
+        }),
+      ),
+    ).toMatchObject({
+      imp_neto: 14049.58,
+      imp_no_gravado: 0.01,
+      imp_iva: 2950.41,
+    });
+    expect(
+      receivedVoucherAmounts(
+        voucher({
+          letter: "B",
+          imp_neto_gravado: 100,
+          imp_no_gravado: 0,
+          imp_op_exentas: 0,
+          imp_iva: 0,
+          imp_trib: 0,
+          imp_total: 99.99,
+        }),
+      ),
+    ).toMatchObject({ imp_neto: 99.99, imp_no_gravado: 0 });
+    // More than a cent is not rounding: it stays, and the purchase's own
+    // check refuses it.
+    expect(
+      receivedVoucherAmounts(voucher({ imp_total: 1310.05 })),
+    ).toMatchObject({ imp_no_gravado: 20, imp_total: 1310.05 });
+  });
+
   it("keeps a letter A as ARCA lists it", () => {
     expect(receivedVoucherAmounts(voucher())).toEqual({
       imp_neto: 1000,

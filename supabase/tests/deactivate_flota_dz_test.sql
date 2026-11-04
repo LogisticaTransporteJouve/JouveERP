@@ -1,4 +1,4 @@
--- 20261104115000_deactivate_flota_dz: DZ Instalaciones was retired, so its
+-- 20261104120300_deactivate_flota_dz: DZ Instalaciones was retired, so its
 -- cost center stays on the records that use it but is no longer offered.
 
 select set_config('request.jwt.claims', '{"role":"service_role"}', true);
