@@ -67,7 +67,7 @@ set constraints all deferred;
 -- F2 -------------------------------------------------------------------------
 
 select results_eq(
-  $$select t.kind, t.amount, t.transaction_date, t.currency
+  $$select t.kind, t.amount::numeric, t.transaction_date, t.currency
       from public.transactions t
       join public.issued_checks ic on ic.id = t.issued_check_id
      where ic.check_number = 'RB-1' and ic.bank_name = 'Banco RB'$$,
