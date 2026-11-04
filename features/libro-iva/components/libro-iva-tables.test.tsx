@@ -130,13 +130,21 @@ describe("LibroIvaVentasTable", () => {
     // The totals tie to computeTotals: the NC subtracts.
     expect(cells(totals)).toEqual(
       expect.arrayContaining([
-        "Totales (2 comprobantes)",
+        "Totales",
+        "2 comprobantes",
         "900,00",
         "189,00",
         "1.089,00",
       ]),
     );
     expect(screen.getByText(/sin ítems/)).toBeTruthy();
+    // A sticky cell wider than a phone screen covers the totals at every
+    // scroll offset: only the first column sticks.
+    const sticky = table.querySelectorAll("td.sticky, th.sticky");
+    expect(sticky.length).toBeGreaterThan(0);
+    for (const cell of sticky) {
+      expect((cell as HTMLTableCellElement).colSpan).toBe(1);
+    }
   });
 
   it("puts a voucher whose rate cannot be inferred under Sin alícuota", async () => {

@@ -119,7 +119,10 @@ export function LibroIvaBookTable<F>({
       <table className="w-full text-sm">
         <thead className="border-b bg-muted/30 text-left text-xs">
           <tr>
-            <th colSpan={6} className="sticky left-0 z-10 bg-card" />
+            {/* Only the first column is sticky: a sticky cell wider than a
+                phone screen would cover every column it scrolls over. */}
+            <th className="sticky left-0 z-10 bg-card" />
+            <th colSpan={5} />
             {groups.map((g, i) => (
               <th
                 key={i}
@@ -202,11 +205,9 @@ export function LibroIvaBookTable<F>({
         </tbody>
         <tfoot className="border-t-2 bg-muted/30 text-xs font-medium">
           <tr>
-            <td
-              colSpan={6}
-              className="sticky left-0 z-10 bg-card px-2 py-2 text-right"
-            >
-              Totales ({totals.count} comprobantes)
+            <td className="sticky left-0 z-10 bg-card px-2 py-2">Totales</td>
+            <td colSpan={5} className="px-2 py-2 text-right">
+              {totals.count} comprobantes
             </td>
             {columns.map((c, i) => (
               <AmountCell

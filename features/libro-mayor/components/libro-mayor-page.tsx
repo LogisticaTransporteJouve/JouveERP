@@ -250,11 +250,13 @@ export function LibroMayorPage() {
                 </tbody>
                 <tfoot className="border-t-2 bg-muted/30 font-semibold">
                   <tr>
-                    <td
-                      colSpan={4}
-                      className="sticky left-0 z-10 bg-card px-2 py-2 text-right text-xs"
-                    >
-                      Totales ({rows.length} movimientos)
+                    {/* Only the date column is sticky, as in the body: a
+                        wider sticky cell covers the totals on a phone. */}
+                    <td className="sticky left-0 z-10 bg-card px-2 py-2 text-xs">
+                      Totales
+                    </td>
+                    <td colSpan={3} className="px-2 py-2 text-right text-xs">
+                      {rows.length} movimientos
                     </td>
                     <td className="px-2 py-2 text-right font-mono">
                       {money(summary.totalDebit)}
