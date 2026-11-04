@@ -9,6 +9,7 @@ import {
   WORKFLOW_CADENCES,
   runTimeSchema,
 } from "../../workflows/schema";
+import { announceWorkflowChange } from "../../workflows/scheduling";
 import { WorkflowLimitError, createWorkflow } from "../../workflows/store";
 import { defineAiProposal } from "../propose";
 
@@ -75,7 +76,8 @@ export const proposeAiWorkflow = defineAiProposal({
         { cadence: draft.cadence, origin: "assistant" },
         created.id,
       );
-      return { ok: true, data: created };
+      await announceWorkflowChange(created.id, created.schedule);
+      return { ok: true, data: { id: created.id } };
     } catch (error) {
       if (error instanceof WorkflowLimitError) {
         return { ok: false, error: error.message };

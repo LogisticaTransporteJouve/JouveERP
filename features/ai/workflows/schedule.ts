@@ -37,9 +37,9 @@ export function arInstant(
 
 /**
  * The first occurrence of `schedule` strictly after `after`. Occurrences are
- * Buenos Aires wall-clock times; a run that is due is claimed by the
- * 15-minute cron, which then asks for the next one after "now", so missed
- * occurrences collapse into one run instead of piling up.
+ * Buenos Aires wall-clock times; the scheduler that queues a due run then
+ * asks for the next one after "now", so missed occurrences collapse into one
+ * run instead of piling up.
  */
 export function nextRunAt(schedule: WorkflowSchedule, after: Date): Date {
   const today = arLocalParts(after);

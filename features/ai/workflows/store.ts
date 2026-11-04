@@ -153,12 +153,27 @@ export async function listWorkflows(userId: string): Promise<AiWorkflowRow[]> {
   return (data ?? []).map(toWorkflow);
 }
 
+/** A task's schedule after a write, for announceWorkflowChange. */
+export type WorkflowScheduleState =
+  | { active: true; nextRunAt: string; version: string }
+  | { active: false; version: string };
+
+function scheduleState(row: {
+  is_active: boolean;
+  next_run_at: string;
+  updated_at: string;
+}): WorkflowScheduleState {
+  return row.is_active
+    ? { active: true, nextRunAt: row.next_run_at, version: row.updated_at }
+    : { active: false, version: row.updated_at };
+}
+
 /** Creates the task with its first occurrence after `now`. */
 export async function createWorkflow(
   userId: string,
   draft: AiWorkflowDraft,
   now: Date = new Date(),
-): Promise<{ id: string }> {
+): Promise<{ id: string; schedule: WorkflowScheduleState }> {
   const service = getServiceClient();
   const schedule = draftSchedule(draft);
   const { data, error } = await service
@@ -174,21 +189,21 @@ export async function createWorkflow(
       month_day: schedule.monthDay,
       next_run_at: nextRunAt(schedule, now).toISOString(),
     })
-    .select("id")
+    .select("id, is_active, next_run_at, updated_at")
     .single();
   if (error) throwWorkflowError(error);
-  return { id: data.id };
+  return { id: data.id, schedule: scheduleState(data) };
 }
 
 /** Pauses or resumes; resuming schedules the next occurrence after `now`, so
- *  occurrences missed while paused never run. False when it is not the
+ *  occurrences missed while paused never run. Null when it is not the
  *  user's task. */
 export async function setWorkflowActive(
   userId: string,
   id: string,
   active: boolean,
   now: Date = new Date(),
-): Promise<boolean> {
+): Promise<WorkflowScheduleState | null> {
   const service = getServiceClient();
   const { data: row, error } = await service
     .from("ai_workflows")
@@ -197,7 +212,7 @@ export async function setWorkflowActive(
     .eq("user_id", userId)
     .maybeSingle();
   if (error) throw error;
-  if (!row) return false;
+  if (!row) return null;
   const { data, error: updateError } = await service
     .from("ai_workflows")
     .update(
@@ -210,9 +225,10 @@ export async function setWorkflowActive(
     )
     .eq("id", id)
     .eq("user_id", userId)
-    .select("id");
+    .select("is_active, next_run_at, updated_at");
   if (updateError) throwWorkflowError(updateError);
-  return (data?.length ?? 0) > 0;
+  const updated = data?.[0];
+  return updated ? scheduleState(updated) : null;
 }
 
 /** Deletes the task and its runs. False when it is not the user's task. */

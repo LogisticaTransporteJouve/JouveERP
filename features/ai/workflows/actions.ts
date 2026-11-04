@@ -11,6 +11,7 @@ import {
   SetWorkflowActiveSchema,
   WorkflowIdSchema,
 } from "./schema";
+import { DELETED_VERSION, announceWorkflowChange } from "./scheduling";
 import {
   WorkflowLimitError,
   createWorkflow,
@@ -60,7 +61,8 @@ export async function createAiWorkflowAction(
       { cadence: parsed.data.cadence, origin: "dialog" },
       created.id,
     );
-    return { ok: true, data: created };
+    await announceWorkflowChange(created.id, created.schedule);
+    return { ok: true, data: { id: created.id } };
   } catch (error) {
     if (error instanceof WorkflowLimitError) {
       return { ok: false, error: error.message };
@@ -79,18 +81,19 @@ export async function setAiWorkflowActiveAction(
   const parsed = SetWorkflowActiveSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Datos inválidos." };
   try {
-    const done = await setWorkflowActive(
+    const state = await setWorkflowActive(
       ctx.userId,
       parsed.data.id,
       parsed.data.active,
     );
-    if (!done) return { ok: false, error: "No se encontró la tarea." };
+    if (!state) return { ok: false, error: "No se encontró la tarea." };
     await logAudit(
       parsed.data.active ? "ai.workflow.resumed" : "ai.workflow.paused",
       ctx.userId,
       {},
       parsed.data.id,
     );
+    await announceWorkflowChange(parsed.data.id, state);
     return { ok: true, data: undefined };
   } catch (error) {
     if (error instanceof WorkflowLimitError) {
@@ -116,6 +119,10 @@ export async function deleteAiWorkflowAction(
     const done = await deleteWorkflow(ctx.userId, parsed.data.id);
     if (!done) return { ok: false, error: "No se encontró la tarea." };
     await logAudit("ai.workflow.deleted", ctx.userId, {}, parsed.data.id);
+    await announceWorkflowChange(parsed.data.id, {
+      active: false,
+      version: DELETED_VERSION,
+    });
     return { ok: true, data: undefined };
   } catch (error) {
     logger.error("ai.workflows.delete_failed", { userId: ctx.userId, error });

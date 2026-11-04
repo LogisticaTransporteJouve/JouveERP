@@ -9,7 +9,8 @@ import {
   aiWeeklySummaryFanOut,
 } from "@/lib/inngest/functions/ai-weekly-summary";
 import { aiWorkflowRun } from "@/lib/inngest/functions/ai-workflow-run";
-import { aiWorkflowsMaterialize } from "@/lib/inngest/functions/ai-workflows-materialize";
+import { aiWorkflowScheduler } from "@/lib/inngest/functions/ai-workflow-scheduler";
+import { aiWorkflowsReconcile } from "@/lib/inngest/functions/ai-workflows-reconcile";
 import { arcaIssuedSync } from "@/lib/inngest/functions/arca-issued-sync";
 import { arcaReceivedSync } from "@/lib/inngest/functions/arca-received-sync";
 import { auditRetention } from "@/lib/inngest/functions/audit-retention";
@@ -62,7 +63,8 @@ export const { GET, POST, PUT } = serve({
     caeaInform,
     arcaIssuedSync,
     arcaReceivedSync,
-    aiWorkflowsMaterialize,
+    aiWorkflowScheduler,
+    aiWorkflowsReconcile,
     aiWorkflowRun,
     aiWeeklySummaryFanOut,
     aiWeeklySummary,

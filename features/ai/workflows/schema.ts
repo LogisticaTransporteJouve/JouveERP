@@ -26,7 +26,8 @@ export const WEEKDAY_LABEL: Record<Weekday, string> = {
 
 export const RUN_MINUTES = [0, 15, 30, 45] as const;
 
-/** "HH:MM" on the cron's 15-minute grid, Buenos Aires local time. */
+/** "HH:MM" on a 15-minute grid, Buenos Aires local time. A product choice:
+ *  the scheduler sleeps until the exact instant, so any minute would work. */
 export const runTimeSchema = z
   .string()
   .trim()

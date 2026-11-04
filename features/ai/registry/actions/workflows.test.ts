@@ -4,18 +4,26 @@ import { type Role, resolveAccess } from "@/lib/auth/permissions";
 
 import type { AiProposalStore } from "../define";
 
+const SCHEDULE = {
+  active: true,
+  nextRunAt: "2026-11-09T11:00:00+00:00",
+  version: "v1",
+} as const;
 const createWorkflow = vi.fn<
-  (userId: string, draft: unknown) => Promise<{ id: string }>
->(async () => ({
-  id: "w1",
-}));
+  (
+    userId: string,
+    draft: unknown,
+  ) => Promise<{ id: string; schedule: typeof SCHEDULE }>
+>(async () => ({ id: "w1", schedule: SCHEDULE }));
 const logAudit = vi.fn(async () => undefined);
+const announceWorkflowChange = vi.fn(async () => undefined);
 
 vi.mock("../../workflows/store", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../workflows/store")>()),
   createWorkflow,
 }));
 vi.mock("@/lib/actions/audit", () => ({ logAudit }));
+vi.mock("../../workflows/scheduling", () => ({ announceWorkflowChange }));
 
 const { proposeAiWorkflow } = await import("./workflows");
 
@@ -106,5 +114,6 @@ describe("proposeAiWorkflow", () => {
       { cadence: "weekly", origin: "assistant" },
       "w1",
     );
+    expect(announceWorkflowChange).toHaveBeenCalledWith("w1", SCHEDULE);
   });
 });
