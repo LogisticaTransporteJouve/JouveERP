@@ -14,6 +14,7 @@ import type { ReceivedVoucher } from "../schema";
 
 const TRIBUTES = [
   ["perc_iva", "Percepción de IVA"],
+  ["perc_nacionales", "Percepción Ganancias y otros nacionales"],
   ["perc_iibb", "Percepción de IIBB"],
   ["municipales", "Impuestos municipales"],
   ["internos", "Impuestos internos"],
@@ -115,7 +116,8 @@ export function ArcaVoucherDetailDialog({
           {v.imp_trib > 0 && tributes.length === 0 && (
             <p>
               ARCA informa solo el total de otros tributos. Al aceptar lo
-              repartís entre percepción de IVA, IIBB, municipales e internos.
+              repartís entre percepción de IVA, Ganancias y otros nacionales,
+              IIBB, municipales e internos.
             </p>
           )}
           <p>
