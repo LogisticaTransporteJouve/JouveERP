@@ -49,16 +49,10 @@
       2026-11-04).**
 - [ ] Antes de aprobar `20261104102300`, el dueño revisa los cargos que baja
       el backfill (compras a cargo de empleado con NC):
-      `select f.id, f.charged_employee_id, m.amount from purchase_invoices f
-  left join employee_account_movements m on m.purchase_invoice_id = f.id
-  where f.charged_employee_id is not null and exists (select 1 from
-  purchase_invoices nc where nc.invoice_origin_id = f.id and nc.kind = 'nc'
-  and nc.status = 'received');`. Y después, las NC que quedaron con su
-      asiento viejo por período cerrado:
-      `select nc.id from purchase_invoices nc join purchase_invoices f on f.id
-  = nc.invoice_origin_id where nc.kind = 'nc' and nc.status = 'received'
-  and f.charged_employee_id is not null and
-  journal_entry_status('purchase_invoices', nc.id) = 'differs';`.
+      `select f.id, f.charged_employee_id, m.amount from purchase_invoices f left join employee_account_movements m on m.purchase_invoice_id = f.id where f.charged_employee_id is not null and exists (select 1 from purchase_invoices nc where nc.invoice_origin_id = f.id and nc.kind = 'nc' and nc.status = 'received');`.
+      Y después, las NC que quedaron con su asiento viejo por período
+      cerrado:
+      `select nc.id from purchase_invoices nc join purchase_invoices f on f.id = nc.invoice_origin_id where nc.kind = 'nc' and nc.status = 'received' and f.charged_employee_id is not null and journal_entry_status('purchase_invoices', nc.id) = 'differs';`.
 - [ ] Planes de deuda tipeados desde el total viejo de un cargo que bajó
       (al neto con `20261104095200`, o por una NC con `20261104102300`): la
       planilla sigue descontando hasta el total del plan. El dueño los
