@@ -31,12 +31,16 @@ import {
   useCreateSupplierCategory,
   useUpdateSupplierCategory,
 } from "../hooks/use-supplier-categories";
-import { slugFromName, type SupplierCategory } from "../schema";
+import {
+  SupplierCategoryNameSchema,
+  slugFromName,
+  type SupplierCategory,
+} from "../schema";
 
 type Mode = "create" | "edit";
 
 const FormSchema = z.object({
-  name: z.string().trim().min(2, "Nombre requerido.").max(60),
+  name: SupplierCategoryNameSchema,
   slug: z.string().trim().max(40),
   is_active: z.boolean(),
 });

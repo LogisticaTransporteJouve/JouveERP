@@ -11,6 +11,7 @@ import { suppliersKeys } from "@/features/suppliers/lib/suppliers-keys";
 import { runAction } from "@/lib/query/run-action";
 
 import {
+  canCreateSupplierCategoryAction,
   createSupplierCategoryAction,
   deleteSupplierCategoryAction,
   listSupplierCategoriesAction,
@@ -18,9 +19,7 @@ import {
 } from "../actions/supplier-categories-actions";
 import { supplierCategoriesKeys } from "../lib/supplier-categories-keys";
 
-export function useSupplierCategories(
-  options: { onlyActive?: boolean } = {},
-) {
+export function useSupplierCategories(options: { onlyActive?: boolean } = {}) {
   const onlyActive = options.onlyActive ?? false;
   return useSuspenseQuery({
     queryKey: supplierCategoriesKeys.list(onlyActive),
@@ -46,9 +45,21 @@ export function useSupplierCategoriesList(
   });
 }
 
+/** Whether the user may create a category from a picker. */
+export function useCanCreateSupplierCategory() {
+  const query = useQuery({
+    queryKey: supplierCategoriesKeys.canCreate(),
+    queryFn: () => runAction(() => canCreateSupplierCategoryAction()),
+    staleTime: 5 * 60_000,
+  });
+  return query.data === true;
+}
+
+/** Resolves once the category lists are refetched, so a picker can select a
+ *  category it just created. */
 function invalidateCategoryEffects(qc: ReturnType<typeof useQueryClient>) {
-  qc.invalidateQueries({ queryKey: supplierCategoriesKeys.all });
-  qc.invalidateQueries({ queryKey: suppliersKeys.all });
+  void qc.invalidateQueries({ queryKey: suppliersKeys.all });
+  return qc.invalidateQueries({ queryKey: supplierCategoriesKeys.all });
 }
 
 export function useCreateSupplierCategory() {

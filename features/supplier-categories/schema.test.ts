@@ -35,13 +35,27 @@ describe("SupplierCategoryCreateSchema", () => {
     if (res.success) expect(res.data.slug).toBe("fuel");
   });
 
-  it("rechaza name corto", () => {
+  it("acepta de 1 a 60 caracteres, recortados", () => {
+    const one = SupplierCategoryCreateSchema.safeParse({ name: "  X  " });
+    expect(one.success && one.data.name).toBe("X");
     expect(
-      SupplierCategoryCreateSchema.safeParse({
-        name: "X",
-        is_active: true,
-      }).success,
+      SupplierCategoryCreateSchema.safeParse({ name: "a".repeat(60) }).success,
+    ).toBe(true);
+    expect(
+      SupplierCategoryCreateSchema.safeParse({ name: "a".repeat(61) }).success,
     ).toBe(false);
+    expect(
+      SupplierCategoryCreateSchema.safeParse({ name: "   " }).success,
+    ).toBe(false);
+  });
+
+  it("rechaza un nombre sin letras ni números (no tendría slug)", () => {
+    const res = SupplierCategoryCreateSchema.safeParse({ name: "$$" });
+    expect(res.success).toBe(false);
+    if (!res.success)
+      expect(res.error.issues[0]?.message).toBe(
+        "El nombre necesita al menos una letra o un número.",
+      );
   });
 });
 

@@ -41,8 +41,8 @@ describe("CostCenterCreateSchema", () => {
   it("acepta payload válido", () => {
     expect(
       CostCenterCreateSchema.safeParse({
-        code: "FLOTA_DZ",
-        name: "Flota DZ",
+        code: "DEPOSITO",
+        name: "Depósito",
         is_active: true,
       }).success,
     ).toBe(true);
@@ -51,7 +51,7 @@ describe("CostCenterCreateSchema", () => {
   it("rechaza code con minúsculas", () => {
     expect(
       CostCenterCreateSchema.safeParse({
-        code: "flota_dz",
+        code: "deposito",
         name: "X",
         is_active: true,
       }).success,
