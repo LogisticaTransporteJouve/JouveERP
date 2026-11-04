@@ -6,6 +6,7 @@ import {
   IVA_RATES,
   KIND_LABEL,
   libroIvaVoucherNumber,
+  VENTAS_AMOUNT_COLUMNS,
   type LibroIvaVentasRow,
 } from "@/features/libro-iva/schema";
 
@@ -93,7 +94,7 @@ const COL_W = {
   cuit: 50,
   rate: 28, // por cada Neto/IVA
   perc: 32,
-  noGrav: 32,
+  amount: 32, // por cada columna de VENTAS_AMOUNT_COLUMNS
   total: 40,
   cae: 48,
 };
@@ -147,9 +148,14 @@ export function LibroIvaVentasDocument({
             <Text style={[styles.th, styles.right, { width: COL_W.perc }]}>
               Perc.
             </Text>
-            <Text style={[styles.th, styles.right, { width: COL_W.noGrav }]}>
-              No grav.
-            </Text>
+            {VENTAS_AMOUNT_COLUMNS.map((c) => (
+              <Text
+                key={c.header}
+                style={[styles.th, styles.right, { width: COL_W.amount }]}
+              >
+                {c.header}
+              </Text>
+            ))}
             <Text style={[styles.th, styles.right, { width: COL_W.total }]}>
               Total
             </Text>
@@ -189,7 +195,13 @@ export function LibroIvaVentasDocument({
             <Text
               style={[
                 styles.th,
-                { width: COL_W.perc + COL_W.noGrav + COL_W.total + COL_W.cae },
+                {
+                  width:
+                    COL_W.perc +
+                    COL_W.amount * VENTAS_AMOUNT_COLUMNS.length +
+                    COL_W.total +
+                    COL_W.cae,
+                },
               ]}
             />
           </View>
@@ -252,16 +264,19 @@ export function LibroIvaVentasDocument({
                 >
                   {row.imp_trib > 0 ? money(row.imp_trib) : ""}
                 </Text>
-                <Text
-                  style={[
-                    styles.td,
-                    styles.right,
-                    styles.mono,
-                    { width: COL_W.noGrav },
-                  ]}
-                >
-                  {row.imp_op_ex > 0 ? money(row.imp_op_ex) : ""}
-                </Text>
+                {VENTAS_AMOUNT_COLUMNS.map((c) => (
+                  <Text
+                    key={c.header}
+                    style={[
+                      styles.td,
+                      styles.right,
+                      styles.mono,
+                      { width: COL_W.amount },
+                    ]}
+                  >
+                    {c.value(row) > 0 ? money(c.value(row)) : ""}
+                  </Text>
+                ))}
                 <Text
                   style={[
                     styles.td,
@@ -335,16 +350,19 @@ export function LibroIvaVentasDocument({
             >
               {totals.imp_trib > 0 ? money(totals.imp_trib) : ""}
             </Text>
-            <Text
-              style={[
-                styles.td,
-                styles.right,
-                styles.mono,
-                { width: COL_W.noGrav },
-              ]}
-            >
-              {totals.imp_op_ex > 0 ? money(totals.imp_op_ex) : ""}
-            </Text>
+            {VENTAS_AMOUNT_COLUMNS.map((c) => (
+              <Text
+                key={c.header}
+                style={[
+                  styles.td,
+                  styles.right,
+                  styles.mono,
+                  { width: COL_W.amount },
+                ]}
+              >
+                {c.value(totals) > 0 ? money(c.value(totals)) : ""}
+              </Text>
+            ))}
             <Text
               style={[
                 styles.td,

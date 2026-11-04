@@ -11,6 +11,7 @@ import {
   IVA_RATES,
   KIND_LABEL,
   libroIvaVoucherNumber,
+  VENTAS_AMOUNT_COLUMNS,
   type LibroIvaComprasRow,
   type LibroIvaVentasRow,
 } from "../schema";
@@ -36,7 +37,7 @@ type Amount<V> = {
   header: string;
   value: (v: V) => number | undefined;
   /** When the PDF prints it: always (Total), only when positive (Perc.,
-   *  No grav.) or, by default, when not zero. */
+   *  No gravado, Exento) or, by default, when not zero. */
   show?: "always" | "positive";
 };
 
@@ -180,7 +181,11 @@ export function libroIvaVentasSheet(
     [
       ...rateAmounts<V>(),
       { header: "Perc.", value: (v) => v.imp_trib, show: "positive" },
-      { header: "No grav.", value: (v) => v.imp_op_ex, show: "positive" },
+      ...VENTAS_AMOUNT_COLUMNS.map((c): Amount<V> => ({
+        header: c.header,
+        value: c.value,
+        show: "positive",
+      })),
       { header: "Total $", value: (v) => v.imp_total, show: "always" },
     ],
     { header: "CAE", value: (v) => v.cae },
