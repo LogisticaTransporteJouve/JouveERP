@@ -37,6 +37,13 @@
       cualquier error sella su fin, y una que muere sin sellar se muestra como
       cortada; una lectura fallida ya no se muestra como «falta el usuario»;
       Admin → AFIP dice cuando la última corrida tuvo errores.
+- [x] Auditoría w6: el comprobante vuelve a pendientes también si se edita
+      la clave de la compra (proveedor, tipo, letra, punto de venta, número o
+      canal) y una compra se queda con un solo comprobante
+      (`20261104131000`); una falla después de que ARCA aceptó la clave ya no
+      frena la cuenta (cuenta como ingreso que anduvo); un mes que ARCA
+      contestó mal no corta los siguientes; un pedido en cola detrás de otra
+      corrida no toma su resultado; Admin → AFIP muestra una corrida cortada.
 - [ ] Avisar por notificación a owner y admin cuando ARCA rechaza la clave
       (hoy lo muestran la bandeja y Admin → AFIP).
 - [x] Lector validado con una consulta real de Recibidos (A con otros

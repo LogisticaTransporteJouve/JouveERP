@@ -11,5 +11,5 @@ export default async function DocumentosRoute() {
   if (!userCan(ctx.access, "ai:read")) {
     redirect("/dashboard");
   }
-  return <DocumentsTray />;
+  return <DocumentsTray access={ctx.access} />;
 }

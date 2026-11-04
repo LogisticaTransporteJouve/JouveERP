@@ -38,6 +38,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { AccountOptionsError } from "@/features/accounts/components/account-options-gate";
 import { useAccountOptions } from "@/features/accounts/hooks/use-accounts";
 import {
   amountToInput,
@@ -108,8 +109,11 @@ export function BulkPayrollPaymentDialog({
   const [amounts, setAmounts] = useState<Record<string, string>>({});
   // Read once opened, never thrown: the button is mounted on the payroll
   // month, which must not fall over when accounts cannot be read.
-  const { accounts: accountsData, error: accountsError } =
-    useAccountOptions(open);
+  const {
+    accounts: accountsData,
+    error: accountsError,
+    retry: retryAccounts,
+  } = useAccountOptions(open);
   const payableAccounts = useMemo(
     () => payrollPayableAccounts(accountsData),
     [accountsData],
@@ -248,7 +252,11 @@ export function BulkPayrollPaymentDialog({
           </DialogDescription>
         </DialogHeader>
         {open && accountsError && (
-          <p className="text-sm text-muted-foreground">{accountsError}</p>
+          <AccountOptionsError
+            message={accountsError}
+            onRetry={retryAccounts}
+            className="justify-start"
+          />
         )}
 
         <Form {...form}>

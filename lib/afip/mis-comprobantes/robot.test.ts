@@ -179,7 +179,7 @@ describe("signInToMisComprobantes", () => {
     const { calls, fetchImpl } = fakeArca({ claveOk: false });
     await expect(
       signInToMisComprobantes(credentials, fetchImpl),
-    ).rejects.toMatchObject({ code: "SIGN_IN_REJECTED", claveSent: true });
+    ).rejects.toMatchObject({ code: "SIGN_IN_REJECTED", stage: "clave" });
     expect(calls.some((c) => c.url.includes("portalcf"))).toBe(false);
   });
 
@@ -191,7 +191,21 @@ describe("signInToMisComprobantes", () => {
         : fetchImpl(url, init);
     await expect(
       signInToMisComprobantes(credentials, maintenance),
-    ).rejects.toMatchObject({ code: "SIGN_IN_FAILED", claveSent: false });
+    ).rejects.toMatchObject({ code: "SIGN_IN_FAILED", stage: "before_clave" });
+  });
+
+  it("tags a failure after ARCA accepted the clave as after_clave", async () => {
+    const { fetchImpl } = fakeArca();
+    const portalDown = async (url: string, init: RequestInit) =>
+      url.endsWith("/servicio/mcmp/autorizacion")
+        ? new Response("<html>error</html>", { status: 502 })
+        : fetchImpl(url, init);
+    await expect(
+      signInToMisComprobantes(credentials, portalDown),
+    ).rejects.toMatchObject({
+      code: "SERVICE_NOT_AUTHORIZED",
+      stage: "after_clave",
+    });
   });
 
   it("refuses a period with more results than one page", async () => {

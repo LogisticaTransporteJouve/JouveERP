@@ -6,6 +6,7 @@ import {
   useQueryClient,
   useSuspenseQuery,
 } from "@tanstack/react-query";
+import { useCallback } from "react";
 
 import { LEDGER_KEYS } from "@/features/journal-entries/lib/ledger-keys";
 import { CASH_KEYS } from "@/features/treasury/lib/cash-keys";
@@ -43,13 +44,16 @@ export const ACCOUNTS_UNAVAILABLE_MESSAGE =
 
 /** The accounts list for a page or dialog outside Cuentas (Recibos, OP,
  *  Movimientos, Cheques, Sueldos). It never suspends or throws: a per-user
- *  deny of accounts:read (`canRead` false, or the read refused) gives no
- *  accounts and a message instead of taking the page down. Same cache as
- *  `useAccountsList`. */
+ *  deny of accounts:read (`canRead` false, or the read refused) or a failed
+ *  read gives no accounts and a message instead of taking the page down;
+ *  `retry` reads again (null when there is nothing to retry). A failed
+ *  background refetch keeps the accounts already read, so a filled form is
+ *  not replaced by the error. Same cache as `useAccountsList`. */
 export function useAccountOptions(canRead = true): {
   accounts: Account[];
   error: string | null;
   pending: boolean;
+  retry: (() => void) | null;
 } {
   const query = useQuery({
     queryKey: accountsKeys.list(),
@@ -57,25 +61,30 @@ export function useAccountOptions(canRead = true): {
     staleTime: ONE_MINUTE,
     enabled: canRead,
   });
+  const { refetch } = query;
+  const retry = useCallback(() => void refetch(), [refetch]);
   if (!canRead) {
     return {
       accounts: NO_ACCOUNTS,
       error: ACCOUNTS_UNAVAILABLE_MESSAGE,
       pending: false,
+      retry: null,
     };
   }
   // The refused read says why ("No tenés permiso para ver cuentas.").
-  if (query.isError) {
+  if (query.isError && query.data === undefined) {
     return {
       accounts: NO_ACCOUNTS,
       error: query.error.message,
-      pending: false,
+      pending: query.isFetching,
+      retry,
     };
   }
   return {
     accounts: query.data ?? NO_ACCOUNTS,
     error: null,
     pending: query.isPending,
+    retry,
   };
 }
 
