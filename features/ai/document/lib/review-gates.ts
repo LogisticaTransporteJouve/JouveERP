@@ -1,4 +1,4 @@
-import { ACCOUNTS_UNAVAILABLE_MESSAGE } from "@/features/accounts/hooks/use-accounts";
+import { ACCOUNTS_UNAVAILABLE_MESSAGE } from "@/features/accounts/lib/accounts-unavailable";
 import {
   CHECK_CASH_DENIED_REASON,
   CHECK_CASH_PERMISSIONS,
