@@ -267,9 +267,9 @@ mitigación en el schema: el límite se respeta operando.
 
 - [x] Bandeja de Mis Comprobantes → Recibidos: subir el archivo, aceptar
       cada comprobante como compra (importes de ARCA) o descartarlo
-      (`20261104102500`, `/purchases/arca`).
+      (`20261104104001`, `/purchases/arca`).
 - [x] Compras en una cuenta asignada a Neutro no suman en Gestión, tampoco
-      en caja (`20261104102600`).
+      en caja (`20261104104002`).
 - [ ] Traer el archivo solo desde ARCA (robot + botón «Traer de ARCA»): falta
       que el dueño grabe el flujo de login (HAR) y guardar la clave fiscal en
       Vault.

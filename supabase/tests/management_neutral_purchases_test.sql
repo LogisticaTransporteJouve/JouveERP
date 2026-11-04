@@ -1,4 +1,4 @@
--- Resultado de gestión (20261104102600): a purchase booked to an expense
+-- Resultado de gestión (20261104104002): a purchase booked to an expense
 -- account mapped to neutral ("not a company cost") adds 0 in both bases; a
 -- payment order that pays it and an ordinary purchase counts only the
 -- ordinary one. Deltas against the current month, so seeds do not matter.
