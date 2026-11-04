@@ -17,9 +17,12 @@ que no existía.
 `replace_purchase_invoice_items` rechaza (55006, el mismo mensaje del
 encabezado) un reemplazo que cambie lo que lee el Libro IVA: el neto y el IVA
 por alícuota, o pasar de tener ítems a no tenerlos. Volver a guardar el mismo
-reparto pasa, porque el formulario de edición siempre manda los ítems: notas,
-vencimiento y cuenta siguen editables. Un trigger rechaza cualquier otra
-escritura directa a esos ítems.
+reparto pasa: notas, vencimiento y cuenta siguen editables. Desde la auditoría
+W7 eso vale también para una compra aceptada de ARCA, cuyo IVA no es
+neto × alícuota: el formulario de edición conserva el neto y el IVA guardados
+de cada ítem que el usuario no toca (antes los recalculaba y la edición se
+rechazaba). Ver `2026-11-04-compras-edicion-en-periodo-cerrado-auditoria-w7.md`.
+Un trigger rechaza cualquier otra escritura directa a esos ítems.
 
 **Descartado.** Bloquear cualquier reemplazo de ítems en período cerrado:
 frenaría toda edición de la compra desde el formulario. Una columna «No

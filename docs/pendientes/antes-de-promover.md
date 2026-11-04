@@ -448,6 +448,17 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
       existentes. Rollback: el código anterior inserta cheques solo con esas
       formas, nunca hace PATCH de esas columnas y escribe `check_movements`
       solo por esas RPC y el «recibido» inicial.
+- [ ] **Aprobar `20261104140100` y `140101`** (auditoría w7, compras). No
+      tocan filas existentes. Rollback de cada una:
+  - `140100`: agrega `purchase_items_change_refused` (la regla de período
+    cerrado de `replace_purchase_invoice_items`, sola y de solo lectura) y
+    la RPC pasa a llamarla; rechaza exactamente lo mismo que antes. El
+    código anterior no llama al predicado.
+  - `140101`: el CUIT de un proveedor con compras fiscales en un período
+    cerrado no cambia (55006). El código anterior recibe el mensaje por
+    `mapDbGuardError`, como las otras guardas de proveedores. Ver si hay
+    proveedores afectados (N/A en producción, sin compras):
+    `select distinct s.id, s.cuit from public.suppliers s join public.purchase_invoices p on p.supplier_id = s.id join public.invoicing_channels c on c.id = p.channel_id and c.is_fiscal join public.accounting_closed_periods cp on cp.period = to_char(p.fecha, 'YYYY-MM') where p.status = 'received';`
 
 ## Después de promover
 
