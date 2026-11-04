@@ -9,7 +9,9 @@ description: "Create a Supabase SQL migration in JouveERP (supabase/migrations/)
 
 - **Archivo:** `supabase/migrations/YYYYMMDDHHMMSS_<scope>.sql` (timestamp UTC).
   El timestamp **debe ser mayor** al máximo en `main` — el job `database` de CI
-  (`ci.yml`) lo valida. Si hay duda, usá la fecha/hora actual.
+  (`ci.yml`) lo valida. Creala con `supabase migration new` y, si el máximo de
+  `main` va adelantado al reloj, corré `pnpm db:restamp` (`/restamp-migrations`):
+  pone el segundo real siguiente al máximo de `main`.
 - **Header obligatorio** (primeras líneas del archivo):
   `SET LOCAL lock_timeout = '5s'; SET LOCAL statement_timeout = '15min';` — siempre `SET LOCAL`:
   un `SET` pelado sobrevive a la transacción de la migración bajo `db push`. **Nunca**
