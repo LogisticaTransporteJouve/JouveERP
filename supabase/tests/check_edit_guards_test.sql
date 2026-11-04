@@ -1,7 +1,7 @@
 -- Audit w5-s2 F1 + F2: an own check is linked to a payment order only by the
--- order's RPCs (20261104121000), and a third-party check changes amount,
+-- order's RPCs (20261104123000), and a third-party check changes amount,
 -- currency, cartera, receipt or status only through its RPCs
--- (20261104121001). One transaction, rolled back.
+-- (20261104123001). One transaction, rolled back.
 
 select set_config('request.jwt.claims', '{"role":"service_role"}', true);
 

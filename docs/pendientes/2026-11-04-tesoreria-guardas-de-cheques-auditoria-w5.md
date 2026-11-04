@@ -1,13 +1,13 @@
 # Tesorería: guardas de cheques, auditoría w5 (2026-11-04)
 
-- [x] **Cheque propio ligado a una OP solo desde la OP** (`20261104121000`):
+- [x] **Cheque propio ligado a una OP solo desde la OP** (`20261104123000`):
       `guard_issued_check_edit` corre también en INSERT y rechaza un cheque
       propio que llega ya ligado a una orden de pago, salvo que lo cargue
       `create_payment_order` o `update_payment_order`. Antes, un POST por
       PostgREST creaba un cheque de una OP que nunca lo pagó; rechazarlo
       sumaba plata al banco y deuda al proveedor. Las filas existentes no se
       tocan.
-- [x] **Cheque de terceros fijo** (`20261104121001`): `guard_check_edit`
+- [x] **Cheque de terceros fijo** (`20261104123001`): `guard_check_edit`
       rechaza cambiar monto, moneda, cartera, recibo o estado de un cheque
       fuera de sus RPC (depositar, acreditar, rechazar, vender, rechazar como
       deuda, la OP que lo endosa) y de los triggers de anulación. Antes, un
