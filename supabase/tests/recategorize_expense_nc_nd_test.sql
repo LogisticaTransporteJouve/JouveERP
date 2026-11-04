@@ -28,9 +28,10 @@ insert into public.chart_of_accounts (id, code, name, level, account_type) value
   ('00000000-0000-0000-0000-0000009230a3', '9233', 'Gasto propio NC', 1, 'resultado_negativo');
 insert into public.cost_centers (id, code, name) values
   ('00000000-0000-0000-0000-0000009230c1', 'RNC-VIEJO', 'Centro viejo NC'),
-  ('00000000-0000-0000-0000-0000009230c2', 'RNC-NUEVO', 'Centro nuevo NC');
+  ('00000000-0000-0000-0000-0000009230c2', 'RNC-NUEVO', 'Centro nuevo NC'),
+  ('00000000-0000-0000-0000-0000009230c3', 'RNC-PROPIO', 'Centro propio ND');
 
--- A factura, an NC that inherits it, an ND with its own account, an NC
+-- A factura, an NC that inherits it, an ND with its own account and center, an NC
 -- annulled below; and a second factura whose NC is in a closed period.
 insert into public.purchase_invoices
   (id, channel_id, supplier_id, kind, letter, punto_venta, numero, fecha,
@@ -44,7 +45,7 @@ values
    null, null, '00000000-0000-0000-0000-0000009230f1'),
   ('00000000-0000-0000-0000-0000009230f3', 'jouve_fiscal', '00000000-0000-0000-0000-0000009230b1',
    'nd', 'A', 23, 3, '1992-05-21', 50, 10.5, 60.5, 'received',
-   '00000000-0000-0000-0000-0000009230a3', null, '00000000-0000-0000-0000-0000009230f1'),
+   '00000000-0000-0000-0000-0000009230a3', '00000000-0000-0000-0000-0000009230c3', '00000000-0000-0000-0000-0000009230f1'),
   ('00000000-0000-0000-0000-0000009230f4', 'jouve_fiscal', '00000000-0000-0000-0000-0000009230b1',
    'nc', 'A', 23, 4, '1992-05-22', 30, 6.3, 36.3, 'received',
    null, null, '00000000-0000-0000-0000-0000009230f1'),
@@ -74,7 +75,7 @@ select results_eq(
 select results_eq(
   $$select account_id, cost_center_id from public.purchase_invoices
      where id = '00000000-0000-0000-0000-0000009230f3'$$,
-  $$values ('00000000-0000-0000-0000-0000009230a3'::uuid, null::uuid)$$,
+  $$values ('00000000-0000-0000-0000-0000009230a3'::uuid, '00000000-0000-0000-0000-0000009230c3'::uuid)$$,
   'an ND with its own account and center keeps them'
 );
 
