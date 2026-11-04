@@ -1,4 +1,9 @@
 import { z } from "zod";
+import type { IvaCondition } from "@/features/clients/schema";
+import type {
+  IvaBreakdownLine,
+  TribBreakdown,
+} from "@/lib/afip/mis-comprobantes/parse";
 
 export const PURCHASE_INVOICE_KINDS = ["factura", "nc", "nd"] as const;
 export type PurchaseInvoiceKind = (typeof PURCHASE_INVOICE_KINDS)[number];
@@ -418,3 +423,96 @@ export function formatInvoiceNumber(p: {
   const letterPart = p.letter ?? "X";
   return `${letterPart}${pv}-${nu}`;
 }
+
+// ---------------------------------------------------------------------------
+// ARCA received vouchers (tray, arca_received_vouchers)
+// ---------------------------------------------------------------------------
+
+export const RECEIVED_VOUCHER_STATUSES = [
+  "pending_review",
+  "confirmed",
+  "discarded",
+  "unsupported",
+] as const;
+export type ReceivedVoucherStatus = (typeof RECEIVED_VOUCHER_STATUSES)[number];
+
+export function isReceivedVoucherStatus(
+  v: unknown,
+): v is ReceivedVoucherStatus {
+  return (
+    typeof v === "string" &&
+    (RECEIVED_VOUCHER_STATUSES as readonly string[]).includes(v)
+  );
+}
+
+export const RECEIVED_VOUCHER_TAB_LABEL: Record<ReceivedVoucherStatus, string> =
+  {
+    pending_review: "Pendientes",
+    confirmed: "Cargadas",
+    discarded: "Descartadas",
+    unsupported: "No soportados",
+  };
+
+/** A tray row as the page shows it. */
+export type ReceivedVoucher = {
+  id: string;
+  issuer_cuit: string;
+  issuer_name: string;
+  cbte_tipo: number;
+  kind: PurchaseInvoiceKind | null;
+  letter: PurchaseInvoiceLetter | null;
+  punto_venta: number;
+  numero: number;
+  fecha: string;
+  cae: string | null;
+  moneda: "PES" | "DOL";
+  cotizacion: number | null;
+  imp_neto_gravado: number;
+  imp_no_gravado: number;
+  imp_op_exentas: number;
+  imp_iva: number;
+  imp_trib: number;
+  imp_total: number;
+  /** Per-tribute amounts, when the export carried them. */
+  trib_breakdown: TribBreakdown;
+  iva_breakdown: IvaBreakdownLine[];
+  status: ReceivedVoucherStatus;
+  discard_reason: string | null;
+  /** The purchase it is linked to: its status and whether its channel is
+   *  fiscal (an internal one cannot happen, but the page says so). */
+  purchase: {
+    id: string;
+    status: PurchaseInvoiceStatus;
+    is_fiscal: boolean;
+  } | null;
+  /** The fiscal supplier with the issuer's CUIT, if loaded. */
+  supplier: {
+    id: string;
+    legal_name: string;
+    display_name: string | null;
+    cuit: string;
+    iva_condition: IvaCondition;
+  } | null;
+};
+
+export const ReceivedVoucherListSchema = z.object({
+  status: z.enum(RECEIVED_VOUCHER_STATUSES),
+  cursor: z
+    .object({ fecha: z.string().date(), id: z.string().uuid() })
+    .nullable()
+    .default(null),
+});
+
+export const ReceivedVoucherIdSchema = z.object({
+  voucherId: z.string().uuid(),
+});
+
+export const ReceivedVoucherDiscardSchema = z.object({
+  voucherId: z.string().uuid(),
+  reason: z
+    .string()
+    .trim()
+    .max(200, "Hasta 200 caracteres.")
+    .optional()
+    .transform((v) => (v ? v : null)),
+});

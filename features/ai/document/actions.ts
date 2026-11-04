@@ -10,10 +10,7 @@ import {
   createPaymentOrderAction,
   getPaymentOrderUsdRateAction,
 } from "@/features/payment-orders/actions/payment-orders-actions";
-import {
-  createPurchaseInvoiceAction,
-  type PartialCreateFailure,
-} from "@/features/purchase-invoices/actions/purchase-invoices-actions";
+import { createPurchaseInvoiceAction } from "@/features/purchase-invoices/actions/purchase-invoices-actions";
 import type {
   PurchaseInvoiceDraftData,
   PurchaseInvoiceDraftSource,
@@ -38,6 +35,10 @@ import type { Json } from "@/lib/db/database.types";
 import { buildStorageKey } from "@/lib/files/storage-path";
 import { logger } from "@/lib/logger";
 import type { UsdRate } from "@/lib/fx";
+import {
+  createWithClaim as createWithClaimOn,
+  type PartialCreateFailure,
+} from "@/lib/actions/claim";
 import type { ActionResult } from "@/lib/query/run-action";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
@@ -802,32 +803,20 @@ async function releaseExtraction(
   }
 }
 
-/**
- * Claim → create → (release on failure). The create callback only runs for
- * the caller that won the claim; the up-front status read in each action is
- * just a fast path for a friendlier error. A partial failure (the entity row
- * was inserted, a later step failed) keeps the claim: releasing it would let
- * the user create the same document twice.
- */
-async function createWithClaim<T>(
+/** Claim → create → (release on failure) on an extraction draft. The
+ *  up-front status read in each action is just a fast path for a friendlier
+ *  error; this claim is the guard. */
+function createWithClaim<T>(
   supabase: ServerSupabase,
   extractionId: string,
   create: () => Promise<ActionResult<T> | PartialCreateFailure>,
 ): Promise<ActionResult<T> | PartialCreateFailure> {
-  if (!(await claimExtraction(supabase, extractionId))) {
-    return { ok: false, error: ALREADY_PROCESSED };
-  }
-  let result: ActionResult<T> | PartialCreateFailure;
-  try {
-    result = await create();
-  } catch (err) {
-    await releaseExtraction(supabase, extractionId);
-    throw err;
-  }
-  if (!result.ok && !("createdId" in result)) {
-    await releaseExtraction(supabase, extractionId);
-  }
-  return result;
+  return createWithClaimOn({
+    claim: () => claimExtraction(supabase, extractionId),
+    release: () => releaseExtraction(supabase, extractionId),
+    create,
+    alreadyProcessed: ALREADY_PROCESSED,
+  });
 }
 
 /**

@@ -268,6 +268,8 @@ export function PurchaseInvoiceForm({
   const defaultChannelId = invoice?.channel_id ?? scopeDefaultChannel ?? "";
 
   const createDraft = mode === "create" ? (draft ?? null) : null;
+  // An ARCA voucher: identity and amounts come from ARCA and stay as they are.
+  const arcaLocked = createDraft?.origin === "arca";
   const createMut = useCreatePurchaseInvoice(createDraft?.submitCreate);
   const updateMut = useUpdatePurchaseInvoice();
   const isSaving = createMut.isPending || updateMut.isPending;
@@ -280,6 +282,7 @@ export function PurchaseInvoiceForm({
   // A field read from the document keeps its mark until the user edits it.
   const dirtyFields = form.formState.dirtyFields;
   function aiMark(field: DraftField) {
+    if (arcaLocked) return null;
     if (!initial.filled.has(field) || dirtyFields[field]) return null;
     // With items, these are recomputed from the lines, not the document's.
     if (watchedWithItems && ITEM_DERIVED_FIELDS.includes(field)) return null;
@@ -497,8 +500,10 @@ export function PurchaseInvoiceForm({
       }
     }
     // Channel: pre-fill only if the form still has the default-from-scope channel
-    // and the supplier has one saved.
+    // and the supplier has one saved. An ARCA voucher is fiscal whatever the
+    // supplier's usual channel.
     if (
+      !arcaLocked &&
       supplierDetail.default_channel_id &&
       channels.some(
         (c) => c.id === supplierDetail.default_channel_id && c.is_active,
@@ -526,7 +531,7 @@ export function PurchaseInvoiceForm({
         form.setValue("fch_vto_pago", iso, { shouldDirty: false });
       }
     }
-  }, [mode, supplierDetail, defaultChannelId, channels, form]);
+  }, [mode, supplierDetail, defaultChannelId, channels, form, arcaLocked]);
 
   const watchedChannelId = useWatch({
     control: form.control,
@@ -778,9 +783,13 @@ export function PurchaseInvoiceForm({
       createMut.mutate(payload, {
         onSuccess: (data) => {
           toast.success(
-            createDraft
-              ? "Factura cargada con el archivo adjunto."
-              : "Factura cargada.",
+            arcaLocked
+              ? data.linkedExisting
+                ? "Ya estaba cargado: quedó vinculado."
+                : "Comprobante de ARCA cargado."
+              : createDraft?.source
+                ? "Factura cargada con el archivo adjunto."
+                : "Factura cargada.",
           );
           if (onSuccess) onSuccess(data.id);
           else router.push("/purchases");
@@ -807,7 +816,12 @@ export function PurchaseInvoiceForm({
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
-        {createDraft && <DraftNotice warnings={createDraft.data.warnings} />}
+        {createDraft && (
+          <DraftNotice
+            warnings={createDraft.data.warnings}
+            fromArca={arcaLocked}
+          />
+        )}
         <FormField
           control={form.control}
           name="supplier"
@@ -860,7 +874,11 @@ export function PurchaseInvoiceForm({
               <FormItem>
                 <FormLabel>Tipo{aiMark("kind")}</FormLabel>
                 <FormControl>
-                  <Select value={field.value} onValueChange={field.onChange}>
+                  <Select
+                    disabled={arcaLocked}
+                    value={field.value}
+                    onValueChange={field.onChange}
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -901,6 +919,7 @@ export function PurchaseInvoiceForm({
                   <FormLabel>Letra{aiMark("letter")}</FormLabel>
                   <FormControl>
                     <Select
+                      disabled={arcaLocked}
                       value={field.value || "__none"}
                       onValueChange={(v) =>
                         field.onChange(v === "__none" ? "" : v)
@@ -937,6 +956,7 @@ export function PurchaseInvoiceForm({
                 <FormControl>
                   <Input
                     {...field}
+                    disabled={arcaLocked}
                     type="number"
                     inputMode="numeric"
                     placeholder="3"
@@ -955,6 +975,7 @@ export function PurchaseInvoiceForm({
                 <FormControl>
                   <Input
                     {...field}
+                    disabled={arcaLocked}
                     type="number"
                     inputMode="numeric"
                     placeholder="12345"
@@ -992,7 +1013,11 @@ export function PurchaseInvoiceForm({
               <FormItem>
                 <FormLabel>Fecha{aiMark("fecha")}</FormLabel>
                 <FormControl>
-                  <DatePicker value={field.value} onChange={field.onChange} />
+                  <DatePicker
+                    disabled={arcaLocked}
+                    value={field.value}
+                    onChange={field.onChange}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -1027,6 +1052,7 @@ export function PurchaseInvoiceForm({
               <FormItem className="flex items-start gap-3 space-y-0">
                 <FormControl>
                   <input
+                    disabled={arcaLocked}
                     type="checkbox"
                     checked={field.value}
                     onChange={(e) => {
@@ -1090,6 +1116,7 @@ export function PurchaseInvoiceForm({
                 <FormControl>
                   <Input
                     {...field}
+                    disabled={arcaLocked}
                     type="number"
                     inputMode="decimal"
                     step="0.01"
@@ -1117,6 +1144,7 @@ export function PurchaseInvoiceForm({
                 <FormControl>
                   <Input
                     {...field}
+                    disabled={arcaLocked}
                     type="number"
                     inputMode="decimal"
                     step="0.01"
@@ -1140,7 +1168,7 @@ export function PurchaseInvoiceForm({
                     type="number"
                     inputMode="decimal"
                     step="0.01"
-                    disabled={!breakdownKnown}
+                    disabled={arcaLocked || !breakdownKnown}
                   />
                 </FormControl>
                 <FormMessage />
@@ -1163,6 +1191,7 @@ export function PurchaseInvoiceForm({
                 <FormControl>
                   <Input
                     {...field}
+                    disabled={arcaLocked}
                     type="number"
                     inputMode="decimal"
                     step="0.01"
@@ -1194,7 +1223,7 @@ export function PurchaseInvoiceForm({
                       type="number"
                       inputMode="decimal"
                       step="0.01"
-                      disabled={!breakdownKnown}
+                      disabled={arcaLocked || !breakdownKnown}
                     />
                   </FormControl>
                   <FormMessage />
@@ -1213,7 +1242,7 @@ export function PurchaseInvoiceForm({
                       type="number"
                       inputMode="decimal"
                       step="0.01"
-                      disabled={!breakdownKnown}
+                      disabled={arcaLocked || !breakdownKnown}
                     />
                   </FormControl>
                   <FormMessage />
@@ -1222,7 +1251,6 @@ export function PurchaseInvoiceForm({
             />
           </div>
         )}
-
         {watchedChannelIsFiscal && Number(watchedTrib || 0) > 0 && (
           <TributesSplitFields
             control={form.control}
@@ -1330,7 +1358,11 @@ export function PurchaseInvoiceForm({
               <FormItem>
                 <FormLabel>Moneda{aiMark("moneda")}</FormLabel>
                 <FormControl>
-                  <Select value={field.value} onValueChange={field.onChange}>
+                  <Select
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    disabled={arcaLocked}
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -1381,6 +1413,9 @@ export function PurchaseInvoiceForm({
                       {...field}
                       autoComplete="off"
                       placeholder="14 dígitos"
+                      disabled={
+                        arcaLocked && createDraft?.data.cae_proveedor != null
+                      }
                     />
                   </FormControl>
                   <FormMessage />
@@ -1481,14 +1516,23 @@ export function PurchaseInvoiceForm({
   );
 }
 
-function DraftNotice({ warnings }: { warnings: string[] }) {
+function DraftNotice({
+  warnings,
+  fromArca,
+}: {
+  warnings: string[];
+  fromArca: boolean;
+}) {
+  if (fromArca && warnings.length === 0) return null;
   return (
     <div className="space-y-1 rounded-md border bg-muted/20 px-3 py-2 text-xs">
-      <p className="flex items-center gap-2">
-        <Sparkles className="size-3.5 shrink-0 text-muted-foreground" />
-        Revisá los datos leídos del archivo antes de guardar. Los marcados con
-        el ícono los completó la IA.
-      </p>
+      {!fromArca && (
+        <p className="flex items-center gap-2">
+          <Sparkles className="size-3.5 shrink-0 text-muted-foreground" />
+          Revisá los datos leídos del archivo antes de guardar. Los marcados con
+          el ícono los completó la IA.
+        </p>
+      )}
       {warnings.map((w) => (
         <p key={w} className="flex items-start gap-2">
           <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />

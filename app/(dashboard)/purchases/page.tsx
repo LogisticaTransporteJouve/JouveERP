@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { PurchaseInvoiceFileAssistBinding } from "@/features/ai/document/components/purchase-invoice-file-assist";
 import { searchPurchaseInvoicesAction } from "@/features/purchase-invoices/actions/purchase-invoices-actions";
+import { ArcaReceivedLink } from "@/features/purchase-invoices/components/arca-received-link";
 import { PurchaseInvoicesTable } from "@/features/purchase-invoices/components/purchase-invoices-table";
 import {
   parsePurchaseListParams,
@@ -70,6 +71,9 @@ export default async function PurchasesPage({
               : "Compras a proveedores de Otras compras, sin factura: no van al Libro IVA."}
           </p>
         </div>
+        {isFiscalSide && userCan(ctx.access, "purchase_invoices:write") && (
+          <ArcaReceivedLink />
+        )}
       </div>
       <Hydrate state={dehydratedState}>
         <PurchaseInvoiceFileAssistBinding access={ctx.access}>
