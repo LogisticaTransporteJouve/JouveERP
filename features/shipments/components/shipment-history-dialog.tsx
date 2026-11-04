@@ -1,5 +1,6 @@
 "use client";
 
+import { ReadError } from "@/components/read-error";
 import {
   Dialog,
   DialogContent,
@@ -28,7 +29,12 @@ export function ShipmentHistoryDialog({
   shipmentId: string | null;
   onClose: () => void;
 }) {
-  const { data: entries, isLoading } = useShipmentHistory(shipmentId);
+  const {
+    data: entries,
+    isLoading,
+    isError,
+    refetch,
+  } = useShipmentHistory(shipmentId);
 
   return (
     <Dialog
@@ -50,6 +56,12 @@ export function ShipmentHistoryDialog({
             <Skeleton className="h-12 w-full" />
             <Skeleton className="h-12 w-full" />
           </div>
+        ) : isError && !entries ? (
+          <ReadError
+            message="No se pudo cargar el historial de estados."
+            onRetry={() => void refetch()}
+            className="justify-center py-6"
+          />
         ) : !entries || entries.length === 0 ? (
           <p className="py-6 text-center text-sm text-muted-foreground">
             Sin cambios de estado.
