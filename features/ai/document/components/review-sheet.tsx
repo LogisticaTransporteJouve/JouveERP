@@ -113,6 +113,7 @@ export function ReviewSheet({
   const data = detail.data;
   const fileId = data?.file_id;
   const [preview, setPreview] = useState<PreviewState | null>(null);
+  const [previewAttempt, setPreviewAttempt] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -144,7 +145,12 @@ export function ReviewSheet({
     return () => {
       cancelled = true;
     };
-  }, [fileId, data?.file?.original_filename, data?.file?.mime_type]);
+  }, [
+    fileId,
+    data?.file?.original_filename,
+    data?.file?.mime_type,
+    previewAttempt,
+  ]);
 
   const open = extractionId !== null;
   // Hide the floating sidecar while a nested action dialog (e.g. create cheques)
@@ -173,6 +179,7 @@ export function ReviewSheet({
             filename={preview?.filename ?? "documento"}
             mimeType={preview?.mimeType ?? null}
             isLoading={preview?.loading ?? true}
+            onRetry={() => setPreviewAttempt((n) => n + 1)}
             className="pointer-events-auto h-full w-full max-w-3xl"
           />
         </div>

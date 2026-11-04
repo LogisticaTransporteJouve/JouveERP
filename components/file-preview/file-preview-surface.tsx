@@ -3,6 +3,7 @@
 import { Download, Loader2, ZoomIn, ZoomOut } from "lucide-react";
 import { type ReactNode, useState } from "react";
 
+import { ReadError } from "@/components/read-error";
 import { Button } from "@/components/ui/button";
 import { isImage, isPdf } from "@/lib/files/preview";
 import { cn } from "@/lib/utils";
@@ -17,6 +18,8 @@ type FilePreviewSurfaceProps = {
   mimeType: string | null;
   /** True while the signed URL is still being generated. */
   isLoading?: boolean;
+  /** Asks for the signed URL again after it failed (`url` null, not loading). */
+  onRetry?: () => void;
   className?: string;
 };
 
@@ -31,11 +34,12 @@ export function FilePreviewSurface({
   filename,
   mimeType,
   isLoading,
+  onRetry,
   className,
 }: FilePreviewSurfaceProps) {
   const [scale, setScale] = useState(1);
 
-  if (isLoading || !url) {
+  if (isLoading) {
     return (
       <div
         className={cn(
@@ -45,6 +49,21 @@ export function FilePreviewSurface({
       >
         <Loader2 className="size-4 animate-spin" />
         Cargando archivo…
+      </div>
+    );
+  }
+
+  if (!url) {
+    const message = "No se pudo cargar el archivo.";
+    return (
+      <div className={cn("flex h-full items-center justify-center", className)}>
+        {onRetry ? (
+          <ReadError message={message} onRetry={onRetry} />
+        ) : (
+          <p role="alert" className="text-muted-foreground text-sm">
+            {message}
+          </p>
+        )}
       </div>
     );
   }
