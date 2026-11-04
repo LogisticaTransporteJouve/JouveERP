@@ -6,6 +6,11 @@ begin;
 
 select plan(8);
 
+-- The fixtures insert payment-order headers by hand; in the app only
+-- create_payment_order do (guard_document_insert).
+-- Disabled before any write, while no trigger event is pending.
+alter table public.payment_orders disable trigger payment_orders_guard_insert_rpc;
+
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000f4', 'admin@channel-config.test');
 insert into public.user_roles (user_id, role_id) values

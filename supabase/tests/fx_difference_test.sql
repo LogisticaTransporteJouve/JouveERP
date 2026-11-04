@@ -15,6 +15,12 @@ select set_config('request.jwt.claims', '{"role":"service_role"}', true);
 
 select plan(21);
 
+-- The fixtures insert receipt and payment-order headers by hand; in the app only
+-- create_receipt / create_payment_order do (guard_document_insert).
+-- Disabled before any write, while no trigger event is pending.
+alter table public.receipts disable trigger receipts_guard_insert_rpc;
+alter table public.payment_orders disable trigger payment_orders_guard_insert_rpc;
+
 -- Live (not reversed) amount of a role over the entries of some documents.
 create function pg_temp.role_net(p_ids uuid[], p_role text) returns numeric
 language sql as $$

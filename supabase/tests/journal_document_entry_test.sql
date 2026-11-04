@@ -8,6 +8,12 @@ begin;
 
 select plan(11);
 
+-- The fixtures insert receipt and payment-order headers by hand; in the app only
+-- create_receipt / create_payment_order do (guard_document_insert).
+-- Disabled before any write, while no trigger event is pending.
+alter table public.receipts disable trigger receipts_guard_insert_rpc;
+alter table public.payment_orders disable trigger payment_orders_guard_insert_rpc;
+
 select set_config('request.jwt.claims', '{"role":"service_role"}', true);
 
 insert into public.clients (id, is_fiscal, cuit, legal_name, iva_condition) values

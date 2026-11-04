@@ -9439,6 +9439,10 @@ export type Database = {
         }
         Returns: string
       }
+      create_loan: {
+        Args: { p_installments: Json; p_loan: Json }
+        Returns: string
+      }
       create_manual_journal_entry: {
         Args: {
           p_channel_id?: string

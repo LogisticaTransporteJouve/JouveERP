@@ -66,21 +66,29 @@ d("money guards (integration)", () => {
     invoiceA = inv!.id;
     created.push({ table: "invoices", id: invoiceA });
 
-    const { data: rc } = await service
-      .from("receipts")
-      .insert({
-        channel_id: channelId,
-        punto_venta: 3,
-        numero: 800000 + (stamp % 90000),
-        client_id: clientA,
-        receipt_date: "2026-07-04",
-        total_amount: 100,
-        currency: "ARS",
-        status: "issued",
-      })
+    // Only create_receipt inserts a receipt header (guard_document_insert).
+    const { data: cash } = await service
+      .from("accounts")
       .select("id")
+      .eq("type", "cash")
+      .eq("currency", "ARS")
+      .limit(1)
       .single();
-    receiptA = rc!.id;
+    const { data: rc, error: rcErr } = await service.rpc("create_receipt", {
+      p_channel_id: channelId,
+      p_punto_venta: 3,
+      p_numero: 800000 + (stamp % 90000),
+      p_client_id: clientA,
+      p_recibo_date: "2026-07-04",
+      p_total_amount: 100,
+      p_currency: "ARS",
+      p_notes: "",
+      p_payment_lines: [{ account_id: cash!.id, amount: 100 }],
+      p_allocations: [],
+      p_retentions: [],
+    });
+    if (rcErr) throw new Error(`receipt create: ${rcErr.message}`);
+    receiptA = rc!;
     created.push({ table: "receipts", id: receiptA });
   });
 

@@ -21,6 +21,7 @@ import type {
 import type { InvoiceKind, InvoiceLetter } from "@/lib/afip/codes";
 import { loadEmisor, redactEmisor } from "@/lib/pdf/emisor";
 import type { IvaCondition } from "@/features/clients/schema";
+import { inferIvaRateId } from "@/features/libro-iva/schema";
 import type { InvoiceRow } from "@/features/invoices/schema";
 
 const DOC_TIPO_LABEL: Record<number, string> = {
@@ -126,6 +127,22 @@ export async function buildTemplateData(
     });
   }
   per_rate.sort((a, b) => a.id - b.id);
+  // An invoice imported from ARCA without its breakdown has only the header:
+  // its one bucket goes under the rate the Libro IVA infers for it, so the
+  // PDF adds up (Subtotal + IVA = Total) and agrees with the book.
+  if (isFiscal && items.length === 0 && Number(row.imp_neto) > 0) {
+    const id = inferIvaRateId({
+      neto: Number(row.imp_neto),
+      iva: Number(row.imp_iva),
+    });
+    if (id !== null) {
+      per_rate.push({
+        id: id as InvoiceTemplateData["per_rate"][number]["id"],
+        base: Number(row.imp_neto),
+        importe: Number(row.imp_iva),
+      });
+    }
+  }
 
   // QR (only fiscal + has CAE)
   let qrDataUrl: string | null = null;
