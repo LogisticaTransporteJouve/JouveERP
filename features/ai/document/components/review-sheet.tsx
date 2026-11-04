@@ -4,6 +4,7 @@ import { AlertTriangle, CheckCircle2, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { FilePreviewSurface } from "@/components/file-preview/file-preview-surface";
+import { ReadError } from "@/components/read-error";
 import { Badge } from "@/components/ui/badge";
 import {
   Sheet,
@@ -159,8 +160,8 @@ export function ReviewSheet({
   const [nestedOpen, setNestedOpen] = useState(false);
   const kind = data?.detected_type ?? null;
   const band = confidenceBand(data?.confidence ?? null);
-  const status = statusConfig(data?.status ?? "pending_review");
-  const StatusIcon = status.icon;
+  // No status for a record that was never read.
+  const status = data ? statusConfig(data.status) : null;
   const match = matchInfo(data?.matches);
   const expense = expenseInfo(data?.matches);
   const recon = reconInfo(data?.matches);
@@ -178,8 +179,14 @@ export function ReviewSheet({
             url={preview?.url ?? null}
             filename={preview?.filename ?? "documento"}
             mimeType={preview?.mimeType ?? null}
-            isLoading={preview?.loading ?? true}
-            onRetry={() => setPreviewAttempt((n) => n + 1)}
+            // Spins only while the extraction or the signed URL is on its
+            // way: a failed extraction read falls through to «Reintentar».
+            isLoading={
+              detail.isLoading || (fileId ? (preview?.loading ?? true) : false)
+            }
+            onRetry={() =>
+              data ? setPreviewAttempt((n) => n + 1) : void detail.refetch()
+            }
             className="pointer-events-auto h-full w-full max-w-3xl"
           />
         </div>
@@ -230,12 +237,14 @@ export function ReviewSheet({
                   : ""}
               </span>
             )}
-            <span
-              className={`flex items-center gap-1 text-xs ${status.className}`}
-            >
-              <StatusIcon className="size-3" />
-              {status.label}
-            </span>
+            {status && (
+              <span
+                className={`flex items-center gap-1 text-xs ${status.className}`}
+              >
+                <status.icon className="size-3" />
+                {status.label}
+              </span>
+            )}
             {match.name && (
               <span className="text-muted-foreground flex items-center gap-1 text-xs">
                 <CheckCircle2 className="size-3" />
@@ -290,9 +299,11 @@ export function ReviewSheet({
             />
           </div>
         ) : (
-          <p className="text-muted-foreground flex-1 p-4 text-sm">
-            No se pudo cargar la extracción.
-          </p>
+          <ReadError
+            message="No se pudo cargar la extracción."
+            onRetry={() => void detail.refetch()}
+            className="flex-1 content-start p-4"
+          />
         )}
       </SheetContent>
     </Sheet>
