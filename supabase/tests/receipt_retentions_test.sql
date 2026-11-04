@@ -5,6 +5,11 @@ begin;
 
 select plan(5);
 
+-- The fixtures insert receipt headers by hand; in the app only
+-- create_receipt do (guard_document_insert).
+-- Disabled before any write, while no trigger event is pending.
+alter table public.receipts disable trigger receipts_guard_insert_rpc;
+
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000f2', 'finance@retentions.test');
 insert into public.user_roles (user_id, role_id) values

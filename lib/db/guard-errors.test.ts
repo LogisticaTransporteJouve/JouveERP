@@ -169,6 +169,13 @@ const GUARDS = [
   "guard_document_line",
   "deposit_check",
   "guard_supplier_cuit_closed_period",
+  "guard_document_insert",
+  "guard_loan_installment_payment",
+  "create_loan",
+  "guard_payment_order_line_cartera",
+  "create_receipt",
+  "update_receipt",
+  "guard_transaction_origin",
 ];
 
 describe("guard hints in migrations", () => {
