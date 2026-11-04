@@ -112,7 +112,8 @@ export const getTrips = defineAiAction({
     "revenue and manual_revenue. revenue is the invoiced freight of the " +
     "trip's shipments (without shipments, the manual figure), as in " +
     "getFleetProfitability; the total leaves out cancelled trips; without " +
-    "shipments:read it is not given. For queries about trips or transport; " +
+    "shipments:read, revenue is null and there is no total. For queries " +
+    "about trips or transport; " +
     "per-trip net and per-vehicle margin are in getFleetProfitability and " +
     "getFleetMargin.",
   input: z.object({}),
