@@ -272,3 +272,36 @@ describe("PurchaseInvoiceUpdateSchema", () => {
     expect(r).toEqual({ id: UUID, notes: "x" });
   });
 });
+
+describe("PurchaseInvoiceUpdateSchema leaves out what an edit does not send", () => {
+  it("does not fill amounts, currency or items with their create defaults", () => {
+    const parsed = PurchaseInvoiceUpdateSchema.parse({ id: UUID, notes: "x" });
+    for (const key of [
+      "imp_neto",
+      "imp_iva",
+      "imp_trib",
+      "imp_total",
+      "moneda",
+      "cotizacion",
+      "items",
+    ] as const) {
+      expect(parsed[key], key).toBeUndefined();
+    }
+  });
+
+  it("still reads the ones it sends", () => {
+    const parsed = PurchaseInvoiceUpdateSchema.parse({
+      id: UUID,
+      imp_neto: "100",
+      moneda: "DOL",
+      cotizacion: 1000,
+      items: [],
+    });
+    expect(parsed).toMatchObject({
+      imp_neto: 100,
+      moneda: "DOL",
+      cotizacion: 1000,
+      items: [],
+    });
+  });
+});

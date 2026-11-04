@@ -45,7 +45,7 @@ const EMPLOYEE_CHARGE_DENIED =
   "No tenés permiso para cargar una compra a un empleado.";
 
 const NON_COMPUTABLE_DENIED =
-  "En facturas B y C el IVA, el exento y el no gravado van incluidos en el neto: cargá el IVA en 0 y, si hay ítems, con alícuota «No gravado».";
+  "En facturas B y C el IVA, el exento y el no gravado van incluidos en el neto: cargá el IVA en 0 y, si hay ítems, con «Sin alícuota».";
 
 type LetterAmounts = {
   channel_id: string;

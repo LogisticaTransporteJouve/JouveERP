@@ -36,7 +36,9 @@ import {
   PaymentOrderCancelSchema,
   PaymentOrderCreateSchema,
   PaymentOrderUpdateSchema,
+  REJECTED_CHECK_ALLOCATION_SELECT,
   isPaymentOrderCurrency,
+  toRejectedCheckAllocation,
   isPaymentOrderStatus,
   type PaymentOrderStatus,
   type PaymentLineInput,
@@ -44,6 +46,7 @@ import {
   type PaymentOrderAllocateInput,
   type PaymentOrderAllocation,
   type PaymentOrderPaymentLine,
+  type RejectedCheckAllocation,
 } from "../schema";
 
 function narrowPaymentOrder(row: {
@@ -179,6 +182,8 @@ export type PaymentOrderDetail = {
   };
   payment_lines: PaymentOrderPaymentLine[];
   allocations: PaymentOrderAllocation[];
+  /** What the order applied to bounced checks: part of what it imputed. */
+  rejected_check_allocations: RejectedCheckAllocation[];
 };
 
 export async function getPaymentOrderByIdAction(
@@ -211,7 +216,7 @@ export async function getPaymentOrderByIdAction(
   }
   const sup = (row as unknown as SupplierIdentityJoin).suppliers;
 
-  const [linesRes, allocsRes] = await Promise.all([
+  const [linesRes, allocsRes, checkAllocsRes] = await Promise.all([
     supabase
       .from("payment_order_payment_lines")
       .select(
@@ -226,14 +231,20 @@ export async function getPaymentOrderByIdAction(
       )
       .eq("payment_order_id", id)
       .order("created_at"),
+    supabase
+      .from("payment_order_rejected_check_allocations")
+      .select(REJECTED_CHECK_ALLOCATION_SELECT)
+      .eq("payment_order_id", id)
+      .order("created_at"),
   ]);
 
-  if (linesRes.error || allocsRes.error) {
+  if (linesRes.error || allocsRes.error || checkAllocsRes.error) {
     logger.error("payment_orders.get.children_failed", {
       userId: ctx.userId,
       id,
       lines: linesRes.error,
       allocs: allocsRes.error,
+      checkAllocs: checkAllocsRes.error,
     });
     return { ok: false, error: "No se pudieron cargar los detalles." };
   }
@@ -248,6 +259,9 @@ export async function getPaymentOrderByIdAction(
       },
       payment_lines: linesRes.data ?? [],
       allocations: allocsRes.data ?? [],
+      rejected_check_allocations: (checkAllocsRes.data ?? []).map(
+        toRejectedCheckAllocation,
+      ),
     },
   };
 }
