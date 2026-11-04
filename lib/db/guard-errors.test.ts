@@ -176,6 +176,9 @@ const GUARDS = [
   "create_receipt",
   "update_receipt",
   "guard_transaction_origin",
+  "guard_payroll_payment_transaction",
+  "claim_storage_billing_period",
+  "guard_storage_billing_run_invoice",
 ];
 
 describe("guard hints in migrations", () => {

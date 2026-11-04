@@ -86,3 +86,21 @@ export async function findSourceInvoiceSlot(
   const free = keys.find((key) => !byKey.has(key));
   return free ? { kind: "free", key: free } : { kind: "exhausted" };
 }
+
+/** The invoice failed or was cancelled. A read error answers false, so the
+ *  caller keeps its claim (the safe side: no second invoice before the TTL). */
+export async function invoiceIsVoid(
+  supabase: SupabaseClient<Database>,
+  invoiceId: string,
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("invoices")
+    .select("status")
+    .eq("id", invoiceId)
+    .maybeSingle();
+  if (error) {
+    logger.error("source_invoice.status_read_failed", { invoiceId, error });
+    return false;
+  }
+  return data !== null && isVoid(data.status);
+}

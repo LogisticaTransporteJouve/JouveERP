@@ -8,7 +8,7 @@ import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { todayInAR } from "@/lib/format";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
-import { findSourceInvoiceSlot } from "@/lib/source-invoice-key";
+import { findSourceInvoiceSlot, invoiceIsVoid } from "@/lib/source-invoice-key";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { getServiceClient } from "@/lib/supabase/service";
 
@@ -16,7 +16,7 @@ import { isIvaCondition, type IvaCondition } from "@/features/clients/schema";
 import { issueFiscalInvoiceAction } from "@/features/invoices/actions/invoices-actions";
 import { formatInvoiceNumero } from "@/features/invoices/schema";
 
-import { invoiceIsVoid, releaseInvoicingClaim } from "../lib/invoicing-claim";
+import { releaseInvoicingClaim } from "../lib/invoicing-claim";
 import {
   FreightCandidatesSchema,
   FreightSettlementIdSchema,
