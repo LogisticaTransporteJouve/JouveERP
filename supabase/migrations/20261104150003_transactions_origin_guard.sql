@@ -10,9 +10,9 @@ SET LOCAL statement_timeout = '15min';
 --   Caja under that document with no journal entry (the document posts its
 --   own movements, build_transaction_journal_lines skips them), and the row
 --   could not be deleted or edited afterwards (owned by the document).
--- rejected_check_id, manual_check_id and check_sale_id are the same kind of
--- link (owned, posted by the check's own entries), so they follow the same
--- rule. invoice_id stays free: «Nuevo movimiento» sets it.
+-- rejected_check_id, manual_check_id and check_sale_id make a movement owned
+-- the same way and change how it is posted, so they follow the same rule.
+-- invoice_id stays free: «Nuevo movimiento» sets it.
 --
 -- The writers, latest definitions, of a transaction on a cartera or with one
 -- of those links:
