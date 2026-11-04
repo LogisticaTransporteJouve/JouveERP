@@ -466,16 +466,13 @@ async function localGaps(
   return gaps;
 }
 
-/** A `size` window of `gaps` that moves every hour, so gaps that never
- *  resolve (origin on another point of sale) cannot starve the rest. */
-export function hourlyWindow<T>(
-  gaps: T[],
-  size: number,
-  now = Date.now(),
-): T[] {
+/** A `size` window of `gaps` that moves every day (the sync runs nightly), so
+ *  gaps that never resolve (origin on another point of sale) cannot starve
+ *  the rest. */
+export function dailyWindow<T>(gaps: T[], size: number, now = Date.now()): T[] {
   if (gaps.length <= size) return gaps;
   const windows = Math.ceil(gaps.length / size);
-  const start = (Math.floor(now / 3_600_000) % windows) * size;
+  const start = (Math.floor(now / 86_400_000) % windows) * size;
   return gaps.slice(start, start + size);
 }
 
@@ -515,7 +512,7 @@ export async function syncIssuedPair(
   const isNcNd = kindLetterForCbteTipo(cbteTipo)?.kind !== "factura";
 
   if (opts.retryGaps && isNcNd && result.last_local > 0) {
-    const gaps = hourlyWindow(
+    const gaps = dailyWindow(
       await localGaps(supabase, pv, cbteTipo, result.last_local),
       limit,
     );
@@ -649,7 +646,7 @@ export async function reconcilePair(
 }
 
 /** Clients an earlier import could not name ("Cliente <CUIT>"): asks the
- *  padrón again, `limit` per call in an hourly rotating window so the ones
+ *  padrón again, `limit` per call in a daily rotating window so the ones
  *  AFIP never names do not starve the rest. */
 export async function renamePlaceholderClients(
   supabase: Supabase,
@@ -664,7 +661,7 @@ export async function renamePlaceholderClients(
     .order("created_at")
     .limit(1000);
   if (error) throw new Error(`placeholder clients: ${error.message}`);
-  const batch = hourlyWindow(data ?? [], limit);
+  const batch = dailyWindow(data ?? [], limit);
   let renamed = 0;
   for (const client of batch) {
     if (!client.cuit || client.legal_name !== placeholderName(client.cuit)) {

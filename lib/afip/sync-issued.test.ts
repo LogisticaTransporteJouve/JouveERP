@@ -4,7 +4,7 @@ vi.mock("server-only", () => ({}));
 
 import {
   CONSUMIDOR_FINAL_CUIT,
-  hourlyWindow,
+  dailyWindow,
   reconcilePair,
   renamePlaceholderClients,
   clientIvaConditionFor,
@@ -415,15 +415,15 @@ describe("syncIssuedPair", () => {
   });
 });
 
-describe("hourlyWindow", () => {
-  const hour = 3_600_000;
+describe("dailyWindow", () => {
+  const day = 86_400_000;
   it("returns everything when it fits and rotates otherwise", () => {
-    expect(hourlyWindow([1, 2], 5, 0)).toEqual([1, 2]);
+    expect(dailyWindow([1, 2], 5, 0)).toEqual([1, 2]);
     const gaps = [1, 2, 3, 4, 5];
-    expect(hourlyWindow(gaps, 2, 0)).toEqual([1, 2]);
-    expect(hourlyWindow(gaps, 2, hour)).toEqual([3, 4]);
-    expect(hourlyWindow(gaps, 2, 2 * hour)).toEqual([5]);
-    expect(hourlyWindow(gaps, 2, 3 * hour)).toEqual([1, 2]);
+    expect(dailyWindow(gaps, 2, 0)).toEqual([1, 2]);
+    expect(dailyWindow(gaps, 2, day)).toEqual([3, 4]);
+    expect(dailyWindow(gaps, 2, 2 * day)).toEqual([5]);
+    expect(dailyWindow(gaps, 2, 3 * day)).toEqual([1, 2]);
   });
 });
 
