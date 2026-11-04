@@ -9,6 +9,7 @@ import {
   PG_UNIQUE_VIOLATION,
 } from "@/lib/db/pg-error-codes";
 import { logger } from "@/lib/logger";
+import { escapeLike } from "@/lib/supabase/like-pattern";
 import { createClient } from "@/lib/supabase/server";
 import { paginateRange } from "@/lib/supabase/paginate";
 
@@ -47,6 +48,34 @@ export async function listSupplierCategoriesAction(
   return { ok: true, data: data ?? [] };
 }
 
+const duplicateNameError = (name: string) =>
+  `Ya existe la categoría "${name}".`;
+
+/**
+ * The existing category whose name equals `name` ignoring case (the unique
+ * constraint on name is case-sensitive), other than `exceptId`.
+ */
+async function findCategoryByName(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  name: string,
+  exceptId?: string,
+) {
+  let query = supabase
+    .from("supplier_categories")
+    .select("id, name")
+    .ilike("name", escapeLike(name));
+  if (exceptId) query = query.neq("id", exceptId);
+  return query.limit(1).maybeSingle();
+}
+
+/** Whether the user may create categories (the pickers' "Nueva categoría"). */
+export async function canCreateSupplierCategoryAction(): Promise<
+  ActionResult<boolean>
+> {
+  const ctx = await requireUserContext();
+  return { ok: true, data: userCan(ctx.access, "suppliers:write") };
+}
+
 export async function createSupplierCategoryAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
@@ -64,6 +93,18 @@ export async function createSupplierCategoryAction(
   }
 
   const supabase = await createClient();
+  const existing = await findCategoryByName(supabase, parsed.data.name);
+  if (existing.error) {
+    logger.error("supplier_categories.create.precheck_failed", {
+      userId: ctx.userId,
+      error: existing.error,
+    });
+    return { ok: false, error: "No se pudo crear la categoría." };
+  }
+  if (existing.data) {
+    return { ok: false, error: duplicateNameError(existing.data.name) };
+  }
+
   const { data, error } = await supabase
     .from("supplier_categories")
     .insert({
@@ -88,7 +129,12 @@ export async function createSupplierCategoryAction(
     return { ok: false, error: "No se pudo crear la categoría." };
   }
 
-  await logAudit("supplier_category.created", ctx.userId, {}, data.id);
+  await logAudit(
+    "supplier_category.created",
+    ctx.userId,
+    { name: parsed.data.name },
+    data.id,
+  );
   return { ok: true, data: { id: data.id } };
 }
 
@@ -110,6 +156,19 @@ export async function updateSupplierCategoryAction(
 
   const { id, ...rest } = parsed.data;
   const supabase = await createClient();
+  if (rest.name !== undefined) {
+    const existing = await findCategoryByName(supabase, rest.name, id);
+    if (existing.error) {
+      logger.error("supplier_categories.update.precheck_failed", {
+        userId: ctx.userId,
+        error: existing.error,
+      });
+      return { ok: false, error: "No se pudo actualizar la categoría." };
+    }
+    if (existing.data) {
+      return { ok: false, error: duplicateNameError(existing.data.name) };
+    }
+  }
   const { error } = await supabase
     .from("supplier_categories")
     .update({
