@@ -10,6 +10,10 @@ import {
   RecategorizeExpenseSchema,
   type ExpenseSource,
 } from "@/features/cost-centers/schema";
+import {
+  rateJumpWarningFor,
+  type RateReference,
+} from "@/features/exchange-rates/lib/rate-jump";
 import { ExchangeRateCreateSchema } from "@/features/exchange-rates/schema";
 import {
   CreateLeaveSchema,
@@ -212,6 +216,52 @@ export const journalEntryProposalSpec = defineProposalSpec({
   ],
 });
 
+// The stored rate a proposed one is compared with travels in the labels, so
+// a revision («Modificar») re-checks its new rate against it.
+const RATE_REF_DATE = "rate_ref_date";
+const RATE_REF_RATE = "rate_ref_rate";
+const RATE_REF_EARLIER = "rate_ref_earlier";
+const RATE_REF_UNREAD = "rate_ref_unread";
+
+/** The labels that carry the reference rate: `null` when none is stored,
+ *  `"unread"` when it could not be read. */
+export function rateReferenceLabels(
+  ref: RateReference | null | "unread",
+): ProposalLabels {
+  if (ref === "unread") return { [RATE_REF_UNREAD]: "1" };
+  if (!ref) return {};
+  return {
+    [RATE_REF_DATE]: ref.rate_date,
+    [RATE_REF_RATE]: String(ref.rate),
+    [RATE_REF_EARLIER]: ref.earlier ? "1" : "0",
+  };
+}
+
+function rateJumpRow(
+  rate: number,
+  labels: ProposalLabels,
+): ProposalSummaryRow | null {
+  if (labels[RATE_REF_UNREAD]) {
+    return {
+      label: "Atención",
+      value:
+        "No se pudo leer la cotización guardada para compararla. Revisá el número antes de guardar.",
+    };
+  }
+  const refDate = labels[RATE_REF_DATE];
+  const refRate = Number(labels[RATE_REF_RATE]);
+  if (!refDate || !Number.isFinite(refRate)) return null;
+  const warning = rateJumpWarningFor(
+    {
+      rate_date: refDate,
+      rate: refRate,
+      earlier: labels[RATE_REF_EARLIER] === "1",
+    },
+    rate,
+  );
+  return warning ? { label: "Atención", value: warning } : null;
+}
+
 export const exchangeRateProposalSpec = defineProposalSpec({
   title: "Cargar cotización USD",
   draft: ExchangeRateCreateSchema,
@@ -227,12 +277,16 @@ export const exchangeRateProposalSpec = defineProposalSpec({
   ],
   confirmLabel: "Guardar cotización",
   declineLabel: "Descartar",
-  summarize: (d) => [
-    { label: "Fecha", value: formatArgentineDate(d.rate_date) },
-    { label: "Cotización", value: `$ ${formatRate(d.rate)}` },
-    { label: "Fuente", value: "Manual (reemplaza la del BCRA de ese día)" },
-    ...(d.notes ? [{ label: "Notas", value: d.notes }] : []),
-  ],
+  summarize: (d, labels) => {
+    const jump = rateJumpRow(d.rate, labels);
+    return [
+      { label: "Fecha", value: formatArgentineDate(d.rate_date) },
+      { label: "Cotización", value: `$ ${formatRate(d.rate)}` },
+      ...(jump ? [jump] : []),
+      { label: "Fuente", value: "Manual (reemplaza la del BCRA de ese día)" },
+      ...(d.notes ? [{ label: "Notas", value: d.notes }] : []),
+    ];
+  },
 });
 
 export const workflowProposalSpec = defineProposalSpec({

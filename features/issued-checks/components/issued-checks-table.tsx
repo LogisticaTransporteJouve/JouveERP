@@ -10,7 +10,8 @@ import { useConfirm } from "@/components/providers/confirm-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
-import type { Account } from "@/features/accounts/schema";
+import { AccountOptionsError } from "@/features/accounts/components/account-options-gate";
+import { useAccountOptions } from "@/features/accounts/hooks/use-accounts";
 import type { CheckChannelOption } from "@/features/checks/components/check-action-dialogs";
 import type { Access } from "@/lib/auth/permissions";
 import { userCan, userCanAll } from "@/lib/auth/permissions";
@@ -39,11 +40,9 @@ const STATUS_BADGE: Record<string, string> = {
 };
 
 export function IssuedChecksTable({
-  accounts,
   channels,
   actorAccess,
 }: {
-  accounts: Account[];
   channels: CheckChannelOption[];
   actorAccess: Access;
 }) {
@@ -56,6 +55,16 @@ export function IssuedChecksTable({
   // Cashing and bouncing book a bank movement, so they need
   // transactions:write as well; editing and annulling do not.
   const canMoveMoney = userCanAll(actorAccess, ISSUED_CHECK_CASH_PERMISSIONS);
+  // «Nuevo» and «Editar» pick the chequera: without the accounts (a per-user
+  // deny of accounts:read or a failed read) they are hidden and the reason
+  // shows instead.
+  const {
+    accounts,
+    error: accountsError,
+    pending: accountsPending,
+    retry: retryAccounts,
+  } = useAccountOptions(userCan(actorAccess, "accounts:read"));
+  const canPickAccount = !accountsError && !accountsPending;
 
   const columns = useMemo<ColumnDef<IssuedCheck>[]>(() => {
     async function transition(
@@ -197,11 +206,13 @@ export function IssuedChecksTable({
                       </Button>
                     </>
                   )}
-                  <EditIssuedCheckDialog
-                    check={c}
-                    accounts={accounts}
-                    channels={channels}
-                  />
+                  {canPickAccount && (
+                    <EditIssuedCheckDialog
+                      check={c}
+                      accounts={accounts}
+                      channels={channels}
+                    />
+                  )}
                   {/* A check of a payment order goes away with the order
                       (annul or edit it); annulling it alone gave the debt
                       back twice once the order was annulled too. */}
@@ -223,7 +234,15 @@ export function IssuedChecksTable({
         },
       },
     ];
-  }, [accounts, canMoveMoney, canWrite, channels, confirm, transitionMut]);
+  }, [
+    accounts,
+    canMoveMoney,
+    canPickAccount,
+    canWrite,
+    channels,
+    confirm,
+    transitionMut,
+  ]);
 
   return (
     <>
@@ -231,12 +250,20 @@ export function IssuedChecksTable({
         actions={
           <>
             <ExportButton resource="issued-checks" />
-            {canWrite && (
+            {canWrite && canPickAccount && (
               <NewIssuedCheckDialog accounts={accounts} channels={channels} />
             )}
           </>
         }
       />
+
+      {canWrite && accountsError && (
+        <AccountOptionsError
+          message={accountsError}
+          onRetry={retryAccounts}
+          className="mt-2 justify-start"
+        />
+      )}
 
       {canWrite && !canMoveMoney && (
         <p className="mt-2 text-xs text-muted-foreground">

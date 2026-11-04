@@ -448,6 +448,19 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
       existentes. Rollback: el código anterior inserta cheques solo con esas
       formas, nunca hace PATCH de esas columnas y escribe `check_movements`
       solo por esas RPC y el «recibido» inicial.
+- [ ] **Aprobar `20261104131000` y `20261104132100`** (auditoría w6).
+      Ninguna toca filas existentes.
+  - `131000`: un comprobante de Recibidos vuelve a Pendientes también si
+    se edita la clave de la compra vinculada (proveedor, tipo, letra, punto
+    de venta, número o canal), y una compra se queda con un solo
+    comprobante. `link_received_vouchers` mantiene la firma; el código
+    anterior no tiene la bandeja.
+  - `132100`: los ítems de una compra fiscal en un período cerrado no
+    cambian (neto e IVA por alícuota, o tener o no ítems), ni por la RPC
+    ni por escritura directa. Rollback: el código anterior llama a la misma
+    RPC y recibe el mensaje del guard (55006). Como guarda el encabezado
+    antes que los ítems, las notas, el vencimiento o la cuenta que cambió
+    quedan guardados aunque vea el error.
 - [ ] **Aprobar `20261104140000`** (auditoría w7): un cheque propio cambia
       de estado solo desde «emitido» y se inserta emitido
       (`guard_issued_check_edit`). No toca filas existentes. Rollback: el

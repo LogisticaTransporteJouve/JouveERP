@@ -21,7 +21,8 @@ export const INSIGHT_KIND_PERMISSION: Readonly<
   dup_invoice: "purchase_invoices:read",
   unusual_amount: "purchase_invoices:read",
   fleet_doc_expiry: "fleet_documents:read",
-  trip_margin: "trips:read",
+  // Its revenue is the invoiced freight of the shipments, as in the report.
+  trip_margin: ["trips:read", "shipments:read"],
   // 6.4 indicators
   client_margin_drop: ["management:read", "invoices:read"],
   vehicle_cost_per_km: ["trips:read", "fuel:read", "maintenance:read"],

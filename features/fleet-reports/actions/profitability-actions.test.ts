@@ -121,6 +121,51 @@ describe("getFleetProfitabilityAction", () => {
     expect(res.data.totals.revenue).toBe(300);
   });
 
+  it("leaves a cancelled trip out, keeping its fuel at vehicle level", async () => {
+    const trip = (id: string, status: string) => ({
+      id,
+      trip_date: "2026-03-01",
+      status,
+      vehicle_id: "v1",
+      origin: null,
+      destination: null,
+      revenue: 1000,
+      cost: 200,
+      vehicle: { patente: "AA111AA" },
+      driver: null,
+    });
+    const revenue = (tripId: string) => ({
+      trip_id: tripId,
+      trip_date: "2026-03-01",
+      revenue: 1000,
+      revenue_source: "manual",
+      invoiced_revenue: 0,
+    });
+    fake = pagedSupabase(
+      {
+        trips: [trip("t1", "completed"), trip("t2", "cancelled")],
+        v_trip_revenue: [revenue("t1"), revenue("t2")],
+        fuel_loads: [
+          {
+            vehicle_id: "v1",
+            trip_id: "t2",
+            amount: 50,
+            load_date: "2026-03-01",
+          },
+        ],
+        maintenance_records: [],
+        vehicles: [{ id: "v1", patente: "AA111AA" }],
+      },
+      { applyFilters: true },
+    );
+    const res = await getFleetProfitabilityAction(range);
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.data.trips.map((t) => t.id)).toEqual(["t1"]);
+    expect(res.data.vehicles[0]).toMatchObject({ trips: 1, fuel_cost: 50 });
+    expect(res.data.totals).toMatchObject({ revenue: 1000, cost: 250 });
+  });
+
   it("requires shipments:read, since revenue comes from the shipments", async () => {
     roles = ["driver"];
     const res = await getFleetProfitabilityAction(range);

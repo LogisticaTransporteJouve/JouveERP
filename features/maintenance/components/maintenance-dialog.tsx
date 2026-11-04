@@ -42,25 +42,33 @@ import {
   useUpdateMaintenance,
 } from "../hooks/use-maintenance";
 import {
+  LINKED_VOUCHER_COST_REQUIRED,
   MAINTENANCE_KINDS,
   MAINTENANCE_KIND_LABELS,
   type MaintenanceRecord,
 } from "../schema";
 
-const FormSchema = z.object({
-  vehicle_id: z.string().min(1, "Vehículo requerido."),
-  service_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha requerida."),
-  kind: z.enum(MAINTENANCE_KINDS),
-  description: z.string().trim().min(1, "Descripción requerida.").max(500),
-  cost: z.string(),
-  odometer_km: z.string(),
-  next_service_date: z.string(),
-  next_service_km: z.string(),
-  provider: z.string().trim().max(160),
-  notes: z.string().trim().max(2000),
-  purchase_invoice_id: z.string(),
-  transaction_id: z.string(),
-});
+const FormSchema = z
+  .object({
+    vehicle_id: z.string().min(1, "Vehículo requerido."),
+    service_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha requerida."),
+    kind: z.enum(MAINTENANCE_KINDS),
+    description: z.string().trim().min(1, "Descripción requerida.").max(500),
+    cost: z.string(),
+    odometer_km: z.string(),
+    next_service_date: z.string(),
+    next_service_km: z.string(),
+    provider: z.string().trim().max(160),
+    notes: z.string().trim().max(2000),
+    purchase_invoice_id: z.string(),
+    transaction_id: z.string(),
+  })
+  .refine(
+    (v) =>
+      v.cost.trim() !== "" ||
+      (v.purchase_invoice_id === "" && v.transaction_id === ""),
+    { path: ["cost"], message: LINKED_VOUCHER_COST_REQUIRED },
+  );
 
 type FormValues = z.infer<typeof FormSchema>;
 

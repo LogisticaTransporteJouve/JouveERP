@@ -155,10 +155,12 @@
         </ol>
         <div class="callout">
           <strong>Si ARCA rechaza la clave, o el ingreso falla dos veces
-          seguidas después de mandarla</strong> (bloqueo, un error de ARCA),
-          JouveERP deja de entrar para no bloquear el usuario en ARCA. El panel
-          dice por qué. Si ARCA está caído o pide captcha antes de la clave, no
-          cuenta: vuelve a probar en la próxima corrida. Para que vuelva a
+          seguidas mientras ARCA evalúa la clave</strong> (bloqueo, un error de
+          ARCA al validarla), JouveERP deja de entrar para no bloquear el
+          usuario en ARCA. El panel dice por qué. Si ARCA está caído o pide
+          captcha antes de la clave, no cuenta: vuelve a probar en la próxima
+          corrida. Si ARCA ya aceptó la clave y falla después (el portal o Mis
+          Comprobantes), tampoco cuenta y reinicia la cuenta de fallas. Para que vuelva a
           entrar, cargá la clave otra vez (la misma, si no cambió) y guardá.
         </div>
         <p>
@@ -516,7 +518,8 @@
           día quedan dos.</p>
 
         <p>Permiso: <span class="badge">imports:write</span> (owner / admin)
-          más el del módulo de cada tipo.</p>
+          más el del módulo de cada tipo (cheques: además
+          <span class="badge">transactions:write</span>).</p>
 
         <!-- ──────── BACKUPS ──────── -->
         <h2 id="backups">Backups</h2>
