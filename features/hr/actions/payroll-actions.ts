@@ -4,6 +4,7 @@ import { logAudit } from "@/lib/actions/audit";
 import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
+import { mapDbGuardError } from "@/lib/db/guard-errors";
 import type { Database } from "@/lib/db/database.types";
 import { logger } from "@/lib/logger";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
@@ -321,16 +322,34 @@ export async function closePayrollPeriodAction(
   }
 
   const supabase = await createSupabaseClient();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("payroll_periods")
     .update({
       status: "closed",
       closed_at: new Date().toISOString(),
       closed_by: ctx.userId,
     })
-    .eq("id", parsed.data.id);
+    .eq("id", parsed.data.id)
+    .eq("status", "draft")
+    .select("id");
 
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    if (!error.hint) {
+      logger.error("payroll.close.failed", { userId: ctx.userId, error });
+    }
+    return {
+      ok: false,
+      error:
+        mapDbGuardError(error, {
+          slug: "payroll.close.rejected",
+          userId: ctx.userId,
+          id: parsed.data.id,
+        }) ?? "No se pudo cerrar el período.",
+    };
+  }
+  if (!data?.length) {
+    return { ok: false, error: "El período ya estaba cerrado o no existe." };
+  }
   await logAudit("payroll.period_closed", ctx.userId, {}, parsed.data.id);
   return { ok: true, data: undefined };
 }
@@ -349,16 +368,37 @@ export async function reopenPayrollPeriodAction(
   }
 
   const supabase = await createSupabaseClient();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("payroll_periods")
     .update({
       status: "draft",
       closed_at: null,
       closed_by: null,
     })
-    .eq("id", parsed.data.id);
+    .eq("id", parsed.data.id)
+    .eq("status", "closed")
+    .select("id");
 
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    if (!error.hint) {
+      logger.error("payroll.reopen.failed", { userId: ctx.userId, error });
+    }
+    return {
+      ok: false,
+      error:
+        mapDbGuardError(error, {
+          slug: "payroll.reopen.rejected",
+          userId: ctx.userId,
+          id: parsed.data.id,
+        }) ?? "No se pudo reabrir el período.",
+    };
+  }
+  if (!data?.length) {
+    return {
+      ok: false,
+      error: "El período ya estaba en borrador o no existe.",
+    };
+  }
   await logAudit("payroll.period_reopened", ctx.userId, {}, parsed.data.id);
   return { ok: true, data: undefined };
 }
