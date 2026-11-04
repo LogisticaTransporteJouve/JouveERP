@@ -76,14 +76,22 @@ export function EditInstallmentDialog({
 
   function onSubmit() {
     if (!installment) return;
-    const input = splitOn
-      ? { id: installment.id, due_date: dueDate, split: parseDraft(split) }
-      : {
-          id: installment.id,
-          amount: parseArAmount(amount) ?? 0,
-          due_date: dueDate,
-          ...(installment.split !== null && { split: null }),
-        };
+    const parsedAmount = parseArAmount(amount);
+    // A blank amount is no amount: saving it as 0 dropped the cuota from the
+    // schedule.
+    if (!splitOn && parsedAmount === null) {
+      toast.error("Monto requerido.");
+      return;
+    }
+    const input =
+      splitOn || parsedAmount === null
+        ? { id: installment.id, due_date: dueDate, split: parseDraft(split) }
+        : {
+            id: installment.id,
+            amount: parsedAmount,
+            due_date: dueDate,
+            ...(installment.split !== null && { split: null }),
+          };
     updateMut.mutate(input, {
       onSuccess: () => {
         toast.success("Cuota actualizada.");

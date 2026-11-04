@@ -4,7 +4,7 @@ import { logAudit } from "@/lib/actions/audit";
 import type { JsonValue } from "@/lib/actions/audit";
 import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
-import { userCan } from "@/lib/auth/permissions";
+import { userCan, userCanAll } from "@/lib/auth/permissions";
 import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { logger } from "@/lib/logger";
@@ -19,6 +19,7 @@ import { todayInAR } from "@/lib/format";
 
 import type { AccountsListNameJoin } from "@/features/accounts/schema";
 import type { SupplierListLegalJoin } from "@/features/suppliers/schema";
+import { CHECK_CASH_DENIED_REASON } from "@/features/checks/lib/check-cash";
 
 import {
   ISSUED_CHECK_STATUSES,
@@ -30,6 +31,10 @@ import {
   isIssuedCheckStatus,
   type IssuedCheck,
 } from "../schema";
+import {
+  ISSUED_CHECK_CASH_PERMISSIONS,
+  transitionMovesMoney,
+} from "../lib/issued-check-cash";
 
 function narrow(row: Record<string, unknown>): IssuedCheck | null {
   if (!isIssuedCheckKind(row.kind)) return null;
@@ -316,6 +321,12 @@ export async function transitionIssuedCheckAction(
 
   const parsed = IssuedCheckTransitionSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Datos inválidos." };
+  if (
+    transitionMovesMoney(parsed.data.to_status) &&
+    !userCanAll(ctx.access, ISSUED_CHECK_CASH_PERMISSIONS)
+  ) {
+    return { ok: false, error: CHECK_CASH_DENIED_REASON };
+  }
 
   const today = todayInAR();
   const eventDate = parsed.data.event_date ?? today;

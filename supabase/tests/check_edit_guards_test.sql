@@ -135,7 +135,7 @@ select set_config('request.jwt.claims',
 select throws_ok(
   $$update public.checks set amount = 150 where id = '00000000-0000-0000-0000-0000000015c1'$$,
   '55006',
-  'El monto, la moneda, la cartera, el recibo y el estado de un cheque se cambian solo desde sus acciones (depositar, acreditar, rechazar, vender) o desde la orden de pago que lo endosa',
+  'El monto, la moneda, la cartera, el origen (recibo o cliente) y el estado de un cheque se cambian solo desde sus acciones (depositar, acreditar, rechazar, vender) o desde la orden de pago que lo endosa',
   'a finance user cannot PATCH a cartera check''s amount'
 );
 

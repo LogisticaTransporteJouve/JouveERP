@@ -263,8 +263,6 @@ export async function createCheckAction(
       cartera_account_id: data.cartera_account_id,
       channel_id: data.channel_id,
       source_kind: data.source_kind,
-      source_receipt_id: data.source_receipt_id ?? null,
-      source_payment_line_id: data.source_payment_line_id ?? null,
       source_client_id: data.source_client_id ?? null,
       notes: data.notes ?? null,
       created_by: ctx.userId,

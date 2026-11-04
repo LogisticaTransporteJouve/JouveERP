@@ -65,6 +65,24 @@ describe("ManualChequeCreateSchema", () => {
       }).success,
     ).toBe(true);
   });
+
+  it("only loads a manual check, never one tied to a receipt", () => {
+    const withChannel = { ...valid, channel_id: "jouve_internal" };
+    expect(
+      ManualChequeCreateSchema.safeParse({
+        ...withChannel,
+        source_kind: "receipt",
+      }).success,
+    ).toBe(false);
+    const parsed = ManualChequeCreateSchema.parse({
+      ...withChannel,
+      source_receipt_id: UUID,
+      source_payment_line_id: UUID,
+    });
+    expect(parsed.source_kind).toBe("manual");
+    expect(parsed).not.toHaveProperty("source_receipt_id");
+    expect(parsed).not.toHaveProperty("source_payment_line_id");
+  });
 });
 
 describe("DepositChequeSchema", () => {

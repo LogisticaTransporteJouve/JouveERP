@@ -5,7 +5,7 @@ import { ReconciliationPage } from "@/features/bank-reconciliation/components/re
 import { reconciliationKeys } from "@/features/bank-reconciliation/lib/reconciliation-keys";
 import { IMPORT_KIND_PERMISSION } from "@/features/imports/schema";
 import { requireUserContext } from "@/lib/auth/context";
-import { userCan } from "@/lib/auth/permissions";
+import { userCan, userCanAll } from "@/lib/auth/permissions";
 import { todayInAR } from "@/lib/format";
 import { Hydrate } from "@/lib/query/hydrate";
 import { prefetchQueries } from "@/lib/query/prefetch";
@@ -35,7 +35,7 @@ export default async function ReconciliationRoute() {
         }
         canImport={
           userCan(ctx.access, "imports:write") &&
-          userCan(ctx.access, IMPORT_KIND_PERMISSION.bank_statement)
+          userCanAll(ctx.access, IMPORT_KIND_PERMISSION.bank_statement)
         }
       />
     </Hydrate>
