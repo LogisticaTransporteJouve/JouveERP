@@ -495,6 +495,37 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
     `mapDbGuardError`, como las otras guardas de proveedores. Ver si hay
     proveedores afectados (N/A en producción, sin compras):
     `select distinct s.id, s.cuit from public.suppliers s join public.purchase_invoices p on p.supplier_id = s.id join public.invoicing_channels c on c.id = p.channel_id and c.is_fiscal join public.accounting_closed_periods cp on cp.period = to_char(p.fecha, 'YYYY-MM') where p.status = 'received';`
+- [ ] **Aprobar `20261104150000`** (auditoría w8): `guard_document_insert`
+      en `receipts` y `payment_orders`. Una cabecera se inserta solo dentro
+      de `create_receipt` / `create_payment_order`. No toca filas
+      existentes. Rollback: el código anterior inserta cabeceras solo por
+      esas RPC.
+- [ ] **Aprobar `20261104150001`** (auditoría w8, préstamos). No toca filas
+      existentes.
+  - `guard_loan_installment_payment`: una cuota se inserta pendiente, y su
+    estado, fecha e importe pagados y su movimiento cambian solo dentro de
+    `pay_loan_installment` / `adopt_loan_installment_payment`.
+  - `guard_loan`: el desembolso se liga solo dentro de
+    `record_loan_disbursement`, y no se inserta.
+  - `create_loan`: el préstamo y sus cuotas en una transacción.
+  - Rollback: el código anterior paga y desembolsa por esas RPC, e inserta
+    cuotas pendientes y préstamos sin desembolso, de forma directa, lo que
+    sigue permitido.
+- [ ] **Aprobar `20261104150002`** (auditoría w8): una línea de OP en una
+      cartera tiene que endosar un cheque (trigger en la línea), y
+      `create_receipt` / `update_receipt` rechazan una línea en cartera sin
+      cheque. No toca filas existentes, pero un documento que ya tenga una
+      línea así se rechaza al volver a guardarlo. Rollback: los formularios
+      del código anterior no mandan esas líneas. Ver si hay documentos
+      afectados (N/A en producción, sin cheques ni OP):
+      `select l.payment_order_id from public.payment_order_payment_lines l join public.accounts a on a.id = l.account_id where a.type in ('checks', 'echeq') and l.endorsed_check_id is null union all select l.receipt_id from public.receipt_payment_lines l join public.accounts a on a.id = l.account_id where a.type in ('checks', 'echeq') and not exists (select 1 from public.checks k where k.source_payment_line_id = l.id);`
+- [ ] **Aprobar `20261104150003`** (auditoría w8): `guard_transaction_origin`
+      en `transactions`. Un movimiento en una cartera, o con un vínculo a un
+      recibo, una OP o un cheque, lo escriben solo su documento y los
+      triggers de cheques y sueldos. No toca filas existentes. Rollback: el
+      código anterior escribe esos movimientos solo por esas RPC y
+      triggers; «Nuevo movimiento» rechaza carteras y no pone esos
+      vínculos.
 
 ## Después de promover
 
