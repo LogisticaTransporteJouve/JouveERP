@@ -125,6 +125,6 @@ Las E2E aceptan `E2E_USER_EMAIL` / `E2E_USER_PASSWORD` para otro usuario.
 - **`supabase start` falla bajando imágenes** → reintentar o usar
   `supabase db start` (solo Postgres) para validar SQL.
 - **`db:types:check` falla** → regenerar con la versión de CLI de CI.
-- **CI dice "not after …" en migraciones** → `pnpm db:restamp`.
+- **CI dice "must have a version after the latest one" en migraciones** → `pnpm db:restamp`.
 - **El hook de commit rechaza el mensaje** → sacá el `Co-Authored-By` o la
   palabra prohibida que nombra.
