@@ -55,6 +55,7 @@ export function StorageBillingReport() {
   const [invoiceClient, setInvoiceClient] = useState<{
     client_id: string;
     client_name: string;
+    client_is_fiscal: boolean | null;
   } | null>(null);
 
   return (
@@ -200,6 +201,7 @@ export function StorageBillingReport() {
                                 setInvoiceClient({
                                   client_id: c.client_id,
                                   client_name: c.client_name,
+                                  client_is_fiscal: c.client_is_fiscal,
                                 })
                               }
                             >

@@ -53,7 +53,11 @@ export function StorageInvoiceDialog({
   runs,
   onClose,
 }: {
-  client: { client_id: string; client_name: string } | null;
+  client: {
+    client_id: string;
+    client_name: string;
+    client_is_fiscal: boolean | null;
+  } | null;
   reportStart: string;
   reportEnd: string;
   runs: StorageBillingRun[];
@@ -79,6 +83,13 @@ export function StorageInvoiceDialog({
   const lastEnd = lastBilledEnd(clientRuns);
 
   const { data: channels } = useInvoicingChannels();
+  // A Ventas client is invoiced on a fiscal channel and an Otras ventas one
+  // on an internal channel (issueFiscalInvoiceAction refuses the other).
+  const sideChannels = (channels ?? []).filter(
+    (c) =>
+      client?.client_is_fiscal == null ||
+      c.is_fiscal === client.client_is_fiscal,
+  );
   const { data: posList } = useEnabledPos(channelId);
   const invoiceMut = useInvoiceStorage();
 
@@ -102,11 +113,19 @@ export function StorageInvoiceDialog({
     if (open) {
       setStart(suggestedStart(clientRuns) ?? reportStart);
       setEnd(reportEnd);
-      setChannelId("");
       setPuntoVenta("");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, client?.client_id, reportStart, reportEnd]);
+
+  // Preselects the client's only channel once the channels arrive.
+  useEffect(() => {
+    if (open) {
+      setChannelId(sideChannels.length === 1 ? sideChannels[0]!.id : "");
+      setPuntoVenta("");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, client?.client_id, channels]);
 
   const gap = start ? uncoveredGap(clientRuns, start) : null;
   const overlaps =
@@ -225,7 +244,7 @@ export function StorageInvoiceDialog({
                 <SelectValue placeholder="Elegí un canal" />
               </SelectTrigger>
               <SelectContent>
-                {(channels ?? []).map((c) => (
+                {sideChannels.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
                     {c.name}
                     {c.is_fiscal ? " (fiscal)" : " (interna)"}

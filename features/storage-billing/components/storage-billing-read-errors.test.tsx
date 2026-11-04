@@ -29,14 +29,19 @@ const loaded = (data: unknown): Read => ({
 const h = vi.hoisted(() => ({
   billing: undefined as unknown as Read,
   runs: undefined as unknown as Read,
+  channels: [] as { id: string; name: string; is_fiscal: boolean }[],
+  posChannel: "",
 }));
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("../hooks/use-storage-billing", () => ({
   useStorageBilling: () => h.billing,
   useStorageBillingRuns: () => h.runs,
-  useInvoicingChannels: () => ({ data: [] }),
-  useEnabledPos: () => ({ data: [] }),
+  useInvoicingChannels: () => ({ data: h.channels }),
+  useEnabledPos: (channelId: string) => {
+    h.posChannel = channelId;
+    return { data: [] };
+  },
   useInvoiceStorage: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
@@ -59,6 +64,8 @@ afterEach(cleanup);
 beforeEach(() => {
   h.billing = loaded(report);
   h.runs = loaded([]);
+  h.channels = [];
+  h.posChannel = "";
 });
 
 describe("StorageBillingReport", () => {
@@ -93,10 +100,14 @@ describe("StorageBillingReport", () => {
 });
 
 describe("StorageInvoiceDialog", () => {
-  function openDialog() {
+  function openDialog(clientIsFiscal: boolean | null = true) {
     render(
       <StorageInvoiceDialog
-        client={{ client_id: "c1", client_name: "Acme" }}
+        client={{
+          client_id: "c1",
+          client_name: "Acme",
+          client_is_fiscal: clientIsFiscal,
+        }}
         reportStart="2026-10-01"
         reportEnd="2026-10-31"
         runs={[]}
@@ -134,5 +145,28 @@ describe("StorageInvoiceDialog", () => {
     openDialog();
     expect(screen.getByText("Total")).toBeTruthy();
     expect(screen.queryByText(/No se pudo calcular el total/)).toBeNull();
+  });
+
+  const bothChannels = [
+    { id: "jouve_fiscal", name: "Jouve", is_fiscal: true },
+    { id: "jouve_internal", name: "Jouve interno", is_fiscal: false },
+  ];
+
+  it("preselects the only channel on the client's side", () => {
+    h.channels = bothChannels;
+    openDialog(false);
+    expect(h.posChannel).toBe("jouve_internal");
+    expect(
+      document.getElementById("storage-pos")?.hasAttribute("disabled"),
+    ).toBe(false);
+  });
+
+  it("leaves the channel to choose when the client's side is unknown", () => {
+    h.channels = bothChannels;
+    openDialog(null);
+    expect(h.posChannel).toBe("");
+    expect(
+      document.getElementById("storage-pos")?.hasAttribute("disabled"),
+    ).toBe(true);
   });
 });
