@@ -49,8 +49,35 @@ function voucher(over: Partial<VoucherInfo> = {}): VoucherInfo {
 type Row = Record<string, unknown>;
 
 // Minimal PostgREST-like fake covering the chains sync-issued uses.
-function fakeSupabase(tables: Record<string, Row[]>) {
+// `rpcFailures` makes the next import calls fail, as a lost connection would.
+function fakeSupabase(
+  tables: Record<string, Row[]>,
+  opts: { rpcFailures?: number } = {},
+) {
   let seq = 0;
+  let rpcFailures = opts.rpcFailures ?? 0;
+  // import_arca_issued_invoice: header and items together, or neither.
+  async function rpc(
+    fn: string,
+    args: { p_invoice: Row; p_items: Row[] },
+  ): Promise<{ data: string | null; error: { message: string } | null }> {
+    if (fn !== "import_arca_issued_invoice") throw new Error(fn);
+    if (rpcFailures > 0) {
+      rpcFailures -= 1;
+      return { data: null, error: { message: "connection reset" } };
+    }
+    const invoices = (tables.invoices ??= []);
+    const key = args.p_invoice.idempotency_key;
+    if (invoices.some((r) => r.idempotency_key === key)) {
+      return { data: null, error: null };
+    }
+    const id = `invoices-${++seq}`;
+    invoices.push({ id, ...args.p_invoice });
+    (tables.invoice_items ??= []).push(
+      ...args.p_items.map((it) => ({ invoice_id: id, ...it })),
+    );
+    return { data: id, error: null };
+  }
   function query(table: string) {
     const filters: Array<(r: Row) => boolean> = [];
     let order: { col: string; asc: boolean } | null = null;
@@ -119,10 +146,6 @@ function fakeSupabase(tables: Record<string, Row[]>) {
         }
         return { select: async () => ({ data: inserted, error: null }) };
       },
-      insert: async (rows: Row[]) => {
-        (tables[table] ??= []).push(...rows);
-        return { error: null };
-      },
       then: (resolve: (v: { data: Row[]; error: null }) => void) => {
         const matched = rows();
         if (patch) for (const r of matched) Object.assign(r, patch);
@@ -131,7 +154,7 @@ function fakeSupabase(tables: Record<string, Row[]>) {
     };
     return builder;
   }
-  return { from: query } as never;
+  return { from: query, rpc } as never;
 }
 
 function fakeAfip(vouchers: VoucherInfo[]): ArcaVoucherPort {
@@ -226,9 +249,8 @@ describe("ARCA IVA breakdown", () => {
   });
 
   it("maps each AlicIva to one item with its own rate", () => {
-    expect(voucherToInvoiceItems(twoRates, "inv-1")).toEqual([
+    expect(voucherToInvoiceItems(twoRates)).toEqual([
       expect.objectContaining({
-        invoice_id: "inv-1",
         iva_rate_id: 5,
         line_neto: 100,
         line_iva: 21,
@@ -246,17 +268,15 @@ describe("ARCA IVA breakdown", () => {
   });
 
   it("keeps the header-only import when the breakdown is missing, unknown or does not add up", () => {
-    expect(voucherToInvoiceItems(voucher({ iva: [] }), "i")).toEqual([]);
+    expect(voucherToInvoiceItems(voucher({ iva: [] }))).toEqual([]);
     expect(
       voucherToInvoiceItems(
         voucher({ iva: [{ id: 7, baseImp: 1000, importe: 210 }] }),
-        "i",
       ),
     ).toEqual([]);
     expect(
       voucherToInvoiceItems(
         voucher({ iva: [{ id: 5, baseImp: 999, importe: 210 }] }),
-        "i",
       ),
     ).toEqual([]);
   });
@@ -280,6 +300,29 @@ describe("ARCA IVA breakdown", () => {
     db.invoices[0]!.numero = 0;
     await syncIssuedPair(fakeSupabase(db), afip, target, 1, 5);
     expect(db.invoice_items).toHaveLength(2);
+  });
+
+  it("leaves no header-only voucher when the import fails, and the next run brings it whole", async () => {
+    const db = {
+      clients: [] as Row[],
+      invoices: [] as Row[],
+      invoice_items: [] as Row[],
+    };
+    const afip = fakeAfip([{ ...twoRates, cbteNro: 1 }]);
+
+    const failed = await syncIssuedPair(
+      fakeSupabase(db, { rpcFailures: 1 }),
+      afip,
+      target,
+      1,
+      5,
+    );
+    expect(failed.stopped).toContain("connection reset");
+    expect(db.invoices).toHaveLength(0);
+
+    const retried = await syncIssuedPair(fakeSupabase(db), afip, target, 1, 5);
+    expect(retried.imported).toBe(1);
+    expect(db.invoice_items.map((r) => r.iva_rate_id)).toEqual([5, 4]);
   });
 });
 

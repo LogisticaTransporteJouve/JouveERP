@@ -9,6 +9,7 @@ import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { fetchUsdRateOnOrBefore } from "@/lib/fx";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
+import { invoiceIsVoid } from "@/lib/source-invoice-key";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { getServiceClient } from "@/lib/supabase/service";
@@ -410,7 +411,9 @@ export async function invoiceStorageAction(
 
   // Claim the period before issuing: the RPC checks overlap under a per-client
   // lock and inserts a pending run, so a concurrent click is refused instead
-  // of billing the same days twice.
+  // of billing the same days twice. The invoice is issued under the run's id,
+  // so a later claim links an invoice whose link was lost instead of billing
+  // the days again; such a claim returns no run.
   const { data: runId, error: claimErr } = await supabase.rpc(
     "claim_storage_billing_period",
     {
@@ -420,7 +423,7 @@ export async function invoiceStorageAction(
       p_period_end: period_end,
     },
   );
-  if (claimErr || !runId) {
+  if (claimErr) {
     const guardError = mapDbGuardError(claimErr, {
       slug: "storage.invoice.claim_rejected",
       userId: ctx.userId,
@@ -431,6 +434,50 @@ export async function invoiceStorageAction(
       error: claimErr,
     });
     return { ok: false, error: "No se pudo validar el período." };
+  }
+  if (!runId) {
+    return {
+      ok: false,
+      error:
+        "Ese período ya está facturado: se registró la factura que había quedado sin vincular. Revisala en el historial.",
+    };
+  }
+
+  const releaseRun = async () => {
+    const { error: releaseErr } = await supabase
+      .from("storage_billing_runs")
+      .delete()
+      .eq("id", runId)
+      .is("invoice_id", null);
+    if (releaseErr) {
+      logger.error("storage.invoice.release_failed", {
+        userId: ctx.userId,
+        runId,
+        error: releaseErr,
+      });
+    }
+  };
+
+  // The totals go on the run before the issue, so a run whose invoice a
+  // later claim links still carries them.
+  const { error: totalsErr } = await supabase
+    .from("storage_billing_runs")
+    .update({
+      storage_total: storage,
+      handling_in_total: loading,
+      handling_out_total: unloading,
+      total,
+      applied_tariffs: billing.applied_tariffs,
+    })
+    .eq("id", runId);
+  if (totalsErr) {
+    logger.error("storage.invoice.run_totals.failed", {
+      userId: ctx.userId,
+      runId,
+      error: totalsErr,
+    });
+    await releaseRun();
+    return { ok: false, error: "No se pudo registrar el período." };
   }
 
   const today = todayInAR();
@@ -449,45 +496,38 @@ export async function invoiceStorageAction(
     moneda: MONEDA.PESOS,
     cotizacion: 1,
     items,
+    idempotency_key: runId,
   });
   if (!result.ok) {
-    const { error: releaseErr } = await supabase
-      .from("storage_billing_runs")
-      .delete()
-      .eq("id", runId)
-      .is("invoice_id", null);
-    if (releaseErr) {
-      logger.error("storage.invoice.release_failed", {
-        userId: ctx.userId,
-        runId,
-        error: releaseErr,
-      });
-    }
+    await releaseRun();
     return result;
   }
 
-  const { error: insertErr } = await supabase
+  const { error: linkErr } = await supabase
     .from("storage_billing_runs")
-    .update({
-      storage_total: storage,
-      handling_in_total: loading,
-      handling_out_total: unloading,
-      total,
-      applied_tariffs: billing.applied_tariffs,
-      invoice_id: result.data.id,
-      pending_since: null,
-    })
+    .update({ invoice_id: result.data.id, pending_since: null })
     .eq("id", runId);
-  if (insertErr) {
+  if (linkErr) {
     logger.error("storage.invoice.run_link.failed", {
       userId: ctx.userId,
       invoiceId: result.data.id,
-      error: insertErr,
+      error: linkErr,
     });
+    // The invoice already failed or was cancelled (the link guard refuses
+    // it): nothing holds the period, so free it now. Any other error keeps
+    // the run pending; once it is stale, the next claim links this invoice.
+    if (await invoiceIsVoid(supabase, result.data.id)) {
+      await releaseRun();
+      return {
+        ok: false,
+        error:
+          "La factura falló o se anuló antes de registrar el período: el período quedó libre para facturarlo de nuevo.",
+      };
+    }
     return {
       ok: false,
       error:
-        "La factura se emitió pero no se registró el período. Anotá el comprobante antes de volver a facturar.",
+        "La factura se emitió pero el período no quedó registrado. No la emitas de nuevo: pasados 15 minutos, «Facturar» el mismo período registra esta factura sin emitir otra.",
     };
   }
 

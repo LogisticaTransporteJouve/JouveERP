@@ -39,6 +39,14 @@ import {
   type InvoiceStatus,
 } from "@/features/invoices/schema";
 import { ivaRatePercent, type IvaRateId } from "@/lib/afip/codes";
+import {
+  discriminatesIva,
+  invoicePerRate,
+  invoiceTotalsRows,
+  itemSubtotal,
+  itemUnitPrice,
+  type InvoiceFigures,
+} from "@/lib/pdf/invoice-figures";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan, userCanAll } from "@/lib/auth/permissions";
 import {
@@ -108,10 +116,28 @@ export default async function ComprobanteDetailPage({
     { whenNullNumero: null },
   );
   const isProvisional = c.numero == null && c.expected_numero != null;
-  // Only A vouchers itemize IVA. A remito interno carries none: its price is
-  // final, so it shows just the total.
+  // Same figures as the PDF: only an A itemizes IVA; a remito interno carries
+  // none, so it shows just the total.
   const isInternal = !c.channel.is_fiscal;
-  const discriminatesIva = !isInternal && c.letter !== "B" && c.letter !== "C";
+  const figures: InvoiceFigures = {
+    isFiscal: c.channel.is_fiscal,
+    letter: c.letter,
+    imp_neto: c.imp_neto,
+    imp_iva: c.imp_iva,
+    imp_trib: c.imp_trib,
+    imp_tot_conc: c.imp_tot_conc,
+    imp_op_ex: c.imp_op_ex,
+    imp_total: c.imp_total,
+    per_rate: invoicePerRate(
+      {
+        isFiscal: c.channel.is_fiscal,
+        imp_neto: c.imp_neto,
+        imp_iva: c.imp_iva,
+      },
+      c.items,
+    ),
+  };
+  const totalsRows = invoiceTotalsRows(figures);
   const kindLabel = invoiceKindLabel(c.kind, c.channel.is_fiscal);
   const invoiceLabel = `${kindLabel} ${numeroLabel}`;
 
@@ -374,7 +400,7 @@ export default async function ComprobanteDetailPage({
                   {formatARS(item.quantity)}
                 </td>
                 <td className="px-4 py-2 text-right font-mono">
-                  ${formatARS(item.unit_price)}
+                  ${formatARS(itemUnitPrice(figures, item))}
                 </td>
                 {!isInternal && (
                   <td className="px-4 py-2 text-right">
@@ -384,7 +410,7 @@ export default async function ComprobanteDetailPage({
                   </td>
                 )}
                 <td className="px-4 py-2 text-right font-mono">
-                  ${formatARS(item.line_total)}
+                  ${formatARS(itemSubtotal(figures, item))}
                 </td>
                 {canIssue && (
                   <td className="px-4 py-2">
@@ -405,43 +431,18 @@ export default async function ComprobanteDetailPage({
         <div className="rounded-lg border bg-card p-4">
           <h2 className="text-sm font-medium">Totales</h2>
           <dl className="mt-3 space-y-1 text-sm font-mono">
-            {discriminatesIva ? (
-              <>
-                <DetailRow
-                  label="Neto"
-                  value={`$${formatARS(c.imp_neto)}`}
-                  monoValue
-                />
-                {c.imp_tot_conc > 0 && (
-                  <DetailRow
-                    label="No gravado"
-                    value={`$${formatARS(c.imp_tot_conc)}`}
-                    monoValue
-                  />
-                )}
-                {c.imp_op_ex > 0 && (
-                  <DetailRow
-                    label="Exento"
-                    value={`$${formatARS(c.imp_op_ex)}`}
-                    monoValue
-                  />
-                )}
-                <DetailRow
-                  label="IVA"
-                  value={`$${formatARS(c.imp_iva)}`}
-                  monoValue
-                />
-                {c.imp_trib > 0 && (
-                  <DetailRow
-                    label="Otros tributos"
-                    value={`$${formatARS(c.imp_trib)}`}
-                    monoValue
-                  />
-                )}
-              </>
-            ) : null}
+            {totalsRows.map((row) => (
+              <DetailRow
+                key={row.label}
+                label={row.label}
+                value={`$${formatARS(row.amount)}`}
+                monoValue
+              />
+            ))}
             <div
-              className={discriminatesIva ? "border-t pt-1 mt-1" : undefined}
+              className={
+                totalsRows.length > 0 ? "border-t pt-1 mt-1" : undefined
+              }
             >
               <DetailRow
                 label="Total"
@@ -450,7 +451,7 @@ export default async function ComprobanteDetailPage({
                 emphasize
               />
             </div>
-            {!discriminatesIva && c.imp_iva > 0 && (
+            {!discriminatesIva(figures) && c.imp_iva > 0 && (
               // RG 1415: a B voucher does not discriminate IVA; Ley 27.743
               // asks to inform the IVA it contains, outside the sum.
               <DetailRow
