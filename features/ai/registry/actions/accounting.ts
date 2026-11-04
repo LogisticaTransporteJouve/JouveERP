@@ -234,8 +234,9 @@ export const getLibroIvaCompras = defineAiAction({
   description:
     "VAT Purchases book (RG 1361) for a YYYY-MM period, fiscal channels only: " +
     "`rows` (one per purchase invoice × rate) and `totals`, whose `iva` is " +
-    "the period's input VAT (IVA crédito); imp_trib mixes IVA and IIBB " +
-    "perceptions. " +
+    "the period's input VAT (IVA crédito); imp_trib is the sum of perc_iva " +
+    "(IVA perceptions), perc_iibb, perc_nacionales (Ganancias and other " +
+    "national taxes, not IVA), perc_municipales and impuestos_internos. " +
     LIBRO_IVA_ROWS_RULE +
     " Amounts in ARS at each document's own exchange rate; *_orig, moneda and " +
     "cotizacion keep the original currency. `comprobante` is the readable " +

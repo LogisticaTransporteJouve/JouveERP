@@ -37,6 +37,7 @@ export const COMPRAS_BREAKDOWN_KEYS = [
   "exentas",
   "perc_iva",
   "perc_iibb",
+  "perc_nacionales",
   "perc_municipales",
   "impuestos_internos",
 ] as const;
@@ -49,6 +50,7 @@ function emptyBreakdown(): ComprasBreakdown {
     exentas: 0,
     perc_iva: 0,
     perc_iibb: 0,
+    perc_nacionales: 0,
     perc_municipales: 0,
     impuestos_internos: 0,
   };
@@ -63,20 +65,48 @@ function readBreakdown(
   return out;
 }
 
-/** Columns the book prints after the alícuotas (screen, Excel and PDF). */
+/** Columns the book prints after the alícuotas (screen, Excel and PDF);
+ *  the perceptions follow in one column, each with its code. */
 export const COMPRAS_AMOUNT_COLUMNS: readonly {
   header: string;
   value: (b: ComprasBreakdown) => number;
 }[] = [
+  { header: "Imp. int.", value: (b) => b.impuestos_internos },
   { header: "No gravado", value: (b) => b.no_gravado },
   { header: "Exento", value: (b) => b.exentas },
-  { header: "Perc. IVA", value: (b) => b.perc_iva },
-  { header: "Perc. IIBB", value: (b) => b.perc_iibb },
-  {
-    header: "Otros trib.",
-    value: (b) => b.perc_municipales + b.impuestos_internos,
-  },
 ];
+
+/** The book's "Percepciones" column: each perception with the code the
+ *  accountant reads (B = IIBB, I = IVA, as the legacy libro prints them). */
+export const COMPRAS_PERCEPTIONS = [
+  { key: "perc_iibb", code: "B", label: "IIBB" },
+  { key: "perc_iva", code: "I", label: "IVA" },
+  { key: "perc_nacionales", code: "G", label: "Ganancias y otros nacionales" },
+  { key: "perc_municipales", code: "M", label: "municipales" },
+] as const satisfies readonly {
+  key: ComprasBreakdownKey;
+  code: string;
+  label: string;
+}[];
+
+export const COMPRAS_PERCEPTIONS_HEADER = "Percepciones";
+
+export const COMPRAS_PERCEPTIONS_LEGEND = `Percepciones: ${COMPRAS_PERCEPTIONS.map((p) => `${p.code} = ${p.label}`).join(", ")}.`;
+
+/** The perceptions a document (or a total) carries, in book order. */
+export function comprasPerceptions(
+  b: ComprasBreakdown,
+): { code: string; amount: number }[] {
+  return COMPRAS_PERCEPTIONS.filter((p) => b[p.key] !== 0).map((p) => ({
+    code: p.code,
+    amount: b[p.key],
+  }));
+}
+
+/** Sum of every perception, for the Excel column. */
+export function comprasPerceptionsTotal(b: ComprasBreakdown): number {
+  return COMPRAS_PERCEPTIONS.reduce((a, p) => a + b[p.key], 0);
+}
 
 export type LibroIvaComprasGroupedRow = {
   purchase_invoice_id: string;

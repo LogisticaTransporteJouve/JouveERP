@@ -5712,6 +5712,7 @@ export type Database = {
           imp_perc_iibb: number
           imp_perc_iva: number
           imp_perc_municipales: number
+          imp_perc_nacionales: number
           imp_total: number
           imp_trib: number
           imputed_to_id: string | null
@@ -5750,6 +5751,7 @@ export type Database = {
           imp_perc_iibb?: number
           imp_perc_iva?: number
           imp_perc_municipales?: number
+          imp_perc_nacionales?: number
           imp_total: number
           imp_trib?: number
           imputed_to_id?: string | null
@@ -5788,6 +5790,7 @@ export type Database = {
           imp_perc_iibb?: number
           imp_perc_iva?: number
           imp_perc_municipales?: number
+          imp_perc_nacionales?: number
           imp_total?: number
           imp_trib?: number
           imputed_to_id?: string | null
@@ -9869,6 +9872,8 @@ export type Database = {
           perc_iva_orig: number
           perc_municipales: number
           perc_municipales_orig: number
+          perc_nacionales: number
+          perc_nacionales_orig: number
           punto_venta: number
           purchase_invoice_id: string
           supplier_cuit: string
@@ -10724,6 +10729,7 @@ export type Database = {
         | "iva_retenido"
         | "percepciones_iibb_pagadas"
         | "percepciones_iva_pagadas"
+        | "percepciones_ganancias"
         | "percepciones_iibb_cobradas"
         | "retenciones_pagadas"
         | "retenciones_cobradas"
@@ -10920,6 +10926,7 @@ export const Constants = {
         "iva_retenido",
         "percepciones_iibb_pagadas",
         "percepciones_iva_pagadas",
+        "percepciones_ganancias",
         "percepciones_iibb_cobradas",
         "retenciones_pagadas",
         "retenciones_cobradas",

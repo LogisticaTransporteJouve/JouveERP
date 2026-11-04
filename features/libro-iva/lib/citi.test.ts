@@ -89,6 +89,7 @@ function iibbOnly(trib: number): LibroIvaComprasGroupedRow["breakdown"] {
     exentas: 0,
     perc_iva: 0,
     perc_iibb: trib,
+    perc_nacionales: 0,
     perc_municipales: 0,
     impuestos_internos: 0,
   };
@@ -195,6 +196,7 @@ describe("buildComprasTxt", () => {
       exentas: 40,
       perc_iva: 30,
       perc_iibb: 20,
+      perc_nacionales: 0,
       perc_municipales: 0,
       impuestos_internos: 0,
     };
@@ -211,6 +213,29 @@ describe("buildComprasTxt", () => {
     expect(r.warnings).toEqual([]);
   });
 
+  it("declares Ganancias in campo 13, apart from IVA, and still ties the total", () => {
+    const breakdown = {
+      no_gravado: 0,
+      exentas: 0,
+      perc_iva: 30,
+      perc_iibb: 0,
+      perc_nacionales: 20,
+      perc_municipales: 0,
+      impuestos_internos: 0,
+    };
+    const r = buildComprasTxt(
+      [compraDoc({ imp_total: 1260, breakdown, orig: undefined })],
+      "2026-06",
+    );
+    const cbte = r.files[0]!.content.split("\r\n")[0]!;
+    expect(cbte.slice(149, 164)).toBe("000000000003000"); // percepciones IVA
+    expect(cbte.slice(164, 179)).toBe("000000000002000"); // otros nacionales
+    expect(cbte.slice(179, 194)).toBe("000000000000000"); // percepciones IIBB
+    expect(cbte.slice(239, 254)).toBe("000000000021000"); // crédito fiscal: IVA only
+    expect(cbte.slice(254, 269)).toBe("000000000000000"); // otros tributos
+    expect(r.warnings).toEqual([]);
+  });
+
   it("keeps an exempt-only A voucher, with one 0% alícuota and code E", () => {
     const r = buildComprasTxt(
       [
@@ -223,6 +248,7 @@ describe("buildComprasTxt", () => {
             exentas: 80,
             perc_iva: 0,
             perc_iibb: 0,
+            perc_nacionales: 0,
             perc_municipales: 0,
             impuestos_internos: 0,
           },
@@ -251,6 +277,7 @@ describe("buildComprasTxt", () => {
             exentas: 0,
             perc_iva: 0,
             perc_iibb: 0,
+            perc_nacionales: 0,
             perc_municipales: 0,
             impuestos_internos: 0,
           },
