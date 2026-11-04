@@ -177,7 +177,7 @@ Las de cada sección más vieja siguen con su ítem "Aprobar …" en su sección
       frena. Ver cuáles siguen sin validar:
       `select conrelid::regclass, conname from pg_constraint where not convalidated and connamespace = 'public'::regnamespace;`
       Rollback: nada que hacer, el código no lee el flag.
-- [ ] **Antes de aprobar `20261104106000`** (tesorería w3): desde esa
+- [ ] **Antes de aprobar `20261104110600`** (tesorería w3): desde esa
       migración, un cheque propio de una OP que el banco rechaza devuelve en
       Caja el egreso de la OP. Los ya rechazados antes no lo tienen: su banco
       sigue con el egreso de más. El owner decide si cargarles el ingreso a
@@ -327,7 +327,7 @@ mitigación en el schema: el límite se respeta operando.
       importación de ARCA de su par hasta que alguien la marque fallida.
 ## Tesorería: auditoría w3 (2026-11-04)
 
-- [x] **Cheque propio de una OP que rebota** (`20261104106000`): el rechazo
+- [x] **Cheque propio de una OP que rebota** (`20261104110600`): el rechazo
       devuelve en Caja el egreso de la OP (ingreso en el banco del cheque, en
       la fecha del rechazo, sin asiento propio). Antes, pagar la deuda con
       una OP nueva sacaba la plata del banco dos veces.

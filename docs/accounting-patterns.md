@@ -378,7 +378,7 @@ desde caja. Emitirlo no mueve plata; rechazarlo o anularlo tampoco. Un cheque
 **de una OP** sigue como antes: la plata sale del banco con el movimiento de la
 OP, a la fecha de la OP, y cobrarlo no agrega nada. Si el banco lo **rechaza**,
 la plata no salió: `emitted → rejected` inserta en la misma sentencia
-(`issued_check_rejected_inflow`, `20261104106000`) un ingreso en
+(`issued_check_rejected_inflow`, `20261104110600`) un ingreso en
 `bank_account_id` por el importe, fechado en `rejected_at`, con
 `issued_check_id`, que tampoco asienta. Los cheques sin OP cobrados
 antes de este cambio no tienen egreso (no se rellena: puede que se haya cargado
