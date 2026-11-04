@@ -173,8 +173,9 @@ Las de cada sección más vieja siguen con su ítem "Aprobar …" en su sección
       exento + municipales + internos; interno: total) menos la de sus NC
       vigentes en la misma moneda; si queda en cero o menos, o la factura
       está anulada, el cargo se borra (`nuevo` vacío). Las consultas calculan
-      eso mismo sobre el schema de hoy (los importes de #339 todavía no
-      existen y valen 0 después de `096400`).
+      eso mismo sobre el schema de hoy (no gravado, exento, municipales e
+      internos todavía no existen, y `096400` los deja en 0 en las compras
+      que ya están).
 
       Cargos que cambian (`actual` vacío: el backfill lo crea):
       ```sql
@@ -648,8 +649,9 @@ mitigación en el schema: el límite se respeta operando.
 - La revisión previa de los cargos que baja `20261104102300` y de los
   planes de deuda que quedan por encima: en **Antes de promover**.
 - [ ] **Después de promover** `20261104102300`, las NC de compras a cargo de
-      empleado que quedaron con su asiento viejo por período cerrado (hasta
-      que se reabra el período):
+      empleado que quedaron con su asiento viejo por período cerrado (no
+      quedan en `pending_journal_entries`: reabrir el período no las
+      re-asienta solo):
       `select nc.id from purchase_invoices nc join purchase_invoices f on f.id
       = nc.invoice_origin_id where nc.kind = 'nc' and nc.status = 'received'
       and f.charged_employee_id is not null and
