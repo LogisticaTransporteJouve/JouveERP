@@ -24,7 +24,6 @@ import { filesSweepOrphans } from "@/lib/inngest/functions/files-sweep-orphans";
 import { issueInvoice } from "@/lib/inngest/functions/issue-invoice";
 import { issueInvoiceReconcile } from "@/lib/inngest/functions/issue-invoice-reconcile";
 import { notificationsDispatch } from "@/lib/inngest/functions/notifications-dispatch";
-import { searchIndexRefresh } from "@/lib/inngest/functions/search-index-refresh";
 import { tasksDaily } from "@/lib/inngest/functions/tasks-daily";
 import { ttlCleanup } from "@/lib/inngest/functions/ttl-cleanup";
 import { vacationBalancesGrant } from "@/lib/inngest/functions/vacation-balances-grant";
@@ -50,7 +49,6 @@ export const { GET, POST, PUT } = serve({
     agingSnapshot,
     notificationsDispatch,
     filesSweepOrphans,
-    searchIndexRefresh,
     ttlCleanup,
     vacationBalancesGrant,
     documentExpiryAlerts,

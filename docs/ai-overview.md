@@ -53,7 +53,7 @@ código:
 | Item | Brief / `ai-patterns.md` asumía | Realidad | Plan |
 |---|---|---|---|
 | SDK del LLM | "ya targeteado" | `ai`, `@ai-sdk/*`, SDKs de anthropic/openai **no instalados** | Agregar en Fase 1 (`pnpm add`) |
-| Vector store | pgvector "ya está" | **Sin extensión `vector`, sin embeddings** en ningún lado | **Descartado** (decisión 2026-07-04): FTS (`search_global`) cubre free-text; no se agrega infra de embeddings |
+| Vector store | pgvector "ya está" | **Sin extensión `vector`, sin embeddings** en ningún lado | **Descartado** (decisión 2026-07-04): FTS (`search_global`) cubría free-text; no se agrega infra de embeddings. La búsqueda global se retiró el 2026-11-04 |
 | `audit_events` | "tipo de actor IA" | la tabla **no tiene columna `actor_type`** | Agregar columna `actor_type` en migración de seguridad |
 | Tablas de chat | `chat_sessions`/`chat_messages` | esos nombres son del **chat humano** | Usar `ai_chat_sessions` / `ai_chat_messages` |
 | Multi-tenancy | `business_unit_id` en tablas de IA | la app es **single-CUIT** (`dz_sons`), decisión #1/#10 | Omitir `business_unit_id`; scope por `user_id` + RLS |
@@ -73,7 +73,7 @@ código:
 | Streaming | UI stream del AI SDK, in-process desde un route handler de Next | Sin Redis/relay (single app) |
 | Acceso a datos | **Tool-calling sobre los server actions existentes** | Reusa `userCan` + `ActionResult`; determinístico, auditable |
 | Agregación ad-hoc | Tool **SQL read-only** guard-railed | Cubre queries que los tools tipados no cubren |
-| Búsqueda free-text | RPC FTS existente `search_global` | RAG con pgvector **descartado** (2026-07-04) |
+| Búsqueda free-text | `searchClients` / `searchSuppliers` / `searchEmployees` (la FTS `search_global` se retiró el 2026-11-04) | RAG con pgvector **descartado** (2026-07-04) |
 | Persistencia | Tablas Supabase + RLS | Reusa auth; sin store separado |
 | UI | shadcn + Tailwind v4 monocromo | Design system existente |
 | Validación | Zod 4 (`schema.ts`) | Convención existente |
@@ -150,7 +150,9 @@ arbitrario. Si a futuro se revierte la decisión, el diseño guardado era:
 
 Decisión 2026-07-04: no se agrega pgvector ni proveedor de embeddings (infra
 paga nueva sin caso de uso que lo justifique). La búsqueda free-text queda
-cubierta por la RPC FTS existente `search_global`.
+cubierta por la RPC FTS `search_global`, que a su vez se retiró el 2026-11-04
+(`docs/decisions.md`); el agente busca con `searchClients` / `searchSuppliers` /
+`searchEmployees`.
 
 ### 2.4 El agente
 
@@ -234,7 +236,6 @@ Todos gateados al permiso listado.
 ### Transversales
 | Tool | Lee | Action backing | Perm |
 |---|---|---|---|
-| `searchGlobal` | FTS sobre clientes/proveedores/comprobantes/etc. | `searchGlobalAction` | `ai:read` |
 | `getChannels` | canales de facturación (para scope) | `listInvoicingChannelsAction` | `ai:read` |
 | `runReadOnlySql` *(descartado, §2.2)* | — | — | — |
 

@@ -129,11 +129,6 @@ const NAV = [
     items: [
       { href: "collaboration.html#chat", label: "Chat", icon: "💬" },
       {
-        href: "collaboration.html#busqueda-global",
-        label: "Búsqueda global",
-        icon: "🔍",
-      },
-      {
         href: "collaboration.html#notificaciones",
         label: "Notificaciones",
         icon: "🔔",
