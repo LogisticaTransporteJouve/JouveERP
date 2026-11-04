@@ -255,6 +255,14 @@ describe("parseArAmount", () => {
     ["-0,01", -0.01],
     ["", null],
     ["abc", null],
+    ["12abc", null],
+    ["15.000,5O", null],
+    ["1e3", null],
+    ["1,2,3", null],
+    ["-", null],
+    ["1.500,", 1500],
+    [",5", 0.5],
+    [" 1.234,56 ", 1234.56],
   ])("lee %s como %s", (raw, expected) => {
     expect(parseArAmount(raw)).toBe(expected);
   });
