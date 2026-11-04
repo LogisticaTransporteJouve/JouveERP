@@ -103,7 +103,9 @@ create trigger purchase_invoices_trib_legacy_fill
 
 -- 4. CHECK -----------------------------------------------------------------------------------
 -- Every row has the new column at 0, so the old and new CHECK agree on it.
+-- The new one keeps every guarantee of the old one: same name, one more part.
 
+-- squawk-ignore ban-drop-constraint
 alter table public.purchase_invoices drop constraint purchase_invoices_trib_split;
 alter table public.purchase_invoices
   add constraint purchase_invoices_trib_split
