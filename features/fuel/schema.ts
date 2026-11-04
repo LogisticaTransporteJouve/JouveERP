@@ -48,7 +48,7 @@ const optionalAmount = z
 
 // A blank «Importe» is unknown, not $0: `z.coerce.number()` alone reads "" as 0.
 const requiredAmount = z
-  .custom<number | string>(
+  .custom<unknown>(
     (v) => v !== "" && v !== null && v !== undefined,
     "Importe requerido.",
   )
