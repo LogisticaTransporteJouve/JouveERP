@@ -19,16 +19,16 @@ insert into public.accounts (id, name, type, currency) values
 -- Two remitos internos (1000 paid by an OP, 500 unpaid) and a fiscal factura.
 insert into public.purchase_invoices
   (id, channel_id, supplier_id, kind, letter, punto_venta, numero, fecha,
-   imp_neto, imp_total, status)
+   imp_neto, imp_iva, imp_total, status)
 values
   ('00000000-0000-0000-0000-0000000770a1', 'jouve_internal', '00000000-0000-0000-0000-0000000750a1',
-   'factura', null, 1, 1, current_date, 1000, 1000, 'received'),
+   'factura', null, 1, 1, current_date, 1000, 0, 1000, 'received'),
   ('00000000-0000-0000-0000-0000000770a2', 'jouve_internal', '00000000-0000-0000-0000-0000000750a1',
-   'factura', null, 1, 2, current_date, 500, 500, 'received'),
+   'factura', null, 1, 2, current_date, 500, 0, 500, 'received'),
   ('00000000-0000-0000-0000-0000000770a3', 'jouve_internal', '00000000-0000-0000-0000-0000000750a1',
-   'factura', null, 1, 3, current_date, 400, 400, 'received'),
+   'factura', null, 1, 3, current_date, 400, 0, 400, 'received'),
   ('00000000-0000-0000-0000-0000000770f1', 'jouve_fiscal', '00000000-0000-0000-0000-0000000750f1',
-   'factura', 'A', 7, 41, current_date, 1500, 1815, 'received');
+   'factura', 'A', 7, 41, current_date, 1500, 315, 1815, 'received');
 
 create temp table t_op on commit drop as
 select public.create_payment_order(
@@ -156,7 +156,7 @@ select is(
   'the NCs are internal and linked to the factura');
 
 select throws_ok(
-  $$update public.purchase_invoices set imp_total = 1000, imp_neto = 1000
+  $$update public.purchase_invoices set imp_total = 1000, imp_neto = 685
      where id = '00000000-0000-0000-0000-0000000770f1'$$,
   '23514', 'La factura tiene remitos imputados por más que ese total.',
   'the factura keeps room for its imputed remitos');

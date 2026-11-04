@@ -265,6 +265,24 @@ Las de cada sección más vieja siguen con su ítem "Aprobar …" en su sección
       frena. Ver cuáles siguen sin validar:
       `select conrelid::regclass, conname from pg_constraint where not convalidated and connamespace = 'public'::regnamespace;`
       Rollback: nada que hacer, el código no lee el flag.
+- [ ] **Antes de aprobar `20261104112000`** (auditoría w3, compras): una
+      compra fiscal nueva, o editada en sus importes, cuyo total no da neto +
+      IVA + otros tributos + no gravado + exento se rechaza. Las existentes no
+      se tocan: siguen guardando ediciones que no cambian importes, y en
+      proveedores queda la diferencia (el asiento acredita las partes, la
+      cuenta corriente y el aging el total). Ver cuáles son; para cada una el
+      dueño decide pasar la diferencia a no gravado (re-asienta) o anularla y
+      recargarla, y las de período cerrado piden reabrirlo:
+      `select pi.id, pi.fecha, pi.letter, pi.punto_venta, pi.numero, pi.imp_total - (pi.imp_neto + pi.imp_iva + pi.imp_trib + pi.imp_no_gravado + pi.imp_op_exentas) as gap, exists (select 1 from public.accounting_closed_periods cp where cp.period = to_char(pi.fecha, 'YYYY-MM')) as closed from public.purchase_invoices pi where pi.status = 'received' and public.is_channel_fiscal(pi.channel_id) and abs(pi.imp_total - (pi.imp_neto + pi.imp_iva + pi.imp_trib + pi.imp_no_gravado + pi.imp_op_exentas)) > 0.01 order by pi.fecha;`
+      Rollback: el código anterior escribe las mismas columnas; una compra
+      fiscal que no cierra recibe el mensaje del guard.
+- [ ] **Decidir las compras fiscales B y C con IVA** (auditoría w3, S1 F2;
+      no se cambian datos). Las cargadas antes de #339 pueden tener IVA,
+      exento o no gravado aparte: el libro IVA, el estimado y `iva_credito`
+      cuentan ese IVA como crédito fiscal y el TXT no. El dueño y el contador
+      deciden si se pliegan al neto en los períodos abiertos (re-asienta) y
+      qué hacer con las de períodos cerrados. Contarlas:
+      `select exists (select 1 from public.accounting_closed_periods cp where cp.period = to_char(pi.fecha, 'YYYY-MM')) as closed, count(*), sum(pi.imp_iva) as iva from public.purchase_invoices pi where pi.status = 'received' and pi.letter in ('B', 'C') and public.is_channel_fiscal(pi.channel_id) and pi.imp_iva + pi.imp_no_gravado + pi.imp_op_exentas > 0 group by 1;`
 - [ ] **Antes de aprobar `20261104110600`** (tesorería w3): desde esa
       migración, un cheque propio de una OP que el banco rechaza devuelve en
       Caja el egreso de la OP. Los ya rechazados antes no lo tienen: su banco
@@ -473,6 +491,36 @@ mitigación en el schema: el límite se respeta operando.
 - [ ] CAEA: un borrador trabado con fecha dentro de una vigencia vencida
       frena el "sin movimiento" de su punto de venta hasta la fecha tope; hay
       que emitirlo o marcarlo fallido.
+- [x] Auditoría w3: antes de pedir un número nuevo, un reintento vuelve a
+      consultar el número que ya mandó si AFIP ya llegó a él (AFIP pudo
+      registrar el pedido que se cortó entre la consulta y la lectura del
+      último número).
+- [x] Auditoría w3: después de un intento sin resultado, un rechazo de AFIP
+      queda reintentable, así que `onFailure` deja el comprobante a
+      `issue-invoice-reconcile` en vez de marcarlo fallido al instante.
+- [x] Auditoría w3: si no se guarda el "sin movimiento" de un CAEA en
+      `no_movement_pvs`, el paso falla y reintenta (la presentación a AFIP es
+      idempotente).
+- [x] Auditoría w3: el Libro IVA Ventas (pantalla, PDF y Excel) muestra el no
+      gravado y el exento cada uno en su columna.
+
+## Compras: total igual a la suma de las partes (2026-11-04, auditoría w3)
+
+- [x] Una compra cuyo total no da neto + IVA + otros tributos + no gravado +
+      exento se rechaza al crearla o al cambiarle un importe: en el formulario
+      (sin "guardar igual" en modo encabezado; un botón pasa la diferencia a
+      no gravado en una A fiscal o al neto en las demás), en Zod, en la acción
+      y, para las fiscales, en la base (`guard_purchase_invoice_total`).
+- [x] Editar una compra sin mandar un importe ya no lo pisa: el schema de
+      edición no tiene defaults (neto, IVA, otros tributos, moneda, cotización
+      e ítems quedaban en 0, PES, 1 y sin ítems).
+- [x] Al editar desde la lista, los importes quedan deshabilitados con
+      "Cargando el desglose de la factura…" mientras carga, y con el motivo si
+      la lectura falla.
+- Las compras existentes con diferencia y las B/C con IVA: en **Antes de
+  promover**.
+- [ ] Las compras internas no tienen el guard en la base (no generan asiento);
+      la app las valida igual.
 ## Tesorería: auditoría w3 (2026-11-04)
 
 - [x] **Cheque propio de una OP que rebota** (`20261104110600`): el rechazo

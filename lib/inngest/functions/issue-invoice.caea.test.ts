@@ -16,6 +16,7 @@ const h = vi.hoisted(() => {
   const informed: Array<Record<string, unknown>> = [];
   const caea: { active: boolean } = { active: true };
   const failReads = new Set<string>();
+  const failWrites = new Set<string>();
   const sent: Array<{ id: string; events: unknown }> = [];
   const beforeUpdate = null as
     ((table: string, patch: Record<string, unknown>) => void) | null;
@@ -31,6 +32,7 @@ const h = vi.hoisted(() => {
     informed,
     caea,
     failReads,
+    failWrites,
     sent,
     beforeUpdate,
   };
@@ -87,6 +89,11 @@ function from(table: string) {
       }) => unknown,
     ) => {
       if (h.failReads.has(table) && !patch) {
+        return Promise.resolve(
+          resolve({ data: null, error: { message: `${table} down` } }),
+        );
+      }
+      if (h.failWrites.has(table) && patch) {
         return Promise.resolve(
           resolve({ data: null, error: { message: `${table} down` } }),
         );
@@ -216,6 +223,7 @@ beforeEach(() => {
   h.caea.active = true;
   h.informed.length = 0;
   h.failReads.clear();
+  h.failWrites.clear();
   h.sent.length = 0;
   h.beforeUpdate = null;
   h.rpcError = null;
@@ -609,6 +617,19 @@ describe("caea-inform sin movimiento", () => {
     ];
     await h.handlers.get("caea-inform")?.({ step });
     expect(informCaeaNoMovement).not.toHaveBeenCalled();
+  });
+
+  it("fails the step when the sin-movimiento record is not saved", async () => {
+    h.db.invoices = [];
+    h.db.caea_codes = [expiredCaea];
+    h.db.sales_points = [
+      { numero: 9, last_known_emission_type: "CAEA", is_enabled: true },
+    ];
+    h.failWrites.add("caea_codes");
+    await expect(h.handlers.get("caea-inform")?.({ step })).rejects.toThrow(
+      "caea-no-movement-record",
+    );
+    expect(informCaeaNoMovement).toHaveBeenCalledWith(9, "12345678901234");
   });
 
   it("files nothing with AFIP when the usage read fails", async () => {

@@ -352,6 +352,16 @@ export function groupByInvoice(
   return Array.from(map.values());
 }
 
+/** Columns the sales book prints between Perc. and Total (screen, Excel and
+ *  PDF): each amount under its own heading, so the row adds up to Total. */
+export const VENTAS_AMOUNT_COLUMNS: readonly {
+  header: string;
+  value: (v: { imp_tot_conc: number; imp_op_ex: number }) => number;
+}[] = [
+  { header: "No gravado", value: (v) => v.imp_tot_conc },
+  { header: "Exento", value: (v) => v.imp_op_ex },
+];
+
 export type LibroIvaVentasTotals = {
   count: number;
   per_rate: Record<number, { neto: number; iva: number }>;

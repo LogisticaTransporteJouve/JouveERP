@@ -353,6 +353,42 @@ describe("reserveNumberAndRequestCae", () => {
     expect(afip.port.requestCAE).toHaveBeenCalledTimes(1);
   });
 
+  it("on retry, adopts its number when AFIP commits it between the consult and the last-number read", async () => {
+    const afip = fakeAfip({ last: 41 });
+    const { storeFor } = fakeAttempts();
+    const store = storeFor("a");
+    await store.record(42);
+    const consult = afip.port.getVoucherInfo;
+    // The timed-out request is still in flight at the first consult and
+    // committed by the time the last number is read.
+    afip.port.getVoucherInfo = vi.fn(async (pv, tipo, nro) => {
+      if (vi.mocked(afip.port.getVoucherInfo).mock.calls.length === 1) {
+        afip.seed(inputFor(draft("a").expected, 42));
+        return null;
+      }
+      return consult(pv, tipo, nro);
+    });
+
+    const res = await emit(afip.port, store, draft("a"));
+    expect(res).toMatchObject({ cbteNro: 42, cae: "CAE42" });
+    expect(afip.port.requestCAE).not.toHaveBeenCalled();
+    expect(afip.vouchers.size).toBe(1);
+  });
+
+  it("keeps a rejection retriable after an earlier attempt whose outcome is unknown", async () => {
+    const afip = fakeAfip({ last: 41 });
+    afip.port.requestCAE = vi.fn(async () => {
+      throw new AfipServiceError([{ code: 502, message: "Error interno" }]);
+    });
+    const { storeFor } = fakeAttempts();
+    const store = storeFor("a");
+    // The previous attempt sent 42 and timed out; AFIP has not registered it.
+    await store.record(42);
+    const err = await emit(afip.port, store, draft("a")).catch((e) => e);
+    expect(err).toBeInstanceOf(AfipServiceError);
+    expect(err).not.toBeInstanceOf(NonRetriableError);
+  });
+
   it("fails fast on deterministic AFIP rejections", async () => {
     const afip = fakeAfip({ last: 41 });
     afip.port.requestCAE = vi.fn(async () => {

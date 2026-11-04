@@ -139,7 +139,7 @@ select lives_ok(
   'items with a rate are accepted'
 );
 
-update public.purchase_invoices set imp_op_exentas = 7
+update public.purchase_invoices set imp_op_exentas = 7, imp_total = imp_total + 7
  where id = '00000000-0000-0000-0000-00000000ab13';
 select public.replace_purchase_invoice_items('00000000-0000-0000-0000-00000000ab13',
   '[{"description":"Flete","quantity":1,"unit_price":200,"iva_rate_id":5,
