@@ -27,6 +27,7 @@ import { BillRemitoDialog } from "@/features/invoices/components/bill-remito-dia
 import { RetryRemitoCreditButton } from "@/features/invoices/components/retry-remito-credit-button";
 import { listPendingComprobantesForClientAction } from "@/features/receipts/actions/receipts-actions";
 import { CollectDialog } from "@/features/receipts/components/collect-dialog";
+import { RECEIPT_FORM_PERMISSIONS } from "@/features/receipts/lib/receipt-form";
 import {
   ivaConditionLabel,
   type IvaCondition,
@@ -39,7 +40,7 @@ import {
 } from "@/features/invoices/schema";
 import { ivaRatePercent, type IvaRateId } from "@/lib/afip/codes";
 import { requireUserContext } from "@/lib/auth/context";
-import { userCan } from "@/lib/auth/permissions";
+import { userCan, userCanAll } from "@/lib/auth/permissions";
 import {
   amountToInput,
   formatArgentineDateTime,
@@ -83,7 +84,7 @@ export default async function ComprobanteDetailPage({
   if (
     c.status === "emitted" &&
     (c.kind === "factura" || c.kind === "nd") &&
-    userCan(ctx.access, "receipts:write")
+    userCanAll(ctx.access, RECEIPT_FORM_PERMISSIONS)
   ) {
     const pendingRes = await listPendingComprobantesForClientAction(
       c.client.id,
