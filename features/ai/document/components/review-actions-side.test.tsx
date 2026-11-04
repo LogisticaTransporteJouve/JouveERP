@@ -2,6 +2,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { type Access, resolveAccess } from "@/lib/auth/permissions";
 import type { InvoicingChannelSummary, ScopeSide } from "@/lib/scope";
 
 import type { ExtractionDetail } from "../actions";
@@ -73,7 +74,11 @@ function extraction(
 
 function renderReview(
   detail: ExtractionDetail,
-  { menu, locked = false }: { menu: ScopeSide; locked?: boolean },
+  {
+    menu,
+    locked = false,
+    access = resolveAccess(["finance"]),
+  }: { menu: ScopeSide; locked?: boolean; access?: Access },
 ) {
   render(
     <ScopeProvider
@@ -81,7 +86,7 @@ function renderReview(
       initialFiscalFilter={menu}
       locked={locked}
     >
-      <ReviewActions extraction={detail} onCreated={() => {}} />
+      <ReviewActions extraction={detail} access={access} onCreated={() => {}} />
     </ScopeProvider>,
   );
 }
@@ -132,5 +137,54 @@ describe("ReviewActions pins the fiscal side", () => {
     expect(screen.getByTestId("sales").textContent).toBe(
       "jouve_fiscal|default=jouve_fiscal",
     );
+  });
+});
+
+describe("ReviewActions offers only what the viewer can create", () => {
+  it.each([
+    ["check", {}, /Crear cheques/, "No tenés permiso para cargar cheques."],
+    [
+      "receipt",
+      { client_id: "c1" },
+      /Crear recibo/,
+      "No tenés permiso para cargar recibos.",
+    ],
+    [
+      "payment_order",
+      { supplier_id: "s1" },
+      /Crear orden de pago/,
+      "No tenés permiso para cargar órdenes de pago.",
+    ],
+    [
+      "sales_invoice",
+      { client_id: "c1" },
+      /Emitir factura/,
+      "No tenés permiso para emitir facturas.",
+    ],
+    [
+      "purchase_invoice",
+      {},
+      /cargar factura de compra/,
+      "No tenés permiso para cargar compras.",
+    ],
+  ] as const)(
+    "operations scanning a %s gets the reason, not the button",
+    (kind, matches, button, reason) => {
+      renderReview(extraction(kind, matches), {
+        menu: "fiscal",
+        access: resolveAccess(["operations"]),
+      });
+      expect(screen.queryByRole("button", { name: button })).toBeNull();
+      expect(screen.getByText(reason)).toBeTruthy();
+    },
+  );
+
+  it("finance without accounts:read is told why it cannot create the receipt", () => {
+    renderReview(extraction("receipt", { client_id: "c1" }), {
+      menu: "fiscal",
+      access: resolveAccess(["finance"], ["accounts:read"]),
+    });
+    expect(screen.queryByRole("button", { name: /Crear recibo/ })).toBeNull();
+    expect(screen.getByText(/No tenés permiso para ver cuentas/)).toBeTruthy();
   });
 });
