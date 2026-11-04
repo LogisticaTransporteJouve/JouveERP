@@ -42,9 +42,9 @@ cubren todos los viajes listados.
   «Manual» y «Neto del rango», y aparecen como fila «Sin vehículo» en la
   tabla por vehículo. Su combustible ya está en el camión de cada carga.
 - `ai_fleet_margin` por vehículo: los trae como grupo `none` («Sin
-  vehículo»), igual que por chofer y por cliente. Los totales por vehículo
-  son los mismos que por viaje, salvo el mantenimiento, que es por
-  vehículo.
+  vehículo»), igual que por chofer y por cliente. El ingreso total por
+  vehículo es el mismo que por viaje; el neto por vehículo además descuenta
+  el combustible sin viaje y el mantenimiento, que son por vehículo.
 - `get_vehicle_margin` y `getVehicleEconomics` ya los traían aparte y no
   los cuentan dos veces.
 

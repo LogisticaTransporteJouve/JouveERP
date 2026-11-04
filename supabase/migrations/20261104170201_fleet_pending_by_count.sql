@@ -13,8 +13,10 @@ SET LOCAL statement_timeout = '15min';
 --    - uninvoiced_shipments per group and total_uninvoiced_shipments.
 --    - By vehicle, the trips without a vehicle are one more group, 'none'
 --      («Sin vehículo», as the driver and client groupings already do), so
---      the window totals are the same by vehicle as by trip. Its fuel is 0:
---      every fuel load has a vehicle and counts there.
+--      every trip counts in the window totals by vehicle, as by trip (the
+--      net by vehicle also takes the fuel without a trip and the
+--      maintenance). Its fuel is 0: every fuel load has a vehicle and counts
+--      there.
 --    - maintenance_without_cost per group and in total: a service with no
 --      cost is unknown, not $0 (#396), and is now counted.
 --    Same body as 20261104160201 (its latest definition) plus that. New OUT

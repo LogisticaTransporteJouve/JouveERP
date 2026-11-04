@@ -1,7 +1,7 @@
 -- Fleet figures that are not final say so (20261104170201): v_trip_revenue
 -- and ai_fleet_margin count the cargas still to invoice (a tariff-priced one
 -- has no freight yet); by vehicle, the trips without a vehicle are the group
--- 'none', so the totals match those by trip; a service with no cost is
+-- 'none', so every trip is in the totals by vehicle; a service with no cost is
 -- counted, in ai_fleet_margin and get_vehicle_margin. 2035 has no seed data.
 -- One transaction, rolled back.
 
