@@ -3,7 +3,7 @@
 import { logAudit } from "@/lib/actions/audit";
 import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
-import { userCan } from "@/lib/auth/permissions";
+import { userCan, userCanAll } from "@/lib/auth/permissions";
 import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { logger } from "@/lib/logger";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
@@ -25,6 +25,11 @@ import {
   type AccountMovement,
   type DebtPlan,
 } from "../account-schema";
+import {
+  HR_CASH_DENIED_REASON,
+  HR_CASH_PERMISSIONS,
+  movementMovesCash,
+} from "../lib/hr-cash";
 
 // Cuenta corriente del empleado (D1). Balances, plan progress and the
 // planilla discount are computed in the database; every write here is a
@@ -309,10 +314,7 @@ export async function recordEmployeeAccountCashAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
   const ctx = await requireUserContext();
-  if (
-    !userCan(ctx.access, "hr:write") ||
-    !userCan(ctx.access, "transactions:write")
-  ) {
+  if (!userCanAll(ctx.access, HR_CASH_PERMISSIONS)) {
     return {
       ok: false,
       error: "Sin permiso para registrar adelantos o pagos de empleados.",
@@ -431,6 +433,30 @@ export async function deleteAccountMovementAction(
   const parsed = DeleteAccountMovementSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "ID inválido." };
   const supabase = await createSupabaseClient();
+  // Deleting a movement with a Caja movement deletes that one too: it also
+  // needs transactions:write.
+  const { data: movement, error: readError } = await supabase
+    .from("employee_account_movements")
+    .select("id, transaction_id")
+    .eq("id", parsed.data.id)
+    .maybeSingle();
+  if (readError) {
+    logger.error("employee_account.delete.read_failed", {
+      userId: ctx.userId,
+      error: readError,
+    });
+    return { ok: false, error: "No se pudo borrar el movimiento." };
+  }
+  if (!movement) return { ok: false, error: "El movimiento no existe." };
+  if (
+    movementMovesCash(movement) &&
+    !userCanAll(ctx.access, HR_CASH_PERMISSIONS)
+  ) {
+    return {
+      ok: false,
+      error: `Sin permiso para borrar este movimiento. ${HR_CASH_DENIED_REASON}`,
+    };
+  }
   const { error } = await supabase.rpc("delete_employee_account_movement", {
     p_movement_id: parsed.data.id,
   });

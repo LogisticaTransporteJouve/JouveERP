@@ -21,6 +21,11 @@ import {
   ivaIsComputable,
   ivaRateIdForPercent,
 } from "@/lib/afip/codes";
+import {
+  suggestTributeSplit,
+  TRIBUTE_SUGGESTION_NOTE,
+  type TributeHistory,
+} from "@/lib/purchases/tribute-split";
 
 import {
   InvoiceExtractionSchema,
@@ -146,6 +151,8 @@ export function buildPurchaseInvoiceDraft(
     usdRate: number | null;
     confidence: number | null;
     duplicate: DuplicateCheck;
+    /** The matched supplier's latest split of otros tributos. */
+    tributeHistory?: TributeHistory | null;
   },
 ): PurchaseInvoiceDraftData | null {
   const parsed = InvoiceExtractionSchema.safeParse(payload);
@@ -223,6 +230,19 @@ export function buildPurchaseInvoiceDraft(
     warnings.push(`No se encontró en el archivo: ${missing.join(", ")}.`);
   }
 
+  // The document prints only the otros tributos total: a suggested split,
+  // for the user to confirm or edit.
+  const suggestion =
+    trib !== null
+      ? suggestTributeSplit({
+          trib,
+          netoGravado: neto ?? 0,
+          ivaComputable: ivaIsComputable(inv.letter ?? null),
+          history: opts.tributeHistory ?? null,
+        })
+      : null;
+  if (suggestion) warnings.push(TRIBUTE_SUGGESTION_NOTE[suggestion.basis]);
+
   const moneda = inv.currency === "USD" ? "DOL" : "PES";
   if (moneda === "DOL" && opts.usdRate === null) {
     warnings.push(
@@ -256,6 +276,7 @@ export function buildPurchaseInvoiceDraft(
     imp_iva: iva,
     imp_trib: trib,
     imp_total: total,
+    ...(suggestion && { tributes: suggestion.split }),
     moneda,
     cotizacion: moneda === "DOL" ? opts.usdRate : null,
     motivo_nc_nd: kind === "factura" ? null : "Según documento escaneado",

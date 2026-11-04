@@ -23,6 +23,112 @@ compra neutra, de flota o a cargo de un empleado.
 **Descartado.** Leer el importe de la línea de la OP en cada trigger (más
 cambios para el mismo efecto); seguir la cadena sin límite (una OP imputada a
 su propio cheque rechazado no termina).
+## 2026-11-04 — Estado de producción: solo clientes y ventas en pesos
+
+**Decisión (owner).** La base de producción tiene solo clientes y facturas de
+venta en pesos: ni recibos, ni comprobantes en dólares, ni compras, cheques,
+órdenes de pago, préstamos, planillas o movimientos de empleados. Todo
+backfill sobre esas tablas (tributos de #339, re-asiento USD de #344, cargos
+de empleados de #345 y #349, cuentas congeladas de #351, compras con total
+distinto de sus partes, B/C con IVA, cheques rebotados de w3, comprobantes USD
+con cotización ≤ 1 de #350) es un no-op allá, y no hace falta re-asentar nada
+viejo ("corregí lo que quieras"). En **Antes de promover** esos ítems quedan
+marcados **N/A en producción** con su SQL, para una promoción sobre otra base.
+La única revisión real que queda es la lista de borradores del reconciliador
+(#340), que revisa el owner antes de promover.
+
+**Descartado.** Borrar los ítems: su SQL sirve si se promueve sobre una base
+con datos.
+
+## 2026-11-04 — Lo de RRHH y cheques que mueve plata pide movimientos
+
+**Decisión (owner).** Toda acción de RRHH o de cheques que mueve o borra
+tesorería pide `transactions:write` además de su permiso: los pagos de
+planilla (individual, masivo, editar, borrar), borrar un movimiento de la
+cuenta corriente del empleado que tiene movimiento de caja y pagar la deuda
+de un cheque vendido rechazado. Cada una comparte con su botón la lista
+(`features/hr/lib/hr-cash.ts`, `features/checks/lib/check-sale-cash.ts`): el
+botón se oculta o queda deshabilitado con el motivo.
+
+**Matriz.** No cambia. Los roles con `hr:write` (owner, admin, finance) y con
+`cheques:write` (los mismos) ya tienen `transactions:write`: ningún rol tiene
+`hr:write` sin `transactions:write`. Lo que cambia es una denegación por
+usuario de `transactions:write`, que antes no frenaba estas acciones.
+
+**Descartado.** Pedirlo en la base (RLS o RPC): las denegaciones se aplican en
+la app y la base aplica el techo del rol, que ya incluye los dos permisos.
+
+## 2026-11-04 — Percepciones de Ganancias y otros impuestos nacionales en compras
+
+**Decisión.** Las compras tienen una quinta parte de `imp_trib`:
+`imp_perc_nacionales`, "percepciones o pagos a cuenta de otros impuestos
+nacionales" (Ganancias y cualquier otro nacional que no es IVA). No es IVA:
+nunca va a `iva_credito`, a la posición ni al estimado de IVA (queda entre los
+"otros tributos que no se restan"). En el asiento va a "Percepciones y pagos a
+cuenta de Ganancias" (rol nuevo `percepciones_ganancias`, 1.1.3.N, activo).
+El cargo a un empleado no la incluye: como las otras percepciones, es crédito
+de la empresa.
+
+**Cuenta sin rol.** Si ninguna cuenta activa tiene el rol, se asienta en
+`percepciones_iibb_pagadas`: sigue siendo un crédito fiscal (activo), es la
+cuenta a la que iba todo `imp_trib` antes de #339 y la que usa el código
+anterior en un rollback; nunca gasto (inflaría el costo y, a cargo de un
+empleado, caería en anticipos) ni IVA. El monto no se pierde y el contador lo
+reclasifica.
+
+**Libro IVA Digital (RG 4597; diseño heredado de RG 3685 "CITI").** El
+registro de comprobantes de compras tiene el campo 13 "Importe de
+percepciones o pagos a cuenta de otros impuestos nacionales" (posiciones
+165–179, entre las percepciones de IVA y las de IIBB; `features/libro-iva/lib/citi.ts`).
+Fuentes: el diseño de registro que sigue el TXT del repo, y contadoresenred y
+blogdelcontador, que lo describen como campo propio, distinto de IVA, IIBB,
+municipales e internos, y no lo muestran en la vista ni en la impresión del
+Libro IVA Digital. Por eso el TXT lo declara ahí (el total del registro tiene
+que cerrar) y "Otros tributos" sigue en 0. La duda del owner ("creo que eso no
+va en los libros") se confirma para la vista: no es una columna de IVA.
+
+**Libro IVA Compras en pantalla, PDF y Excel.** Como el libro del sistema
+anterior que usa el contador: una columna "Percepciones" con el código de cada
+una (B = IIBB, I = IVA, G = Ganancias y otros nacionales, M = municipales) y
+"Imp. int." aparte; sin columna propia para Ganancias. El Excel lleva la suma
+en "Percepciones" y el detalle con códigos en "Detalle percepciones". La RPC
+`libro_iva_compras` devuelve `perc_nacionales` y la suma en `imp_trib`.
+
+**Descartado.** Meterla en "Otros tributos" del TXT (el campo 13 existe) y
+crear una columna visible "Perc. Ganancias" (no figura en el libro del
+contador ni en la vista de ARCA).
+
+## 2026-11-04 — Reparto sugerido de otros tributos (ARCA y escaneo)
+
+**Decisión.** Cuando Mis Comprobantes o un comprobante escaneado dan solo el
+total de otros tributos, la bandeja de ARCA y el borrador de IA proponen un
+reparto, con una nota que dice que es una sugerencia; la persona lo confirma
+o lo edita y nada se guarda sin su confirmación
+(`lib/purchases/tribute-split.ts`). En orden:
+
+1. **Historia del proveedor:** la última factura fiscal recibida del mismo
+   proveedor con tributos; sus tasas sobre el neto aplicadas al neto de esta.
+   Se usa solo si reproduce el total (±0,02 o 0,1 %); si no, es otro patrón.
+2. **Percepción de IVA (RG 2408):** si todo el monto es 1,5 % o 3 % del neto
+   gravado (±0,02), IVA. Si es más, se separa una parte de IVA al 1,5 % o 3 %
+   y el resto queda como IIBB, siempre que ese resto sea una alícuota de IIBB
+   creíble (0,5 %–5 %); entre las dos, la que deja IIBB más cerca de
+   1,75 %–2,5 %, las del libro real. Solo en letra A.
+3. **Si no:** IIBB.
+
+**Límites.** Un IIBB al 1,5 % o al 3 % se sugiere como IVA, y uno alto (6 %)
+como IVA + IIBB, hasta que el proveedor tenga historia: por eso es una
+sugerencia y se muestra la nota.
+
+**Alícuota de un comprobante de ARCA sin columnas por alícuota.** Se infiere
+de IVA/neto: la más cercana de 21 %, 10,5 % y 27 % con tolerancia de 0,5 % del
+importe, y se guarda un ítem con esa alícuota. Si no coincide ninguna (mezcla
+alícuotas), se carga al 21 % con un aviso para revisarla. Es una regla aparte
+de la de percepciones (1,5 %/3 % del neto), que solo mira otros tributos.
+
+**Descartado.** Guardar el reparto sugerido sin confirmación y el reparto
+proporcional a la historia sin mirar el neto (no distingue un cambio de
+alícuota).
 
 ## 2026-11-04 — Montos de RRHH con formato al tipear; sueldo de la liquidación final
 

@@ -202,6 +202,17 @@ describe("createPurchaseInvoiceFromReceivedAction", () => {
     expect(createPurchase).not.toHaveBeenCalled();
   });
 
+  it("counts the Ganancias part in the split and passes it to the purchase", async () => {
+    const res = await createPurchaseInvoiceFromReceivedAction({
+      voucherId: VOUCHER_ID,
+      invoice: { ...invoice, imp_perc_iibb: 15, imp_perc_nacionales: 5 },
+    });
+    expect(res.ok).toBe(true);
+    expect(createPurchase).toHaveBeenCalledWith(
+      expect.objectContaining({ imp_perc_nacionales: 5, imp_perc_iibb: 15 }),
+    );
+  });
+
   it("refuses another número", async () => {
     const res = await createPurchaseInvoiceFromReceivedAction({
       voucherId: VOUCHER_ID,

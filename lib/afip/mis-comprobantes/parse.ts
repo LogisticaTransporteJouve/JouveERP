@@ -33,7 +33,10 @@ const NO_HEADER =
   "No se reconocen las columnas: subí el archivo de ARCA → Mis Comprobantes → Recibidos sin editar.";
 
 export type TribBreakdown = Partial<
-  Record<"perc_iva" | "perc_iibb" | "municipales" | "internos", number>
+  Record<
+    "perc_iva" | "perc_nacionales" | "perc_iibb" | "municipales" | "internos",
+    number
+  >
 >;
 
 export type IvaBreakdownLine = {
@@ -95,6 +98,7 @@ const FIELDS = [
   "iva",
   "total",
   "perc_iva",
+  "perc_nacionales",
   "perc_iibb",
   "municipales",
   "internos",
@@ -103,6 +107,7 @@ type Field = (typeof FIELDS)[number];
 
 const TRIBUTE_FIELDS = [
   "perc_iva",
+  "perc_nacionales",
   "perc_iibb",
   "municipales",
   "internos",
@@ -146,6 +151,12 @@ const ALIASES: Readonly<Record<Field, readonly string[]>> = {
   iva: ["iva", "total iva", "imp iva"],
   total: ["imp total", "importe total", "total"],
   perc_iva: ["percepciones de iva", "percepcion iva", "perc iva"],
+  perc_nacionales: [
+    "percepciones de otros impuestos nacionales",
+    "percepcion otros impuestos nacionales",
+    "percepciones de ganancias",
+    "percepcion ganancias",
+  ],
   perc_iibb: [
     "percepciones de ingresos brutos",
     "percepcion iibb",
