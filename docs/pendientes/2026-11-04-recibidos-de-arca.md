@@ -1,0 +1,36 @@
+# Recibidos de ARCA (2026-11-04)
+
+- [x] Bandeja de Mis Comprobantes → Recibidos: subir el archivo, aceptar
+      cada comprobante como compra (importes de ARCA) o descartarlo
+      (`20261104104001`, `/purchases/arca`).
+- [x] Compras en una cuenta asignada a Neutro no suman en Gestión, tampoco
+      en caja (`20261104104002`).
+- [x] Clave fiscal del usuario de ARCA en Vault, editable por owner y admin
+      en Admin → AFIP (`20261104110601`).
+- [x] Traer de ARCA solo: robot HTTP (`lib/afip/mis-comprobantes/robot.ts`),
+      función Inngest `arca-received-sync` (todos los días, últimos 60 días;
+      `retries: 0`) y botón «Traer de ARCA» con período en la bandeja.
+- [ ] Probar el robot contra ARCA desde producción (región `gru1`): el
+      recorrido sale de la grabación del owner, nunca corrió de punta a punta.
+- [x] Robot más seguro (auditoría w4): solo habla con `afip.gob.ar` y
+      `afip.gov.ar` por https y la clave no sigue una redirección a otro
+      sitio; dos ingresos fallidos seguidos frenan la cuenta
+      (`20261104120000`, compare-and-set sobre las credenciales leídas); un
+      mes cuyas filas no coinciden con `recordsTotal` falla; tope de 200 s
+      por corrida; un comprobante se vincula solo si el total también
+      coincide; el centavo de redondeo de ARCA va a no gravado (A) o al neto
+      (B/C) al aceptar.
+- [x] Diálogo de aceptar (pedido del owner): botón «Crear proveedor
+      «Razón social»» con el CUIT de ARCA cuando no está cargado; vencimiento
+      en la fecha del comprobante o en la fecha + los días de pago del
+      proveedor; en lugar del selector de ítems, las líneas por alícuota con
+      que se guarda.
+- [ ] Avisar por notificación a owner y admin cuando ARCA rechaza la clave
+      (hoy lo muestran la bandeja y Admin → AFIP).
+- [x] Lector validado con una consulta real de Recibidos (A con otros
+      tributos, C y NC C que traen solo el total, todo en pesos) y con los
+      encabezados del Excel que exporta la página.
+- [ ] Sin ver todavía: el CSV que arma el servidor (`descargarComprobantes.do`),
+      una B y un comprobante en dólares. El dueño dice que las compras son
+      todas en pesos.
+- [ ] FCE MiPyME y tipo M quedan en «No soportados»: se cargan a mano.

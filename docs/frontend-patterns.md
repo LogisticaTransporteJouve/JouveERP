@@ -1376,7 +1376,8 @@ return (
 
 ### 13.5 Command palette (Cmd+K) — retirada (2026-11-04)
 
-La búsqueda global ⌘K se sacó de la app (`docs/decisions.md`, 2026-11-04). ⌘K
+La búsqueda global ⌘K se sacó de la app
+(`docs/decisions/2026-11-04-se-retira-la-busqueda-global-k.md`). ⌘K
 queda solo para la búsqueda de chat (`features/chat/components/channel-list.tsx`).
 `@/components/ui/command` sigue en uso por los combobox.
 

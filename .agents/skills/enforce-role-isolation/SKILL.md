@@ -89,7 +89,7 @@ unforgiving, because every shape below reads like ordinary code.
 
 ## The access model — role ceiling in the DB, per-user denies in the app
 
-The rule is stated once in `CLAUDE.md` (rationale in `docs/decisions.md`); this is how to attack it.
+The rule is stated once in `CLAUDE.md` (rationale in `docs/decisions/2026-10-28-accesos-por-usuario-denegaciones-en-la-app-techo-en-la-db.md`); this is how to attack it.
 
 - **Every gate is `userCan(ctx.access, "<perm>")`.** `ctx.access` is a branded `Access` (roles +
   denied permissions) built ONLY by `resolveAccess` in `lib/auth/` (the context loader, the

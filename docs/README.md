@@ -6,8 +6,11 @@ agentes: [`../CLAUDE.md`](../CLAUDE.md), [`../AGENTS.md`](../AGENTS.md).
 
 ## Estado y decisiones
 
-- [`pendientes.md`](pendientes.md) — qué falta hoy (fuente vigente de estado).
-- [`decisions.md`](decisions.md) — registro fechado de decisiones de diseño.
+- [`pendientes/`](pendientes/) — qué falta hoy (fuente vigente de estado): un
+  archivo por tema, más `antes-de-promover.md` y `limites-de-rollback.md`.
+  Cómo agregar: [`pendientes.md`](pendientes.md).
+- [`decisions/`](decisions/) — registro fechado de decisiones de diseño, un
+  archivo por decisión. Cómo agregar: [`decisions.md`](decisions.md).
 - [`roadmap.md`](roadmap.md) — plan maestro histórico y changelog por fase.
 
 ## Arquitectura por subsistema

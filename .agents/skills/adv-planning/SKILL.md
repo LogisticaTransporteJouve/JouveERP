@@ -16,7 +16,7 @@ You produce ONE plan artifact and then subject it to REAL, independent falsifica
 write product code. Write touches ONLY the plan `.md` and scratch files.
 
 `$ARGUMENTS` = the goal (e.g. "Add credit notes to storage billing"). If vague, resolve it from the repo — the
-nearest sibling feature, recent PRs, `docs/pendientes.md` / `docs/roadmap.md`, any issue the user linked — and record the interpretation you chose
+nearest sibling feature, recent PRs, `docs/pendientes/` / `docs/roadmap.md`, any issue the user linked — and record the interpretation you chose
 in the summary under the plan's title (section 1 of `_shared/plan-format.md`) so a wrong reading is
 visible and cheap to correct. Do not add an `Intent` section — the format forbids inventing
 top-level sections. Ask only if the goal
@@ -49,7 +49,7 @@ feature-slice rules), `.claude/skills/enforce-clean-code/SKILL.md` IN FULL (the 
 read all five this turn, you may NOT write the plan.
 
 ## Step 1 — Research the codebase (spend most of your time here)
-Build a real mental model before planning. Read `README.md`, root `CLAUDE.md`, `docs/pendientes.md`, and the
+Build a real mental model before planning. Read `README.md`, root `CLAUDE.md`, `docs/pendientes/`, and the
 subsystem docs the change touches (`docs/accounting-patterns.md`, `docs/hr-patterns.md`,
 `docs/ai-patterns.md`, `docs/{chat,files,notifications}-patterns.md`). Use Glob/Grep/Read and `Explore` agents to learn: current architecture and the
 "worked example" of a similar existing feature; exact files to change; which components are generic

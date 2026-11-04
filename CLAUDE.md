@@ -89,11 +89,15 @@ agentes en [`AGENTS.md`](AGENTS.md), mapa en `.agents/skills/README.md`.
 
 ## Docs
 
-Índice en [`docs/README.md`](docs/README.md); decisiones en `docs/decisions.md`;
+Índice en [`docs/README.md`](docs/README.md); decisiones en `docs/decisions/`;
 flujo de trabajo en [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
-- `docs/roadmap.md` — plan maestro histórico; el estado vigente está en `docs/pendientes.md`.
-- `docs/pendientes.md` — qué falta (auditoría docs vs código).
+- `docs/roadmap.md` — plan maestro histórico; el estado vigente está en `docs/pendientes/`.
+- `docs/pendientes/` — qué falta: `antes-de-promover.md`, `limites-de-rollback.md` y un
+  archivo por tema. Para agregar algo (pendiente o decisión), agregá un archivo
+  `YYYY-MM-DD-<tema>.md` en `docs/pendientes/` o `docs/decisions/`; no edites
+  archivos de otros PRs salvo para marcar un ítem (índices en `docs/pendientes.md`
+  y `docs/decisions.md`).
 - `docs/ai-overview.md` — feature IA: chat, insights proactivos, Document
   Intelligence (escaneo/OCR/extracción) + UI + tablas + plan AI.0–AI.8.
 - `docs/ai-cfo.md` — AI CFO: registry único de acciones (`features/ai/registry/`),

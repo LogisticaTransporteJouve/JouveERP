@@ -50,6 +50,7 @@
 
 - [ ] Test pgTAP (`supabase/tests/`) o de integración (`tests/integration/`) para toda tabla o RPC nueva en `public` (o `n/a`)
 - [ ] Sin `.env`, claves, comprobantes reales ni datos personales en el diff
+- [ ] Pendientes y decisiones en un archivo nuevo de `docs/pendientes/` o `docs/decisions/` (no en el de otro PR; o `n/a`)
 
 ## Cómo probar
 

@@ -1,0 +1,34 @@
+# 2026-10-28 — Accesos por usuario: denegaciones en la app, techo en la DB
+
+**Decisión.** Cada usuario tiene roles más una lista de permisos denegados
+(`user_permission_denies`). `resolveAccess(roles, denied)` arma el `Access`
+(tipo marcado, solo se construye ahí — cercado por ESLint) y todo gate usa
+`userCan(ctx.access, …)`. Denegar `<recurso>:read` oculta el módulo entero
+(sus pantallas, acciones, búsqueda, IA y adjuntos); datos de ese recurso que
+otro módulo muestra con su propio permiso (p. ej. facturas en la cuenta del
+cliente, saldos en tesorería) siguen visibles. Excepción: en `ai`, `ai:read`
+y `ai:chat` se deniegan por separado. El
+owner no se puede denegar. Solo `users:manage_access` (owner) edita
+denegaciones; `users:assign_role` (owner y admin) edita roles. Roles y
+denegaciones se guardan juntos con `set_user_access` (SECURITY DEFINER,
+service_role), que rechaza editar los propios accesos (UA001), escrituras sobre
+un estado viejo (UA002), roles fuera del alcance del actor (UA003) y dejar la
+empresa sin owner (23514).
+
+**Por qué.** El owner necesita ocultar módulos a una persona sin inventar un
+rol por usuario. Aplicarlo en la app reutiliza los gates que ya existen en
+actions, páginas, sidebar, herramientas de IA, jobs headless, búsqueda y
+alertas.
+
+**Descartado.** Overlays RESTRICTIVE de RLS por tabla: rompen los triggers en
+cascada INVOKER, los embeds de PostgREST, las policies de storage y los RPC
+DEFINER, y exigen verificar cada módulo. La DB sigue aplicando el techo del
+rol; una denegación no se aplica a un acceso directo con el JWT del usuario.
+Queda como follow-up.
+
+**Ventana de deploy.** Vercel publica antes de que se apruebe la migración:
+sin la tabla, `loadDenies` lee "sin denegaciones"; la búsqueda reintenta la
+firma vieja de `search_global`; editar accesos responde "Actualización
+pendiente". Esas tolerancias se quitan cuando la migración esté en producción.
+Un rollback de Vercel a un build anterior ignora las denegaciones guardadas
+(siguen en la tabla y vuelven a regir al volver a desplegar).
