@@ -10,7 +10,7 @@ import { fetchUsdRateOnOrBefore } from "@/lib/fx";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { invoiceIsVoid } from "@/lib/source-invoice-key";
-import { paginateRange } from "@/lib/supabase/paginate";
+import { fetchInChunks, paginateRange } from "@/lib/supabase/paginate";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { getServiceClient } from "@/lib/supabase/service";
 
@@ -140,7 +140,7 @@ export async function getStorageBillingAction(
     paginateRange((from, to) =>
       supabase
         .from("clients")
-        .select("id, legal_name")
+        .select("id, legal_name, is_fiscal")
         .order("id")
         .range(from, to),
     ),
@@ -181,7 +181,11 @@ export async function getStorageBillingAction(
   }));
 
   const clientNames = new Map<string, string>();
-  for (const c of clientsRes.data ?? []) clientNames.set(c.id, c.legal_name);
+  const clientIsFiscal = new Map<string, boolean>();
+  for (const c of clientsRes.data ?? []) {
+    clientNames.set(c.id, c.legal_name);
+    clientIsFiscal.set(c.id, c.is_fiscal);
+  }
 
   return {
     ok: true,
@@ -191,6 +195,7 @@ export async function getStorageBillingAction(
       clientTariffs: ownRes.clientTariffs,
       usdRate: ownRes.usdRate,
       clientNames,
+      clientIsFiscal,
       periodStart: input.periodStart,
       periodEnd: input.periodEnd,
     }),
@@ -203,54 +208,52 @@ function fmtDate(iso: string): string {
 }
 
 /**
- * claim_storage_billing_period linked a stale run's orphan invoice (issued
- * under the run's id) instead of claiming. That lost link never wrote
- * `storage.invoiced`, so write it now, marked `relinked`, for each such run
- * the requested period overlaps on its channel. A run whose event already
- * exists is skipped. Best effort, like logAudit: a failed read only logs.
+ * claim_storage_billing_period links a stale run's orphan invoice (issued
+ * under the run's id) instead of deleting the run, for any of the client's
+ * periods and channels. That lost link never wrote `storage.invoiced`, so
+ * write it now, marked `relinked`, for each linked run of the client whose
+ * invoice carries the run's id and has no event yet. Runs after every claim
+ * (an invoice already audited is skipped). Best effort, like logAudit: a
+ * failed read only logs.
  */
 async function auditRelinkedRuns(
   supabase: Awaited<ReturnType<typeof createSupabaseClient>>,
   userId: string,
-  period: {
-    client_id: string;
-    channel_id: string;
-    period_start: string;
-    period_end: string;
-  },
+  clientId: string,
 ): Promise<void> {
-  const { data: runs, error: runsErr } = await supabase
-    .from("storage_billing_runs")
-    .select("id, invoice_id, channel_id, period_start, period_end, total")
-    .eq("client_id", period.client_id)
-    .not("invoice_id", "is", null)
-    .lte("period_start", period.period_end)
-    .gte("period_end", period.period_start);
-  if (runsErr) {
+  const runsRes = await paginateRange((from, to) =>
+    supabase
+      .from("storage_billing_runs")
+      .select("id, invoice_id, period_start, period_end, total")
+      .eq("client_id", clientId)
+      .not("invoice_id", "is", null)
+      .order("id")
+      .range(from, to),
+  );
+  if (runsRes.error) {
     logger.error("storage.invoice.relink_audit.failed", {
       userId,
-      error: runsErr,
+      error: runsRes.error,
     });
     return;
   }
-  const linked = (runs ?? []).filter(
-    (r): r is typeof r & { invoice_id: string } =>
-      r.invoice_id !== null &&
-      (r.channel_id === null || r.channel_id === period.channel_id),
+  const linked = runsRes.data.filter(
+    (r): r is typeof r & { invoice_id: string } => r.invoice_id !== null,
   );
   if (linked.length === 0) return;
 
   const invoiceIds = linked.map((r) => r.invoice_id);
   const [invoicesRes, auditRes] = await Promise.all([
-    supabase
-      .from("invoices")
-      .select("id, idempotency_key")
-      .in("id", invoiceIds),
-    getServiceClient()
-      .from("audit_events")
-      .select("target_resource_id")
-      .eq("event_type", "storage.invoiced")
-      .in("target_resource_id", invoiceIds),
+    fetchInChunks(invoiceIds, (ids) =>
+      supabase.from("invoices").select("id, idempotency_key").in("id", ids),
+    ),
+    fetchInChunks(invoiceIds, (ids) =>
+      getServiceClient()
+        .from("audit_events")
+        .select("target_resource_id")
+        .eq("event_type", "storage.invoiced")
+        .in("target_resource_id", ids),
+    ),
   ]);
   if (invoicesRes.error || auditRes.error) {
     logger.error("storage.invoice.relink_audit.failed", {
@@ -259,12 +262,8 @@ async function auditRelinkedRuns(
     });
     return;
   }
-  const keyOf = new Map(
-    (invoicesRes.data ?? []).map((i) => [i.id, i.idempotency_key]),
-  );
-  const audited = new Set(
-    (auditRes.data ?? []).map((a) => a.target_resource_id),
-  );
+  const keyOf = new Map(invoicesRes.data.map((i) => [i.id, i.idempotency_key]));
+  const audited = new Set(auditRes.data.map((a) => a.target_resource_id));
   for (const run of linked) {
     if (keyOf.get(run.invoice_id) !== run.id) continue;
     if (audited.has(run.invoice_id)) continue;
@@ -273,7 +272,7 @@ async function auditRelinkedRuns(
       userId,
       {
         invoice_id: run.invoice_id,
-        client_id: period.client_id,
+        client_id: clientId,
         period_start: run.period_start,
         period_end: run.period_end,
         total: Number(run.total),
@@ -296,35 +295,45 @@ export async function listStorageBillingRunsAction(): Promise<
     return { ok: false, error: "No tenés permiso para ver la facturación." };
   }
   const supabase = await createSupabaseClient();
-  const { data, error } = await paginateRange((from, to) =>
-    supabase
-      .from("storage_billing_runs")
-      .select(
-        "id, client_id, period_start, period_end, storage_total, handling_in_total, handling_out_total, total, invoice_id, channel_id, pending_since, created_at, client:clients(legal_name)",
-      )
-      .order("period_end", { ascending: false })
-      .order("id")
-      .range(from, to),
-  );
+  const [runsRes, voidRes] = await Promise.all([
+    paginateRange((from, to) =>
+      supabase
+        .from("storage_billing_runs")
+        .select(
+          "id, client_id, period_start, period_end, storage_total, handling_in_total, handling_out_total, total, invoice_id, channel_id, pending_since, created_at, client:clients(legal_name)",
+        )
+        .order("period_end", { ascending: false })
+        .order("id")
+        .range(from, to),
+    ),
+    // Runs whose invoice no longer bills them (failed, cancelled, or a fiscal
+    // factura credited in full): their days are free, and the next claim of
+    // the client deletes them.
+    supabase.rpc("storage_billing_void_run_ids"),
+  ]);
+  const error = runsRes.error ?? voidRes.error;
   if (error) {
     logger.error("storage.billing.runs.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo cargar el historial." };
   }
-  const runs: StorageBillingRun[] = (data ?? []).map((r) => ({
-    id: r.id,
-    client_id: r.client_id,
-    client_name: r.client?.legal_name ?? "—",
-    period_start: r.period_start,
-    period_end: r.period_end,
-    storage_total: Number(r.storage_total),
-    handling_in_total: Number(r.handling_in_total),
-    handling_out_total: Number(r.handling_out_total),
-    total: Number(r.total),
-    invoice_id: r.invoice_id,
-    channel_id: r.channel_id,
-    pending_since: r.pending_since,
-    created_at: r.created_at,
-  }));
+  const voidRuns = new Set(voidRes.data ?? []);
+  const runs: StorageBillingRun[] = (runsRes.data ?? [])
+    .filter((r) => !voidRuns.has(r.id))
+    .map((r) => ({
+      id: r.id,
+      client_id: r.client_id,
+      client_name: r.client?.legal_name ?? "—",
+      period_start: r.period_start,
+      period_end: r.period_end,
+      storage_total: Number(r.storage_total),
+      handling_in_total: Number(r.handling_in_total),
+      handling_out_total: Number(r.handling_out_total),
+      total: Number(r.total),
+      invoice_id: r.invoice_id,
+      channel_id: r.channel_id,
+      pending_since: r.pending_since,
+      created_at: r.created_at,
+    }));
   return { ok: true, data: runs };
 }
 
@@ -519,8 +528,9 @@ export async function invoiceStorageAction(
     });
     return { ok: false, error: "No se pudo validar el período." };
   }
+  // The claim may have linked the orphan invoice of another period too.
+  await auditRelinkedRuns(supabase, ctx.userId, client_id);
   if (!runId) {
-    await auditRelinkedRuns(supabase, ctx.userId, parsed.data);
     return {
       ok: false,
       error:

@@ -243,7 +243,7 @@ select lives_ok(
 select throws_ok(
   $$delete from public.storage_billing_runs where id = '00000000-0000-0000-0000-00000017ee01'$$,
   '55006',
-  'El período de almacenaje tiene una factura vigente: anulala (o emití la nota de crédito) para liberarlo.',
+  'El período de almacenaje tiene una factura vigente: para liberarlo, anulala si es interna, o emití una nota de crédito por el total si es fiscal.',
   'a run linked to a live invoice is not deleted'
 );
 

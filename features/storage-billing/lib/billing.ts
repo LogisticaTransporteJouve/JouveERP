@@ -85,6 +85,9 @@ export type BillingLine = {
 export type ClientBilling = {
   client_id: string;
   client_name: string;
+  /** Ventas (true) or Otras ventas (false); null when unknown. It picks the
+   *  channels the client can be invoiced on. */
+  client_is_fiscal: boolean | null;
   pallets: number;
   charge: number;
 };
@@ -185,6 +188,8 @@ export function computeStorageBilling(input: {
   /** ARS per USD for the USD client tariffs; null when none is loaded. */
   usdRate: number | null;
   clientNames: Map<string, string>;
+  /** Each client's side (clients.is_fiscal). */
+  clientIsFiscal?: Map<string, boolean>;
   periodStart: string;
   periodEnd: string;
 }): StorageBilling {
@@ -353,6 +358,7 @@ export function computeStorageBilling(input: {
       byClientMap.set(line.client_id, {
         client_id: line.client_id,
         client_name: line.client_name,
+        client_is_fiscal: input.clientIsFiscal?.get(line.client_id) ?? null,
         pallets: 1,
         charge: line.charge,
       });
