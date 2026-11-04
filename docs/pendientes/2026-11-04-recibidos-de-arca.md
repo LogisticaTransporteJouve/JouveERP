@@ -26,7 +26,7 @@
       proveedor; en lugar del selector de ítems, las líneas por alícuota con
       que se guarda.
 - [x] Vínculo que se sostiene (auditoría w5): compara total, moneda y, en una
-      A, el IVA (`20261104121000`); si se edita la compra vinculada y deja de
+      A, el IVA (`20261104122000`); si se edita la compra vinculada y deja de
       coincidir, el comprobante vuelve a pendientes. El centavo de redondeo
       que pasa al neto va también a la línea más grande, así el total
       guardado es el de ARCA.

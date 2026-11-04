@@ -1,5 +1,5 @@
 -- A received voucher stays linked only while its purchase says what ARCA
--- says (20261104121000): editing the purchase's amounts unlinks it, editing
+-- says (20261104122000): editing the purchase's amounts unlinks it, editing
 -- them back links it again; on a letter A the IVA counts, and the currency
 -- always does. One transaction, rolled back.
 
