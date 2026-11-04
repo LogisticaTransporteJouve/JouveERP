@@ -2,7 +2,7 @@
 // max_rows: every query on a table resolves to that table's rows, and
 // `.range(from, to)` serves at most `maxRows` of them, the way PostgREST
 // silently caps a response. Filters are accepted and ignored, unless
-// `applyFilters` is set: then `eq`, `gte` and `lte` filter the rows, on a
+// `applyFilters` is set: then `eq`, `neq`, `gte` and `lte` filter the rows, on a
 // column or on an embedded path ("receipt.status"), the way an `!inner`
 // embed drops the parent row whose child does not match.
 
@@ -31,6 +31,7 @@ export function pagedSupabase(
     const builder = {
       select: () => builder,
       eq: filter((cell, value) => cell === value),
+      neq: filter((cell, value) => cell !== value),
       gte: filter((cell, value) => compare(cell, value) >= 0),
       lte: filter((cell, value) => compare(cell, value) <= 0),
       lt: () => builder,

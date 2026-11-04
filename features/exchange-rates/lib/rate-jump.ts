@@ -12,12 +12,20 @@ export const rateFmt = new Intl.NumberFormat("es-AR", {
   maximumFractionDigits: 6,
 });
 
+/** A stored USD rate a new one is compared with; `earlier` when it is on or
+ *  before the new rate's date. */
+export type RateReference = {
+  rate_date: string;
+  rate: number;
+  earlier: boolean;
+};
+
 /** The stored USD rate a new one for `date` is compared with: the nearest on
  *  or before that date, else the nearest after it (loading an older day). */
 function referenceRate(
   rates: readonly Pick<ExchangeRate, "currency" | "rate_date" | "rate">[],
   date: string,
-): { rate_date: string; rate: number; earlier: boolean } | null {
+): RateReference | null {
   let before: Pick<ExchangeRate, "rate_date" | "rate"> | null = null;
   let after: Pick<ExchangeRate, "rate_date" | "rate"> | null = null;
   for (const r of rates) {
@@ -40,7 +48,15 @@ export function rateJumpWarning(
   date: string,
   rate: number,
 ): string | null {
-  const ref = referenceRate(rates, date);
+  return rateJumpWarningFor(referenceRate(rates, date), rate);
+}
+
+/** `rateJumpWarning` against a reference already read: the AI CFO's
+ *  proposal reads only the nearest stored rate, not the whole list. */
+export function rateJumpWarningFor(
+  ref: RateReference | null,
+  rate: number,
+): string | null {
   const refRate = Number(ref?.rate);
   if (!ref || !(refRate > 0)) return null;
   if (Math.abs(rate - refRate) / refRate <= RATE_JUMP_LIMIT) return null;

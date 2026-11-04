@@ -9,6 +9,7 @@ const listChartOfAccountsAction = vi.fn();
 const createLeave = vi.fn();
 const createManualJournalEntry = vi.fn();
 const upsertManualExchangeRate = vi.fn();
+const getUsdReferenceRateAction = vi.fn();
 
 vi.mock("@/features/hr/actions/employees-actions", () => ({
   searchEmployeesAction,
@@ -22,6 +23,9 @@ vi.mock(
 vi.mock("@/lib/commands/create-leave", () => ({ createLeave }));
 vi.mock("@/lib/commands/create-manual-journal-entry", () => ({
   createManualJournalEntry,
+}));
+vi.mock("@/features/exchange-rates/actions/exchange-rates-actions", () => ({
+  getUsdReferenceRateAction,
 }));
 vi.mock("@/lib/commands/upsert-exchange-rate", () => ({
   upsertManualExchangeRate,
@@ -55,6 +59,7 @@ function employee(id: string, legal_name: string) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  getUsdReferenceRateAction.mockResolvedValue({ ok: true, data: null });
 });
 
 const leaveInput = {
@@ -124,6 +129,49 @@ describe("propose actions", () => {
     expect(s.createRevision).toHaveBeenCalledWith(
       expect.objectContaining({ revisionKey: "rate-oct" }),
     );
+  });
+
+  it("warns on the card when the rate jumps more than 30% from the stored one", async () => {
+    getUsdReferenceRateAction.mockResolvedValue({
+      ok: true,
+      data: { rate_date: "2026-11-02", rate: 1450, earlier: true },
+    });
+    const s = store();
+    await proposeExchangeRate.execute(
+      ctx(["finance"], s),
+      { rate_date: "2026-11-03", rate: 1_450_125 },
+      call,
+    );
+    const revision = s.createRevision.mock.calls[0]?.[0];
+    expect(getUsdReferenceRateAction).toHaveBeenCalledWith("2026-11-03");
+    expect(revision?.summary).toContainEqual({
+      label: "Atención",
+      value: expect.stringMatching(/difiere en más de un 30%/),
+    });
+
+    // A revision re-checks its own rate against the stored reference.
+    const { exchangeRateProposalSpec } = await import("../lib/proposal-specs");
+    const revised = exchangeRateProposalSpec.validate(
+      { ...revision?.draft, rate: 1450.125 },
+      revision?.labels ?? {},
+    );
+    expect(revised.ok && revised.summary.map((r) => r.label)).not.toContain(
+      "Atención",
+    );
+  });
+
+  it("says on the card when the stored rate could not be read", async () => {
+    getUsdReferenceRateAction.mockResolvedValue({ ok: false, error: "x" });
+    const s = store();
+    await proposeExchangeRate.execute(
+      ctx(["finance"], s),
+      { rate_date: "2026-11-03", rate: 1450 },
+      call,
+    );
+    expect(s.createRevision.mock.calls[0]?.[0]?.summary).toContainEqual({
+      label: "Atención",
+      value: expect.stringMatching(/No se pudo leer la cotización guardada/),
+    });
   });
 
   it("hands the model the store's refusal (a lost race, another action's key)", async () => {

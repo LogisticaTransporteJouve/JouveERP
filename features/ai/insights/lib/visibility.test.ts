@@ -49,6 +49,15 @@ describe("canSeeInsight", () => {
     }
   });
 
+  it("hides the losing-trips card when shipments:read is denied, as the report does", () => {
+    expect(
+      canSeeInsight(
+        resolveAccess(["operations"], ["shipments:read"]),
+        "trip_margin",
+      ),
+    ).toBe(false);
+  });
+
   it("shows finance cards to finance", () => {
     for (const kind of FINANCE_KINDS) {
       expect(canSeeInsight(resolveAccess(["finance"]), kind)).toBe(true);

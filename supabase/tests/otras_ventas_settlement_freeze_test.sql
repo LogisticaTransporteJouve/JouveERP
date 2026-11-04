@@ -132,7 +132,13 @@ select public.create_receipt('jouve_internal', 9001, 99933, '00000000-0000-0000-
 select lives_ok($$select pg_temp.draft_factura(3)$$, 'a recibo applied in full does not block');
 update public.invoices set status = 'emitted', numero = 99933
  where id = '00000000-0000-0000-0000-000000078103';
+-- Only update_receipt changes a receipt's total now (guard_document_header);
+-- the case is a total written around it.
+-- receipts has pending deferred trigger events here, so ALTER TABLE is not
+-- allowed; skip every trigger for this one write instead.
+set local session_replication_role = replica;
 update public.receipts set total_amount = 350 where id = (select id from t_r3);
+set local session_replication_role = origin;
 select throws_ok(
   $$select public.settle_billed_remito('00000000-0000-0000-0000-000000078103')$$,
   '23514', 'Un recibo interno de este remito tiene saldo a cuenta: anulalo, facturá el remito y cargá el cobro en Ventas.',

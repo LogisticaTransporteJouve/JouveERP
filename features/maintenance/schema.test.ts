@@ -51,6 +51,33 @@ describe("MaintenanceCreateSchema", () => {
     ).toBe(false);
   });
 
+  it("requires the cost when an invoice or a movement is linked", () => {
+    const base = {
+      vehicle_id: "11111111-1111-4111-8111-111111111111",
+      service_date: "2026-06-22",
+      description: "Service",
+      cost: "",
+    };
+    const link = "22222222-2222-4222-8222-222222222222";
+    for (const voucher of [
+      { purchase_invoice_id: link },
+      { transaction_id: link },
+    ]) {
+      const r = MaintenanceCreateSchema.safeParse({ ...base, ...voucher });
+      expect(r.success).toBe(false);
+      expect(r.error?.issues[0]?.message).toBe(
+        "Cargá el costo del comprobante vinculado.",
+      );
+    }
+    expect(
+      MaintenanceCreateSchema.safeParse({
+        ...base,
+        cost: "0",
+        purchase_invoice_id: link,
+      }).success,
+    ).toBe(true);
+  });
+
   it("rejects a negative cost", () => {
     expect(
       MaintenanceCreateSchema.safeParse({

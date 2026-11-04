@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { ACCOUNTS_UNAVAILABLE_MESSAGE } from "@/features/accounts/hooks/use-accounts";
+import { ACCOUNTS_UNAVAILABLE_MESSAGE } from "@/features/accounts/lib/accounts-unavailable";
 import { CHECK_CASH_DENIED_REASON } from "@/features/checks/lib/check-cash";
 import { resolveAccess } from "@/lib/auth/permissions";
 

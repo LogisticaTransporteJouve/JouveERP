@@ -75,6 +75,10 @@ values
   ('00000000-0000-0000-0000-0000000009b4', 'jouve_fiscal', 3, 99004, '00000000-0000-0000-0000-00000000c901', current_date, 400, 'ARS'),
   ('00000000-0000-0000-0000-0000000009b5', 'jouve_fiscal', 3, 99005, '00000000-0000-0000-0000-00000000c901', current_date, 600, 'ARS'),
   ('00000000-0000-0000-0000-0000000009b6', 'jouve_fiscal', 3, 99006, '00000000-0000-0000-0000-00000000c901', '1999-01-16', 700, 'ARS');
+-- The receipts were inserted by hand above, so their lines are too: only
+-- create_receipt / update_receipt write them (guard_document_line).
+reset role;
+alter table public.receipt_payment_lines disable trigger receipt_payment_lines_guard_rpc;
 insert into public.receipt_payment_lines (receipt_id, account_id, amount) values
   ('00000000-0000-0000-0000-0000000009b1', '00000000-0000-0000-0000-00000000a901', 1000),
   ('00000000-0000-0000-0000-0000000009b2', '00000000-0000-0000-0000-00000000a901', 500),
@@ -82,14 +86,22 @@ insert into public.receipt_payment_lines (receipt_id, account_id, amount) values
   ('00000000-0000-0000-0000-0000000009b4', '00000000-0000-0000-0000-00000000a902', 400),
   ('00000000-0000-0000-0000-0000000009b5', '00000000-0000-0000-0000-00000000a901', 600),
   ('00000000-0000-0000-0000-0000000009b6', '00000000-0000-0000-0000-00000000a901', 700);
+alter table public.receipt_payment_lines enable trigger receipt_payment_lines_guard_rpc;
+set local role authenticated;
 
 insert into public.payment_orders (id, channel_id, punto_venta, numero, supplier_id, payment_date, total_amount, currency)
 values
   ('00000000-0000-0000-0000-0000000009c1', 'jouve_fiscal', 3, 99001, '00000000-0000-0000-0000-00000000b901', current_date, 800, 'ARS'),
   ('00000000-0000-0000-0000-0000000009c2', 'jouve_fiscal', 3, 99002, '00000000-0000-0000-0000-00000000b901', current_date, 100, 'ARS');
+-- The payment orders were inserted by hand above, so their lines are too: only
+-- create_payment_order / update_payment_order write them (guard_document_line).
+reset role;
+alter table public.payment_order_payment_lines disable trigger payment_order_payment_lines_guard_rpc;
 insert into public.payment_order_payment_lines (payment_order_id, account_id, amount) values
   ('00000000-0000-0000-0000-0000000009c1', '00000000-0000-0000-0000-00000000a901', 800),
   ('00000000-0000-0000-0000-0000000009c2', '00000000-0000-0000-0000-00000000a901', 100);
+alter table public.payment_order_payment_lines enable trigger payment_order_payment_lines_guard_rpc;
+set local role authenticated;
 
 insert into public.purchase_invoices
   (id, channel_id, supplier_id, kind, letter, punto_venta, numero, fecha, imp_neto, imp_iva, imp_total, status)
@@ -237,8 +249,12 @@ reset role;
 set constraints all deferred;
 insert into public.payment_orders (id, channel_id, punto_venta, numero, supplier_id, payment_date, total_amount, currency)
 values ('00000000-0000-0000-0000-0000000009c3', 'jouve_fiscal', 3, 99003, '00000000-0000-0000-0000-00000000b901', current_date, 50, 'ARS');
+-- The payment order was inserted by hand above, so its lines are too: only
+-- create_payment_order / update_payment_order write them (guard_document_line).
+alter table public.payment_order_payment_lines disable trigger payment_order_payment_lines_guard_rpc;
 insert into public.payment_order_payment_lines (payment_order_id, account_id, amount) values
   ('00000000-0000-0000-0000-0000000009c3', '00000000-0000-0000-0000-00000000a901', 50);
+alter table public.payment_order_payment_lines enable trigger payment_order_payment_lines_guard_rpc;
 select set_config('request.jwt.claims',
   '{"sub":"00000000-0000-0000-0000-0000000009f1","role":"authenticated"}', true);
 set local role authenticated;
