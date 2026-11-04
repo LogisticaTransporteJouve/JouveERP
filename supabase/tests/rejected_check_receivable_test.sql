@@ -31,6 +31,18 @@ insert into public.receipts (id, channel_id, punto_venta, numero, client_id, rec
 create temp table rejection_lines on commit drop as
   select null::uuid as check_id, null::text as role, 0::numeric as debit, 0::numeric as credit limit 0;
 
+-- The receipt was inserted by hand above, so its check is too: only
+-- create_receipt / update_receipt may insert a receipt check
+-- (guard_check_edit), and the channel triggers still run.
+alter table public.checks disable trigger checks_guard_edit;
+insert into public.checks
+  (id, kind, check_number, bank_name, drawer_name, issue_date, due_date, amount, currency,
+   source_kind, source_receipt_id, cartera_account_id, channel_id)
+values
+  ('00000000-0000-0000-0000-0000000008d4', 'fisico', 'RJ-INT', 'Banco X', 'Firmante', current_date, current_date, 30, 'ARS',
+   'receipt', '00000000-0000-0000-0000-0000000006a1', '00000000-0000-0000-0000-00000000a001', null);
+alter table public.checks enable trigger checks_guard_edit;
+
 set local role authenticated;
 select set_config('request.jwt.claims',
   '{"sub":"00000000-0000-0000-0000-0000000000f1","role":"authenticated"}', true);
@@ -44,9 +56,7 @@ values
   ('00000000-0000-0000-0000-0000000008d2', 'fisico', 'RJ-CAR', 'Banco X', 'Firmante', current_date, current_date, 70, 'ARS',
    'manual', null, '00000000-0000-0000-0000-00000000a001', 'jouve_fiscal'),
   ('00000000-0000-0000-0000-0000000008d3', 'fisico', 'RJ-END', 'Banco X', 'Firmante', current_date, current_date, 40, 'ARS',
-   'manual', null, '00000000-0000-0000-0000-00000000a001', 'jouve_fiscal'),
-  ('00000000-0000-0000-0000-0000000008d4', 'fisico', 'RJ-INT', 'Banco X', 'Firmante', current_date, current_date, 30, 'ARS',
-   'receipt', '00000000-0000-0000-0000-0000000006a1', '00000000-0000-0000-0000-00000000a001', null);
+   'manual', null, '00000000-0000-0000-0000-00000000a001', 'jouve_fiscal');
 
 -- The account ----------------------------------------------------------------------
 

@@ -442,12 +442,16 @@ select public.create_receipt('jouve_internal', 9001, 99962, '00000000-0000-0000-
   '[{"account_id":"00000000-0000-0000-0000-00000005ac01","amount":200}]'::jsonb,
   '[{"invoice_id":"00000000-0000-0000-0000-000000057003","amount_applied":200}]'::jsonb,
   '[]'::jsonb) as id;
+-- Only create_receipt / update_receipt may insert a receipt check
+-- (guard_check_edit); this one is added to the receipt by hand.
+alter table public.checks disable trigger checks_guard_edit;
 insert into public.checks
   (kind, check_number, bank_name, drawer_name, issue_date, due_date, amount, currency,
    source_kind, source_receipt_id, cartera_account_id)
 select 'fisico', 'OV-CHQ-1', 'Banco OV', 'Librador OV', current_date, current_date + 30, 200, 'ARS',
        'receipt', id, '00000000-0000-0000-0000-00000005ac01'
 from t_r3;
+alter table public.checks enable trigger checks_guard_edit;
 select throws_ok(
   $$select pg_temp.draft_factura(3)$$,
   '23514', 'El remito se cobró con cheques: anulá ese recibo interno, facturá el remito y cargá el cobro en Ventas.',
