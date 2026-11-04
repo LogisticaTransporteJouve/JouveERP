@@ -362,6 +362,13 @@ export const VENTAS_AMOUNT_COLUMNS: readonly {
   { header: "Exento", value: (v) => v.imp_op_ex },
 ];
 
+/** A cell of the totals row: blank only at zero. Credit notes sign the period
+ *  totals, so a negative one prints, as in the Excel; the voucher rows are
+ *  positive and blank any amount that is not. */
+export function totalsCell(value: number, format: (n: number) => string) {
+  return value === 0 ? "" : format(value);
+}
+
 export type LibroIvaVentasTotals = {
   count: number;
   per_rate: Record<number, { neto: number; iva: number }>;

@@ -8,6 +8,8 @@ import {
   foreignCurrencyTotals,
   groupByInvoice,
   groupComprasByInvoice,
+  totalsCell,
+  VENTAS_AMOUNT_COLUMNS,
   type LibroIvaComprasRow,
   type LibroIvaVentasRow,
 } from "./schema";
@@ -258,6 +260,28 @@ describe("computeTotals", () => {
     const totals = computeTotals(grouped);
     expect(totals.per_rate[5]).toEqual({ neto: 600, iva: 126 });
     expect(totals.imp_total).toBe(726);
+  });
+
+  it("prints a negative period total in the totals row (an NC that returns an exempt sale)", () => {
+    const totals = computeTotals(
+      groupByInvoice([
+        baseRow({
+          invoice_id: "nc",
+          kind: "nc",
+          iva_rate_id: 3,
+          neto: 0,
+          iva: 0,
+          imp_trib: 0,
+          imp_op_ex: 500,
+          imp_total: 500,
+        }),
+      ]),
+    );
+    const fmt = (n: number) => n.toFixed(2);
+    expect(
+      VENTAS_AMOUNT_COLUMNS.map((c) => totalsCell(c.value(totals), fmt)),
+    ).toEqual(["", "-500.00"]);
+    expect(totalsCell(0, fmt)).toBe("");
   });
 });
 

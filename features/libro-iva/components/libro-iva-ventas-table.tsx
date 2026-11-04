@@ -14,6 +14,7 @@ import {
   IVA_RATES,
   KIND_LABEL,
   libroIvaVoucherNumber,
+  totalsCell,
   VENTAS_AMOUNT_COLUMNS,
 } from "../schema";
 
@@ -238,11 +239,11 @@ export function LibroIvaVentasTable({
                 );
               })}
               <td className="border-l px-2 py-2 text-right font-mono">
-                {totals.imp_trib > 0 ? money(totals.imp_trib) : ""}
+                {totalsCell(totals.imp_trib, money)}
               </td>
               {VENTAS_AMOUNT_COLUMNS.map((c) => (
                 <td key={c.header} className="px-2 py-2 text-right font-mono">
-                  {c.value(totals) > 0 ? money(c.value(totals)) : ""}
+                  {totalsCell(c.value(totals), money)}
                 </td>
               ))}
               <td className="px-2 py-2 text-right font-mono">
