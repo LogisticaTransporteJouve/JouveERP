@@ -247,10 +247,11 @@ export const PurchaseInvoiceUpdateSchema = z
     numero: baseFields.numero.optional(),
     fecha: baseFields.fecha.optional(),
     fch_vto_pago: baseFields.fch_vto_pago,
-    imp_neto: baseFields.imp_neto.optional(),
-    imp_iva: baseFields.imp_iva.optional(),
-    imp_trib: baseFields.imp_trib.optional(),
-    // No default: an edit that does not know the split leaves it as it is.
+    // No defaults here: a field the edit leaves out stays as it is (a
+    // .default() inside .optional() would fill it and overwrite the row).
+    imp_neto: positiveAmount.optional(),
+    imp_iva: positiveAmount.optional(),
+    imp_trib: positiveAmount.optional(),
     imp_no_gravado: positiveAmount.optional(),
     imp_op_exentas: positiveAmount.optional(),
     imp_perc_iva: positiveAmount.optional(),
@@ -258,14 +259,14 @@ export const PurchaseInvoiceUpdateSchema = z
     imp_perc_municipales: positiveAmount.optional(),
     imp_impuestos_internos: positiveAmount.optional(),
     imp_total: baseFields.imp_total.optional(),
-    moneda: baseFields.moneda.optional(),
-    cotizacion: baseFields.cotizacion.optional(),
+    moneda: z.string().optional(),
+    cotizacion: amount.optional(),
     cae_proveedor: baseFields.cae_proveedor,
     cae_vto_proveedor: baseFields.cae_vto_proveedor,
     invoice_origin_id: baseFields.invoice_origin_id,
     motivo_nc_nd: baseFields.motivo_nc_nd,
     notes: baseFields.notes,
-    items: itemsArray.optional(),
+    items: z.array(PurchaseInvoiceItemSchema).optional(),
   })
   .refine(
     (d) =>

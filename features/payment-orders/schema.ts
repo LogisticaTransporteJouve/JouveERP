@@ -290,3 +290,47 @@ export type IssuedCheckJoin = {
     status: string;
   } | null;
 };
+
+/** What a payment order applied to a bounced check of its supplier
+ *  (`payment_order_rejected_check_allocations`): one line of its
+ *  imputaciones, next to the invoice allocations. */
+export const REJECTED_CHECK_ALLOCATION_SELECT =
+  "id, amount_applied, endorsed_check:checks(check_number, bank_name), issued_check:issued_checks(check_number, bank_name)";
+
+type CheckRef = { check_number: string; bank_name: string } | null;
+
+export type RejectedCheckAllocation = {
+  id: string;
+  amount_applied: number;
+  label: string;
+};
+
+export function toRejectedCheckAllocation(row: {
+  id: string;
+  amount_applied: number | string;
+  endorsed_check: CheckRef;
+  issued_check: CheckRef;
+}): RejectedCheckAllocation {
+  const check = row.endorsed_check ?? row.issued_check;
+  return {
+    id: row.id,
+    amount_applied: Number(row.amount_applied),
+    label: check
+      ? `Cheque rechazado ${check.check_number} ${check.bank_name}`
+      : "Cheque rechazado",
+  };
+}
+
+/** The edit's allocation cap, as update_payment_order applies it: what the
+ *  order applied to bounced checks stays applied, so invoices get only the
+ *  rest of the total. Null when it fits. */
+export function rejectedCheckOverAllocation(input: {
+  total: number;
+  invoices: number;
+  rejectedChecks: number;
+}): string | null {
+  const cents = (n: number) => Math.round(n * 100);
+  if (cents(input.invoices) + cents(input.rejectedChecks) <= cents(input.total))
+    return null;
+  return `Lo imputado (${input.invoices.toFixed(2)} a facturas y ${input.rejectedChecks.toFixed(2)} a cheques rechazados) supera el total de la OP (${input.total.toFixed(2)}). Lo imputado a cheques rechazados se mantiene al editar.`;
+}

@@ -4,13 +4,14 @@ import { type Role, resolveAccess } from "@/lib/auth/permissions";
 import { pagedSupabase } from "@/tests/helpers/paged-supabase";
 
 let roles: Role[] = ["finance"];
+let denied: string[] = [];
 let fake = pagedSupabase({});
 let clientOverride: unknown = null;
 
 vi.mock("@/lib/auth/context", () => ({
   requireUserContext: async () => ({
     userId: "u1",
-    access: resolveAccess(roles),
+    access: resolveAccess(roles, denied),
   }),
 }));
 vi.mock("@/lib/supabase/server", () => ({
@@ -18,8 +19,14 @@ vi.mock("@/lib/supabase/server", () => ({
 }));
 vi.mock("@/lib/actions/audit", () => ({ logAudit: vi.fn() }));
 
-const { cancelLoanAction, listLoansAction, updateInstallmentAction } =
-  await import("./loans-actions");
+const {
+  adoptInstallmentPaymentAction,
+  cancelLoanAction,
+  listLoansAction,
+  payInstallmentAction,
+  recordLoanDisbursementAction,
+  updateInstallmentAction,
+} = await import("./loans-actions");
 
 const loan = {
   id: "l1",
@@ -39,6 +46,7 @@ const loan = {
 
 beforeEach(() => {
   roles = ["finance"];
+  denied = [];
   clientOverride = null;
 });
 
@@ -119,5 +127,58 @@ describe("updateInstallmentAction", () => {
       notes: "x",
     });
     expect(res).toEqual({ ok: false, error: "No se pudo leer la cuota." });
+  });
+});
+
+describe("loan movements that touch Caja", () => {
+  const ID = "00000000-0000-4000-8000-000000000001";
+  const ACCOUNT = "00000000-0000-4000-8000-000000000002";
+  const TX = "00000000-0000-4000-8000-000000000003";
+  const rpc = vi.fn(async () => ({ data: TX, error: null }));
+  const calls = [
+    [
+      "pay a cuota",
+      () =>
+        payInstallmentAction({
+          id: ID,
+          paid_date: "2026-11-01",
+          account_id: ACCOUNT,
+          amount: 10,
+        }),
+    ],
+    [
+      "record the disbursement",
+      () =>
+        recordLoanDisbursementAction({
+          loan_id: ID,
+          account_id: ACCOUNT,
+          date: "2026-11-01",
+        }),
+    ],
+    [
+      "link an egreso",
+      () => adoptInstallmentPaymentAction({ id: ID, transaction_id: TX }),
+    ],
+  ] as const;
+
+  beforeEach(() => {
+    rpc.mockClear();
+    clientOverride = { rpc };
+  });
+
+  it.each(calls)(
+    "%s is refused without transactions:write",
+    async (_name, call) => {
+      denied = ["transactions:write"];
+      const res = await call();
+      expect(res.ok).toBe(false);
+      expect(rpc).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(calls)("%s still runs for plain finance", async (_name, call) => {
+    const res = await call();
+    expect(res).toMatchObject({ ok: true });
+    expect(rpc).toHaveBeenCalledTimes(1);
   });
 });

@@ -15,6 +15,7 @@ import { fetchInChunks, paginateRange } from "@/lib/supabase/paginate";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
 import { generateInstallments } from "@/lib/loans/amortization";
+import { LOAN_CASH_PERMISSIONS } from "../lib/loan-cash";
 import {
   AdoptInstallmentPaymentSchema,
   CancelLoanSchema,
@@ -448,7 +449,7 @@ export async function adoptInstallmentPaymentAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.access, "accounting:write")) {
+  if (!userCanAll(ctx.access, LOAN_CASH_PERMISSIONS)) {
     return { ok: false, error: "Sin permiso para registrar pagos." };
   }
   const parsed = AdoptInstallmentPaymentSchema.safeParse(input);
@@ -493,7 +494,7 @@ export async function recordLoanDisbursementAction(
   input: unknown,
 ): Promise<ActionResult<{ transactionId: string }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.access, "accounting:write")) {
+  if (!userCanAll(ctx.access, LOAN_CASH_PERMISSIONS)) {
     return { ok: false, error: "Sin permiso para registrar el desembolso." };
   }
   const parsed = RecordDisbursementSchema.safeParse(input);
@@ -541,7 +542,7 @@ export async function payInstallmentAction(
   input: unknown,
 ): Promise<ActionResult<{ transactionId: string }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.access, "accounting:write")) {
+  if (!userCanAll(ctx.access, LOAN_CASH_PERMISSIONS)) {
     return { ok: false, error: "Sin permiso para registrar pagos." };
   }
   const parsed = PayInstallmentSchema.safeParse(input);

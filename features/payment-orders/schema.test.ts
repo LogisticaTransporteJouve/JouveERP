@@ -6,6 +6,8 @@ import {
   formatPaymentOrderNumber,
   isPaymentOrderCurrency,
   isPaymentOrderStatus,
+  rejectedCheckOverAllocation,
+  toRejectedCheckAllocation,
 } from "./schema";
 
 const UUID = "f47ac10b-58cc-4372-a567-0e02b2c3d479";
@@ -80,5 +82,39 @@ describe("PaymentOrderCreateSchema cotización", () => {
   it("does not ask an ARS payment order for a rate", () => {
     const r = PaymentOrderCreateSchema.safeParse({ ...base, currency: "ARS" });
     expect(r.success).toBe(true);
+  });
+});
+
+describe("bounced-check allocations of an order", () => {
+  it("labels the check, endorsed or own", () => {
+    expect(
+      toRejectedCheckAllocation({
+        id: "a1",
+        amount_applied: "60.00",
+        endorsed_check: { check_number: "123", bank_name: "Banco X" },
+        issued_check: null,
+      }),
+    ).toEqual({
+      id: "a1",
+      amount_applied: 60,
+      label: "Cheque rechazado 123 Banco X",
+    });
+  });
+
+  it("refuses an edit whose invoices and bounced checks exceed the total", () => {
+    expect(
+      rejectedCheckOverAllocation({
+        total: 100,
+        invoices: 41,
+        rejectedChecks: 60,
+      }),
+    ).toMatch(/^Lo imputado \(41.00 a facturas y 60.00 a cheques rechazados\)/);
+    expect(
+      rejectedCheckOverAllocation({
+        total: 100,
+        invoices: 40,
+        rejectedChecks: 60,
+      }),
+    ).toBeNull();
   });
 });

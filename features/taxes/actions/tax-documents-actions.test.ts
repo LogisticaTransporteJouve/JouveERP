@@ -223,6 +223,7 @@ describe("getIvaPositionEstimateAction", () => {
         {
           purchase_invoice_id: "c1",
           kind: "factura",
+          letter: "A",
           iva_rate_id: 5,
           neto: 5000,
           iva: 1050,
@@ -232,6 +233,23 @@ describe("getIvaPositionEstimateAction", () => {
           iva_orig: 1050,
           imp_trib_orig: 0,
           imp_total_orig: 6050,
+          cotizacion: 1,
+          ...breakdownCols({}),
+        },
+        // An old B purchase saved with IVA: no crédito, as in the TXT.
+        {
+          purchase_invoice_id: "c-b",
+          kind: "factura",
+          letter: "B",
+          iva_rate_id: 5,
+          neto: 1000,
+          iva: 210,
+          imp_trib: 0,
+          imp_total: 1210,
+          neto_orig: 1000,
+          iva_orig: 210,
+          imp_trib_orig: 0,
+          imp_total_orig: 1210,
           cotizacion: 1,
           ...breakdownCols({}),
         },
@@ -258,7 +276,7 @@ describe("getIvaPositionEstimateAction", () => {
         saldo: 800,
         tributos_compras: 0,
         ventas: 2,
-        compras: 1,
+        compras: 2,
       },
     });
   });
@@ -271,6 +289,7 @@ describe("getIvaPositionEstimateAction", () => {
         {
           purchase_invoice_id: "c1",
           kind: "factura",
+          letter: "A",
           iva_rate_id: 5,
           neto: 5000,
           iva: 1050,
