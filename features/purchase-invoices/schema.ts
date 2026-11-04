@@ -183,10 +183,11 @@ export const PURCHASE_TOTAL_PART_FIELDS = [
   "imp_total",
 ] as const satisfies readonly (keyof PurchaseTotalParts)[];
 
-/** imp_total minus the sum of its parts, rounded to cents; null within a
- *  cent (the journal credits the supplier the parts, the statement the
- *  total). Same formula as guard_purchase_invoice_total, which the database
- *  applies to fiscal purchases only. */
+/** imp_total minus the sum of its parts, rounded to cents; null when they
+ *  match to the cent (the journal credits the supplier the parts, the
+ *  statement the total: any gap stays in proveedores). Same formula as
+ *  guard_purchase_invoice_total, which the database applies to fiscal
+ *  purchases only. */
 export function purchaseTotalGap(p: PurchaseTotalParts): number | null {
   const gap =
     Math.round(
@@ -198,7 +199,7 @@ export function purchaseTotalGap(p: PurchaseTotalParts): number | null {
           p.imp_op_exentas)) *
         100,
     ) / 100;
-  return Math.abs(gap) > 0.01 ? gap : null;
+  return gap !== 0 ? gap : null;
 }
 
 const optionalUuid = z
