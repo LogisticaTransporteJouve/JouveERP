@@ -2,6 +2,8 @@ import { z } from "zod";
 
 import type { Permission } from "@/lib/auth/permissions";
 
+import { CHECK_CASH_PERMISSIONS } from "@/features/checks/lib/check-cash";
+
 // Importador (roadmap 5.1 to 5.4): a spreadsheet read into one kind of
 // record. Master data (clients, suppliers, employees, vehicles) lands in its
 // own table; historic payroll and trips land in tables of their own that
@@ -39,8 +41,13 @@ export const IMPORT_KIND_LABELS: Record<ImportKind, string> = {
   bank_statement: "Extracto bancario",
 };
 
-/** What the run creates, beside imports:write: the module's own write. */
-export const IMPORT_KIND_PERMISSION: Record<ImportKind, Permission> = {
+/** What the run creates, beside imports:write: the module's own write
+ *  (gate with `userCanAll`). Checks also book their cartera inflow, and the
+ *  undo deletes it, so they need transactions:write as «Nuevo cheque» does. */
+export const IMPORT_KIND_PERMISSION: Record<
+  ImportKind,
+  Permission | readonly Permission[]
+> = {
   clients: "clients:write",
   suppliers: "suppliers:write",
   employees: "hr:write",
@@ -49,7 +56,7 @@ export const IMPORT_KIND_PERMISSION: Record<ImportKind, Permission> = {
   historic_trips: "trips:write",
   client_tariffs: "storage_billing:issue",
   loans: "accounting:write",
-  checks: "cheques:write",
+  checks: CHECK_CASH_PERMISSIONS,
   opening_balances: "opening_balances:write",
   bank_statement: "transactions:write",
 };

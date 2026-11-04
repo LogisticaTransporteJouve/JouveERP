@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 
 import { logAudit } from "@/lib/actions/audit";
 import { requireUserContext, type UserContext } from "@/lib/auth/context";
-import { userCan } from "@/lib/auth/permissions";
+import { userCan, userCanAll } from "@/lib/auth/permissions";
 import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { todayInAR } from "@/lib/format";
 import { logger } from "@/lib/logger";
@@ -81,7 +81,7 @@ type Prepared = Omit<ImportPreview, "rows"> & { rows: BuiltRow[] };
 function canImport(ctx: UserContext, kind: ImportKind): boolean {
   return (
     userCan(ctx.access, "imports:write") &&
-    userCan(ctx.access, IMPORT_KIND_PERMISSION[kind])
+    userCanAll(ctx.access, IMPORT_KIND_PERMISSION[kind])
   );
 }
 
