@@ -13,7 +13,7 @@ import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import type { Account } from "@/features/accounts/schema";
 import type { CheckChannelOption } from "@/features/checks/components/check-action-dialogs";
 import type { Access } from "@/lib/auth/permissions";
-import { userCan } from "@/lib/auth/permissions";
+import { userCan, userCanAll } from "@/lib/auth/permissions";
 import { formatArgentineDate, formatNumber2 } from "@/lib/format";
 import { SETTLED_LIST_CAP } from "@/lib/supabase/open-and-recent";
 
@@ -21,6 +21,7 @@ import {
   useIssuedChecksList,
   useTransitionIssuedCheck,
 } from "../hooks/use-issued-checks";
+import { ISSUED_CHECK_CASH_PERMISSIONS } from "../lib/issued-check-cash";
 import {
   ISSUED_CHECK_KIND_LABEL,
   ISSUED_CHECK_STATUS_LABEL,
@@ -52,6 +53,9 @@ export function IssuedChecksTable({
   const transitionMut = useTransitionIssuedCheck();
   const confirm = useConfirm();
   const canWrite = userCan(actorAccess, "issued_checks:write");
+  // Cashing and bouncing book a bank movement, so they need
+  // transactions:write as well; editing and annulling do not.
+  const canMoveMoney = userCanAll(actorAccess, ISSUED_CHECK_CASH_PERMISSIONS);
 
   const columns = useMemo<ColumnDef<IssuedCheck>[]>(() => {
     async function transition(
@@ -169,24 +173,30 @@ export function IssuedChecksTable({
             <div className="flex items-center justify-end gap-1">
               {canWrite && isOpen && (
                 <>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label="Marcar cobrado"
-                    title="Marcar cobrado"
-                    onClick={() => transition(c.id, "cashed", "Cobrado")}
-                  >
-                    <CheckCircle2 className="size-4 text-muted-foreground" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label="Marcar rechazado"
-                    title="Marcar rechazado"
-                    onClick={() => transition(c.id, "rejected", "Rechazado")}
-                  >
-                    <XCircle className="size-4 text-foreground" />
-                  </Button>
+                  {canMoveMoney && (
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Marcar cobrado"
+                        title="Marcar cobrado"
+                        onClick={() => transition(c.id, "cashed", "Cobrado")}
+                      >
+                        <CheckCircle2 className="size-4 text-muted-foreground" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Marcar rechazado"
+                        title="Marcar rechazado"
+                        onClick={() =>
+                          transition(c.id, "rejected", "Rechazado")
+                        }
+                      >
+                        <XCircle className="size-4 text-foreground" />
+                      </Button>
+                    </>
+                  )}
                   <EditIssuedCheckDialog
                     check={c}
                     accounts={accounts}
@@ -213,7 +223,7 @@ export function IssuedChecksTable({
         },
       },
     ];
-  }, [accounts, canWrite, channels, confirm, transitionMut]);
+  }, [accounts, canMoveMoney, canWrite, channels, confirm, transitionMut]);
 
   return (
     <>
@@ -227,6 +237,13 @@ export function IssuedChecksTable({
           </>
         }
       />
+
+      {canWrite && !canMoveMoney && (
+        <p className="mt-2 text-xs text-muted-foreground">
+          Marcar un cheque como cobrado o rechazado mueve plata de una cuenta:
+          necesitás también permiso para cargar movimientos.
+        </p>
+      )}
 
       <DataTable
         columns={columns}
