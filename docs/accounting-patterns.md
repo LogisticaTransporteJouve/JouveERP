@@ -475,11 +475,17 @@ Reportes fiscales de solo lectura. Dos RPCs `SECURITY INVOKER`:
   acciones llevan un saldo corrido por moneda y devuelven `balances: { ARS, USD }`
   (pantalla y export muestran pesos y dólares por separado, nunca una suma). El
   saldo de apertura no tiene moneda: es en pesos.
-- **Validación pre-presentación advisoria** (no bloquea): banner ámbar con "N sin
-  CAE" / "N sin desglose". El **export PDF no está gateado** por estas alertas.
-- **Export:** solo **PDF** (`@react-pdf`, A4 landscape), rutas
-  `GET /api/accounting/libro-iva-{ventas,compras}/pdf`. **No hay Excel/CSV/SIAP** (RG
-  1361 se nombra en el copy/footer pero no hay generador de archivo AFIP).
+- **Validación pre-presentación advisoria** (no bloquea): aviso con "N sin
+  CAE" / "N sin ítems". Un comprobante sin ítems va en la alícuota que el TXT
+  infiere de IVA / neto (`inferIvaRateId`, al agrupar) o en "Sin alícuota". El
+  **export no está gateado** por estas alertas.
+- **Layout:** `features/libro-iva/lib/book-layout.ts`, compartido por pantalla,
+  PDF y Excel: título con Previo / Definitivo, TC, C.I., solo las alícuotas del
+  período, NC en negativo
+  (`docs/decisions/2026-11-04-libro-iva-hibrido-con-el-sistema-anterior.md`).
+- **Export:** **PDF** (`@react-pdf`, A4 landscape, subtotales por hoja) y
+  **Excel**, rutas `GET /api/accounting/libro-iva-{ventas,compras}/{pdf,xlsx}`,
+  más el TXT de Libro IVA Digital (`lib/citi.ts`).
 
 > ✅ **Discrepancia de etiqueta de alícuota (SQL ↔ TS) — corregido.** La constante
 > TS `IVA_RATES` (features/libro-iva/schema.ts) ahora mapea `8→5%`, `9→2.5%`,

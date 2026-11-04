@@ -158,29 +158,54 @@
         <ol class="steps">
           <li>Elegí <strong>período</strong> (YYYY‑MM; por defecto el mes en curso).</li>
           <li>Opcional: filtrá por <strong>canal fiscal</strong>.</li>
-          <li>Revisá la tabla: fecha, tipo, comprobante, razón social, CUIT,
-            columnas por alícuota (0 / 2,5 / 5 / 10,5 / 21 / 27), percepciones,
-            no gravado, exento y totales.</li>
+          <li>Revisá el encabezado: <em>Libro de I.V.A. Ventas (01/mm/aaaa -
+            dd/mm/aaaa)</em> seguido de <strong>Previo</strong> (período abierto)
+            o <strong>Definitivo</strong> (período cerrado en Contabilidad), con
+            la razón social de la empresa a la izquierda y su C.U.I.T. a la
+            derecha.</li>
+          <li>Revisá la tabla, un renglón por comprobante: fecha,
+            <strong>TC</strong> (FC = factura, NC = nota de crédito, ND = nota de
+            débito), comprobante, razón social, C.U.I.T., <strong>C.I.</strong>
+            (condición de IVA del cliente: RI, RM, EX, CF, NC), un par Neto / IVA
+            <strong>solo por las alícuotas que aparecen en el mes</strong>, no
+            gravado, exento, percepciones, total, moneda original y CAE.</li>
+          <li>Las <strong>notas de crédito</strong> salen en negativo en todas
+            las columnas, así cada columna suma su total.</li>
           <li>Click en <strong>Exportar PDF</strong> o <strong>Exportar Excel</strong> para descargar
-            <code>libro-iva-ventas-{periodo}.pdf</code> o <code>.xlsx</code>.</li>
+            <code>libro-iva-ventas-{periodo}.pdf</code> o <code>.xlsx</code>. El
+            PDF es A4 apaisado y cierra cada hoja con los
+            <strong>Subtotales</strong> acumulados hasta esa hoja; la última
+            muestra los <strong>Totales</strong> del período.</li>
         </ol>
 
         <div class="callout warn">
-          <strong>Advertencias en pantalla:</strong>
-          <em>sinCae</em> = comprobante sin CAE (revisar emisión AFIP);
-          <em>sinItems</em> = comprobante sin apertura por alícuota (importado legacy).
+          <strong>Advertencias en pantalla:</strong> comprobantes
+          <em>sin CAE</em> (revisar emisión AFIP) y comprobantes
+          <em>sin ítems</em>, como los importados de ARCA: su neto y su IVA van
+          en la alícuota que surge de IVA / neto, la misma que declara el TXT.
+          Si no cierra con ninguna alícuota, el comprobante queda en la columna
+          <strong>Sin alícuota</strong> y el TXT lo excluye: revisalo antes de
+          presentar.
         </div>
+        <p>
+          El libro no tiene columna de <strong>Retenciones</strong>: las
+          retenciones se cargan en el recibo, que puede cancelar varios
+          comprobantes, y no quedan atadas a un comprobante.
+        </p>
 
         <!-- ──────── LIBRO IVA COMPRAS ──────── -->
         <h2 id="libro-iva-compras">Libro IVA Compras</h2>
         <p>
           Equivalente al de ventas pero para <strong>facturas de
-          compra</strong>. Mismo formato: período, canal, exportable a PDF y
-          Excel. Después de las alícuotas van impuestos internos, no gravado,
-          exento y una columna <strong>Percepciones</strong> con el código de
-          cada una: <em>B</em> = IIBB, <em>I</em> = IVA, <em>G</em> = Ganancias
-          y otros nacionales, <em>M</em> = municipales. En el TXT para ARCA
-          cada una va en su campo.
+          compra</strong>. Mismo formato: encabezado con Previo / Definitivo,
+          TC, C.I. (condición de IVA del proveedor), solo las alícuotas del
+          mes, notas de crédito en negativo, subtotales por hoja en el PDF,
+          período, canal, exportable a PDF y Excel. Después de las alícuotas
+          van impuestos internos, no gravado, exento y una columna
+          <strong>Percepciones</strong> con un renglón por tipo y su código:
+          <em>B</em> = IIBB, <em>I</em> = IVA, <em>G</em> = Ganancias y otros
+          nacionales, <em>M</em> = municipales. En el TXT para ARCA cada una va
+          en su campo.
         </p>
         <p><strong>Ubicación:</strong> sidebar &gt; Contabilidad &gt; <em>Libro IVA Compras</em>.</p>
 
