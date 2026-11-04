@@ -285,10 +285,18 @@ mitigación en el schema: el límite se respeta operando.
       en caja (`20261104104002`).
 - [x] Clave fiscal del usuario de ARCA en Vault, editable por owner y admin
       en Admin → AFIP (`20261104110601`).
-- [ ] Traer el archivo solo desde ARCA (robot + botón «Traer de ARCA»): falta
-      que el dueño grabe el flujo de login (HAR).
-- [ ] Validar el lector con un archivo real y actual de ARCA (NC, B/C, USD y
-      otros tributos): los encabezados se tomaron del formato conocido.
+- [ ] Traer el archivo solo desde ARCA (robot + botón «Traer de ARCA»). Ya
+      está grabada la parte de Mis Comprobantes (`index.do` con token y sign,
+      `setearContribuyente`, `generarConsulta`, `listaResultados`) y el lector
+      de su JSON (`lib/afip/mis-comprobantes/results-json.ts`). Falta grabar
+      el login: de `auth.afip.gob.ar` hasta que el portal abre Mis
+      Comprobantes.
+- [x] Lector validado con una consulta real de Recibidos (A con otros
+      tributos, C y NC C que traen solo el total, todo en pesos) y con los
+      encabezados del Excel que exporta la página.
+- [ ] Sin ver todavía: el CSV que arma el servidor (`descargarComprobantes.do`),
+      una B y un comprobante en dólares. El dueño dice que las compras son
+      todas en pesos.
 - [ ] FCE MiPyME y tipo M quedan en «No soportados»: se cargan a mano.
 
 ## Auditoría w2: deploy, docs y seguridad (2026-11-04)
