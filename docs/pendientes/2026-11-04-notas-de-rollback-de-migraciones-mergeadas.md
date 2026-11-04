@@ -18,3 +18,13 @@ lo que su encabezado no dice sobre un rollback queda acá. Sus ítems
       ningún código anterior la llama (`production-latest` no tiene
       Gestión). Un rollback a `production-latest` no tiene nada a qué
       volver: la función queda sin uso.
+- [ ] **`20261104160200_purchase_nc_inherit_on_edit`** (NC/ND de compra
+      que hereda del origen al editar; auditoría w10, S7 F2). El
+      encabezado dice "the older code sends the same fields", y no es así:
+      el formulario de `production-latest` no tiene cuenta ni centro de
+      costo y no los manda al editar (solo los manda al crear desde un
+      escaneo). Sí manda `kind` y el origen en cada edición, así que el
+      trigger nuevo corre en cada edición de una NC/ND con el código
+      anterior: si le falta la cuenta o el centro y el período está
+      abierto, guarda los de su origen, cambie lo que cambie el usuario.
+      El rollback sigue siendo seguro.

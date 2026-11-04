@@ -2,6 +2,7 @@
 
 import { AlertTriangle } from "lucide-react";
 
+import { ReadError } from "@/components/read-error";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { UsdSkippedNote } from "@/components/usd-skipped-note";
@@ -65,7 +66,7 @@ function Amount({
 }
 
 export function CashFlowPage() {
-  const { data, isLoading } = useCashFlow(
+  const { data, isLoading, isError, refetch } = useCashFlow(
     CASH_FLOW_MONTHS.back,
     CASH_FLOW_MONTHS.fwd,
   );
@@ -81,7 +82,12 @@ export function CashFlowPage() {
         </p>
       </div>
 
-      {isLoading || !data ? (
+      {isError && !data ? (
+        <ReadError
+          message="No se pudo cargar el flujo de caja."
+          onRetry={() => void refetch()}
+        />
+      ) : isLoading || !data ? (
         <Skeleton className="h-72 w-full" />
       ) : (
         <>

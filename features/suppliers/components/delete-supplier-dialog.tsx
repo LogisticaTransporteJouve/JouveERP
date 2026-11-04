@@ -4,6 +4,7 @@ import { Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { ReadError } from "@/components/read-error";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -53,8 +54,12 @@ export function DeleteSupplierDialog({ supplier }: { supplier: Supplier }) {
   }
 
   const refs = refsQuery.data;
-  const stage: "loading" | "ready" =
-    refsQuery.isLoading || !refs ? "loading" : "ready";
+  const stage: "failed" | "loading" | "ready" =
+    refsQuery.isError && !refs
+      ? "failed"
+      : refsQuery.isLoading || !refs
+        ? "loading"
+        : "ready";
   const hasRefs = (refs?.total ?? 0) > 0;
   const isAlreadyInactive = !supplier.is_active;
 
@@ -79,6 +84,13 @@ export function DeleteSupplierDialog({ supplier }: { supplier: Supplier }) {
             {supplier.cuit ? ` · CUIT ${supplier.cuit}` : ""}
           </DialogDescription>
         </DialogHeader>
+
+        {stage === "failed" && (
+          <ReadError
+            message="No se pudo verificar si tiene movimientos asociados."
+            onRetry={() => void refsQuery.refetch()}
+          />
+        )}
 
         {stage === "loading" && (
           <p className="text-sm text-muted-foreground">

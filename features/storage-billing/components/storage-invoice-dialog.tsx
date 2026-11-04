@@ -4,6 +4,7 @@ import { AlertTriangle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { ReadError } from "@/components/read-error";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -72,7 +73,13 @@ export function StorageInvoiceDialog({
   const invoiceMut = useInvoiceStorage();
 
   // Live preview for [start, end] (recomputed server-side on emit).
-  const { data: billing, isFetching } = useStorageBilling(start, end);
+  const {
+    data: billing,
+    isFetching,
+    isError: previewFailed,
+    refetch: refetchPreview,
+  } = useStorageBilling(start, end);
+  const previewMissing = previewFailed && !billing;
   const clientLines = client
     ? (billing?.lines ?? []).filter((l) => l.client_id === client.client_id)
     : [];
@@ -227,15 +234,24 @@ export function StorageInvoiceDialog({
           </div>
 
           <div className="space-y-1 rounded-md border bg-muted/30 p-3 text-sm">
-            <Row label="Almacenaje" value={money(storage)} />
-            <Row label="Carga" value={money(loading)} />
-            <Row label="Descarga" value={money(unloading)} />
-            <div className="mt-1 flex items-center justify-between border-t pt-1 font-medium">
-              <span>Total</span>
-              <span className="font-mono">{money(total)}</span>
-            </div>
-            {isFetching && (
-              <p className="text-muted-foreground text-xs">Calculando…</p>
+            {previewMissing ? (
+              <ReadError
+                message="No se pudo calcular el total: no se puede emitir hasta recalcularlo."
+                onRetry={() => void refetchPreview()}
+              />
+            ) : (
+              <>
+                <Row label="Almacenaje" value={money(storage)} />
+                <Row label="Carga" value={money(loading)} />
+                <Row label="Descarga" value={money(unloading)} />
+                <div className="mt-1 flex items-center justify-between border-t pt-1 font-medium">
+                  <span>Total</span>
+                  <span className="font-mono">{money(total)}</span>
+                </div>
+                {isFetching && (
+                  <p className="text-muted-foreground text-xs">Calculando…</p>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -249,6 +265,7 @@ export function StorageInvoiceDialog({
             onClick={onSubmit}
             disabled={
               invoiceMut.isPending ||
+              previewMissing ||
               !validRange ||
               overlaps ||
               total <= 0 ||

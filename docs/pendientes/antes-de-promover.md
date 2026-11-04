@@ -571,7 +571,6 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
     reservas vencidas se borran como antes. Una reserva que deja el código
     nuevo y que el anterior vincula al reclamar devuelve null, y el código
     anterior muestra «No se pudo validar el período.» sin emitir nada.
-    columnas; el código anterior lee `center_cost` como un número.
 - [ ] **Aprobar `20261104160100`** (auditoría w9, fiscal): RPC nueva
       `import_arca_issued_invoice`, que la importación de ventas de ARCA usa
       para guardar la cabecera y sus ítems por alícuota en una sola
@@ -589,10 +588,11 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
     origen cuando quedan vacíos, y al cambiarle el origen pasa al nuevo lo
     heredado del anterior (salvo un campo ya vacío en un período cerrado).
     El trigger ahora también corre al cambiar cuenta, centro o tipo. El
-    código anterior manda los mismos campos; con el trigger nuevo, dejar
-    vacía la cuenta de una NC/ND en «Modificar» guarda la de su origen en
-    vez de «Compras», que es lo que dice la opción. Las ya guardadas sin
-    cuenta o centro:
+    código anterior no tiene cuenta ni centro en el formulario y no los
+    manda al editar, pero manda `kind`: con el trigger nuevo, cualquier
+    edición de una NC/ND sin cuenta o centro, en período abierto, guarda los
+    de su origen. El rollback es seguro. Las ya guardadas sin cuenta o
+    centro:
     `docs/pendientes/2026-11-04-gestion-nc-nd-edicion-insights-y-flota-ia-w9.md`.
   - `160201`: `ai_fleet_margin` suma dos columnas al final
     (`uninvoiced_freight`, `total_uninvoiced_freight`) con un `drop` y
