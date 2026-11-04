@@ -57,6 +57,9 @@ export function ChequesTable({
   // crediting, rejecting, selling), so it needs transactions:write as well.
   const canWrite = userCanAll(actorAccess, CHECK_CASH_PERMISSIONS);
   const cashDenied = userCan(actorAccess, "cheques:write") && !canWrite;
+  // Depositing, loading and selling a check pick an account: a per-user deny
+  // of accounts:read hides them, not the cartera.
+  const canPickAccount = userCan(actorAccess, "accounts:read");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [sellOpen, setSellOpen] = useState(false);
   // Only checks still in the cartera can be sold; drop any that left it.
@@ -208,7 +211,7 @@ export function ChequesTable({
           const c = row.original;
           return (
             <div className="flex items-center justify-end gap-1">
-              {canWrite && c.status === "en_cartera" && (
+              {canWrite && canPickAccount && c.status === "en_cartera" && (
                 <DepositChequeDialog check={c} channels={channels} />
               )}
               {canWrite && c.status === "depositado" && (
@@ -219,14 +222,18 @@ export function ChequesTable({
                   c.status === "depositado" ||
                   c.status === "endosado" ||
                   c.status === "vendido") && (
-                  <RejectChequeDialog check={c} channels={channels} />
+                  <RejectChequeDialog
+                    check={c}
+                    channels={channels}
+                    canPickAccount={canPickAccount}
+                  />
                 )}
             </div>
           );
         },
       },
     ],
-    [canWrite, channels, selected],
+    [canWrite, canPickAccount, channels, selected],
   );
 
   return (
@@ -249,14 +256,16 @@ export function ChequesTable({
         <ListToolbar
           actions={
             <>
-              {canWrite && selectedChecks.length > 0 && (
+              {canWrite && canPickAccount && selectedChecks.length > 0 && (
                 <Button variant="outline" onClick={() => setSellOpen(true)}>
                   <HandCoins />
                   Vender ({selectedChecks.length})
                 </Button>
               )}
               <ExportButton resource="checks" />
-              {canWrite && <NewChequeDialog channels={channels} />}
+              {canWrite && canPickAccount && (
+                <NewChequeDialog channels={channels} />
+              )}
             </>
           }
         />
@@ -286,7 +295,7 @@ export function ChequesTable({
         </p>
       )}
 
-      {canWrite && (
+      {canWrite && canPickAccount && (
         <SellChequesDialog
           checks={selectedChecks}
           channels={channels}

@@ -7,6 +7,7 @@ import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { MoneyInput } from "@/components/money-input";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -33,6 +34,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { amountToInput, parseArAmount } from "@/lib/format";
 import { runAction } from "@/lib/query/run-action";
 
 import { listStorageAreasAction } from "@/features/warehouses/actions/storage-areas-actions";
@@ -55,13 +57,16 @@ const FormSchema = z.object({
   area_id: z.string(),
   rate_per_pallet: z
     .string()
-    .refine((v) => Number(v) > 0, "La tarifa debe ser mayor a 0."),
+    .refine(
+      (v) => (parseArAmount(v) ?? 0) > 0,
+      "La tarifa debe ser mayor a 0.",
+    ),
   handling_in: z
     .string()
-    .refine((v) => v === "" || Number(v) >= 0, "No puede ser negativo."),
+    .refine((v) => v === "" || parseArAmount(v) !== null, "Monto inválido."),
   handling_out: z
     .string()
-    .refine((v) => v === "" || Number(v) >= 0, "No puede ser negativo."),
+    .refine((v) => v === "" || parseArAmount(v) !== null, "Monto inválido."),
   period: z.enum(TARIFF_PERIODS),
   valid_from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha requerida."),
   valid_to: z.string(),
@@ -74,9 +79,9 @@ function toDefaults(tariff?: StorageTariff): FormValues {
   return {
     client_id: tariff?.client_id ?? "",
     area_id: tariff?.area_id ?? "",
-    rate_per_pallet: tariff ? String(tariff.rate_per_pallet) : "",
-    handling_in: tariff ? String(tariff.handling_in) : "0",
-    handling_out: tariff ? String(tariff.handling_out) : "0",
+    rate_per_pallet: tariff ? amountToInput(tariff.rate_per_pallet) : "",
+    handling_in: tariff ? amountToInput(tariff.handling_in) : "0",
+    handling_out: tariff ? amountToInput(tariff.handling_out) : "0",
     period: tariff?.period ?? "monthly",
     valid_from: tariff?.valid_from ?? "",
     valid_to: tariff?.valid_to ?? "",
@@ -125,10 +130,9 @@ export function StorageTariffDialog({
       client_id: values.client_id,
       // A client's tariff has no area (its tarifario carries those).
       area_id: values.client_id === "" ? values.area_id : "",
-      rate_per_pallet: Number(values.rate_per_pallet),
-      handling_in: values.handling_in === "" ? 0 : Number(values.handling_in),
-      handling_out:
-        values.handling_out === "" ? 0 : Number(values.handling_out),
+      rate_per_pallet: parseArAmount(values.rate_per_pallet) ?? 0,
+      handling_in: parseArAmount(values.handling_in) ?? 0,
+      handling_out: parseArAmount(values.handling_out) ?? 0,
       period: values.period,
       valid_from: values.valid_from,
       valid_to: values.valid_to,
@@ -240,13 +244,7 @@ export function StorageTariffDialog({
                   <FormItem>
                     <FormLabel>Tarifa por pallet</FormLabel>
                     <FormControl>
-                      <Input
-                        {...field}
-                        type="number"
-                        inputMode="decimal"
-                        step="0.01"
-                        placeholder="1500"
-                      />
+                      <MoneyInput {...field} placeholder="1500" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -285,13 +283,7 @@ export function StorageTariffDialog({
                   <FormItem>
                     <FormLabel>Carga (por pallet)</FormLabel>
                     <FormControl>
-                      <Input
-                        {...field}
-                        type="number"
-                        inputMode="decimal"
-                        step="0.01"
-                        placeholder="0"
-                      />
+                      <MoneyInput {...field} placeholder="0" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -304,13 +296,7 @@ export function StorageTariffDialog({
                   <FormItem>
                     <FormLabel>Descarga (por pallet)</FormLabel>
                     <FormControl>
-                      <Input
-                        {...field}
-                        type="number"
-                        inputMode="decimal"
-                        step="0.01"
-                        placeholder="0"
-                      />
+                      <MoneyInput {...field} placeholder="0" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

@@ -50,6 +50,7 @@ import {
 } from "@/features/suppliers/components/supplier-picker";
 import { useSupplierByIdOptional } from "@/features/suppliers/hooks/use-suppliers";
 import { CostTagSelect } from "@/features/cost-centers/components/cost-tag-select";
+import { useCostTagOptions } from "@/features/cost-centers/hooks/use-cost-centers";
 import { EmployeeChargeSelect } from "@/features/hr/components/employee-charge-select";
 
 import {
@@ -70,10 +71,12 @@ import {
   type PurchaseInvoiceDraft,
 } from "../lib/purchase-invoice-draft";
 import {
+  amountOf,
   amountsDiffer,
   followHeaderTotal,
   partsGapFix,
 } from "../lib/header-total";
+import { supplierCostDefaults } from "../lib/supplier-defaults";
 import {
   PURCHASE_INVOICE_KINDS,
   PURCHASE_INVOICE_KIND_LABEL,
@@ -161,13 +164,13 @@ type BreakdownValues = Pick<
 
 function breakdownValues(b: PurchaseAmountBreakdown): BreakdownValues {
   return {
-    imp_no_gravado: String(b.imp_no_gravado),
-    imp_op_exentas: String(b.imp_op_exentas),
-    imp_perc_iva: String(b.imp_perc_iva),
-    imp_perc_nacionales: String(b.imp_perc_nacionales),
-    imp_perc_iibb: String(b.imp_perc_iibb),
-    imp_perc_municipales: String(b.imp_perc_municipales),
-    imp_impuestos_internos: String(b.imp_impuestos_internos),
+    imp_no_gravado: amountToInput(b.imp_no_gravado),
+    imp_op_exentas: amountToInput(b.imp_op_exentas),
+    imp_perc_iva: amountToInput(b.imp_perc_iva),
+    imp_perc_nacionales: amountToInput(b.imp_perc_nacionales),
+    imp_perc_iibb: amountToInput(b.imp_perc_iibb),
+    imp_perc_municipales: amountToInput(b.imp_perc_municipales),
+    imp_impuestos_internos: amountToInput(b.imp_impuestos_internos),
   };
 }
 
@@ -180,7 +183,7 @@ function breakdownToValues(inv: PurchaseInvoice | undefined): BreakdownValues {
     imp_op_exentas: "0",
     imp_perc_iva: "0",
     imp_perc_nacionales: "0",
-    imp_perc_iibb: inv ? String(inv.imp_trib) : "0",
+    imp_perc_iibb: inv ? amountToInput(inv.imp_trib) : "0",
     imp_perc_municipales: "0",
     imp_impuestos_internos: "0",
   };
@@ -214,11 +217,11 @@ function invoiceToValues(
     numero: inv ? String(inv.numero) : "",
     fecha: inv?.fecha ?? todayIsoLocal(),
     fch_vto_pago: inv?.fch_vto_pago ?? "",
-    imp_neto: inv ? String(inv.imp_neto) : "0",
-    imp_iva: inv ? String(inv.imp_iva) : "0",
-    imp_trib: inv ? String(inv.imp_trib) : "0",
+    imp_neto: inv ? amountToInput(inv.imp_neto) : "0",
+    imp_iva: inv ? amountToInput(inv.imp_iva) : "0",
+    imp_trib: inv ? amountToInput(inv.imp_trib) : "0",
     ...breakdownToValues(inv),
-    imp_total: inv ? String(inv.imp_total) : "",
+    imp_total: inv ? amountToInput(inv.imp_total) : "",
     moneda: inv?.moneda ?? "PES",
     cotizacion: inv
       ? amountToInput(Number(inv.cotizacion), COTIZACION_DECIMALS)
@@ -365,9 +368,9 @@ export function PurchaseInvoiceForm({
   const derivedTotals = useMemo(() => {
     // Exento and no gravado sit in the header next to otros tributos.
     const outside =
-      Number(watchedTrib || 0) +
-      Number(watchedNoGravado || 0) +
-      Number(watchedExentas || 0);
+      amountOf(watchedTrib) +
+      amountOf(watchedNoGravado) +
+      amountOf(watchedExentas);
     if (watchedWithItems) {
       const t = computeTotals(watchedItems);
       return {
@@ -377,15 +380,8 @@ export function PurchaseInvoiceForm({
         imp_total: +(t.imp_total_lines + outside).toFixed(2),
       };
     }
-    const neto = Number(watchedNeto || 0);
-    const iva = Number(watchedIva || 0);
-    if (
-      !Number.isFinite(neto) ||
-      !Number.isFinite(iva) ||
-      !Number.isFinite(outside)
-    ) {
-      return null;
-    }
+    const neto = amountOf(watchedNeto);
+    const iva = amountOf(watchedIva);
     return {
       mode: "header" as const,
       imp_total: +(neto + iva + outside).toFixed(2),
@@ -404,13 +400,13 @@ export function PurchaseInvoiceForm({
   useEffect(() => {
     if (!derivedTotals) return;
     if (derivedTotals.mode === "items") {
-      form.setValue("imp_neto", String(derivedTotals.imp_neto), {
+      form.setValue("imp_neto", amountToInput(derivedTotals.imp_neto), {
         shouldDirty: false,
       });
-      form.setValue("imp_iva", String(derivedTotals.imp_iva), {
+      form.setValue("imp_iva", amountToInput(derivedTotals.imp_iva), {
         shouldDirty: false,
       });
-      form.setValue("imp_total", String(derivedTotals.imp_total), {
+      form.setValue("imp_total", amountToInput(derivedTotals.imp_total), {
         shouldDirty: false,
       });
       return;
@@ -418,12 +414,12 @@ export function PurchaseInvoiceForm({
     const previous = prevHeaderTotalRef.current;
     prevHeaderTotalRef.current = derivedTotals.imp_total;
     const next = followHeaderTotal(
-      Number(form.getValues("imp_total") || 0),
+      amountOf(form.getValues("imp_total")),
       previous,
       derivedTotals.imp_total,
     );
     if (next !== null) {
-      form.setValue("imp_total", String(next), { shouldDirty: false });
+      form.setValue("imp_total", amountToInput(next), { shouldDirty: false });
     }
   }, [derivedTotals, form]);
 
@@ -504,19 +500,21 @@ export function PurchaseInvoiceForm({
     mode === "create" ? watchedSupplierId : null,
   );
   const supplierDetail = supplierDetailQuery.data ?? null;
+  // Which accounts and centers are still offered (active), for the defaults.
+  const costTagOptions = useCostTagOptions().data;
 
   useEffect(() => {
     if (mode !== "create" || !supplierDetail) return;
     // Expense account and cost center: the supplier's, over the AI's
-    // suggestion, unless the user already picked one. An NC/ND left empty
-    // takes its origin's (purchase_invoices_nc_nd_inherit_account).
+    // suggestion, unless the user already picked one, and only while still
+    // active (a retired FLOTA_DZ is not copied). An NC/ND left empty takes
+    // its origin's (purchase_invoices_nc_nd_inherit_account).
     if (form.getValues("kind") === "factura") {
-      const defaults = [
-        ["account_id", supplierDetail.default_expense_account_id],
-        ["cost_center_id", supplierDetail.default_cost_center_id],
-      ] as const;
-      for (const [name, id] of defaults) {
-        if (id && !form.getFieldState(name).isDirty) {
+      for (const { name, id } of supplierCostDefaults(
+        supplierDetail,
+        costTagOptions,
+      )) {
+        if (!form.getFieldState(name).isDirty) {
           form.setValue(name, id, { shouldDirty: false });
         }
       }
@@ -559,7 +557,15 @@ export function PurchaseInvoiceForm({
         form.setValue("fch_vto_pago", iso, { shouldDirty: false });
       }
     }
-  }, [mode, supplierDetail, defaultChannelId, channels, form, arcaLocked]);
+  }, [
+    mode,
+    supplierDetail,
+    costTagOptions,
+    defaultChannelId,
+    channels,
+    form,
+    arcaLocked,
+  ]);
 
   const watchedChannelId = useWatch({
     control: form.control,
@@ -577,14 +583,14 @@ export function PurchaseInvoiceForm({
   useEffect(() => {
     if (showsExempt) return;
     const hidden =
-      Number(form.getValues("imp_no_gravado") || 0) +
-      Number(form.getValues("imp_op_exentas") || 0);
+      amountOf(form.getValues("imp_no_gravado")) +
+      amountOf(form.getValues("imp_op_exentas"));
     if (hidden === 0) return;
     form.setValue("imp_no_gravado", "0");
     form.setValue("imp_op_exentas", "0");
     if (!form.getValues("with_items")) {
-      const neto = Number(form.getValues("imp_neto") || 0);
-      form.setValue("imp_neto", String(+(neto + hidden).toFixed(2)));
+      const neto = amountOf(form.getValues("imp_neto"));
+      form.setValue("imp_neto", amountToInput(neto + hidden));
     }
   }, [showsExempt, watchedNoGravado, watchedExentas, form]);
 
@@ -677,7 +683,7 @@ export function PurchaseInvoiceForm({
     watchedWithItems || !breakdownKnown ? null : totalsGap(watchedAmounts);
   const documentGap =
     createDraft && watchedWithItems
-      ? documentTotalGap(createDraft.data.imp_total, Number(watchedTotal))
+      ? documentTotalGap(createDraft.data.imp_total, amountOf(watchedTotal))
       : null;
   const gap = partsGap ?? documentGap;
   // ARCA's amounts are locked (its export already ties them to the total).
@@ -759,7 +765,7 @@ export function PurchaseInvoiceForm({
     }
 
     // The tributes are split on a fiscal purchase and are IIBB on an internal one.
-    const trib = Number(values.imp_trib || 0);
+    const trib = amountOf(values.imp_trib);
     const parts =
       isInternal || trib === 0
         ? {
@@ -770,11 +776,11 @@ export function PurchaseInvoiceForm({
             imp_impuestos_internos: 0,
           }
         : {
-            imp_perc_iva: Number(values.imp_perc_iva || 0),
-            imp_perc_nacionales: Number(values.imp_perc_nacionales || 0),
-            imp_perc_iibb: Number(values.imp_perc_iibb || 0),
-            imp_perc_municipales: Number(values.imp_perc_municipales || 0),
-            imp_impuestos_internos: Number(values.imp_impuestos_internos || 0),
+            imp_perc_iva: amountOf(values.imp_perc_iva),
+            imp_perc_nacionales: amountOf(values.imp_perc_nacionales),
+            imp_perc_iibb: amountOf(values.imp_perc_iibb),
+            imp_perc_municipales: amountOf(values.imp_perc_municipales),
+            imp_impuestos_internos: amountOf(values.imp_impuestos_internos),
           };
     if (!isInternal && trib !== 0 && breakdownKnown) {
       const message = tributesRemainingMessage(
@@ -790,8 +796,8 @@ export function PurchaseInvoiceForm({
     }
     const breakdown = breakdownKnown
       ? {
-          imp_no_gravado: showsExempt ? Number(values.imp_no_gravado || 0) : 0,
-          imp_op_exentas: showsExempt ? Number(values.imp_op_exentas || 0) : 0,
+          imp_no_gravado: showsExempt ? amountOf(values.imp_no_gravado) : 0,
+          imp_op_exentas: showsExempt ? amountOf(values.imp_op_exentas) : 0,
           ...parts,
         }
       : {};
@@ -810,11 +816,11 @@ export function PurchaseInvoiceForm({
       numero: Number(values.numero),
       fecha: values.fecha,
       fch_vto_pago: values.fch_vto_pago || null,
-      imp_neto: Number(values.imp_neto || 0),
-      imp_iva: Number(values.imp_iva || 0),
+      imp_neto: amountOf(values.imp_neto),
+      imp_iva: amountOf(values.imp_iva),
       imp_trib: trib,
       ...breakdown,
-      imp_total: Number(values.imp_total),
+      imp_total: amountOf(values.imp_total),
       moneda: values.moneda,
       cotizacion: parseArAmount(values.cotizacion) ?? 1,
       cae_proveedor: isInternal ? null : values.cae_proveedor || null,
@@ -1164,12 +1170,9 @@ export function PurchaseInvoiceForm({
                   )}
                 </FormLabel>
                 <FormControl>
-                  <Input
+                  <MoneyInput
                     {...field}
                     disabled={arcaLocked || !breakdownKnown}
-                    type="number"
-                    inputMode="decimal"
-                    step="0.01"
                     readOnly={watchedWithItems}
                     className={watchedWithItems ? "bg-muted/40" : undefined}
                   />
@@ -1192,12 +1195,9 @@ export function PurchaseInvoiceForm({
                   )}
                 </FormLabel>
                 <FormControl>
-                  <Input
+                  <MoneyInput
                     {...field}
                     disabled={arcaLocked || !breakdownKnown}
-                    type="number"
-                    inputMode="decimal"
-                    step="0.01"
                     readOnly={watchedWithItems}
                     className={watchedWithItems ? "bg-muted/40" : undefined}
                   />
@@ -1213,11 +1213,8 @@ export function PurchaseInvoiceForm({
               <FormItem>
                 <FormLabel>Otros tributos{aiMark("imp_trib")}</FormLabel>
                 <FormControl>
-                  <Input
+                  <MoneyInput
                     {...field}
-                    type="number"
-                    inputMode="decimal"
-                    step="0.01"
                     disabled={arcaLocked || !breakdownKnown}
                   />
                 </FormControl>
@@ -1239,12 +1236,9 @@ export function PurchaseInvoiceForm({
                   )}
                 </FormLabel>
                 <FormControl>
-                  <Input
+                  <MoneyInput
                     {...field}
                     disabled={arcaLocked || !breakdownKnown}
-                    type="number"
-                    inputMode="decimal"
-                    step="0.01"
                     readOnly={watchedWithItems}
                     className={
                       watchedWithItems
@@ -1276,11 +1270,8 @@ export function PurchaseInvoiceForm({
                 <FormItem>
                   <FormLabel>No gravado</FormLabel>
                   <FormControl>
-                    <Input
+                    <MoneyInput
                       {...field}
-                      type="number"
-                      inputMode="decimal"
-                      step="0.01"
                       disabled={arcaLocked || !breakdownKnown}
                     />
                   </FormControl>
@@ -1295,11 +1286,8 @@ export function PurchaseInvoiceForm({
                 <FormItem>
                   <FormLabel>Exento</FormLabel>
                   <FormControl>
-                    <Input
+                    <MoneyInput
                       {...field}
-                      type="number"
-                      inputMode="decimal"
-                      step="0.01"
                       disabled={arcaLocked || !breakdownKnown}
                     />
                   </FormControl>
@@ -1309,10 +1297,10 @@ export function PurchaseInvoiceForm({
             />
           </div>
         )}
-        {watchedChannelIsFiscal && Number(watchedTrib || 0) > 0 && (
+        {watchedChannelIsFiscal && amountOf(watchedTrib) > 0 && (
           <TributesSplitFields
             control={form.control}
-            total={Number(watchedTrib || 0)}
+            total={amountOf(watchedTrib)}
             disabled={!breakdownKnown}
           />
         )}

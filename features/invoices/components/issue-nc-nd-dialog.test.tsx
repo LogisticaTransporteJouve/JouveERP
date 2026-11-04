@@ -78,3 +78,54 @@ describe("NcNdForm cotización", () => {
     expect(await savedRate()).toBe(saved);
   });
 });
+
+describe("NcNdForm item amounts", () => {
+  function input(label: string): HTMLInputElement {
+    const el = screen.getByLabelText(label);
+    if (!(el instanceof HTMLInputElement)) throw new Error("not an input");
+    return el;
+  }
+
+  async function savedItem(): Promise<unknown> {
+    fireEvent.change(screen.getByPlaceholderText(/devolución de servicios/), {
+      target: { value: "Bonificación" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Emitir NC" }));
+    await vi.waitFor(() => expect(issue).toHaveBeenCalledTimes(1));
+    return issue.mock.calls[0]?.[0]?.items[0];
+  }
+
+  it("prefills the origin's item in es-AR and saves it unchanged", async () => {
+    render(
+      <NcNdForm
+        origin={{
+          ...ORIGIN,
+          items: [
+            {
+              description: "Flete",
+              quantity: 2.5,
+              unit_price: 15000.5,
+              iva_rate_id: 5,
+            },
+          ],
+        }}
+        kind="nc"
+      />,
+    );
+    expect(input("Cantidad").value).toBe("2,50");
+    expect(input("Precio unitario").value).toBe("15.000,50");
+    expect(await savedItem()).toMatchObject({
+      quantity: 2.5,
+      unit_price: 15000.5,
+    });
+  });
+
+  it.each([
+    ["15.000", 15000],
+    ["1.500,50", 1500.5],
+  ])("saves a typed price %s as %s", async (typed, saved) => {
+    render(<NcNdForm origin={ORIGIN} kind="nc" />);
+    fireEvent.change(input("Precio unitario"), { target: { value: typed } });
+    expect(await savedItem()).toMatchObject({ unit_price: saved });
+  });
+});

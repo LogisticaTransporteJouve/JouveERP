@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { MoneyInput } from "@/components/money-input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -15,7 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { formatMoney } from "@/lib/format";
+import { amountToInput, formatMoney, parseArAmount } from "@/lib/format";
 
 import { useUpdateInstallment } from "../hooks/use-loans";
 import {
@@ -30,21 +31,21 @@ type SplitDraft = Record<keyof InstallmentSplit, string>;
 
 function draftOf(split: InstallmentSplit | null, amount: number): SplitDraft {
   return {
-    capital: String(split?.capital ?? amount),
-    interest: String(split?.interest ?? 0),
-    iva: String(split?.iva ?? 0),
-    perception: String(split?.perception ?? 0),
-    other: String(split?.other ?? 0),
+    capital: amountToInput(split?.capital ?? amount),
+    interest: amountToInput(split?.interest ?? 0),
+    iva: amountToInput(split?.iva ?? 0),
+    perception: amountToInput(split?.perception ?? 0),
+    other: amountToInput(split?.other ?? 0),
   };
 }
 
 function parseDraft(draft: SplitDraft): InstallmentSplit {
   return {
-    capital: Number(draft.capital) || 0,
-    interest: Number(draft.interest) || 0,
-    iva: Number(draft.iva) || 0,
-    perception: Number(draft.perception) || 0,
-    other: Number(draft.other) || 0,
+    capital: parseArAmount(draft.capital) ?? 0,
+    interest: parseArAmount(draft.interest) ?? 0,
+    iva: parseArAmount(draft.iva) ?? 0,
+    perception: parseArAmount(draft.perception) ?? 0,
+    other: parseArAmount(draft.other) ?? 0,
   };
 }
 
@@ -64,7 +65,7 @@ export function EditInstallmentDialog({
 
   useEffect(() => {
     if (open && installment) {
-      setAmount(String(installment.amount));
+      setAmount(amountToInput(installment.amount));
       setDueDate(installment.due_date);
       setSplitOn(installment.split !== null);
       setSplit(draftOf(installment.split, installment.amount));
@@ -79,7 +80,7 @@ export function EditInstallmentDialog({
       ? { id: installment.id, due_date: dueDate, split: parseDraft(split) }
       : {
           id: installment.id,
-          amount: Number(amount),
+          amount: parseArAmount(amount) ?? 0,
           due_date: dueDate,
           ...(installment.split !== null && { split: null }),
         };
@@ -112,14 +113,11 @@ export function EditInstallmentDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label htmlFor="edit-amount">Monto</Label>
-              <Input
+              <MoneyInput
                 id="edit-amount"
-                type="number"
-                inputMode="decimal"
-                step="0.01"
-                value={splitOn ? String(splitSum) : amount}
+                value={splitOn ? amountToInput(splitSum) : amount}
                 disabled={splitOn}
-                onChange={(e) => setAmount(e.target.value)}
+                onChange={setAmount}
               />
             </div>
             <div className="space-y-1">
@@ -141,7 +139,10 @@ export function EditInstallmentDialog({
                 setSplitOn(on);
                 if (on)
                   setSplit(
-                    draftOf(installment?.split ?? null, Number(amount) || 0),
+                    draftOf(
+                      installment?.split ?? null,
+                      parseArAmount(amount) ?? 0,
+                    ),
                   );
               }}
             />
@@ -161,16 +162,10 @@ export function EditInstallmentDialog({
                   <Label htmlFor={`split-${k}`}>
                     {INSTALLMENT_SPLIT_LABEL[k]}
                   </Label>
-                  <Input
+                  <MoneyInput
                     id={`split-${k}`}
-                    type="number"
-                    inputMode="decimal"
-                    step="0.01"
-                    min={0}
                     value={split[k]}
-                    onChange={(e) =>
-                      setSplit((prev) => ({ ...prev, [k]: e.target.value }))
-                    }
+                    onChange={(v) => setSplit((prev) => ({ ...prev, [k]: v }))}
                   />
                 </div>
               ))}

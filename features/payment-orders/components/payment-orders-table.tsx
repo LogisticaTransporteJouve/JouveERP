@@ -30,7 +30,7 @@ import { userCan } from "@/lib/auth/permissions";
 import { formatArgentineDate, formatMoney } from "@/lib/format";
 
 import type { Account } from "@/features/accounts/schema";
-import { useAccountsList } from "@/features/accounts/hooks/use-accounts";
+import { useAccountOptions } from "@/features/accounts/hooks/use-accounts";
 
 import { usePaymentOrdersSearchInfinite } from "../hooks/use-payment-orders";
 import {
@@ -60,10 +60,13 @@ function buildPaymentOrderColumns({
   channels,
   accounts,
   canWrite,
+  canPickAccount,
 }: {
   channels: ChannelOption[];
   accounts: Account[];
   canWrite: boolean;
+  /** Editing an OP picks its accounts (accounts:read). */
+  canPickAccount: boolean;
 }): ColumnDef<PaymentOrderListItem>[] {
   return [
     {
@@ -156,7 +159,7 @@ function buildPaymentOrderColumns({
                 label={formatPaymentOrderNumber(op.punto_venta, op.numero)}
               />
             )}
-            {canWrite && !isCanceled && (
+            {canWrite && canPickAccount && !isCanceled && (
               <EditPaymentOrderDialog
                 paymentOrderId={op.id}
                 numero={op.numero}
@@ -188,7 +191,9 @@ export function PaymentOrdersTable({
   actorAccess: Access;
   initialParams: PaymentOrderListParams;
 }) {
-  const { data: accounts } = useAccountsList();
+  // A per-user deny of accounts:read hides what picks an account, not the list.
+  const canPickAccount = userCan(actorAccess, "accounts:read");
+  const { accounts } = useAccountOptions(canPickAccount);
   const canWrite = userCan(actorAccess, "payment_orders:write");
 
   const { params, committed, update, reset, isFiltered } = useListParams({
@@ -211,8 +216,14 @@ export function PaymentOrdersTable({
   ]);
 
   const columns = useMemo(
-    () => buildPaymentOrderColumns({ channels, accounts, canWrite }),
-    [channels, accounts, canWrite],
+    () =>
+      buildPaymentOrderColumns({
+        channels,
+        accounts,
+        canWrite,
+        canPickAccount,
+      }),
+    [channels, accounts, canWrite, canPickAccount],
   );
 
   return (
@@ -223,7 +234,7 @@ export function PaymentOrdersTable({
         actions={
           <>
             <ExportButton resource="payment-orders" />
-            {canWrite && (
+            {canWrite && canPickAccount && (
               <NewPaymentOrderDialog channels={channels} accounts={accounts} />
             )}
           </>

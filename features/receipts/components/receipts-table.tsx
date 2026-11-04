@@ -35,7 +35,7 @@ import { bucketOf, type ListGroup } from "@/lib/list-period";
 import { totalsByBucket } from "@/lib/list-totals";
 
 import type { Account } from "@/features/accounts/schema";
-import { useAccountsList } from "@/features/accounts/hooks/use-accounts";
+import { useAccountOptions } from "@/features/accounts/hooks/use-accounts";
 import { agingKeys } from "@/features/aging/lib/aging-keys";
 
 import {
@@ -66,12 +66,15 @@ function buildReceiptColumns({
   channels,
   accounts,
   canWrite,
+  canPickAccount,
   canSendEmail,
   canEditRetentions,
 }: {
   channels: ChannelOption[];
   accounts: Account[];
   canWrite: boolean;
+  /** Editing a receipt picks its accounts (accounts:read). */
+  canPickAccount: boolean;
   canSendEmail: boolean;
   canEditRetentions: boolean;
 }): ColumnDef<ReceiptListItem>[] {
@@ -170,7 +173,7 @@ function buildReceiptColumns({
             {canWrite && !isCanceled && (
               <ImputeReceiptDialog receiptId={r.id} label={numero} />
             )}
-            {canWrite && !isCanceled && (
+            {canWrite && canPickAccount && !isCanceled && (
               <EditReceiptDialog
                 receiptId={r.id}
                 numero={r.numero}
@@ -205,7 +208,9 @@ export function ReceiptsTable({
   actorAccess: Access;
   initialParams: ReceiptListParams;
 }) {
-  const { data: accounts } = useAccountsList();
+  // A per-user deny of accounts:read hides what picks an account, not the list.
+  const canPickAccount = userCan(actorAccess, "accounts:read");
+  const { accounts } = useAccountOptions(canPickAccount);
   const canWrite = userCan(actorAccess, "receipts:write");
   const canSendEmail = userCan(actorAccess, "email:send");
   const canEditRetentions = userCan(actorAccess, "retentions:write");
@@ -241,10 +246,18 @@ export function ReceiptsTable({
         channels,
         accounts,
         canWrite,
+        canPickAccount,
         canSendEmail,
         canEditRetentions,
       }),
-    [channels, accounts, canWrite, canSendEmail, canEditRetentions],
+    [
+      channels,
+      accounts,
+      canWrite,
+      canPickAccount,
+      canSendEmail,
+      canEditRetentions,
+    ],
   );
 
   return (
@@ -259,7 +272,7 @@ export function ReceiptsTable({
               onChange={(next) => update({ group: next })}
             />
             <ExportButton resource="receipts" />
-            {canWrite && (
+            {canWrite && canPickAccount && (
               <NewReceiptDialog
                 channels={channels}
                 accounts={accounts}

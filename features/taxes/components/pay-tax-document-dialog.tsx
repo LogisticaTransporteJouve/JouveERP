@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { MoneyInput } from "@/components/money-input";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -21,7 +22,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { formatPeriod, todayInAR } from "@/lib/format";
+import {
+  amountToInput,
+  formatPeriod,
+  parseArAmount,
+  todayInAR,
+} from "@/lib/format";
 
 import { usePayTaxDocument } from "../hooks/use-tax-documents";
 import { taxDocumentLabel, type TaxDocument } from "../schema";
@@ -46,7 +52,7 @@ export function PayTaxDocumentDialog({
     if (open && doc) {
       setPaidDate(todayInAR());
       setAccountId("");
-      setAmount(doc.amount === null ? "" : String(doc.amount));
+      setAmount(doc.amount === null ? "" : amountToInput(doc.amount));
     }
   }, [open, doc]);
 
@@ -54,8 +60,8 @@ export function PayTaxDocumentDialog({
 
   function onSubmit() {
     if (!doc) return;
-    const value = Number(amount);
-    if (!Number.isFinite(value) || value <= 0) {
+    const value = parseArAmount(amount) ?? 0;
+    if (value <= 0) {
       toast.error("Indicá el importe pagado.");
       return;
     }
@@ -108,14 +114,10 @@ export function PayTaxDocumentDialog({
               </div>
               <div className="space-y-1">
                 <Label htmlFor="tax-pay-amount">Importe</Label>
-                <Input
+                <MoneyInput
                   id="tax-pay-amount"
-                  type="number"
-                  inputMode="decimal"
-                  step="0.01"
-                  min="0"
                   value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
+                  onChange={setAmount}
                 />
               </div>
             </div>

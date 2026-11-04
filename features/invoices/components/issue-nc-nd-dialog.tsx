@@ -45,6 +45,7 @@ import {
 } from "@/lib/format";
 
 import { useIssueFiscalInvoice } from "../hooks/use-invoices";
+import { ITEM_DECIMALS, itemInput, itemNumber } from "../lib/item-amounts";
 import { computeTotals, type RevenueKind } from "../schema";
 
 export type Kind = "nc" | "nd";
@@ -134,8 +135,8 @@ export function NcNdForm({
         ]
       : origin.items.map((it) => ({
           description: it.description,
-          quantity: String(it.quantity),
-          unit_price: String(it.unit_price),
+          quantity: itemInput(it.quantity),
+          unit_price: itemInput(it.unit_price),
           iva_rate_id: (it.iva_rate_id ?? IVA_RATE.TWENTY_ONE) as IvaRateId,
           revenue_kind: it.revenue_kind,
         })),
@@ -143,8 +144,8 @@ export function NcNdForm({
 
   const totals = computeTotals(
     items.map((it) => ({
-      quantity: Number(it.quantity) || 0,
-      unit_price: Number(it.unit_price) || 0,
+      quantity: itemNumber(it.quantity),
+      unit_price: itemNumber(it.unit_price),
       iva_rate_id: it.iva_rate_id,
     })),
     true,
@@ -216,8 +217,8 @@ export function NcNdForm({
         motivo_nc_nd: motivo.trim(),
         items: items.map((it) => ({
           description: it.description.trim(),
-          quantity: Number(it.quantity) || 0,
-          unit_price: Number(it.unit_price) || 0,
+          quantity: itemNumber(it.quantity),
+          unit_price: itemNumber(it.unit_price),
           iva_rate_id: it.iva_rate_id,
           // A note on an asset sale adjusts that sale, not services.
           revenue_kind: it.revenue_kind,
@@ -298,24 +299,20 @@ export function NcNdForm({
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Cant.</Label>
-                <Input
-                  type="number"
-                  step="0.01"
+                <MoneyInput
+                  aria-label="Cantidad"
+                  decimals={ITEM_DECIMALS}
                   value={it.quantity}
-                  onChange={(e) =>
-                    updateItem(idx, { quantity: e.target.value })
-                  }
+                  onChange={(quantity) => updateItem(idx, { quantity })}
                 />
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Precio unitario</Label>
-                <Input
-                  type="number"
-                  step="0.01"
+                <MoneyInput
+                  aria-label="Precio unitario"
+                  decimals={ITEM_DECIMALS}
                   value={it.unit_price}
-                  onChange={(e) =>
-                    updateItem(idx, { unit_price: e.target.value })
-                  }
+                  onChange={(unit_price) => updateItem(idx, { unit_price })}
                 />
               </div>
               <div className="space-y-1">

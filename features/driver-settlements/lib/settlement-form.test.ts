@@ -31,12 +31,17 @@ describe("rendición form", () => {
     const r = row({
       lines: [
         emptyLine(CASH, "600"),
-        { ...emptyLine(CHECKS, "400.005"), check_number: "1" },
+        { ...emptyLine(CHECKS, "400,005"), check_number: "1" },
       ],
     });
     expect(rowReceived(r)).toBe(1000.01);
     expect(parseAmount("-5")).toBe(0);
     expect(parseAmount("abc")).toBe(0);
+  });
+
+  it("reads amounts as es-AR, the way the field shows them", () => {
+    expect(parseAmount("15.000")).toBe(15000);
+    expect(parseAmount("1.500,50")).toBe(1500.5);
   });
 
   it("sends only the lines with an amount, check fields only on checks", () => {

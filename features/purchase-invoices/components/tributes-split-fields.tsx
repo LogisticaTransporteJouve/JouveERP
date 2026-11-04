@@ -9,8 +9,8 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { formatMoney } from "@/lib/format";
+import { MoneyInput } from "@/components/money-input";
+import { formatMoney, parseArAmount } from "@/lib/format";
 
 import { PURCHASE_TRIBUTE_FIELDS, PURCHASE_TRIBUTE_LABEL } from "../schema";
 import type { PurchaseInvoiceFormValues } from "./purchase-invoice-form";
@@ -20,7 +20,7 @@ export function tributesRemaining(
   total: number,
   parts: readonly (string | undefined)[],
 ): number {
-  const sum = parts.reduce((acc, v) => acc + (Number(v || 0) || 0), 0);
+  const sum = parts.reduce((acc, v) => acc + (parseArAmount(v ?? "") ?? 0), 0);
   return Math.round((total - sum) * 100) / 100;
 }
 
@@ -58,13 +58,7 @@ export function TributesSplitFields({
               <FormItem>
                 <FormLabel>{PURCHASE_TRIBUTE_LABEL[name]}</FormLabel>
                 <FormControl>
-                  <Input
-                    {...field}
-                    type="number"
-                    inputMode="decimal"
-                    step="0.01"
-                    disabled={disabled}
-                  />
+                  <MoneyInput {...field} disabled={disabled} />
                 </FormControl>
                 <FormMessage />
               </FormItem>

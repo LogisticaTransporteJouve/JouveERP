@@ -95,11 +95,11 @@ function typeAmount(text: string): HTMLInputElement {
 }
 
 describe("TransactionForm amount", () => {
-  it("saves a typed 1.234,56 as 1234.56 and drops a typed dot in sight", async () => {
+  it("saves a typed 1.234,56 as 1234.56 and reads a typed dot as the decimal mark", async () => {
     render(<TransactionForm channels={[{ id: "ch1", name: "Fiscal" }]} />);
     const [accountSelect] = accountSelects();
     fireEvent.change(accountSelect!, { target: { value: BANK.id } });
-    expect(typeAmount("1234.56").value).toBe("123.456");
+    expect(typeAmount("1234.56").value).toBe("1.234,56");
     typeAmount("1.234,56");
     fireEvent.click(screen.getByRole("button", { name: "Registrar" }));
     await vi.waitFor(() => expect(createTx).toHaveBeenCalledTimes(1));

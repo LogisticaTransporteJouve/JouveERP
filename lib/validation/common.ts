@@ -89,6 +89,11 @@ export const positiveArAmountField = z
   .string()
   .refine((v) => (parseArAmount(v) ?? 0) > 0, "Monto requerido.");
 
+/** Form field for a `MoneyInput` amount ("1.234,56") that must be ≥ 0 and
+ *  not blank. The form submits `parseArAmount(value)`, a number. */
+export const nonNegativeArAmountField = (message: string) =>
+  z.string().refine((v) => (parseArAmount(v) ?? -1) >= 0, message);
+
 /** Variant of moneyAmountPreprocess for the opening balance of accounts:
  *  empty string → 0 (empty means "no initial balance", not "invalid"). */
 export const openingBalancePreprocess = (value: unknown) => {

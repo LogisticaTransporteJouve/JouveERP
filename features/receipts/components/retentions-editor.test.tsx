@@ -65,11 +65,11 @@ describe("RetentionsEditor amount", () => {
     expect(save(onSave)).toEqual([1234.56]);
   });
 
-  it("drops a typed dot in sight and saves a typed 1.234,56 as 1234.56", () => {
+  it("reads a typed dot as the decimal mark and saves a typed 1.234,56 as 1234.56", () => {
     const onSave = vi.fn();
     render(<Harness initial="" onSave={onSave} />);
     fireEvent.change(amountField(), { target: { value: "1234.56" } });
-    expect(amountField().value).toBe("123.456");
+    expect(amountField().value).toBe("1.234,56");
     fireEvent.change(amountField(), { target: { value: "1.234,56" } });
     expect(save(onSave)).toEqual([1234.56]);
   });

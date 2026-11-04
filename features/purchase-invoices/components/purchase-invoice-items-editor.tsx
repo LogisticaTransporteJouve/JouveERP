@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-import { formatMoney } from "@/lib/format";
+import { formatMoney, parseArAmount } from "@/lib/format";
 
 import {
   ITEM_DECIMALS,
@@ -42,13 +42,7 @@ const ARS = { format: (n: number) => formatMoney(n, "ARS") };
 /** Reads an es-AR item field ("1.234,5678"): the same number the line totals
  *  and the saved quantity / unit price use. */
 export function parseItemNumber(v: string): number {
-  if (v === "") return 0;
-  const cleaned = v
-    .replace(/[^0-9.,-]/g, "")
-    .replace(/\./g, "")
-    .replace(",", ".");
-  const n = Number(cleaned);
-  return Number.isFinite(n) ? n : 0;
+  return parseArAmount(v) ?? 0;
 }
 
 export function computeLine(draft: PurchaseInvoiceItemDraft) {

@@ -4,9 +4,9 @@ import { Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
+import { MoneyInput } from "@/components/money-input";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { formatAmountInput } from "@/lib/format";
 import {
   Select,
   SelectContent,
@@ -104,7 +104,8 @@ export function PaymentLinesEditor({
 
       {lines.length === 0 ? (
         <div className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
-          Sin líneas todavía. Agregá al menos una para registrar la entrada de plata.
+          Sin líneas todavía. Agregá al menos una para registrar la entrada de
+          plata.
         </div>
       ) : (
         <div className="space-y-2">
@@ -140,16 +141,10 @@ export function PaymentLinesEditor({
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">Monto</Label>
-                    <Input
-                      type="text"
-                      inputMode="decimal"
+                    <MoneyInput
                       placeholder="0,00"
                       value={line.amount}
-                      onChange={(e) =>
-                        update(idx, {
-                          amount: formatAmountInput(e.target.value),
-                        })
-                      }
+                      onChange={(amount) => update(idx, { amount })}
                     />
                   </div>
                   <div className="space-y-1">
@@ -188,18 +183,14 @@ export function PaymentLinesEditor({
                         <Label className="text-xs">Fecha de emisión</Label>
                         <DatePicker
                           value={line.check?.issue_date ?? defaultDate}
-                          onChange={(v) =>
-                            updateCheck(idx, { issue_date: v })
-                          }
+                          onChange={(v) => updateCheck(idx, { issue_date: v })}
                         />
                       </div>
                       <div className="space-y-1">
                         <Label className="text-xs">Fecha de cobro</Label>
                         <DatePicker
                           value={line.check?.due_date ?? defaultDate}
-                          onChange={(v) =>
-                            updateCheck(idx, { due_date: v })
-                          }
+                          onChange={(v) => updateCheck(idx, { due_date: v })}
                         />
                       </div>
                     </div>

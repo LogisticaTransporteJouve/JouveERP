@@ -68,7 +68,7 @@ function type(label: string, text: string): HTMLInputElement {
 }
 
 describe("NewChequeDialog amount", () => {
-  it("saves a typed 1.234,56 as 1234.56 and drops a typed dot in sight", async () => {
+  it("saves a typed 1.234,56 as 1234.56 and reads a typed dot as the decimal mark", async () => {
     render(
       <NewChequeDialog
         channels={[{ id: "ch1", name: "Jouve fiscal", is_active: true }]}
@@ -82,7 +82,7 @@ describe("NewChequeDialog amount", () => {
       .getAllByRole("combobox")
       .find((el) => el.textContent?.includes("Jouve fiscal"));
     fireEvent.change(channel!, { target: { value: "ch1" } });
-    expect(type("Monto", "1234.56").value).toBe("123.456");
+    expect(type("Monto", "1234.56").value).toBe("1.234,56");
     type("Monto", "1.234,56");
     fireEvent.click(screen.getByRole("button", { name: "Registrar" }));
     await vi.waitFor(() => expect(create).toHaveBeenCalledTimes(1));

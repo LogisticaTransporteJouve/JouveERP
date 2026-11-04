@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { useScope } from "@/components/providers/scope-provider";
+import { MoneyInput } from "@/components/money-input";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -23,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { formatMoney as money, todayInAR } from "@/lib/format";
+import { formatMoney as money, parseArAmount, todayInAR } from "@/lib/format";
 
 import {
   useCreateManualJournalEntry,
@@ -44,8 +45,7 @@ const NO_CHANNEL = "_none";
 const RECPAM_CODE = "4.2.2";
 
 function toNumber(v: string): number {
-  const n = Number(v.replace(",", "."));
-  return Number.isFinite(n) ? n : 0;
+  return parseArAmount(v) ?? 0;
 }
 
 /**
@@ -205,26 +205,18 @@ export function ManualEntryDialog({
               </div>
               <div className="w-28 space-y-1">
                 {i === 0 && <Label className="text-xs">Debe</Label>}
-                <Input
-                  type="number"
-                  inputMode="decimal"
-                  min={0}
+                <MoneyInput
+                  aria-label="Debe"
                   value={line.debit}
-                  onChange={(e) =>
-                    updateLine(i, { debit: e.target.value, credit: "" })
-                  }
+                  onChange={(debit) => updateLine(i, { debit, credit: "" })}
                 />
               </div>
               <div className="w-28 space-y-1">
                 {i === 0 && <Label className="text-xs">Haber</Label>}
-                <Input
-                  type="number"
-                  inputMode="decimal"
-                  min={0}
+                <MoneyInput
+                  aria-label="Haber"
                   value={line.credit}
-                  onChange={(e) =>
-                    updateLine(i, { credit: e.target.value, debit: "" })
-                  }
+                  onChange={(credit) => updateLine(i, { credit, debit: "" })}
                 />
               </div>
               <Button

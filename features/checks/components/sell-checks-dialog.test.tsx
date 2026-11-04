@@ -92,7 +92,7 @@ function type(label: string, text: string): HTMLInputElement {
 }
 
 describe("SellChequesDialog interest and commission", () => {
-  it("saves a typed 1.234,56 as 1234.56, not 1.234", async () => {
+  it("saves a typed 1.234,56 as 1234.56 and reads a typed dot as the decimal mark", async () => {
     render(
       <SellChequesDialog
         checks={[CHECK]}
@@ -106,7 +106,7 @@ describe("SellChequesDialog interest and commission", () => {
     fireEvent.change(screen.getByRole("combobox"), {
       target: { value: BANK.id },
     });
-    expect(type("Intereses", "1234.56").value).toBe("123.456");
+    expect(type("Intereses", "1234.56").value).toBe("1.234,56");
     type("Intereses", "1.234,56");
     type("Comisiones y gastos", "1.500");
     fireEvent.click(screen.getByRole("button", { name: "Vender" }));

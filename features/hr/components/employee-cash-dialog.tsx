@@ -29,8 +29,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useAccountsList } from "@/features/accounts/hooks/use-accounts";
-import { isCheckAccount } from "@/features/accounts/schema";
+import { AccountOptionsGate } from "@/features/accounts/components/account-options-gate";
+import { isCheckAccount, type Account } from "@/features/accounts/schema";
 import { parseArAmount, todayInAR } from "@/lib/format";
 
 import { useRecordAccountCash } from "../hooks/use-employee-account";
@@ -157,18 +157,28 @@ function PickEmployeeThenForm({
   );
 }
 
-function CashForm({
-  kind,
-  employeeId,
-  plans,
-  onDone,
-}: {
+type CashFormProps = {
   kind: CashKind;
   employeeId: string;
   plans: DebtPlan[];
   onDone: () => void;
-}) {
-  const { data: accounts } = useAccountsList();
+};
+
+function CashForm(props: CashFormProps) {
+  return (
+    <AccountOptionsGate>
+      {(accounts) => <CashFormFields {...props} accounts={accounts} />}
+    </AccountOptionsGate>
+  );
+}
+
+function CashFormFields({
+  kind,
+  employeeId,
+  plans,
+  onDone,
+  accounts,
+}: CashFormProps & { accounts: Account[] }) {
   const { channels } = useScope();
   const defaultChannel = useDefaultChannel();
   const mutation = useRecordAccountCash(employeeId);

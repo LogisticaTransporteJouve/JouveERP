@@ -243,15 +243,124 @@ export function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
-/** Parses an amount in es-AR format ("1.234,56" → 1234.56). Returns null
- *  unless the whole string is a number: "12abc" and "1e3" are null, not 12
- *  and 1000. It is the semantic inverse of `formatAmountInput` /
+/** An amount written either way ("1.234,56", "1,234.56", "1500.5") as
+ *  ungrouped es-AR text ("1234,56"), or null when it is not one. Decides
+ *  which mark is the decimal one:
+ *  - both "." and ",": the last one ("1.234,56", "1,234.56" → "1234,56");
+ *  - only ",": a single comma is the decimal mark (several are unreadable);
+ *  - only one ".": thousands with exactly 3 digits after it ("15.000" →
+ *    "15000"), otherwise decimal ("1500.5" → "1500,5");
+ *  - several ".": thousands ("1.234.567" → "1234567").
+ *  A trailing mark stays ("15," / "15." → "15,"). */
+export function normalizeAmountText(raw: string): string | null {
+  const sign = raw.startsWith("-") ? "-" : "";
+  const body = sign ? raw.slice(1) : raw;
+  if (!/^[\d.,]*$/.test(body) || !/\d/.test(body)) return null;
+  const lastDot = body.lastIndexOf(".");
+  const lastComma = body.lastIndexOf(",");
+  let mark = -1;
+  if (lastDot >= 0 && lastComma >= 0) {
+    mark = Math.max(lastDot, lastComma);
+  } else if (lastComma >= 0) {
+    if (body.indexOf(",") !== lastComma) return null;
+    mark = lastComma;
+  } else if (lastDot >= 0 && body.indexOf(".") === lastDot) {
+    if (body.length - lastDot - 1 !== 3) mark = lastDot;
+  }
+  if (mark < 0) return sign + body.replace(/\./g, "");
+  const decimals = body.slice(mark + 1);
+  if (!/^\d*$/.test(decimals)) return null;
+  const int = body.slice(0, mark).replace(/[.,]/g, "");
+  return `${sign}${int},${decimals}`;
+}
+
+/** Parses an amount in es-AR format ("1.234,56" → 1234.56), with the
+ *  separator rules of `normalizeAmountText` ("1500.5" → 1500.5). Returns
+ *  null unless the whole string is a number: "12abc" and "1e3" are null, not
+ *  12 and 1000. It is the semantic inverse of `formatAmountInput` /
  *  `amountToInput`. */
 export function parseArAmount(raw: string): number | null {
-  const cleaned = raw.replace(/\s/g, "").replace(/\./g, "").replace(/,/g, ".");
-  if (!/^-?(\d+\.?\d*|\.\d+)$/.test(cleaned)) return null;
-  const n = Number(cleaned);
+  const text = normalizeAmountText(raw.replace(/\s/g, ""));
+  if (text === null) return null;
+  const n = Number(text.replace(",", "."));
   return Number.isFinite(n) ? n : null;
+}
+
+type MoneyInputOptions = { decimals?: number; allowNegative?: boolean };
+
+/** Text in the field's own es-AR grouping ("1.500", "-1.234,56"). */
+const GROUPED_AMOUNT = /^-?\d{1,3}(\.\d{3})+(,\d*)?$/;
+
+function formatMoneyText(
+  text: string,
+  { decimals = 2, allowNegative = false }: MoneyInputOptions,
+): string {
+  return allowNegative
+    ? formatSignedAmountInput(text, decimals)
+    : formatAmountInput(text, decimals);
+}
+
+/** The text a MoneyInput holds after an edit from `prev` to `raw`. While
+ *  typing it keeps what the user typed (digits, "." and ","), so nothing
+ *  fights the cursor, and `parseArAmount` reads that text with the rules of
+ *  `normalizeAmountText` ("15.000" → 15000, "1500.50" → 1500,5). A second
+ *  comma, or a dot after the comma, is ignored, and the digits after a comma
+ *  stop at `decimals`. A paste with its own marks is read as a whole value
+ *  and shown in es-AR; `moneyInputBlurText` formats typed text on blur. */
+export function nextMoneyInputText(
+  prev: string,
+  raw: string,
+  options: MoneyInputOptions = {},
+): string {
+  const { decimals = 2, allowNegative = false } = options;
+  let start = 0;
+  while (
+    start < prev.length &&
+    start < raw.length &&
+    prev[start] === raw[start]
+  )
+    start++;
+  let end = 0;
+  while (
+    end < prev.length - start &&
+    end < raw.length - start &&
+    prev[prev.length - 1 - end] === raw[raw.length - 1 - end]
+  )
+    end++;
+  const inserted = raw.slice(start, raw.length - end);
+  // A paste with its own marks ("1,234.56", "15.000") is read as a whole
+  // value; digits alone just join what was there.
+  if (inserted.length > 1 && /[.,]/.test(inserted)) {
+    const pasted = normalizeAmountText(raw.replace(/[^\d.,-]/g, ""));
+    return pasted === null ? prev : formatMoneyText(pasted, options);
+  }
+  // Editing a value the field already grouped ("1.500", "1.234,56"): its
+  // dots are thousands, so they drop before the edit is read ("1.500" + "0"
+  // is 15000, not 1,5000). A typed "." stays as typed.
+  const typed = GROUPED_AMOUNT.test(prev)
+    ? raw.slice(0, start).replace(/\./g, "") +
+      inserted +
+      raw.slice(raw.length - end).replace(/\./g, "")
+    : raw;
+  const sign = allowNegative && typed.trimStart().startsWith("-") ? "-" : "";
+  const body = typed.replace(/[^\d.,]/g, "");
+  const comma = body.indexOf(",");
+  if (comma < 0) return sign + body;
+  if (body.indexOf(",", comma + 1) >= 0 || body.indexOf(".", comma) >= 0) {
+    return prev;
+  }
+  return sign + body.slice(0, comma + 1 + decimals);
+}
+
+/** A MoneyInput's text in canonical es-AR form ("1500.5" → "1.500,5",
+ *  "15." → "15"), for when the field loses focus. Unreadable text stays. */
+export function moneyInputBlurText(
+  text: string,
+  options: MoneyInputOptions = {},
+): string {
+  const normalized = normalizeAmountText(text.replace(/[^\d.,-]/g, ""));
+  if (normalized === null) return text;
+  return formatMoneyText(normalized, options).replace(/,$/, "");
 }
 
 /** A number from an imported statement cell, in either shape a spreadsheet

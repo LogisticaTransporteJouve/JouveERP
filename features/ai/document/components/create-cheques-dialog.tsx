@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { MoneyInput } from "@/components/money-input";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -21,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { amountToInput, parseArAmount } from "@/lib/format";
 import { useAccountsList } from "@/features/accounts/hooks/use-accounts";
 import { ClientSearchCombobox } from "@/features/clients/components/client-search-combobox";
 
@@ -48,7 +50,7 @@ function toRows(payload: unknown): Row[] {
     numero: c.number ?? "",
     librador: c.drawer ?? c.beneficiary ?? "",
     librador_cuit: c.drawer_cuit ?? "",
-    importe: c.amount != null ? String(c.amount) : "",
+    importe: c.amount != null ? amountToInput(c.amount) : "",
     fecha: c.date ?? "",
     fecha_pago: c.payment_date ?? c.date ?? "",
     moneda: c.currency === "USD" ? "USD" : "ARS",
@@ -99,7 +101,7 @@ export function CreateChequesDialog({
   }, [open, carteraOptions, carteraId]);
 
   const totalAmount = rows.reduce(
-    (s, r) => s + (r.importe ? Number(r.importe) : 0),
+    (s, r) => s + (parseArAmount(r.importe) ?? 0),
     0,
   );
 
@@ -125,7 +127,7 @@ export function CreateChequesDialog({
           numero: r.numero || null,
           librador: r.librador || null,
           librador_cuit: r.librador_cuit || null,
-          importe: r.importe ? Number(r.importe) : null,
+          importe: parseArAmount(r.importe),
           fecha: r.fecha || null,
           fecha_pago: r.fecha_pago || null,
           moneda: r.moneda,
@@ -229,11 +231,9 @@ export function CreateChequesDialog({
                   />
                 </Field>
                 <Field label="Importe">
-                  <Input
-                    type="number"
-                    inputMode="decimal"
+                  <MoneyInput
                     value={r.importe}
-                    onChange={(e) => update(i, { importe: e.target.value })}
+                    onChange={(importe) => update(i, { importe })}
                   />
                 </Field>
                 <Field label="Emisión">

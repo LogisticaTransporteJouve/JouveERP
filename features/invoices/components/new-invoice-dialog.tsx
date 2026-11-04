@@ -32,6 +32,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Checkbox } from "@/components/ui/checkbox";
+import { MoneyInput } from "@/components/money-input";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -61,10 +62,16 @@ import {
   suggestRevenueKind,
   type RevenueKind,
 } from "@/features/invoices/schema";
-import { formatNumber2, todayInAR } from "@/lib/format";
+import {
+  amountToInput,
+  formatNumber2,
+  parseArAmount,
+  todayInAR,
+} from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 import type { InvoiceListItem, PosOption } from "../actions/invoices-actions";
+import { ITEM_DECIMALS, itemInput, itemNumber } from "../lib/item-amounts";
 import { posLabel } from "../lib/pos-label";
 import {
   useEnabledPos,
@@ -88,6 +95,7 @@ const KIND_OPTIONS: Array<{ value: Kind; label: string }> = [
   { value: "nd", label: "Nota de Débito" },
 ];
 
+// Quantity and price are es-AR text ("1.500,50"), as MoneyInput shows them.
 type ItemDraft = {
   description: string;
   quantity: string;
@@ -127,7 +135,7 @@ function defaultItems(): ItemDraft[] {
     },
     {
       description: SEGURO_DESCRIPTION,
-      quantity: "0.01",
+      quantity: "0,01",
       unit_price: "",
       iva_rate_id: IVA_RATE.TWENTY_ONE,
     },
@@ -303,8 +311,8 @@ function NewInvoiceForm({
           ]
         : originDetail.items.map((it) => ({
             description: it.description,
-            quantity: String(it.quantity),
-            unit_price: String(it.unit_price),
+            quantity: itemInput(it.quantity),
+            unit_price: itemInput(it.unit_price),
             iva_rate_id: (it.iva_rate_id ?? IVA_RATE.TWENTY_ONE) as IvaRateId,
             revenue_kind: it.revenue_kind,
           })),
@@ -390,8 +398,8 @@ function NewInvoiceForm({
     () =>
       computeTotals(
         items.map((it) => ({
-          quantity: Number(it.quantity) || 0,
-          unit_price: Number(it.unit_price) || 0,
+          quantity: itemNumber(it.quantity),
+          unit_price: itemNumber(it.unit_price),
           iva_rate_id: it.iva_rate_id,
         })),
         isFiscal,
@@ -441,8 +449,7 @@ function NewInvoiceForm({
     // carry Seguro at all so the filter is a no-op there.
     const itemsForSubmit = items.filter((it) => {
       if (!isSeguroRow(it)) return true;
-      const declared = Number(it.unit_price);
-      return Number.isFinite(declared) && declared > 0;
+      return itemNumber(it.unit_price) > 0;
     });
 
     if (itemsForSubmit.some((it) => it.description.trim().length === 0)) {
@@ -481,8 +488,8 @@ function NewInvoiceForm({
         motivo_nc_nd: motivo.trim().length === 0 ? null : motivo.trim(),
         items: itemsForSubmit.map((it) => ({
           description: it.description.trim(),
-          quantity: Number(it.quantity) || 0,
-          unit_price: Number(it.unit_price) || 0,
+          quantity: itemNumber(it.quantity),
+          unit_price: itemNumber(it.unit_price),
           iva_rate_id: it.iva_rate_id,
           revenue_kind: itemRevenueKind(it, isFiscal),
         })),
@@ -773,8 +780,8 @@ function NewInvoiceForm({
                   <div />
                 </div>
                 {items.map((item, idx) => {
-                  const qty = Number(item.quantity) || 0;
-                  const price = Number(item.unit_price) || 0;
+                  const qty = itemNumber(item.quantity);
+                  const price = itemNumber(item.unit_price);
                   const lineTotal = isFiscal
                     ? qty * price * (1 + ivaRatePercent(item.iva_rate_id) / 100)
                     : qty * price;
@@ -827,19 +834,15 @@ function NewInvoiceForm({
                           onChange={(q) => updateItem(idx, { quantity: q })}
                         />
                       ) : (
-                        <Input
-                          type="text"
-                          inputMode="decimal"
+                        <MoneyInput
                           aria-label="Cantidad"
+                          decimals={ITEM_DECIMALS}
                           value={item.quantity}
-                          onChange={(e) =>
-                            updateItem(idx, { quantity: e.target.value })
-                          }
+                          onChange={(quantity) => updateItem(idx, { quantity })}
                         />
                       )}
-                      <Input
-                        type="text"
-                        inputMode="decimal"
+                      <MoneyInput
+                        decimals={ITEM_DECIMALS}
                         placeholder={seguro ? "Valor declarado" : "$ 0,00"}
                         aria-label={
                           seguro
@@ -849,8 +852,8 @@ function NewInvoiceForm({
                               : "Precio final"
                         }
                         value={item.unit_price}
-                        onChange={(e) =>
-                          updateItem(idx, { unit_price: e.target.value })
+                        onChange={(unit_price) =>
+                          updateItem(idx, { unit_price })
                         }
                       />
                       {isFiscal && (
@@ -977,9 +980,9 @@ function NewInvoiceForm({
 }
 
 // Percentage picker for the Seguro row. Quick options + "Otro…" that
-// switches to a free-form numeric input. The bound `value` is the AFIP
-// quantity (pct/100); we render and accept percentages but persist the
-// decimal so computeTotals stays uniform across rows.
+// switches to a free-form es-AR input. The bound `value` is the AFIP
+// quantity (pct/100, es-AR text); we render and accept percentages but
+// persist the fraction so computeTotals stays uniform across rows.
 function SeguroPercentInput({
   value,
   onChange,
@@ -987,32 +990,31 @@ function SeguroPercentInput({
   value: string;
   onChange: (next: string) => void;
 }) {
-  const numeric = Number(value);
-  const pct = Number.isFinite(numeric) ? numeric * 100 : 0;
+  const pct = itemNumber(value) * 100;
   const matchesPreset = SEGURO_PERCENTAGES.some(
     (preset) => Math.abs(preset - pct) < 1e-6,
   );
   const [isCustom, setIsCustom] = useState(!matchesPreset && pct > 0);
+  // The typed text is kept as is: re-deriving it from the fraction would eat
+  // a trailing comma ("1," → "1") while the user is still typing.
+  const [pctText, setPctText] = useState(() =>
+    pct > 0 ? amountToInput(pct) : "",
+  );
 
   if (isCustom) {
     return (
       <div className="relative">
-        <Input
-          type="text"
-          inputMode="decimal"
+        <MoneyInput
           autoFocus
-          value={pct === 0 ? "" : String(pct)}
-          onChange={(e) => {
-            const next = Number(e.target.value);
-            if (!Number.isFinite(next) || next <= 0) {
-              onChange("0");
-              return;
-            }
-            onChange(String(next / 100));
+          value={pctText}
+          onChange={(text) => {
+            setPctText(text);
+            const next = parseArAmount(text) ?? 0;
+            onChange(next > 0 ? itemInput(next / 100) : "0");
           }}
           onBlur={() => {
             // If user blurs with empty/zero, fall back to the select view.
-            if (Number(value) === 0) setIsCustom(false);
+            if (itemNumber(value) === 0) setIsCustom(false);
           }}
           placeholder="%"
           aria-label="Porcentaje del seguro"
@@ -1033,8 +1035,7 @@ function SeguroPercentInput({
           setIsCustom(true);
           return;
         }
-        const preset = Number(v);
-        onChange(String(preset / 100));
+        onChange(itemInput(Number(v) / 100));
       }}
     >
       <SelectTrigger className="w-full" aria-label="Porcentaje del seguro">
