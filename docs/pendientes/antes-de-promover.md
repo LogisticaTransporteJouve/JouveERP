@@ -438,6 +438,16 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
   - `123001`: monto, moneda, cartera, recibo y estado de un cheque de
     terceros cambian solo por sus RPC. El código anterior nunca hace PATCH
     de `checks`.
+- [ ] **Aprobar `20261104130000`** (auditoría w6): `guard_check_edit` corre
+      también en INSERT (un cheque de terceros nuevo es manual, en cartera y
+      sin recibo, salvo que lo cargue `create_receipt`/`update_receipt`),
+      fija además `source_kind`, `source_client_id` y
+      `source_payment_line_id`, y `check_movements` acepta escrituras solo de
+      las RPC de cheques, recibos e importador, de sus cascadas y del
+      movimiento «recibido» inicial de «Nuevo cheque». No toca filas
+      existentes. Rollback: el código anterior inserta cheques solo con esas
+      formas, nunca hace PATCH de esas columnas y escribe `check_movements`
+      solo por esas RPC y el «recibido» inicial.
 
 ## Después de promover
 
