@@ -1,6 +1,6 @@
 -- A fiscal purchase's total equals the sum of its parts, to the cent
--- (20261104112000, exact since 20261104120100), and a fiscal B or C carries
--- no IVA, exento or no gravado (20261104120100): refused on insert and on an
+-- (20261104112000, exact since 20261104120500), and a fiscal B or C carries
+-- no IVA, exento or no gravado (20261104120500): refused on insert and on an
 -- amount edit; an existing row with a gap still saves when its amounts stay
 -- as they are; internal purchases are left alone. One transaction, rolled back.
 
@@ -35,7 +35,7 @@ select throws_ok(
             current_date, 1000, 210, 30, 30, 250, 10, 1500.01, 'received')$$,
   '23514',
   null,
-  'a cent between the parts and the total is refused (20261104120100: it stayed in proveedores)'
+  'a cent between the parts and the total is refused (20261104120500: it stayed in proveedores)'
 );
 
 select lives_ok(
@@ -100,7 +100,7 @@ select is(
   'once fixed, the journal credits the supplier the whole total'
 );
 
--- Letter rule (20261104120100): a fiscal B or C carries no IVA, exento or no
+-- Letter rule (20261104120500): a fiscal B or C carries no IVA, exento or no
 -- gravado, whichever writer stores it.
 select throws_ok(
   $$insert into public.purchase_invoices

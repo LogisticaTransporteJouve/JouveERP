@@ -12,7 +12,8 @@ export async function runTreasurySummary(): Promise<AiRunResult> {
   const d = res.data;
   return okResult(
     `Caja real (todos los canales): ${d.accounts.length} active accounts · ` +
-      `${d.checks_due_soon.count} checks due soon (7 days).`,
+      `${d.checks_due_soon.count} ARS checks in portfolio due soon (7 days; ` +
+      `pesos only, USD portfolio in checks_usd_now).`,
     d,
     {
       note: "Tesorería es la caja real de todos los canales: no se separa por canal.",
@@ -28,7 +29,8 @@ export const getTreasurySummary = defineAiAction({
   sources: ["accounts", "account_movement_totals", "checks"],
   description:
     "Treasury summary: balances per account and currency (ARS/USD), current " +
-    "totals vs. end of previous month, and portfolio checks due soon. " +
+    "totals vs. end of previous month, and the ARS (pesos only) portfolio " +
+    "checks due within 7 days. " +
     "No parameters. Useful for 'how's the cash doing?'.",
   input: z.object({}),
   run: () => runTreasurySummary(),
