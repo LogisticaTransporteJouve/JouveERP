@@ -11,9 +11,10 @@
       150000, como el resto de la app.
 - [x] NC de una compra a cargo de empleado: baja el cargo y su neto vuelve a
       anticipos al personal (`20261104102300`, decisión en
-      `docs/decisions.md`). El cargo conserva una descripción editada.
+      `docs/decisions/2026-11-04-nc-de-una-compra-a-cargo-de-empleado-baja-el-cargo.md`). El cargo conserva una descripción editada.
 - [x] Gestión (`20261104102000`): "Diferencias de cambio" en costo
-      financiero (decisión en `docs/decisions.md`); el interés de una cuota
+      financiero (decisión en
+      `docs/decisions/2026-11-04-diferencias-de-cambio-en-gestion-resultado-financiero.md`); el interés de una cuota
       sin desglose de un préstamo con pasivo asentado es costo financiero y no
       capital, en las dos bases; un descuento de planilla o una condonación en
       USD sin cotización queda en "USD sin cotización"; el percibido valúa un
@@ -49,15 +50,15 @@
 - [ ] Antes de aprobar `20261104102300`, el dueño revisa los cargos que baja
       el backfill (compras a cargo de empleado con NC):
       `select f.id, f.charged_employee_id, m.amount from purchase_invoices f
-    left join employee_account_movements m on m.purchase_invoice_id = f.id
-    where f.charged_employee_id is not null and exists (select 1 from
-    purchase_invoices nc where nc.invoice_origin_id = f.id and nc.kind = 'nc'
-    and nc.status = 'received');`. Y después, las NC que quedaron con su
+  left join employee_account_movements m on m.purchase_invoice_id = f.id
+  where f.charged_employee_id is not null and exists (select 1 from
+  purchase_invoices nc where nc.invoice_origin_id = f.id and nc.kind = 'nc'
+  and nc.status = 'received');`. Y después, las NC que quedaron con su
       asiento viejo por período cerrado:
       `select nc.id from purchase_invoices nc join purchase_invoices f on f.id
-    = nc.invoice_origin_id where nc.kind = 'nc' and nc.status = 'received'
-    and f.charged_employee_id is not null and
-    journal_entry_status('purchase_invoices', nc.id) = 'differs';`.
+  = nc.invoice_origin_id where nc.kind = 'nc' and nc.status = 'received'
+  and f.charged_employee_id is not null and
+  journal_entry_status('purchase_invoices', nc.id) = 'differs';`.
 - [ ] Planes de deuda tipeados desde el total viejo de un cargo que bajó
       (al neto con `20261104095200`, o por una NC con `20261104102300`): la
       planilla sigue descontando hasta el total del plan. El dueño los

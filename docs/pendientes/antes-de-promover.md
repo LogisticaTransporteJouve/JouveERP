@@ -1,12 +1,25 @@
 # Antes de promover
 
 Lo que el owner revisa y aprueba antes de correr **Promote to production**
-con cualquier commit posterior a `production-latest` que traiga estas
-migraciones (#339–#351 y la auditoría w3). Las consultas son de solo lectura
-y se corren en el SQL editor de producción **antes** de promover, sobre el
-schema que hay hoy (sin las migraciones de esta lista):
-`promote-to-production.yml` aplica todas las migraciones pendientes juntas.
-Las de cada sección más vieja siguen con su ítem "Aprobar …" en su sección.
+con cualquier commit posterior a `production-latest`. Cubre **todas las
+migraciones posteriores a `production-latest`** (su última es
+`20261102170000`): `promote-to-production.yml` las aplica todas juntas. Las
+consultas son de solo lectura y se corren en el SQL editor de producción
+**antes** de promover, sobre el schema de `production-latest` (sin ninguna
+migración pendiente).
+
+Dónde está el ítem "Aprobar …" de cada migración pendiente:
+
+- `20261104090500` en adelante: en este archivo.
+- `20261103000000`–`20261104080500`, salvo las de abajo: en el archivo de
+  su tema en `docs/pendientes/` (`grep -l "Aprobar" docs/pendientes/*.md`).
+- Sin ítem "Aprobar" en ningún archivo (entraron antes de esta lista):
+  `20261102200000`, `20261102210000`, `20261102220000`,
+  `20261102230000`–`20261102230300`, `20261102240000`, `20261102250000`,
+  `20261102260000`, `20261103010000`, `20261103020000`,
+  `20261103040000`–`20261103040200`, `20261103050000`, `20261103050100`,
+  `20261103060000`–`20261103060300`, `20261103070000`, `20261103130000` y
+  `20261103210000`. Se aplican con el resto; su encabezado dice qué hacen.
 
 **Estado de producción (owner, 2026-11-04):** la base tiene solo clientes y
 facturas de venta en pesos: ni recibos, ni comprobantes en dólares, ni
@@ -17,14 +30,17 @@ marcados **N/A en producción** con su SQL (sirven si se promueve sobre otra
 base). La única revisión real que queda antes de promover es la lista de
 borradores del reconciliador (#340), que revisa el owner. Los ítems
 "Aprobar …" de cada migración (irreversibles y límites de rollback) siguen
-vigentes.
+vigentes. Las consultas N/A pueden nombrar tablas que producción todavía no
+tiene (`employee_account_movements`, `employee_debt_plans`,
+`bank_statement_lines`) y fallar ahí: no se corren en producción.
 
 - [x] **N/A en producción (base sin compras/cheques/OP/préstamos/RRHH a 2026-11-04).** **Antes de aprobar `20261104096400`** (#339, exento, no gravado y
       tributos por compra): el backfill pasa el `imp_trib` de cada compra a
       percepción de IIBB. El asiento no cambia, pero el TXT del libro IVA
       Compras de un período ya presentado declara esos tributos en el campo de
       IIBB y no en "Otros tributos": lo aprueban el dueño y el contador
-      (`docs/decisions.md`). Compras que cambian, por período:
+      (`docs/decisions/2026-11-04-exento-no-gravado-y-reparto-de-otros-tributos-en-compras.md`).
+      Compras que cambian, por período:
       `select to_char(fecha, 'YYYY-MM') as periodo, count(*), sum(imp_trib) from purchase_invoices where imp_trib <> 0 group by 1 order by 1;`
 - [ ] **Aprobar `20261104096200`–`20261104096700`** (#339). `096200` agrega
       el rol `percepciones_iva_pagadas` al enum del plan de cuentas: no se
@@ -65,34 +81,34 @@ vigentes.
       meses pasados sin cerrar; los de períodos cerrados conservan el suyo
       (los cuenta un NOTICE). Lista de lo que entra (los de un período
       cerrado salen también, y no cambian):
-      `sql
-    select 'recibo' as doc, r.id, r.receipt_date as fecha
-      from receipts r
-      join receipt_allocations ra on ra.receipt_id = r.id
-      join invoices i on i.id = ra.invoice_id
-     where r.status = 'issued' and r.currency = 'USD'
-       and coalesce(i.moneda, 'PES') in ('DOL', 'USD')
-       and nullif(coalesce(nullif(i.cotizacion, 0), get_exchange_rate('USD', i.fecha)), 1)
-           is distinct from nullif(coalesce(nullif(r.cotizacion, 0), get_exchange_rate('USD', r.receipt_date)), 1)
-    union
-    select 'orden de pago', po.id, po.payment_date
-      from payment_orders po
-      join payment_order_allocations poa on poa.payment_order_id = po.id
-      join purchase_invoices pi on pi.id = poa.purchase_invoice_id
-     where po.status = 'issued' and po.currency = 'USD'
-       and coalesce(pi.moneda, 'PES') in ('DOL', 'USD')
-       and nullif(coalesce(nullif(pi.cotizacion, 0), get_exchange_rate('USD', pi.fecha)), 1)
-           is distinct from nullif(coalesce(nullif(po.cotizacion, 0), get_exchange_rate('USD', po.payment_date)), 1)
-    union
-    select 'NC', n.id, n.fecha
-      from invoices n
-      join invoices o on o.id = n.invoice_origin_id
-     where n.kind = 'nc' and n.status = 'emitted'
-       and coalesce(n.moneda, 'PES') <> 'PES' and coalesce(o.moneda, 'PES') <> 'PES'
-       and nullif(coalesce(nullif(o.cotizacion, 0), get_exchange_rate('USD', o.fecha)), 1)
-           is distinct from nullif(coalesce(nullif(n.cotizacion, 0), get_exchange_rate('USD', n.fecha)), 1)
-    order by fecha;
-    `
+  ```sql
+  select 'recibo' as doc, r.id, r.receipt_date as fecha
+    from receipts r
+    join receipt_allocations ra on ra.receipt_id = r.id
+    join invoices i on i.id = ra.invoice_id
+   where r.status = 'issued' and r.currency = 'USD'
+     and coalesce(i.moneda, 'PES') in ('DOL', 'USD')
+     and nullif(coalesce(nullif(i.cotizacion, 0), get_exchange_rate('USD', i.fecha)), 1)
+         is distinct from nullif(coalesce(nullif(r.cotizacion, 0), get_exchange_rate('USD', r.receipt_date)), 1)
+  union
+  select 'orden de pago', po.id, po.payment_date
+    from payment_orders po
+    join payment_order_allocations poa on poa.payment_order_id = po.id
+    join purchase_invoices pi on pi.id = poa.purchase_invoice_id
+   where po.status = 'issued' and po.currency = 'USD'
+     and coalesce(pi.moneda, 'PES') in ('DOL', 'USD')
+     and nullif(coalesce(nullif(pi.cotizacion, 0), get_exchange_rate('USD', pi.fecha)), 1)
+         is distinct from nullif(coalesce(nullif(po.cotizacion, 0), get_exchange_rate('USD', po.payment_date)), 1)
+  union
+  select 'NC', n.id, n.fecha
+    from invoices n
+    join invoices o on o.id = n.invoice_origin_id
+   where n.kind = 'nc' and n.status = 'emitted'
+     and coalesce(n.moneda, 'PES') <> 'PES' and coalesce(o.moneda, 'PES') <> 'PES'
+     and nullif(coalesce(nullif(o.cotizacion, 0), get_exchange_rate('USD', o.fecha)), 1)
+         is distinct from nullif(coalesce(nullif(n.cotizacion, 0), get_exchange_rate('USD', n.fecha)), 1)
+  order by fecha;
+  ```
 - [ ] **Aprobar `20261104094000`–`20261104094300`** (#344). `094000` agrega
       el valor `diferencia_cambio` al enum de roles del plan de cuentas: no se
       puede quitar. Rollback: las RPC de saldos de apertura y el aging tienen
@@ -120,33 +136,43 @@ vigentes.
       escritura que cubría cada `:read` quitado; las filas viejas quedan y el
       código anterior las lee como antes.
 - [ ] **Aprobar `20261104100000`–`20261104100300`** (#350, emisión AFIP).
-      No tocan filas existentes: - `100000` agrega el guard de cotización USD mayor a 1 para comprobantes
-      fiscales en dólares. - `100100` cambia el total de la lista de comprobantes a solo emitidos. - `100200` impide emitir con un CAEA declarado "sin movimiento". - `100300` agrega el RPC `delete_orphan_files`.
+      No tocan filas existentes:
+  - `100000` agrega el guard de cotización USD mayor a 1 para comprobantes
+    fiscales en dólares.
+  - `100100` cambia el total de la lista de comprobantes a solo emitidos.
+  - `100200` impide emitir con un CAEA declarado "sin movimiento".
+  - `100300` agrega el RPC `delete_orphan_files`.
 
-      **N/A en producción (base sin recibos ni comprobantes en dólares a 2026-11-04).** Antes de aprobar, ver si hay comprobantes USD guardados con cotización 1
-      (el guard no los repara):
-      `select id, fecha, cotizacion from public.invoices where moneda <> 'PES' and coalesce(cotizacion, 0) <= 1;`
-      Rollback: firmas sin cambio; el código anterior reintenta y falla la
-      emisión con un CAEA "sin movimiento".
+  **N/A en producción (base sin recibos ni comprobantes en dólares a 2026-11-04).** Antes de aprobar, ver si hay comprobantes USD guardados con cotización 1
+  (el guard no los repara):
+  `select id, fecha, cotizacion from public.invoices where moneda <> 'PES' and coalesce(cotizacion, 0) <= 1;`
+  Rollback: firmas sin cambio; el código anterior reintenta y falla la
+  emisión con un CAEA "sin movimiento".
 
-- [ ] **Aprobar `20261104101000`–`20261104101400`** (#351, tesorería). - Los cheques USD de proveedores y las cuotas de préstamos USD **nuevos**
-      se asientan a la cotización de la OP y del desembolso. - Los asientos ya existentes no se reasientan. Reasentarlos cambia
-      períodos pasados y lo decide el dueño. - Las cuentas con movimientos quedan con moneda, tipo y saldo inicial
-      congelados. - Un rechazo de cheque con fecha en un período cerrado ahora se rechaza
-      (antes se asentaba con fecha de hoy).
+- [ ] **Aprobar `20261104101000`–`20261104101400`** (#351, tesorería).
+  - Los cheques USD de proveedores y las cuotas de préstamos USD
+    **nuevos** se asientan a la cotización de la OP y del desembolso.
+  - Los asientos ya existentes no se reasientan. Reasentarlos cambia
+    períodos pasados y lo decide el dueño.
+  - Las cuentas con movimientos quedan con moneda, tipo y saldo inicial
+    congelados.
+  - Un rechazo de cheque con fecha en un período cerrado ahora se
+    rechaza (antes se asentaba con fecha de hoy).
 
-      **N/A en producción (base sin compras/cheques/OP/préstamos/RRHH a 2026-11-04).** Ver las cuentas que quedan congeladas (lo que va a mirar
-      `account_has_movements`, que crea `101100`):
-      ```sql
-      select a.id, a.name from public.accounts a
-       where exists (select 1 from public.transactions t where t.account_id = a.id)
-          or exists (select 1 from public.checks c where c.cartera_account_id = a.id)
-          or exists (select 1 from public.issued_checks ic where ic.bank_account_id = a.id)
-          or exists (select 1 from public.bank_statement_lines l where l.account_id = a.id)
-          or exists (select 1 from public.account_opening_balances o where o.account_id = a.id);
-      ```
-      Rollback: columnas agregadas al final, firmas sin cambio; la cuenta
-      corriente vieja muestra la fila del cheque rechazado sin link.
+  **N/A en producción (base sin compras/cheques/OP/préstamos/RRHH a 2026-11-04).** Ver las cuentas que quedan congeladas (lo que va a mirar
+  `account_has_movements`, que crea `101100`):
+
+  ```sql
+  select a.id, a.name from public.accounts a
+   where exists (select 1 from public.transactions t where t.account_id = a.id)
+      or exists (select 1 from public.checks c where c.cartera_account_id = a.id)
+      or exists (select 1 from public.issued_checks ic where ic.bank_account_id = a.id)
+      or exists (select 1 from public.bank_statement_lines l where l.account_id = a.id)
+      or exists (select 1 from public.account_opening_balances o where o.account_id = a.id);
+  ```
+
+  Rollback: columnas agregadas al final, firmas sin cambio; la cuenta
+  corriente vieja muestra la fila del cheque rechazado sin link.
 
 - [x] **N/A en producción (base sin compras/cheques/OP/préstamos/RRHH a 2026-11-04).** **Antes de aprobar `20261104102300`** (#349): el backfill resincroniza
       los cargos de compras a cargo de empleados que tienen NC y reasienta
@@ -159,86 +185,94 @@ vigentes.
       internos todavía no existen, y `096400` los deja en 0 en las compras
       que ya están).
 
-      Cargos que cambian (`actual` vacío: el backfill lo crea):
-      ```sql
-      with fig as (
-        select p.id, p.invoice_origin_id, p.kind, p.status, p.charged_employee_id,
-               p.channel_id, p.imp_neto, p.moneda,
-               case when is_channel_fiscal(p.channel_id)
-                    then p.imp_neto
-                         + coalesce((to_jsonb(p) ->> 'imp_no_gravado')::numeric, 0)
-                         + coalesce((to_jsonb(p) ->> 'imp_op_exentas')::numeric, 0)
-                         + coalesce((to_jsonb(p) ->> 'imp_perc_municipales')::numeric, 0)
-                         + coalesce((to_jsonb(p) ->> 'imp_impuestos_internos')::numeric, 0)
-                    else p.imp_total end as figura
-          from purchase_invoices p
-      ),
-      con_nc as (
-        select f.id,
-               case when f.status = 'received' then nullif(greatest(f.figura - coalesce(
-                 sum(nc.figura) filter (where coalesce(nc.moneda, 'PES') = coalesce(f.moneda, 'PES')),
-                 0), 0), 0) end as nuevo
-          from fig f
-          join fig nc on nc.invoice_origin_id = f.id and nc.kind = 'nc' and nc.status = 'received'
-         where f.charged_employee_id is not null
-         group by f.id, f.status, f.figura, f.moneda
-      )
-      select c.id as compra, f.charged_employee_id as empleado, m.amount as actual, c.nuevo
-        from con_nc c
-        join fig f on f.id = c.id
-        left join employee_account_movements m on m.purchase_invoice_id = c.id
-       where m.amount is distinct from c.nuevo
-       order by 2;
-      ```
-      Planes de deuda activos cuyo total supera el cargo que queda (el de
-      `095200` en canal fiscal, el de arriba si la compra tiene NC):
-      ```sql
-      with fig as (
-        select p.id, p.invoice_origin_id, p.kind, p.status, p.charged_employee_id,
-               p.channel_id, p.imp_neto, p.moneda,
-               case when is_channel_fiscal(p.channel_id)
-                    then p.imp_neto
-                         + coalesce((to_jsonb(p) ->> 'imp_no_gravado')::numeric, 0)
-                         + coalesce((to_jsonb(p) ->> 'imp_op_exentas')::numeric, 0)
-                         + coalesce((to_jsonb(p) ->> 'imp_perc_municipales')::numeric, 0)
-                         + coalesce((to_jsonb(p) ->> 'imp_impuestos_internos')::numeric, 0)
-                    else p.imp_total end as figura
-          from purchase_invoices p
-      ),
-      con_nc as (
-        select f.id,
-               case when f.status = 'received' then nullif(greatest(f.figura - coalesce(
-                 sum(nc.figura) filter (where coalesce(nc.moneda, 'PES') = coalesce(f.moneda, 'PES')),
-                 0), 0), 0) end as nuevo
-          from fig f
-          join fig nc on nc.invoice_origin_id = f.id and nc.kind = 'nc' and nc.status = 'received'
-         where f.charged_employee_id is not null
-         group by f.id, f.status, f.figura, f.moneda
-      ),
-      cargo as (
-        select m.employee_id, m.purchase_invoice_id, m.amount as actual,
-               case when c.id is not null then c.nuevo
-                    when is_channel_fiscal(f.channel_id) and f.imp_neto > 0 then f.imp_neto
-                    else m.amount end as nuevo
-          from employee_account_movements m
-          join fig f on f.id = m.purchase_invoice_id
-          left join con_nc c on c.id = m.purchase_invoice_id
-      )
-      select p.id, p.employee_id, p.description, p.total, k.purchase_invoice_id as compra,
-             k.actual, k.nuevo
-        from employee_debt_plans p
-        join cargo k on k.employee_id = p.employee_id
-       where p.status = 'activo' and p.total > coalesce(k.nuevo, 0);
-      ```
-      Las NC que quedan con su asiento viejo por período cerrado se ven
-      **después** de promover (sección de #349 más abajo).
+  Cargos que cambian (`actual` vacío: el backfill lo crea):
 
-- [ ] **Aprobar `20261104102000`–`20261104102400`** (#349, RRHH y Gestión). - `102000` reescribe `management_pnl_lines`. Las diferencias de cambio
-      pasan a "Intereses" (fuera del margen operativo), y en las cuotas sin
-      desglose los intereses ya no cuentan como capital. - `102100` corrige el mensaje de la rendición. - `102400` reescribe `sync_automatic_tasks` sobre la versión de `101400`.
+  ```sql
+  with fig as (
+    select p.id, p.invoice_origin_id, p.kind, p.status, p.charged_employee_id,
+           p.channel_id, p.imp_neto, p.moneda,
+           case when is_channel_fiscal(p.channel_id)
+                then p.imp_neto
+                     + coalesce((to_jsonb(p) ->> 'imp_no_gravado')::numeric, 0)
+                     + coalesce((to_jsonb(p) ->> 'imp_op_exentas')::numeric, 0)
+                     + coalesce((to_jsonb(p) ->> 'imp_perc_municipales')::numeric, 0)
+                     + coalesce((to_jsonb(p) ->> 'imp_impuestos_internos')::numeric, 0)
+                else p.imp_total end as figura
+      from purchase_invoices p
+  ),
+  con_nc as (
+    select f.id,
+           case when f.status = 'received' then nullif(greatest(f.figura - coalesce(
+             sum(nc.figura) filter (where coalesce(nc.moneda, 'PES') = coalesce(f.moneda, 'PES')),
+             0), 0), 0) end as nuevo
+      from fig f
+      join fig nc on nc.invoice_origin_id = f.id and nc.kind = 'nc' and nc.status = 'received'
+     where f.charged_employee_id is not null
+     group by f.id, f.status, f.figura, f.moneda
+  )
+  select c.id as compra, f.charged_employee_id as empleado, m.amount as actual, c.nuevo
+    from con_nc c
+    join fig f on f.id = c.id
+    left join employee_account_movements m on m.purchase_invoice_id = c.id
+   where m.amount is distinct from c.nuevo
+   order by 2;
+  ```
 
-      Rollback: el código anterior lee las mismas columnas; Gestión con
-      código viejo muestra los mismos buckets.
+  Planes de deuda activos cuyo total supera el cargo que queda (el de
+  `095200` en canal fiscal, el de arriba si la compra tiene NC):
+
+  ```sql
+  with fig as (
+    select p.id, p.invoice_origin_id, p.kind, p.status, p.charged_employee_id,
+           p.channel_id, p.imp_neto, p.moneda,
+           case when is_channel_fiscal(p.channel_id)
+                then p.imp_neto
+                     + coalesce((to_jsonb(p) ->> 'imp_no_gravado')::numeric, 0)
+                     + coalesce((to_jsonb(p) ->> 'imp_op_exentas')::numeric, 0)
+                     + coalesce((to_jsonb(p) ->> 'imp_perc_municipales')::numeric, 0)
+                     + coalesce((to_jsonb(p) ->> 'imp_impuestos_internos')::numeric, 0)
+                else p.imp_total end as figura
+      from purchase_invoices p
+  ),
+  con_nc as (
+    select f.id,
+           case when f.status = 'received' then nullif(greatest(f.figura - coalesce(
+             sum(nc.figura) filter (where coalesce(nc.moneda, 'PES') = coalesce(f.moneda, 'PES')),
+             0), 0), 0) end as nuevo
+      from fig f
+      join fig nc on nc.invoice_origin_id = f.id and nc.kind = 'nc' and nc.status = 'received'
+     where f.charged_employee_id is not null
+     group by f.id, f.status, f.figura, f.moneda
+  ),
+  cargo as (
+    select m.employee_id, m.purchase_invoice_id, m.amount as actual,
+           case when c.id is not null then c.nuevo
+                when is_channel_fiscal(f.channel_id) and f.imp_neto > 0 then f.imp_neto
+                else m.amount end as nuevo
+      from employee_account_movements m
+      join fig f on f.id = m.purchase_invoice_id
+      left join con_nc c on c.id = m.purchase_invoice_id
+  )
+  select p.id, p.employee_id, p.description, p.total, k.purchase_invoice_id as compra,
+         k.actual, k.nuevo
+    from employee_debt_plans p
+    join cargo k on k.employee_id = p.employee_id
+   where p.status = 'activo' and p.total > coalesce(k.nuevo, 0);
+  ```
+
+  Las NC que quedan con su asiento viejo por período cerrado se ven
+  **después** de promover (`docs/pendientes/2026-11-04-auditoria-w2-rrhh-gestion-y-rendiciones.md`).
+
+- [ ] **Aprobar `20261104102000`–`20261104102400`** (#349, RRHH y Gestión).
+  - `102000` reescribe `management_pnl_lines`. Las diferencias de cambio
+    pasan a "Intereses" (fuera del margen operativo), y en las cuotas sin
+    desglose los intereses ya no cuentan como capital.
+  - `102100` corrige el mensaje de la rendición.
+  - `102400` reescribe `sync_automatic_tasks` sobre la versión de
+    `101400`.
+
+  Rollback: el código anterior lee las mismas columnas; Gestión con
+  código viejo muestra los mismos buckets.
 
 - [ ] **Aprobar `20261104104000`** (valida seis CHECK que habían quedado
       `NOT VALID`; no cambia datos). Toda fila existente los cumple; si una
@@ -254,7 +288,7 @@ vigentes.
       cuenta corriente y el aging el total). Ver cuáles son; para cada una el
       dueño decide pasar la diferencia a no gravado (re-asienta) o anularla y
       recargarla, y las de período cerrado piden reabrirlo:
-      `select pi.id, pi.fecha, pi.letter, pi.punto_venta, pi.numero, pi.imp_total - (pi.imp_neto + pi.imp_iva + pi.imp_trib + pi.imp_no_gravado + pi.imp_op_exentas) as gap, exists (select 1 from public.accounting_closed_periods cp where cp.period = to_char(pi.fecha, 'YYYY-MM')) as closed from public.purchase_invoices pi where pi.status = 'received' and public.is_channel_fiscal(pi.channel_id) and abs(pi.imp_total - (pi.imp_neto + pi.imp_iva + pi.imp_trib + pi.imp_no_gravado + pi.imp_op_exentas)) > 0.01 order by pi.fecha;`
+      `select pi.id, pi.fecha, pi.letter, pi.punto_venta, pi.numero, pi.imp_total - (pi.imp_neto + pi.imp_iva + pi.imp_trib + coalesce((to_jsonb(pi) ->> 'imp_no_gravado')::numeric, 0) + coalesce((to_jsonb(pi) ->> 'imp_op_exentas')::numeric, 0)) as gap, exists (select 1 from public.accounting_closed_periods cp where cp.period = to_char(pi.fecha, 'YYYY-MM')) as closed from public.purchase_invoices pi where pi.status = 'received' and public.is_channel_fiscal(pi.channel_id) and abs(pi.imp_total - (pi.imp_neto + pi.imp_iva + pi.imp_trib + coalesce((to_jsonb(pi) ->> 'imp_no_gravado')::numeric, 0) + coalesce((to_jsonb(pi) ->> 'imp_op_exentas')::numeric, 0))) > 0.01 order by pi.fecha;`
       Rollback: el código anterior escribe las mismas columnas; una compra
       fiscal que no cierra recibe el mensaje del guard.
 - [ ] **Aprobar `20261104120500`** (auditoría w4, compras): una compra fiscal
@@ -267,14 +301,13 @@ vigentes.
       `select pi.id, pi.fecha, pi.letter, pi.punto_venta, pi.numero from public.purchase_invoices pi where pi.status = 'received' and public.is_channel_fiscal(pi.channel_id) and abs(pi.imp_total - (pi.imp_neto + pi.imp_iva + pi.imp_trib + coalesce((to_jsonb(pi) ->> 'imp_no_gravado')::numeric, 0) + coalesce((to_jsonb(pi) ->> 'imp_op_exentas')::numeric, 0))) between 0.005 and 0.01;`
       Rollback: el código anterior escribe las mismas columnas; lo que rompe
       una de las dos reglas recibe el mensaje del guard.
-- [ ] **Decidir las compras fiscales B y C con IVA** (auditoría w3, S1 F2;
 - [x] **N/A en producción (base sin compras/cheques/OP/préstamos/RRHH a 2026-11-04).** **Decidir las compras fiscales B y C con IVA** (auditoría w3, S1 F2;
       no se cambian datos). Las cargadas antes de #339 pueden tener IVA,
       exento o no gravado aparte: el libro IVA, el estimado y `iva_credito`
       cuentan ese IVA como crédito fiscal y el TXT no. El dueño y el contador
       deciden si se pliegan al neto en los períodos abiertos (re-asienta) y
       qué hacer con las de períodos cerrados. Contarlas:
-      `select exists (select 1 from public.accounting_closed_periods cp where cp.period = to_char(pi.fecha, 'YYYY-MM')) as closed, count(*), sum(pi.imp_iva) as iva from public.purchase_invoices pi where pi.status = 'received' and pi.letter in ('B', 'C') and public.is_channel_fiscal(pi.channel_id) and pi.imp_iva + pi.imp_no_gravado + pi.imp_op_exentas > 0 group by 1;`
+      `select exists (select 1 from public.accounting_closed_periods cp where cp.period = to_char(pi.fecha, 'YYYY-MM')) as closed, count(*), sum(pi.imp_iva) as iva from public.purchase_invoices pi where pi.status = 'received' and pi.letter in ('B', 'C') and public.is_channel_fiscal(pi.channel_id) and pi.imp_iva + coalesce((to_jsonb(pi) ->> 'imp_no_gravado')::numeric, 0) + coalesce((to_jsonb(pi) ->> 'imp_op_exentas')::numeric, 0) > 0 group by 1;`
 - [x] **N/A en producción (base sin compras/cheques/OP/préstamos/RRHH a 2026-11-04).** **Antes de aprobar `20261104110600`** (tesorería w3): desde esa
       migración, un cheque propio de una OP que el banco rechaza devuelve en
       Caja el egreso de la OP. Los ya rechazados antes no lo tienen: su banco
@@ -299,3 +332,58 @@ vigentes.
       compra que tiene Ganancias se rechaza ("Los tributos no suman…"). Con
       código anterior no editar la cuenta nueva en Plan de cuentas (no conoce
       el rol).
+- [ ] **Antes de aprobar `20261104110601`: confirmar Supabase Vault en
+      producción.** `get_arca_web_password` es `language sql` sobre
+      `vault.decrypted_secrets`: sin la extensión la migración falla y el
+      promote frena a mitad de camino, con las migraciones anteriores ya
+      aplicadas. Tiene que devolver una fila:
+      `select extname, extversion from pg_extension where extname = 'supabase_vault';`
+      Sin fila, activar `supabase_vault` en Database → Extensions antes de
+      promover.
+- [ ] **Aprobar `20261104104001`, `104002`, `110601`, `113003`, `120000`,
+      `120200`, `120201`, `120600` y `120700`** (bandeja de Recibidos de
+      ARCA, usuario web de ARCA, Gestión y cheques propios, auditorías w4).
+      Salvo `120700`, ninguna toca filas existentes. Rollback de cada una:
+  - `104001` (bandeja `arca_received_vouchers`, `link_received_vouchers`
+    y el trigger que vincula una compra cargada a mano): tabla y
+    funciones nuevas; el código anterior no las lee y el trigger solo
+    marca comprobantes de la bandeja, no toca la compra.
+  - `104002` (en Gestión percibido, lo pagado de una compra "Neutro" no
+    suma): `management_pnl_lines` mantiene firma y columnas; con código
+    anterior solo cambian las cifras.
+  - `110601` (usuario web de ARCA, clave en Vault): tabla de una fila y
+    funciones nuevas, solo para `service_role`; el código anterior no
+    las llama. La clave guardada queda en Vault.
+  - `113003` (estado de la última sincronización de Recibidos): columnas
+    nulas sin default; el código anterior las ignora.
+  - `120000` (corte a los dos ingresos fallidos seguidos y vínculo solo
+    con el mismo total): `record_arca_web_attempt` es nueva y
+    `record_arca_web_sign_in` queda para el código anterior;
+    `link_received_vouchers` mantiene la firma.
+  - `120200` (cheque propio fijo a su OP): guard nuevo; el código
+    anterior ya rechaza esas ediciones en `updateIssuedCheckAction` con
+    el mismo mensaje.
+  - `120201` (lo que paga una OP sobre un cheque rechazado toma el
+    reparto de la OP original): función nueva y `management_pnl_lines`
+    con la misma firma; solo cambian las cifras.
+  - `120600`: solo cambia el comentario de `ai_workflows`.
+  - `120700` **desactiva el centro de costo FLOTA_DZ** (DZ Instalaciones
+    se retiró el 2026-10-31). Es la única migración de la lista que
+    escribe una fila que ya existe en producción, y un rollback de código
+    no la reactiva: si hace falta, se reactiva en Contabilidad → Centros
+    de costo. Ver el estado actual:
+    `select code, name, is_active from public.cost_centers where code = 'FLOTA_DZ';`
+
+## Después de promover
+
+- [ ] Correr `ai-workflows-reconcile` a mano una vez, desde el dashboard de
+      Inngest. El deploy saca el cron `ai-workflows-materialize` de 15
+      minutos y las tareas de IA existentes no tienen scheduler durmiendo
+      hasta la pasada de las 04:52; sin la corrida manual, las que vencen
+      antes corren tarde. Lo mismo después de un rollback y vuelta adelante
+      (`docs/pendientes/2026-11-04-tareas-ia-por-eventos.md`).
+- [x] **N/A en producción (base sin compras/cheques/OP/préstamos/RRHH a
+      2026-11-04).** Las NC de compras a cargo de empleados que `102300`
+      dejó con su asiento viejo por período cerrado: ítem **Después de
+      promover** en
+      `docs/pendientes/2026-11-04-auditoria-w2-rrhh-gestion-y-rendiciones.md`.

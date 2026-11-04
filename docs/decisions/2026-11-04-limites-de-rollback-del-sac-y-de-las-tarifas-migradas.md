@@ -1,8 +1,8 @@
 # 2026-11-04 — Límites de rollback del SAC y de las tarifas migradas
 
 **Decisión.** Dos cambios ya mergeados no toleran un rollback de código una
-vez que se usan, y se documentan como límite operativo (en `pendientes.md`,
-"Límites de rollback") en vez de mitigarse en el schema:
+vez que se usan, y se documentan como límite operativo (en
+`docs/pendientes/limites-de-rollback.md`) en vez de mitigarse en el schema:
 
 - **SAC** (`20261103050100`): el código anterior a #315 busca el período por
   año y mes con `maybeSingle()`; con un período `kind = 'sac'` en junio o
@@ -15,7 +15,8 @@ vez que se usan, y se documentan como límite operativo (en `pendientes.md`,
   migradas y su cierre por lotes falla entero (las no migradas del lote
   también), deja dos filas vigentes por cliente y avisa que aplicó. Con
   código anterior a #337 no se usa "Aumentar %". La migración mergeada no se
-  edita; la corrección vive acá y en `pendientes.md`.
+  edita; la corrección vive acá y en
+  `docs/pendientes/limites-de-rollback.md`.
 
 **Descartado.** Que el guard saltee en silencio (`return null`) el cierre de
 una fila migrada: convertiría también una edición del código nuevo en un

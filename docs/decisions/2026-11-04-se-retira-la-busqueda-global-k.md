@@ -18,7 +18,7 @@ materializada `search_index`, `search_global`, `refresh_search_index*`, los
 triggers `search_index_mark_dirty` y `search_index_state`, para que un
 rollback a un SHA anterior siga buscando (su cron vuelve a refrescar el
 índice). Se borran en una migración de contrato cuando la próxima promoción
-quede firme (`docs/pendientes.md`).
+quede firme (`docs/pendientes/2026-11-04-busqueda-global-retirada.md`).
 
 **Descartado.** Dejar la herramienta `searchGlobal` del AI CFO sola: leería un
 índice que ya nadie refresca. Borrar los objetos de la DB en el mismo cambio:
