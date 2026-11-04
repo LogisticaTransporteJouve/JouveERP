@@ -1,7 +1,7 @@
 "use client";
 
-import { Loader2, Pencil, Trash2 } from "lucide-react";
-import { Suspense, useState } from "react";
+import { Loader2, Pencil, RotateCw, Trash2 } from "lucide-react";
+import { Suspense, useEffect, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 
@@ -183,7 +183,13 @@ function PaymentsBody({
     retry: retryAccounts,
   } = useAccountOptions();
   const canPickAccount = !accountsError && !accountsPending;
-  const { data: payments = [], isLoading } = usePayrollPayments(entryId);
+  const {
+    data: paymentsData,
+    isLoading,
+    isError: paymentsFailed,
+    refetch: refetchPayments,
+  } = usePayrollPayments(entryId);
+  const payments = paymentsData ?? [];
   const { channels } = useScope();
   const defaultChannel = useDefaultChannel();
   const createMut = useCreatePayrollPayment();
@@ -205,6 +211,16 @@ function PaymentsBody({
     allow_overpay: false,
   };
   const form = useForm<AddValues>({ defaultValues: emptyValues });
+
+  // The accounts may arrive after the form mounted (a cold cache, or
+  // «Reintentar» after a failed read): default to the first, as the bulk
+  // dialog does.
+  const firstAccountId = payableAccounts[0]?.id ?? "";
+  useEffect(() => {
+    if (firstAccountId && !editingId && !form.getValues("account_id")) {
+      form.setValue("account_id", firstAccountId);
+    }
+  }, [firstAccountId, editingId, form]);
 
   // Editing a payment frees its own amount, so it counts toward the balance.
   const available = saldo + (editing ? Number(editing.amount) : 0);
@@ -303,6 +319,22 @@ function PaymentsBody({
       <ul className="space-y-1.5">
         {isLoading ? (
           <li className="text-sm text-muted-foreground">Cargando…</li>
+        ) : paymentsFailed && !paymentsData ? (
+          <li
+            role="alert"
+            className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground"
+          >
+            <span>No se pudieron cargar los pagos.</span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => void refetchPayments()}
+            >
+              <RotateCw />
+              Reintentar
+            </Button>
+          </li>
         ) : payments.length === 0 ? (
           <li className="text-sm text-muted-foreground">Sin pagos todavía.</li>
         ) : (

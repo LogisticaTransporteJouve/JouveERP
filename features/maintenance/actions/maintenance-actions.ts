@@ -12,9 +12,11 @@ import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { paginateRange } from "@/lib/supabase/paginate";
 
 import {
+  LINKED_VOUCHER_COST_REQUIRED,
   MaintenanceCreateSchema,
   MaintenanceUpdateSchema,
   isMaintenanceKind,
+  linkedVoucherWithoutCost,
   type MaintenanceRecord,
 } from "../schema";
 
@@ -150,6 +152,43 @@ export async function updateMaintenanceAction(
   const { id, ...rest } = parsed.data;
 
   const supabase = await createSupabaseClient();
+  // The cost and the links may come one without the other (the dialog omits
+  // a link the user cannot see), so the rule is checked on the merged row.
+  if (
+    rest.cost !== undefined ||
+    rest.purchase_invoice_id !== undefined ||
+    rest.transaction_id !== undefined
+  ) {
+    const { data: current, error: readError } = await supabase
+      .from("maintenance_records")
+      .select("cost, purchase_invoice_id, transaction_id")
+      .eq("id", id)
+      .maybeSingle();
+    if (readError) {
+      logger.error("maintenance.update.read_failed", {
+        userId: ctx.userId,
+        id,
+        error: readError,
+      });
+      return { ok: false, error: "No se pudo actualizar el mantenimiento." };
+    }
+    if (!current) return { ok: false, error: "Mantenimiento no encontrado." };
+    if (
+      linkedVoucherWithoutCost({
+        cost: rest.cost !== undefined ? rest.cost : current.cost,
+        purchase_invoice_id:
+          rest.purchase_invoice_id !== undefined
+            ? rest.purchase_invoice_id
+            : current.purchase_invoice_id,
+        transaction_id:
+          rest.transaction_id !== undefined
+            ? rest.transaction_id
+            : current.transaction_id,
+      })
+    ) {
+      return { ok: false, error: LINKED_VOUCHER_COST_REQUIRED };
+    }
+  }
   const { error } = await supabase
     .from("maintenance_records")
     .update({

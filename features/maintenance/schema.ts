@@ -68,19 +68,55 @@ const optionalAmount = z
   .nullable()
   .optional();
 
-export const MaintenanceCreateSchema = z.object({
-  vehicle_id: z.string().uuid("Vehículo requerido."),
-  service_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha requerida."),
-  kind: z.enum(MAINTENANCE_KINDS).default("service"),
-  description: z.string().trim().min(1, "Descripción requerida.").max(500),
-  cost: optionalAmount,
-  odometer_km: optionalAmount,
-  next_service_date: optionalDate,
-  next_service_km: optionalAmount,
-  provider: optionalText(160),
-  notes: optionalText(2000),
-  ...CostVoucherShape,
-});
+export const LINKED_VOUCHER_COST_REQUIRED =
+  "Cargá el costo del comprobante vinculado.";
+
+/**
+ * A record linked to a purchase invoice or a movement must carry its cost:
+ * get_vehicle_margin leaves a linked voucher out of the truck's cost-center
+ * lines as "counted by the record", and every fleet margin reads the record's
+ * cost, so a blank cost would drop the voucher as $0.
+ */
+export function linkedVoucherWithoutCost(row: {
+  cost: number | null;
+  purchase_invoice_id: string | null;
+  transaction_id: string | null;
+}): boolean {
+  return (
+    row.cost === null &&
+    (row.purchase_invoice_id !== null || row.transaction_id !== null)
+  );
+}
+
+export const MaintenanceCreateSchema = z
+  .object({
+    vehicle_id: z.string().uuid("Vehículo requerido."),
+    service_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha requerida."),
+    kind: z.enum(MAINTENANCE_KINDS).default("service"),
+    description: z.string().trim().min(1, "Descripción requerida.").max(500),
+    cost: optionalAmount,
+    odometer_km: optionalAmount,
+    next_service_date: optionalDate,
+    next_service_km: optionalAmount,
+    provider: optionalText(160),
+    notes: optionalText(2000),
+    ...CostVoucherShape,
+  })
+  .superRefine((v, ctx) => {
+    if (
+      linkedVoucherWithoutCost({
+        cost: v.cost ?? null,
+        purchase_invoice_id: v.purchase_invoice_id ?? null,
+        transaction_id: v.transaction_id ?? null,
+      })
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["cost"],
+        message: LINKED_VOUCHER_COST_REQUIRED,
+      });
+    }
+  });
 
 export type MaintenanceCreateInput = z.infer<typeof MaintenanceCreateSchema>;
 

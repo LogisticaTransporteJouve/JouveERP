@@ -55,7 +55,9 @@ export async function gatherFleetDocExpiry(
 }
 
 /** Trips of the last 180 days whose revenue minus cost and tied fuel is a
- *  loss. */
+ *  loss. Same equation as «Rentabilidad de flota»: the revenue comes from
+ *  v_trip_revenue (invoiced freight, else the manual figure) and cancelled
+ *  trips are left out. */
 export async function gatherTripMargins(
   today: string,
 ): Promise<FleetFinding[]> {
@@ -64,30 +66,47 @@ export async function gatherTripMargins(
     await paginateRange((from, to) =>
       service
         .from("trips")
-        .select("id, trip_date, origin, destination, revenue, cost")
+        .select("id, trip_date, origin, destination, cost")
         .gte("trip_date", minus(TRIP_LOOKBACK_DAYS, today))
+        .neq("status", "cancelled")
         .order("id", { ascending: true })
         .range(from, to),
     ),
     "fleet.trips",
   );
-  // Only the fuel of these trips, each chunk drained.
+  const tripIds = trips.map((t) => t.id);
+  // Only the revenue and fuel of these trips, each chunk drained.
+  const revenue = must(
+    await fetchInChunks(tripIds, (ids) =>
+      paginateRange((from, to) =>
+        service
+          .from("v_trip_revenue")
+          .select("trip_id, revenue")
+          .in("trip_id", ids)
+          .order("trip_id", { ascending: true })
+          .range(from, to),
+      ),
+    ),
+    "fleet.v_trip_revenue",
+  );
   const fuel = must(
-    await fetchInChunks(
-      trips.map((t) => t.id),
-      (ids) =>
-        paginateRange((from, to) =>
-          service
-            .from("fuel_loads")
-            .select("id, trip_id, amount")
-            .in("trip_id", ids)
-            .order("id", { ascending: true })
-            .range(from, to),
-        ),
+    await fetchInChunks(tripIds, (ids) =>
+      paginateRange((from, to) =>
+        service
+          .from("fuel_loads")
+          .select("id, trip_id, amount")
+          .in("trip_id", ids)
+          .order("id", { ascending: true })
+          .range(from, to),
+      ),
     ),
     "fleet.fuel_loads",
   );
 
+  const revenueByTrip = new Map<string, number>();
+  for (const r of revenue) {
+    if (r.trip_id) revenueByTrip.set(r.trip_id, Number(r.revenue ?? 0));
+  }
   const fuelByTrip = new Map<string, number>();
   for (const f of fuel) {
     if (!f.trip_id) continue;
@@ -97,17 +116,19 @@ export async function gatherTripMargins(
     );
   }
 
-  const tripRows: TripMarginRow[] = trips.map((t) => {
+  const tripRows: TripMarginRow[] = [];
+  for (const t of trips) {
+    const tripRevenue = revenueByTrip.get(t.id);
+    // A trip missing from the view was deleted between the reads; it is
+    // left out rather than judged on a revenue of 0.
+    if (tripRevenue === undefined) continue;
     const route =
       [t.origin, t.destination].filter(Boolean).join(" → ") || "viaje";
-    return {
+    tripRows.push({
       id: t.id,
       label: `${t.trip_date} ${route}`,
-      net:
-        Number(t.revenue ?? 0) -
-        Number(t.cost ?? 0) -
-        (fuelByTrip.get(t.id) ?? 0),
-    };
-  });
+      net: tripRevenue - Number(t.cost ?? 0) - (fuelByTrip.get(t.id) ?? 0),
+    });
+  }
   return detectLossTrips(tripRows);
 }

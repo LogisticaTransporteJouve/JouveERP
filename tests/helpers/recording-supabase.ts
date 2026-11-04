@@ -69,6 +69,7 @@ export function recordingSupabase(
       in: filter("in"),
       lt: filter("lt"),
       lte: filter("lte"),
+      gt: filter("gt"),
       gte: filter("gte"),
       not: filter("not"),
       ilike: filter("ilike"),

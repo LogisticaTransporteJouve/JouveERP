@@ -24,7 +24,9 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
  * Fleet profitability over a date range: per-trip net (revenue − cost − fuel)
  * and per-vehicle net (revenue − costs − fuel − maintenance). A trip's revenue
  * comes from v_trip_revenue (invoiced freight of its shipments, else the manual
- * figure). Aggregated in TS (computeProfitability) over fully drained reads.
+ * figure). Cancelled trips are left out, as in get_vehicle_margin and the
+ * dashboard; their fuel still counts at vehicle level. Aggregated in TS
+ * (computeProfitability) over fully drained reads.
  * Gated on trips:read plus shipments:read: without the shipments a trip's
  * revenue cannot be told.
  */
@@ -56,6 +58,7 @@ export async function getFleetProfitabilityAction(
           )
           .gte("trip_date", input.periodStart)
           .lte("trip_date", input.periodEnd)
+          .neq("status", "cancelled")
           .order("id")
           .range(from, to),
       ),
