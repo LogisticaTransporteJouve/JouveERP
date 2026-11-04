@@ -1,7 +1,7 @@
 "use client";
 
-import { CloudDownload } from "lucide-react";
-import { useState } from "react";
+import { CloudDownload, Loader2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -20,8 +20,14 @@ import { formatArgentineDate, formatArgentineDateTime } from "@/lib/format";
 import type { ArcaSyncStatus } from "../actions/arca-received-sync-actions";
 import {
   useArcaSyncStatus,
+  useInvalidateTray,
   useRequestArcaSync,
 } from "../hooks/use-arca-received";
+import {
+  syncPhase,
+  syncResultText,
+  type SyncPhase,
+} from "../lib/arca-sync-run";
 
 function currentMonth(): string {
   return new Intl.DateTimeFormat("en-CA", {
@@ -31,17 +37,22 @@ function currentMonth(): string {
   }).format(new Date());
 }
 
-function statusText(s: ArcaSyncStatus): string {
-  switch (s.state) {
-    case "missing":
-      return "Falta el usuario de ARCA: lo carga un owner o admin en Admin → AFIP → Puntos de venta.";
-    case "rejected":
-      return "ARCA rechazó la clave guardada: un owner o admin tiene que actualizarla en Admin → AFIP → Puntos de venta.";
-    case "ok":
-      return s.lastSuccessAt
-        ? `Se trae solo todos los días (últimos 60 días) · último acceso ${formatArgentineDateTime(s.lastSuccessAt)}`
-        : "Se trae solo todos los días (últimos 60 días) · todavía no se usó";
+function statusText(s: ArcaSyncStatus, phase: SyncPhase): string {
+  if (s.state === "missing") {
+    return "Falta el usuario de ARCA: lo carga un owner o admin en Admin → AFIP → Puntos de venta.";
   }
+  if (phase === "waiting") return "Pedido enviado: esperando que arranque…";
+  if (phase === "running") return "Trayendo de ARCA…";
+  if (phase === "not_started") {
+    return "El último pedido no arrancó. Probá de nuevo; si se repite, revisá Inngest.";
+  }
+  if (s.state === "rejected") {
+    return "ARCA rechazó la clave guardada: un owner o admin tiene que actualizarla en Admin → AFIP → Puntos de venta.";
+  }
+  const last = s.sync.finishedAt
+    ? `Última vez ${formatArgentineDateTime(s.sync.finishedAt)}${s.sync.result ? `: ${syncResultText(s.sync.result)}` : "."}`
+    : "Todavía no se trajo nada.";
+  return `Se trae solo todos los días (últimos 60 días). ${last}`;
 }
 
 function SyncDialog({
@@ -104,7 +115,7 @@ function SyncDialog({
                 {
                   onSuccess: (r) => {
                     toast.success(
-                      `Pedido a ARCA del ${formatArgentineDate(r.from)} al ${formatArgentineDate(r.to)}. En unos minutos aparecen en Pendientes.`,
+                      `Pedido a ARCA del ${formatArgentineDate(r.from)} al ${formatArgentineDate(r.to)}. Te aviso acá cuando termine.`,
                     );
                     onOpenChange(false);
                   },
@@ -121,12 +132,39 @@ function SyncDialog({
   );
 }
 
-/** «Traer de ARCA»: the state of the stored ARCA user and the button that
- *  queues a run for chosen months. */
+/** «Traer de ARCA»: the stored ARCA user's state, the last run and the
+ *  button that queues one for chosen months. Follows a pending run and
+ *  refreshes the tray when it ends. */
 export function ArcaSyncCard() {
   const status = useArcaSyncStatus();
+  const invalidateTray = useInvalidateTray();
   const [open, setOpen] = useState(false);
-  const ready = status.data?.state === "ok";
+  // Measured at the last fetch: a poll re-renders even when the data is the
+  // same, so a request that never starts turns into «no arrancó».
+  const phase = status.data
+    ? syncPhase(status.data.sync, status.dataUpdatedAt)
+    : "idle";
+  const pending = phase === "waiting" || phase === "running";
+
+  // A run seen pending that is now done: refresh the tray and say how it went.
+  const wasPending = useRef(false);
+  useEffect(() => {
+    if (pending) {
+      wasPending.current = true;
+      return;
+    }
+    if (!wasPending.current || !status.data) return;
+    wasPending.current = false;
+    void invalidateTray();
+    const result = status.data.sync.result;
+    if (phase === "not_started") {
+      toast.error("El pedido a ARCA no arrancó. Probá de nuevo.");
+    } else if (result?.outcome === "done") {
+      toast.success(`ARCA: ${syncResultText(result)}`);
+    } else if (result) {
+      toast.error(syncResultText(result));
+    }
+  }, [pending, phase, status.data, invalidateTray]);
 
   return (
     <div className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -137,17 +175,21 @@ export function ArcaSyncCard() {
             ? "Revisando el usuario de ARCA…"
             : status.isError
               ? status.error.message
-              : statusText(status.data)}
+              : statusText(status.data, phase)}
         </p>
       </div>
       <Button
         size="sm"
         className="shrink-0"
-        disabled={!ready}
+        disabled={status.data?.state !== "ok" || pending}
         onClick={() => setOpen(true)}
       >
-        <CloudDownload aria-hidden />
-        Traer de ARCA
+        {pending ? (
+          <Loader2 aria-hidden className="animate-spin" />
+        ) : (
+          <CloudDownload aria-hidden />
+        )}
+        {pending ? "Trayendo…" : "Traer de ARCA"}
       </Button>
       {open ? <SyncDialog open={open} onOpenChange={setOpen} /> : null}
     </div>

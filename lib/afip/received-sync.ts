@@ -73,11 +73,43 @@ async function recordSignIn(
     logger.error("arca_received_sync.record_failed", { code: error.code });
 }
 
+/** Stamps the run on the account row so the tray can follow it; a failed
+ *  write is logged and the run goes on. */
+async function markSync(
+  supabase: Supabase,
+  fields:
+    | { sync_started_at: string }
+    | { sync_finished_at: string; sync_result: ReceivedSyncResult },
+) {
+  const { error } = await supabase
+    .from("arca_web_account")
+    .update(fields)
+    .eq("id", true);
+  if (error) {
+    logger.error("arca_received_sync.mark_failed", { code: error.code });
+  }
+}
+
 /** Signs in to ARCA with the stored user, reads Recibidos month by month and
- *  adds what is new to the tray. A clave ARCA rejected is not retried: the
- *  account stays «rechazada» until someone saves a new one. The clave never
- *  leaves this function. */
+ *  adds what is new to the tray, stamping when the run started and how it
+ *  ended. A clave ARCA rejected is not retried: the account stays
+ *  «rechazada» until someone saves a new one. The clave never leaves this
+ *  module. */
 export async function runReceivedSync(
+  supabase: Supabase,
+  range: { from: string; to: string },
+  deps: { representedCuit: string; signIn?: SignIn },
+): Promise<ReceivedSyncResult> {
+  await markSync(supabase, { sync_started_at: new Date().toISOString() });
+  const result = await syncReceived(supabase, range, deps);
+  await markSync(supabase, {
+    sync_finished_at: new Date().toISOString(),
+    sync_result: result,
+  });
+  return result;
+}
+
+async function syncReceived(
   supabase: Supabase,
   range: { from: string; to: string },
   deps: { representedCuit: string; signIn?: SignIn },
