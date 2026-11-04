@@ -86,6 +86,30 @@ class CookieJar {
 
 type Page = { url: string; status: number; text: string };
 
+/** ARCA answers from *.afip.gob.ar and, on a redirect of the login, from
+ *  *.afip.gov.ar. Nothing else gets a request, let alone the clave. */
+function isArcaUrl(raw: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return false;
+  }
+  const host = url.hostname.toLowerCase();
+  return (
+    url.protocol === "https:" &&
+    ["afip.gob.ar", "afip.gov.ar"].some(
+      (d) => host === d || host.endsWith(`.${d}`),
+    )
+  );
+}
+
+const outsideArca = () =>
+  new ArcaRobotError(
+    "SIGN_IN_FAILED",
+    "ARCA redirigió a un sitio que no es de ARCA: se cortó el ingreso.",
+  );
+
 class Session {
   private readonly jar = new CookieJar();
 
@@ -105,6 +129,7 @@ class Session {
       : undefined;
     let current = url;
     for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+      if (!isArcaUrl(current)) throw outsideArca();
       const headers: Record<string, string> = {
         accept: init.ajax
           ? "application/json, text/javascript, */*; q=0.01"
@@ -133,11 +158,17 @@ class Session {
       this.jar.store(current, res.headers);
       const location = res.headers.get("location");
       if (res.status >= 300 && res.status < 400 && location) {
-        current = new URL(location, current).toString();
-        if (res.status !== 307 && res.status !== 308) {
+        const next = new URL(location, current).toString();
+        const sameOrigin = new URL(next).origin === new URL(current).origin;
+        if (res.status === 307 || res.status === 308) {
+          // These keep method and body: a form (the clave) never follows one
+          // to another origin.
+          if (body !== undefined && !sameOrigin) throw outsideArca();
+        } else {
           method = "GET";
           body = undefined;
         }
+        current = next;
         continue;
       }
       return { url: current, status: res.status, text: await res.text() };
@@ -370,10 +401,17 @@ export async function signInToMisComprobantes(
         ),
       );
       if (
-        isRecord(estimate) &&
-        isRecord(estimate.datos) &&
-        estimate.datos.serverSide === true
+        !isRecord(estimate) ||
+        estimate.estado !== "ok" ||
+        !isRecord(estimate.datos) ||
+        typeof estimate.datos.serverSide !== "boolean"
       ) {
+        throw new ArcaRobotError(
+          "QUERY_FAILED",
+          "ARCA no confirmó cuántos comprobantes hay en el período.",
+        );
+      }
+      if (estimate.datos.serverSide) {
         throw new ArcaRobotError(
           "TOO_MANY",
           "Hay demasiados comprobantes en el período: elegí uno más corto.",
@@ -385,6 +423,24 @@ export async function signInToMisComprobantes(
           { ajax: true },
         ),
       );
+      // Every row ARCA counted, or none: a short page would read as a month
+      // with fewer vouchers.
+      const listed =
+        isRecord(results) &&
+        isRecord(results.datos) &&
+        Array.isArray(results.datos.data)
+          ? results.datos.data.length
+          : null;
+      if (
+        !isRecord(results) ||
+        typeof results.recordsTotal !== "number" ||
+        listed !== results.recordsTotal
+      ) {
+        throw new ArcaRobotError(
+          "QUERY_FAILED",
+          "ARCA devolvió una cantidad de comprobantes distinta de la que informó.",
+        );
+      }
       const parsed = parseReceivedResults(results);
       if (typeof parsed === "string") {
         throw new ArcaRobotError("QUERY_FAILED", parsed);

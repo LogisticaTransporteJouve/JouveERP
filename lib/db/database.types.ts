@@ -887,6 +887,10 @@ export type Database = {
           last_success_at: string | null
           secret_id: string | null
           status: string
+          sync_finished_at: string | null
+          sync_requested_at: string | null
+          sync_result: Json | null
+          sync_started_at: string | null
           updated_at: string
           updated_by: string | null
         }
@@ -898,6 +902,10 @@ export type Database = {
           last_success_at?: string | null
           secret_id?: string | null
           status?: string
+          sync_finished_at?: string | null
+          sync_requested_at?: string | null
+          sync_result?: Json | null
+          sync_started_at?: string | null
           updated_at?: string
           updated_by?: string | null
         }
@@ -909,6 +917,10 @@ export type Database = {
           last_success_at?: string | null
           secret_id?: string | null
           status?: string
+          sync_finished_at?: string | null
+          sync_requested_at?: string | null
+          sync_result?: Json | null
+          sync_started_at?: string | null
           updated_at?: string
           updated_by?: string | null
         }
@@ -5712,6 +5724,7 @@ export type Database = {
           imp_perc_iibb: number
           imp_perc_iva: number
           imp_perc_municipales: number
+          imp_perc_nacionales: number
           imp_total: number
           imp_trib: number
           imputed_to_id: string | null
@@ -5750,6 +5763,7 @@ export type Database = {
           imp_perc_iibb?: number
           imp_perc_iva?: number
           imp_perc_municipales?: number
+          imp_perc_nacionales?: number
           imp_total: number
           imp_trib?: number
           imputed_to_id?: string | null
@@ -5788,6 +5802,7 @@ export type Database = {
           imp_perc_iibb?: number
           imp_perc_iva?: number
           imp_perc_municipales?: number
+          imp_perc_nacionales?: number
           imp_total?: number
           imp_trib?: number
           imputed_to_id?: string | null
@@ -9869,6 +9884,8 @@ export type Database = {
           perc_iva_orig: number
           perc_municipales: number
           perc_municipales_orig: number
+          perc_nacionales: number
+          perc_nacionales_orig: number
           punto_venta: number
           purchase_invoice_id: string
           supplier_cuit: string
@@ -10166,6 +10183,10 @@ export type Database = {
           documents: number
           total: number
         }[]
+      }
+      record_arca_web_attempt: {
+        Args: { p_error_code: string; p_ok: boolean; p_version: string }
+        Returns: boolean
       }
       record_arca_web_sign_in: {
         Args: { p_error_code: string; p_ok: boolean }
@@ -10724,6 +10745,7 @@ export type Database = {
         | "iva_retenido"
         | "percepciones_iibb_pagadas"
         | "percepciones_iva_pagadas"
+        | "percepciones_ganancias"
         | "percepciones_iibb_cobradas"
         | "retenciones_pagadas"
         | "retenciones_cobradas"
@@ -10920,6 +10942,7 @@ export const Constants = {
         "iva_retenido",
         "percepciones_iibb_pagadas",
         "percepciones_iva_pagadas",
+        "percepciones_ganancias",
         "percepciones_iibb_cobradas",
         "retenciones_pagadas",
         "retenciones_cobradas",

@@ -3,7 +3,7 @@
 import { logAudit } from "@/lib/actions/audit";
 import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
-import { userCan } from "@/lib/auth/permissions";
+import { userCan, userCanAll } from "@/lib/auth/permissions";
 import { logger } from "@/lib/logger";
 import { formatMoney } from "@/lib/format";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
@@ -14,6 +14,7 @@ import {
   payrollDbErrorMessage,
   payrollPayableAccounts,
 } from "../lib/payroll-payments";
+import { HR_CASH_PERMISSIONS } from "../lib/hr-cash";
 import {
   BulkCreatePayrollPaymentsSchema,
   CreatePayrollPaymentSchema,
@@ -117,7 +118,8 @@ export async function createPayrollPaymentAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.access, "hr:write")) {
+  // A payment is a treasury movement: also transactions:write.
+  if (!userCanAll(ctx.access, HR_CASH_PERMISSIONS)) {
     return { ok: false, error: "Sin permiso para registrar pagos." };
   }
   const parsed = CreatePayrollPaymentSchema.safeParse(input);
@@ -188,7 +190,8 @@ export async function updatePayrollPaymentAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.access, "hr:write")) {
+  // A payment is a treasury movement: also transactions:write.
+  if (!userCanAll(ctx.access, HR_CASH_PERMISSIONS)) {
     return { ok: false, error: "Sin permiso para editar pagos." };
   }
   const parsed = UpdatePayrollPaymentSchema.safeParse(input);
@@ -287,7 +290,8 @@ export async function bulkCreatePayrollPaymentsAction(
   input: unknown,
 ): Promise<ActionResult<{ inserted: number }>> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.access, "hr:write")) {
+  // A payment is a treasury movement: also transactions:write.
+  if (!userCanAll(ctx.access, HR_CASH_PERMISSIONS)) {
     return { ok: false, error: "Sin permiso para registrar pagos." };
   }
   const parsed = BulkCreatePayrollPaymentsSchema.safeParse(input);
@@ -367,7 +371,8 @@ export async function deletePayrollPaymentAction(
   input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.access, "hr:write")) {
+  // A payment is a treasury movement: also transactions:write.
+  if (!userCanAll(ctx.access, HR_CASH_PERMISSIONS)) {
     return { ok: false, error: "Sin permiso para borrar pagos." };
   }
   const parsed = DeletePayrollPaymentSchema.safeParse(input);

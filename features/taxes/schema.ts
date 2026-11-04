@@ -375,8 +375,8 @@ export type IvaPositionEstimate = {
   /** debito − credito − retenciones − percepciones_compras − saldo_anterior;
    *  negative = saldo a favor. */
   saldo: number;
-  /** The purchases' other taxes that are not IVA (IIBB, municipales,
-   *  internos). Not subtracted. */
+  /** The purchases' other taxes that are not IVA (IIBB, Ganancias and other
+   *  national taxes, municipales, internos). Not subtracted. */
   tributos_compras: number;
   ventas: number;
   compras: number;

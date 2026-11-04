@@ -22,17 +22,18 @@ import {
 } from "../events";
 
 // One FECompConsultar per voucher: a batch of 100 keeps each step well under
-// the function timeout. Up to 10 batches per (pv, cbte tipo) and run, so a
-// long history (~1000/h) catches up within a day; day to day it is a handful.
+// the function timeout. Up to 50 batches per (pv, cbte tipo) and run, so a
+// long history (~5000 per night) catches up in a few nights; day to day it is
+// a handful.
 const VOUCHERS_PER_BATCH = 100;
-const BATCHES_PER_PAIR = 10;
+const BATCHES_PER_PAIR = 50;
 
 function hasPending(r: PairSyncResult): boolean {
   return r.last_local + r.imported + r.missing < r.last_authorized;
 }
 
 // Brings the vouchers issued in ARCA outside the ERP into `invoices`. Runs
-// hourly and on demand (button in Comprobantes); one run at a time so two
+// nightly and on demand (button in Comprobantes); one run at a time so two
 // runs never walk the same numbers.
 export const arcaIssuedSync = inngest.createFunction(
   {
@@ -41,7 +42,7 @@ export const arcaIssuedSync = inngest.createFunction(
     retries: 2,
     concurrency: { limit: 1 },
     triggers: [
-      { cron: "TZ=America/Argentina/Buenos_Aires 0 * * * *" },
+      { cron: "TZ=America/Argentina/Buenos_Aires 17 3 * * *" },
       { event: ARCA_ISSUED_SYNC_REQUESTED },
     ],
     onFailure: async ({ error }) => {

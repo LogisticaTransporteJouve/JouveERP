@@ -43,6 +43,7 @@ describe.each([
       "perc_iibb",
       "perc_municipales",
       "impuestos_internos",
+      "perc_nacionales",
     ],
     docRounding: [
       "round(f.imp_neto * f.fx, 2) as neto",
@@ -53,7 +54,8 @@ describe.each([
       "round(f.imp_perc_iibb * f.fx, 2)          as perc_iibb",
       "round(f.imp_perc_municipales * f.fx, 2)   as perc_municipales",
       "round(f.imp_impuestos_internos * f.fx, 2) as impuestos_internos",
-      "dp.perc_iva + dp.perc_iibb + dp.perc_municipales + dp.impuestos_internos as trib",
+      "round(f.imp_perc_nacionales * f.fx, 2)    as perc_nacionales",
+      "dp.perc_iva + dp.perc_iibb + dp.perc_municipales + dp.impuestos_internos\n        + dp.perc_nacionales as trib",
     ],
     totalExpr: "d.neto + d.no_gravado + d.exentas + d.iva + d.trib,",
   },

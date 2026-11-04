@@ -12,6 +12,9 @@ import {
   computeComprasTotals,
   groupComprasByInvoice,
   COMPRAS_AMOUNT_COLUMNS,
+  COMPRAS_PERCEPTIONS_HEADER,
+  COMPRAS_PERCEPTIONS_LEGEND,
+  comprasPerceptions,
   IVA_RATES,
   KIND_LABEL,
   libroIvaVoucherNumber,
@@ -112,6 +115,9 @@ export function LibroIvaComprasTable({
                   {c.header}
                 </th>
               ))}
+              <th className="px-2 py-2 text-right font-medium">
+                {COMPRAS_PERCEPTIONS_HEADER}
+              </th>
               <th className="px-2 py-2 text-right font-medium">Total $</th>
               <th className="px-2 py-2 text-right font-medium">Moneda orig.</th>
               <th className="px-2 py-2 font-medium">CAE prov.</th>
@@ -136,6 +142,7 @@ export function LibroIvaComprasTable({
                   className={i === 0 ? "border-l" : undefined}
                 />
               ))}
+              <th />
               <th />
               <th />
               <th />
@@ -198,6 +205,11 @@ export function LibroIvaComprasTable({
                       </td>
                     );
                   })}
+                  <td className="px-2 py-1 text-right font-mono text-xs">
+                    <PerceptionLines
+                      entries={comprasPerceptions(row.breakdown)}
+                    />
+                  </td>
                   <td className="px-2 py-1 text-right font-mono text-xs font-medium">
                     {money(row.imp_total)}
                   </td>
@@ -260,6 +272,11 @@ export function LibroIvaComprasTable({
                 );
               })}
               <td className="px-2 py-2 text-right font-mono">
+                <PerceptionLines
+                  entries={comprasPerceptions(totals.breakdown)}
+                />
+              </td>
+              <td className="px-2 py-2 text-right font-mono">
                 {money(totals.imp_total)}
               </td>
               <td />
@@ -269,6 +286,10 @@ export function LibroIvaComprasTable({
         </table>
       </div>
 
+      <p className="text-xs text-muted-foreground">
+        {COMPRAS_PERCEPTIONS_LEGEND}
+      </p>
+
       <LibroIvaExportButtons
         book="compras"
         period={period}
@@ -276,4 +297,17 @@ export function LibroIvaComprasTable({
       />
     </div>
   );
+}
+
+/** One line per perception: amount and code ("5.115,78 B"). */
+function PerceptionLines({
+  entries,
+}: {
+  entries: readonly { code: string; amount: number }[];
+}) {
+  return entries.map((p) => (
+    <div key={p.code} className="whitespace-nowrap">
+      {money(p.amount)} {p.code}
+    </div>
+  ));
 }
