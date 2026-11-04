@@ -151,8 +151,8 @@ select throws_ok(
       jsonb_build_array(jsonb_build_object(
         'line_kind', 'account', 'account_id', '00000000-0000-0000-0000-00000000a142', 'amount', 30)),
       '[]'::jsonb)$$,
-  'P0001',
-  'allocations sum (60.00) exceeds total_amount (30)',
+  '23514',
+  'Lo imputado (0.00 a facturas y 60.00 a cheques rechazados) supera el total de la OP (30.00). Lo imputado a cheques rechazados se mantiene al editar.',
   'an edit cannot drop the order below what it applied to the check'
 );
 

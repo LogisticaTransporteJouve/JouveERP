@@ -376,7 +376,11 @@ fechado en `cashed_at`, con `issued_check_id` (único). Ese movimiento no asient
 (el builder lo saltea: el cobro ya lo asienta el cheque) y no se edita ni borra
 desde caja. Emitirlo no mueve plata; rechazarlo o anularlo tampoco. Un cheque
 **de una OP** sigue como antes: la plata sale del banco con el movimiento de la
-OP, a la fecha de la OP, y cobrarlo no agrega nada. Los cheques sin OP cobrados
+OP, a la fecha de la OP, y cobrarlo no agrega nada. Si el banco lo **rechaza**,
+la plata no salió: `emitted → rejected` inserta en la misma sentencia
+(`issued_check_rejected_inflow`, `20261104106000`) un ingreso en
+`bank_account_id` por el importe, fechado en `rejected_at`, con
+`issued_check_id`, que tampoco asienta. Los cheques sin OP cobrados
 antes de este cambio no tienen egreso (no se rellena: puede que se haya cargado
 a mano). Sin canal el cobro se rechaza: el egreso necesita uno.
 Como un cheque sin OP nunca acreditó `cheques_diferidos_emitidos`, su cobro
