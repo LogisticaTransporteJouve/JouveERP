@@ -31,6 +31,28 @@ export function supplierCostDefaults(
   return result;
 }
 
+/** The supplier defaults a saved factura still holds: on an edit, these are
+ *  what the defaults wrote, so turning it into an NC/ND clears them as on
+ *  create (supplierCostWrites) and its origin's are inherited. */
+export function storedSupplierCostDefaults(
+  stored: { account_id: string | null; cost_center_id: string | null },
+  supplier: {
+    default_expense_account_id: string | null;
+    default_cost_center_id: string | null;
+  },
+): CostDefault[] {
+  const result: CostDefault[] = [];
+  const account = supplier.default_expense_account_id;
+  if (account && stored.account_id === account) {
+    result.push({ name: "account_id", id: account });
+  }
+  const center = supplier.default_cost_center_id;
+  if (center && stored.cost_center_id === center) {
+    result.push({ name: "cost_center_id", id: center });
+  }
+  return result;
+}
+
 /** The account and center a scanned document suggested (its draft). */
 export function suggestedCostDefaults(
   draft: {

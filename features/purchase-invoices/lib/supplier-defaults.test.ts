@@ -4,6 +4,7 @@ import type { CostTagOptions } from "@/features/cost-centers/schema";
 
 import {
   purchaseCostDefaults,
+  storedSupplierCostDefaults,
   suggestedCostDefaults,
   supplierCostDefaults,
   supplierCostWrites,
@@ -179,6 +180,74 @@ describe("purchaseCostDefaults", () => {
             : { value: "cc-ai", dirty: false },
       ),
     ).toEqual([{ name: "cost_center_id", id: "" }]);
+  });
+});
+
+describe("storedSupplierCostDefaults", () => {
+  const supplier = {
+    default_expense_account_id: "acc-fuel",
+    default_cost_center_id: "cc-jouve",
+  };
+  const fields =
+    (values: Record<string, string>, dirty: string[] = []) =>
+    (name: "account_id" | "cost_center_id") => ({
+      value: values[name] ?? "",
+      dirty: dirty.includes(name),
+    });
+
+  it("lists only the defaults the saved factura still holds", () => {
+    expect(
+      storedSupplierCostDefaults(
+        { account_id: "acc-fuel", cost_center_id: "cc-other" },
+        supplier,
+      ),
+    ).toEqual([{ name: "account_id", id: "acc-fuel" }]);
+    expect(
+      storedSupplierCostDefaults(
+        { account_id: null, cost_center_id: null },
+        supplier,
+      ),
+    ).toEqual([]);
+  });
+
+  it("an edited factura turned into an NC clears the untouched defaults, and back to factura restores them", () => {
+    const stored = storedSupplierCostDefaults(
+      { account_id: "acc-fuel", cost_center_id: "cc-jouve" },
+      supplier,
+    );
+    expect(
+      supplierCostWrites(
+        stored,
+        purchaseCostDefaults("nc", [], stored),
+        fields({ account_id: "acc-fuel", cost_center_id: "cc-jouve" }, [
+          "cost_center_id",
+        ]),
+      ),
+    ).toEqual([{ name: "account_id", id: "" }]);
+    expect(
+      supplierCostWrites(
+        stored,
+        purchaseCostDefaults("factura", [], stored),
+        fields({ account_id: "", cost_center_id: "cc-jouve" }),
+      ),
+    ).toEqual([
+      { name: "account_id", id: "acc-fuel" },
+      { name: "cost_center_id", id: "cc-jouve" },
+    ]);
+  });
+
+  it("keeps a value the factura was saved with that is not the supplier's default", () => {
+    const stored = storedSupplierCostDefaults(
+      { account_id: "acc-picked", cost_center_id: null },
+      supplier,
+    );
+    expect(
+      supplierCostWrites(
+        stored,
+        purchaseCostDefaults("nc", [], stored),
+        fields({ account_id: "acc-picked" }),
+      ),
+    ).toEqual([]);
   });
 });
 

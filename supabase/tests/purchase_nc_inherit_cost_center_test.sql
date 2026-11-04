@@ -1,7 +1,7 @@
 -- A purchase NC/ND inherits its origin's account and cost center each on its
 -- own (20261104150200): an NC/ND with its own account and no center takes
 -- the origin's center; one with neither takes both; one with its own center
--- keeps it; a later save that does not change the origin changes nothing.
+-- keeps it; a later save that empties the center takes the origin's.
 -- 1997 has no seed data. One transaction, rolled back.
 
 begin;
@@ -71,7 +71,8 @@ select results_eq(
   'an ND with its own center keeps it and takes the origin''s account'
 );
 
--- A later save that keeps the origin does not inherit again.
+-- A later save that empties the center takes the origin's again
+-- (20261104160200: «El del comprobante de origen» on an edit).
 update public.purchase_invoices
    set cost_center_id = null, notes = 'sin centro'
  where id = '00000000-0000-0000-0000-0000001502f2';
@@ -79,8 +80,8 @@ update public.purchase_invoices
 select is(
   (select cost_center_id from public.purchase_invoices
     where id = '00000000-0000-0000-0000-0000001502f2'),
-  null::uuid,
-  'an update that does not change the origin leaves the center as written'
+  '00000000-0000-0000-0000-0000001502c1'::uuid,
+  'an update that empties the center takes the origin''s'
 );
 
 select is(
