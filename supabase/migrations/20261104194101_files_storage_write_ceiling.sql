@@ -92,7 +92,7 @@ alter policy "files_storage_insert" on storage.objects
 alter policy "Files write requires uploader = self" on public.files
   with check (
     uploaded_by = (select auth.uid())
-    and public.user_has_role(array['owner', 'admin', 'finance', 'operations', 'warehouse'])
+    and (select public.user_has_role(array['owner', 'admin', 'finance', 'operations', 'warehouse']))
     and bucket = 'files'
     and public.files_storage_key_is_free(bucket_path)
   );
