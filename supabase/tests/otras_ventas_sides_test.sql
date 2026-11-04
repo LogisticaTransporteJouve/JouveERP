@@ -528,8 +528,12 @@ select is(
 
 -- A retention written straight to the table (no app path) is caught too.
 delete from public.accounting_closed_periods where period = '2001-02';
+-- Only create_receipt / update_receipt write a retention now
+-- (guard_document_line); the case is a row written around them.
+alter table public.receipt_retentions disable trigger receipt_retentions_guard_rpc;
 insert into public.receipt_retentions (receipt_id, kind, tax_type, certificate_number, certificate_date, amount)
 select id, 'retencion', 'iibb', 'OV-3', current_date, 10 from t_r6;
+alter table public.receipt_retentions enable trigger receipt_retentions_guard_rpc;
 select throws_ok(
   $$select public.settle_billed_remito('00000000-0000-0000-0000-000000057106')$$,
   '23514', 'El cobro del remito tiene retenciones: anulá ese recibo interno, facturá el remito y cargá el cobro en Ventas.',

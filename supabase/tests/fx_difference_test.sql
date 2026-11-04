@@ -69,8 +69,12 @@ values
 insert into public.receipts (id, channel_id, punto_venta, numero, client_id, receipt_date, total_amount, currency, cotizacion)
 values ('00000000-0000-0000-0000-0000000096d1', 'jouve_fiscal', 3, 96001,
         '00000000-0000-0000-0000-0000000096c1', current_date, 1210, 'USD', 1100);
+-- The receipt was inserted by hand above, so its lines are too: only
+-- create_receipt / update_receipt write them (guard_document_line).
+alter table public.receipt_payment_lines disable trigger receipt_payment_lines_guard_rpc;
 insert into public.receipt_payment_lines (receipt_id, account_id, amount)
 values ('00000000-0000-0000-0000-0000000096d1', '00000000-0000-0000-0000-0000000096a1', 1210);
+alter table public.receipt_payment_lines enable trigger receipt_payment_lines_guard_rpc;
 insert into public.receipt_allocations (receipt_id, invoice_id, amount_applied)
 values ('00000000-0000-0000-0000-0000000096d1', '00000000-0000-0000-0000-0000000096e1', 1210);
 
@@ -139,8 +143,12 @@ set constraints all deferred;
 insert into public.receipts (id, channel_id, punto_venta, numero, client_id, receipt_date, total_amount, currency, cotizacion)
 values ('00000000-0000-0000-0000-0000000096d2', 'jouve_fiscal', 3, 96002,
         '00000000-0000-0000-0000-0000000096c1', current_date, 100, 'USD', 900);
+-- The receipt was inserted by hand above, so its lines are too: only
+-- create_receipt / update_receipt write them (guard_document_line).
+alter table public.receipt_payment_lines disable trigger receipt_payment_lines_guard_rpc;
 insert into public.receipt_payment_lines (receipt_id, account_id, amount)
 values ('00000000-0000-0000-0000-0000000096d2', '00000000-0000-0000-0000-0000000096a1', 100);
+alter table public.receipt_payment_lines enable trigger receipt_payment_lines_guard_rpc;
 set constraints all immediate;
 
 insert into public.receipt_allocations (receipt_id, invoice_id, amount_applied)
@@ -160,8 +168,12 @@ set constraints all deferred;
 insert into public.receipts (id, channel_id, punto_venta, numero, client_id, receipt_date, total_amount, currency, cotizacion)
 values ('00000000-0000-0000-0000-0000000096d3', 'jouve_fiscal', 3, 96003,
         '00000000-0000-0000-0000-0000000096c1', '1999-01-15', 50, 'USD', 900);
+-- The receipt was inserted by hand above, so its lines are too: only
+-- create_receipt / update_receipt write them (guard_document_line).
+alter table public.receipt_payment_lines disable trigger receipt_payment_lines_guard_rpc;
 insert into public.receipt_payment_lines (receipt_id, account_id, amount)
 values ('00000000-0000-0000-0000-0000000096d3', '00000000-0000-0000-0000-0000000096a1', 50);
+alter table public.receipt_payment_lines enable trigger receipt_payment_lines_guard_rpc;
 insert into public.invoices
   (id, channel_id, client_id, kind, letter, punto_venta, numero, fecha, concepto,
    doc_tipo, doc_nro, imp_neto, imp_iva, imp_total, moneda, cotizacion, cbte_tipo_afip,
@@ -192,8 +204,12 @@ values
 insert into public.payment_orders (id, channel_id, punto_venta, numero, supplier_id, payment_date, total_amount, currency, cotizacion)
 values ('00000000-0000-0000-0000-0000000096f9', 'jouve_fiscal', 3, 96001,
         '00000000-0000-0000-0000-0000000096b1', current_date, 1000, 'USD', 1100);
+-- The payment order was inserted by hand above, so its lines are too: only
+-- create_payment_order / update_payment_order write them (guard_document_line).
+alter table public.payment_order_payment_lines disable trigger payment_order_payment_lines_guard_rpc;
 insert into public.payment_order_payment_lines (payment_order_id, account_id, amount)
 values ('00000000-0000-0000-0000-0000000096f9', '00000000-0000-0000-0000-0000000096a1', 1000);
+alter table public.payment_order_payment_lines enable trigger payment_order_payment_lines_guard_rpc;
 insert into public.payment_order_allocations (payment_order_id, purchase_invoice_id, amount_applied)
 values ('00000000-0000-0000-0000-0000000096f9', '00000000-0000-0000-0000-0000000096f1', 1000);
 set constraints all immediate;
@@ -238,8 +254,12 @@ values
 insert into public.payment_orders (id, channel_id, punto_venta, numero, supplier_id, payment_date, total_amount, currency, cotizacion)
 values ('00000000-0000-0000-0000-0000000096f8', 'jouve_fiscal', 3, 96002,
         '00000000-0000-0000-0000-0000000096b1', '1999-02-10', 100, 'USD', 1100);
+-- The payment order was inserted by hand above, so its lines are too: only
+-- create_payment_order / update_payment_order write them (guard_document_line).
+alter table public.payment_order_payment_lines disable trigger payment_order_payment_lines_guard_rpc;
 insert into public.payment_order_payment_lines (payment_order_id, account_id, amount)
 values ('00000000-0000-0000-0000-0000000096f8', '00000000-0000-0000-0000-0000000096a1', 100);
+alter table public.payment_order_payment_lines enable trigger payment_order_payment_lines_guard_rpc;
 insert into public.payment_order_allocations (payment_order_id, purchase_invoice_id, amount_applied)
 values ('00000000-0000-0000-0000-0000000096f8', '00000000-0000-0000-0000-0000000096f2', 100);
 set constraints all immediate;

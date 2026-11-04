@@ -50,15 +50,23 @@ insert into public.receipts (id, channel_id, punto_venta, numero, client_id, rec
 values
   ('00000000-0000-0000-0000-00000014a0f1', 'jouve_fiscal', 3, 98141,
    '00000000-0000-0000-0000-00000014c0f1', current_date, 121, 'ARS');
+-- The receipt was inserted by hand above, so its lines are too: only
+-- create_receipt / update_receipt write them (guard_document_line).
+alter table public.receipt_payment_lines disable trigger receipt_payment_lines_guard_rpc;
 insert into public.receipt_payment_lines (receipt_id, account_id, amount) values
   ('00000000-0000-0000-0000-00000014a0f1', '00000000-0000-0000-0000-00000014ac01', 121);
+alter table public.receipt_payment_lines enable trigger receipt_payment_lines_guard_rpc;
 
 insert into public.payment_orders (id, channel_id, punto_venta, numero, supplier_id, payment_date, total_amount, currency)
 values
   ('00000000-0000-0000-0000-0000000140f1', 'jouve_fiscal', 3, 98141,
    '00000000-0000-0000-0000-00000014d0f1', current_date, 242, 'ARS');
+-- The payment order was inserted by hand above, so its lines are too: only
+-- create_payment_order / update_payment_order write them (guard_document_line).
+alter table public.payment_order_payment_lines disable trigger payment_order_payment_lines_guard_rpc;
 insert into public.payment_order_payment_lines (payment_order_id, account_id, amount) values
   ('00000000-0000-0000-0000-0000000140f1', '00000000-0000-0000-0000-00000014ac01', 242);
+alter table public.payment_order_payment_lines enable trigger payment_order_payment_lines_guard_rpc;
 
 insert into public.transactions
   (id, account_id, channel_id, kind, amount, currency, transaction_date, accrual_month, description)
