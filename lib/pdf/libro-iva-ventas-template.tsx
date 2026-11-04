@@ -6,6 +6,7 @@ import {
   IVA_RATES,
   KIND_LABEL,
   libroIvaVoucherNumber,
+  totalsCell,
   VENTAS_AMOUNT_COLUMNS,
   type LibroIvaVentasRow,
 } from "@/features/libro-iva/schema";
@@ -348,7 +349,7 @@ export function LibroIvaVentasDocument({
                 { width: COL_W.perc },
               ]}
             >
-              {totals.imp_trib > 0 ? money(totals.imp_trib) : ""}
+              {totalsCell(totals.imp_trib, money)}
             </Text>
             {VENTAS_AMOUNT_COLUMNS.map((c) => (
               <Text
@@ -360,7 +361,7 @@ export function LibroIvaVentasDocument({
                   { width: COL_W.amount },
                 ]}
               >
-                {c.value(totals) > 0 ? money(c.value(totals)) : ""}
+                {totalsCell(c.value(totals), money)}
               </Text>
             ))}
             <Text

@@ -234,8 +234,8 @@ export function draftToFormPatch(
 
 /**
  * Header totals check: neto + no gravado + exento + IVA + otros tributos must
- * equal the total (±1 cent). Returns the gap, or null when the amounts close
- * or are incomplete.
+ * equal the total to the cent (purchaseTotalGap). Returns the gap, or null
+ * when the amounts close or are incomplete.
  */
 export function totalsGap(values: {
   imp_neto: string;
@@ -259,7 +259,7 @@ export function totalsGap(values: {
   if (values.imp_total === "" || total === 0) return null;
   const gap =
     Math.round((total - (neto + iva + trib + noGravado + exentas)) * 100) / 100;
-  return Math.abs(gap) > 0.01 ? gap : null;
+  return gap !== 0 ? gap : null;
 }
 
 /**
