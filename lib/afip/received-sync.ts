@@ -20,23 +20,31 @@ import { ingestReceivedVouchers, type IngestCounts } from "./received-vouchers";
 type Supabase = SupabaseClient<Database>;
 
 export type ReceivedSyncResult =
-  | { outcome: "skipped"; reason: "not_configured" | "rejected" }
+  | {
+      outcome: "skipped";
+      reason: "not_configured" | "rejected" | "read_failed";
+    }
+  /** The run threw before it could say more (a bug or an outage of ours). */
+  | { outcome: "failed"; code: "UNEXPECTED" }
   | { outcome: "sign_in_failed"; code: ArcaRobotErrorCode | "RECORD_FAILED" }
   | {
       outcome: "done";
       counts: IngestCounts;
       skippedRows: number;
       /** Months whose query failed (YYYY-MM → code); the rest were read. */
-      failedMonths: Record<
-        string,
-        ArcaRobotErrorCode | "INGEST_FAILED" | "TIME_BUDGET"
-      >;
+      failedMonths: Record<string, MonthFailure>;
     };
+
+/** Why a month was not read: its own error, the run's time budget, or an
+ *  earlier month's error that stopped the run (NOT_READ). */
+export type MonthFailure =
+  ArcaRobotErrorCode | "INGEST_FAILED" | "TIME_BUDGET" | "NOT_READ";
 
 export type SignIn = typeof signInToMisComprobantes;
 
-/** Time a run may spend querying months, well inside the Inngest route's
- *  300 s limit (sign-in and the last month's ingest come on top). */
+/** Time a run may take from its start before it stops querying months, well
+ *  inside the Inngest route's 300 s limit (the last month's query and ingest
+ *  come on top). */
 const RUN_BUDGET_MS = 200_000;
 
 type SyncDeps = {
@@ -126,13 +134,18 @@ export async function runReceivedSync(
   range: { from: string; to: string },
   deps: SyncDeps,
 ): Promise<ReceivedSyncResult> {
+  const startedAt = (deps.now ?? Date.now)();
   await markSync(supabase, { sync_started_at: new Date().toISOString() });
   let result: ReceivedSyncResult;
   try {
-    result = await syncReceived(supabase, range, deps);
+    result = await syncReceived(supabase, range, deps, startedAt);
   } catch (err) {
-    if (!(err instanceof RecordFailedError)) throw err;
-    result = { outcome: "sign_in_failed", code: "RECORD_FAILED" };
+    // Whatever stopped the run, the tray learns it ended: a run left
+    // "started" would read as still running, then as the previous result.
+    result =
+      err instanceof RecordFailedError
+        ? { outcome: "sign_in_failed", code: "RECORD_FAILED" }
+        : { outcome: "failed", code: "UNEXPECTED" };
     await markSync(supabase, {
       sync_finished_at: new Date().toISOString(),
       sync_result: result,
@@ -151,22 +164,20 @@ async function syncReceived(
   supabase: Supabase,
   range: { from: string; to: string },
   deps: SyncDeps,
+  startedAt: number,
 ): Promise<ReceivedSyncResult> {
   const status = await getArcaWebAccountStatus(supabase);
-  if (
-    !status ||
-    status.state === "missing" ||
-    !status.cuit ||
-    !status.version
-  ) {
+  if (!status) return { outcome: "skipped", reason: "read_failed" };
+  if (status.state === "missing" || !status.cuit || !status.version) {
     return { outcome: "skipped", reason: "not_configured" };
   }
   const version = status.version;
   if (status.state === "rejected") {
     return { outcome: "skipped", reason: "rejected" };
   }
+  // The account is active here, so no clave means Vault did not answer.
   const password = await readArcaWebPassword(supabase);
-  if (!password) return { outcome: "skipped", reason: "not_configured" };
+  if (!password) return { outcome: "skipped", reason: "read_failed" };
 
   let robot: ArcaRobot;
   try {
@@ -180,8 +191,14 @@ async function syncReceived(
       err instanceof ArcaRobotError && SIGN_IN_CODES.includes(err.code)
         ? err.code
         : "SIGN_IN_FAILED";
-    await recordAttempt(supabase, version, false, code);
-    logger.warn("arca_received_sync.sign_in_failed", { code });
+    // Only an attempt that sent the clave can lock the user, so only that
+    // counts toward the stop; a refused CUIT will not change by retrying.
+    // ARCA down or a captcha before the clave leaves the account as it is.
+    const counts =
+      code === "SIGN_IN_REJECTED" ||
+      (err instanceof ArcaRobotError && err.claveSent);
+    if (counts) await recordAttempt(supabase, version, false, code);
+    logger.warn("arca_received_sync.sign_in_failed", { code, counts });
     return { outcome: "sign_in_failed", code };
   }
   await recordAttempt(supabase, version, true, null);
@@ -193,15 +210,18 @@ async function syncReceived(
     linked: 0,
   };
   let skippedRows = 0;
-  const failedMonths: Record<
-    string,
-    ArcaRobotErrorCode | "INGEST_FAILED" | "TIME_BUDGET"
-  > = {};
-  const deadline = (deps.now ?? Date.now)() + RUN_BUDGET_MS;
+  const failedMonths: Record<string, MonthFailure> = {};
+  // From the start of the run: a slow sign-in eats the same 300 s.
+  const deadline = startedAt + RUN_BUDGET_MS;
+  let stopped = false;
   for (const [from, to] of monthRanges(range.from, range.to)) {
     const month = from.slice(0, 7);
-    // Months left past the budget are reported, not dropped: the next run
-    // or another «Traer de ARCA» picks them up.
+    // Months left unread are reported, not dropped: the next run or another
+    // «Traer de ARCA» picks them up.
+    if (stopped) {
+      failedMonths[month] = "NOT_READ";
+      continue;
+    }
     if ((deps.now ?? Date.now)() > deadline) {
       failedMonths[month] = "TIME_BUDGET";
       continue;
@@ -214,8 +234,9 @@ async function syncReceived(
         err instanceof ArcaRobotError ? err.code : ("QUERY_FAILED" as const);
       failedMonths[month] = code;
       logger.warn("arca_received_sync.month_failed", { month, code });
-      // The session may be gone: the next months would fail the same way.
-      if (code === "NETWORK" || code === "QUERY_FAILED") break;
+      // The session may be gone: the next months would fail the same way,
+      // so they are reported as not read.
+      if (code === "NETWORK" || code === "QUERY_FAILED") stopped = true;
       continue;
     }
     skippedRows += Object.values(parsed.skippedByReason).reduce(
@@ -227,7 +248,8 @@ async function syncReceived(
     });
     if (!ingested) {
       failedMonths[month] = "INGEST_FAILED";
-      break;
+      stopped = true;
+      continue;
     }
     counts.inserted += ingested.inserted;
     counts.unsupported += ingested.unsupported;

@@ -30,6 +30,13 @@
       coincidir, el comprobante vuelve a pendientes. El centavo de redondeo
       que pasa al neto va también a la línea más grande, así el total
       guardado es el de ARCA.
+- [x] Estado honesto (auditoría w5): solo cuentan para el freno las fallas
+      con la clave ya mandada (o un CUIT rechazado); después de un mes que
+      corta la corrida, los meses que siguen se informan como no leídos; el
+      tope de 200 s cuenta desde el arranque; una corrida que se corta por
+      cualquier error sella su fin, y una que muere sin sellar se muestra como
+      cortada; una lectura fallida ya no se muestra como «falta el usuario»;
+      Admin → AFIP dice cuando la última corrida tuvo errores.
 - [ ] Avisar por notificación a owner y admin cuando ARCA rechaza la clave
       (hoy lo muestran la bandeja y Admin → AFIP).
 - [x] Lector validado con una consulta real de Recibidos (A con otros

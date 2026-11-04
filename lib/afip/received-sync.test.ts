@@ -177,7 +177,11 @@ describe("runReceivedSync", () => {
     expect(out).toMatchObject({
       outcome: "done",
       counts: { inserted: 1 },
-      failedMonths: { "2026-08": "TOO_MANY", "2026-10": "QUERY_FAILED" },
+      failedMonths: {
+        "2026-08": "TOO_MANY",
+        "2026-10": "QUERY_FAILED",
+        "2026-11": "NOT_READ",
+      },
     });
   });
 
@@ -190,7 +194,7 @@ describe("runReceivedSync", () => {
         {
           representedCuit: COMPANY,
           signIn: async () => {
-            throw new ArcaRobotError("SIGN_IN_FAILED", "x");
+            throw new ArcaRobotError("SIGN_IN_FAILED", "x", true);
           },
         },
       ),
@@ -221,5 +225,86 @@ describe("runReceivedSync", () => {
       outcome: "done",
       failedMonths: { "2026-10": "TIME_BUDGET", "2026-11": "TIME_BUDGET" },
     });
+  });
+
+  it("does not count a failure before the clave was sent toward the stop", async () => {
+    const out = await runReceivedSync(
+      supabase,
+      { from: "2026-11-01", to: "2026-11-04" },
+      {
+        representedCuit: COMPANY,
+        signIn: async () => {
+          throw new ArcaRobotError("SIGN_IN_FAILED", "captcha");
+        },
+      },
+    );
+    expect(out).toEqual({ outcome: "sign_in_failed", code: "SIGN_IN_FAILED" });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("counts the time budget from the start of the run, sign-in included", async () => {
+    let t = 0;
+    const queryReceived = vi.fn(async () => ({
+      vouchers: [],
+      skippedByReason: {},
+    }));
+    const out = await runReceivedSync(
+      supabase,
+      { from: "2026-10-01", to: "2026-11-30" },
+      {
+        representedCuit: COMPANY,
+        signIn: async () => {
+          t += 210_000;
+          return { queryReceived };
+        },
+        now: () => t,
+      },
+    );
+    expect(queryReceived).not.toHaveBeenCalled();
+    expect(out).toMatchObject({
+      failedMonths: { "2026-10": "TIME_BUDGET", "2026-11": "TIME_BUDGET" },
+    });
+  });
+
+  it("stamps the end of a run that throws anything", async () => {
+    ingest.mockRejectedValueOnce(new Error("boom"));
+    await expect(
+      runReceivedSync(
+        supabase,
+        { from: "2026-11-01", to: "2026-11-04" },
+        {
+          representedCuit: COMPANY,
+          signIn: async () => ({
+            queryReceived: async () => ({
+              vouchers: [voucher],
+              skippedByReason: {},
+            }),
+          }),
+        },
+      ),
+    ).rejects.toThrow("boom");
+    expect(marks.at(-1)).toEqual({
+      sync_finished_at: expect.any(String),
+      sync_result: { outcome: "failed", code: "UNEXPECTED" },
+    });
+  });
+
+  it("tells a failed read apart from a missing user", async () => {
+    status.mockResolvedValueOnce(null);
+    expect(
+      await runReceivedSync(
+        supabase,
+        { from: "2026-11-01", to: "2026-11-04" },
+        { representedCuit: COMPANY, signIn: vi.fn() },
+      ),
+    ).toEqual({ outcome: "skipped", reason: "read_failed" });
+    password.mockResolvedValueOnce(null);
+    expect(
+      await runReceivedSync(
+        supabase,
+        { from: "2026-11-01", to: "2026-11-04" },
+        { representedCuit: COMPANY, signIn: vi.fn() },
+      ),
+    ).toEqual({ outcome: "skipped", reason: "read_failed" });
   });
 });
