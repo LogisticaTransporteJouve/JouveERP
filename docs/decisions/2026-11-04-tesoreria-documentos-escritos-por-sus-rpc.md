@@ -1,8 +1,11 @@
 # 2026-11-04 — Tesorería: los documentos y sus líneas los escriben sus RPC
 
 **Decisión.** Auditoría w7 (S2 F1–F3, S4 F1 y N1). Cierra en la base lo que
-la app ya hacía. Un PATCH o un POST directo por PostgREST ya no puede
-reescribir la plata de Tesorería.
+la app ya hacía. Un PATCH directo por PostgREST ya no puede reescribir la
+plata de Tesorería, ni un POST directo de líneas, retenciones o cheques. El
+POST directo de una cabecera de recibo o de OP siguió abierto hasta la
+auditoría w8, que lo cerró
+([decisión w8](2026-11-04-tesoreria-y-prestamos-escritos-por-sus-rpc-w8.md)).
 
 - **Cheque propio.** Sale de «emitido» una sola vez: a cobrado, rechazado o
   anulado (`guard_issued_check_edit`, `20261104140000`). Se inserta

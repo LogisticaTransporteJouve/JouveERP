@@ -10,6 +10,12 @@ begin;
 
 select plan(44);
 
+-- The fixtures insert receipt and payment-order headers by hand; in the app only
+-- create_receipt / create_payment_order do (guard_document_insert).
+-- Disabled before any write, while no trigger event is pending.
+alter table public.receipts disable trigger receipts_guard_insert_rpc;
+alter table public.payment_orders disable trigger payment_orders_guard_insert_rpc;
+
 create function pg_temp.live_entries(p_source text, p_id uuid) returns int
 language sql as $$
   select count(*)::int from public.journal_entries je
