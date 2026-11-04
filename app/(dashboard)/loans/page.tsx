@@ -5,7 +5,11 @@ import { listLoansAction } from "@/features/loans/actions/loans-actions";
 import { LoansTable } from "@/features/loans/components/loans-table";
 import { loansKeys } from "@/features/loans/lib/loans-keys";
 import { requireUserContext } from "@/lib/auth/context";
-import { TREASURY_PERMISSIONS, userCanAll } from "@/lib/auth/permissions";
+import {
+  TREASURY_PERMISSIONS,
+  userCan,
+  userCanAll,
+} from "@/lib/auth/permissions";
 import { Hydrate } from "@/lib/query/hydrate";
 import { prefetchQueries } from "@/lib/query/prefetch";
 import { runAction } from "@/lib/query/run-action";
@@ -35,7 +39,10 @@ export default async function LoansRoute() {
 
   return (
     <Hydrate state={dehydratedState}>
-      <LoansTable channelOptions={channelOptions} />
+      <LoansTable
+        channelOptions={channelOptions}
+        canWrite={userCan(ctx.access, "accounting:write")}
+      />
     </Hydrate>
   );
 }

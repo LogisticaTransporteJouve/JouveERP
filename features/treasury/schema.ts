@@ -26,8 +26,8 @@ export type TreasurySummary = {
   /** The same for USD check carteras (pesos and dollars never sum). */
   checks_usd_now: number;
   checks_usd_prev_eom: number;
-  /** Checks in portfolio due within the next 7 days — about to turn into
-   *  liquidity (deposit/crediting). */
+  /** ARS checks in portfolio due within the next 7 days — about to turn into
+   *  liquidity (deposit/crediting). Pesos only. */
   checks_due_soon: { count: number; amount: number };
   /** Latest available USD→ARS exchange rate (the most recently loaded one), to
    *  show the ARS equivalent of dollar balances. null if none has been loaded

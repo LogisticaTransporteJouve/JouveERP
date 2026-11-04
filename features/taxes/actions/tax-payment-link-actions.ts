@@ -12,12 +12,14 @@ import { getServiceClient } from "@/lib/supabase/service";
 
 import {
   isTaxKind,
+  isTaxStatus,
   LINK_CANDIDATE_DAY_WINDOW,
   LINK_CANDIDATES_PAGE_SIZE,
   LinkTaxPaymentSchema,
   rankTaxPaymentCandidates,
   TaxPaymentCandidatesSchema,
   taxDocumentLabel,
+  taxDocumentNeedsPayment,
   UndoTaxPaymentSchema,
   type PayableTaxDocument,
   type TaxPaymentCandidatesPage,
@@ -286,8 +288,9 @@ export async function undoTaxDocumentPaymentAction(
   };
 }
 
-/** Open documents with their account set, by due date: the ones a bank
- *  statement debit can pay (Conciliación › Crear movimiento). */
+/** Open documents with their account set and something to pay
+ *  (`taxDocumentNeedsPayment`), by due date: the ones a bank statement debit
+ *  can pay (Conciliación › Crear movimiento). */
 export async function listPayableTaxDocumentsAction(): Promise<
   ActionResult<PayableTaxDocument[]>
 > {
@@ -297,7 +300,9 @@ export async function listPayableTaxDocumentsAction(): Promise<
   }
   const { data, error } = await getServiceClient()
     .from("tax_documents")
-    .select("id, kind, title, jurisdiction, period, due_date, amount")
+    .select(
+      "id, kind, status, title, jurisdiction, period, due_date, amount, credit_balance",
+    )
     .in("status", ["pendiente", "liquidado"])
     .not("account_id", "is", null)
     .order("due_date")
@@ -310,7 +315,14 @@ export async function listPayableTaxDocumentsAction(): Promise<
   return {
     ok: true,
     data: data.flatMap((d) =>
-      isTaxKind(d.kind)
+      isTaxKind(d.kind) &&
+      isTaxStatus(d.status) &&
+      taxDocumentNeedsPayment({
+        status: d.status,
+        amount: d.amount === null ? null : Number(d.amount),
+        credit_balance:
+          d.credit_balance === null ? null : Number(d.credit_balance),
+      })
         ? [
             {
               id: d.id,

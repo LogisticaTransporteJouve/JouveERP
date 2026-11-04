@@ -239,9 +239,9 @@ export function TreasuryPage({
             Próximos a acreditarse (≤ 7 días)
           </p>
           <p className="mt-1 text-muted-foreground">
-            {query.data.checks_due_soon.count} cheques por{" "}
+            {query.data.checks_due_soon.count} cheques en pesos por{" "}
             <span className="font-mono">
-              {formatMoney(query.data.checks_due_soon.amount)}
+              {formatMoneyWithCode(query.data.checks_due_soon.amount, "ARS")}
             </span>
           </p>
         </div>
