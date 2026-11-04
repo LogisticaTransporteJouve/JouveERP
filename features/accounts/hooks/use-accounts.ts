@@ -46,9 +46,9 @@ export const ACCOUNTS_UNAVAILABLE_MESSAGE =
  *  Movimientos, Cheques, Sueldos). It never suspends or throws: a per-user
  *  deny of accounts:read (`canRead` false, or the read refused) or a failed
  *  read gives no accounts and a message instead of taking the page down;
- *  `retry` reads again (null when there is nothing to retry). A failed background refetch keeps the accounts
- *  already read, so a filled form is not replaced by the error. Same cache
- *  as `useAccountsList`. */
+ *  `retry` reads again (null when there is nothing to retry). A failed
+ *  background refetch keeps the accounts already read, so a filled form is
+ *  not replaced by the error. Same cache as `useAccountsList`. */
 export function useAccountOptions(canRead = true): {
   accounts: Account[];
   error: string | null;

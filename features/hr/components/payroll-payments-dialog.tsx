@@ -367,7 +367,7 @@ function PaymentsBody({
         </p>
       )}
 
-      {!disabled && accountsError && (
+      {!disabled && !accountsPending && accountsError && (
         <AccountOptionsError
           message={accountsError}
           onRetry={retryAccounts}
