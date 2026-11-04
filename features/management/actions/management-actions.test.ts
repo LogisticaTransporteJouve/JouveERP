@@ -282,6 +282,7 @@ describe("getVehicleMarginAction", () => {
     net: "200",
     pending_usd: "0",
     maintenance_without_cost: 2,
+    uninvoiced_shipments: 1,
     ...over,
   });
 
@@ -307,6 +308,7 @@ describe("getVehicleMarginAction", () => {
             fuel_cost: "0",
             revenue: "50",
             net: "50",
+            uninvoiced_shipments: 3,
           }),
           raw({
             row_kind: "no_center",
@@ -339,10 +341,15 @@ describe("getVehicleMarginAction", () => {
         net: 200,
         marginPct: 20,
         maintenanceWithoutCost: 2,
+        uninvoicedShipments: 1,
       }),
     ]);
     expect(res.data.withoutVehicle).toEqual(
-      expect.objectContaining({ revenue: 50, marginPct: 100 }),
+      expect.objectContaining({
+        revenue: 50,
+        marginPct: 100,
+        uninvoicedShipments: 3,
+      }),
     );
     expect(res.data.unattributed).toEqual([
       expect.objectContaining({ kind: "no_center", centerCost: 70 }),

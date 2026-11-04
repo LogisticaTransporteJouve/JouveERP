@@ -15,6 +15,7 @@ vi.mock("@/lib/supabase/service", () => ({
           : { data: h.denyRows, error: null };
       const b = {
         select: () => b,
+        eq: () => b,
         in: (column: string, values: readonly string[]) => {
           if (table === "user_permission_denies") {
             h.denyFilters.push([column, values]);
@@ -29,7 +30,8 @@ vi.mock("@/lib/supabase/service", () => ({
   }),
 }));
 
-const { listUserIdsWithPermission } = await import("./users");
+const { listUserIdsWithPermission, loadUserAccess } = await import("./users");
+const { userCan } = await import("./permissions");
 
 beforeEach(() => {
   h.roleRows = [];
@@ -58,5 +60,15 @@ describe("listUserIdsWithPermission", () => {
       ["user_id", ["u1", "u2", "u3", "u4"]],
       ["permission", ["hr:read"]],
     ]);
+  });
+});
+
+describe("loadUserAccess", () => {
+  it("is the user's roles minus their denies", async () => {
+    h.roleRows = [{ user_id: "u1", role_id: "finance" }];
+    h.denyRows = [{ user_id: "u1", permission: "transactions:read" }];
+    const access = await loadUserAccess("u1");
+    expect(userCan(access, "transactions:read")).toBe(false);
+    expect(userCan(access, "purchase_invoices:read")).toBe(true);
   });
 });

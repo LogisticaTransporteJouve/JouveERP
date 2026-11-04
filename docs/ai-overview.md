@@ -485,7 +485,13 @@ no workers de consenso, no PGMQ):
    imprimió.
 5. **Match / dedupe**: CUIT extraído → proveedor/cliente existente
    (`searchSuppliers`/`searchClients`, pg_trgm); número de comprobante → ¿ya
-   cargado? (flag duplicado).
+   cargado? (flag duplicado); un extracto se compara con Caja y Conciliación.
+   Cada comparación corre solo si quien subió el archivo puede leer esos datos
+   en ese momento (sus roles menos sus denegaciones, `loadUserAccess`):
+   proveedor `suppliers:read`, cliente `clients:read`, duplicado de compra
+   `purchase_invoices:read`, de venta `invoices:read`, extracto
+   `transactions:read`. Sin el permiso no se compara ni se guarda nada de eso
+   (un duplicado sin buscar queda «No se pudo verificar», no «no cargado»).
 6. **Guardar borrador** en `ai_document_extractions` (estado `pending_review`).
 
 PDF como input nativo de Claude (`type:"document"`, base64); imágenes como

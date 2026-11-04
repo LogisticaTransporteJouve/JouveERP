@@ -1,5 +1,6 @@
 import "server-only";
 
+import type { Permission } from "@/lib/auth/permissions";
 import type { Json } from "@/lib/db/database.types";
 import { logger } from "@/lib/logger";
 import { getServiceClient } from "@/lib/supabase/service";
@@ -72,13 +73,23 @@ export type ExtractionMatches = {
   reconciliation?: ReconciliationSummary;
 };
 
+/** Whether the uploader may read a permission's data, resolved at scan time
+ *  (roles minus denies). A comparison against data they may not read is not
+ *  run, and nothing it would read is stored. */
+export type CanRead = (permission: Permission) => boolean;
+
 /**
  * Best-effort match of the extracted counterparty (by CUIT) to an existing
  * supplier/client, plus a duplicate check on (numero, punto_venta) for invoices.
- * Never throws — matching is advisory for the review screen.
+ * Each part runs only if the uploader may read its source (`counterparty`,
+ * `duplicates`). Never throws — matching is advisory for the review screen.
  */
 export async function matchDocument(input: {
   table: "suppliers" | "clients";
+  /** May read the suppliers / clients table. */
+  counterparty: boolean;
+  /** May read the invoice table the duplicate check reads. */
+  duplicates?: boolean;
   cuit?: string | null;
   numero?: number | null;
   puntoVenta?: number | null;
@@ -90,10 +101,26 @@ export async function matchDocument(input: {
 }): Promise<ExtractionMatches> {
   const service = getServiceClient();
   const matches: ExtractionMatches = {};
+  const invoiceTable = input.duplicates ? (input.invoiceTable ?? null) : null;
+  // A check the uploader may not run is not "no duplicate" either (a sales
+  // scan emits a CAE on "none"); it says nothing about the data.
+  if (
+    input.invoiceTable &&
+    !invoiceTable &&
+    input.numero != null &&
+    input.puntoVenta != null
+  ) {
+    matches.duplicate_unknown = true;
+  }
 
   try {
     let matchedSupplierId: string | null = null;
-    if (input.cuit) {
+    // A purchase's duplicate check needs the supplier even when its name is
+    // not shown.
+    if (
+      input.cuit &&
+      (input.counterparty || invoiceTable === "purchase_invoices")
+    ) {
       const { data, error } = await service
         .from(input.table)
         .select("id, legal_name, cuit")
@@ -103,21 +130,19 @@ export async function matchDocument(input: {
       const row = data[0];
       if (row) {
         if (input.table === "suppliers") {
-          matches.supplier_id = row.id;
-          matches.supplier_name = row.legal_name;
           matchedSupplierId = row.id;
-        } else {
+          if (input.counterparty) {
+            matches.supplier_id = row.id;
+            matches.supplier_name = row.legal_name;
+          }
+        } else if (input.counterparty) {
           matches.client_id = row.id;
           matches.client_name = row.legal_name;
         }
       }
     }
 
-    if (
-      input.invoiceTable &&
-      input.numero != null &&
-      input.puntoVenta != null
-    ) {
+    if (invoiceTable && input.numero != null && input.puntoVenta != null) {
       // The same key as the table's numbering uniqueness: each comprobante
       // type (factura, NC, ND) and letter has its own numbering, so a Factura
       // A and an NC A with the same number are two documents. A purchase
@@ -126,7 +151,7 @@ export async function matchDocument(input: {
       // invoices are unique per punto_venta, which maps to one channel.
       const kinds = input.kinds ?? null;
       const letter = input.letter ?? null;
-      if (input.invoiceTable === "purchase_invoices") {
+      if (invoiceTable === "purchase_invoices") {
         if (matchedSupplierId) {
           let q = service
             .from("purchase_invoices")
@@ -157,7 +182,7 @@ export async function matchDocument(input: {
     logger.error("ai.document.match.failed", { error: err });
     // A failed lookup is not "no duplicate": the review says it could not
     // check.
-    if (input.invoiceTable) matches.duplicate_unknown = true;
+    if (invoiceTable) matches.duplicate_unknown = true;
   }
 
   return matches;
@@ -182,10 +207,12 @@ export function comprobanteKinds(
   return null;
 }
 
-/** Maps a detected kind + extracted payload to a counterparty/duplicate match. */
+/** Maps a detected kind + extracted payload to a counterparty/duplicate match,
+ *  limited to what the uploader may read (`can`). */
 export async function matchForKind(
   kind: string,
   payload: unknown,
+  can: CanRead,
 ): Promise<ExtractionMatches> {
   if (!isRecord(payload)) return {};
   const cuit =
@@ -204,6 +231,8 @@ export async function matchForKind(
   if (kind === "purchase_invoice" || kind === "credit_debit_note") {
     return matchDocument({
       table: "suppliers",
+      counterparty: can("suppliers:read"),
+      duplicates: can("purchase_invoices:read"),
       cuit,
       numero,
       puntoVenta,
@@ -215,6 +244,8 @@ export async function matchForKind(
   if (kind === "sales_invoice") {
     return matchDocument({
       table: "clients",
+      counterparty: can("clients:read"),
+      duplicates: can("invoices:read"),
       cuit,
       numero,
       puntoVenta,
@@ -223,10 +254,22 @@ export async function matchForKind(
       letter,
     });
   }
-  if (kind === "payment_order")
-    return matchDocument({ table: "suppliers", cuit });
-  if (kind === "receipt") return matchDocument({ table: "clients", cuit });
-  if (kind === "bank_statement") {
+  if (kind === "payment_order") {
+    return matchDocument({
+      table: "suppliers",
+      counterparty: can("suppliers:read"),
+      cuit,
+    });
+  }
+  if (kind === "receipt") {
+    return matchDocument({
+      table: "clients",
+      counterparty: can("clients:read"),
+      cuit,
+    });
+  }
+  // Conciliación's own gate: the statement is compared with Caja.
+  if (kind === "bank_statement" && can("transactions:read")) {
     const reconciliation = await reconcileExtracto(payload);
     return reconciliation ? { reconciliation } : {};
   }

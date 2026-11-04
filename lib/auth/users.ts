@@ -8,6 +8,7 @@ import {
   roleGrants,
   ROLES,
   userCan,
+  type Access,
   type Permission,
   type Role,
 } from "@/lib/auth/permissions";
@@ -93,4 +94,20 @@ export async function listUserIdsWithPermission(
       permission,
     ),
   );
+}
+
+/**
+ * One user's access now (roles minus denies), for a job that acts on what
+ * that user may read. Throws on a failed read, so the job retries instead of
+ * deciding on an empty access.
+ */
+export async function loadUserAccess(userId: string): Promise<Access> {
+  const service = getServiceClient();
+  const [rolesRes, denies] = await Promise.all([
+    service.from("user_roles").select("role_id").eq("user_id", userId),
+    loadDenies(service, [userId]),
+  ]);
+  if (rolesRes.error) throw rolesRes.error;
+  const roles = (rolesRes.data ?? []).map((r) => r.role_id).filter(isRole);
+  return resolveAccess(roles, denies.get(userId) ?? []);
 }

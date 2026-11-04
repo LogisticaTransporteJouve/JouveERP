@@ -687,6 +687,20 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
                 and n.moneda <> f.moneda))
      order by f.fecha, f.id, n.fecha, n.numero;
     ```
+- [ ] **Aprobar `20261104190200` y `190201`** (auditoría w11, gestión). No
+      tocan filas existentes ni cambian políticas RLS. Rollback de cada una:
+  - `190200`: `get_vehicle_margin` suma `uninvoiced_shipments` al final, con
+    `drop` y `create` en la misma transacción (permisos repuestos: solo
+    `service_role`). El código anterior lee las filas por nombre e ignora la
+    columna nueva.
+  - `190201`: trigger nuevo `purchase_invoices_nc_nd_follow_factura`. Al
+    cambiar la cuenta o el centro de una factura de compra vigente, sus
+    NC/ND vigentes que tenían el valor anterior lo siguen, como en
+    «Recategorizar»; una NC/ND de un período cerrado rechaza el cambio de la
+    factura. El código anterior escribe las mismas columnas desde
+    «Modificar»: con el trigger, sus NC/ND también se mueven. Las facturas
+    ya editadas antes no se corrigen:
+    `docs/pendientes/2026-11-04-gestion-margen-por-camion-nc-nd-y-escaneo-w11.md`.
 
 ## Después de promover
 

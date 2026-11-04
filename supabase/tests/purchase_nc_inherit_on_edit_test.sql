@@ -13,6 +13,10 @@ select plan(8);
 
 select set_config('request.jwt.claims', '{"role":"service_role"}', true);
 
+-- NC f8 must stay empty while factura Z gets an account, as a row from before
+-- 20261104190201 (which moves it along) does.
+alter table public.purchase_invoices disable trigger purchase_invoices_nc_nd_follow_factura;
+
 create temporary table t_leaf as
   select e.id, row_number() over (order by e.code) as n
     from public.expense_leaf_accounts e

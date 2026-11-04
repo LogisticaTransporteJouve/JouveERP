@@ -150,6 +150,7 @@ const GUARDS = [
   "guard_bank_statement_match",
   "match_bank_statement_lines",
   "recategorize_expense",
+  "purchase_nc_nd_follow_factura",
   "undo_tax_document_payment",
   "get_vehicle_margin",
   "guard_driver_settlement_difference_receipt",
