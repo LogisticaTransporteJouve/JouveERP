@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { IvaCondition } from "@/features/clients/schema";
+import { amountToInput } from "@/lib/format";
 import type {
   IvaBreakdownLine,
   TribBreakdown,
@@ -120,6 +121,15 @@ const letterNullable = z
 // via the RPC `replace_purchase_invoice_items`. When there are no items (typical
 // case: the 1313 invoices imported from AFIP in K.2), the header keeps the
 // totals that were entered by hand.
+/** Item quantity and unit price are numeric(15, 4). */
+export const ITEM_DECIMALS = 4;
+
+/** An item quantity or unit price as the items editor shows it (es-AR:
+ *  1234.5 → "1.234,50"), which is what its parser reads back. */
+export function itemNumberToInput(value: number): string {
+  return amountToInput(value, ITEM_DECIMALS);
+}
+
 export const PurchaseInvoiceItemSchema = z.object({
   description: z.string().trim().min(1, "Descripción requerida.").max(500),
   quantity: amount.refine((v) => v > 0, { message: "Cantidad > 0." }),

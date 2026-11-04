@@ -2,6 +2,7 @@
 
 import { Trash2 } from "lucide-react";
 
+import { MoneyInput } from "@/components/money-input";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
@@ -68,7 +69,9 @@ export function RetentionsEditor({
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <div>
-          <Label className="text-sm font-medium">Retenciones / Percepciones</Label>
+          <Label className="text-sm font-medium">
+            Retenciones / Percepciones
+          </Label>
           <p className="text-xs text-muted-foreground">
             Cancelan parte del recibo pero no entran como plata real (crédito
             fiscal).
@@ -160,13 +163,11 @@ export function RetentionsEditor({
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">Monto</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      inputMode="decimal"
-                      placeholder="0.00"
+                    <MoneyInput
+                      aria-label="Monto"
+                      placeholder="0,00"
                       value={r.amount}
-                      onChange={(e) => update(idx, { amount: e.target.value })}
+                      onChange={(amount) => update(idx, { amount })}
                     />
                   </div>
                   {showJurisdiction ? (

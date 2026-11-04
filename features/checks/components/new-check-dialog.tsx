@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { MoneyInput } from "@/components/money-input";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
@@ -34,7 +35,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { todayInAR } from "@/lib/format";
+import { parseArAmount, todayInAR } from "@/lib/format";
+import { positiveArAmountField } from "@/lib/validation/common";
 import { useAccountsList } from "@/features/accounts/hooks/use-accounts";
 
 import { useCreateCheque } from "../hooks/use-checks";
@@ -55,7 +57,7 @@ const FormSchema = z.object({
   drawer_cuit: z.string().trim().max(20),
   issue_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida."),
   due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida."),
-  amount: z.string().regex(/^\d+(\.\d+)?$/, "Monto requerido."),
+  amount: positiveArAmountField,
   currency: z.enum(CHEQUE_CURRENCIES),
   cartera_account_id: z.string().uuid("Cuenta de cartera requerida."),
   channel_id: z.string().min(1, "Canal requerido."),
@@ -131,7 +133,7 @@ export function NewChequeDialog({
         drawer_cuit: values.drawer_cuit,
         issue_date: values.issue_date,
         due_date: values.due_date,
-        amount: values.amount,
+        amount: parseArAmount(values.amount),
         currency: values.currency,
         cartera_account_id: values.cartera_account_id,
         channel_id: values.channel_id,
@@ -392,13 +394,7 @@ export function NewChequeDialog({
                   <FormItem className="space-y-1">
                     <FormLabel className="text-xs">Monto</FormLabel>
                     <FormControl>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        inputMode="decimal"
-                        placeholder="0.00"
-                        {...field}
-                      />
+                      <MoneyInput placeholder="0,00" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

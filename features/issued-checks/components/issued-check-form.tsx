@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { MoneyInput } from "@/components/money-input";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
@@ -24,7 +25,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { todayInAR } from "@/lib/format";
+import { amountToInput, parseArAmount, todayInAR } from "@/lib/format";
+import { positiveArAmountField } from "@/lib/validation/common";
 import type { Account } from "@/features/accounts/schema";
 import type { CheckChannelOption } from "@/features/checks/components/check-action-dialogs";
 import {
@@ -55,7 +57,7 @@ const FormSchema = z.object({
   beneficiary_cuit: z.string().trim().max(20),
   issue_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida."),
   due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida."),
-  amount: z.string().regex(/^\d+(\.\d+)?$/, "Monto requerido."),
+  amount: positiveArAmountField,
   currency: z.enum(ISSUED_CHECK_CURRENCIES),
   bank_account_id: z.string().uuid("Cuenta bancaria requerida."),
   channel_id: z.string(),
@@ -78,7 +80,7 @@ function toValues(
     beneficiary_cuit: c?.beneficiary_cuit ?? "",
     issue_date: c?.issue_date ?? todayInAR(),
     due_date: c?.due_date ?? todayInAR(),
-    amount: c ? String(c.amount) : "",
+    amount: c ? amountToInput(c.amount) : "",
     currency: c?.currency ?? "ARS",
     bank_account_id: c?.bank_account_id ?? defaultAccountId,
     channel_id: c?.channel_id ?? "",
@@ -127,7 +129,7 @@ export function IssuedCheckForm({
       beneficiary_cuit: values.beneficiary_cuit.trim() || null,
       issue_date: values.issue_date,
       due_date: values.due_date,
-      amount: values.amount,
+      amount: parseArAmount(values.amount),
       currency: values.currency,
       bank_account_id: values.bank_account_id,
       supplier_id: values.supplier?.id ?? null,
@@ -329,11 +331,8 @@ export function IssuedCheckForm({
               <FormItem className="space-y-1">
                 <FormLabel className="text-xs">Monto</FormLabel>
                 <FormControl>
-                  <Input
+                  <MoneyInput
                     {...field}
-                    type="number"
-                    inputMode="decimal"
-                    step="0.01"
                     placeholder="0,00"
                     disabled={orderLocked}
                   />

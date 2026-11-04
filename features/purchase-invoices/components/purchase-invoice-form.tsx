@@ -75,6 +75,7 @@ import {
   PURCHASE_TOTAL_MISMATCH_MESSAGE,
   PURCHASE_TRIBUTE_FIELDS,
   formatInvoiceNumber,
+  itemNumberToInput,
   type PurchaseAmountBreakdown,
   type PurchaseInvoice,
   type PurchaseInvoiceKind,
@@ -95,6 +96,7 @@ import {
   computeLine,
   computeTotals,
   emptyItem,
+  parseItemNumber,
   type PurchaseInvoiceItemDraft,
 } from "./purchase-invoice-items-editor";
 
@@ -334,8 +336,8 @@ export function PurchaseInvoiceForm({
       "items",
       itemsData.map((it) => ({
         description: it.description,
-        quantity: String(it.quantity),
-        unit_price: String(it.unit_price),
+        quantity: itemNumberToInput(it.quantity),
+        unit_price: itemNumberToInput(it.unit_price),
         iva_rate_id: it.iva_rate_id,
       })),
       { shouldDirty: false },
@@ -699,8 +701,8 @@ export function PurchaseInvoiceForm({
             const c = computeLine(it);
             return {
               description: it.description.trim(),
-              quantity: Number(it.quantity),
-              unit_price: Number(it.unit_price),
+              quantity: parseItemNumber(it.quantity),
+              unit_price: parseItemNumber(it.unit_price),
               iva_rate_id: it.iva_rate_id,
               line_neto: c.line_neto,
               line_iva: c.line_iva,

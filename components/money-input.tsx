@@ -13,6 +13,8 @@ type Props = Omit<
   onChange: (value: string) => void;
   /** Keep a leading "-" (an account balance); otherwise a minus is dropped. */
   allowNegative?: boolean;
+  /** Decimal digits kept while typing (default 2). */
+  decimals?: number;
 };
 
 /** es-AR amount field that formats on every keystroke ("1500,5" shows as
@@ -22,6 +24,7 @@ export function MoneyInput({
   value,
   onChange,
   allowNegative = false,
+  decimals = 2,
   ...props
 }: Props) {
   const format = allowNegative ? formatSignedAmountInput : formatAmountInput;
@@ -32,7 +35,7 @@ export function MoneyInput({
       type="text"
       inputMode="decimal"
       value={value}
-      onChange={(e) => onChange(format(e.target.value))}
+      onChange={(e) => onChange(format(e.target.value, decimals))}
     />
   );
 }

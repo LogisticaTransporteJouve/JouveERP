@@ -15,6 +15,13 @@ puede ser negativo y el de clientes y proveedores no (`check >= 0`).
 como 123456. `amountToInput` descarta el signo: precargar con él un saldo
 negativo lo guardaría positivo sin aviso.
 
+Todo formulario cuyo monto lee un preprocess es-AR del server
+(`moneyAmountPreprocess`, `openingBalancePreprocess`, el `amount` de
+cheques emitidos) tipea en `MoneyInput`, valida con `positiveArAmountField`
+(`lib/validation/common.ts`) y manda el número ya leído con `parseArAmount`,
+nunca el texto. `MoneyInput` acepta `decimals` para los ítems de compra
+(`numeric(15, 4)`).
+
 **Descartado.** Hacer que `amountToInput` conserve el signo: tiene unas 50
 llamadas que hoy reciben montos no negativos y no se revisaron una por una.
 Un selector de signo aparte en cuentas: un "-" tipeado es lo que el usuario

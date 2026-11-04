@@ -390,16 +390,25 @@ mitigación en el schema: el límite se respeta operando.
       (123.456). El de cuentas acepta negativo (`allowNegative`); el de
       clientes y proveedores muestra el signo y rechaza el negativo en vez de
       guardarlo positivo.
-- [ ] Mismo error con otro parser (no `parseArAmount`): el formulario manda
-      un texto con punto decimal y el server lo lee en es-AR, así que
-      "1234.56" se guarda 123456. Editar movimiento
-      (`features/transactions/components/edit-transaction-dialog.tsx`,
-      `moneyAmountPreprocess`), saldo inicial al crear o editar una cuenta
-      (`features/accounts/components/account-form.tsx`,
-      `openingBalancePreprocess`) y cheque emitido
-      (`features/issued-checks/components/issued-check-form.tsx`,
-      `positiveAmount` del schema). Arreglo mínimo: mandar
-      `Number(values.amount)`, o pasar el campo a `MoneyInput`.
+- [x] Mismo error al crear y al editar, con el parser del server: el
+      formulario mandaba un texto con punto decimal ("1234.56") y el server
+      lo leía en es-AR (123456). Nuevo movimiento y transferencia, editar
+      movimiento, saldo inicial de una cuenta (acepta negativo), cheque
+      emitido y cheque recibido a mano: el campo es `MoneyInput` y el
+      formulario manda el número ya leído con `parseArAmount`.
+- [x] Mismo error dentro del cliente: el monto de una retención del recibo
+      (un `type="number"` leído con `parseArAmount`) y la cantidad y el
+      precio unitario de los ítems de una compra (la línea se calculaba con
+      el parser es-AR y el ítem se mandaba con `Number`, también al
+      precargar una compra existente o un documento escaneado) usan
+      `MoneyInput`; los ítems con 4 decimales (`numeric(15, 4)`).
+- [x] Venta de cheques: intereses y comisiones se leían con
+      `Number(v.replace(",", "."))`, así que "1.500" se guardaba 1,50.
+      Ahora `MoneyInput` + `parseArAmount`.
+- [ ] Tipo de cambio (`features/exchange-rates/components/exchange-rates-page.tsx`):
+      el campo de texto se lee con `Number(v.replace(",", "."))`, así que
+      "1.180" se guarda 1,18. No es un monto de dinero y `MoneyInput` corta a
+      2 decimales; queda para revisar con el criterio de las tasas.
 - [ ] Sin migraciones. Rollback: el código anterior vuelve al campo sin
       formato; los saldos ya guardados no cambian.
 

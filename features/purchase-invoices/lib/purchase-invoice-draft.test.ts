@@ -97,8 +97,8 @@ describe("draftToFormPatch", () => {
       items: [
         {
           description: "Flete",
-          quantity: "1",
-          unit_price: "100",
+          quantity: "1,00",
+          unit_price: "100,00",
           iva_rate_id: 5,
         },
       ],

@@ -4,6 +4,7 @@
 
 import { z } from "zod";
 
+import { parseArAmount } from "@/lib/format";
 import { FISCAL_FILTERS } from "@/lib/scope";
 
 /** Standard UUID v4 (what gen_random_uuid returns in Postgres). */
@@ -80,6 +81,13 @@ export const moneyAmountPreprocess = (value: unknown) => {
   }
   return value;
 };
+
+/** Form field for a `MoneyInput` amount ("1.234,56") that must be > 0. The
+ *  form submits `parseArAmount(value)`, a number, so the server's es-AR
+ *  preprocess never re-reads a dot-decimal string. */
+export const positiveArAmountField = z
+  .string()
+  .refine((v) => (parseArAmount(v) ?? 0) > 0, "Monto requerido.");
 
 /** Variant of moneyAmountPreprocess for the opening balance of accounts:
  *  empty string → 0 (empty means "no initial balance", not "invalid"). */

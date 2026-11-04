@@ -9,6 +9,7 @@ import type {
   PurchaseInvoiceLetter,
   PurchaseIvaRateId,
 } from "../schema";
+import { itemNumberToInput } from "../schema";
 
 type PurchaseTributeField = (typeof PURCHASE_TRIBUTE_FIELDS)[number];
 
@@ -221,8 +222,8 @@ export function draftToFormPatch(
       with_items: data.items.length > 0,
       items: data.items.map((it) => ({
         description: it.description,
-        quantity: String(it.quantity),
-        unit_price: String(it.unit_price),
+        quantity: itemNumberToInput(it.quantity),
+        unit_price: itemNumberToInput(it.unit_price),
         iva_rate_id: it.iva_rate_id,
       })),
     },
