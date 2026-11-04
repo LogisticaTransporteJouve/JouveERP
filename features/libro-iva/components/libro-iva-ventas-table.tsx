@@ -1,24 +1,14 @@
 "use client";
 
 import { AlertTriangle } from "lucide-react";
-import Link from "next/link";
-import { Fragment, useMemo } from "react";
-
-import { Badge } from "@/components/ui/badge";
-import { formatArgentineDate, formatNumber2 as money } from "@/lib/format";
+import { useMemo } from "react";
 
 import { useLibroIvaVentas } from "../hooks/use-libro-iva";
-import {
-  computeTotals,
-  groupByInvoice,
-  IVA_RATES,
-  KIND_LABEL,
-  libroIvaVoucherNumber,
-  totalsCell,
-  VENTAS_AMOUNT_COLUMNS,
-} from "../schema";
+import { CONDITION_LEGEND, TC_LEGEND, ventasBook } from "../lib/book-layout";
 
-import { CurrencyNote, OriginalCurrencyCell } from "./currency-note";
+import { CurrencyNote } from "./currency-note";
+import { ItemlessNote } from "./itemless-note";
+import { LibroIvaBookTable, LibroIvaBookTitle } from "./libro-iva-book-table";
 import { LibroIvaExportButtons } from "./libro-iva-export-buttons";
 
 export function LibroIvaVentasTable({
@@ -30,11 +20,9 @@ export function LibroIvaVentasTable({
 }) {
   const { data: rows, isLoading } = useLibroIvaVentas(period, channelId);
 
-  const grouped = useMemo(() => groupByInvoice(rows ?? []), [rows]);
-  const totals = useMemo(() => computeTotals(grouped), [grouped]);
-
-  const sinCae = grouped.filter((g) => !g.cae).length;
-  const sinItems = grouped.filter((g) => !g.has_items).length;
+  const model = useMemo(() => ventasBook(rows ?? []), [rows]);
+  const sinCae = model.docs.filter((d) => !d.cae).length;
+  const sinItems = model.grouped.filter((g) => !g.has_items).length;
 
   if (isLoading) {
     return (
@@ -44,7 +32,7 @@ export function LibroIvaVentasTable({
     );
   }
 
-  if (grouped.length === 0) {
+  if (model.docs.length === 0) {
     return (
       <div className="rounded-lg border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
         No hay comprobantes emitidos fiscales para este período.
@@ -65,196 +53,20 @@ export function LibroIvaVentasTable({
                 presentación a AFIP los va a rechazar.
               </p>
             )}
-            {sinItems > 0 && (
-              <p>
-                <span className="font-medium">{sinItems}</span> comprobante(s)
-                <span className="font-medium">
-                  {" "}
-                  sin desglose por alícuota
-                </span>{" "}
-                (probablemente legacy AFIP imports). El IVA total se muestra
-                pero sin separar por tasa.
-              </p>
-            )}
+            <ItemlessNote docs={model.grouped} />
           </div>
         </div>
       )}
 
-      <CurrencyNote docs={grouped} />
+      <CurrencyNote docs={model.grouped} />
 
-      <div className="overflow-x-auto rounded-lg border bg-card">
-        <table className="w-full text-sm">
-          <thead className="border-b bg-muted/30 text-left text-xs">
-            <tr>
-              <th className="sticky left-0 z-10 bg-card px-2 py-2 font-medium">
-                Fecha
-              </th>
-              <th className="px-2 py-2 font-medium">Tipo</th>
-              <th className="px-2 py-2 font-medium">Comprobante</th>
-              <th className="px-2 py-2 font-medium">Cliente</th>
-              <th className="px-2 py-2 font-medium">CUIT</th>
-              {IVA_RATES.map((r) => (
-                <th
-                  key={r.id}
-                  colSpan={2}
-                  className="border-l px-2 py-2 text-center font-medium"
-                >
-                  {r.label}
-                </th>
-              ))}
-              <th className="border-l px-2 py-2 text-right font-medium">
-                Perc.
-              </th>
-              {VENTAS_AMOUNT_COLUMNS.map((c) => (
-                <th key={c.header} className="px-2 py-2 text-right font-medium">
-                  {c.header}
-                </th>
-              ))}
-              <th className="px-2 py-2 text-right font-medium">Total $</th>
-              <th className="px-2 py-2 text-right font-medium">Moneda orig.</th>
-              <th className="px-2 py-2 font-medium">CAE</th>
-            </tr>
-            <tr className="border-b text-xs text-muted-foreground">
-              <th className="sticky left-0 z-10 bg-card" />
-              <th />
-              <th />
-              <th />
-              <th />
-              {IVA_RATES.map((r) => (
-                <Fragment key={r.id}>
-                  <th className="border-l px-2 py-1 text-right font-normal">
-                    Neto
-                  </th>
-                  <th className="px-2 py-1 text-right font-normal">IVA</th>
-                </Fragment>
-              ))}
-              <th className="border-l" />
-              {VENTAS_AMOUNT_COLUMNS.map((c) => (
-                <th key={c.header} />
-              ))}
-              <th />
-              <th />
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {grouped.map((row) => {
-              const number = libroIvaVoucherNumber(row);
-              return (
-                <tr
-                  key={row.invoice_id}
-                  className="group border-b last:border-b-0 hover:bg-muted/20"
-                >
-                  <td className="sticky left-0 z-10 bg-card px-2 py-1 font-mono text-xs text-muted-foreground group-hover:bg-muted/20">
-                    {formatArgentineDate(row.fecha)}
-                  </td>
-                  <td className="px-2 py-1 text-xs">
-                    <Badge variant="outline" className="text-xs font-normal">
-                      {KIND_LABEL[row.kind] ?? row.kind}
-                    </Badge>
-                  </td>
-                  <td className="px-2 py-1 font-mono text-xs">
-                    <Link
-                      href={`/invoices/${row.invoice_id}`}
-                      className="hover:underline"
-                    >
-                      {number}
-                    </Link>
-                  </td>
-                  <td
-                    className="px-2 py-1 max-w-[200px] truncate"
-                    title={row.client_legal_name}
-                  >
-                    {row.client_legal_name}
-                  </td>
-                  <td className="px-2 py-1 font-mono text-xs text-muted-foreground">
-                    {row.doc_nro}
-                  </td>
-                  {IVA_RATES.map((r) => {
-                    const cell = row.per_rate[r.id];
-                    return (
-                      <Fragment key={r.id}>
-                        <td className="border-l px-2 py-1 text-right font-mono text-xs">
-                          {cell?.neto ? money(cell.neto) : ""}
-                        </td>
-                        <td className="px-2 py-1 text-right font-mono text-xs">
-                          {cell?.iva ? money(cell.iva) : ""}
-                        </td>
-                      </Fragment>
-                    );
-                  })}
-                  <td className="border-l px-2 py-1 text-right font-mono text-xs">
-                    {row.imp_trib > 0 ? money(row.imp_trib) : ""}
-                  </td>
-                  {VENTAS_AMOUNT_COLUMNS.map((c) => (
-                    <td
-                      key={c.header}
-                      className="px-2 py-1 text-right font-mono text-xs"
-                    >
-                      {c.value(row) > 0 ? money(c.value(row)) : ""}
-                    </td>
-                  ))}
-                  <td className="px-2 py-1 text-right font-mono text-xs font-medium">
-                    {money(row.imp_total)}
-                  </td>
-                  <td className="px-2 py-1 text-right font-mono text-xs">
-                    <OriginalCurrencyCell
-                      moneda={row.moneda}
-                      cotizacion={row.cotizacion}
-                      impTotal={row.orig.imp_total}
-                    />
-                  </td>
-                  <td className="px-2 py-1 font-mono text-xs text-muted-foreground">
-                    {row.cae ? (
-                      <span title={`Vto ${row.cae_vencimiento ?? ""}`}>
-                        {row.cae}
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-          <tfoot className="border-t-2 bg-muted/30 text-xs font-medium">
-            <tr>
-              <td
-                colSpan={5}
-                className="sticky left-0 z-10 bg-card px-2 py-2 text-right"
-              >
-                Totales ({totals.count} comprobantes)
-              </td>
-              {IVA_RATES.map((r) => {
-                const cell = totals.per_rate[r.id];
-                return (
-                  <Fragment key={r.id}>
-                    <td className="border-l px-2 py-2 text-right font-mono">
-                      {cell?.neto ? money(cell.neto) : ""}
-                    </td>
-                    <td className="px-2 py-2 text-right font-mono">
-                      {cell?.iva ? money(cell.iva) : ""}
-                    </td>
-                  </Fragment>
-                );
-              })}
-              <td className="border-l px-2 py-2 text-right font-mono">
-                {totalsCell(totals.imp_trib, money)}
-              </td>
-              {VENTAS_AMOUNT_COLUMNS.map((c) => (
-                <td key={c.header} className="px-2 py-2 text-right font-mono">
-                  {totalsCell(c.value(totals), money)}
-                </td>
-              ))}
-              <td className="px-2 py-2 text-right font-mono">
-                {money(totals.imp_total)}
-              </td>
-              <td />
-              <td />
-            </tr>
-          </tfoot>
-        </table>
-      </div>
+      <LibroIvaBookTitle book="ventas" period={period} channelId={channelId} />
+
+      <LibroIvaBookTable model={model} href={(id) => `/invoices/${id}`} />
+
+      <p className="text-xs text-muted-foreground">
+        {TC_LEGEND} {CONDITION_LEGEND}
+      </p>
 
       <LibroIvaExportButtons
         book="ventas"

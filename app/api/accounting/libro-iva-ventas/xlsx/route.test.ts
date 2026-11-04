@@ -31,6 +31,7 @@ beforeEach(() => {
     period: "2026-06",
     channelName: "DZ Fiscal",
     generatedAt: "",
+    header: { companyName: "Empresa Test S.A.", cuit: "", closed: false },
     rows: [],
   });
 });

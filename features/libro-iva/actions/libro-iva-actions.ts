@@ -9,13 +9,16 @@ import { userCan } from "@/lib/auth/permissions";
 import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
+import { getServiceClient } from "@/lib/supabase/service";
 import { PeriodSchema } from "@/lib/validation/common";
 
+import type { LibroIvaHeader } from "../lib/book-layout";
 import { buildComprasTxt, buildVentasTxt, type CitiExport } from "../lib/citi";
 import {
   fetchLibroIvaComprasRows,
   fetchLibroIvaVentasRows,
 } from "../lib/fetch-books";
+import { fetchLibroIvaHeader } from "../lib/fetch-header";
 import {
   groupByInvoice,
   groupComprasByInvoice,
@@ -107,6 +110,38 @@ export async function listLibroIvaComprasAction(input: {
     return { ok: false, error: "No se pudo leer el libro IVA Compras." };
   }
 
+  return { ok: true, data };
+}
+
+/** The books' title block: company, CUIT and Previo / Definitivo. */
+export async function getLibroIvaHeaderAction(input: {
+  period: string;
+  channelId?: string | null;
+}): Promise<ActionResult<LibroIvaHeader>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.access, "accounting:read")) {
+    return { ok: false, error: "No tenés permiso para ver el libro IVA." };
+  }
+  const parsed = LibroIvaInput.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Input inválido.",
+    };
+  }
+  const { data, error } = await fetchLibroIvaHeader(
+    getServiceClient(),
+    parsed.data.period,
+    parsed.data.channelId ?? null,
+  );
+  if (error) {
+    logger.error("libro_iva.header_failed", {
+      userId: ctx.userId,
+      period: parsed.data.period,
+      error,
+    });
+    return { ok: false, error: "No se pudo leer el encabezado del libro IVA." };
+  }
   return { ok: true, data };
 }
 
