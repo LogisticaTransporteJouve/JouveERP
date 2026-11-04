@@ -47,7 +47,7 @@ const FormSchema = z.object({
   trip_id: z.string(),
   load_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha requerida."),
   liters: z.string(),
-  amount: z.string(),
+  amount: z.string().trim().min(1, "Importe requerido."),
   odometer_km: z.string(),
   station: z.string().trim().max(120),
   card: z.string().trim().max(120),

@@ -46,12 +46,20 @@ const optionalAmount = z
   .nullable()
   .optional();
 
+// A blank «Importe» is unknown, not $0: `z.coerce.number()` alone reads "" as 0.
+const requiredAmount = z
+  .custom<number | string>(
+    (v) => v !== "" && v !== null && v !== undefined,
+    "Importe requerido.",
+  )
+  .pipe(z.coerce.number().min(0, "Importe inválido."));
+
 export const FuelLoadCreateSchema = z.object({
   vehicle_id: z.string().uuid("Vehículo requerido."),
   trip_id: optionalUuid,
   load_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha requerida."),
   liters: z.coerce.number().gt(0, "Litros debe ser mayor a 0."),
-  amount: z.coerce.number().min(0, "Importe inválido."),
+  amount: requiredAmount,
   odometer_km: optionalAmount,
   station: optionalText(120),
   card: optionalText(120),
@@ -70,7 +78,7 @@ export const FuelLoadUpdateSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha requerida.")
     .optional(),
   liters: z.coerce.number().gt(0, "Litros debe ser mayor a 0.").optional(),
-  amount: z.coerce.number().min(0, "Importe inválido.").optional(),
+  amount: requiredAmount.optional(),
   odometer_km: optionalAmount,
   station: optionalText(120),
   card: optionalText(120),
