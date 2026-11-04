@@ -84,6 +84,10 @@ function VehicleMarginTable({
     0,
   );
   const withoutCenter = vehicles.filter((v) => v.costCenterId === null).length;
+  const withoutCost = vehicles.reduce(
+    (s, v) => s + v.maintenanceWithoutCost,
+    0,
+  );
 
   if (vehicles.length === 0 && !withoutVehicle && unattributed.length === 0) {
     return (
@@ -188,6 +192,14 @@ function VehicleMarginTable({
               : `${withoutCenter} camiones no tienen centro de costo vinculado`}
             : sus seguros, patentes y compras cargadas con centro no se le
             suman.
+          </li>
+        )}
+        {withoutCost > 0 && (
+          <li>
+            {withoutCost === 1
+              ? "1 mantenimiento no tiene costo cargado"
+              : `${withoutCost} mantenimientos no tienen costo cargado`}
+            : no están en «Mantenimiento» ni en el neto.
           </li>
         )}
         <li>

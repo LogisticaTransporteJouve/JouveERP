@@ -31,7 +31,7 @@ const trip = (id: string, cost = 0) => ({
 const revenue = (tripId: string, amount: number) => ({
   trip_id: tripId,
   revenue: amount,
-  uninvoiced_freight: 0,
+  uninvoiced_shipments: 0,
 });
 
 beforeEach(() => {
@@ -84,9 +84,9 @@ describe("gatherTripMargins", () => {
     pages.v_trip_revenue = [
       {
         data: [
-          // Nothing invoiced yet: 800 of freight still pending.
-          { trip_id: "t1", revenue: 0, uninvoiced_freight: 800 },
-          { trip_id: "t2", revenue: 100, uninvoiced_freight: 0 },
+          // Nothing invoiced yet: one carga still pending.
+          { trip_id: "t1", revenue: 0, uninvoiced_shipments: 1 },
+          { trip_id: "t2", revenue: 100, uninvoiced_shipments: 0 },
         ],
         error: null,
       },
@@ -94,6 +94,26 @@ describe("gatherTripMargins", () => {
     const findings = await gatherTripMargins("2026-11-03");
     expect(findings[0]?.source_refs).toEqual(["t2"]);
     expect(findings[0]?.metrics.pending_invoicing_count).toBe(1);
+  });
+
+  it("does not judge a trip whose carga is priced by tariff and not invoiced", async () => {
+    // A tariff-priced carga has no freight until its liquidación is
+    // invoiced: the view's pending amount is 0, its count is 1.
+    pages.trips = [{ data: [trip("t1", 300)], error: null }];
+    pages.v_trip_revenue = [
+      {
+        data: [
+          {
+            trip_id: "t1",
+            revenue: 0,
+            uninvoiced_freight: 0,
+            uninvoiced_shipments: 1,
+          },
+        ],
+        error: null,
+      },
+    ];
+    expect(await gatherTripMargins("2026-11-03")).toEqual([]);
   });
 
   it("throws when the revenue read fails", async () => {

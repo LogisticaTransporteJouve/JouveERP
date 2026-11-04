@@ -164,6 +164,10 @@ function marginRow(over: Partial<FleetMarginRow>): FleetMarginRow {
     total_net: 650,
     uninvoiced_freight: 0,
     total_uninvoiced_freight: 0,
+    uninvoiced_shipments: 0,
+    total_uninvoiced_shipments: 0,
+    maintenance_without_cost: 0,
+    total_maintenance_without_cost: 0,
     ...over,
   };
 }
@@ -193,7 +197,12 @@ describe("getFleetMargin", () => {
     vi.mocked(getFleetMarginAction).mockResolvedValue({
       ok: true,
       data: [
-        marginRow({ uninvoiced_freight: 700, total_uninvoiced_freight: 900 }),
+        marginRow({
+          uninvoiced_freight: 700,
+          total_uninvoiced_freight: 900,
+          uninvoiced_shipments: 2,
+          total_uninvoiced_shipments: 3,
+        }),
       ],
     });
     const res = await getFleetMargin.execute(owner, {
@@ -203,7 +212,46 @@ describe("getFleetMargin", () => {
     expect(res.ok).toBe(true);
     if (!res.ok) return;
     expect(res.summary).toContain(
-      "Flete sin facturar $900: no está en los ingresos, así que esos netos no son definitivos",
+      "3 carga(s) sin facturar (flete $900; una carga por tarifa no tiene flete hasta facturarse): no está en los ingresos, así que esos netos no son definitivos",
+    );
+  });
+
+  it("says the nets are not final for a tariff-priced carga with no freight yet", async () => {
+    vi.mocked(getFleetMarginAction).mockResolvedValue({
+      ok: true,
+      data: [
+        marginRow({ uninvoiced_shipments: 1, total_uninvoiced_shipments: 1 }),
+      ],
+    });
+    const res = await getFleetMargin.execute(owner, {
+      from: "2026-01-01",
+      to: "2026-03-31",
+    });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.summary).toContain(
+      "1 carga(s) sin facturar (sin flete calculado todavía;",
+    );
+  });
+
+  it("counts the services without a cost", async () => {
+    vi.mocked(getFleetMarginAction).mockResolvedValue({
+      ok: true,
+      data: [
+        marginRow({
+          maintenance_without_cost: 2,
+          total_maintenance_without_cost: 2,
+        }),
+      ],
+    });
+    const res = await getFleetMargin.execute(owner, {
+      from: "2026-01-01",
+      to: "2026-03-31",
+    });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.summary).toContain(
+      "2 service(s) sin costo cargado: no están en el mantenimiento",
     );
   });
 });

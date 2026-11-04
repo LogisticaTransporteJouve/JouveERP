@@ -122,8 +122,18 @@ describe("runTrips revenue", () => {
     vi.mocked(listTripRevenueAction).mockResolvedValue({
       ok: true,
       data: [
-        { trip_id: "t1", revenue: 1000, uninvoiced_freight: 0 },
-        { trip_id: "t2", revenue: 5000, uninvoiced_freight: 0 },
+        {
+          trip_id: "t1",
+          revenue: 1000,
+          uninvoiced_freight: 0,
+          uninvoiced_shipments: 0,
+        },
+        {
+          trip_id: "t2",
+          revenue: 5000,
+          uninvoiced_freight: 0,
+          uninvoiced_shipments: 0,
+        },
       ],
     });
     const res = await runTrips(OPERATIONS);
@@ -160,26 +170,67 @@ describe("runTrips revenue", () => {
     vi.mocked(listTripRevenueAction).mockResolvedValue({
       ok: true,
       data: [
-        { trip_id: "t1", revenue: 0, uninvoiced_freight: 800 },
-        { trip_id: "t2", revenue: 500, uninvoiced_freight: 0 },
-        { trip_id: "t3", revenue: 0, uninvoiced_freight: 900 },
+        {
+          trip_id: "t1",
+          revenue: 0,
+          uninvoiced_freight: 800,
+          uninvoiced_shipments: 1,
+        },
+        {
+          trip_id: "t2",
+          revenue: 500,
+          uninvoiced_freight: 0,
+          uninvoiced_shipments: 0,
+        },
+        {
+          trip_id: "t3",
+          revenue: 0,
+          uninvoiced_freight: 900,
+          uninvoiced_shipments: 1,
+        },
       ],
     });
     const res = await runTrips(OPERATIONS);
     expect(res.ok).toBe(true);
     if (!res.ok) return;
     expect(res.summary).toContain(
-      "Flete sin facturar $800 en 1 viaje(s): no está en los ingresos",
+      "1 carga(s) sin facturar en 1 viaje(s) (flete $800; una carga por tarifa no tiene flete hasta facturarse): no está en los ingresos",
     );
     expect(res.data).toEqual([
       expect.objectContaining({
         id: "t1",
         revenue: 0,
         uninvoiced_freight: 800,
+        uninvoiced_shipments: 1,
       }),
       expect.objectContaining({ id: "t2", uninvoiced_freight: 0 }),
       expect.objectContaining({ id: "t3", uninvoiced_freight: 900 }),
     ]);
+  });
+
+  it("counts a trip whose carga is priced by tariff as pending", async () => {
+    vi.mocked(listTripsAction).mockResolvedValue({
+      ok: true,
+      data: [trip("t1", "completed", null)],
+    });
+    vi.mocked(listTripRevenueAction).mockResolvedValue({
+      ok: true,
+      data: [
+        // No freight until its liquidación is invoiced.
+        {
+          trip_id: "t1",
+          revenue: 0,
+          uninvoiced_freight: 0,
+          uninvoiced_shipments: 2,
+        },
+      ],
+    });
+    const res = await runTrips(OPERATIONS);
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.summary).toContain(
+      "2 carga(s) sin facturar en 1 viaje(s) (sin flete calculado todavía;",
+    );
   });
 
   it("gives no revenue total without shipments:read", async () => {
@@ -260,6 +311,7 @@ describe("runFleetProfitability", () => {
       data: {
         trips: [],
         vehicles: [],
+        without_vehicle: null,
         totals: {
           revenue: 1000,
           invoiced_revenue: 700,
@@ -268,6 +320,8 @@ describe("runFleetProfitability", () => {
           net: 600,
           uninvoiced_freight: 0,
           pending_invoicing_trips: 0,
+          uninvoiced_shipments: 0,
+          maintenance_without_cost: 0,
         },
         unvouchered: {
           fuel_count: 0,
@@ -297,6 +351,7 @@ describe("runFleetProfitability", () => {
       data: {
         trips: [],
         vehicles: [],
+        without_vehicle: null,
         totals: {
           revenue: 0,
           invoiced_revenue: 0,
@@ -305,6 +360,8 @@ describe("runFleetProfitability", () => {
           net: -400,
           uninvoiced_freight: 1500,
           pending_invoicing_trips: 2,
+          uninvoiced_shipments: 3,
+          maintenance_without_cost: 0,
         },
         unvouchered: {
           fuel_count: 0,
@@ -321,8 +378,55 @@ describe("runFleetProfitability", () => {
     expect(res.ok).toBe(true);
     if (res.ok) {
       expect(res.summary).toContain(
-        "Flete sin facturar $1.500 en 2 viaje(s): no está en los ingresos, así que esos netos no son definitivos",
+        "3 carga(s) sin facturar en 2 viaje(s) (flete $1.500; una carga por tarifa no tiene flete hasta facturarse): no está en los ingresos, así que esos netos no son definitivos",
       );
     }
+  });
+
+  it("says the trips without a vehicle and the services without cost are in the totals", async () => {
+    vi.mocked(getFleetProfitabilityAction).mockResolvedValue({
+      ok: true,
+      data: {
+        trips: [],
+        vehicles: [],
+        without_vehicle: {
+          trips: 2,
+          revenue: 500,
+          invoiced_revenue: 500,
+          uninvoiced_freight: 0,
+          uninvoiced_shipments: 0,
+          manual_revenue: 0,
+          trip_cost: 400,
+          net: 100,
+        },
+        totals: {
+          revenue: 500,
+          invoiced_revenue: 500,
+          manual_revenue: 0,
+          cost: 400,
+          net: 100,
+          uninvoiced_freight: 0,
+          pending_invoicing_trips: 0,
+          uninvoiced_shipments: 0,
+          maintenance_without_cost: 1,
+        },
+        unvouchered: {
+          fuel_count: 0,
+          fuel_amount: 0,
+          maintenance_count: 0,
+          maintenance_cost: 0,
+        },
+      },
+    });
+    const res = await runFleetProfitability({
+      periodStart: "2026-01-01",
+      periodEnd: "2026-01-31",
+    });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.summary).toContain(
+      "(+ 2 trip(s) without a vehicle, in the totals)",
+    );
+    expect(res.summary).toContain("1 service(s) sin costo cargado");
   });
 });

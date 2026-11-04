@@ -103,6 +103,10 @@ function margin(
     total_net: 0,
     uninvoiced_freight: 0,
     total_uninvoiced_freight: 0,
+    uninvoiced_shipments: 0,
+    total_uninvoiced_shipments: 0,
+    maintenance_without_cost: 0,
+    total_maintenance_without_cost: 0,
     ...v,
   };
 }
@@ -148,6 +152,7 @@ function vehicleMargin(v: Partial<VehicleMarginRow>): VehicleMarginRow {
     tripCost: 0,
     fuelCost: 0,
     maintenanceCost: 0,
+    maintenanceWithoutCost: 0,
     centerCost: 0,
     net: 0,
     marginPct: null,
@@ -511,16 +516,29 @@ describe("getVehicleEconomics", () => {
           net: 3400,
           uninvoiced_freight: 800,
           total_uninvoiced_freight: 800,
+          uninvoiced_shipments: 2,
+          total_uninvoiced_shipments: 2,
+          maintenance_without_cost: 1,
+          total_maintenance_without_cost: 1,
         }),
+        // The trips without a vehicle: not a vehicle row.
+        margin("none", "Sin vehículo", { revenue: 100, net: 100 }),
       ],
     });
     const { data, meta } = okData(
       await getVehicleEconomics.execute(ctx(["operations"]), RANGE),
     );
     expect(data.rows[0]).toEqual(
-      expect.objectContaining({ uninvoiced_freight_ars: 800, net_ars: 3400 }),
+      expect.objectContaining({
+        uninvoiced_freight_ars: 800,
+        uninvoiced_shipments: 2,
+        maintenance_without_cost: 1,
+        net_ars: 3400,
+      }),
     );
-    expect(meta.note).toContain("Flete sin facturar $800");
+    expect(data.rows.map((r) => r.vehicle_id)).not.toContain("none");
+    expect(meta.note).toContain("2 carga(s) sin facturar (flete $800;");
+    expect(meta.note).toContain("1 service(s) sin costo cargado");
   });
 
   it("adds the cost of the truck's cost center with management:read, and keeps the rest apart", async () => {

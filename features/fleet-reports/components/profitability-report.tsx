@@ -19,8 +19,25 @@ import { todayInAR } from "@/lib/format";
 import { useFleetProfitability } from "../hooks/use-fleet-reports";
 
 const money = (n: number) => `$${Math.round(n).toLocaleString("es-AR")}`;
-const netClass = (n: number) =>
-  cn("text-right font-mono tabular-nums", n < 0 && "text-destructive");
+
+/** A net with cargas still to invoice is not final: not shown as a loss. */
+function NetCell({ net, pending }: { net: number; pending: boolean }) {
+  return (
+    <TableCell
+      className={cn(
+        "text-right font-mono tabular-nums",
+        net < 0 && !pending && "text-destructive",
+      )}
+    >
+      {money(net)}
+      {pending && (
+        <span className="text-muted-foreground block font-sans text-xs">
+          pendiente de facturar
+        </span>
+      )}
+    </TableCell>
+  );
+}
 
 function monthStart(): string {
   const d = new Date();
@@ -48,7 +65,7 @@ export function ProfitabilityReport() {
           Ingresos menos costos (viaje, combustible, mantenimiento) por vehículo
           y por viaje en el rango. El ingreso de un viaje con cargas es el flete
           facturado de esas cargas; sin cargas, el ingreso cargado a mano en el
-          viaje.
+          viaje. Los totales incluyen los viajes sin vehículo.
         </p>
       </div>
 
@@ -90,12 +107,25 @@ export function ProfitabilityReport() {
               <span
                 className={cn(
                   "font-mono font-semibold",
-                  data.totals.net < 0 ? "text-destructive" : "text-foreground",
+                  data.totals.net < 0 &&
+                    data.totals.pending_invoicing_trips === 0
+                    ? "text-destructive"
+                    : "text-foreground",
                 )}
               >
                 {money(data.totals.net)}
               </span>
             </div>
+            {data.totals.pending_invoicing_trips > 0 && (
+              <div className="text-xs">
+                {data.totals.pending_invoicing_trips} viaje(s) con{" "}
+                {data.totals.uninvoiced_shipments} carga(s) sin facturar
+                {data.totals.uninvoiced_freight > 0
+                  ? ` (flete ${money(data.totals.uninvoiced_freight)})`
+                  : ""}
+                : no están en los ingresos, así que el neto no es definitivo.
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -122,7 +152,7 @@ export function ProfitabilityReport() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {data.vehicles.length === 0 ? (
+                  {data.vehicles.length === 0 && !data.without_vehicle ? (
                     <TableRow>
                       <TableCell
                         colSpan={9}
@@ -158,15 +188,47 @@ export function ProfitabilityReport() {
                         <TableCell className="text-right font-mono tabular-nums">
                           {money(v.trip_cost)}
                         </TableCell>
-                        <TableCell className={netClass(v.net)}>
-                          {money(v.net)}
-                        </TableCell>
+                        <NetCell
+                          net={v.net}
+                          pending={v.uninvoiced_shipments > 0}
+                        />
                       </TableRow>
                     ))
+                  )}
+                  {data.without_vehicle && (
+                    <TableRow className="text-muted-foreground">
+                      <TableCell className="text-xs">Sin vehículo</TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {data.without_vehicle.trips}
+                      </TableCell>
+                      <TableCell className="text-right font-mono tabular-nums">
+                        {money(data.without_vehicle.revenue)}
+                      </TableCell>
+                      <TableCell className="text-right font-mono tabular-nums">
+                        {money(data.without_vehicle.invoiced_revenue)}
+                      </TableCell>
+                      <TableCell className="text-right font-mono tabular-nums">
+                        {money(data.without_vehicle.manual_revenue)}
+                      </TableCell>
+                      <TableCell colSpan={2} />
+                      <TableCell className="text-right font-mono tabular-nums">
+                        {money(data.without_vehicle.trip_cost)}
+                      </TableCell>
+                      <NetCell
+                        net={data.without_vehicle.net}
+                        pending={data.without_vehicle.uninvoiced_shipments > 0}
+                      />
+                    </TableRow>
                   )}
                 </TableBody>
               </Table>
             </div>
+            {data.totals.maintenance_without_cost > 0 && (
+              <p className="text-muted-foreground text-xs">
+                {data.totals.maintenance_without_cost} mantenimiento(s) sin
+                costo cargado: no están en «Mant.» ni en el neto.
+              </p>
+            )}
           </section>
 
           <section className="space-y-2">
@@ -260,9 +322,10 @@ export function ProfitabilityReport() {
                         <TableCell className="text-right font-mono tabular-nums">
                           {money(t.fuel_cost)}
                         </TableCell>
-                        <TableCell className={netClass(t.net)}>
-                          {money(t.net)}
-                        </TableCell>
+                        <NetCell
+                          net={t.net}
+                          pending={t.uninvoiced_shipments > 0}
+                        />
                       </TableRow>
                     ))
                   )}
