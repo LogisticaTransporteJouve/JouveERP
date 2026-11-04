@@ -632,6 +632,57 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
     todo por nombre e ignora las columnas nuevas; con el grupo `none`,
     `getVehicleEconomics` del código anterior lo listaría como un vehículo
     más llamado «Sin vehículo» (cosmético; el resto lo ignora por id).
+- [ ] **Aprobar `20261104190100`** (auditoría w11, RRHH). No toca filas
+      existentes ni cambia políticas RLS.
+      `enforce_payroll_period_immutability` pasa a `SECURITY DEFINER`:
+      solo owner o admin (o el service role) sacan un período de
+      `closed`, y una entry o un extra no se pasan de un período cerrado a
+      otro. Rollback: el código anterior reabre solo por la action con
+      `hr:admin` (owner/admin) y nunca mueve entries ni extras.
+  - Con este deploy, la importación de ventas de ARCA vincula una NC sin
+    `CbtesAsoc` solo a una factura de su moneda a la que le queda lugar, y
+    no trae comprobantes en otra moneda que pesos o dólares
+    (`lib/afip/sync-issued.ts`, sin migración; un rollback vuelve a vincular
+    por total sin mirar lugar ni moneda). Producción tiene ventas y
+    NC reales importadas de ARCA, y el cambio no las toca. Antes de
+    promover, correr esta consulta de solo lectura (válida sobre el
+    esquema de `20261102170000`). Lista cada NC de una factura cuyas NC
+    suman más que su total, y cada NC vinculada por total a una factura de
+    otra moneda. Lo que salga lo decide el dueño:
+    `docs/pendientes/2026-11-04-fiscal-nc-por-total-y-liquidaciones-auditoria-w11.md`.
+
+    ```sql
+    with credited as (
+      select n.invoice_origin_id as factura_id,
+             sum(n.imp_total) as nc_total,
+             count(*) as nc_count
+        from public.invoices n
+       where n.kind = 'nc'
+         and n.invoice_origin_id is not null
+         and n.status in ('draft', 'emitting', 'emitted')
+       group by n.invoice_origin_id
+    )
+    select f.id as factura_id, f.punto_venta, f.cbte_tipo_afip as factura_tipo,
+           f.numero as factura_numero, f.fecha as factura_fecha,
+           f.moneda as factura_moneda, f.imp_total as factura_total,
+           c.nc_total, c.nc_count,
+           n.id as nc_id, n.cbte_tipo_afip as nc_tipo, n.numero as nc_numero,
+           n.fecha as nc_fecha, n.moneda as nc_moneda, n.imp_total as nc_imp_total,
+           (n.idempotency_key like 'arca-sync-%'
+              and n.cbte_tipo_origen_afip is null) as vinculada_por_total,
+           c.nc_total > f.imp_total + 0.01 as factura_acreditada_de_mas,
+           n.moneda <> f.moneda as otra_moneda
+      from public.invoices n
+      join public.invoices f on f.id = n.invoice_origin_id
+      join credited c on c.factura_id = f.id
+     where n.kind = 'nc'
+       and n.status in ('draft', 'emitting', 'emitted')
+       and (c.nc_total > f.imp_total + 0.01
+            or (n.idempotency_key like 'arca-sync-%'
+                and n.cbte_tipo_origen_afip is null
+                and n.moneda <> f.moneda))
+     order by f.fecha, f.id, n.fecha, n.numero;
+    ```
 
 ## Después de promover
 
