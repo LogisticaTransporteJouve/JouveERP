@@ -382,6 +382,27 @@ mitigación en el schema: el límite se respeta operando.
 
 ---
 
+## Saldos de apertura con centavos (2026-11-04, auditoría w4)
+
+- [x] Ajustar saldo de clientes, proveedores y cuentas (Caja/banco): el campo
+      usa `MoneyInput` y se precarga en es-AR ("1.234,56"). Antes mostraba
+      "1234.56" y guardar sin tocar nada fijaba un saldo 100 veces mayor
+      (123.456). El de cuentas acepta negativo (`allowNegative`); el de
+      clientes y proveedores muestra el signo y rechaza el negativo en vez de
+      guardarlo positivo.
+- [ ] Mismo error con otro parser (no `parseArAmount`): el formulario manda
+      un texto con punto decimal y el server lo lee en es-AR, así que
+      "1234.56" se guarda 123456. Editar movimiento
+      (`features/transactions/components/edit-transaction-dialog.tsx`,
+      `moneyAmountPreprocess`), saldo inicial al crear o editar una cuenta
+      (`features/accounts/components/account-form.tsx`,
+      `openingBalancePreprocess`) y cheque emitido
+      (`features/issued-checks/components/issued-check-form.tsx`,
+      `positiveAmount` del schema). Arreglo mínimo: mandar
+      `Number(values.amount)`, o pasar el campo a `MoneyInput`.
+- [ ] Sin migraciones. Rollback: el código anterior vuelve al campo sin
+      formato; los saldos ya guardados no cambian.
+
 ## Recibidos de ARCA (2026-11-04)
 
 - [x] Bandeja de Mis Comprobantes → Recibidos: subir el archivo, aceptar

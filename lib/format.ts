@@ -100,6 +100,19 @@ export function formatAmountInput(raw: string, decimals = 2): string {
   return decPart === null ? grouped : `${grouped},${decPart}`;
 }
 
+/** `formatAmountInput` that keeps a leading minus ("-1500,5" → "-1.500,5"),
+ *  for amounts that can be negative, such as an account balance. */
+export function formatSignedAmountInput(raw: string, decimals = 2): string {
+  const sign = raw.trimStart().startsWith("-") ? "-" : "";
+  return sign + formatAmountInput(raw, decimals);
+}
+
+/** `amountToInput` that keeps the sign (-1234.56 → "-1.234,56"):
+ *  `amountToInput` drops it, which would save a negative balance as positive. */
+export function signedAmountToInput(value: number, decimals = 2): string {
+  return (value < 0 ? "-" : "") + amountToInput(Math.abs(value), decimals);
+}
+
 // Centralized money formatters (previously replicated across 23 files).
 // Always use these helpers instead of building `Intl.NumberFormat` inline.
 

@@ -1,9 +1,10 @@
 "use client";
 
 import { Pencil, Wallet } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { toast } from "sonner";
 
+import { MoneyInput } from "@/components/money-input";
 import { useConfirm } from "@/components/providers/confirm-provider";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,7 +16,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { DatePicker } from "@/components/ui/date-picker";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -26,7 +26,11 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { todayIsoLocal as todayIso } from "@/lib/date-range";
-import { formatNumber2, parseArAmount } from "@/lib/format";
+import {
+  formatNumber2,
+  parseArAmount,
+  signedAmountToInput,
+} from "@/lib/format";
 
 import {
   useAccountOpeningBalance,
@@ -65,6 +69,7 @@ export function AccountOpeningBalanceDialog({
 
   const [adjustmentDate, setAdjustmentDate] = useState(todayIso());
   const [targetRaw, setTargetRaw] = useState("");
+  const targetId = useId();
   const [channelId, setChannelId] = useState("");
   const [notes, setNotes] = useState("");
 
@@ -72,7 +77,7 @@ export function AccountOpeningBalanceDialog({
     if (!open) return;
     if (existing) {
       setAdjustmentDate(existing.adjustment_date);
-      setTargetRaw(String(existing.target_balance));
+      setTargetRaw(signedAmountToInput(existing.target_balance));
       setChannelId(existing.channel_id ?? "");
       setNotes(existing.notes ?? "");
     } else {
@@ -164,14 +169,15 @@ export function AccountOpeningBalanceDialog({
               <DatePicker value={adjustmentDate} onChange={setAdjustmentDate} />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">
+              <Label htmlFor={targetId} className="text-xs">
                 Saldo real al corte ({currency})
               </Label>
-              <Input
-                inputMode="decimal"
+              <MoneyInput
+                id={targetId}
+                allowNegative
                 placeholder="0,00"
                 value={targetRaw}
-                onChange={(e) => setTargetRaw(e.target.value)}
+                onChange={setTargetRaw}
               />
             </div>
           </div>
