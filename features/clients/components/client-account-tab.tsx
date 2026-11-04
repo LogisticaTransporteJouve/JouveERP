@@ -37,8 +37,9 @@ import { NewInvoiceDialog } from "@/features/invoices/components/new-invoice-dia
 import { PdfViewerDialog } from "@/features/invoices/components/pdf-viewer-dialog";
 import { NewReceiptDialog } from "@/features/receipts/components/new-receipt-dialog";
 import type { ChannelOption } from "@/features/receipts/components/receipt-form";
+import { RECEIPT_FORM_PERMISSIONS } from "@/features/receipts/lib/receipt-form";
 import type { Access } from "@/lib/auth/permissions";
-import { userCan } from "@/lib/auth/permissions";
+import { userCan, userCanAll } from "@/lib/auth/permissions";
 import { formatArgentineDate } from "@/lib/format";
 import { SCOPE_LABEL } from "@/lib/scope";
 
@@ -124,7 +125,7 @@ export function ClientAccountTab({
   const { runningBalance } = data;
   const fiscalFilter = usePageScope();
   const canIssueInvoice = userCan(actorAccess, "invoices:issue");
-  const canWriteReceipt = userCan(actorAccess, "receipts:write");
+  const canWriteReceipt = userCanAll(actorAccess, RECEIPT_FORM_PERMISSIONS);
   // Only the owner can touch the balance adjustment (the backend actions
   // check the same thing). For the other roles we show the buttons
   // disabled with a tooltip that explains the restriction.

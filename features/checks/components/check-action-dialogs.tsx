@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { todayInAR } from "@/lib/format";
+import { AccountOptionsError } from "@/features/accounts/components/account-options-gate";
 import {
   useAccountOptions,
   useAccountsList,
@@ -319,7 +320,11 @@ export function RejectChequeDialog({
   const rejectMut = useRejectCheque();
   const debtMut = useRejectSoldCheckAsDebt();
   const pending = rejectMut.isPending || debtMut.isPending;
-  const { accounts } = useAccountOptions(canPickAccount);
+  const {
+    accounts,
+    error: accountsError,
+    retry: retryAccounts,
+  } = useAccountOptions(canPickAccount);
   const repayAccounts = accounts.filter(
     (a) =>
       a.is_active &&
@@ -424,6 +429,13 @@ export function RejectChequeDialog({
                   ))}
                 </SelectContent>
               </Select>
+              {canPickAccount && accountsError && (
+                <AccountOptionsError
+                  message={accountsError}
+                  onRetry={retryAccounts}
+                  className="justify-start text-xs"
+                />
+              )}
             </div>
           )}
           <div className="space-y-1">

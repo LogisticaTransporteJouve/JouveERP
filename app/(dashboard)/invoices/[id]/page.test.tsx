@@ -272,6 +272,14 @@ describe("invoice detail — Cobrar", () => {
     await renderPage();
     expect(screen.queryByText(/stub-cobrar/)).toBeNull();
   });
+
+  it("hides Cobrar when accounts:read is denied, since its lines pick an account", async () => {
+    h.access = resolveAccess(["finance"], ["accounts:read"]);
+    h.detail = base(true);
+    h.pending = [{ id: "fac-1", document_type: "invoice", outstanding: 60.5 }];
+    await renderPage();
+    expect(screen.queryByText(/stub-cobrar/)).toBeNull();
+  });
 });
 
 describe("invoice detail — Historial", () => {

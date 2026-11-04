@@ -36,6 +36,7 @@ import { totalsByBucket } from "@/lib/list-totals";
 
 import type { Account } from "@/features/accounts/schema";
 import { useAccountOptions } from "@/features/accounts/hooks/use-accounts";
+import { AccountOptionsError } from "@/features/accounts/components/account-options-gate";
 import { agingKeys } from "@/features/aging/lib/aging-keys";
 
 import {
@@ -208,9 +209,15 @@ export function ReceiptsTable({
   actorAccess: Access;
   initialParams: ReceiptListParams;
 }) {
-  // A per-user deny of accounts:read hides what picks an account, not the list.
-  const canPickAccount = userCan(actorAccess, "accounts:read");
-  const { accounts } = useAccountOptions(canPickAccount);
+  // A per-user deny of accounts:read hides what picks an account, not the list;
+  // so does a failed read, which says so with a retry.
+  const canReadAccounts = userCan(actorAccess, "accounts:read");
+  const {
+    accounts,
+    error: accountsError,
+    retry: retryAccounts,
+  } = useAccountOptions(canReadAccounts);
+  const canPickAccount = canReadAccounts && accountsError === null;
   const canWrite = userCan(actorAccess, "receipts:write");
   const canSendEmail = userCan(actorAccess, "email:send");
   const canEditRetentions = userCan(actorAccess, "retentions:write");
@@ -272,6 +279,12 @@ export function ReceiptsTable({
               onChange={(next) => update({ group: next })}
             />
             <ExportButton resource="receipts" />
+            {canWrite && canReadAccounts && accountsError && (
+              <AccountOptionsError
+                message={accountsError}
+                onRetry={retryAccounts}
+              />
+            )}
             {canWrite && canPickAccount && (
               <NewReceiptDialog
                 channels={channels}

@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchSignedUrl } from "@/features/files/hooks/use-attachments";
+import type { Access } from "@/lib/auth/permissions";
 
 import { useExtraction } from "../hooks/use-documents";
 import {
@@ -101,9 +102,11 @@ type PreviewState = {
  */
 export function ReviewSheet({
   extractionId,
+  access,
   onOpenChange,
 }: {
   extractionId: string | null;
+  access: Access;
   onOpenChange: (open: boolean) => void;
 }) {
   const detail = useExtraction(extractionId);
@@ -274,6 +277,7 @@ export function ReviewSheet({
             <DocumentDetail payload={data.payload} kind={kind} />
             <ReviewActions
               extraction={data}
+              access={access}
               onCreated={() => onOpenChange(false)}
               onNestedOpenChange={setNestedOpen}
             />

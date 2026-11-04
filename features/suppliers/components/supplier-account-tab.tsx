@@ -34,12 +34,13 @@ import {
 import type { Account } from "@/features/accounts/schema";
 import { NewPaymentOrderDialog } from "@/features/payment-orders/components/new-payment-order-dialog";
 import type { ChannelOption } from "@/features/payment-orders/components/payment-order-form";
+import { PAYMENT_ORDER_FORM_PERMISSIONS } from "@/features/payment-orders/lib/payment-order-form";
 import { NewPurchaseInvoiceDialog } from "@/features/purchase-invoices/components/new-purchase-invoice-dialog";
 import type { PickedSupplier } from "@/features/suppliers/components/supplier-picker";
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime-invalidate";
 import type { Access } from "@/lib/auth/permissions";
-import { userCan } from "@/lib/auth/permissions";
+import { userCan, userCanAll } from "@/lib/auth/permissions";
 import { amountToInput, formatArgentineDate } from "@/lib/format";
 import { SCOPE_LABEL } from "@/lib/scope";
 
@@ -109,7 +110,7 @@ export function SupplierAccountTab({
       : ["ARS"];
   const { runningBalance } = data;
   const fiscalFilter = usePageScope();
-  const canWriteOP = userCan(actorAccess, "payment_orders:write");
+  const canWriteOP = userCanAll(actorAccess, PAYMENT_ORDER_FORM_PERMISSIONS);
   const canWritePI = userCan(actorAccess, "purchase_invoices:write");
   const canSetOpening = userCan(actorAccess, "opening_balances:write");
   const clearOpeningMut = useClearSupplierOpeningBalance();

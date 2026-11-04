@@ -90,6 +90,47 @@ describe("MoneyInput", () => {
     expect(input().value).toBe("15");
   });
 
+  // Edits `input()` to `value` with the caret at `caret`, as a keystroke
+  // in the middle of the text does.
+  function editAt(value: string, caret: number) {
+    const el = input();
+    Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      "value",
+    )?.set?.call(el, value);
+    el.setSelectionRange(caret, caret);
+    fireEvent.input(el);
+  }
+
+  it("keeps the caret on a mid-string edit of a grouped value", () => {
+    const onSave = vi.fn();
+    render(<Harness initial="1.234,56" onSave={onSave} />);
+    // Backspace on the "3": the dots drop, the caret stays after the "2".
+    editAt("1.24,56", 3);
+    expect(input().value).toBe("124,56");
+    expect(input().selectionStart).toBe(2);
+    // So the next "8" lands where the "3" was.
+    editAt("1284,56", 3);
+    expect(input().value).toBe("1284,56");
+    expect(input().selectionStart).toBe(3);
+    fireEvent.blur(input());
+    expect(input().value).toBe("1.284,56");
+    fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
+    expect(onSave).toHaveBeenCalledWith(1284.56);
+  });
+
+  it("keeps the caret when a digit is inserted in a grouped value", () => {
+    render(<Harness initial="1.234,56" onSave={vi.fn()} />);
+    editAt("10.234,56", 2);
+    expect(input().value).toBe("10234,56");
+    expect(input().selectionStart).toBe(2);
+  });
+
+  it("reads 0.125 as a decimal, not 125", () => {
+    // Blur keeps the field's 2 decimals.
+    expect(typeAndSave("0.125")).toBe(0.12);
+  });
+
   it("drops a minus unless allowNegative", () => {
     render(<MoneyInput aria-label="A" value="" onChange={onA} />);
     render(<MoneyInput aria-label="B" value="" onChange={onB} allowNegative />);

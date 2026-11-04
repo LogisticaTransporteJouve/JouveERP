@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { listPendingInvoicesForSupplierAction } from "@/features/payment-orders/actions/payment-orders-actions";
 import { PayDialog } from "@/features/payment-orders/components/pay-dialog";
+import { PAYMENT_ORDER_FORM_PERMISSIONS } from "@/features/payment-orders/lib/payment-order-form";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -31,7 +32,7 @@ import {
 } from "@/features/purchase-invoices/schema";
 import { formatPaymentOrderNumber } from "@/features/payment-orders/schema";
 import { requireUserContext } from "@/lib/auth/context";
-import { userCan } from "@/lib/auth/permissions";
+import { userCan, userCanAll } from "@/lib/auth/permissions";
 import {
   amountToInput,
   formatArgentineDate,
@@ -95,7 +96,7 @@ export default async function PurchaseInvoiceDetailPage({
     !isCancelled &&
     channelRow &&
     (invoice.kind === "factura" || invoice.kind === "nd") &&
-    userCan(ctx.access, "payment_orders:write")
+    userCanAll(ctx.access, PAYMENT_ORDER_FORM_PERMISSIONS)
   ) {
     const pendingRes = await listPendingInvoicesForSupplierAction(
       invoice.supplier_id,
