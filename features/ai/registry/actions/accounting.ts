@@ -248,7 +248,7 @@ export const getLibroIvaCompras = defineAiAction({
     "VAT Purchases book (RG 1361) for a YYYY-MM period, fiscal channels only: " +
     "`rows` (one per purchase invoice × rate) and `totals`, whose `iva` is " +
     "the period's input VAT (IVA crédito); `neto` is the discriminated net " +
-    "(A purchases' alícuotas) only, and `sin_discriminar` comes apart: the " +
+    "(the alícuota buckets) only, and `sin_discriminar` comes apart: the " +
     "B/C purchases' amount with their IVA inside, never net. imp_trib is the sum of perc_iva " +
     "(IVA perceptions), perc_iibb, perc_nacionales (Ganancias and other " +
     "national taxes, not IVA), perc_municipales and impuestos_internos. " +
