@@ -160,13 +160,22 @@ export const InstallmentSplitSchema = z.object({
   other: splitPart,
 });
 
+export const INSTALLMENT_ZERO_ERROR =
+  "El monto de la cuota tiene que ser mayor a 0.";
+
+// A cuota of $0 drops out of the schedule: neither the amount nor a split
+// summing to 0 is a valid edit.
 export const UpdateInstallmentSchema = z.object({
   id: z.string().uuid(),
-  amount: z.coerce.number().min(0, "No puede ser negativo.").optional(),
+  amount: z.coerce.number().positive(INSTALLMENT_ZERO_ERROR).optional(),
   due_date: dateStr.optional(),
   notes: optionalText(500),
   /** A split sets the amount to its sum; null removes the split. */
-  split: InstallmentSplitSchema.nullable().optional(),
+  split: InstallmentSplitSchema.refine((s) => splitTotal(s) > 0, {
+    message: INSTALLMENT_ZERO_ERROR,
+  })
+    .nullable()
+    .optional(),
 });
 
 export const AdoptInstallmentPaymentSchema = z.object({

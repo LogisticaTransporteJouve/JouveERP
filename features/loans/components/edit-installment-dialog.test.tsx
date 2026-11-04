@@ -65,4 +65,66 @@ describe("EditInstallmentDialog", () => {
       amount: 1800,
     });
   });
+
+  // w7-s6 F3: the split path and an explicit 0 do not save a $0 cuota either.
+  it("refuses an amount of 0", () => {
+    render(
+      <EditInstallmentDialog installment={installment} onClose={() => {}} />,
+    );
+    fireEvent.change(amountInput(), { target: { value: "0" } });
+    fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
+    expect(mutate).not.toHaveBeenCalled();
+    expect(toastError).toHaveBeenCalledWith(
+      "El monto de la cuota tiene que ser mayor a 0.",
+    );
+  });
+
+  it("refuses a blank amount split into blank parts", () => {
+    render(
+      <EditInstallmentDialog installment={installment} onClose={() => {}} />,
+    );
+    fireEvent.change(amountInput(), { target: { value: "" } });
+    fireEvent.click(screen.getByLabelText(/Desglosar/));
+    expect(screen.getByLabelText("Capital")).toHaveProperty("value", "");
+    for (const label of ["Interés", "IVA", "Percepción", /Otros cargos/]) {
+      fireEvent.change(screen.getByLabelText(label), { target: { value: "" } });
+    }
+    fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
+    expect(mutate).not.toHaveBeenCalled();
+    expect(toastError).toHaveBeenCalledWith("Monto requerido.");
+  });
+
+  it("refuses a split that sums to 0", () => {
+    render(
+      <EditInstallmentDialog installment={installment} onClose={() => {}} />,
+    );
+    fireEvent.click(screen.getByLabelText(/Desglosar/));
+    fireEvent.change(screen.getByLabelText("Capital"), {
+      target: { value: "0" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
+    expect(mutate).not.toHaveBeenCalled();
+    expect(toastError).toHaveBeenCalledWith(
+      "El monto de la cuota tiene que ser mayor a 0.",
+    );
+  });
+
+  it("saves a positive split", () => {
+    render(
+      <EditInstallmentDialog installment={installment} onClose={() => {}} />,
+    );
+    fireEvent.click(screen.getByLabelText(/Desglosar/));
+    fireEvent.change(screen.getByLabelText("Capital"), {
+      target: { value: "1000" },
+    });
+    fireEvent.change(screen.getByLabelText("Interés"), {
+      target: { value: "200" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
+    expect(mutate).toHaveBeenCalledTimes(1);
+    expect(mutate.mock.calls[0]?.[0]).toMatchObject({
+      id: installment.id,
+      split: { capital: 1000, interest: 200 },
+    });
+  });
 });

@@ -185,12 +185,19 @@ select throws_ok(
   'a fiscal check cannot be endorsed in an internal payment order'
 );
 
+-- The payment order was inserted by hand above, so its line is too: only
+-- create_payment_order / update_payment_order write it (guard_document_line),
+-- and the channel trigger still runs.
+reset role;
+alter table public.payment_order_payment_lines disable trigger payment_order_payment_lines_guard_rpc;
 select lives_ok(
   $$insert into public.payment_order_payment_lines (payment_order_id, account_id, amount, endorsed_check_id)
     values ('00000000-0000-0000-0000-0000000007a1', '00000000-0000-0000-0000-00000000a001', 50,
             '00000000-0000-0000-0000-0000000008b2')$$,
   'a check without channel can be endorsed'
 );
+alter table public.payment_order_payment_lines enable trigger payment_order_payment_lines_guard_rpc;
+set local role authenticated;
 
 select is(
   (select channel_id from public.checks where id = '00000000-0000-0000-0000-0000000008b2'),

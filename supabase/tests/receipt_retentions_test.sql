@@ -22,6 +22,11 @@ select set_config('request.jwt.claims',
 insert into public.receipts (id, channel_id, punto_venta, numero, client_id, receipt_date, total_amount, currency)
 values ('00000000-0000-0000-0000-0000000006f1', 'jouve_fiscal', 3, 9001,
         '00000000-0000-0000-0000-00000000c101', current_date, 1000, 'ARS');
+-- The receipt was inserted by hand above, so its lines and retentions are
+-- too: only create_receipt / update_receipt write them (guard_document_line).
+reset role;
+alter table public.receipt_payment_lines disable trigger receipt_payment_lines_guard_rpc;
+alter table public.receipt_retentions disable trigger receipt_retentions_guard_rpc;
 insert into public.receipt_payment_lines (receipt_id, account_id, amount) values
   ('00000000-0000-0000-0000-0000000006f1', '00000000-0000-0000-0000-00000000a101', 900);
 insert into public.receipt_retentions
@@ -29,6 +34,9 @@ insert into public.receipt_retentions
 values
   ('00000000-0000-0000-0000-0000000006f1', 'retencion', 'ganancias', 'C-1', current_date, 70),
   ('00000000-0000-0000-0000-0000000006f1', 'percepcion', 'iibb', 'C-2', current_date, 30);
+alter table public.receipt_payment_lines enable trigger receipt_payment_lines_guard_rpc;
+alter table public.receipt_retentions enable trigger receipt_retentions_guard_rpc;
+set local role authenticated;
 
 select lives_ok(
   'set constraints all immediate',

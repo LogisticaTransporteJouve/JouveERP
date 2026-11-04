@@ -39,12 +39,18 @@ const valid = {
   channel_id: "jouve_internal",
 };
 
+function respondWithCartera(type: string) {
+  return recordingSupabase((call) => {
+    if (call.table === "checks" && call.op === "insert") {
+      return { data: { id: "c1" }, error: null };
+    }
+    if (call.table === "accounts") return { data: { type }, error: null };
+    return { data: null, error: null };
+  });
+}
+
 beforeEach(() => {
-  fake = recordingSupabase((call) =>
-    call.table === "checks" && call.op === "insert"
-      ? { data: { id: "c1" }, error: null }
-      : { data: null, error: null },
-  );
+  fake = respondWithCartera("checks");
 });
 
 describe("createCheckAction", () => {
@@ -68,5 +74,24 @@ describe("createCheckAction", () => {
     expect(insert?.payload).not.toHaveProperty("source_receipt_id");
     expect(insert?.payload).not.toHaveProperty("source_payment_line_id");
     expect(insert?.payload).not.toHaveProperty("status");
+  });
+
+  it.each(["bank", "cash"])(
+    "refuses a %s account as the cartera, inserting nothing",
+    async (type) => {
+      fake = respondWithCartera(type);
+      const res = await createCheckAction(valid);
+      expect(res).toEqual({
+        ok: false,
+        error: "La cuenta de cartera no es válida.",
+      });
+      expect(fake.calls.some((c) => c.op === "insert")).toBe(false);
+    },
+  );
+
+  it("loads an echeq cartera", async () => {
+    fake = respondWithCartera("echeq");
+    const res = await createCheckAction(valid);
+    expect(res).toEqual({ ok: true, data: { id: "c1" } });
   });
 });
