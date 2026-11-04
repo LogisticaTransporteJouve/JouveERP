@@ -41,6 +41,9 @@ export interface DashboardTreasuryKpis {
   liquid_prev_eom: { ARS: number; USD: number };
   usd_rate: { rate: number; rate_date: string } | null;
   checks_now: number;
+  /** USD check carteras, kept apart from the ARS ones. */
+  checks_usd_now: number;
+  /** ARS checks only. */
   checks_due_soon: { count: number; amount: number };
 }
 

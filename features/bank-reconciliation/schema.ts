@@ -173,6 +173,10 @@ export type ReconciliationSummary = {
   /** Movements of the period no line explains. */
   unmatched_book_count: number;
   unmatched_book_total: number;
+  /** The part of unmatched_book_total dated on or before the statement
+   *  balance's date: the part the difference compares (all of it without a
+   *  statement balance). */
+  unmatched_book_total_at_statement: number;
 };
 
 export type MatchSuggestion = {

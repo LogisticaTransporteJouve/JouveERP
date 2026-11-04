@@ -164,6 +164,7 @@ export default async function DashboardPage() {
                 liquid_prev_eom: treasury.liquid_prev_eom,
                 usd_rate: treasury.usd_rate,
                 checks_now: treasury.checks_now,
+                checks_usd_now: treasury.checks_usd_now,
                 checks_due_soon: treasury.checks_due_soon,
               }
             : null

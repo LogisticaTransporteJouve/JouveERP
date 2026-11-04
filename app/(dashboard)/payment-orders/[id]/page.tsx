@@ -51,7 +51,12 @@ export default async function PaymentOrderDetailPage({
   const res = await getPaymentOrderByIdAction(id);
   if (!res.ok || !res.data) notFound();
 
-  const { paymentOrder, payment_lines, allocations } = res.data;
+  const {
+    paymentOrder,
+    payment_lines,
+    allocations,
+    rejected_check_allocations: checkAllocations,
+  } = res.data;
   const number = formatPaymentOrderNumber(
     paymentOrder.punto_venta,
     paymentOrder.numero,
@@ -59,10 +64,9 @@ export default async function PaymentOrderDetailPage({
   const isCancelled = paymentOrder.status === "canceled";
   const total = Number(paymentOrder.total_amount);
   const paySum = payment_lines.reduce((a, l) => a + Number(l.amount), 0);
-  const allocSum = allocations.reduce(
-    (a, x) => a + Number(x.amount_applied),
-    0,
-  );
+  const allocSum =
+    allocations.reduce((a, x) => a + Number(x.amount_applied), 0) +
+    checkAllocations.reduce((a, x) => a + x.amount_applied, 0);
   const aCuenta = total - allocSum;
 
   return (
@@ -248,7 +252,7 @@ export default async function PaymentOrderDetailPage({
         )}
       </div>
 
-      {allocations.length > 0 && (
+      {allocations.length + checkAllocations.length > 0 && (
         <div className="rounded-lg border bg-card p-4">
           <h2 className="text-sm font-medium">Imputaciones</h2>
           <dl className="mt-3 space-y-2 text-sm">
@@ -290,6 +294,17 @@ export default async function PaymentOrderDetailPage({
                 </div>
               );
             })}
+            {checkAllocations.map((a) => (
+              <div
+                key={a.id}
+                className="flex items-center justify-between border-b py-1 last:border-b-0"
+              >
+                <span className="font-medium">{a.label}</span>
+                <span className="font-mono">
+                  {money(a.amount_applied, paymentOrder.currency)}
+                </span>
+              </div>
+            ))}
           </dl>
         </div>
       )}

@@ -9,6 +9,10 @@ import type {
 import type { SupplierFullJoin } from "@/features/suppliers/schema";
 import { round2 } from "@/lib/format";
 import { getServiceClient } from "@/lib/supabase/service";
+import {
+  REJECTED_CHECK_ALLOCATION_SELECT,
+  toRejectedCheckAllocation,
+} from "@/features/payment-orders/schema";
 import { formatInvoiceNumber } from "@/features/purchase-invoices/schema";
 import { loadEmisor, redactEmisor } from "@/lib/pdf/emisor";
 import {
@@ -59,8 +63,9 @@ export async function buildPaymentOrderTemplateData(
     }),
   });
 
-  // Children: payment_lines + allocations. No withholdings (K.4 dropped).
-  const [linesRes, allocsRes] = await Promise.all([
+  // Children: payment_lines, allocations to invoices and to bounced checks.
+  // No withholdings (K.4 dropped).
+  const [linesRes, allocsRes, checkAllocsRes] = await Promise.all([
     supabase
       .from("payment_order_payment_lines")
       .select("amount, reference, account_id, account:accounts(name, type)")
@@ -73,9 +78,14 @@ export async function buildPaymentOrderTemplateData(
       )
       .eq("payment_order_id", paymentOrderId)
       .order("created_at"),
+    supabase
+      .from("payment_order_rejected_check_allocations")
+      .select(REJECTED_CHECK_ALLOCATION_SELECT)
+      .eq("payment_order_id", paymentOrderId)
+      .order("created_at"),
   ]);
 
-  if (linesRes.error || allocsRes.error) {
+  if (linesRes.error || allocsRes.error || checkAllocsRes.error) {
     throw new Error("payment-order-pdf: failed to load children");
   }
 
@@ -100,6 +110,14 @@ export async function buildPaymentOrderTemplateData(
       amount_applied: Number(a.amount_applied),
     };
   });
+  for (const row of checkAllocsRes.data ?? []) {
+    const a = toRejectedCheckAllocation(row);
+    allocations.push({
+      invoice_label: a.label,
+      invoice_date: "",
+      amount_applied: a.amount_applied,
+    });
+  }
 
   const paymentSum = payment_lines.reduce((acc, l) => acc + l.amount, 0);
   const allocatedSum = allocations.reduce(
