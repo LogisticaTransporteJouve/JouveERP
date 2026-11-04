@@ -33,5 +33,8 @@ export interface StorageBillingRun {
   handling_out_total: number;
   total: number;
   invoice_id: string | null;
+  channel_id: string | null;
+  /** Set while the run is a claim whose invoice is not linked yet. */
+  pending_since: string | null;
   created_at: string;
 }

@@ -13,6 +13,11 @@ const OVERLAP_MESSAGE =
   "Ese período ya fue facturado (total o parcialmente) para este cliente en este canal.";
 
 const issue = vi.fn();
+const audit = vi.fn();
+// What the relink audit reads after a claim that linked an orphan invoice.
+let linkedRuns: unknown[] = [];
+let runInvoices: unknown[] = [];
+let auditedInvoices: unknown[] = [];
 let claim: { data: unknown; error: unknown } = { data: RUN_ID, error: null };
 let pallets: unknown[] = [];
 let link: { data: unknown; error: unknown } = { data: null, error: null };
@@ -37,6 +42,15 @@ function respond(call: RecordedCall) {
     "invoice_id" in call.payload
   ) {
     return link;
+  }
+  if (call.table === "storage_billing_runs" && call.op === "select") {
+    return { data: linkedRuns, error: null };
+  }
+  if (call.table === "audit_events") {
+    return { data: auditedInvoices, error: null };
+  }
+  if (call.table === "invoices" && call.filters.some(([k]) => k === "in")) {
+    return { data: runInvoices, error: null };
   }
   if (call.table === "invoices") {
     return { data: { status: invoiceStatus }, error: null };
@@ -82,7 +96,9 @@ vi.mock("@/lib/supabase/service", () => ({
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => fake.client,
 }));
-vi.mock("@/lib/actions/audit", () => ({ logAudit: vi.fn() }));
+vi.mock("@/lib/actions/audit", () => ({
+  logAudit: (...args: unknown[]) => audit(...args),
+}));
 vi.mock("@/features/invoices/actions/invoices-actions", () => ({
   issueFiscalInvoiceAction: (input: unknown) => issue(input),
 }));
@@ -102,6 +118,10 @@ const runCalls = () =>
 
 beforeEach(() => {
   issue.mockReset();
+  audit.mockReset();
+  linkedRuns = [];
+  runInvoices = [];
+  auditedInvoices = [];
   issue.mockResolvedValue({ ok: true, data: { id: "inv1" } });
   claim = { data: RUN_ID, error: null };
   link = { data: null, error: null };
@@ -163,9 +183,65 @@ describe("invoiceStorageAction claim", () => {
     claim = { data: null, error: null };
     const res = await invoiceStorageAction(october);
     expect(res.ok).toBe(false);
-    if (!res.ok) expect(res.error).toMatch(/ya está facturado/);
+    if (!res.ok) {
+      expect(res.error).toMatch(/ya está facturado/);
+      expect(res.error).toMatch(/Ventas › Comprobantes/);
+      expect(res.error).not.toMatch(/historial/);
+    }
     expect(issue).not.toHaveBeenCalled();
-    expect(runCalls()).toHaveLength(0);
+    expect(runCalls().every((c) => c.op === "select")).toBe(true);
+  });
+
+  const relinked = {
+    id: RUN_ID,
+    invoice_id: "inv-orphan",
+    channel_id: "jouve_internal",
+    period_start: "2026-10-01",
+    period_end: "2026-10-31",
+    total: "310.00",
+  };
+
+  it("audits the invoice the claim relinked, marked relinked", async () => {
+    claim = { data: null, error: null };
+    linkedRuns = [
+      relinked,
+      // Another channel's run, and a run whose invoice has another key
+      // (linked normally by older code): not this claim's relink.
+      {
+        ...relinked,
+        id: "run-fiscal",
+        invoice_id: "inv-f",
+        channel_id: "jouve_fiscal",
+      },
+      { ...relinked, id: "run-old", invoice_id: "inv-old" },
+    ];
+    runInvoices = [
+      { id: "inv-orphan", idempotency_key: RUN_ID },
+      { id: "inv-f", idempotency_key: "run-fiscal" },
+      { id: "inv-old", idempotency_key: "random-key" },
+    ];
+    await invoiceStorageAction(october);
+    expect(audit).toHaveBeenCalledTimes(1);
+    expect(audit).toHaveBeenCalledWith(
+      "storage.invoiced",
+      "u1",
+      expect.objectContaining({
+        invoice_id: "inv-orphan",
+        client_id: CLIENT_ID,
+        total: 310,
+        relinked: true,
+      }),
+      "inv-orphan",
+    );
+  });
+
+  it("does not audit a relinked invoice twice", async () => {
+    claim = { data: null, error: null };
+    linkedRuns = [relinked];
+    runInvoices = [{ id: "inv-orphan", idempotency_key: RUN_ID }];
+    auditedInvoices = [{ target_resource_id: "inv-orphan" }];
+    await invoiceStorageAction(october);
+    expect(audit).not.toHaveBeenCalled();
   });
 
   it("frees the period when the link finds the invoice void", async () => {

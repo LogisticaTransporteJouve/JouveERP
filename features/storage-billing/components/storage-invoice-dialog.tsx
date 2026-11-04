@@ -25,8 +25,10 @@ import {
 } from "@/components/ui/select";
 
 import {
+  billedRuns,
   lastBilledEnd,
   overlapsBilled,
+  pendingRuns,
   suggestedStart,
   uncoveredGap,
 } from "../lib/continuity";
@@ -58,15 +60,23 @@ export function StorageInvoiceDialog({
   onClose: () => void;
 }) {
   const open = client !== null;
-  const clientRuns = client
-    ? runs.filter((r) => r.client_id === client.client_id)
-    : [];
-  const lastEnd = lastBilledEnd(clientRuns);
-
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
   const [channelId, setChannelId] = useState("");
   const [puntoVenta, setPuntoVenta] = useState("");
+
+  // Billed = linked to an invoice, as the claim decides it; a pending claim
+  // is left to the server (it refuses a fresh one and relinks or frees a
+  // stale one). Continuity looks at every channel, the overlap at the
+  // chosen one.
+  const clientRuns = client ? billedRuns(runs, client.client_id, null) : [];
+  const channelRuns = client
+    ? billedRuns(runs, client.client_id, channelId || null)
+    : [];
+  const clientPending = client
+    ? pendingRuns(runs, client.client_id, channelId || null)
+    : [];
+  const lastEnd = lastBilledEnd(clientRuns);
 
   const { data: channels } = useInvoicingChannels();
   const { data: posList } = useEnabledPos(channelId);
@@ -100,7 +110,11 @@ export function StorageInvoiceDialog({
 
   const gap = start ? uncoveredGap(clientRuns, start) : null;
   const overlaps =
-    start && end ? overlapsBilled(clientRuns, start, end) : false;
+    start && end ? overlapsBilled(channelRuns, start, end) : false;
+  const pendingOverlap =
+    start && end && !overlaps
+      ? overlapsBilled(clientPending, start, end)
+      : false;
   const validRange = Boolean(start) && Boolean(end) && end >= start;
 
   function onSubmit() {
@@ -185,7 +199,16 @@ export function StorageInvoiceDialog({
             <p className="flex items-start gap-2 rounded-md border border-dashed p-2 text-xs text-destructive">
               <AlertTriangle className="size-4 shrink-0" />
               Ese período ya fue facturado (total o parcialmente) para este
-              cliente.
+              cliente{channelId ? " en este canal" : ""}.
+            </p>
+          )}
+          {pendingOverlap && (
+            <p className="flex items-start gap-2 rounded-md border border-dashed p-2 text-xs text-muted-foreground">
+              <AlertTriangle className="size-4 shrink-0" />
+              Un intento anterior de facturar este período quedó sin registrar.
+              Pasados 15 minutos de ese intento, «Emitir factura» registra su
+              factura si se emitió, sin emitir otra; si falló o se anuló,
+              factura el período de nuevo.
             </p>
           )}
 
