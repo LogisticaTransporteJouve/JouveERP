@@ -10004,6 +10004,14 @@ export type Database = {
         Args: { p_invoice_id: string }
         Returns: number
       }
+      management_payment_order_shares: {
+        Args: { p_depth: number; p_payment_order_id: string }
+        Returns: {
+          f_employee: number
+          f_fleet: number
+          f_neutral: number
+        }[]
+      }
       management_pnl_lines: {
         Args: { p_basis: string; p_from: string; p_to: string }
         Returns: {

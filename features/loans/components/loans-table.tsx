@@ -29,8 +29,11 @@ import { LoanDialog } from "./loan-dialog";
 
 export function LoansTable({
   channelOptions,
+  canWrite,
 }: {
   channelOptions: { id: string; name: string; is_fiscal: boolean }[];
+  /** `accounting:write`: create and cancel loans. */
+  canWrite: boolean;
 }) {
   const { data: loans } = useLoans();
   const cancelMut = useCancelLoan();
@@ -158,7 +161,7 @@ export function LoansTable({
               <DropdownMenuItem asChild>
                 <Link href={`/loans/${row.original.id}`}>Ver cuotas</Link>
               </DropdownMenuItem>
-              {canCancelLoan(row.original) && (
+              {canWrite && canCancelLoan(row.original) && (
                 <DropdownMenuItem
                   className="text-destructive"
                   onClick={() => handleCancel(row.original)}
@@ -172,7 +175,7 @@ export function LoansTable({
         ),
       },
     ];
-  }, [confirm, cancelMut]);
+  }, [confirm, cancelMut, canWrite]);
 
   return (
     <div className="space-y-6">
@@ -186,17 +189,21 @@ export function LoansTable({
             flujo de caja.
           </p>
         </div>
-        <Button onClick={() => setCreateOpen(true)}>
-          <Plus />
-          Nuevo préstamo
-        </Button>
+        {canWrite && (
+          <Button onClick={() => setCreateOpen(true)}>
+            <Plus />
+            Nuevo préstamo
+          </Button>
+        )}
       </div>
 
       <DataTable
         columns={columns}
         data={loans}
         getRowId={(l) => l.id}
-        emptyMessage="Sin préstamos. Agregá el primero."
+        emptyMessage={
+          canWrite ? "Sin préstamos. Agregá el primero." : "Sin préstamos."
+        }
       />
 
       <LoanDialog

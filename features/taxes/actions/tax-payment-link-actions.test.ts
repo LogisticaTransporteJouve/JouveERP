@@ -301,26 +301,41 @@ describe("undoTaxDocumentPaymentAction", () => {
 });
 
 describe("listPayableTaxDocumentsAction", () => {
-  it("labels the open documents", async () => {
+  it("labels the open documents with something to pay", async () => {
     tables.tax_documents = {
       data: [
         {
           id: DOC_ID,
           kind: "iibb",
+          status: "pendiente",
           title: null,
           jurisdiction: "Buenos Aires",
           period: "2026-10",
           due_date: "2026-11-15",
           amount: "300.00",
+          credit_balance: null,
         },
         {
           id: "bad",
           kind: "unknown",
+          status: "pendiente",
           title: null,
           jurisdiction: null,
           period: "2026-10",
           due_date: "2026-11-15",
           amount: null,
+          credit_balance: null,
+        },
+        {
+          id: "credit-only",
+          kind: "iva",
+          status: "liquidado",
+          title: null,
+          jurisdiction: null,
+          period: "2026-10",
+          due_date: "2026-11-18",
+          amount: null,
+          credit_balance: "5000.00",
         },
       ],
       error: null,

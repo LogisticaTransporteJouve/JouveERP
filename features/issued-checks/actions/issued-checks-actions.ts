@@ -207,7 +207,8 @@ export async function updateIssuedCheckAction(
   // A check an OP issued carries that OP's money: its amount, bank account,
   // currency and OP change only by editing the OP. Once a check leaves
   // 'emitted' its movement is booked with them, and an OP is never attached
-  // afterwards (guard_issued_check_edit enforces both in the database).
+  // afterwards. guard_issued_check_edit enforces all three in the database;
+  // reading first gives each case its own message.
   const { data: current, error: readErr } = await supabase
     .from("issued_checks")
     .select("payment_order_id, amount, currency, bank_account_id, status")
