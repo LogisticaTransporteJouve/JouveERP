@@ -25,8 +25,6 @@ export default async function IssuedChecksPage() {
     redirect("/dashboard");
   }
 
-  const accountsResult = await listAccountsAction();
-  const accounts = accountsResult.ok ? accountsResult.data : [];
   const channels = (await getInvoicingChannels()).map((c) => ({
     id: c.id,
     name: c.name,
@@ -39,10 +37,15 @@ export default async function IssuedChecksPage() {
       queryKey: issuedChecksKeys.list(isFiscal),
       queryFn: () => runAction(() => listIssuedChecksAction({ isFiscal })),
     },
-    {
-      queryKey: accountsKeys.list(),
-      queryFn: () => runAction(() => listAccountsAction()),
-    },
+    // The forms pick a chequera; without accounts:read the table says why.
+    ...(userCan(ctx.access, "accounts:read")
+      ? [
+          {
+            queryKey: accountsKeys.list(),
+            queryFn: () => runAction(() => listAccountsAction()),
+          },
+        ]
+      : []),
   ]);
 
   return (
@@ -60,11 +63,7 @@ export default async function IssuedChecksPage() {
       </div>
       <Hydrate state={dehydratedState}>
         <Suspense fallback={<Loading />}>
-          <IssuedChecksTable
-            accounts={accounts}
-            channels={channels}
-            actorAccess={ctx.access}
-          />
+          <IssuedChecksTable channels={channels} actorAccess={ctx.access} />
         </Suspense>
       </Hydrate>
     </div>
