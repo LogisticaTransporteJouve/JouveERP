@@ -79,6 +79,12 @@ function toDraft(g: Garnishment | null): Draft {
   };
 }
 
+/** "1.500" is 1500 pesos but 1.5 %: the value never carries over a mode
+ *  change. */
+export function withGarnishmentMode(draft: Draft, mode: Draft["mode"]): Draft {
+  return mode === draft.mode ? draft : { ...draft, mode, value: "" };
+}
+
 function describe(g: Garnishment): string {
   return g.mode === "percentage"
     ? `${g.percentage ?? 0}% del recibo`
@@ -267,7 +273,9 @@ function GarnishmentDialog({
             <Select
               value={draft.mode}
               onValueChange={(v) => {
-                if (isGarnishmentMode(v)) set("mode", v);
+                if (isGarnishmentMode(v)) {
+                  setDraft((d) => withGarnishmentMode(d, v));
+                }
               }}
             >
               <SelectTrigger id="garnishment-mode">

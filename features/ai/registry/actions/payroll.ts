@@ -331,6 +331,8 @@ export const getFinalSettlement = defineAiAction({
   sideEffect: "read",
   sources: [
     "employees",
+    "employee_salary_for_month",
+    "payroll_entries",
     "v_employee_vacation_balances",
     "payroll_sac_suggestion",
     "v_payroll_entries_resolved",
