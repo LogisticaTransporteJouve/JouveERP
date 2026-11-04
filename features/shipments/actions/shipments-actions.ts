@@ -568,8 +568,8 @@ export async function setShipmentsTripAction(
  * proven issueFiscalInvoiceAction (handles fiscal AFIP vs internal per channel).
  * A single "Flete" service line at 21% IVA, billed to the shipment's client.
  * Claims the shipment first (claim_shipment_for_invoicing, which also frees a
- * carga whose invoice no longer bills it), so two
- * concurrent clicks cannot both issue, and issues under a key derived from
+ * carga whose invoice no longer bills it), so two concurrent clicks cannot
+ * both issue, and issues under a key derived from
  * the carga (lib/source-invoice-key), so a click after an expired claim links
  * the invoice already issued; links invoice_id on success and releases the
  * claim on failure.
