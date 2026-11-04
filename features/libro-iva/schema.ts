@@ -26,6 +26,8 @@ export type LibroIvaComprasRow = {
   iva_orig: string | number;
   imp_trib_orig: string | number;
   imp_total_orig: string | number;
+  /** The supplier's IVA condition code (C.I.), added by fetch-books. */
+  ci?: string | null;
 } & Record<
   ComprasBreakdownKey | `${ComprasBreakdownKey}_orig`,
   string | number
@@ -117,6 +119,8 @@ export type LibroIvaComprasGroupedRow = {
   numero: number;
   supplier_legal_name: string;
   supplier_cuit: string | null;
+  /** IVA condition code (RI, RM, EX…); null when unknown. */
+  ci: string | null;
   cae_proveedor: string | null;
   cae_vto_proveedor: string | null;
   imp_trib: number;
@@ -154,6 +158,7 @@ export function groupComprasByInvoice(
         numero: r.numero,
         supplier_legal_name: r.supplier_legal_name,
         supplier_cuit: r.supplier_cuit,
+        ci: r.ci ?? null,
         cae_proveedor: r.cae_proveedor,
         cae_vto_proveedor: r.cae_vto_proveedor,
         imp_trib: Number(r.imp_trib),
@@ -254,6 +259,8 @@ export type LibroIvaVentasRow = {
   imp_op_ex_orig: string | number;
   imp_tot_conc_orig: string | number;
   imp_total_orig: string | number;
+  /** The client's IVA condition code (C.I.), added by fetch-books. */
+  ci?: string | null;
 };
 
 /** Neto + IVA per iva_rate_id (key); `SIN_ALICUOTA` = no rate known. */
@@ -320,21 +327,6 @@ export const IVA_RATES = [
   { id: 6, pct: 27, label: "27%" },
 ] as const;
 
-/** The Neto/IVA column pairs a book prints: every rate, plus "Sin alícuota"
- *  when a document's rate could not be inferred. */
-export function libroIvaRateColumns(
-  docs: readonly { per_rate: PerRate }[],
-): { id: number; label: string }[] {
-  const unrated = docs.some((d) => {
-    const v = d.per_rate[SIN_ALICUOTA];
-    return v !== undefined && (v.neto !== 0 || v.iva !== 0);
-  });
-  return [
-    ...IVA_RATES,
-    ...(unrated ? [{ id: SIN_ALICUOTA, label: SIN_ALICUOTA_LABEL }] : []),
-  ];
-}
-
 /** A voucher as the books print it: letter, 4-digit point of sale and
  *  8-digit number ("A0001-00000042"). */
 export function libroIvaVoucherNumber(row: {
@@ -344,12 +336,6 @@ export function libroIvaVoucherNumber(row: {
 }): string {
   return `${row.letter ?? ""}${String(row.punto_venta).padStart(4, "0")}-${String(row.numero).padStart(8, "0")}`;
 }
-
-export const KIND_LABEL: Record<string, string> = {
-  factura: "Factura",
-  nc: "Nota de crédito",
-  nd: "Nota de débito",
-};
 
 /**
  * Groups the rows returned by the RPC into a "per voucher" view to build the
@@ -366,6 +352,8 @@ export type LibroIvaVentasGroupedRow = {
   client_legal_name: string;
   doc_tipo: number;
   doc_nro: string;
+  /** IVA condition code (RI, RM, EX, CF…); null when unknown. */
+  ci: string | null;
   cae: string | null;
   cae_vencimiento: string | null;
   imp_trib: number;
@@ -407,6 +395,7 @@ export function groupByInvoice(
         client_legal_name: r.client_legal_name,
         doc_tipo: r.doc_tipo,
         doc_nro: r.doc_nro,
+        ci: r.ci ?? null,
         cae: r.cae,
         cae_vencimiento: r.cae_vencimiento,
         imp_trib: Number(r.imp_trib),
@@ -447,13 +436,6 @@ export const VENTAS_AMOUNT_COLUMNS: readonly {
   { header: "No gravado", value: (v) => v.imp_tot_conc },
   { header: "Exento", value: (v) => v.imp_op_ex },
 ];
-
-/** A cell of the totals row: blank only at zero. Credit notes sign the period
- *  totals, so a negative one prints, as in the Excel; the voucher rows are
- *  positive and blank any amount that is not. */
-export function totalsCell(value: number, format: (n: number) => string) {
-  return value === 0 ? "" : format(value);
-}
 
 export type LibroIvaVentasTotals = {
   count: number;

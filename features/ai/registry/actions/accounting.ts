@@ -130,7 +130,11 @@ const LIBRO_IVA_ROWS_RULE =
   "Rows are one per document × rate: an NC (kind 'nc') comes as POSITIVE amounts, " +
   "and imp_total / imp_trib repeat on every rate row of a document. Never sum the " +
   "rows: `totals` has the period's figures, signed (NC subtracted) and with each " +
-  "document counted once (neto, iva, imp_trib, imp_total, per_rate by alícuota).";
+  "document counted once (neto, iva, imp_trib, imp_total, per_rate by alícuota). " +
+  "A document without items (e.g. imported from ARCA) comes as one row with " +
+  "iva_rate_id null; `totals.per_rate` counts it under the alícuota its IVA / " +
+  "neto gives, as the printed book and the TXT do, or under 'Sin alícuota' " +
+  "when no rate fits.";
 
 /** The period's signed totals of a libro IVA, per alícuota labelled. */
 function libroIvaTotals(t: {

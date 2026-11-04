@@ -11,12 +11,14 @@ import {
   foreignCurrencyTotals,
   groupByInvoice,
   groupComprasByInvoice,
-  libroIvaRateColumns,
-  totalsCell,
-  VENTAS_AMOUNT_COLUMNS,
   type LibroIvaComprasRow,
   type LibroIvaVentasRow,
 } from "./schema";
+import {
+  presentRates,
+  totalsAmount,
+  ventasAmountColumns,
+} from "./lib/book-layout";
 import { buildVentasTxt } from "./lib/citi";
 
 describe("IVA_RATES (AFIP iva_rate_id → alícuota)", () => {
@@ -132,7 +134,7 @@ describe("groupComprasByInvoice", () => {
     expect(grouped[0]!.per_rate).toEqual({
       [SIN_ALICUOTA]: { neto: 1000, iva: 150 },
     });
-    expect(libroIvaRateColumns(grouped).at(-1)).toEqual({
+    expect(presentRates(grouped).at(-1)).toEqual({
       id: SIN_ALICUOTA,
       label: "Sin alícuota",
     });
@@ -228,9 +230,7 @@ describe("groupByInvoice", () => {
     ];
     const grouped = groupByInvoice(rows);
     expect(grouped[0]!.per_rate).toEqual({ 4: { neto: 800, iva: 84 } });
-    expect(libroIvaRateColumns(grouped).map((r) => r.id)).not.toContain(
-      SIN_ALICUOTA,
-    );
+    expect(presentRates(grouped).map((r) => r.id)).not.toContain(SIN_ALICUOTA);
   });
 
   it("ties the book's IVA débito to the TXT and the IVA estimate when vouchers have no items", () => {
@@ -366,11 +366,10 @@ describe("computeTotals", () => {
         }),
       ]),
     );
-    const fmt = (n: number) => n.toFixed(2);
+    // No gravado, Exento, Percepciones, Total: blank only at zero.
     expect(
-      VENTAS_AMOUNT_COLUMNS.map((c) => totalsCell(c.value(totals), fmt)),
-    ).toEqual(["", "-500.00"]);
-    expect(totalsCell(0, fmt)).toBe("");
+      ventasAmountColumns(presentRates([])).map((c) => totalsAmount(c, totals)),
+    ).toEqual([null, -500, null, -500]);
   });
 });
 

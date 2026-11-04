@@ -1,9 +1,15 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/lib/db/database";
-import { paginateRange, type DrainResult } from "@/lib/supabase/paginate";
+import {
+  fetchInChunks,
+  paginateRange,
+  type DrainResult,
+} from "@/lib/supabase/paginate";
 
 import type { LibroIvaComprasRow, LibroIvaVentasRow } from "../schema";
+
+import { ivaConditionCode } from "./book-layout";
 
 type Db = SupabaseClient<Database>;
 
@@ -20,7 +26,7 @@ export async function fetchLibroIvaVentasRows(
   period: string,
   channelId: string | null,
 ): Promise<DrainResult<LibroIvaVentasRow>> {
-  return paginateRange((from, to) =>
+  const drained = await paginateRange((from, to) =>
     supabase
       .rpc("libro_iva_ventas", {
         p_period: period,
@@ -33,6 +39,31 @@ export async function fetchLibroIvaVentasRows(
       .order("iva_rate_id", { ascending: true, nullsFirst: false })
       .range(from, to),
   );
+  if (drained.error) return drained;
+  // The C.I. column: the condition informed with the voucher, else the
+  // client's (the RPC returns neither).
+  const conditions = await fetchInChunks(
+    drained.data.map((r) => r.invoice_id),
+    (ids) =>
+      supabase
+        .from("invoices")
+        .select("id, iva_condition_receptor, client:clients(iva_condition)")
+        .in("id", ids),
+  );
+  if (conditions.error) return conditions;
+  const ci = new Map(
+    conditions.data.map((c) => [
+      c.id,
+      ivaConditionCode(
+        c.iva_condition_receptor,
+        c.client?.iva_condition ?? null,
+      ),
+    ]),
+  );
+  return {
+    data: drained.data.map((r) => ({ ...r, ci: ci.get(r.invoice_id) ?? null })),
+    error: null,
+  };
 }
 
 /** Libro IVA Compras rows for a period (all fiscal channels when channelId is null). */
@@ -41,7 +72,7 @@ export async function fetchLibroIvaComprasRows(
   period: string,
   channelId: string | null,
 ): Promise<DrainResult<LibroIvaComprasRow>> {
-  return paginateRange((from, to) =>
+  const drained = await paginateRange((from, to) =>
     supabase
       .rpc("libro_iva_compras", {
         p_period: period,
@@ -54,4 +85,27 @@ export async function fetchLibroIvaComprasRows(
       .order("iva_rate_id", { ascending: true, nullsFirst: false })
       .range(from, to),
   );
+  if (drained.error) return drained;
+  const conditions = await fetchInChunks(
+    drained.data.map((r) => r.purchase_invoice_id),
+    (ids) =>
+      supabase
+        .from("purchase_invoices")
+        .select("id, supplier:suppliers(iva_condition)")
+        .in("id", ids),
+  );
+  if (conditions.error) return conditions;
+  const ci = new Map(
+    conditions.data.map((c) => [
+      c.id,
+      ivaConditionCode(null, c.supplier?.iva_condition ?? null),
+    ]),
+  );
+  return {
+    data: drained.data.map((r) => ({
+      ...r,
+      ci: ci.get(r.purchase_invoice_id) ?? null,
+    })),
+    error: null,
+  };
 }

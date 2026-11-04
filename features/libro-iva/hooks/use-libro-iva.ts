@@ -6,6 +6,7 @@ import { runAction } from "@/lib/query/run-action";
 
 import {
   exportLibroIvaTxtAction,
+  getLibroIvaHeaderAction,
   listLibroIvaComprasAction,
   listLibroIvaVentasAction,
 } from "../actions/libro-iva-actions";
@@ -36,6 +37,16 @@ export function useLibroIvaCompras(period: string, channelId: string | null) {
           period,
           channelId: channelId ?? undefined,
         }),
+      ),
+  });
+}
+
+export function useLibroIvaHeader(period: string, channelId: string | null) {
+  return useQuery({
+    queryKey: libroIvaKeys.header(period, channelId),
+    queryFn: () =>
+      runAction(() =>
+        getLibroIvaHeaderAction({ period, channelId: channelId ?? undefined }),
       ),
   });
 }

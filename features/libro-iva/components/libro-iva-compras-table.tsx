@@ -1,27 +1,15 @@
 "use client";
 
 import { AlertTriangle } from "lucide-react";
-import Link from "next/link";
-import { Fragment, useMemo } from "react";
-
-import { Badge } from "@/components/ui/badge";
-import { formatArgentineDate, formatNumber2 as money } from "@/lib/format";
+import { useMemo } from "react";
 
 import { useLibroIvaCompras } from "../hooks/use-libro-iva";
-import {
-  computeComprasTotals,
-  groupComprasByInvoice,
-  COMPRAS_AMOUNT_COLUMNS,
-  COMPRAS_PERCEPTIONS_HEADER,
-  COMPRAS_PERCEPTIONS_LEGEND,
-  comprasPerceptions,
-  libroIvaRateColumns,
-  KIND_LABEL,
-  libroIvaVoucherNumber,
-} from "../schema";
-import { CurrencyNote, OriginalCurrencyCell } from "./currency-note";
+import { comprasBook, CONDITION_LEGEND, TC_LEGEND } from "../lib/book-layout";
+import { COMPRAS_PERCEPTIONS_LEGEND } from "../schema";
 
+import { CurrencyNote } from "./currency-note";
 import { ItemlessNote } from "./itemless-note";
+import { LibroIvaBookTable, LibroIvaBookTitle } from "./libro-iva-book-table";
 import { LibroIvaExportButtons } from "./libro-iva-export-buttons";
 
 export function LibroIvaComprasTable({
@@ -33,18 +21,9 @@ export function LibroIvaComprasTable({
 }) {
   const { data: rows, isLoading } = useLibroIvaCompras(period, channelId);
 
-  const grouped = useMemo(() => groupComprasByInvoice(rows ?? []), [rows]);
-  const totals = useMemo(() => computeComprasTotals(grouped), [grouped]);
-  const rates = useMemo(() => libroIvaRateColumns(grouped), [grouped]);
-
-  const sinCae = useMemo(
-    () => grouped.filter((g) => !g.cae_proveedor).length,
-    [grouped],
-  );
-  const sinItems = useMemo(
-    () => grouped.filter((g) => !g.has_items).length,
-    [grouped],
-  );
+  const model = useMemo(() => comprasBook(rows ?? []), [rows]);
+  const sinCae = model.docs.filter((d) => !d.cae).length;
+  const sinItems = model.grouped.filter((g) => !g.has_items).length;
 
   if (isLoading) {
     return (
@@ -54,7 +33,7 @@ export function LibroIvaComprasTable({
     );
   }
 
-  if (grouped.length === 0) {
+  if (model.docs.length === 0) {
     return (
       <div className="rounded-lg border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
         No hay compras recibidas fiscales para este período.
@@ -75,214 +54,19 @@ export function LibroIvaComprasTable({
                 Verificá con el original antes de la presentación.
               </p>
             )}
-            <ItemlessNote docs={grouped} />
+            <ItemlessNote docs={model.grouped} />
           </div>
         </div>
       )}
 
-      <CurrencyNote docs={grouped} />
+      <CurrencyNote docs={model.grouped} />
 
-      <div className="overflow-x-auto rounded-lg border bg-card">
-        <table className="w-full text-sm">
-          <thead className="border-b bg-muted/30 text-left text-xs">
-            <tr>
-              <th className="sticky left-0 z-10 bg-card px-2 py-2 font-medium">
-                Fecha
-              </th>
-              <th className="px-2 py-2 font-medium">Tipo</th>
-              <th className="px-2 py-2 font-medium">Comprobante</th>
-              <th className="px-2 py-2 font-medium">Proveedor</th>
-              <th className="px-2 py-2 font-medium">CUIT</th>
-              {rates.map((r) => (
-                <th
-                  key={r.id}
-                  colSpan={2}
-                  className="border-l px-2 py-2 text-center font-medium"
-                >
-                  {r.label}
-                </th>
-              ))}
-              {COMPRAS_AMOUNT_COLUMNS.map((c, i) => (
-                <th
-                  key={c.header}
-                  className={`${i === 0 ? "border-l " : ""}px-2 py-2 text-right font-medium`}
-                >
-                  {c.header}
-                </th>
-              ))}
-              <th className="px-2 py-2 text-right font-medium">
-                {COMPRAS_PERCEPTIONS_HEADER}
-              </th>
-              <th className="px-2 py-2 text-right font-medium">Total $</th>
-              <th className="px-2 py-2 text-right font-medium">Moneda orig.</th>
-              <th className="px-2 py-2 font-medium">CAE prov.</th>
-            </tr>
-            <tr className="border-b text-xs text-muted-foreground">
-              <th className="sticky left-0 z-10 bg-card" />
-              <th />
-              <th />
-              <th />
-              <th />
-              {rates.map((r) => (
-                <Fragment key={r.id}>
-                  <th className="border-l px-2 py-1 text-right font-normal">
-                    Neto
-                  </th>
-                  <th className="px-2 py-1 text-right font-normal">IVA</th>
-                </Fragment>
-              ))}
-              {COMPRAS_AMOUNT_COLUMNS.map((c, i) => (
-                <th
-                  key={c.header}
-                  className={i === 0 ? "border-l" : undefined}
-                />
-              ))}
-              <th />
-              <th />
-              <th />
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {grouped.map((row) => {
-              const number = libroIvaVoucherNumber(row);
-              return (
-                <tr
-                  key={row.purchase_invoice_id}
-                  className="group border-b last:border-b-0 hover:bg-muted/20"
-                >
-                  <td className="sticky left-0 z-10 bg-card px-2 py-1 font-mono text-xs text-muted-foreground group-hover:bg-muted/20">
-                    {formatArgentineDate(row.fecha)}
-                  </td>
-                  <td className="px-2 py-1 text-xs">
-                    <Badge variant="outline" className="text-xs font-normal">
-                      {KIND_LABEL[row.kind] ?? row.kind}
-                    </Badge>
-                  </td>
-                  <td className="px-2 py-1 font-mono text-xs">
-                    <Link
-                      href={`/purchases/${row.purchase_invoice_id}`}
-                      className="hover:underline"
-                    >
-                      {number}
-                    </Link>
-                  </td>
-                  <td
-                    className="px-2 py-1 max-w-[200px] truncate"
-                    title={row.supplier_legal_name}
-                  >
-                    {row.supplier_legal_name}
-                  </td>
-                  <td className="px-2 py-1 font-mono text-xs text-muted-foreground">
-                    {row.supplier_cuit ?? "—"}
-                  </td>
-                  {rates.map((r) => {
-                    const cell = row.per_rate[r.id];
-                    return (
-                      <Fragment key={r.id}>
-                        <td className="border-l px-2 py-1 text-right font-mono text-xs">
-                          {cell?.neto ? money(cell.neto) : ""}
-                        </td>
-                        <td className="px-2 py-1 text-right font-mono text-xs">
-                          {cell?.iva ? money(cell.iva) : ""}
-                        </td>
-                      </Fragment>
-                    );
-                  })}
-                  {COMPRAS_AMOUNT_COLUMNS.map((c, i) => {
-                    const v = c.value(row.breakdown);
-                    return (
-                      <td
-                        key={c.header}
-                        className={`${i === 0 ? "border-l " : ""}px-2 py-1 text-right font-mono text-xs`}
-                      >
-                        {v > 0 ? money(v) : ""}
-                      </td>
-                    );
-                  })}
-                  <td className="px-2 py-1 text-right font-mono text-xs">
-                    <PerceptionLines
-                      entries={comprasPerceptions(row.breakdown)}
-                    />
-                  </td>
-                  <td className="px-2 py-1 text-right font-mono text-xs font-medium">
-                    {money(row.imp_total)}
-                  </td>
-                  <td className="px-2 py-1 text-right font-mono text-xs">
-                    <OriginalCurrencyCell
-                      moneda={row.moneda}
-                      cotizacion={row.cotizacion}
-                      impTotal={row.orig.imp_total}
-                    />
-                  </td>
-                  <td className="px-2 py-1 font-mono text-xs text-muted-foreground">
-                    {row.cae_proveedor ? (
-                      <span
-                        title={
-                          row.cae_vto_proveedor
-                            ? `Vto ${row.cae_vto_proveedor}`
-                            : ""
-                        }
-                      >
-                        {row.cae_proveedor}
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-          <tfoot className="border-t-2 bg-muted/30 text-xs font-medium">
-            <tr>
-              <td
-                colSpan={5}
-                className="sticky left-0 z-10 bg-card px-2 py-2 text-right"
-              >
-                Totales ({totals.count} comprobantes)
-              </td>
-              {rates.map((r) => {
-                const cell = totals.per_rate[r.id];
-                return (
-                  <Fragment key={r.id}>
-                    <td className="border-l px-2 py-2 text-right font-mono">
-                      {cell?.neto ? money(cell.neto) : ""}
-                    </td>
-                    <td className="px-2 py-2 text-right font-mono">
-                      {cell?.iva ? money(cell.iva) : ""}
-                    </td>
-                  </Fragment>
-                );
-              })}
-              {COMPRAS_AMOUNT_COLUMNS.map((c, i) => {
-                const v = c.value(totals.breakdown);
-                return (
-                  <td
-                    key={c.header}
-                    className={`${i === 0 ? "border-l " : ""}px-2 py-2 text-right font-mono`}
-                  >
-                    {v !== 0 ? money(v) : ""}
-                  </td>
-                );
-              })}
-              <td className="px-2 py-2 text-right font-mono">
-                <PerceptionLines
-                  entries={comprasPerceptions(totals.breakdown)}
-                />
-              </td>
-              <td className="px-2 py-2 text-right font-mono">
-                {money(totals.imp_total)}
-              </td>
-              <td />
-              <td />
-            </tr>
-          </tfoot>
-        </table>
-      </div>
+      <LibroIvaBookTitle book="compras" period={period} channelId={channelId} />
+
+      <LibroIvaBookTable model={model} href={(id) => `/purchases/${id}`} />
 
       <p className="text-xs text-muted-foreground">
-        {COMPRAS_PERCEPTIONS_LEGEND}
+        {COMPRAS_PERCEPTIONS_LEGEND} {TC_LEGEND} {CONDITION_LEGEND}
       </p>
 
       <LibroIvaExportButtons
@@ -292,17 +76,4 @@ export function LibroIvaComprasTable({
       />
     </div>
   );
-}
-
-/** One line per perception: amount and code ("5.115,78 B"). */
-function PerceptionLines({
-  entries,
-}: {
-  entries: readonly { code: string; amount: number }[];
-}) {
-  return entries.map((p) => (
-    <div key={p.code} className="whitespace-nowrap">
-      {money(p.amount)} {p.code}
-    </div>
-  ));
 }

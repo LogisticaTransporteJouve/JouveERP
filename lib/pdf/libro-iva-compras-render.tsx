@@ -3,6 +3,7 @@ import "server-only";
 import { renderToBuffer } from "@react-pdf/renderer";
 
 import { fetchLibroIvaComprasRows } from "@/features/libro-iva/lib/fetch-books";
+import { fetchLibroIvaHeader } from "@/features/libro-iva/lib/fetch-header";
 import { formatArgentineDateTime } from "@/lib/format";
 import { getServiceClient } from "@/lib/supabase/service";
 
@@ -25,6 +26,13 @@ export async function buildLibroIvaComprasTemplateData(
     throw new Error(`Could not read libro IVA Compras: ${error.message}`);
   }
 
+  const header = await fetchLibroIvaHeader(supabase, period, channelId);
+  if (header.error) {
+    throw new Error(
+      `Could not read the libro IVA Compras header: ${header.error.message}`,
+    );
+  }
+
   let channelName = "Todos los canales fiscales";
   if (channelId) {
     const ch = await supabase
@@ -39,6 +47,7 @@ export async function buildLibroIvaComprasTemplateData(
     period,
     channelName,
     generatedAt: formatArgentineDateTime(new Date().toISOString()),
+    header: header.data,
     rows,
   };
 }
