@@ -83,7 +83,9 @@ describe("PurchaseInvoiceDraftDialogContent source preview", () => {
     ).toHaveLength(2);
     expect(screen.queryByText("Cargando archivo…")).toBeNull();
 
-    fireEvent.click(screen.getAllByRole("button", { name: /Reintentar/ })[0]);
+    const [retry] = screen.getAllByRole("button", { name: /Reintentar/ });
+    if (!retry) throw new Error("no «Reintentar» button");
+    fireEvent.click(retry);
     await waitFor(() => expect(h.fetchSignedUrl).toHaveBeenCalledTimes(2));
     await screen.findByTitle("factura.pdf");
     expect(screen.queryByText("No se pudo cargar el archivo.")).toBeNull();
