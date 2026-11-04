@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { listChartOfAccountsAction } from "@/features/chart-of-accounts/actions/chart-of-accounts-actions";
 import type { ChartAccount } from "@/features/chart-of-accounts/schema";
+import { getUsdReferenceRateAction } from "@/features/exchange-rates/actions/exchange-rates-actions";
 import { isoDate } from "@/features/exchange-rates/schema";
 import { searchEmployeesAction } from "@/features/hr/actions/employees-actions";
 import { LEAVE_KINDS } from "@/features/hr/vacation-schema";
@@ -13,6 +14,7 @@ import {
   exchangeRateProposalSpec,
   journalEntryProposalSpec,
   leaveProposalSpec,
+  rateReferenceLabels,
   type ProposalIssue,
 } from "../../lib/proposal-specs";
 import { defineAiProposal, type ProposalCandidate } from "../propose";
@@ -229,13 +231,19 @@ export const proposeExchangeRate = defineAiProposal({
     notes: z.string().trim().max(500).optional(),
   }),
   spec: exchangeRateProposalSpec,
-  prepare: async (_ctx, input) => ({
-    kind: "draft",
-    draft: {
-      rate_date: input.rate_date,
-      rate: input.rate,
-      notes: input.notes ?? null,
-    },
-  }),
+  // The card warns on a >30% jump from the nearest stored rate, as the
+  // Cotizaciones page asks before saving.
+  prepare: async (_ctx, input) => {
+    const ref = await getUsdReferenceRateAction(input.rate_date);
+    return {
+      kind: "draft",
+      draft: {
+        rate_date: input.rate_date,
+        rate: input.rate,
+        notes: input.notes ?? null,
+      },
+      labels: rateReferenceLabels(ref.ok ? ref.data : "unread"),
+    };
+  },
   execute: (ctx, draft) => upsertManualExchangeRate(ctx.userId, draft),
 });

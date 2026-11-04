@@ -15,6 +15,7 @@ import {
   isoDate,
   type ExchangeRate,
 } from "../schema";
+import type { RateReference } from "../lib/rate-jump";
 
 export async function listExchangeRatesAction(): Promise<
   ActionResult<ExchangeRate[]>
@@ -108,4 +109,60 @@ export async function getUsdRateForDateAction(
   }
   const rate = findRateForDate(data ?? [], parsedDate.data);
   return { ok: true, data: { rate } };
+}
+
+// The stored USD rate a new one for `date` is checked against (the >30%
+// warning): the nearest on or before the date, else the nearest after it,
+// as on the Cotizaciones page. Null when no USD rate is stored.
+export async function getUsdReferenceRateAction(
+  date: string,
+): Promise<ActionResult<RateReference | null>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.access, "accounting:read")) {
+    return { ok: false, error: "No tenés permiso." };
+  }
+  const parsedDate = isoDate.safeParse(date);
+  if (!parsedDate.success) {
+    return { ok: false, error: "Fecha inválida." };
+  }
+  const supabase = await createClient();
+  const [before, after] = await Promise.all([
+    supabase
+      .from("exchange_rates")
+      .select("rate_date, rate")
+      .eq("currency", "USD")
+      .lte("rate_date", parsedDate.data)
+      .order("rate_date", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("exchange_rates")
+      .select("rate_date, rate")
+      .eq("currency", "USD")
+      .gt("rate_date", parsedDate.data)
+      .order("rate_date", { ascending: true })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+  const error = before.error ?? after.error;
+  if (error) {
+    logger.error("exchange_rates.reference.failed", {
+      userId: ctx.userId,
+      date,
+      error,
+    });
+    return { ok: false, error: "No se pudo leer la cotización." };
+  }
+  if (before.data) {
+    return {
+      ok: true,
+      data: { ...before.data, rate: Number(before.data.rate), earlier: true },
+    };
+  }
+  return {
+    ok: true,
+    data: after.data
+      ? { ...after.data, rate: Number(after.data.rate), earlier: false }
+      : null,
+  };
 }
