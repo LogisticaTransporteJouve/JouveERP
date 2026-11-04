@@ -106,6 +106,24 @@ describe("receivedVoucherAmounts", () => {
 });
 
 describe("arcaVoucherToDraft", () => {
+  it("starts due on the voucher's date and carries ARCA's lines to show", () => {
+    const draft = arcaVoucherToDraft(
+      voucher({
+        imp_no_gravado: 0,
+        imp_op_exentas: 0,
+        imp_trib: 0,
+        imp_total: 1210,
+        iva_breakdown: [{ iva_rate_id: 5, neto: 1000, iva: 210 }],
+      }),
+    );
+    expect(draft.fch_vto_pago).toBe("2026-09-10");
+    expect(draft.arca_lines).toEqual([
+      { iva_rate_id: 5, neto: 1000, iva: 210 },
+    ]);
+    // The form's item editor stays empty: the lines are not edited there.
+    expect(draft.items).toEqual([]);
+  });
+
   it("suggests the issuer as a new supplier and a split of the tributes", () => {
     const d = arcaVoucherToDraft(voucher());
     expect(d.unmatchedSupplier).toEqual({

@@ -228,7 +228,8 @@ export function arcaVoucherToDraft(
     punto_venta: voucher.punto_venta,
     numero: voucher.numero,
     fecha: voucher.fecha,
-    fch_vto_pago: null,
+    // The supplier's payment term moves it once the supplier is picked.
+    fch_vto_pago: voucher.fecha,
     cae_proveedor: voucher.cae,
     cae_vto_proveedor: null,
     imp_neto: amounts.imp_neto,
@@ -242,6 +243,11 @@ export function arcaVoucherToDraft(
     cotizacion: voucher.moneda === "DOL" ? voucher.cotizacion : 1,
     motivo_nc_nd: kind === "factura" ? null : "Según ARCA → Mis Comprobantes",
     items: [],
+    arca_lines: receivedVoucherItems(voucher).map((l) => ({
+      iva_rate_id: l.iva_rate_id,
+      neto: l.line_neto,
+      iva: l.line_iva,
+    })),
     account: null,
     cost_center_id: null,
     warnings,

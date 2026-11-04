@@ -68,6 +68,9 @@ export type PurchaseInvoiceDraftData = {
   cotizacion: number | null;
   motivo_nc_nd: string | null;
   items: PurchaseInvoiceDraftItem[];
+  /** ARCA only: the lines the purchase is saved with (one per alícuota),
+   *  shown read-only; empty when it is saved with the header totals. */
+  arca_lines?: { iva_rate_id: PurchaseIvaRateId; neto: number; iva: number }[];
   /** Suggested expense account (posting), shown to the user before saving. */
   account: { id: string; label: string } | null;
   cost_center_id: string | null;
