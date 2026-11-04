@@ -37,17 +37,16 @@ test.describe("AFIP smoke — emite factura y espera CAE", () => {
       .first()
       .click();
 
-    // .first() en ambos: la fila "Seguro" comparte placeholder con la
-    // fila editable y queda al final.
+    // .first(): the first editable item row (the Seguro row, when shown,
+    // has its own label and a «Valor declarado» placeholder).
     await dialog
       .getByPlaceholder(/^descripción$/i)
       .first()
       .fill("Smoke E2E AFIP");
     await dialog.getByPlaceholder("$ 0,00").first().fill("100");
 
-    await dialog
-      .getByRole("button", { name: /emitir y solicitar cae/i })
-      .click();
+    // «Guardar» saves and requests the CAE («Guardar y cargar otra» is excluded).
+    await dialog.getByRole("button", { name: /^guardar$/i }).click();
 
     await page.waitForURL(/\/invoices\/[0-9a-f-]{36}/, { timeout: 30_000 });
     await expect(page.getByText(/^\d{14}$/)).toBeVisible({ timeout: 60_000 });

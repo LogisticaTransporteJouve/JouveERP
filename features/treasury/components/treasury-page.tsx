@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { ListSearch, ListToolbar } from "@/components/list-toolbar";
+import { ReadError } from "@/components/read-error";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import {
@@ -185,133 +186,147 @@ export function TreasuryPage({
         )}
       </div>
 
-      {/* Summary cards */}
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        <SummaryCard
-          label="Total ARS líquido"
-          subtitle="bancos + efectivo + billeteras"
-          now={query.data?.liquid_now.ARS}
-          prev={query.data?.liquid_prev_eom.ARS}
-          currency="ARS"
-          loading={query.isLoading}
+      {query.isError && !query.data ? (
+        <ReadError
+          message="No se pudo cargar el resumen de tesorería."
+          onRetry={() => void query.refetch()}
         />
-        <SummaryCard
-          label="Total USD líquido"
-          subtitle="bancos + efectivo + billeteras"
-          now={query.data?.liquid_now.USD}
-          prev={query.data?.liquid_prev_eom.USD}
-          currency="USD"
-          loading={query.isLoading}
-          usdRate={query.data?.usd_rate ?? null}
-        />
-        <SummaryCard
-          label="Cheques en cartera ARS"
-          subtitle={
-            query.data
-              ? `${query.data.checks_due_soon.count} acreditan ≤ 7 días`
-              : "—"
-          }
-          now={query.data?.checks_now}
-          prev={query.data?.checks_prev_eom}
-          currency="ARS"
-          loading={query.isLoading}
-          tone="muted"
-        />
-        {query.data &&
-          (query.data.checks_usd_now !== 0 ||
-            query.data.checks_usd_prev_eom !== 0) && (
+      ) : (
+        <>
+          {/* Summary cards */}
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             <SummaryCard
-              label="Cheques en cartera USD"
-              subtitle="cheques y e-cheq en dólares"
-              now={query.data.checks_usd_now}
-              prev={query.data.checks_usd_prev_eom}
+              label="Total ARS líquido"
+              subtitle="bancos + efectivo + billeteras"
+              now={query.data?.liquid_now.ARS}
+              prev={query.data?.liquid_prev_eom.ARS}
+              currency="ARS"
+              loading={query.isLoading}
+            />
+            <SummaryCard
+              label="Total USD líquido"
+              subtitle="bancos + efectivo + billeteras"
+              now={query.data?.liquid_now.USD}
+              prev={query.data?.liquid_prev_eom.USD}
               currency="USD"
-              loading={false}
+              loading={query.isLoading}
+              usdRate={query.data?.usd_rate ?? null}
+            />
+            <SummaryCard
+              label="Cheques en cartera ARS"
+              subtitle={
+                query.data
+                  ? `${query.data.checks_due_soon.count} acreditan ≤ 7 días`
+                  : "—"
+              }
+              now={query.data?.checks_now}
+              prev={query.data?.checks_prev_eom}
+              currency="ARS"
+              loading={query.isLoading}
               tone="muted"
             />
+            {query.data &&
+              (query.data.checks_usd_now !== 0 ||
+                query.data.checks_usd_prev_eom !== 0) && (
+                <SummaryCard
+                  label="Cheques en cartera USD"
+                  subtitle="cheques y e-cheq en dólares"
+                  now={query.data.checks_usd_now}
+                  prev={query.data.checks_usd_prev_eom}
+                  currency="USD"
+                  loading={false}
+                  tone="muted"
+                />
+              )}
+          </div>
+
+          {/* Soon to be credited — only if any */}
+          {query.data && query.data.checks_due_soon.count > 0 && (
+            <div className="rounded-lg border bg-muted p-4 text-sm">
+              <p className="font-medium text-muted-foreground dark:text-muted-foreground">
+                Próximos a acreditarse (≤ 7 días)
+              </p>
+              <p className="mt-1 text-muted-foreground">
+                {query.data.checks_due_soon.count} cheques en pesos por{" "}
+                <span className="font-mono">
+                  {formatMoneyWithCode(
+                    query.data.checks_due_soon.amount,
+                    "ARS",
+                  )}
+                </span>
+              </p>
+            </div>
           )}
-      </div>
 
-      {/* Soon to be credited — only if any */}
-      {query.data && query.data.checks_due_soon.count > 0 && (
-        <div className="rounded-lg border bg-muted p-4 text-sm">
-          <p className="font-medium text-muted-foreground dark:text-muted-foreground">
-            Próximos a acreditarse (≤ 7 días)
-          </p>
-          <p className="mt-1 text-muted-foreground">
-            {query.data.checks_due_soon.count} cheques en pesos por{" "}
-            <span className="font-mono">
-              {formatMoneyWithCode(query.data.checks_due_soon.amount, "ARS")}
-            </span>
-          </p>
-        </div>
+          {/* Filters + table */}
+          <ListToolbar
+            isFiltered={
+              search.trim() !== "" ||
+              currencyFilter !== ANY ||
+              typeFilter !== ANY
+            }
+            onClear={() => {
+              setSearch("");
+              setCurrencyFilter(ANY);
+              setTypeFilter(ANY);
+            }}
+            actions={
+              query.data && (
+                <span className="text-sm text-muted-foreground">
+                  {filtered.length} de {query.data.accounts.length}
+                </span>
+              )
+            }
+          >
+            <ListSearch
+              placeholder="Buscar cuenta"
+              value={search}
+              onChange={setSearch}
+            />
+            <Select value={currencyFilter} onValueChange={setCurrencyFilter}>
+              <SelectTrigger className="w-[180px]" aria-label="Moneda">
+                <SelectValue placeholder="Moneda" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ANY}>Todas las monedas</SelectItem>
+                <SelectItem value="ARS">ARS</SelectItem>
+                <SelectItem value="USD">USD</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <SelectTrigger className="w-[220px]" aria-label="Tipo">
+                <SelectValue placeholder="Tipo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ANY}>Todos los tipos</SelectItem>
+                {(
+                  [
+                    "bank",
+                    "cash",
+                    "wallet",
+                    "investment",
+                    "checks",
+                    "echeq",
+                  ] as AccountType[]
+                ).map((t) => (
+                  <SelectItem key={t} value={t}>
+                    {ACCOUNT_TYPE_LABEL[t]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </ListToolbar>
+
+          <DataTable
+            columns={columns}
+            data={filtered}
+            getRowId={(acc) => acc.id}
+            isLoading={query.isLoading}
+            skeletonRows={3}
+            emptyMessage="Sin cuentas para el filtro actual."
+          />
+        </>
       )}
-
-      {/* Filters + table */}
-      <ListToolbar
-        isFiltered={
-          search.trim() !== "" || currencyFilter !== ANY || typeFilter !== ANY
-        }
-        onClear={() => {
-          setSearch("");
-          setCurrencyFilter(ANY);
-          setTypeFilter(ANY);
-        }}
-        actions={
-          query.data && (
-            <span className="text-sm text-muted-foreground">
-              {filtered.length} de {query.data.accounts.length}
-            </span>
-          )
-        }
-      >
-        <ListSearch
-          placeholder="Buscar cuenta"
-          value={search}
-          onChange={setSearch}
-        />
-        <Select value={currencyFilter} onValueChange={setCurrencyFilter}>
-          <SelectTrigger className="w-[180px]" aria-label="Moneda">
-            <SelectValue placeholder="Moneda" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ANY}>Todas las monedas</SelectItem>
-            <SelectItem value="ARS">ARS</SelectItem>
-            <SelectItem value="USD">USD</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={typeFilter} onValueChange={setTypeFilter}>
-          <SelectTrigger className="w-[220px]" aria-label="Tipo">
-            <SelectValue placeholder="Tipo" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ANY}>Todos los tipos</SelectItem>
-            {(
-              [
-                "bank",
-                "cash",
-                "wallet",
-                "investment",
-                "checks",
-                "echeq",
-              ] as AccountType[]
-            ).map((t) => (
-              <SelectItem key={t} value={t}>
-                {ACCOUNT_TYPE_LABEL[t]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </ListToolbar>
-
-      <DataTable
-        columns={columns}
-        data={filtered}
-        getRowId={(acc) => acc.id}
-        isLoading={query.isLoading}
-        skeletonRows={3}
-        emptyMessage="Sin cuentas para el filtro actual."
-      />
     </div>
   );
 }

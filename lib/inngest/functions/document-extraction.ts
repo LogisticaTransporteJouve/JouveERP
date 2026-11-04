@@ -23,6 +23,8 @@ import {
 } from "@/features/ai/document/store";
 import { recordAiUsage } from "@/features/ai/lib/chat-store";
 import { AI_TITLE_MODEL } from "@/features/ai/model";
+import { userCan } from "@/lib/auth/permissions";
+import { loadUserAccess } from "@/lib/auth/users";
 import { inngest } from "@/lib/inngest/client";
 import { getServiceClient } from "@/lib/supabase/service";
 import {
@@ -110,9 +112,14 @@ export const documentExtraction = inngest.createFunction(
       }
     });
 
-    const matches = await step.run("match", () =>
-      matchForKind(extracted.kind, extracted.payload),
-    );
+    // The matches are the uploader's: each comparison runs only against data
+    // they may read now (roles minus denies). Unknown uploader: none.
+    const matches = await step.run("match", async () => {
+      const access = requester ? await loadUserAccess(requester) : null;
+      return matchForKind(extracted.kind, extracted.payload, (permission) =>
+        userCan(access, permission),
+      );
+    });
 
     // Suggest the expense account (+ confirm cost center) for purchase invoices.
     // Suggestion-only: it rides on `matches.expense` for human review; nothing

@@ -1084,6 +1084,7 @@ export type RawVehicleMarginRow = {
   net: number | string;
   pending_usd: number | string;
   maintenance_without_cost: number;
+  uninvoiced_shipments: number;
 };
 
 /** Costs are positive amounts; net = revenue − every cost. */
@@ -1108,6 +1109,9 @@ export type VehicleMarginRow = {
   marginPct: number | null;
   /** USD without a rate of the center, signed (never summed). */
   pendingUsd: number;
+  /** Cargas of its trips still to invoice (a tariff-priced one has no
+   *  freight yet): not in revenue, so with any the net is not final. */
+  uninvoicedShipments: number;
 };
 
 export type VehicleMargin = {
@@ -1157,6 +1161,7 @@ export function narrowVehicleMargin(raw: readonly RawVehicleMarginRow[]): {
       net,
       marginPct: marginPct(net, revenue),
       pendingUsd: Number(r.pending_usd),
+      uninvoicedShipments: Number(r.uninvoiced_shipments),
     });
   }
   return { rows, unknown };

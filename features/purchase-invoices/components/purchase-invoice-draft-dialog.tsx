@@ -4,6 +4,7 @@ import { ExternalLink } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { FilePreviewSurface } from "@/components/file-preview/file-preview-surface";
+import { ReadError } from "@/components/read-error";
 import {
   Dialog,
   DialogContent,
@@ -19,25 +20,31 @@ import type {
 } from "../lib/purchase-invoice-draft";
 import { PurchaseInvoiceForm } from "./purchase-invoice-form";
 
-function useSignedUrl(fileId: string): string | null {
-  const [url, setUrl] = useState<string | null>(null);
+function useSignedUrl(fileId: string) {
+  const [state, setState] = useState<{
+    url: string | null;
+    loading: boolean;
+  }>({ url: null, loading: true });
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let cancelled = false;
-    setUrl(null);
+    setState({ url: null, loading: true });
     fetchSignedUrl(fileId)
       .then((signed) => {
-        if (!cancelled) setUrl(signed.url);
+        if (!cancelled) setState({ url: signed.url, loading: false });
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (!cancelled) setState({ url: null, loading: false });
+      });
     return () => {
       cancelled = true;
     };
-  }, [fileId]);
-  return url;
+  }, [fileId, attempt]);
+  return { ...state, retry: () => setAttempt((n) => n + 1) };
 }
 
 function SourcePreview({ source }: { source: PurchaseInvoiceDraftSource }) {
-  const url = useSignedUrl(source.fileId);
+  const { url, loading, retry } = useSignedUrl(source.fileId);
   return (
     <>
       <div className="hidden min-h-0 border-r bg-muted/20 p-4 lg:block">
@@ -45,10 +52,18 @@ function SourcePreview({ source }: { source: PurchaseInvoiceDraftSource }) {
           url={url}
           filename={source.filename}
           mimeType={source.mimeType}
-          isLoading={url === null}
+          isLoading={loading}
+          onRetry={retry}
           className="h-full w-full"
         />
       </div>
+      {!url && !loading && (
+        <ReadError
+          message="No se pudo cargar el archivo."
+          onRetry={retry}
+          className="px-4 pt-3 text-xs lg:hidden"
+        />
+      )}
       {url && (
         <a
           href={url}
