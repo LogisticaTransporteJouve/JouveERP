@@ -4,6 +4,7 @@ import { AlertTriangle, ExternalLink, Undo2 } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
+import { ReadError } from "@/components/read-error";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
@@ -104,7 +105,9 @@ export function LibroMayorPage() {
         </div>
       </div>
 
-      {accountId && selectedAccount && (
+      {/* Only a read ledger has totals: no 0,00 while it loads or after
+          it failed. */}
+      {accountId && selectedAccount && ledger.data && (
         <div className="grid grid-cols-3 gap-3">
           <Card label="Total Debe" value={money(summary.totalDebit)} />
           <Card label="Total Haber" value={money(summary.totalCredit)} />
@@ -117,13 +120,16 @@ export function LibroMayorPage() {
       )}
 
       {accountId ? (
-        ledger.isLoading ? (
+        // A failed background refetch keeps the rows already read.
+        ledger.isError && !ledger.data ? (
+          <ReadError
+            message={ledger.error.message}
+            onRetry={() => void ledger.refetch()}
+            className="justify-center rounded-lg border bg-card px-6 py-12"
+          />
+        ) : !ledger.data ? (
           <div className="px-6 py-12 text-center text-sm text-muted-foreground">
             Cargando…
-          </div>
-        ) : ledger.isError ? (
-          <div className="rounded-lg border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
-            {ledger.error.message}
           </div>
         ) : rows.length === 0 ? (
           <div className="rounded-lg border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
