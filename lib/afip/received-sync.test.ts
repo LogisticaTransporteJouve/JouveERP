@@ -17,12 +17,24 @@ const { runReceivedSync, monthRanges } = await import("./received-sync");
 const { ArcaRobotError } = await import("./mis-comprobantes/robot");
 
 const rpc = vi.fn(async () => ({ error: null }));
-const supabase = { rpc } as never;
+const marks: Record<string, unknown>[] = [];
+const supabase = {
+  rpc,
+  from: () => ({
+    update: (fields: Record<string, unknown>) => ({
+      eq: async () => {
+        marks.push(fields);
+        return { error: null };
+      },
+    }),
+  }),
+} as never;
 const COMPANY = "30711111118";
 const voucher = { kind: "factura" } as never;
 
 beforeEach(() => {
   vi.clearAllMocks();
+  marks.length = 0;
   status.mockResolvedValue({ state: "ok", cuit: "20111111112" });
   password.mockResolvedValue("clave");
   ingest.mockResolvedValue({
@@ -85,6 +97,11 @@ describe("runReceivedSync", () => {
       skippedRows: 2,
       failedMonths: {},
     });
+    // The tray follows the run: started, then finished with this result.
+    expect(marks).toEqual([
+      { sync_started_at: expect.any(String) },
+      { sync_finished_at: expect.any(String), sync_result: out },
+    ]);
   });
 
   it("does not sign in when the clave is missing or was rejected", async () => {

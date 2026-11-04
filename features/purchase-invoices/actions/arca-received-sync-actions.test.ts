@@ -7,10 +7,17 @@ let account: Record<string, unknown> | null = null;
 const sent: unknown[] = [];
 const audit = vi.fn();
 
+const stamps: Record<string, unknown>[] = [];
 const service = {
   from: () => ({
     select: () => ({
       maybeSingle: async () => ({ data: account, error: null }),
+    }),
+    update: (fields: Record<string, unknown>) => ({
+      eq: async () => {
+        stamps.push(fields);
+        return { error: null };
+      },
     }),
   }),
 };
@@ -39,6 +46,15 @@ const active = {
   secret_id: "s",
   last_success_at: "2026-11-04T08:00:00Z",
   last_error_code: null,
+  sync_requested_at: null,
+  sync_started_at: "2026-11-04T08:00:00Z",
+  sync_finished_at: "2026-11-04T08:00:03Z",
+  sync_result: {
+    outcome: "done",
+    counts: { inserted: 14, unsupported: 0, alreadyInTray: 0, linked: 0 },
+    skippedRows: 0,
+    failedMonths: {},
+  },
 };
 
 beforeEach(() => {
@@ -46,6 +62,7 @@ beforeEach(() => {
   roles = ["finance"];
   account = active;
   sent.length = 0;
+  stamps.length = 0;
   audit.mockClear();
 });
 
@@ -69,6 +86,7 @@ describe("requestArcaReceivedSyncAction", () => {
         },
       },
     ]);
+    expect(stamps).toEqual([{ sync_requested_at: "2026-11-04T12:00:00.000Z" }]);
     expect(audit).toHaveBeenCalledWith(
       "purchase_invoice.arca_sync_requested",
       "00000000-0000-4000-8000-000000000001",
@@ -112,6 +130,12 @@ describe("getArcaSyncStatusAction", () => {
         state: "ok",
         lastSuccessAt: "2026-11-04T08:00:00Z",
         lastErrorCode: null,
+        sync: {
+          requestedAt: null,
+          startedAt: "2026-11-04T08:00:00Z",
+          finishedAt: "2026-11-04T08:00:03Z",
+          result: active.sync_result,
+        },
       },
     });
   });

@@ -1,0 +1,76 @@
+import type {
+  ArcaSyncRun,
+  ArcaSyncRunResult,
+} from "@/lib/afip/arca-web-account";
+
+/** A requested run that has not started after this long never will (the
+ *  event was lost, or the job is not deployed). */
+export const SYNC_START_TIMEOUT_MS = 3 * 60_000;
+/** A started run with no end after this long died (the function timed out). */
+export const SYNC_RUN_TIMEOUT_MS = 15 * 60_000;
+
+export type SyncPhase = "idle" | "waiting" | "running" | "not_started";
+
+const ms = (iso: string | null) => (iso ? Date.parse(iso) : 0);
+
+/** Where the last run is: waiting to start, running, never started, or done
+ *  (idle). Times compare by value, so a cron run also counts. */
+export function syncPhase(sync: ArcaSyncRun, now: number): SyncPhase {
+  const requested = ms(sync.requestedAt);
+  const started = ms(sync.startedAt);
+  const finished = ms(sync.finishedAt);
+  if (requested > started && requested > finished) {
+    return now - requested < SYNC_START_TIMEOUT_MS ? "waiting" : "not_started";
+  }
+  if (started > finished && now - started < SYNC_RUN_TIMEOUT_MS) {
+    return "running";
+  }
+  return "idle";
+}
+
+const CODE_TEXT: Record<string, string> = {
+  SIGN_IN_REJECTED: "ARCA rechazó el CUIT o la clave",
+  SIGN_IN_FAILED: "ARCA no completó el ingreso",
+  SERVICE_NOT_AUTHORIZED: "el usuario no tiene Mis Comprobantes habilitado",
+  REPRESENTED_NOT_FOUND: "el usuario no representa a la empresa",
+  NETWORK: "no se pudo conectar con ARCA",
+  QUERY_FAILED: "ARCA no respondió la consulta",
+  TOO_MANY: "demasiados comprobantes en el mes",
+  INGEST_FAILED: "no se pudo guardar en la bandeja",
+};
+
+const codeText = (code: string) => CODE_TEXT[code] ?? `error ${code}`;
+
+const plural = (n: number, one: string, many: string) =>
+  `${n} ${n === 1 ? one : many}`;
+
+/** The result of a run in a line, for the card and the toast. */
+export function syncResultText(result: ArcaSyncRunResult): string {
+  switch (result.outcome) {
+    case "skipped":
+      return result.reason === "rejected"
+        ? "No se entró a ARCA: la clave guardada fue rechazada."
+        : "No se entró a ARCA: falta el usuario.";
+    case "sign_in_failed":
+      return `No se pudo entrar a ARCA: ${codeText(result.code)}.`;
+    case "done": {
+      const c = result.counts;
+      const parts = [
+        plural(c.inserted, "comprobante nuevo", "comprobantes nuevos"),
+        `${c.alreadyInTray} ya estaban`,
+      ];
+      if (c.linked > 0) parts.push(`${c.linked} ya cargados como compra`);
+      if (result.skippedRows > 0) {
+        parts.push(`${result.skippedRows} no se pudieron leer`);
+      }
+      const failed = Object.entries(result.failedMonths);
+      const tail =
+        failed.length > 0
+          ? ` Faltó ${failed
+              .map(([month, code]) => `${month} (${codeText(code)})`)
+              .join(", ")}.`
+          : "";
+      return `${parts.join(" · ")}.${tail}`;
+    }
+  }
+}

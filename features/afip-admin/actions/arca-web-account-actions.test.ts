@@ -140,6 +140,12 @@ describe("getArcaWebAccountAction", () => {
         cuit: "20123456786",
         lastSuccessAt: null,
         lastErrorCode: "SIGN_IN_REJECTED",
+        sync: {
+          requestedAt: null,
+          startedAt: null,
+          finishedAt: null,
+          result: null,
+        },
       },
     });
   });
