@@ -20,6 +20,7 @@ describe("computeProfitability", () => {
           revenue: 1000,
           revenue_source: "manual",
           invoiced_revenue: 0,
+          uninvoiced_freight: 0,
           manual_revenue: 1000,
           cost: 100,
           vehicle: { patente: "AAA111" },
@@ -49,6 +50,7 @@ describe("computeProfitability", () => {
           revenue: 1000,
           revenue_source: "manual",
           invoiced_revenue: 0,
+          uninvoiced_freight: 0,
           manual_revenue: 1000,
           cost: 100,
           vehicle: { patente: "AAA111" },
@@ -81,6 +83,7 @@ describe("computeProfitability", () => {
           revenue: 5000,
           revenue_source: "manual",
           invoiced_revenue: 0,
+          uninvoiced_freight: 0,
           manual_revenue: 5000,
           cost: 0,
           vehicle: { patente: "BBB222" },
@@ -122,6 +125,40 @@ describe("computeProfitability", () => {
     });
   });
 
+  it("carries the freight still to invoice per trip, vehicle and in the totals, outside the net", () => {
+    const trip = (id: string, vehicle: string | null, uninvoiced: number) => ({
+      id,
+      trip_date: "2026-07-01",
+      vehicle_id: vehicle,
+      origin: null,
+      destination: null,
+      revenue: 100,
+      revenue_source: "invoiced" as const,
+      invoiced_revenue: 100,
+      uninvoiced_freight: uninvoiced,
+      manual_revenue: null,
+      cost: 50,
+      vehicle: null,
+      driver: null,
+    });
+    const r = computeProfitability({
+      trips: [
+        trip("t1", "v1", 400),
+        trip("t2", "v1", 0),
+        trip("t3", null, 250),
+      ],
+      fuel: [],
+      maintenance: [],
+      vehicleNames: names,
+    });
+    expect(r.trips[0]).toMatchObject({ uninvoiced_freight: 400, net: 50 });
+    expect(r.vehicles[0]).toMatchObject({ uninvoiced_freight: 400, net: 100 });
+    expect(r.totals).toMatchObject({
+      uninvoiced_freight: 650,
+      pending_invoicing_trips: 2,
+    });
+  });
+
   it("carries invoiced and manual revenue apart from the revenue it uses", () => {
     const r = computeProfitability({
       trips: [
@@ -134,6 +171,7 @@ describe("computeProfitability", () => {
           revenue: 300,
           revenue_source: "invoiced",
           invoiced_revenue: 300,
+          uninvoiced_freight: 0,
           manual_revenue: 1000,
           cost: 100,
           vehicle: { patente: "AAA111" },
@@ -148,6 +186,7 @@ describe("computeProfitability", () => {
           revenue: 800,
           revenue_source: "manual",
           invoiced_revenue: 0,
+          uninvoiced_freight: 0,
           manual_revenue: 800,
           cost: 50,
           vehicle: { patente: "AAA111" },
@@ -162,6 +201,7 @@ describe("computeProfitability", () => {
       revenue: 300,
       revenue_source: "invoiced",
       invoiced_revenue: 300,
+      uninvoiced_freight: 0,
       manual_revenue: 1000,
       net: 200,
     });

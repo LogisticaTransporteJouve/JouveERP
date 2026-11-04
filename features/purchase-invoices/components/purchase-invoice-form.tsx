@@ -79,6 +79,7 @@ import {
 import {
   type CostDefault,
   purchaseCostDefaults,
+  storedSupplierCostDefaults,
   suggestedCostDefaults,
   supplierCostDefaults,
   supplierCostWrites,
@@ -496,9 +497,14 @@ export function PurchaseInvoiceForm({
   }, [watchedSupplierId, form]);
 
   // K.12 Part A — Pre-fill from the supplier's defaults (create only + empty
-  // fields). In edit mode we touch nothing so we don't clobber already-loaded data.
+  // fields). In edit mode only a factura reads them, to tell which of its
+  // values the defaults wrote (the NC/ND switch below).
   const supplierDetailQuery = useSupplierByIdOptional(
-    mode === "create" ? watchedSupplierId : null,
+    mode === "create"
+      ? watchedSupplierId
+      : invoice?.kind === "factura"
+        ? invoice.supplier_id
+        : null,
   );
   const supplierDetail = supplierDetailQuery.data ?? null;
   const supplierDetailFetching = supplierDetailQuery.isFetching;
@@ -548,6 +554,26 @@ export function PurchaseInvoiceForm({
     watchedKind,
     form,
   ]);
+
+  // Edit: a factura turned into an NC/ND clears the supplier defaults it
+  // still holds and the user did not touch, as on create, so the trigger
+  // takes the origin's; turning it back to factura restores them.
+  useEffect(() => {
+    if (mode !== "edit" || invoice?.kind !== "factura" || !supplierDetail) {
+      return;
+    }
+    const stored = storedSupplierCostDefaults(invoice, supplierDetail);
+    for (const { name, id } of supplierCostWrites(
+      stored,
+      purchaseCostDefaults(watchedKind, [], stored),
+      (name) => ({
+        value: form.getValues(name),
+        dirty: form.getFieldState(name).isDirty,
+      }),
+    )) {
+      form.setValue(name, id, { shouldDirty: false });
+    }
+  }, [mode, invoice, supplierDetail, watchedKind, form]);
 
   useEffect(() => {
     if (mode !== "create" || !supplierDetail) return;

@@ -3,7 +3,7 @@
 
 import { SCOPE_LABEL, type FiscalFilter } from "@/lib/scope";
 
-import { outlierBounds } from "./statistics";
+import { outlierBounds, quartiles } from "./statistics";
 
 /** A purchase's scope: its channel's `is_fiscal`, or "none" without channel. */
 export type PurchaseScope = Exclude<FiscalFilter, "all"> | "none";
@@ -58,11 +58,24 @@ function pvNum(r: PurchaseRow): string {
   return `${String(r.punto_venta).padStart(5, "0")}-${String(r.numero).padStart(8, "0")}`;
 }
 
+/** How far apart two consecutive invoices of one group may be to look like
+ *  one charge loaded twice: DUP_WINDOW_DAYS, or with 3+ invoices half the
+ *  group's usual spacing (the upper quartile of its gaps, so a few duplicates
+ *  do not set it), at least a day. A fixed monthly or weekly fee is measured
+ *  against its own cadence instead of being taken for a duplicate. */
+function duplicateWindow(gaps: number[]): number {
+  if (gaps.length < 2) return DUP_WINDOW_DAYS;
+  const { q3 } = quartiles([...gaps].sort((a, b) => a - b));
+  return Math.min(DUP_WINDOW_DAYS, Math.max(1, q3 / 2));
+}
+
 /**
- * Same scope + supplier + currency + same total within a 30-day window but a
- * different voucher number → likely a double-loaded / double-paid invoice.
- * One finding per cluster. A fiscal and an internal invoice never pair up,
- * nor a peso and a dollar one.
+ * Same scope + supplier + currency + same total, close in time (see
+ * duplicateWindow) but a different voucher number → likely a double-loaded /
+ * double-paid invoice. Consecutive invoices are measured pair by pair, so a
+ * supplier's twelve monthly invoices of one amount are not one window, and
+ * each run of close invoices is one finding. A fiscal and an internal invoice
+ * never pair up, nor a peso and a dollar one.
  */
 export function detectDuplicateInvoices(rows: PurchaseRow[]): AnomalyFinding[] {
   const byKey = new Map<string, PurchaseRow[]>();
@@ -73,37 +86,53 @@ export function detectDuplicateInvoices(rows: PurchaseRow[]): AnomalyFinding[] {
     byKey.set(key, arr);
   }
 
-  const findings: AnomalyFinding[] = [];
+  const clusters: { rows: PurchaseRow[]; maxGap: number }[] = [];
   for (const group of byKey.values()) {
     if (group.length < 2) continue;
     const sorted = [...group].sort((a, b) => dayNum(a.fecha) - dayNum(b.fecha));
-    // Keep the cluster only if some pair is within the window and not the exact
-    // same voucher (distinct pv+numero).
-    const within =
-      dayNum(sorted[sorted.length - 1]!.fecha) - dayNum(sorted[0]!.fecha) <=
-      DUP_WINDOW_DAYS;
-    const distinctVouchers =
-      new Set(group.map((r) => `${r.punto_venta}-${r.numero}`)).size > 1;
-    if (!within || !distinctVouchers) continue;
+    const gaps = sorted
+      .slice(1)
+      .map((r, i) => dayNum(r.fecha) - dayNum(sorted[i]!.fecha));
+    const window = duplicateWindow(gaps);
+    let run = { rows: [sorted[0]!], maxGap: 0 };
+    gaps.forEach((gap, i) => {
+      const r = sorted[i + 1]!;
+      if (gap <= window) {
+        run.rows.push(r);
+        run.maxGap = Math.max(run.maxGap, gap);
+      } else {
+        clusters.push(run);
+        run = { rows: [r], maxGap: 0 };
+      }
+    });
+    clusters.push(run);
+  }
 
-    const first = sorted[0]!;
+  const findings: AnomalyFinding[] = [];
+  for (const { rows: cluster, maxGap } of clusters) {
+    // Not the exact same voucher (distinct pv+numero).
+    const distinctVouchers =
+      new Set(cluster.map((r) => `${r.punto_venta}-${r.numero}`)).size > 1;
+    if (cluster.length < 2 || !distinctVouchers) continue;
+
+    const first = cluster[0]!;
     findings.push({
       kind: "dup_invoice",
       severity: "warning",
       title: "Posible factura duplicada",
-      finding: `${PURCHASE_SCOPE_LABEL[first.scope]} · ${first.supplier_name}: ${group.length} facturas por ${money(
+      finding: `${PURCHASE_SCOPE_LABEL[first.scope]} · ${first.supplier_name}: ${cluster.length} facturas por ${money(
         first.imp_total,
         first.currency,
-      )} en ≤${DUP_WINDOW_DAYS} días (${group.map(pvNum).join(", ")}). Revisá que no sea un doble cargo.`,
+      )} con ${maxGap === 0 ? "la misma fecha" : `≤${maxGap} día(s) entre una y otra`} (${cluster.map(pvNum).join(", ")}). Revisá que no sea un doble cargo.`,
       metrics: {
         scope: first.scope,
         supplier_id: first.supplier_id,
         amount: first.imp_total,
         currency: first.currency,
-        count: group.length,
-        vouchers: group.map(pvNum),
+        count: cluster.length,
+        vouchers: cluster.map(pvNum),
       },
-      source_refs: group.map((r) => r.id),
+      source_refs: cluster.map((r) => r.id),
     });
   }
   return findings;

@@ -237,9 +237,16 @@ transaction_date)` (la cotización de esa fecha o la anterior más cercana),
   origen**, y sin centro de costo hereda el de su origen, cada uno por
   separado, así revierte la misma cuenta y el mismo centro que la factura
   (trigger `purchase_invoices_nc_nd_inherit_account`, `20261102230100`,
-  `20261104150200`); una cuenta o un centro elegidos en la NC/ND se respetan.
-  El formulario no le pone a una NC/ND los valores por defecto del proveedor
-  ni la sugerencia del escaneo.
+  `20261104150200`, `20261104160200`); una cuenta o un centro elegidos en la
+  NC/ND se respetan. Vale también al editarla: dejar vacía la cuenta o el
+  centro («La/El del comprobante de origen») toma los del origen, y cambiarle
+  el origen pasa al nuevo lo que había heredado del anterior (lo que se
+  cambia en la misma edición se respeta). Un campo que ya estaba vacío no se
+  completa mientras el período de la NC/ND está cerrado, para que guardar
+  solo las notas no re-asiente. El formulario no le pone a una NC/ND los
+  valores por defecto del proveedor ni la sugerencia del escaneo, y al pasar
+  a NC/ND una factura en edición vacía los que el proveedor le había puesto y
+  nadie tocó.
 - **Costo cargado una vez con rubro y centro (roadmap 1.1/1.2/1.8,
   `20261103010000`):** el formulario de compras (fiscal e interno) tiene
   "Cuenta de gasto" y "Centro de costo"; una factura nueva arranca con los

@@ -67,6 +67,52 @@ describe("detectDuplicateInvoices", () => {
     expect(f[0]?.metrics.scope).toBe("internal");
   });
 
+  it("flags a fixed monthly fee loaded twice in one month, and only that pair", () => {
+    const monthly = Array.from({ length: 12 }, (_, i) =>
+      row({
+        id: `m${i + 1}`,
+        numero: i + 1,
+        fecha: `2026-${String(i + 1).padStart(2, "0")}-01`,
+      }),
+    );
+    const twice = row({ id: "dup", numero: 99, fecha: "2026-03-03" });
+    const f = detectDuplicateInvoices([...monthly, twice]);
+    expect(f).toHaveLength(1);
+    expect(f[0]?.source_refs).toEqual(["m3", "dup"]);
+    expect(f[0]?.metrics.count).toBe(2);
+    expect(f[0]?.finding).toMatch(/2 facturas por \$1\.000 con ≤2 día\(s\)/);
+  });
+
+  it("does not flag a fixed monthly or weekly fee with no duplicate", () => {
+    const monthly = Array.from({ length: 12 }, (_, i) =>
+      row({
+        id: `m${i + 1}`,
+        numero: i + 1,
+        fecha: `2026-${String(i + 1).padStart(2, "0")}-01`,
+      }),
+    );
+    const weekly = Array.from({ length: 10 }, (_, i) =>
+      row({
+        id: `w${i + 1}`,
+        supplier_id: "s2",
+        numero: i + 1,
+        fecha: new Date(Date.UTC(2026, 0, 5 + 7 * i))
+          .toISOString()
+          .slice(0, 10),
+      }),
+    );
+    expect(detectDuplicateInvoices([...monthly, ...weekly])).toEqual([]);
+  });
+
+  it("flags three loads of one invoice on consecutive days", () => {
+    const f = detectDuplicateInvoices([
+      row({ id: "a", numero: 10, fecha: "2026-06-01" }),
+      row({ id: "b", numero: 11, fecha: "2026-06-02" }),
+      row({ id: "c", numero: 12, fecha: "2026-06-03" }),
+    ]);
+    expect(f.map((x) => x.source_refs)).toEqual([["a", "b", "c"]]);
+  });
+
   it("does not flag when outside the 30-day window", () => {
     const f = detectDuplicateInvoices([
       row({ id: "a", fecha: "2026-06-01", numero: 10 }),

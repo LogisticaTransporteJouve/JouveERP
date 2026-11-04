@@ -162,6 +162,8 @@ function marginRow(over: Partial<FleetMarginRow>): FleetMarginRow {
     total_groups: 1,
     total_revenue: 1000,
     total_net: 650,
+    uninvoiced_freight: 0,
+    total_uninvoiced_freight: 0,
     ...over,
   };
 }
@@ -183,7 +185,26 @@ describe("getFleetMargin", () => {
     expect(res.ok).toBe(true);
     if (!res.ok) return;
     expect(res.summary).toContain("80 grupos");
+    expect(res.summary).not.toContain("sin facturar");
     expect(res.meta.partial).toBe(true);
+  });
+
+  it("says the nets are not final when freight is still to invoice", async () => {
+    vi.mocked(getFleetMarginAction).mockResolvedValue({
+      ok: true,
+      data: [
+        marginRow({ uninvoiced_freight: 700, total_uninvoiced_freight: 900 }),
+      ],
+    });
+    const res = await getFleetMargin.execute(owner, {
+      from: "2026-01-01",
+      to: "2026-03-31",
+    });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.summary).toContain(
+      "Flete sin facturar $900: no está en los ingresos, así que esos netos no son definitivos",
+    );
   });
 });
 

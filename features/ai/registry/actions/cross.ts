@@ -49,6 +49,7 @@ import { defineAiAction } from "../define";
 import { errResult, money, okResult, type AiRunResult } from "../result";
 import { readScope } from "../scope";
 
+import { pendingFreightNote } from "./fleet";
 import { INTERNAL_NOTE, PNL_CAP_NOTE, monthsBetween } from "./management";
 
 // Cross-domain reads (roadmap 6.1). Each composes read actions of the
@@ -513,7 +514,7 @@ export const getVehicleEconomics = defineAiAction({
     "cost_centers",
   ],
   description:
-    "Economía por camión/vehículo en un rango de fechas: viajes (no cancelados), km de viajes y de odómetro (lectura mensual del último mes menos la del mes anterior al primero), litros de combustible y litros cada 100 km, ingreso por flete, costo de viajes, combustible, mantenimiento, costo del centro de costo del camión (seguros, patentes, cubiertas y compras cargadas con ese centro, por meses completos), neto, margen % e ingreso y costo por km. Cada parte necesita su permiso (cargas para ingresos y costos, combustible para litros, km de flota para el odómetro, gestión para el centro de costo): lo que falta se omite y se avisa. Trae aparte los viajes sin vehículo y el costo operativo que no es de ningún camión (no se reparte). Paginado (limit/offset).",
+    "Economía por camión/vehículo en un rango de fechas: viajes (no cancelados), km de viajes y de odómetro (lectura mensual del último mes menos la del mes anterior al primero), litros de combustible y litros cada 100 km, ingreso por flete, costo de viajes, combustible, mantenimiento, costo del centro de costo del camión (seguros, patentes, cubiertas y compras cargadas con ese centro, por meses completos), neto, margen % e ingreso y costo por km. uninvoiced_freight_ars es el flete de sus cargas todavía sin facturar: no está en el ingreso, así que ese neto no es definitivo y no es pérdida todavía. Cada parte necesita su permiso (cargas para ingresos y costos, combustible para litros, km de flota para el odómetro, gestión para el centro de costo): lo que falta se omite y se avisa. Trae aparte los viajes sin vehículo y el costo operativo que no es de ningún camión (no se reparte). Paginado (limit/offset).",
   input: FleetRangeInputSchema,
   run: async (ctx, input): Promise<AiRunResult> => {
     const range = { from: input.from, to: input.to };
@@ -630,6 +631,9 @@ export const getVehicleEconomics = defineAiAction({
               ? round2((liters / basis.km) * 100)
               : null,
           revenue_ars: revenue,
+          uninvoiced_freight_ars: withMoney
+            ? Number(m?.uninvoiced_freight ?? 0)
+            : null,
           trip_cost_ars: withMoney ? Number(m?.trip_cost ?? 0) : null,
           fuel_cost_ars: withMoney ? Number(m?.fuel_cost ?? 0) : null,
           maintenance_cost_ars: withMoney
@@ -666,6 +670,10 @@ export const getVehicleEconomics = defineAiAction({
     ].filter((x): x is string => x !== null);
     const notes = [VEHICLE_COSTS_NOTE];
     if (withMoney && !withCenters) notes.push(UNLINKED_VEHICLE_COSTS);
+    const vehiclePending = pendingFreightNote(
+      Number(marginRes?.data[0]?.total_uninvoiced_freight ?? 0),
+    );
+    if (vehiclePending) notes.push(vehiclePending);
     if (omitted.length)
       notes.push(`Omitido por permisos: ${omitted.join(", ")}.`);
     const unattributedCost = centerRes
@@ -755,7 +763,7 @@ export const getDriverActivity = defineAiAction({
     "shipments",
   ],
   description:
-    "Actividad por chofer en un rango de fechas: viajes (no cancelados), km y viajes sin km, ingreso por flete, costo de viajes y combustible imputado, neto; del empleado vinculado: extras de planilla de los meses del rango, adelantos del rango (pesos y dólares) y saldo actual de su cuenta corriente en pesos; y sus rendiciones de cobranza contra entrega: lo pendiente hoy (cargas entregadas sin rendir y rendiciones en borrador) y las confirmadas del rango con lo esperado, lo entregado y la diferencia (entregado − esperado; negativo = faltante). Ingresos y costos necesitan permiso de cargas, lo del empleado permiso de RRHH y las rendiciones permiso de recibos: lo que falta se omite y se avisa; un chofer sin empleado vinculado no tiene extras ni adelantos (null). Trae aparte los viajes sin chofer. Paginado (limit/offset).",
+    "Actividad por chofer en un rango de fechas: viajes (no cancelados), km y viajes sin km, ingreso por flete, flete todavía sin facturar (uninvoiced_freight_ars: no está en el ingreso, así que ese neto no es definitivo), costo de viajes y combustible imputado, neto; del empleado vinculado: extras de planilla de los meses del rango, adelantos del rango (pesos y dólares) y saldo actual de su cuenta corriente en pesos; y sus rendiciones de cobranza contra entrega: lo pendiente hoy (cargas entregadas sin rendir y rendiciones en borrador) y las confirmadas del rango con lo esperado, lo entregado y la diferencia (entregado − esperado; negativo = faltante). Ingresos y costos necesitan permiso de cargas, lo del empleado permiso de RRHH y las rendiciones permiso de recibos: lo que falta se omite y se avisa; un chofer sin empleado vinculado no tiene extras ni adelantos (null). Trae aparte los viajes sin chofer. Paginado (limit/offset).",
   input: FleetRangeInputSchema,
   run: async (ctx, input): Promise<AiRunResult> => {
     const range = { from: input.from, to: input.to };
@@ -803,6 +811,9 @@ export const getDriverActivity = defineAiAction({
           trip_km: Number(a.trip_km),
           trips_without_km_count: a.trips_without_km,
           revenue_ars: withMoney ? Number(m?.revenue ?? 0) : null,
+          uninvoiced_freight_ars: withMoney
+            ? Number(m?.uninvoiced_freight ?? 0)
+            : null,
           trip_cost_ars: withMoney ? Number(m?.trip_cost ?? 0) : null,
           fuel_cost_ars: withMoney ? Number(m?.fuel_cost ?? 0) : null,
           net_ars: withMoney ? Number(m?.net ?? 0) : null,
@@ -829,6 +840,10 @@ export const getDriverActivity = defineAiAction({
         "Ingresos y costos omitidos: hace falta el permiso de cargas.",
       );
     }
+    const driverPending = pendingFreightNote(
+      Number(marginRes?.data[0]?.total_uninvoiced_freight ?? 0),
+    );
+    if (driverPending) notes.push(driverPending);
     if (!withHr) {
       notes.push(
         "Extras, adelantos y cuenta corriente omitidos: hace falta el permiso de RRHH.",

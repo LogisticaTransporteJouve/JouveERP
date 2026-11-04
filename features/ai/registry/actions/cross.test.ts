@@ -101,6 +101,8 @@ function margin(
     total_groups: totalGroups,
     total_revenue: 0,
     total_net: 0,
+    uninvoiced_freight: 0,
+    total_uninvoiced_freight: 0,
     ...v,
   };
 }
@@ -498,6 +500,27 @@ describe("getVehicleEconomics", () => {
     );
     expect(meta.note).toContain("hace falta el permiso de gestión");
     expect(getVehicleMarginAction).not.toHaveBeenCalled();
+  });
+
+  it("carries each vehicle's freight still to invoice and says its net is not final", async () => {
+    vi.mocked(getFleetMarginAction).mockResolvedValue({
+      ok: true,
+      data: [
+        margin("v1", "AA123BB", {
+          revenue: 6000,
+          net: 3400,
+          uninvoiced_freight: 800,
+          total_uninvoiced_freight: 800,
+        }),
+      ],
+    });
+    const { data, meta } = okData(
+      await getVehicleEconomics.execute(ctx(["operations"]), RANGE),
+    );
+    expect(data.rows[0]).toEqual(
+      expect.objectContaining({ uninvoiced_freight_ars: 800, net_ars: 3400 }),
+    );
+    expect(meta.note).toContain("Flete sin facturar $800");
   });
 
   it("adds the cost of the truck's cost center with management:read, and keeps the rest apart", async () => {

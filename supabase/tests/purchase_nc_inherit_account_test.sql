@@ -86,8 +86,8 @@ select is(
   null,
   'a factura without account stays without one');
 
--- 5. A save that re-sends the same origin does not inherit (no re-post of an
---    old NC); only a new origin does.
+-- 5. A save that re-sends the same origin fills an account still empty from
+--    the origin while the period is open (20261104160200).
 insert into public.purchase_invoices
   (id, channel_id, supplier_id, kind, letter, punto_venta, numero, fecha,
    imp_neto, imp_iva, imp_total, status, invoice_origin_id)
@@ -104,8 +104,8 @@ update public.purchase_invoices
 select is(
   (select account_id from public.purchase_invoices
     where id = '00000000-0000-0000-0000-0000000851b5'),
-  null,
-  'saving an NC with the same origin leaves its account alone');
+  '00000000-0000-0000-0000-0000000851a2'::uuid,
+  'saving an NC with the same origin in an open period takes the origin''s account');
 
 select * from finish();
 rollback;
