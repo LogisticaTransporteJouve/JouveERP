@@ -14,6 +14,7 @@ import {
   ivaRatePercent,
   type IvaRateId,
 } from "@/lib/afip/codes";
+import { round2 } from "@/lib/format";
 
 // Single PDF template that renders fiscal AND internal comprobantes. The
 // `isFiscal` flag toggles the AFIP-specific furniture (letter box, CAE
@@ -234,8 +235,10 @@ function formatPaddedPtoVta(ptoVta: number): string {
 
 type CopyLabel = "ORIGINAL" | "DUPLICADO" | null;
 
-const REGIMEN_TRANSPARENCIA_LEYENDA =
-  "Régimen de Transparencia Fiscal al Consumidor (Ley 27.743). El monto de IVA discriminado y los demás impuestos nacionales indirectos contenidos en esta operación se detallan a continuación.";
+// RG 5614/2024 (Anexo II, apartado B, of RG 1415): the title, then the IVA
+// contained in the price.
+const REGIMEN_TRANSPARENCIA_TITULO =
+  "Régimen de Transparencia Fiscal al Consumidor (Ley 27.743)";
 
 const MONOTRIBUTO_RECEPTOR_LEYENDA =
   "El crédito fiscal discriminado en el presente comprobante sólo podrá ser computado a efectos del Régimen de Sostenimiento e Inclusión Fiscal para Pequeños Contribuyentes de la Ley N° 27.618.";
@@ -270,6 +273,66 @@ export function isLetterAToMonotributo(data: InvoiceTemplateData): boolean {
   );
 }
 
+/** Only an A voucher itemizes IVA. RG 1415: a B voucher's prices and
+ *  total include it; a remito interno carries none. Same rule as the detail
+ *  page. */
+export function discriminatesIva(data: InvoiceTemplateData): boolean {
+  return data.isFiscal && data.letter !== "B" && data.letter !== "C";
+}
+
+/** RG 5614/2024 + Ley 27.743: a B voucher informs the IVA its price contains
+ *  (to a consumidor final, an exento or a no alcanzado alike). */
+export function carriesTransparencyRegime(data: InvoiceTemplateData): boolean {
+  return data.isFiscal && data.letter === "B";
+}
+
+export interface TotalsRow {
+  label: string;
+  amount: number;
+}
+
+/** The rows above «Total». An A voucher sums them to the total; a B one shows
+ *  the IVA-inclusive subtotal and only the tributos added on top. */
+export function invoiceTotalsRows(data: InvoiceTemplateData): TotalsRow[] {
+  if (!data.isFiscal) return [];
+  if (!discriminatesIva(data)) {
+    return data.imp_trib > 0
+      ? [
+          { label: "Subtotal", amount: round2(data.imp_total - data.imp_trib) },
+          { label: "Otros tributos", amount: data.imp_trib },
+        ]
+      : [];
+  }
+  const rows: TotalsRow[] = [{ label: "Subtotal", amount: data.imp_neto }];
+  if (data.imp_tot_conc > 0)
+    rows.push({ label: "No gravado", amount: data.imp_tot_conc });
+  if (data.imp_op_ex > 0)
+    rows.push({ label: "Exento", amount: data.imp_op_ex });
+  for (const rate of data.per_rate) {
+    rows.push({
+      label: `IVA ${ivaRatePercent(rate.id)}%`,
+      amount: rate.importe,
+    });
+  }
+  // A header-only invoice whose rate is unknown still shows its IVA.
+  if (data.per_rate.length === 0 && data.imp_iva > 0)
+    rows.push({ label: "IVA", amount: data.imp_iva });
+  if (data.imp_trib > 0)
+    rows.push({ label: "Otros tributos", amount: data.imp_trib });
+  return rows;
+}
+
+/** The unit price a line prints: net on an A voucher, IVA included on a B. */
+export function itemUnitPrice(
+  data: InvoiceTemplateData,
+  item: InvoiceTemplateItem,
+): number {
+  if (discriminatesIva(data) || !data.isFiscal || item.quantity === 0) {
+    return item.unit_price;
+  }
+  return round2(item.line_total / item.quantity);
+}
+
 export function InvoiceDocument({ data }: { data: InvoiceTemplateData }) {
   if (!data.isFiscal) {
     return (
@@ -301,6 +364,7 @@ function InvoicePage({
       : "Sin letra"
     : "Documento no fiscal";
   const heading = invoiceKindLabel(data.kind, data.isFiscal);
+  const showsItemRate = discriminatesIva(data);
 
   return (
     <Page size="A4" style={styles.page}>
@@ -408,15 +472,17 @@ function InvoicePage({
           <Text style={styles.colDescription}>Descripción</Text>
           <Text style={styles.colNumber}>Cant.</Text>
           <Text style={styles.colNumber}>P. Unit.</Text>
-          {data.isFiscal && <Text style={styles.colNumber}>IVA</Text>}
+          {showsItemRate && <Text style={styles.colNumber}>IVA</Text>}
           <Text style={styles.colNumber}>Subtotal</Text>
         </View>
         {data.items.map((item, idx) => (
           <View key={idx} style={styles.itemsRow}>
             <Text style={styles.colDescription}>{item.description}</Text>
             <Text style={styles.colNumber}>{formatARS(item.quantity)}</Text>
-            <Text style={styles.colNumber}>{formatARS(item.unit_price)}</Text>
-            {data.isFiscal && (
+            <Text style={styles.colNumber}>
+              {formatARS(itemUnitPrice(data, item))}
+            </Text>
+            {showsItemRate && (
               <Text style={styles.colNumber}>
                 {item.iva_rate_id !== null
                   ? `${ivaRatePercent(item.iva_rate_id)}%`
@@ -430,45 +496,19 @@ function InvoicePage({
 
       {/* Totals */}
       <View style={styles.totalsBox}>
-        {data.isFiscal && (
-          <>
-            <View style={styles.totalsRow}>
-              <Text>Subtotal</Text>
-              <Text>${formatARS(data.imp_neto)}</Text>
-            </View>
-            {data.imp_tot_conc > 0 && (
-              <View style={styles.totalsRow}>
-                <Text>No gravado</Text>
-                <Text>${formatARS(data.imp_tot_conc)}</Text>
-              </View>
-            )}
-            {data.imp_op_ex > 0 && (
-              <View style={styles.totalsRow}>
-                <Text>Exento</Text>
-                <Text>${formatARS(data.imp_op_ex)}</Text>
-              </View>
-            )}
-            {data.per_rate.map((rate) => (
-              <View key={rate.id} style={styles.totalsRow}>
-                <Text>IVA {ivaRatePercent(rate.id)}%</Text>
-                <Text>${formatARS(rate.importe)}</Text>
-              </View>
-            ))}
-            {data.imp_trib > 0 && (
-              <View style={styles.totalsRow}>
-                <Text>Otros tributos</Text>
-                <Text>${formatARS(data.imp_trib)}</Text>
-              </View>
-            )}
-            {data.moneda !== "PES" && (
-              <View style={styles.totalsRow}>
-                <Text>Tipo de cambio</Text>
-                <Text>
-                  {data.moneda} @ {formatARS(data.cotizacion)}
-                </Text>
-              </View>
-            )}
-          </>
+        {invoiceTotalsRows(data).map((row) => (
+          <View key={row.label} style={styles.totalsRow}>
+            <Text>{row.label}</Text>
+            <Text>${formatARS(row.amount)}</Text>
+          </View>
+        ))}
+        {data.isFiscal && data.moneda !== "PES" && (
+          <View style={styles.totalsRow}>
+            <Text>Tipo de cambio</Text>
+            <Text>
+              {data.moneda} @ {formatARS(data.cotizacion)}
+            </Text>
+          </View>
         )}
         <View style={styles.totalsRowFinal}>
           <Text>Total</Text>
@@ -476,15 +516,15 @@ function InvoicePage({
         </View>
       </View>
 
-      {/* Régimen de Transparencia Fiscal — Factura B a CF desde abril 2025 */}
-      {isFacturaBToConsumidorFinal(data) && (
+      {/* Régimen de Transparencia Fiscal al Consumidor: every B voucher */}
+      {carriesTransparencyRegime(data) && (
         <View style={styles.fiscalLeyenda}>
-          <Text>{REGIMEN_TRANSPARENCIA_LEYENDA}</Text>
+          <Text>{REGIMEN_TRANSPARENCIA_TITULO}</Text>
           <View style={[styles.totalsRow, { marginTop: 4 }]}>
             <Text>IVA Contenido</Text>
             <Text>${formatARS(data.imp_iva)}</Text>
           </View>
-          {data.imp_trib > 0 && (
+          {isFacturaBToConsumidorFinal(data) && data.imp_trib > 0 && (
             <View style={styles.totalsRow}>
               <Text>Otros impuestos nacionales indirectos</Text>
               <Text>${formatARS(data.imp_trib)}</Text>

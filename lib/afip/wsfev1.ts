@@ -292,6 +292,13 @@ export interface VoucherAssociated {
   nro: number;
 }
 
+/** One ARCA alícuota bucket of a voucher (FECompConsultar `Iva/AlicIva`). */
+export interface VoucherAlicIva {
+  id: number;
+  baseImp: number;
+  importe: number;
+}
+
 export interface VoucherInfo {
   ptoVta: number;
   cbteTipo: number;
@@ -316,6 +323,7 @@ export interface VoucherInfo {
   caeFchVto: string | null;
   emisionTipo: string | null;
   cbtesAsoc: VoucherAssociated[];
+  iva: VoucherAlicIva[];
 }
 
 interface RawObs {
@@ -383,6 +391,12 @@ interface RawCbteAsoc {
   Nro?: number | string;
 }
 
+interface RawAlicIva {
+  Id?: number | string;
+  BaseImp?: number | string;
+  Importe?: number | string;
+}
+
 interface RawCompConsultarResultGet {
   Concepto?: number;
   DocTipo?: number;
@@ -403,6 +417,7 @@ interface RawCompConsultarResultGet {
   FchVtoPago?: string | number;
   CondicionIVAReceptorId?: number | string;
   CbtesAsoc?: { CbteAsoc?: RawCbteAsoc | RawCbteAsoc[] };
+  Iva?: { AlicIva?: RawAlicIva | RawAlicIva[] };
   PtoVta?: number;
   CbteTipo?: number;
   CodAutorizacion?: string | number;
@@ -690,6 +705,11 @@ export async function getVoucherInfo(
         tipo: Number(a.Tipo ?? 0),
         ptoVta: Number(a.PtoVta ?? 0),
         nro: Number(a.Nro ?? 0),
+      })),
+      iva: asArray(res.Iva?.AlicIva).map((a) => ({
+        id: Number(a.Id ?? 0),
+        baseImp: Number(a.BaseImp ?? 0),
+        importe: Number(a.Importe ?? 0),
       })),
     };
   });

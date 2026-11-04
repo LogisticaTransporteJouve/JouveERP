@@ -175,6 +175,46 @@ describe("buildVentasTxt", () => {
     expect(alic.slice(43, 47)).toBe("0004"); // 10.5%
   });
 
+  it.each([
+    ["exento", { imp_op_ex: 800, imp_tot_conc: 0 }, "E"],
+    ["no gravado", { imp_op_ex: 0, imp_tot_conc: 800 }, "N"],
+  ])(
+    "keeps a sale with only %s, with one 0%% alícuota",
+    (_name, outside, code) => {
+      const r = buildVentasTxt(
+        [
+          ventaDoc({
+            ...outside,
+            imp_total: 800,
+            has_items: false,
+            // The book moves a header-only 0/0 bucket to rate 3.
+            per_rate: { 3: { neto: 0, iva: 0 } },
+          }),
+        ],
+        "2026-06",
+      );
+      expect(r.documents).toBe(1);
+      expect(r.warnings).toEqual([]);
+      const cbte = r.files[0]!.content.split("\r\n")[0]!;
+      expect(cbte.slice(241, 242)).toBe("1"); // cant alícuotas
+      expect(cbte.slice(242, 243)).toBe(code); // cód. operación
+      const alic = r.files[1]!.content.split("\r\n")[0]!;
+      expect(alic).toHaveLength(62);
+      expect(alic.slice(28, 43)).toBe("000000000000000"); // neto
+      expect(alic.slice(43, 47)).toBe("0003"); // 0%
+      expect(alic.slice(47, 62)).toBe("000000000000000"); // IVA
+    },
+  );
+
+  it("still excludes a sale with nothing at all to declare", () => {
+    const r = buildVentasTxt(
+      [ventaDoc({ imp_total: 0, per_rate: { 3: { neto: 0, iva: 0 } } })],
+      "2026-06",
+    );
+    expect(r.documents).toBe(0);
+    expect(r.warnings).toHaveLength(1);
+  });
+
   it("excludes documents without an AFIP voucher type and reports it", () => {
     const r = buildVentasTxt([ventaDoc({ cbte_tipo_afip: null })], "2026-06");
     expect(r.documents).toBe(0);
