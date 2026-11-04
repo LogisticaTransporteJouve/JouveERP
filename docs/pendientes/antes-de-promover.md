@@ -632,6 +632,41 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
     todo por nombre e ignora las columnas nuevas; con el grupo `none`,
     `getVehicleEconomics` del código anterior lo listaría como un vehículo
     más llamado «Sin vehículo» (cosmético; el resto lo ignora por id).
+- [ ] **Aprobar `20261104190000`, `190001` y `190002`** (auditoría w11,
+      vínculos de facturación y cheques). No tocan filas existentes ni
+      cambian políticas RLS.
+  - `190000`: trigger nuevo `shipments_guard_invoice`. Una carga se vincula
+    solo a una factura de su cliente que no falló ni se anuló.
+    `link_freight_settlement_invoice` ya valida lo mismo, y
+    `release_invoice_billing_links` solo limpia el vínculo. Rollback: el
+    código anterior informa el rechazo como «no se vinculó», conserva la
+    reserva 15 minutos y después emite con la clave siguiente.
+  - `190001`: funciones nuevas `storage_invoice_is_void` y
+    `storage_billing_void_run_ids` (invoker, para `authenticated`).
+    `claim_storage_billing_period`, `guard_storage_billing_run_delete` y
+    `guard_storage_billing_run_invoice` se reemplazan desde su última
+    versión. Una factura fiscal con NC emitidas por el total libera su
+    período: la próxima reserva del cliente borra esos períodos ya
+    existentes. Un período vinculado no suelta su factura. Rollback: misma
+    firma de la reserva; el código anterior nunca cambia la factura de un
+    período vinculado.
+  - `190002`: trigger nuevo `checks_guard_import_run`. `import_run_id` de un
+    cheque lo pone solo `commit_import_run` y no cambia. Rollback: el código
+    anterior lo escribe solo desde el importador.
+  - Consulta de control antes de aplicar (solo lectura): cuántos períodos
+    libera `190001` en la próxima reserva de cada cliente.
+
+    ```sql
+    select r.id, r.client_id, r.period_start, r.period_end, i.imp_total,
+           sum(n.imp_total) as credited
+      from public.storage_billing_runs r
+      join public.invoices i on i.id = r.invoice_id
+      join public.invoicing_channels c on c.id = i.channel_id and c.is_fiscal
+      join public.invoices n on n.invoice_origin_id = i.id
+                            and n.kind = 'nc' and n.status = 'emitted'
+     group by r.id, r.client_id, r.period_start, r.period_end, i.imp_total
+    having sum(n.imp_total) >= i.imp_total - 0.01;
+    ```
 
 ## Después de promover
 
