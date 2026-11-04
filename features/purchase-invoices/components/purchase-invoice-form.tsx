@@ -704,6 +704,13 @@ export function PurchaseInvoiceForm({
       toast.error(PURCHASE_TOTAL_MISMATCH_MESSAGE);
       return;
     }
+    // Unread items are not sent: new header amounts would not match them.
+    if (itemsUnknown && amountsChanged) {
+      toast.error(
+        "Los ítems de la factura todavía no se leyeron: para cambiar importes, esperá a que carguen o reintentá la lectura.",
+      );
+      return;
+    }
     if (documentGap !== null && !acceptTotalsGap) {
       toast.error(
         "Los ítems no dan el total del comprobante: revisalos o confirmá que son correctos.",
