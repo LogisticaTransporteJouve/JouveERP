@@ -103,6 +103,9 @@ import {
   type CheckListItem,
 } from "@/features/checks/actions/checks-actions";
 import { getAttendanceMonthAction } from "@/features/hr/actions/attendance-actions";
+import { listIssuedChecksAction } from "@/features/issued-checks/actions/issued-checks-actions";
+import { getTreasurySummaryAction } from "@/features/treasury/actions/treasury-actions";
+import type { IssuedCheck } from "@/features/issued-checks/schema";
 
 import { listJournalEntriesAction } from "@/features/journal-entries/actions/journal-entries-actions";
 
@@ -113,7 +116,8 @@ import {
   runLibroIvaVentas,
   runTrialBalance,
 } from "./accounting";
-import { runChecks } from "./cash";
+import { runChecks, runIssuedChecks } from "./cash";
+import { runTreasurySummary } from "./treasury";
 import { runAttendance } from "./hr";
 import {
   getPurchaseInvoices,
@@ -657,6 +661,131 @@ describe("runChecks", () => {
     });
     const r = await runChecks();
     expect(r.ok && r.partial).toBe(true);
+    expect(r.summary).toContain("latest 500 settled");
+  });
+
+  it("totals only the checks in portfolio or deposited", async () => {
+    const base: CheckListItem = {
+      id: "c1",
+      amount: 100,
+      bank_name: "Banco",
+      cartera_account_id: "a1",
+      channel_id: null,
+      check_number: "1",
+      created_at: "2026-01-01T00:00:00Z",
+      created_by: null,
+      currency: "ARS",
+      drawer_cuit: null,
+      drawer_name: "Acme",
+      due_date: "2026-02-01",
+      issue_date: "2026-01-01",
+      kind: "fisico",
+      notes: null,
+      source_client_id: null,
+      source_kind: "receipt",
+      source_payment_line_id: null,
+      source_receipt_id: null,
+      status: "en_cartera",
+      updated_at: "2026-01-01T00:00:00Z",
+      cartera_account_name: "Cartera",
+      source_client_legal_name: null,
+    };
+    vi.mocked(listChecksAction).mockResolvedValue({
+      ok: true,
+      data: {
+        items: [
+          base,
+          { ...base, id: "c2", amount: 50, status: "depositado" },
+          { ...base, id: "c3", amount: 1000, status: "acreditado" },
+          { ...base, id: "c4", amount: 2000, status: "endosado" },
+          { ...base, id: "c5", amount: 4000, status: "rechazado" },
+        ],
+        truncated: false,
+      },
+    });
+    const r = await runChecks();
+    expect(r.summary).toContain("(2 in portfolio or deposited)");
+    expect(r.summary).toContain(
+      `in portfolio or deposited ${totalsByCurrency([
+        { amount: 150, currency: "ARS", counts: true },
+      ])} (per currency).`,
+    );
+  });
+});
+
+describe("runTreasurySummary", () => {
+  it("says the checks due soon are pesos only", async () => {
+    vi.mocked(getTreasurySummaryAction).mockResolvedValue({
+      ok: true,
+      data: {
+        as_of: "2026-11-04",
+        prev_eom: "2026-10-31",
+        accounts: [],
+        liquid_now: { ARS: 0, USD: 0 },
+        liquid_prev_eom: { ARS: 0, USD: 0 },
+        checks_now: 0,
+        checks_prev_eom: 0,
+        checks_usd_now: 500,
+        checks_usd_prev_eom: 0,
+        checks_due_soon: { count: 0, amount: 0 },
+        usd_rate: null,
+      },
+    });
+    const r = await runTreasurySummary();
+    expect(r.summary).toContain("0 ARS checks in portfolio due soon");
+    expect(r.summary).toContain("pesos only");
+  });
+});
+
+describe("runIssuedChecks", () => {
+  const base: IssuedCheck = {
+    id: "ic1",
+    kind: "fisico",
+    check_number: "1",
+    bank_name: "Banco",
+    beneficiary_name: null,
+    beneficiary_cuit: null,
+    issue_date: "2026-11-01",
+    due_date: "2026-11-30",
+    amount: 100,
+    currency: "ARS",
+    bank_account_id: "a1",
+    payment_order_id: null,
+    channel_id: null,
+    supplier_id: null,
+    status: "emitted",
+    cashed_at: null,
+    rejected_at: null,
+    cancelled_at: null,
+    cancelled_by: null,
+    notes: null,
+    created_by: null,
+    created_at: "2026-11-01T00:00:00Z",
+    updated_at: "2026-11-01T00:00:00Z",
+  };
+
+  it("totals only the checks not yet cashed, and says the list is capped", async () => {
+    vi.mocked(listIssuedChecksAction).mockResolvedValue({
+      ok: true,
+      data: {
+        items: [
+          base,
+          { ...base, id: "ic2" },
+          { ...base, id: "ic3", amount: 500, status: "cancelled" },
+          { ...base, id: "ic4", amount: 1000, status: "cashed" },
+          { ...base, id: "ic5", amount: 3000, status: "rejected" },
+        ],
+        truncated: true,
+      },
+    });
+    const r = await runIssuedChecks();
+    expect(r.ok && r.partial).toBe(true);
+    expect(r.summary).toContain("5 own checks issued (2 not yet cashed)");
+    expect(r.summary).toContain(
+      `outstanding ${totalsByCurrency([
+        { amount: 200, currency: "ARS", counts: true },
+      ])} (per currency)`,
+    );
     expect(r.summary).toContain("latest 500 settled");
   });
 });
