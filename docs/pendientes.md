@@ -563,6 +563,8 @@ mitigación en el schema: el límite se respeta operando.
       formato es-AR mientras se tipea, como recibos y OP. Un punto tipeado se
       ve descartado ("1500.50" se muestra 150.050) en vez de guardar 100
       veces el monto sin avisar, y el sueldo guardado se ve al editar.
+      Cambiar un embargo entre monto y porcentaje vacía el valor ("1.500"
+      son $1500 pero 1,5 %).
 - [x] `parseArAmount` devuelve null ante basura ("12abc", "1e3"); todas sus
       llamadas ya trataban el null como inválido.
 - [x] Liquidación final: el sueldo sale de `employee_salary_for_month` del mes
