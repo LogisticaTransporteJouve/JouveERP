@@ -544,6 +544,17 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
   - `150201`: `get_vehicle_margin` cuenta en su centro la NC/ND de una
     compra vinculada a una carga de combustible o un service. Mismas
     columnas; el código anterior lee `center_cost` como un número.
+- [ ] **Aprobar `20261104160100`** (auditoría w9, fiscal): RPC nueva
+      `import_arca_issued_invoice`, que la importación de ventas de ARCA usa
+      para guardar la cabecera y sus ítems por alícuota en una sola
+      transacción. Solo la ejecuta el service role. No toca filas
+      existentes: las ventas ya importadas sin ítems siguen igual (ver
+      «Re-leer de ARCA las ventas ya importadas» en
+      `docs/pendientes/2026-11-04-fiscal-ventas-auditoria-w8.md`). Rollback:
+      el código anterior no llama a la función y sigue con su upsert más el
+      INSERT de ítems aparte. Ventas importadas sin ítems hoy (solo para
+      saber cuántas hay, no se cambian):
+      `select count(*) from public.invoices i where i.idempotency_key like 'arca-sync-%' and not exists (select 1 from public.invoice_items it where it.invoice_id = i.id);`
 
 ## Después de promover
 
