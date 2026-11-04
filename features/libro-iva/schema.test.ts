@@ -4,6 +4,7 @@ import {
   COMPRAS_PERCEPTIONS_LEGEND,
   IVA_RATES,
   SIN_ALICUOTA,
+  SIN_DISCRIMINAR,
   comprasPerceptions,
   computeComprasTotals,
   computeTotals,
@@ -15,11 +16,12 @@ import {
   type LibroIvaVentasRow,
 } from "./schema";
 import {
+  comprasAmountColumns,
   presentRates,
   totalsAmount,
   ventasAmountColumns,
 } from "./lib/book-layout";
-import { buildVentasTxt } from "./lib/citi";
+import { buildComprasTxt, buildVentasTxt } from "./lib/citi";
 
 describe("IVA_RATES (AFIP iva_rate_id → alícuota)", () => {
   it("maps id 8 → 5% and id 9 → 2.5% (matching lib/afip/codes.ts, not swapped)", () => {
@@ -138,6 +140,92 @@ describe("groupComprasByInvoice", () => {
       id: SIN_ALICUOTA,
       label: "Sin alícuota",
     });
+  });
+});
+
+describe("B and C purchases (IVA not discriminated)", () => {
+  const rows: LibroIvaComprasRow[] = [
+    // An A at 0%, without items: it goes under 0%, as the TXT declares it.
+    baseCompraRow({
+      purchase_invoice_id: "a0",
+      numero: 1,
+      iva_rate_id: null,
+      neto: 300,
+      iva: 0,
+      imp_total: 300,
+      has_items: false,
+    }),
+    // A B from the ARCA tray: itemless, its neto carries the IVA.
+    baseCompraRow({
+      purchase_invoice_id: "b",
+      numero: 2,
+      letter: "B",
+      iva_rate_id: null,
+      neto: 1210,
+      iva: 0,
+      imp_total: 1210,
+      has_items: false,
+    }),
+    // An old C loaded with items at 21% and IVA 0.
+    baseCompraRow({
+      purchase_invoice_id: "c",
+      numero: 3,
+      letter: "C",
+      iva_rate_id: 5,
+      neto: 500,
+      iva: 0,
+      imp_total: 500,
+    }),
+  ];
+
+  it("goes under «Sin discriminar (B/C)», never under 0% or a rate", () => {
+    const grouped = groupComprasByInvoice(rows);
+    const byId = new Map(grouped.map((g) => [g.purchase_invoice_id, g]));
+    expect(byId.get("a0")!.per_rate).toEqual({ 3: { neto: 300, iva: 0 } });
+    expect(byId.get("b")!.per_rate).toEqual({
+      [SIN_DISCRIMINAR]: { neto: 1210, iva: 0 },
+    });
+    expect(byId.get("c")!.per_rate).toEqual({
+      [SIN_DISCRIMINAR]: { neto: 500, iva: 0 },
+    });
+    expect(byId.get("b")!.orig.per_rate).toEqual(byId.get("b")!.per_rate);
+    expect(presentRates(grouped).map((r) => r.label)).toEqual([
+      "0%",
+      "Sin discriminar (B/C)",
+    ]);
+  });
+
+  it("ties «Neto 0%» to the TXT's 0% alícuotas and every row to its total", () => {
+    const grouped = groupComprasByInvoice(rows);
+    const totals = computeComprasTotals(grouped);
+    const txt = buildComprasTxt(grouped, "2026-05");
+    const alicuotas = txt.files[1]!.content.split("\r\n").filter(Boolean);
+    // COMPRAS_ALICUOTAS: neto at 50–65, alícuota at 65–69.
+    const txtNeto0 = alicuotas
+      .filter((l) => l.slice(65, 69) === "0003")
+      .reduce((a, l) => a + Number(l.slice(50, 65)) / 100, 0);
+    expect(totals.per_rate[3]!.neto).toBe(txtNeto0);
+    expect(alicuotas).toHaveLength(1);
+    expect(totals.per_rate[SIN_DISCRIMINAR]!.neto).toBe(1710);
+
+    const columns = comprasAmountColumns(presentRates(grouped));
+    const total = columns.find((c) => c.key === "total")!;
+    expect(columns.map((c) => `${c.group ?? ""} ${c.header}`)).toContain(
+      "Sin discriminar (B/C) Importe",
+    );
+    for (const g of grouped) {
+      const parts = columns
+        .filter((c) => c !== total)
+        .reduce((a, c) => a + c.value(g), 0);
+      expect(parts).toBe(total.value(g));
+    }
+  });
+
+  it("folds the IVA of an old B with IVA into its amount", () => {
+    const [g] = groupComprasByInvoice([
+      baseCompraRow({ letter: "B", iva_rate_id: 5, neto: 1000, iva: 210 }),
+    ]);
+    expect(g!.per_rate).toEqual({ [SIN_DISCRIMINAR]: { neto: 1210, iva: 0 } });
   });
 });
 

@@ -1,3 +1,4 @@
+import { ivaIsComputable } from "@/lib/afip/codes";
 import { round2 } from "@/lib/format";
 
 export type LibroIvaComprasRow = {
@@ -185,7 +186,13 @@ export function groupComprasByInvoice(
     addRate(acc.orig.per_rate, key, r.neto_orig, r.iva_orig);
   }
   const out = Array.from(map.values());
-  for (const doc of out) assignInferredRate(doc);
+  for (const doc of out) {
+    if (doc.letter !== null && !ivaIsComputable(doc.letter)) {
+      foldUndiscriminated(doc);
+    } else {
+      assignInferredRate(doc);
+    }
+  }
   return out;
 }
 
@@ -271,6 +278,17 @@ export type PerRate = Record<number, { neto: number; iva: number }>;
 export const SIN_ALICUOTA = -1;
 export const SIN_ALICUOTA_LABEL = "Sin alícuota";
 
+/** The per_rate key of a B or C purchase: its IVA is not discriminated, so it
+ *  has no alícuota, as in the TXT (no COMPRAS_ALICUOTAS record). */
+export const SIN_DISCRIMINAR = -2;
+export const SIN_DISCRIMINAR_LABEL = "Sin discriminar (B/C)";
+
+/** The label the books and the AI print for a per_rate key. */
+export function perRateLabel(id: number): string {
+  if (id === SIN_DISCRIMINAR) return SIN_DISCRIMINAR_LABEL;
+  return IVA_RATES.find((r) => r.id === id)?.label ?? SIN_ALICUOTA_LABEL;
+}
+
 /** The AFIP rate id whose percent the iva/neto ratio matches (half a point of
  *  slack), as the Libro IVA Digital TXT declares it; 0% (id 3) with no IVA.
  *  Null when no rate fits or there is IVA without a positive neto. */
@@ -301,6 +319,19 @@ function assignInferredRate(doc: {
   delete doc.orig.per_rate[SIN_ALICUOTA];
   addRate(doc.per_rate, id, ars.neto, ars.iva);
   addRate(doc.orig.per_rate, id, orig.neto, orig.iva);
+}
+
+/** A B or C purchase goes in one `SIN_DISCRIMINAR` bucket, IVA included in
+ *  the amount, whatever rate its items carry. */
+function foldUndiscriminated(doc: {
+  per_rate: PerRate;
+  orig: { per_rate: PerRate };
+}) {
+  for (const perRate of [doc.per_rate, doc.orig.per_rate]) {
+    const sum = Object.values(perRate).reduce((a, v) => a + v.neto + v.iva, 0);
+    for (const k of Object.keys(perRate)) delete perRate[Number(k)];
+    perRate[SIN_DISCRIMINAR] = { neto: round2(sum), iva: 0 };
+  }
 }
 
 function addRate(

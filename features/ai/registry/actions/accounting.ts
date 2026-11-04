@@ -18,8 +18,7 @@ import {
   computeTotals,
   groupByInvoice,
   groupComprasByInvoice,
-  IVA_RATES,
-  SIN_ALICUOTA_LABEL,
+  perRateLabel,
   type PerRate,
 } from "@/features/libro-iva/schema";
 
@@ -134,7 +133,9 @@ const LIBRO_IVA_ROWS_RULE =
   "A document without items (e.g. imported from ARCA) comes as one row with " +
   "iva_rate_id null; `totals.per_rate` counts it under the alícuota its IVA / " +
   "neto gives, as the printed book and the TXT do, or under 'Sin alícuota' " +
-  "when no rate fits.";
+  "when no rate fits. A B or C purchase has no discriminated IVA: it counts " +
+  "under 'Sin discriminar (B/C)' with the IVA inside its neto, never as 0%, " +
+  "and the TXT declares it with no alícuota.";
 
 /** The period's signed totals of a libro IVA, per alícuota labelled. */
 function libroIvaTotals(t: {
@@ -146,8 +147,6 @@ function libroIvaTotals(t: {
   const rates = Object.entries(t.per_rate)
     .map(([id, v]) => ({ id: Number(id), ...v }))
     .sort((a, b) => a.id - b.id);
-  const label = (id: number): string =>
-    IVA_RATES.find((r) => r.id === id)?.label ?? SIN_ALICUOTA_LABEL;
   return {
     documents: t.count,
     neto: round2(rates.reduce((acc, r) => acc + r.neto, 0)),
@@ -155,7 +154,7 @@ function libroIvaTotals(t: {
     imp_trib: round2(t.imp_trib),
     imp_total: round2(t.imp_total),
     per_rate: rates.map((r) => ({
-      alicuota: label(r.id),
+      alicuota: perRateLabel(r.id),
       neto: round2(r.neto),
       iva: round2(r.iva),
     })),
