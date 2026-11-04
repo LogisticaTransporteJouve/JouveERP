@@ -11,7 +11,7 @@ import {
   foreignCurrencyTotals,
   groupByInvoice,
   groupComprasByInvoice,
-  IVA_RATES,
+  libroIvaRateColumns,
   KIND_LABEL,
   libroIvaVoucherNumber,
   VENTAS_AMOUNT_COLUMNS,
@@ -70,8 +70,8 @@ function currencyLines(vouchers: readonly Voucher[]): string[] {
   ];
 }
 
-function rateAmounts<V extends Voucher>(): Amount<V>[] {
-  return IVA_RATES.flatMap((r) => [
+function rateAmounts<V extends Voucher>(vouchers: readonly V[]): Amount<V>[] {
+  return libroIvaRateColumns(vouchers).flatMap((r) => [
     { header: `Neto ${r.label}`, value: (v: V) => v.per_rate[r.id]?.neto },
     { header: `IVA ${r.label}`, value: (v: V) => v.per_rate[r.id]?.iva },
   ]);
@@ -173,17 +173,18 @@ export function libroIvaVentasSheet(
   book: Book & { rows: readonly LibroIvaVentasRow[] },
 ): XlsxSheet {
   type V = ReturnType<typeof groupByInvoice>[number];
+  const vouchers = groupByInvoice(book.rows);
   return bookSheet<V>(
     book,
     "Libro IVA Ventas",
-    groupByInvoice(book.rows),
+    vouchers,
     {
       party: "Cliente",
       name: (v) => v.client_legal_name,
       cuit: (v) => v.doc_nro,
     },
     [
-      ...rateAmounts<V>(),
+      ...rateAmounts<V>(vouchers),
       { header: "Perc.", value: (v) => v.imp_trib, show: "positive" },
       ...VENTAS_AMOUNT_COLUMNS.map((c): Amount<V> => ({
         header: c.header,
@@ -201,17 +202,18 @@ export function libroIvaComprasSheet(
   book: Book & { rows: readonly LibroIvaComprasRow[] },
 ): XlsxSheet {
   type V = ReturnType<typeof groupComprasByInvoice>[number];
+  const vouchers = groupComprasByInvoice(book.rows);
   return bookSheet<V>(
     book,
     "Libro IVA Compras",
-    groupComprasByInvoice(book.rows),
+    vouchers,
     {
       party: "Proveedor",
       name: (v) => v.supplier_legal_name,
       cuit: (v) => v.supplier_cuit,
     },
     [
-      ...rateAmounts<V>(),
+      ...rateAmounts<V>(vouchers),
       ...COMPRAS_AMOUNT_COLUMNS.map((c): Amount<V> => ({
         header: c.header,
         value: (v) => c.value(v.breakdown),

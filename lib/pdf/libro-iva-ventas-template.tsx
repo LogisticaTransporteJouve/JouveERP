@@ -3,7 +3,7 @@ import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 import {
   computeTotals,
   groupByInvoice,
-  IVA_RATES,
+  libroIvaRateColumns,
   KIND_LABEL,
   libroIvaVoucherNumber,
   totalsCell,
@@ -115,6 +115,7 @@ export function LibroIvaVentasDocument({
 }: LibroIvaVentasTemplateData) {
   const grouped = groupByInvoice(rows);
   const totals = computeTotals(grouped);
+  const rates = libroIvaRateColumns(grouped);
 
   return (
     <Document>
@@ -138,7 +139,7 @@ export function LibroIvaVentasDocument({
             </Text>
             <Text style={[styles.th, { width: COL_W.cliente }]}>Cliente</Text>
             <Text style={[styles.th, { width: COL_W.cuit }]}>CUIT</Text>
-            {IVA_RATES.map((r) => (
+            {rates.map((r) => (
               <Text
                 key={r.id}
                 style={[styles.th, styles.center, { width: COL_W.rate * 2 }]}
@@ -177,7 +178,7 @@ export function LibroIvaVentasDocument({
                 },
               ]}
             />
-            {IVA_RATES.map((r) => (
+            {rates.map((r) => (
               <>
                 <Text
                   key={`${r.id}-n-h`}
@@ -226,7 +227,7 @@ export function LibroIvaVentasDocument({
                 <Text style={[styles.td, styles.mono, { width: COL_W.cuit }]}>
                   {row.doc_nro}
                 </Text>
-                {IVA_RATES.map((r) => {
+                {rates.map((r) => {
                   const cell = row.per_rate[r.id];
                   return (
                     <>
@@ -312,7 +313,7 @@ export function LibroIvaVentasDocument({
             >
               Totales ({totals.count} comprobantes)
             </Text>
-            {IVA_RATES.map((r) => {
+            {rates.map((r) => {
               const cell = totals.per_rate[r.id];
               return (
                 <>

@@ -19,6 +19,7 @@ import {
   groupByInvoice,
   groupComprasByInvoice,
   IVA_RATES,
+  SIN_ALICUOTA_LABEL,
   type PerRate,
 } from "@/features/libro-iva/schema";
 
@@ -142,7 +143,7 @@ function libroIvaTotals(t: {
     .map(([id, v]) => ({ id: Number(id), ...v }))
     .sort((a, b) => a.id - b.id);
   const label = (id: number): string =>
-    IVA_RATES.find((r) => r.id === id)?.label ?? "sin desglose";
+    IVA_RATES.find((r) => r.id === id)?.label ?? SIN_ALICUOTA_LABEL;
   return {
     documents: t.count,
     neto: round2(rates.reduce((acc, r) => acc + r.neto, 0)),

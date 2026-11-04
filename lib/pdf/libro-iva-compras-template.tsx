@@ -7,7 +7,7 @@ import {
   comprasPerceptions,
   computeComprasTotals,
   groupComprasByInvoice,
-  IVA_RATES,
+  libroIvaRateColumns,
   KIND_LABEL,
   libroIvaVoucherNumber,
   type LibroIvaComprasRow,
@@ -101,6 +101,7 @@ export function LibroIvaComprasDocument({
 }: LibroIvaComprasTemplateData) {
   const grouped = groupComprasByInvoice(rows);
   const totals = computeComprasTotals(grouped);
+  const rates = libroIvaRateColumns(grouped);
 
   return (
     <Document>
@@ -125,7 +126,7 @@ export function LibroIvaComprasDocument({
               Proveedor
             </Text>
             <Text style={[styles.th, { width: COL_W.cuit }]}>CUIT</Text>
-            {IVA_RATES.map((r) => (
+            {rates.map((r) => (
               <Text
                 key={r.id}
                 style={[styles.th, styles.center, { width: COL_W.rate * 2 }]}
@@ -165,7 +166,7 @@ export function LibroIvaComprasDocument({
                 },
               ]}
             />
-            {IVA_RATES.map((r) => (
+            {rates.map((r) => (
               <>
                 <Text
                   key={`${r.id}-n-h`}
@@ -218,7 +219,7 @@ export function LibroIvaComprasDocument({
                 <Text style={[styles.td, styles.mono, { width: COL_W.cuit }]}>
                   {row.supplier_cuit ?? "—"}
                 </Text>
-                {IVA_RATES.map((r) => {
+                {rates.map((r) => {
                   const cell = row.per_rate[r.id];
                   return (
                     <>
@@ -307,7 +308,7 @@ export function LibroIvaComprasDocument({
             >
               Totales ({totals.count} comprobantes)
             </Text>
-            {IVA_RATES.map((r) => {
+            {rates.map((r) => {
               const cell = totals.per_rate[r.id];
               return (
                 <>

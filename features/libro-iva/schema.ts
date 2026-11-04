@@ -175,11 +175,13 @@ export function groupComprasByInvoice(
       };
       map.set(r.purchase_invoice_id, acc);
     }
-    const key = r.iva_rate_id ?? -1;
+    const key = r.iva_rate_id ?? SIN_ALICUOTA;
     addRate(acc.per_rate, key, r.neto, r.iva);
     addRate(acc.orig.per_rate, key, r.neto_orig, r.iva_orig);
   }
-  return Array.from(map.values());
+  const out = Array.from(map.values());
+  for (const doc of out) assignInferredRate(doc);
+  return out;
 }
 
 export type LibroIvaComprasTotals = {
@@ -254,8 +256,45 @@ export type LibroIvaVentasRow = {
   imp_total_orig: string | number;
 };
 
-/** Neto + IVA per iva_rate_id (key); -1 = "no breakdown". */
+/** Neto + IVA per iva_rate_id (key); `SIN_ALICUOTA` = no rate known. */
 export type PerRate = Record<number, { neto: number; iva: number }>;
+
+/** The per_rate key of a document without items (the RPC's iva_rate_id null)
+ *  whose rate cannot be inferred: the books print it under "Sin alícuota". */
+export const SIN_ALICUOTA = -1;
+export const SIN_ALICUOTA_LABEL = "Sin alícuota";
+
+/** The AFIP rate id whose percent the iva/neto ratio matches (half a point of
+ *  slack), as the Libro IVA Digital TXT declares it; 0% (id 3) with no IVA.
+ *  Null when no rate fits or there is IVA without a positive neto. */
+export function inferIvaRateId(v: {
+  neto: number;
+  iva: number;
+}): number | null {
+  if (v.iva === 0) return 3;
+  if (v.neto <= 0) return null;
+  const pct = (v.iva / v.neto) * 100;
+  return IVA_RATES.find((r) => Math.abs(pct - r.pct) <= 0.5)?.id ?? null;
+}
+
+/** A document without items comes as one header-only bucket: it moves to the
+ *  rate the TXT infers from its own-currency figures, so the book, the TXT and
+ *  the IVA estimate show it under the same alícuota. It stays `SIN_ALICUOTA`
+ *  when no rate fits (the TXT excludes it and says so). */
+function assignInferredRate(doc: {
+  per_rate: PerRate;
+  orig: { per_rate: PerRate };
+}) {
+  const ars = doc.per_rate[SIN_ALICUOTA];
+  const orig = doc.orig.per_rate[SIN_ALICUOTA];
+  if (!ars || !orig) return;
+  const id = inferIvaRateId(orig);
+  if (id === null) return;
+  delete doc.per_rate[SIN_ALICUOTA];
+  delete doc.orig.per_rate[SIN_ALICUOTA];
+  addRate(doc.per_rate, id, ars.neto, ars.iva);
+  addRate(doc.orig.per_rate, id, orig.neto, orig.iva);
+}
 
 function addRate(
   perRate: PerRate,
@@ -280,6 +319,21 @@ export const IVA_RATES = [
   { id: 5, pct: 21, label: "21%" },
   { id: 6, pct: 27, label: "27%" },
 ] as const;
+
+/** The Neto/IVA column pairs a book prints: every rate, plus "Sin alícuota"
+ *  when a document's rate could not be inferred. */
+export function libroIvaRateColumns(
+  docs: readonly { per_rate: PerRate }[],
+): { id: number; label: string }[] {
+  const unrated = docs.some((d) => {
+    const v = d.per_rate[SIN_ALICUOTA];
+    return v !== undefined && (v.neto !== 0 || v.iva !== 0);
+  });
+  return [
+    ...IVA_RATES,
+    ...(unrated ? [{ id: SIN_ALICUOTA, label: SIN_ALICUOTA_LABEL }] : []),
+  ];
+}
 
 /** A voucher as the books print it: letter, 4-digit point of sale and
  *  8-digit number ("A0001-00000042"). */
@@ -375,11 +429,13 @@ export function groupByInvoice(
       };
       map.set(r.invoice_id, acc);
     }
-    const key = r.iva_rate_id ?? -1;
+    const key = r.iva_rate_id ?? SIN_ALICUOTA;
     addRate(acc.per_rate, key, r.neto, r.iva);
     addRate(acc.orig.per_rate, key, r.neto_orig, r.iva_orig);
   }
-  return Array.from(map.values());
+  const out = Array.from(map.values());
+  for (const doc of out) assignInferredRate(doc);
+  return out;
 }
 
 /** Columns the sales book prints between Perc. and Total (screen, Excel and

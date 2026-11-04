@@ -15,12 +15,13 @@ import {
   COMPRAS_PERCEPTIONS_HEADER,
   COMPRAS_PERCEPTIONS_LEGEND,
   comprasPerceptions,
-  IVA_RATES,
+  libroIvaRateColumns,
   KIND_LABEL,
   libroIvaVoucherNumber,
 } from "../schema";
 import { CurrencyNote, OriginalCurrencyCell } from "./currency-note";
 
+import { ItemlessNote } from "./itemless-note";
 import { LibroIvaExportButtons } from "./libro-iva-export-buttons";
 
 export function LibroIvaComprasTable({
@@ -34,6 +35,7 @@ export function LibroIvaComprasTable({
 
   const grouped = useMemo(() => groupComprasByInvoice(rows ?? []), [rows]);
   const totals = useMemo(() => computeComprasTotals(grouped), [grouped]);
+  const rates = useMemo(() => libroIvaRateColumns(grouped), [grouped]);
 
   const sinCae = useMemo(
     () => grouped.filter((g) => !g.cae_proveedor).length,
@@ -73,14 +75,7 @@ export function LibroIvaComprasTable({
                 Verificá con el original antes de la presentación.
               </p>
             )}
-            {sinItems > 0 && (
-              <p>
-                <span className="font-medium">{sinItems}</span> comprobante(s){" "}
-                <span className="font-medium">sin desglose por alícuota</span>{" "}
-                (probablemente legacy AFIP imports). El IVA total se muestra
-                pero sin separar por tasa.
-              </p>
-            )}
+            <ItemlessNote docs={grouped} />
           </div>
         </div>
       )}
@@ -98,7 +93,7 @@ export function LibroIvaComprasTable({
               <th className="px-2 py-2 font-medium">Comprobante</th>
               <th className="px-2 py-2 font-medium">Proveedor</th>
               <th className="px-2 py-2 font-medium">CUIT</th>
-              {IVA_RATES.map((r) => (
+              {rates.map((r) => (
                 <th
                   key={r.id}
                   colSpan={2}
@@ -128,7 +123,7 @@ export function LibroIvaComprasTable({
               <th />
               <th />
               <th />
-              {IVA_RATES.map((r) => (
+              {rates.map((r) => (
                 <Fragment key={r.id}>
                   <th className="border-l px-2 py-1 text-right font-normal">
                     Neto
@@ -181,7 +176,7 @@ export function LibroIvaComprasTable({
                   <td className="px-2 py-1 font-mono text-xs text-muted-foreground">
                     {row.supplier_cuit ?? "—"}
                   </td>
-                  {IVA_RATES.map((r) => {
+                  {rates.map((r) => {
                     const cell = row.per_rate[r.id];
                     return (
                       <Fragment key={r.id}>
@@ -247,7 +242,7 @@ export function LibroIvaComprasTable({
               >
                 Totales ({totals.count} comprobantes)
               </td>
-              {IVA_RATES.map((r) => {
+              {rates.map((r) => {
                 const cell = totals.per_rate[r.id];
                 return (
                   <Fragment key={r.id}>

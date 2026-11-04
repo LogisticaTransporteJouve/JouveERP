@@ -11,7 +11,7 @@ import { useLibroIvaVentas } from "../hooks/use-libro-iva";
 import {
   computeTotals,
   groupByInvoice,
-  IVA_RATES,
+  libroIvaRateColumns,
   KIND_LABEL,
   libroIvaVoucherNumber,
   totalsCell,
@@ -19,6 +19,7 @@ import {
 } from "../schema";
 
 import { CurrencyNote, OriginalCurrencyCell } from "./currency-note";
+import { ItemlessNote } from "./itemless-note";
 import { LibroIvaExportButtons } from "./libro-iva-export-buttons";
 
 export function LibroIvaVentasTable({
@@ -32,6 +33,7 @@ export function LibroIvaVentasTable({
 
   const grouped = useMemo(() => groupByInvoice(rows ?? []), [rows]);
   const totals = useMemo(() => computeTotals(grouped), [grouped]);
+  const rates = useMemo(() => libroIvaRateColumns(grouped), [grouped]);
 
   const sinCae = grouped.filter((g) => !g.cae).length;
   const sinItems = grouped.filter((g) => !g.has_items).length;
@@ -65,17 +67,7 @@ export function LibroIvaVentasTable({
                 presentación a AFIP los va a rechazar.
               </p>
             )}
-            {sinItems > 0 && (
-              <p>
-                <span className="font-medium">{sinItems}</span> comprobante(s)
-                <span className="font-medium">
-                  {" "}
-                  sin desglose por alícuota
-                </span>{" "}
-                (probablemente legacy AFIP imports). El IVA total se muestra
-                pero sin separar por tasa.
-              </p>
-            )}
+            <ItemlessNote docs={grouped} />
           </div>
         </div>
       )}
@@ -93,7 +85,7 @@ export function LibroIvaVentasTable({
               <th className="px-2 py-2 font-medium">Comprobante</th>
               <th className="px-2 py-2 font-medium">Cliente</th>
               <th className="px-2 py-2 font-medium">CUIT</th>
-              {IVA_RATES.map((r) => (
+              {rates.map((r) => (
                 <th
                   key={r.id}
                   colSpan={2}
@@ -120,7 +112,7 @@ export function LibroIvaVentasTable({
               <th />
               <th />
               <th />
-              {IVA_RATES.map((r) => (
+              {rates.map((r) => (
                 <Fragment key={r.id}>
                   <th className="border-l px-2 py-1 text-right font-normal">
                     Neto
@@ -170,7 +162,7 @@ export function LibroIvaVentasTable({
                   <td className="px-2 py-1 font-mono text-xs text-muted-foreground">
                     {row.doc_nro}
                   </td>
-                  {IVA_RATES.map((r) => {
+                  {rates.map((r) => {
                     const cell = row.per_rate[r.id];
                     return (
                       <Fragment key={r.id}>
@@ -225,7 +217,7 @@ export function LibroIvaVentasTable({
               >
                 Totales ({totals.count} comprobantes)
               </td>
-              {IVA_RATES.map((r) => {
+              {rates.map((r) => {
                 const cell = totals.per_rate[r.id];
                 return (
                   <Fragment key={r.id}>

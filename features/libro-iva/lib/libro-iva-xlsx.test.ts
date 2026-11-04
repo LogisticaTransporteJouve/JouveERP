@@ -177,6 +177,38 @@ describe("libroIvaVentasSheet", () => {
     expect(sheet.preamble).toContain("2 en dólares: USD 108,90 = $ 108.900,00");
   });
 
+  it("writes a voucher without items under its inferred rate, or under Sin alícuota", () => {
+    const sheet = libroIvaVentasSheet({
+      ...book,
+      rows: [
+        row({ iva_rate_id: null, has_items: false }),
+        row({
+          invoice_id: "i2",
+          numero: 43,
+          iva_rate_id: null,
+          has_items: false,
+          neto: "100",
+          iva: "15",
+          imp_total: "115",
+        }),
+      ],
+    });
+    const headers = sheet.columns.map((c) => c.header);
+    const col = (header: string) => headers.indexOf(header);
+    expect(sheet.rows[0]?.[col("IVA 21%")]).toEqual({
+      money: 21,
+      currency: "ARS",
+    });
+    expect(sheet.rows[1]?.[col("IVA Sin alícuota")]).toEqual({
+      money: 15,
+      currency: "ARS",
+    });
+    expect(sheet.totals?.[col("IVA 21%")]).toEqual({
+      money: 21,
+      currency: "ARS",
+    });
+  });
+
   it("warns about foreign vouchers left at rate 1", () => {
     const sheet = libroIvaVentasSheet({
       ...book,
