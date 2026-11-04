@@ -1,5 +1,5 @@
 -- The items of a fiscal purchase in a closed period are frozen
--- (20261104130100): replace_purchase_invoice_items refuses removing them or
+-- (20261104132100): replace_purchase_invoice_items refuses removing them or
 -- moving neto/IVA between alícuotas, re-saving the same split passes, and a
 -- direct write to the table is refused. One transaction, rolled back.
 
