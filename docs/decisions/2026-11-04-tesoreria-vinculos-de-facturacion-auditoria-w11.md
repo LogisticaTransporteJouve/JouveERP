@@ -39,7 +39,9 @@ lo cambia después.
   marca depende Resultado de gestión (caja): el ingreso y el rechazo de un
   cheque importado son neutros. Un PATCH de finance podía volver neutro el
   rechazo de un cheque de un cliente, o sacar de ingresos un cheque cargado a
-  mano. La guarda es un trigger propio, igual que la de préstamos.
+  mano. La regla es la de préstamos (`guard_loan`), pero en un trigger
+  propio: así un pgTAP que carga a mano un cheque importado apaga solo esta
+  regla.
 - **Auditoría del re-vínculo**. La acción registra el `storage.invoiced` que
   faltaba después de toda reserva, no solo cuando la reserva devuelve null.
   La reserva re-vincula cualquier período del cliente, de cualquier canal,
