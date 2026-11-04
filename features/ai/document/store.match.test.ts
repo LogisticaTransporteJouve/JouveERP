@@ -117,7 +117,7 @@ describe("scanned-document matches follow the uploader's access", () => {
     kind: "invoice",
   };
 
-  it("without purchase_invoices:read no duplicate check runs or is stored", async () => {
+  it("without purchase_invoices:read no duplicate check runs: it reads as not verified", async () => {
     answer = (call) =>
       call.table === "purchase_invoices"
         ? { data: [{ id: "pi-1" }], error: null }
@@ -136,6 +136,7 @@ describe("scanned-document matches follow the uploader's access", () => {
     expect(matches).toEqual({
       supplier_id: SUPPLIER,
       supplier_name: "Prov SA",
+      duplicate_unknown: true,
     });
   });
 
@@ -157,14 +158,14 @@ describe("scanned-document matches follow the uploader's access", () => {
     expect(matches).toEqual({ duplicate_of: "pi-1" });
   });
 
-  it("without invoices:read a sales invoice is not looked up", async () => {
+  it("without invoices:read a sales invoice is not looked up, and is not reported as new", async () => {
     const matches = await matchForKind(
       "sales_invoice",
       { number: 5, sales_point: 1, letter: "A" },
       () => false,
     );
     expect(fake.calls).toEqual([]);
-    expect(matches).toEqual({});
+    expect(matches).toEqual({ duplicate_unknown: true });
   });
 
   it("without transactions:read a bank statement is not compared with Caja", async () => {

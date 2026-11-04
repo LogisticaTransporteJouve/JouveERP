@@ -490,7 +490,8 @@ no workers de consenso, no PGMQ):
    en ese momento (sus roles menos sus denegaciones, `loadUserAccess`):
    proveedor `suppliers:read`, cliente `clients:read`, duplicado de compra
    `purchase_invoices:read`, de venta `invoices:read`, extracto
-   `transactions:read`. Sin el permiso no se compara ni se guarda nada de eso.
+   `transactions:read`. Sin el permiso no se compara ni se guarda nada de eso
+   (un duplicado sin buscar queda «No se pudo verificar», no «no cargado»).
 6. **Guardar borrador** en `ai_document_extractions` (estado `pending_review`).
 
 PDF como input nativo de Claude (`type:"document"`, base64); imágenes como

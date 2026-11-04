@@ -61,5 +61,10 @@ Sin el permiso no se compara ni se guarda nada de esa parte. Si no se sabe
 quién subió el archivo, no se compara nada. El duplicado de compra necesita
 el proveedor para buscar, así que lo busca aunque no lo guarde.
 
+- Un duplicado que no se buscó por falta de permiso queda como «No se pudo
+  verificar» (`duplicate_unknown`), no como «no está cargado». Emitir una
+  factura de venta desde el escaneo pide un CAE solo si se verificó que no
+  existe. La marca no dice nada de los datos: se pone sin leerlos.
+
 - Se decide al escanear, no al leer: una denegación agregada después no borra
   lo que ya se guardó (pendiente).

@@ -102,6 +102,16 @@ export async function matchDocument(input: {
   const service = getServiceClient();
   const matches: ExtractionMatches = {};
   const invoiceTable = input.duplicates ? (input.invoiceTable ?? null) : null;
+  // A check the uploader may not run is not "no duplicate" either (a sales
+  // scan emits a CAE on "none"); it says nothing about the data.
+  if (
+    input.invoiceTable &&
+    !invoiceTable &&
+    input.numero != null &&
+    input.puntoVenta != null
+  ) {
+    matches.duplicate_unknown = true;
+  }
 
   try {
     let matchedSupplierId: string | null = null;
