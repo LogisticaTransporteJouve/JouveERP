@@ -228,7 +228,7 @@ class below is only the look-here index; the rule lives in that guide.
 **[doc / PR-body over-claim vs implementation]**
 - Pattern: the PR body or a comment claims behavior the diff doesn't deliver (or a refactor silently reverts a shipped feature / drops a returned field).
 - Frequency: occasional.
-- Where: PR description vs diff; stacked chains (check the MERGED result, not one diff); `docs/pendientes.md` / `docs/roadmap.md` claims.
+- Where: PR description vs diff; stacked chains (check the MERGED result, not one diff); `docs/pendientes/` / `docs/decisions/` / `docs/roadmap.md` claims.
 - Fix: reconcile claim with code; treat a silent feature revert / dropped field as a finding.
 - source: adv-review.
 

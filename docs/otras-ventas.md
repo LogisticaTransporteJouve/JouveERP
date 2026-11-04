@@ -73,7 +73,8 @@ recurrentes. Sueldos: a confirmar (por ahora compartido).
 - Cargas y facturación de depósito emiten remito a un cliente interno.
 - Liquidación de fletes de un cliente interno: "Emitir remito interno"
   confirma y emite un solo remito X con una línea por carga; no lleva el
-  Remito R, que es solo de Ventas (`R9002-…`). Ver `docs/decisions.md`.
+  Remito R, que es solo de Ventas (`R9002-…`). Ver
+  `docs/decisions/2026-11-03-liquidacion-remito-r-en-ventas-remito-interno-x.md`.
 - Pendiente: la creación de facturas desde documentos IA sigue siendo solo fiscal.
 
 ### 4. Facturar un remito interno

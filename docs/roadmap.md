@@ -807,7 +807,7 @@ Referencia: roadmap viejo §17.
 - **H.4** PWA + scanner QR.
 - **H.5** `emitStorageInvoice` + reportes de ocupación.
 
-### Fase I — IA (✅ construida, AI.0–AI.8 — ver docs/pendientes.md §5)
+### Fase I — IA (✅ construida, AI.0–AI.8 — ver docs/pendientes/historial-2026-07-04.md §4)
 
 > **Reescopeado 2026-06-16.** El plan de IA vigente vive en
 > `docs/ai-overview.md` (runbook en `docs/ai-build-plan.md`): un agente LLM

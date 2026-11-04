@@ -34,7 +34,7 @@ Never write product code, commit or push. Write only the plan `.md`, scratch fil
   connected (read-only; never write to Linear). Otherwise take the user's words. Linear is optional
   in JouveERP: nothing waits on an issue.
 - If the goal is vague, settle it from the repo (the nearest sibling feature, recent PRs,
-  `docs/pendientes.md`). Write the reading you chose in one line; it goes at the top of the plan and the page.
+  `docs/pendientes/`). Write the reading you chose in one line; it goes at the top of the plan and the page.
 - Plan path, never in the repo (nav-github: plan docs are never committed): the session scratchpad
   when the system prompt lists one, `<scratchpad>/plans/<key>/PLAN.md`; otherwise
   `~/.cache/jouve-plans/<key>/PLAN.md`. `<key>` is the Linear key in lowercase, the GitHub issue
