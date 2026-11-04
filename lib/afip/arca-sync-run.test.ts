@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { syncPhase, syncResultText } from "./arca-sync-run";
+import { syncPhase, syncResultText } from "@/lib/afip/arca-sync-run";
 
 const t = (iso: string) => `2026-11-04T09:${iso}:00.000Z`;
 const now = Date.parse(t("10"));
@@ -37,7 +37,7 @@ describe("syncPhase", () => {
     );
     expect(
       syncPhase({ ...idle, startedAt: "2026-11-04T08:30:00.000Z" }, now),
-    ).toBe("idle");
+    ).toBe("died");
   });
 
   it("follows the daily run too, which has no request", () => {

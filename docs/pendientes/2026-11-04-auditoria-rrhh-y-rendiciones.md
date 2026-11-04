@@ -11,7 +11,8 @@
       abierta en su cuenta); quitar y cancelar lo deshacen; sin `hr:write` no
       se saca lo que está en la cuenta del chofer (`20261104095300`).
 - [ ] Descuento de planilla sin plan ni cargo: queda saldo a favor del
-      empleado (decisión en `docs/decisions.md`); si molesta, agregar un
+      empleado (decisión en
+      `docs/decisions/2026-11-04-auditoria-rrhh-y-rendiciones-sac-embargo-compra-a-cargo.md`); si molesta, agregar un
       aviso al cerrar el período.
 - Aprobación de `20261104095000`–`20261104095300` y revisión previa de
   `20261104095200`: en **Antes de promover**.

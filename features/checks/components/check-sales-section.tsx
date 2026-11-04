@@ -199,12 +199,13 @@ function PayDebtDialog({
 /** Check sales (to anul one entered by mistake) and the debts to buyers of
  *  rejected sold checks still to pay. */
 export function CheckSalesSection({
-  canWrite,
+  canCancel,
   canPay,
   payDeniedReason = null,
 }: {
-  canWrite: boolean;
-  /** CHECK_SALE_DEBT_PAY_PERMISSIONS plus accounts:read: paying moves money
+  /** CHECK_CASH_PERMISSIONS: cancelling a sale deletes its movements. */
+  canCancel: boolean;
+  /** CHECK_CASH_PERMISSIONS plus accounts:read: paying moves money
    *  from an account the user picks. */
   canPay: boolean;
   /** Shown on a disabled Pagar when the user lacks transactions:write. */
@@ -258,7 +259,7 @@ export function CheckSalesSection({
                     de {formatMoneyWithCode(s.gross_amount, s.currency)}
                   </span>
                 </span>
-                {canWrite && s.status === "active" && (
+                {canCancel && s.status === "active" && (
                   <Button
                     variant="outline"
                     size="sm"

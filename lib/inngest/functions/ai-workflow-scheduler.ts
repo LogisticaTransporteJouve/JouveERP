@@ -14,7 +14,9 @@ import {
 import { logger } from "@/lib/logger";
 
 /** Longest single sleep, under the 7-day cap assumed for Inngest's Hobby plan
- *  (unverified, see docs/decisions.md 2026-11-04); a monthly task sleeps in
+ *  (unverified, see
+ *  docs/decisions/2026-11-04-tareas-ia-programacion-por-eventos-en-vez-de-polling.md);
+ *  a monthly task sleeps in
  *  hops. */
 export const MAX_SLEEP_MS = 6 * 24 * 60 * 60 * 1000;
 

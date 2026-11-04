@@ -10,12 +10,19 @@ export const SYNC_START_TIMEOUT_MS = 3 * 60_000;
 /** A started run with no end after this long died (the function timed out). */
 export const SYNC_RUN_TIMEOUT_MS = 15 * 60_000;
 
-export type SyncPhase = "idle" | "waiting" | "running" | "not_started";
+export type SyncPhase =
+  | "idle"
+  | "waiting"
+  | "running"
+  | "not_started"
+  /** Started and never stamped its end: killed by the function timeout. */
+  | "died";
 
 const ms = (iso: string | null) => (iso ? Date.parse(iso) : 0);
 
-/** Where the last run is: waiting to start, running, never started, or done
- *  (idle). Times compare by value, so a cron run also counts. */
+/** Where the last run is: waiting to start, running, never started, died
+ *  without an end, or done (idle). Times compare by value, so a cron run
+ *  also counts. */
 export function syncPhase(sync: ArcaSyncRun, now: number): SyncPhase {
   const requested = ms(sync.requestedAt);
   const started = ms(sync.startedAt);
@@ -23,8 +30,8 @@ export function syncPhase(sync: ArcaSyncRun, now: number): SyncPhase {
   if (requested > started && requested > finished) {
     return now - requested < SYNC_START_TIMEOUT_MS ? "waiting" : "not_started";
   }
-  if (started > finished && now - started < SYNC_RUN_TIMEOUT_MS) {
-    return "running";
+  if (started > finished) {
+    return now - started < SYNC_RUN_TIMEOUT_MS ? "running" : "died";
   }
   return "idle";
 }
@@ -36,9 +43,15 @@ const plural = (n: number, one: string, many: string) =>
 export function syncResultText(result: ArcaSyncRunResult): string {
   switch (result.outcome) {
     case "skipped":
-      return result.reason === "rejected"
-        ? "No se entró a ARCA: la clave guardada fue rechazada."
-        : "No se entró a ARCA: falta el usuario.";
+      if (result.reason === "rejected") {
+        return "No se entró a ARCA: la clave guardada fue rechazada.";
+      }
+      if (result.reason === "read_failed") {
+        return "No se pudo leer el usuario de ARCA guardado: probá de nuevo en un rato.";
+      }
+      return "No se entró a ARCA: falta el usuario.";
+    case "failed":
+      return "La corrida se cortó por un error de JouveERP: probá de nuevo en un rato.";
     case "sign_in_failed":
       return `No se pudo entrar a ARCA: ${arcaErrorText(result.code)}.`;
     case "done": {

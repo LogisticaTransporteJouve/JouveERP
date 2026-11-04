@@ -5,7 +5,8 @@
       `lib/auth/denies.ts` (tabla faltante). La de `search_global` se fue con la
       búsqueda global (2026-11-04).
 - [ ] **Denegaciones en la DB** (overlays RESTRICTIVE por tabla + storage + RPC
-      DEFINER). Hoy la DB aplica solo el techo del rol; ver `docs/decisions.md`.
+      DEFINER). Hoy la DB aplica solo el techo del rol; ver
+      `docs/decisions/2026-10-28-accesos-por-usuario-denegaciones-en-la-app-techo-en-la-db.md`.
 - [ ] Suite pgTAP rol × tabla contra `ROLE_PERMISSIONS` (y auditar el desvío
       `['owner','finance']` en RLS vs admin en TS).
 - [x] `issue-invoice.ts`: "sin CAEA vigente" y "sin `cbte_tipo_afip`" fallan sin

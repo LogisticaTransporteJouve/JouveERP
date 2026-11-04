@@ -12,6 +12,7 @@ const ARCA_ERROR_TEXT: Record<string, string> = {
   INGEST_FAILED: "no se pudo guardar en la bandeja",
   TIME_BUDGET: "no alcanzó el tiempo, pedilo de nuevo",
   RECORD_FAILED: "no se pudo registrar el resultado del ingreso",
+  NOT_READ: "no se leyó por el error del mes anterior",
 };
 
 /** The code in words, or the code itself when it is not known. */

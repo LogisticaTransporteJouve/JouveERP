@@ -10,9 +10,11 @@
 
 import { ivaIsComputable } from "@/lib/afip/codes";
 
-import type {
-  LibroIvaComprasGroupedRow,
-  LibroIvaVentasGroupedRow,
+import {
+  inferIvaRateId,
+  SIN_ALICUOTA,
+  type LibroIvaComprasGroupedRow,
+  type LibroIvaVentasGroupedRow,
 } from "../schema";
 
 export type CitiFile = {
@@ -34,16 +36,6 @@ const DOC_SIN_IDENTIFICAR = 99;
 
 /** Rounding slack when checking that a total adds up (1 cent per field). */
 const TOTAL_TOLERANCE = 0.05;
-
-/** iva_rate_id (AFIP) → percent, for inferring the rate of header-only rows. */
-const RATE_PCT: Record<number, number> = {
-  3: 0,
-  9: 2.5,
-  8: 5,
-  4: 10.5,
-  5: 21,
-  6: 27,
-};
 
 // --- Fixed-width field helpers ----------------------------------------------
 
@@ -159,7 +151,7 @@ export function resolveCurrency(
 }
 
 /** Resolves per_rate buckets to AFIP alícuota entries, inferring the rate of
- *  the "no breakdown" bucket (-1) from the iva/neto ratio. Null = underivable. */
+ *  the `SIN_ALICUOTA` bucket from the iva/neto ratio. Null = underivable. */
 function resolveAlicuotas(
   perRate: Record<number, { neto: number; iva: number }>,
 ): { rateId: number; neto: number; iva: number }[] | null {
@@ -167,21 +159,9 @@ function resolveAlicuotas(
   for (const [key, v] of Object.entries(perRate)) {
     const id = Number(key);
     if (v.neto === 0 && v.iva === 0) continue;
-    if (id !== -1) {
-      out.push({ rateId: id, neto: v.neto, iva: v.iva });
-      continue;
-    }
-    if (v.iva === 0) {
-      out.push({ rateId: 3, neto: v.neto, iva: 0 });
-      continue;
-    }
-    if (v.neto <= 0) return null;
-    const pct = (v.iva / v.neto) * 100;
-    const match = Object.entries(RATE_PCT).find(
-      ([, p]) => Math.abs(pct - p) <= 0.5,
-    );
-    if (!match) return null;
-    out.push({ rateId: Number(match[0]), neto: v.neto, iva: v.iva });
+    const rateId = id === SIN_ALICUOTA ? inferIvaRateId(v) : id;
+    if (rateId === null) return null;
+    out.push({ rateId, neto: v.neto, iva: v.iva });
   }
   return out;
 }

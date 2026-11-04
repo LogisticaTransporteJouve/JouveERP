@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatArgentineDateTime } from "@/lib/format";
 import { arcaErrorText } from "@/lib/afip/arca-error-text";
+import { syncResultText } from "@/lib/afip/arca-sync-run";
 import type { ArcaWebAccountStatus } from "@/lib/afip/arca-web-account";
 import { formatCuitInput } from "@/lib/validation/cuit";
 
@@ -33,10 +34,19 @@ function statusText(s: ArcaWebAccountStatus): string {
       return s.lastErrorCode === "SIGN_IN_REJECTED"
         ? "ARCA rechazó la clave: actualizala"
         : `Pausado tras dos ingresos fallidos (${arcaErrorText(s.lastErrorCode ?? "SIGN_IN_FAILED")}): volvé a cargar la clave para reintentar`;
-    case "ok":
-      return s.lastSuccessAt
-        ? `Funcionando · último acceso ${formatArgentineDateTime(s.lastSuccessAt)}`
+    case "ok": {
+      const access = s.lastSuccessAt
+        ? `Funcionando · último ingreso ${formatArgentineDateTime(s.lastSuccessAt)}`
         : "Configurado · todavía no se usó";
+      // A sign-in that worked says nothing of the months it then read.
+      const last = s.sync.result;
+      const troubled =
+        last &&
+        (last.outcome !== "done" || Object.keys(last.failedMonths).length > 0);
+      return troubled
+        ? `${access} · última corrida: ${syncResultText(last)}`
+        : access;
+    }
   }
 }
 
@@ -52,7 +62,12 @@ function CredentialsDialog({
   const save = useSetArcaWebCredentials();
   const [cuit, setCuit] = useState(formatCuitInput(status.cuit ?? ""));
   const [password, setPassword] = useState("");
-  const needsPassword = status.state === "missing";
+  // A stopped account resumes only with the clave typed again (the server
+  // refuses the same CUIT alone too).
+  const needsPassword =
+    status.state === "missing" ||
+    (status.state === "rejected" &&
+      cuit.replace(/\D/g, "") === (status.cuit ?? ""));
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();

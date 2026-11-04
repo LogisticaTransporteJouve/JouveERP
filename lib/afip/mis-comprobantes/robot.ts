@@ -39,6 +39,9 @@ export class ArcaRobotError extends Error {
   constructor(
     readonly code: ArcaRobotErrorCode,
     message: string,
+    /** Whether the clave had been sent to ARCA when it failed: only those
+     *  failures can lock the user, and only those count toward the stop. */
+    readonly claveSent = false,
   ) {
     super(message);
     this.name = "ArcaRobotError";
@@ -307,66 +310,77 @@ export async function signInToMisComprobantes(
     );
   }
 
-  // 2. Clave: a good one answers with a form that posts a jwt to the portal.
-  const afterClave = await session.request(claveForm.action, {
-    method: "POST",
-    form: {
-      F1: "F1",
-      "F1:captcha": "",
-      "F1:username": cuit,
-      "F1:password": password,
-      "F1:btnIngresar": "Ingresar",
-      "javax.faces.ViewState": viewState(claveForm),
-    },
-  });
-  const jwtForm = readForm(afterClave.text, afterClave.url);
-  const jwt = jwtForm?.inputs.find((i) => i.name === "jwt")?.value;
-  if (!jwtForm || !jwt) {
-    const again = readForm(afterClave.text, afterClave.url, "F1");
-    if (again && hasInput(again, "F1:password")) {
-      throw new ArcaRobotError("SIGN_IN_REJECTED", "ARCA no aceptó la clave.");
+  // 2. Clave onwards: a failure from here on was with the clave sent.
+  try {
+    // 2. Clave: a good one answers with a form that posts a jwt to the portal.
+    const afterClave = await session.request(claveForm.action, {
+      method: "POST",
+      form: {
+        F1: "F1",
+        "F1:captcha": "",
+        "F1:username": cuit,
+        "F1:password": password,
+        "F1:btnIngresar": "Ingresar",
+        "javax.faces.ViewState": viewState(claveForm),
+      },
+    });
+    const jwtForm = readForm(afterClave.text, afterClave.url);
+    const jwt = jwtForm?.inputs.find((i) => i.name === "jwt")?.value;
+    if (!jwtForm || !jwt) {
+      const again = readForm(afterClave.text, afterClave.url, "F1");
+      if (again && hasInput(again, "F1:password")) {
+        throw new ArcaRobotError(
+          "SIGN_IN_REJECTED",
+          "ARCA no aceptó la clave.",
+        );
+      }
+      throw new ArcaRobotError(
+        "SIGN_IN_FAILED",
+        "ARCA no completó el ingreso (puede pedir cambiar la clave o aceptar términos).",
+      );
     }
-    throw new ArcaRobotError(
-      "SIGN_IN_FAILED",
-      "ARCA no completó el ingreso (puede pedir cambiar la clave o aceptar términos).",
-    );
-  }
-  await session.request(jwtForm.action, { method: "POST", form: { jwt } });
+    await session.request(jwtForm.action, { method: "POST", form: { jwt } });
 
-  // 3. Ticket for Mis Comprobantes.
-  const auth = json(
-    await session.request(
-      `${PORTAL}/api/servicios/${cuit}/servicio/mcmp/autorizacion`,
-      { ajax: true },
-    ),
-  );
-  if (
-    !isRecord(auth) ||
-    typeof auth.token !== "string" ||
-    typeof auth.sign !== "string"
-  ) {
-    throw new ArcaRobotError(
-      "SERVICE_NOT_AUTHORIZED",
-      "El usuario no tiene Mis Comprobantes habilitado en ARCA.",
+    // 3. Ticket for Mis Comprobantes.
+    const auth = json(
+      await session.request(
+        `${PORTAL}/api/servicios/${cuit}/servicio/mcmp/autorizacion`,
+        { ajax: true },
+      ),
     );
-  }
-  const index = await session.request(`${MCMP}/index.do`, {
-    method: "POST",
-    form: { token: auth.token, sign: auth.sign },
-  });
+    if (
+      !isRecord(auth) ||
+      typeof auth.token !== "string" ||
+      typeof auth.sign !== "string"
+    ) {
+      throw new ArcaRobotError(
+        "SERVICE_NOT_AUTHORIZED",
+        "El usuario no tiene Mis Comprobantes habilitado en ARCA.",
+      );
+    }
+    const index = await session.request(`${MCMP}/index.do`, {
+      method: "POST",
+      form: { token: auth.token, sign: auth.sign },
+    });
 
-  // 4. The company the user represents.
-  const id = representedId(index.text, representedCuit);
-  if (id === "missing") {
-    throw new ArcaRobotError(
-      "REPRESENTED_NOT_FOUND",
-      "El usuario no representa a la empresa en Mis Comprobantes.",
-    );
-  }
-  if (id !== null) {
-    await session.request(
-      `${MCMP}/setearContribuyente.do?idContribuyente=${id}`,
-    );
+    // 4. The company the user represents.
+    const id = representedId(index.text, representedCuit);
+    if (id === "missing") {
+      throw new ArcaRobotError(
+        "REPRESENTED_NOT_FOUND",
+        "El usuario no representa a la empresa en Mis Comprobantes.",
+      );
+    }
+    if (id !== null) {
+      await session.request(
+        `${MCMP}/setearContribuyente.do?idContribuyente=${id}`,
+      );
+    }
+  } catch (err) {
+    if (err instanceof ArcaRobotError && !err.claveSent) {
+      throw new ArcaRobotError(err.code, err.message, true);
+    }
+    throw err;
   }
 
   return {

@@ -1,386 +1,57 @@
-import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
-
 import {
-  COMPRAS_AMOUNT_COLUMNS,
-  COMPRAS_PERCEPTIONS_HEADER,
+  bookNotes,
+  comprasBook,
+  CONDITION_LEGEND,
+  type LibroIvaHeader,
+  TC_LEGEND,
+} from "@/features/libro-iva/lib/book-layout";
+import {
   COMPRAS_PERCEPTIONS_LEGEND,
-  comprasPerceptions,
-  computeComprasTotals,
-  groupComprasByInvoice,
-  IVA_RATES,
-  KIND_LABEL,
-  libroIvaVoucherNumber,
   type LibroIvaComprasRow,
 } from "@/features/libro-iva/schema";
 
-const fmt = new Intl.NumberFormat("es-AR", {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
-const money = (n: number) => fmt.format(n);
-
-/** One line per perception, amount and code ("5.115,78 B"). */
-const perceptionLines = (b: Parameters<typeof comprasPerceptions>[0]) =>
-  comprasPerceptions(b)
-    .map((p) => `${money(p.amount)} ${p.code}`)
-    .join("\n");
-
-const styles = StyleSheet.create({
-  page: { padding: 24, fontSize: 7, fontFamily: "Helvetica", color: "#111" },
-  header: {
-    marginBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#000",
-    paddingBottom: 6,
-  },
-  title: { fontSize: 13, fontWeight: "bold" },
-  subtitle: { fontSize: 9, color: "#555", marginTop: 2 },
-  table: { flexDirection: "column", borderTopWidth: 1, borderTopColor: "#000" },
-  thRow: {
-    flexDirection: "row",
-    backgroundColor: "#f1f1f1",
-    borderBottomWidth: 1,
-    borderBottomColor: "#000",
-  },
-  th: {
-    padding: 3,
-    fontWeight: "bold",
-    fontSize: 6,
-    borderRightWidth: 0.5,
-    borderRightColor: "#999",
-  },
-  tr: {
-    flexDirection: "row",
-    borderBottomWidth: 0.5,
-    borderBottomColor: "#ddd",
-  },
-  td: {
-    padding: 2,
-    fontSize: 6,
-    borderRightWidth: 0.5,
-    borderRightColor: "#eee",
-  },
-  totalRow: {
-    flexDirection: "row",
-    borderTopWidth: 1,
-    borderTopColor: "#000",
-    backgroundColor: "#f1f1f1",
-    fontWeight: "bold",
-  },
-  right: { textAlign: "right" },
-  center: { textAlign: "center" },
-  mono: { fontFamily: "Courier" },
-  footer: { marginTop: 12, fontSize: 6, color: "#999", textAlign: "center" },
-});
-
-const COL_W = {
-  fecha: 36,
-  tipo: 28,
-  numero: 48,
-  proveedor: 64,
-  cuit: 46,
-  rate: 28,
-  perc: 26,
-  percepciones: 40,
-  total: 40,
-  cae: 40,
-};
+import { LibroIvaPdfDocument, planLibroIvaPdf } from "./libro-iva-book-pdf";
 
 export interface LibroIvaComprasTemplateData {
   period: string;
   channelName: string;
   generatedAt: string;
+  header: LibroIvaHeader;
   rows: LibroIvaComprasRow[];
+}
+
+/** The book and its page plan (exported for the page-count test). */
+export function libroIvaComprasPlan(rows: readonly LibroIvaComprasRow[]) {
+  const model = comprasBook(rows);
+  return {
+    model,
+    plan: planLibroIvaPdf(
+      model,
+      bookNotes(model, [
+        COMPRAS_PERCEPTIONS_LEGEND,
+        TC_LEGEND,
+        CONDITION_LEGEND,
+      ]),
+    ),
+  };
 }
 
 export function LibroIvaComprasDocument({
   period,
   channelName,
   generatedAt,
+  header,
   rows,
 }: LibroIvaComprasTemplateData) {
-  const grouped = groupComprasByInvoice(rows);
-  const totals = computeComprasTotals(grouped);
-
+  const { model, plan } = libroIvaComprasPlan(rows);
   return (
-    <Document>
-      <Page size="A4" orientation="landscape" style={styles.page}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Libro IVA Compras — {period}</Text>
-          <Text style={styles.subtitle}>
-            {channelName} · {grouped.length} comprobantes · importes en pesos
-            (moneda extranjera a la cotización de cada comprobante) · generado{" "}
-            {generatedAt}
-          </Text>
-        </View>
-
-        <View style={styles.table}>
-          <View style={styles.thRow}>
-            <Text style={[styles.th, { width: COL_W.fecha }]}>Fecha</Text>
-            <Text style={[styles.th, { width: COL_W.tipo }]}>Tipo</Text>
-            <Text style={[styles.th, { width: COL_W.numero }]}>
-              Comprobante
-            </Text>
-            <Text style={[styles.th, { width: COL_W.proveedor }]}>
-              Proveedor
-            </Text>
-            <Text style={[styles.th, { width: COL_W.cuit }]}>CUIT</Text>
-            {IVA_RATES.map((r) => (
-              <Text
-                key={r.id}
-                style={[styles.th, styles.center, { width: COL_W.rate * 2 }]}
-              >
-                {r.label}
-              </Text>
-            ))}
-            {COMPRAS_AMOUNT_COLUMNS.map((c) => (
-              <Text
-                key={c.header}
-                style={[styles.th, styles.right, { width: COL_W.perc }]}
-              >
-                {c.header}
-              </Text>
-            ))}
-            <Text
-              style={[styles.th, styles.right, { width: COL_W.percepciones }]}
-            >
-              {COMPRAS_PERCEPTIONS_HEADER}
-            </Text>
-            <Text style={[styles.th, styles.right, { width: COL_W.total }]}>
-              Total
-            </Text>
-            <Text style={[styles.th, { width: COL_W.cae }]}>CAE prov.</Text>
-          </View>
-          <View style={styles.thRow}>
-            <Text
-              style={[
-                styles.th,
-                {
-                  width:
-                    COL_W.fecha +
-                    COL_W.tipo +
-                    COL_W.numero +
-                    COL_W.proveedor +
-                    COL_W.cuit,
-                },
-              ]}
-            />
-            {IVA_RATES.map((r) => (
-              <>
-                <Text
-                  key={`${r.id}-n-h`}
-                  style={[styles.th, styles.right, { width: COL_W.rate }]}
-                >
-                  Neto
-                </Text>
-                <Text
-                  key={`${r.id}-i-h`}
-                  style={[styles.th, styles.right, { width: COL_W.rate }]}
-                >
-                  IVA
-                </Text>
-              </>
-            ))}
-            <Text
-              style={[
-                styles.th,
-                {
-                  width:
-                    COL_W.perc * COMPRAS_AMOUNT_COLUMNS.length +
-                    COL_W.percepciones +
-                    COL_W.total +
-                    COL_W.cae,
-                },
-              ]}
-            />
-          </View>
-
-          {grouped.map((row) => {
-            const number = libroIvaVoucherNumber(row);
-            return (
-              <View
-                key={row.purchase_invoice_id}
-                style={styles.tr}
-                wrap={false}
-              >
-                <Text style={[styles.td, styles.mono, { width: COL_W.fecha }]}>
-                  {row.fecha}
-                </Text>
-                <Text style={[styles.td, { width: COL_W.tipo }]}>
-                  {KIND_LABEL[row.kind] ?? row.kind}
-                </Text>
-                <Text style={[styles.td, styles.mono, { width: COL_W.numero }]}>
-                  {number}
-                </Text>
-                <Text style={[styles.td, { width: COL_W.proveedor }]}>
-                  {row.supplier_legal_name}
-                </Text>
-                <Text style={[styles.td, styles.mono, { width: COL_W.cuit }]}>
-                  {row.supplier_cuit ?? "—"}
-                </Text>
-                {IVA_RATES.map((r) => {
-                  const cell = row.per_rate[r.id];
-                  return (
-                    <>
-                      <Text
-                        key={`${row.purchase_invoice_id}-${r.id}-n`}
-                        style={[
-                          styles.td,
-                          styles.right,
-                          styles.mono,
-                          { width: COL_W.rate },
-                        ]}
-                      >
-                        {cell?.neto ? money(cell.neto) : ""}
-                      </Text>
-                      <Text
-                        key={`${row.purchase_invoice_id}-${r.id}-i`}
-                        style={[
-                          styles.td,
-                          styles.right,
-                          styles.mono,
-                          { width: COL_W.rate },
-                        ]}
-                      >
-                        {cell?.iva ? money(cell.iva) : ""}
-                      </Text>
-                    </>
-                  );
-                })}
-                {COMPRAS_AMOUNT_COLUMNS.map((c) => {
-                  const v = c.value(row.breakdown);
-                  return (
-                    <Text
-                      key={c.header}
-                      style={[
-                        styles.td,
-                        styles.right,
-                        styles.mono,
-                        { width: COL_W.perc },
-                      ]}
-                    >
-                      {v > 0 ? money(v) : ""}
-                    </Text>
-                  );
-                })}
-                <Text
-                  style={[
-                    styles.td,
-                    styles.right,
-                    styles.mono,
-                    { width: COL_W.percepciones },
-                  ]}
-                >
-                  {perceptionLines(row.breakdown)}
-                </Text>
-                <Text
-                  style={[
-                    styles.td,
-                    styles.right,
-                    styles.mono,
-                    { width: COL_W.total },
-                  ]}
-                >
-                  {money(row.imp_total)}
-                </Text>
-                <Text style={[styles.td, styles.mono, { width: COL_W.cae }]}>
-                  {row.cae_proveedor ?? "—"}
-                </Text>
-              </View>
-            );
-          })}
-
-          <View style={styles.totalRow} wrap={false}>
-            <Text
-              style={[
-                styles.td,
-                styles.right,
-                {
-                  width:
-                    COL_W.fecha +
-                    COL_W.tipo +
-                    COL_W.numero +
-                    COL_W.proveedor +
-                    COL_W.cuit,
-                },
-              ]}
-            >
-              Totales ({totals.count} comprobantes)
-            </Text>
-            {IVA_RATES.map((r) => {
-              const cell = totals.per_rate[r.id];
-              return (
-                <>
-                  <Text
-                    key={`t-${r.id}-n`}
-                    style={[
-                      styles.td,
-                      styles.right,
-                      styles.mono,
-                      { width: COL_W.rate },
-                    ]}
-                  >
-                    {cell?.neto ? money(cell.neto) : ""}
-                  </Text>
-                  <Text
-                    key={`t-${r.id}-i`}
-                    style={[
-                      styles.td,
-                      styles.right,
-                      styles.mono,
-                      { width: COL_W.rate },
-                    ]}
-                  >
-                    {cell?.iva ? money(cell.iva) : ""}
-                  </Text>
-                </>
-              );
-            })}
-            {COMPRAS_AMOUNT_COLUMNS.map((c) => {
-              const v = c.value(totals.breakdown);
-              return (
-                <Text
-                  key={c.header}
-                  style={[
-                    styles.td,
-                    styles.right,
-                    styles.mono,
-                    { width: COL_W.perc },
-                  ]}
-                >
-                  {v !== 0 ? money(v) : ""}
-                </Text>
-              );
-            })}
-            <Text
-              style={[
-                styles.td,
-                styles.right,
-                styles.mono,
-                { width: COL_W.percepciones },
-              ]}
-            >
-              {perceptionLines(totals.breakdown)}
-            </Text>
-            <Text
-              style={[
-                styles.td,
-                styles.right,
-                styles.mono,
-                { width: COL_W.total },
-              ]}
-            >
-              {money(totals.imp_total)}
-            </Text>
-            <Text style={[styles.td, { width: COL_W.cae }]} />
-          </View>
-        </View>
-
-        <Text style={styles.footer}>{COMPRAS_PERCEPTIONS_LEGEND}</Text>
-        <Text style={styles.footer}>
-          JouveERP · RG 1361 · Página generada el {generatedAt}
-        </Text>
-      </Page>
-    </Document>
+    <LibroIvaPdfDocument
+      model={model}
+      plan={plan}
+      period={period}
+      header={header}
+      subtitle={`${channelName} · ${model.docs.length} comprobantes · importes en pesos (moneda extranjera a la cotización de cada comprobante)`}
+      generatedAt={generatedAt}
+    />
   );
 }

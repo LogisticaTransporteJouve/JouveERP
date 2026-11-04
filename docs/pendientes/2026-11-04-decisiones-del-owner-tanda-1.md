@@ -2,7 +2,8 @@
 
 - [x] Producción sin compras, cheques, OP, préstamos, RRHH, recibos ni
       comprobantes en dólares: los ítems de esos datos en **Antes de
-      promover** quedan N/A con su SQL (`docs/decisions.md`).
+      promover** quedan N/A con su SQL
+      (`docs/decisions/2026-11-04-estado-de-produccion-solo-clientes-y-ventas-en-pesos.md`).
 - [x] Pagos de planilla, borrar un movimiento de la cuenta corriente con
       caja y pagar la deuda de un cheque vendido piden `transactions:write`;
       el botón queda oculto o deshabilitado con el motivo.

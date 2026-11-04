@@ -3,167 +3,136 @@ import type { XlsxCell, XlsxColumn, XlsxSheet } from "@/lib/export/xlsx";
 import { formatNumber2 } from "@/lib/format";
 
 import {
-  COMPRAS_AMOUNT_COLUMNS,
-  COMPRAS_PERCEPTIONS_HEADER,
-  comprasPerceptions,
-  comprasPerceptionsTotal,
-  countSuspectRates,
-  foreignCurrencyTotals,
-  groupByInvoice,
-  groupComprasByInvoice,
-  IVA_RATES,
-  KIND_LABEL,
-  libroIvaVoucherNumber,
-  VENTAS_AMOUNT_COLUMNS,
+  COMPRAS_PERCEPTIONS_LEGEND,
   type LibroIvaComprasRow,
   type LibroIvaVentasRow,
 } from "../schema";
 
-type Book = { period: string; channelName: string; generatedAt: string };
+import {
+  bookNotes,
+  type BookModel,
+  companyCuitLabel,
+  comprasBook,
+  CONDITION_LEGEND,
+  kindSign,
+  type LibroIvaHeader,
+  libroIvaTitle,
+  printCurrency,
+  TC_LEGEND,
+  tcCode,
+  ventasBook,
+  voucherAmount,
+  voucherLines,
+} from "./book-layout";
 
-type Voucher = {
-  fecha: string;
-  kind: string;
-  letter: string | null;
-  punto_venta: number;
-  numero: number;
-  per_rate: Record<number, { neto: number; iva: number }>;
-  imp_trib: number;
-  imp_total: number;
-  moneda: string;
-  cotizacion: number;
-  orig: { imp_total: number };
-};
-
-/** One amount column: which value it reads and when the PDF prints it. */
-type Amount<V> = {
-  header: string;
-  value: (v: V) => number | undefined;
-  /** When the PDF prints it: always (Total), only when positive (Perc.,
-   *  No gravado, Exento) or, by default, when not zero. */
-  show?: "always" | "positive";
+type Book = {
+  period: string;
+  channelName: string;
+  generatedAt: string;
+  header: LibroIvaHeader;
 };
 
 const ars = (n: number): XlsxCell => ({ money: n, currency: "ARS" });
 
-/** Spreadsheet currency of an AFIP code: dollars as USD, others as written. */
-const sheetCurrency = (moneda: string) =>
-  moneda === "DOL" || moneda === "USD" ? "USD" : moneda;
+/** "Neto 21%" for a rate pair, the plain header otherwise. */
+const amountHeader = (c: { group: string | null; header: string }) =>
+  c.group ? `${c.header} ${c.group}` : c.header;
 
-/** What the peso figures include in foreign currency, and the documents left
- *  at rate 1 — the same notes the screen shows. */
-function currencyLines(vouchers: readonly Voucher[]): string[] {
-  const foreign = foreignCurrencyTotals(vouchers);
-  if (foreign.length === 0) return [];
-  const suspect = countSuspectRates(vouchers);
-  return [
-    "Importes en pesos, como en el asiento de cada comprobante (moneda extranjera a su cotización).",
-    ...foreign.map(
-      (f) =>
-        `${f.count} en ${f.moneda === "DOL" ? "dólares" : f.moneda}: ${sheetCurrency(f.moneda)} ${formatNumber2(f.imp_total_orig)} = $ ${formatNumber2(f.imp_total_ars)}`,
-    ),
-    ...(suspect > 0
-      ? [
-          `${suspect} comprobante(s) en moneda extranjera sin cotización (cotización 1): quedan sin convertir.`,
-        ]
-      : []),
-  ];
-}
-
-function rateAmounts<V extends Voucher>(): Amount<V>[] {
-  return IVA_RATES.flatMap((r) => [
-    { header: `Neto ${r.label}`, value: (v: V) => v.per_rate[r.id]?.neto },
-    { header: `IVA ${r.label}`, value: (v: V) => v.per_rate[r.id]?.iva },
-  ]);
-}
+const LEAD_COLUMNS = 6;
 
 /**
- * A libro IVA as one sheet: the PDF's header lines, one row per voucher and
+ * A libro IVA as one sheet: the PDF's title block, one row per voucher and
  * the same columns. Credit notes are written negative (the books store them
  * positive with kind `nc`), so each column's =SUM() matches the totals row,
- * which adds exactly the cells written above it.
+ * which adds exactly the cells written above it and equals the period totals.
  */
-function bookSheet<V extends Voucher>(
+function bookSheet<F>(
   book: Book,
-  title: string,
-  vouchers: readonly V[],
-  lead: {
-    party: string;
-    name: (v: V) => string;
-    cuit: (v: V) => string | null;
-  },
-  amounts: readonly Amount<V>[],
-  /** Text columns after the original currency (CAE, perception codes). */
-  texts: readonly { header: string; value: (v: V) => string | null }[],
+  model: BookModel<F>,
+  legend: readonly string[],
 ): XlsxSheet {
-  const sums = amounts.map(() => 0);
-  const rows = vouchers.map((v) => {
-    const sign = v.kind === "nc" ? -1 : 1;
-    const cells = amounts.map((a, i): XlsxCell => {
-      const raw = a.value(v) ?? 0;
-      const hidden =
-        a.show === "always" ? false : a.show === "positive" ? raw <= 0 : !raw;
-      if (hidden) return null;
-      sums[i] = (sums[i] ?? 0) + sign * raw;
-      return ars(sign * raw);
+  const { columns, docs } = model;
+  const sums = columns.map(() => 0);
+  const perceptions = columns.find((c) => c.lines);
+  const rows = docs.map((d) => {
+    const cells = columns.map((c, i): XlsxCell => {
+      const v = voucherAmount(c, d.figures, d.kind);
+      if (v === null) return null;
+      sums[i] = (sums[i] ?? 0) + v;
+      return ars(v);
     });
-    const foreign = v.moneda !== "PES";
+    const foreign = d.moneda !== "PES";
     return [
-      { date: v.fecha },
-      KIND_LABEL[v.kind] ?? v.kind,
-      libroIvaVoucherNumber(v),
-      lead.name(v),
-      lead.cuit(v),
+      { date: d.fecha },
+      tcCode(d.kind),
+      d.number,
+      d.party,
+      d.cuit || null,
+      d.ci,
       ...cells,
-      v.moneda,
+      d.moneda,
       foreign
         ? {
-            money: sign * v.orig.imp_total,
-            currency: sheetCurrency(v.moneda),
+            money: kindSign(d.kind) * d.origTotal,
+            currency: printCurrency(d.moneda),
           }
         : null,
-      foreign ? v.cotizacion : null,
-      ...texts.map((t) => t.value(v)),
+      foreign ? d.cotizacion : null,
+      d.cae,
+      ...(perceptions
+        ? [
+            voucherLines(perceptions, d.figures, d.kind)
+              .map((p) => `${formatNumber2(p.amount)} ${p.code}`)
+              .join(" · ") || null,
+          ]
+        : []),
     ];
   });
 
+  const title = libroIvaTitle(model.book, book.period, book.header.closed);
   return {
-    name: `${title} ${book.period}`,
+    name: `Libro IVA ${model.book === "ventas" ? "Ventas" : "Compras"} ${book.period}`,
     preamble: [
-      `${title} — ${book.period}`,
+      title,
+      [book.header.companyName, companyCuitLabel(book.header.cuit)]
+        .filter(Boolean)
+        .join(" · "),
       book.channelName,
-      `${vouchers.length} comprobantes`,
+      `${docs.length} comprobantes`,
       `Generado el ${book.generatedAt}`,
-      ...currencyLines(vouchers),
+      ...bookNotes(model, legend),
     ],
     columns: [
       { header: "Fecha", type: "date" },
-      { header: "Tipo" },
+      { header: "TC" },
       { header: "Comprobante" },
-      { header: lead.party },
-      { header: "CUIT" },
-      ...amounts.map((a): XlsxColumn => ({ header: a.header, type: "money" })),
+      { header: model.partyHeader },
+      { header: "C.U.I.T." },
+      { header: "C.I." },
+      ...columns.map((c): XlsxColumn => ({
+        header: amountHeader(c),
+        type: "money",
+      })),
       { header: "Moneda orig." },
       { header: "Importe orig.", type: "money" },
       { header: "Cotización", type: "number" },
-      ...texts.map((t): XlsxColumn => ({ header: t.header })),
+      { header: model.caeHeader },
+      ...(perceptions ? [{ header: "Detalle percepciones" }] : []),
     ],
     rows,
     totals: [
-      `Totales (${vouchers.length} comprobantes)`,
-      null,
-      null,
-      null,
-      null,
+      `Totales (${docs.length} comprobantes)`,
+      ...Array.from({ length: LEAD_COLUMNS - 1 }, () => null),
       ...sums.map((sum, i) =>
         // A column with no value written keeps its total empty, as the PDF.
-        rows.some((r) => r[5 + i] !== null) ? ars(sum) : null,
+        rows.some((r) => r[LEAD_COLUMNS + i] !== null) ? ars(sum) : null,
       ),
       // Original amounts mix currencies: no total.
       null,
       null,
       null,
-      ...texts.map(() => null),
+      null,
+      ...(perceptions ? [null] : []),
     ],
   };
 }
@@ -172,71 +141,16 @@ function bookSheet<V extends Voucher>(
 export function libroIvaVentasSheet(
   book: Book & { rows: readonly LibroIvaVentasRow[] },
 ): XlsxSheet {
-  type V = ReturnType<typeof groupByInvoice>[number];
-  return bookSheet<V>(
-    book,
-    "Libro IVA Ventas",
-    groupByInvoice(book.rows),
-    {
-      party: "Cliente",
-      name: (v) => v.client_legal_name,
-      cuit: (v) => v.doc_nro,
-    },
-    [
-      ...rateAmounts<V>(),
-      { header: "Perc.", value: (v) => v.imp_trib, show: "positive" },
-      ...VENTAS_AMOUNT_COLUMNS.map((c): Amount<V> => ({
-        header: c.header,
-        value: c.value,
-        show: "positive",
-      })),
-      { header: "Total $", value: (v) => v.imp_total, show: "always" },
-    ],
-    [{ header: "CAE", value: (v) => v.cae }],
-  );
+  return bookSheet(book, ventasBook(book.rows), [TC_LEGEND, CONDITION_LEGEND]);
 }
 
 /** Libro IVA Compras, same columns as its PDF. */
 export function libroIvaComprasSheet(
   book: Book & { rows: readonly LibroIvaComprasRow[] },
 ): XlsxSheet {
-  type V = ReturnType<typeof groupComprasByInvoice>[number];
-  return bookSheet<V>(
-    book,
-    "Libro IVA Compras",
-    groupComprasByInvoice(book.rows),
-    {
-      party: "Proveedor",
-      name: (v) => v.supplier_legal_name,
-      cuit: (v) => v.supplier_cuit,
-    },
-    [
-      ...rateAmounts<V>(),
-      ...COMPRAS_AMOUNT_COLUMNS.map((c): Amount<V> => ({
-        header: c.header,
-        value: (v) => c.value(v.breakdown),
-        show: "positive",
-      })),
-      {
-        header: COMPRAS_PERCEPTIONS_HEADER,
-        value: (v) => comprasPerceptionsTotal(v.breakdown),
-        show: "positive",
-      },
-      { header: "Total $", value: (v) => v.imp_total, show: "always" },
-    ],
-    [
-      { header: "CAE prov.", value: (v) => v.cae_proveedor },
-      {
-        // Each perception with its code, as the PDF prints it.
-        header: "Detalle percepciones",
-        value: (v) =>
-          comprasPerceptions(v.breakdown)
-            .map(
-              (p) =>
-                `${formatNumber2((v.kind === "nc" ? -1 : 1) * p.amount)} ${p.code}`,
-            )
-            .join(" · ") || null,
-      },
-    ],
-  );
+  return bookSheet(book, comprasBook(book.rows), [
+    COMPRAS_PERCEPTIONS_LEGEND,
+    TC_LEGEND,
+    CONDITION_LEGEND,
+  ]);
 }

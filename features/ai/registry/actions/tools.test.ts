@@ -457,6 +457,47 @@ describe("libro IVA totals", () => {
     expect(r.summary).toContain("IVA débito");
   });
 
+  it("ventas: a voucher without items counts under the rate the book prints", async () => {
+    vi.mocked(listLibroIvaVentasAction).mockResolvedValue({
+      ok: true,
+      data: [
+        // Imported from ARCA: header only.
+        ventaRow({
+          iva_rate_id: null,
+          iva_rate_pct: null,
+          neto: 1000,
+          iva: 210,
+          imp_total: 1210,
+          neto_orig: 1000,
+          iva_orig: 210,
+        }),
+        ventaRow({
+          invoice_id: "x2",
+          numero: 2,
+          iva_rate_id: null,
+          iva_rate_pct: null,
+          neto: 1000,
+          iva: 150,
+          imp_total: 1150,
+          neto_orig: 1000,
+          iva_orig: 150,
+        }),
+      ],
+    });
+    const r = await runLibroIvaVentas({ period: "2026-05" });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.data).toMatchObject({
+      totals: {
+        iva: 360,
+        per_rate: [
+          { alicuota: "Sin alícuota", neto: 1000, iva: 150 },
+          { alicuota: "21%", neto: 1000, iva: 210 },
+        ],
+      },
+    });
+  });
+
   it("compras: signed IVA crédito and otros tributos", async () => {
     vi.mocked(listLibroIvaComprasAction).mockResolvedValue({
       ok: true,

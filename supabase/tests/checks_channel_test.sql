@@ -193,20 +193,31 @@ select is(
   'the endorsement fixes the payment order''s channel on the check'
 );
 
--- An endorsed check of an internal payment order bounces: no journal.
+-- An endorsed check of an internal payment order bounces: no journal. The
+-- line above was inserted by hand, so the check is marked endosado as
+-- create_payment_order would, with triggers off (guard_check_edit lets only
+-- the RPCs change a check's status).
+reset role;
+set local session_replication_role = replica;
 update public.checks set status = 'endosado' where id = '00000000-0000-0000-0000-0000000008b2';
-update public.checks set status = 'rechazado' where id = '00000000-0000-0000-0000-0000000008b2';
+set local session_replication_role = origin;
+set local role authenticated;
+select public.reject_check('00000000-0000-0000-0000-0000000008b2', null, current_date, null, null);
 
 -- Issued checks ---------------------------------------------------------------------
 
-insert into public.issued_checks
-  (id, kind, check_number, bank_name, issue_date, due_date, amount, currency, bank_account_id, payment_order_id)
-values
-  ('00000000-0000-0000-0000-0000000009a1', 'fisico', 'IC-1', 'Banco test', current_date, current_date, 100, 'ARS',
-   '00000000-0000-0000-0000-00000000a002', '00000000-0000-0000-0000-0000000007a1');
+-- An own check is linked to an order only by the order's RPC
+-- (guard_issued_check_edit).
+select public.create_payment_order(
+  'jouve_internal', 1, 904, '00000000-0000-0000-0000-00000000b202', current_date, 100, 'ARS', null,
+  jsonb_build_array(jsonb_build_object(
+    'line_kind', 'issue_check', 'account_id', '00000000-0000-0000-0000-00000000a002', 'amount', 100,
+    'issued_check', jsonb_build_object('kind', 'fisico', 'check_number', 'IC-1', 'bank_name', 'Banco test',
+                                       'due_date', current_date))),
+  '[]'::jsonb);
 
 select is(
-  (select channel_id from public.issued_checks where id = '00000000-0000-0000-0000-0000000009a1'),
+  (select channel_id from public.issued_checks where check_number = 'IC-1'),
   'jouve_internal',
   'an issued check takes its payment order''s channel'
 );
@@ -223,7 +234,7 @@ select throws_ok(
 );
 
 update public.issued_checks set status = 'cashed', cashed_at = current_date
- where id = '00000000-0000-0000-0000-0000000009a1';
+ where check_number = 'IC-1';
 
 -- Fiscal payment orders, through the RPC so their lines balance: one issues a
 -- check (then cancelled), one endorses a fiscal check (then bounced).
@@ -247,7 +258,7 @@ set constraints all deferred;
 update public.payment_orders set status = 'canceled'
  where punto_venta = 1 and numero = 902 and channel_id = 'jouve_fiscal';
 
-update public.checks set status = 'rechazado' where id = '00000000-0000-0000-0000-0000000008b5';
+select public.reject_check('00000000-0000-0000-0000-0000000008b5', null, current_date, null, null);
 
 reset role;
 
@@ -267,7 +278,8 @@ select is(
 
 select is(
   (select count(*)::int from public.journal_entries
-    where source_table = 'issued_checks' and source_id = '00000000-0000-0000-0000-0000000009a1'),
+    where source_table = 'issued_checks'
+      and source_id = (select id from public.issued_checks where check_number = 'IC-1')),
   0,
   'an issued check of an internal payment order posts nothing when cashed'
 );

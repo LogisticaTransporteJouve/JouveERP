@@ -98,7 +98,7 @@ afterEach(cleanup);
 
 describe("CheckSalesSection · Pagar", () => {
   it("opens each debt with no account chosen", () => {
-    render(<CheckSalesSection canWrite canPay />);
+    render(<CheckSalesSection canCancel canPay />);
     const [payUsd, payArs] = screen.getAllByRole("button", { name: "Pagar" });
     if (!payUsd || !payArs) throw new Error("expected a Pagar per debt");
 
@@ -120,19 +120,19 @@ describe("CheckSalesSection · Pagar", () => {
 describe("CheckSalesSection · Pagar gate", () => {
   it("reads the accounts only once a debt is being paid", () => {
     useAccountsList.mockClear();
-    render(<CheckSalesSection canWrite canPay />);
+    render(<CheckSalesSection canCancel canPay />);
     expect(useAccountsList).not.toHaveBeenCalled();
   });
 
   it("offers no Pagar without accounts:read", () => {
-    render(<CheckSalesSection canWrite canPay={false} />);
+    render(<CheckSalesSection canCancel canPay={false} />);
     expect(screen.queryByRole("button", { name: "Pagar" })).toBeNull();
   });
 
   it("shows Pagar disabled, with the reason, without transactions:write", () => {
     render(
       <CheckSalesSection
-        canWrite
+        canCancel
         canPay={false}
         payDeniedReason="Necesitás permiso para cargar movimientos."
       />,

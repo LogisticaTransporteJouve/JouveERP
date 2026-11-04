@@ -12,11 +12,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime-invalidate";
 import type { Access } from "@/lib/auth/permissions";
-import { userCan } from "@/lib/auth/permissions";
+import { userCan, userCanAll } from "@/lib/auth/permissions";
 import { formatArgentineDate, formatMoney } from "@/lib/format";
 
 import type { CheckListItem } from "../actions/checks-actions";
 import { useChecksList } from "../hooks/use-checks";
+import { CHECK_CASH_PERMISSIONS } from "../lib/check-cash";
 import { checksKeys } from "../lib/checks-keys";
 import {
   CHECK_KIND_LABEL,
@@ -52,7 +53,10 @@ export function ChequesTable({
 }) {
   const { data } = useChecksList();
   const items = data.items;
-  const canWrite = userCan(actorAccess, "cheques:write");
+  // Every write this table offers moves treasury money (loading, depositing,
+  // crediting, rejecting, selling), so it needs transactions:write as well.
+  const canWrite = userCanAll(actorAccess, CHECK_CASH_PERMISSIONS);
+  const cashDenied = userCan(actorAccess, "cheques:write") && !canWrite;
   // Depositing, loading and selling a check pick an account: a per-user deny
   // of accounts:read hides them, not the cartera.
   const canPickAccount = userCan(actorAccess, "accounts:read");
@@ -266,6 +270,13 @@ export function ChequesTable({
           }
         />
       </div>
+
+      {cashDenied && (
+        <p className="mt-2 text-xs text-muted-foreground">
+          Cargar, depositar, acreditar, rechazar o vender cheques mueve plata de
+          una cuenta: necesitás también permiso para cargar movimientos.
+        </p>
+      )}
 
       <DataTable
         columns={columns}

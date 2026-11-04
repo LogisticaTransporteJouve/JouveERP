@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   COMPRAS_PERCEPTIONS_LEGEND,
   IVA_RATES,
+  SIN_ALICUOTA,
   comprasPerceptions,
   computeComprasTotals,
   computeTotals,
@@ -10,11 +11,15 @@ import {
   foreignCurrencyTotals,
   groupByInvoice,
   groupComprasByInvoice,
-  totalsCell,
-  VENTAS_AMOUNT_COLUMNS,
   type LibroIvaComprasRow,
   type LibroIvaVentasRow,
 } from "./schema";
+import {
+  presentRates,
+  totalsAmount,
+  ventasAmountColumns,
+} from "./lib/book-layout";
+import { buildVentasTxt } from "./lib/citi";
 
 describe("IVA_RATES (AFIP iva_rate_id → alícuota)", () => {
   it("maps id 8 → 5% and id 9 → 2.5% (matching lib/afip/codes.ts, not swapped)", () => {
@@ -101,7 +106,7 @@ describe("groupComprasByInvoice", () => {
     expect(grouped[0]!.per_rate[4]).toEqual({ neto: 500, iva: 52.5 });
   });
 
-  it("usa key -1 cuando iva_rate_id es null", () => {
+  it("puts a purchase without items under the rate its IVA / neto gives", () => {
     const grouped = groupComprasByInvoice([
       baseCompraRow({
         purchase_invoice_id: "x",
@@ -111,8 +116,28 @@ describe("groupComprasByInvoice", () => {
         has_items: false,
       }),
     ]);
-    expect(grouped[0]!.per_rate[-1]).toEqual({ neto: 1000, iva: 210 });
+    expect(grouped[0]!.per_rate).toEqual({ 5: { neto: 1000, iva: 210 } });
+    expect(grouped[0]!.orig.per_rate).toEqual({ 5: { neto: 1000, iva: 210 } });
     expect(grouped[0]!.has_items).toBe(false);
+  });
+
+  it("leaves a purchase whose ratio fits no rate under Sin alícuota", () => {
+    const grouped = groupComprasByInvoice([
+      baseCompraRow({
+        purchase_invoice_id: "x",
+        iva_rate_id: null,
+        neto: 1000,
+        iva: 150,
+        has_items: false,
+      }),
+    ]);
+    expect(grouped[0]!.per_rate).toEqual({
+      [SIN_ALICUOTA]: { neto: 1000, iva: 150 },
+    });
+    expect(presentRates(grouped).at(-1)).toEqual({
+      id: SIN_ALICUOTA,
+      label: "Sin alícuota",
+    });
   });
 });
 
@@ -193,13 +218,73 @@ describe("groupByInvoice", () => {
     expect(grouped[1]!.per_rate[5]).toEqual({ neto: 500, iva: 105 });
   });
 
-  it("usa key -1 cuando iva_rate_id es null (sin desglose)", () => {
+  it("puts an invoice without items (ARCA import) under its inferred rate", () => {
     const rows = [
-      baseRow({ invoice_id: "x", iva_rate_id: null, neto: 800, iva: 168 }),
+      baseRow({
+        invoice_id: "x",
+        iva_rate_id: null,
+        neto: 800,
+        iva: 84,
+        has_items: false,
+      }),
     ];
     const grouped = groupByInvoice(rows);
-    expect(grouped[0]!.per_rate[-1]).toEqual({ neto: 800, iva: 168 });
-    expect(grouped[0]!.has_items).toBe(true);
+    expect(grouped[0]!.per_rate).toEqual({ 4: { neto: 800, iva: 84 } });
+    expect(presentRates(grouped).map((r) => r.id)).not.toContain(SIN_ALICUOTA);
+  });
+
+  it("ties the book's IVA débito to the TXT and the IVA estimate when vouchers have no items", () => {
+    const rows = [
+      baseRow({ invoice_id: "a", iva_rate_id: 5, neto: 1000, iva: 210 }),
+      // Imported from ARCA: header only, 21% and 10.5%.
+      baseRow({
+        invoice_id: "b",
+        iva_rate_id: null,
+        neto: 2000,
+        iva: 420,
+        imp_trib: 0,
+        imp_total: 2420,
+        has_items: false,
+      }),
+      baseRow({
+        invoice_id: "c",
+        iva_rate_id: null,
+        neto: 500,
+        iva: 52.5,
+        imp_trib: 0,
+        imp_total: 552.5,
+        has_items: false,
+      }),
+      // An NC imported the same way subtracts.
+      baseRow({
+        invoice_id: "d",
+        kind: "nc",
+        cbte_tipo_afip: 3,
+        iva_rate_id: null,
+        neto: 100,
+        iva: 21,
+        imp_trib: 0,
+        imp_total: 121,
+        has_items: false,
+      }),
+    ];
+    const grouped = groupByInvoice(rows);
+    const totals = computeTotals(grouped);
+    expect(totals.per_rate).toEqual({
+      5: { neto: 2900, iva: 609 },
+      4: { neto: 500, iva: 52.5 },
+    });
+    // The IVA estimate adds every key (features/taxes sumIva).
+    const debito = Object.values(totals.per_rate).reduce(
+      (a, v) => a + v.iva,
+      0,
+    );
+    expect(debito).toBe(661.5);
+    // The TXT declares each voucher at the same rate.
+    const txt = buildVentasTxt(grouped, "2026-05");
+    expect(txt.documents).toBe(4);
+    const alic = txt.files[1]!.content.trim().split("\r\n");
+    expect(alic.map((l) => Number(l.slice(43, 47)))).toEqual([5, 5, 4, 5]);
   });
 
   it("suma múltiples filas con la misma alícuota", () => {
@@ -281,11 +366,10 @@ describe("computeTotals", () => {
         }),
       ]),
     );
-    const fmt = (n: number) => n.toFixed(2);
+    // No gravado, Exento, Percepciones, Total: blank only at zero.
     expect(
-      VENTAS_AMOUNT_COLUMNS.map((c) => totalsCell(c.value(totals), fmt)),
-    ).toEqual(["", "-500.00"]);
-    expect(totalsCell(0, fmt)).toBe("");
+      ventasAmountColumns(presentRates([])).map((c) => totalsAmount(c, totals)),
+    ).toEqual([null, -500, null, -500]);
   });
 });
 

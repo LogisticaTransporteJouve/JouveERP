@@ -2,6 +2,10 @@
 
 import { z } from "zod";
 
+import {
+  CHECK_CASH_DENIED_REASON,
+  CHECK_CASH_PERMISSIONS,
+} from "@/features/checks/lib/check-cash";
 import { ChequeCreateSchema } from "@/features/checks/schema";
 import { isIvaCondition } from "@/features/clients/schema";
 import { getUsdRateForDateAction } from "@/features/exchange-rates/actions/exchange-rates-actions";
@@ -30,7 +34,7 @@ import {
 } from "@/lib/afip/codes";
 import { logAudit } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
-import { userCan, type Access } from "@/lib/auth/permissions";
+import { userCan, userCanAll, type Access } from "@/lib/auth/permissions";
 import type { Json } from "@/lib/db/database.types";
 import { buildStorageKey } from "@/lib/files/storage-path";
 import { logger } from "@/lib/logger";
@@ -565,6 +569,9 @@ export async function createChecksFromExtractionAction(
     !userCan(ctx.access, "cheques:write")
   ) {
     return { ok: false, error: "No tenés permiso para crear cheques." };
+  }
+  if (!userCanAll(ctx.access, CHECK_CASH_PERMISSIONS)) {
+    return { ok: false, error: CHECK_CASH_DENIED_REASON };
   }
   const parsed = CreateChecksFromExtractionSchema.safeParse(input);
   if (!parsed.success) {

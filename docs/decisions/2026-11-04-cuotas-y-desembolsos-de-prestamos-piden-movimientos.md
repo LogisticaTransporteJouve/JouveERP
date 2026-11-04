@@ -6,4 +6,5 @@ una cuota piden `accounting:write` y `transactions:write`
 `accounting:write`. Los botones se ocultan sin el permiso.
 
 **Descartado.** Mover el pago de la deuda de un cheque vendido en el mismo
-cambio: queda en la decisión abierta de RRHH (`docs/pendientes.md`).
+cambio: queda en la decisión abierta de RRHH (la decidió el owner después:
+`docs/decisions/2026-11-04-lo-de-rrhh-y-cheques-que-mueve-plata-pide-movimientos.md`).

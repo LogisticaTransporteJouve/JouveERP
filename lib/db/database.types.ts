@@ -10147,6 +10147,18 @@ export type Database = {
           supplier_id: string
         }[]
       }
+      purchase_matches_received: {
+        Args: {
+          p_iva: number
+          p_moneda: string
+          p_total: number
+          v_iva: number
+          v_letter: string
+          v_moneda: string
+          v_total: number
+        }
+        Returns: boolean
+      }
       purchase_remito_blocker: {
         Args: { p_remito_id: string }
         Returns: string
