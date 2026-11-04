@@ -9,8 +9,9 @@ camión. `get_vehicle_margin` (SECURITY DEFINER, service role; la acción
 completos y devengado nominal: ingreso, costo de viajes, combustible y
 mantenimiento de `ai_fleet_margin` más el costo operativo del centro, sacado
 de `management_pnl_lines` (no lo reemplaza). Una compra o movimiento al que
-apunta una carga de combustible o un service (y la NC/ND de esa compra) no
-entra en la parte del centro: ya la cuenta la flota. Lo que no es de un
+apunta una carga de combustible o un service no entra en la parte del
+centro: ya la cuenta la flota. (La NC/ND de esa compra sí entra desde
+`20261104150201`: ver `2026-11-04-gestion-flota-y-rrhh-auditoria-w8.md`.) Lo que no es de un
 camión va aparte y nunca se reparte: viajes sin vehículo, cada centro sin
 camión y lo cargado sin centro. Más de 500 vehículos con movimientos se
 rechaza (`jouve_guard`) en vez de cortar filas. Gestión lo muestra en

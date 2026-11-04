@@ -45,6 +45,7 @@ import {
   rowReceived,
   rowsProblem,
   rowsToItems,
+  withDefaultAccount,
   type LineDraft,
   type RowDraft,
 } from "../lib/settlement-form";
@@ -160,9 +161,15 @@ export function DriverSettlementDialog({
     setDate(settlement?.settlement_date ?? todayInAR());
     setNotes(settlement?.notes ?? "");
     setRows(buildRows(pending, settlement, defaultAccount));
-    // Rebuilt when the dialog opens or the accounts arrive (default account).
+    // Rebuilt when the dialog opens; the default account arriving later only
+    // fills the lines still without one (below), keeping what was typed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, settlement, defaultAccount]);
+  }, [open, settlement]);
+
+  useEffect(() => {
+    if (!open || !defaultAccount) return;
+    setRows((prev) => withDefaultAccount(prev, defaultAccount));
+  }, [open, defaultAccount]);
 
   function update(id: string, patch: Partial<RowDraft>) {
     setRows((prev) =>

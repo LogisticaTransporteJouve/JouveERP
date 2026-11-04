@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { listAccountsAction } from "@/features/accounts/actions/accounts-actions";
+import { accountsKeys } from "@/features/accounts/lib/accounts-keys";
 import { getLoanAction } from "@/features/loans/actions/loans-actions";
 import { LoanDetail } from "@/features/loans/components/loan-detail";
 import { LOAN_CASH_PERMISSIONS } from "@/features/loans/lib/loan-cash";
@@ -28,27 +29,23 @@ export default async function LoanDetailRoute({
     redirect("/dashboard");
   }
 
-  const [dehydratedState, accountsRes] = await Promise.all([
-    prefetchQueries([
-      {
-        queryKey: loansKeys.detail(id),
-        queryFn: () => runAction(() => getLoanAction(id)),
-      },
-    ]),
-    listAccountsAction(),
+  // The accounts feed «Pagar» and «Registrar desembolso»; a failed read is
+  // shown (with «Reintentar») by the detail, not turned into no options.
+  const dehydratedState = await prefetchQueries([
+    {
+      queryKey: loansKeys.detail(id),
+      queryFn: () => runAction(() => getLoanAction(id)),
+    },
+    {
+      queryKey: accountsKeys.list(),
+      queryFn: () => runAction(() => listAccountsAction()),
+    },
   ]);
-
-  const accountOptions = accountsRes.ok
-    ? accountsRes.data
-        .filter((a) => a.is_active && a.type !== "checks" && a.type !== "echeq")
-        .map((a) => ({ id: a.id, name: a.name, currency: a.currency }))
-    : [];
 
   return (
     <Hydrate state={dehydratedState}>
       <LoanDetail
         loanId={id}
-        accountOptions={accountOptions}
         canWrite={userCan(ctx.access, "accounting:write")}
         canMoveCash={userCanAll(ctx.access, LOAN_CASH_PERMISSIONS)}
       />

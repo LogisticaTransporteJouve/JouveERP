@@ -171,3 +171,38 @@ export async function getFleetProfitabilityAction(
     data: computeProfitability({ trips, fuel, maintenance, vehicleNames }),
   };
 }
+
+/**
+ * Every trip's revenue as the profitability report counts it
+ * (v_trip_revenue: invoiced freight of its shipments, else the manual
+ * figure), drained. Gated like the report.
+ */
+export async function listTripRevenueAction(): Promise<
+  ActionResult<{ trip_id: string; revenue: number }[]>
+> {
+  const ctx = await requireUserContext();
+  if (
+    !userCan(ctx.access, "trips:read") ||
+    !userCan(ctx.access, "shipments:read")
+  ) {
+    return { ok: false, error: "No tenés permiso para ver la rentabilidad." };
+  }
+  const supabase = await createSupabaseClient();
+  const { data, error } = await paginateRange((from, to) =>
+    supabase
+      .from("v_trip_revenue")
+      .select("trip_id, revenue")
+      .order("trip_id")
+      .range(from, to),
+  );
+  if (error) {
+    logger.error("fleet.trip_revenue.failed", { userId: ctx.userId, error });
+    return { ok: false, error: "No se pudo leer el ingreso de los viajes." };
+  }
+  const rows: { trip_id: string; revenue: number }[] = [];
+  for (const r of data ?? []) {
+    if (r.trip_id)
+      rows.push({ trip_id: r.trip_id, revenue: Number(r.revenue ?? 0) });
+  }
+  return { ok: true, data: rows };
+}

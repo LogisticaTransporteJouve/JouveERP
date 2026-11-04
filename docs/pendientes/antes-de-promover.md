@@ -534,6 +534,16 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
       código anterior escribe esos movimientos solo por esas RPC y
       triggers; «Nuevo movimiento» rechaza carteras y no pone esos
       vínculos.
+- [ ] **Aprobar `20261104150200` y `150201`** (auditoría w8, gestión). No
+      tocan filas existentes. Rollback de cada una:
+  - `150200`: una NC/ND de compra sin centro de costo toma el de su origen
+    aunque tenga cuenta propia (antes, solo si la cuenta también venía
+    vacía). El código anterior manda los mismos campos; solo lee el centro
+    que ahora completa el trigger. Las NC/ND ya cargadas sin centro:
+    `docs/pendientes/2026-11-04-gestion-flota-y-rrhh-auditoria-w8.md`.
+  - `150201`: `get_vehicle_margin` cuenta en su centro la NC/ND de una
+    compra vinculada a una carga de combustible o un service. Mismas
+    columnas; el código anterior lee `center_cost` como un número.
 
 ## Después de promover
 

@@ -57,7 +57,8 @@ export async function gatherFleetDocExpiry(
 /** Trips of the last 180 days whose revenue minus cost and tied fuel is a
  *  loss. Same equation as «Rentabilidad de flota»: the revenue comes from
  *  v_trip_revenue (invoiced freight, else the manual figure) and cancelled
- *  trips are left out. */
+ *  trips are left out. A trip with cargas still to invoice is not judged
+ *  (detectLossTrips). */
 export async function gatherTripMargins(
   today: string,
 ): Promise<FleetFinding[]> {
@@ -81,7 +82,7 @@ export async function gatherTripMargins(
       paginateRange((from, to) =>
         service
           .from("v_trip_revenue")
-          .select("trip_id, revenue")
+          .select("trip_id, revenue, uninvoiced_freight")
           .in("trip_id", ids)
           .order("trip_id", { ascending: true })
           .range(from, to),
@@ -103,9 +104,13 @@ export async function gatherTripMargins(
     "fleet.fuel_loads",
   );
 
-  const revenueByTrip = new Map<string, number>();
+  const revenueByTrip = new Map<string, { revenue: number; pending: number }>();
   for (const r of revenue) {
-    if (r.trip_id) revenueByTrip.set(r.trip_id, Number(r.revenue ?? 0));
+    if (!r.trip_id) continue;
+    revenueByTrip.set(r.trip_id, {
+      revenue: Number(r.revenue ?? 0),
+      pending: Number(r.uninvoiced_freight ?? 0),
+    });
   }
   const fuelByTrip = new Map<string, number>();
   for (const f of fuel) {
@@ -127,7 +132,9 @@ export async function gatherTripMargins(
     tripRows.push({
       id: t.id,
       label: `${t.trip_date} ${route}`,
-      net: tripRevenue - Number(t.cost ?? 0) - (fuelByTrip.get(t.id) ?? 0),
+      net:
+        tripRevenue.revenue - Number(t.cost ?? 0) - (fuelByTrip.get(t.id) ?? 0),
+      pendingInvoicing: tripRevenue.pending > 0,
     });
   }
   return detectLossTrips(tripRows);

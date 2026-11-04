@@ -2,7 +2,10 @@ import { z } from "zod";
 
 import { listDriversAction } from "@/features/drivers/actions/drivers-actions";
 import { getFleetMarginAction } from "@/features/fleet-reports/actions/margin-actions";
-import { getFleetProfitabilityAction } from "@/features/fleet-reports/actions/profitability-actions";
+import {
+  getFleetProfitabilityAction,
+  listTripRevenueAction,
+} from "@/features/fleet-reports/actions/profitability-actions";
 import { FleetMarginInputSchema } from "@/features/fleet-reports/schema";
 import { listFleetDocumentsAction } from "@/features/fleet-documents/actions/fleet-documents-actions";
 import { listFuelLoadsAction } from "@/features/fuel/actions/fuel-actions";
@@ -12,6 +15,7 @@ import { ShipmentsSummaryInputSchema } from "@/features/shipments/schema";
 import { listTripsAction } from "@/features/trips/actions/trips-actions";
 import { getVehicleKmMonthAction } from "@/features/vehicle-km/actions/vehicle-km-actions";
 import { listVehiclesAction } from "@/features/vehicles/actions/vehicles-actions";
+import { type Access, userCan } from "@/lib/auth/permissions";
 import { todayInAR } from "@/lib/format";
 
 import { defineAiAction } from "../define";
@@ -57,15 +61,43 @@ export const getVehicles = defineAiAction({
   run: (_ctx, input) => runVehicles(input),
 });
 
-export async function runTrips(): Promise<AiRunResult> {
+/** Trips with the revenue «Rentabilidad de flota» counts (v_trip_revenue)
+ *  and the manual figure apart; the total leaves out cancelled trips. The
+ *  revenue needs shipments:read, as in getFleetProfitability. */
+export async function runTrips(access: Access): Promise<AiRunResult> {
   const res = await listTripsAction();
   if (!res.ok) return errResult(res.error);
-  const withRevenue = res.data.reduce((s, t) => s + Number(t.revenue ?? 0), 0);
+  const live = res.data.filter((t) => t.status !== "cancelled");
+  const head = `${res.data.length} trips (${res.data.length - live.length} cancelled)`;
+  if (!userCan(access, "shipments:read")) {
+    return okResult(
+      `${head}. Revenue not summed: it is the invoiced freight of each trip's shipments, which this user cannot read; manual_revenue is only the figure typed on the trip.`,
+      res.data.map((t) => ({ ...t, revenue: null, manual_revenue: t.revenue })),
+    );
+  }
+  const revenue = await listTripRevenueAction();
+  if (!revenue.ok) return errResult(revenue.error);
+  const byTrip = new Map(revenue.data.map((r) => [r.trip_id, r.revenue]));
+  let total = 0;
+  let missing = 0;
+  for (const t of live) {
+    const tripRevenue = byTrip.get(t.id);
+    // Created between the two reads: left out rather than counted as 0.
+    if (tripRevenue === undefined) missing += 1;
+    else total += tripRevenue;
+  }
   return okResult(
-    `${res.data.length} trips · total revenue $${withRevenue.toLocaleString(
-      "es-AR",
-    )}.`,
-    res.data,
+    `${head} · revenue of the ${live.length - missing} not cancelled ${money(total)} ` +
+      "(invoiced freight of their shipments; a trip without shipments, its manual revenue)" +
+      (missing > 0
+        ? `; ${missing} trip(s) without a revenue read left out.`
+        : "."),
+    res.data.map((t) => ({
+      ...t,
+      revenue: byTrip.get(t.id) ?? null,
+      manual_revenue: t.revenue,
+    })),
+    { currency: "ARS", partial: missing > 0 },
   );
 }
 
@@ -74,12 +106,18 @@ export const getTrips = defineAiAction({
   domain: "flota",
   permission: "trips:read",
   sideEffect: "read",
-  sources: ["trips"],
+  sources: ["trips", "v_trip_revenue"],
   description:
-    "Trips: date, origin/destination, vehicle, driver, status, revenue and " +
-    "cost. For queries about trips or transport.",
+    "Trips: date, origin/destination, vehicle, driver, status, cost, " +
+    "revenue and manual_revenue. revenue is the invoiced freight of the " +
+    "trip's shipments (without shipments, the manual figure), as in " +
+    "getFleetProfitability; the total leaves out cancelled trips; without " +
+    "shipments:read, revenue is null and there is no total. For queries " +
+    "about trips or transport; " +
+    "per-trip net and per-vehicle margin are in getFleetProfitability and " +
+    "getFleetMargin.",
   input: z.object({}),
-  run: () => runTrips(),
+  run: (ctx) => runTrips(ctx.access),
 });
 
 export async function runFuelLoads(): Promise<AiRunResult> {

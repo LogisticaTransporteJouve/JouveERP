@@ -12,6 +12,8 @@ export type TripMarginRow = {
   id: string;
   label: string;
   net: number;
+  /** Some of its cargas are not invoiced yet (v_trip_revenue). */
+  pendingInvoicing: boolean;
 };
 
 export type FleetFinding = {
@@ -72,9 +74,13 @@ export function detectFleetDocExpiry(
   ];
 }
 
-/** Trips whose net (revenue − cost − fuel) is negative → losing money. */
+/** Trips whose net (revenue − cost − fuel) is negative → losing money. A
+ *  trip with cargas still to invoice is left out and counted apart: its
+ *  revenue (the invoiced freight, as in «Rentabilidad de flota») is not
+ *  known yet, and pending is not a loss. */
 export function detectLossTrips(trips: TripMarginRow[]): FleetFinding[] {
-  const losses = trips.filter((t) => t.net < 0);
+  const pending = trips.filter((t) => t.pendingInvoicing).length;
+  const losses = trips.filter((t) => !t.pendingInvoicing && t.net < 0);
   if (losses.length === 0) return [];
 
   const totalLoss = losses.reduce((s, t) => s + t.net, 0);
@@ -86,8 +92,15 @@ export function detectLossTrips(trips: TripMarginRow[]): FleetFinding[] {
       title: "Viajes con margen negativo",
       finding:
         `${losses.length} viaje(s) con pérdida (neto = facturación − costo − combustible), total ${money(totalLoss)}` +
-        (worst ? `; el peor: ${worst.label} (${money(worst.net)}).` : "."),
-      metrics: { loss_count: losses.length, total_loss: totalLoss },
+        (worst ? `; el peor: ${worst.label} (${money(worst.net)})` : "") +
+        (pending > 0
+          ? `. ${pending} viaje(s) con cargas sin facturar no se evaluaron.`
+          : "."),
+      metrics: {
+        loss_count: losses.length,
+        total_loss: totalLoss,
+        pending_invoicing_count: pending,
+      },
       source_refs: losses.map((t) => t.id).slice(0, 50),
     },
   ];

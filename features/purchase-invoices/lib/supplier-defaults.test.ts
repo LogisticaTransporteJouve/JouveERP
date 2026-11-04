@@ -3,8 +3,9 @@ import { describe, expect, it } from "vitest";
 import type { CostTagOptions } from "@/features/cost-centers/schema";
 
 import {
+  purchaseCostDefaults,
+  suggestedCostDefaults,
   supplierCostDefaults,
-  supplierCostDefaultsForKind,
   supplierCostWrites,
 } from "./supplier-defaults";
 
@@ -110,23 +111,35 @@ describe("supplierCostDefaults", () => {
   });
 });
 
-describe("supplierCostDefaultsForKind", () => {
-  const supplier = {
-    default_expense_account_id: "acc-fuel",
-    default_cost_center_id: "cc-jouve",
-  };
-  const asFactura = supplierCostDefaultsForKind("factura", supplier, OPTIONS);
+describe("purchaseCostDefaults", () => {
+  const supplier = supplierCostDefaults(
+    { default_expense_account_id: "acc-fuel", default_cost_center_id: null },
+    OPTIONS,
+  );
+  const suggested = suggestedCostDefaults({
+    account: { id: "acc-ai" },
+    cost_center_id: "cc-ai",
+  });
+  const asFactura = purchaseCostDefaults("factura", suggested, supplier);
+  const untouched = (name: "account_id" | "cost_center_id") => ({
+    value: name === "account_id" ? "acc-fuel" : "cc-ai",
+    dirty: false,
+  });
 
-  it("clears what the supplier prefilled as factura when the type becomes NC or ND", () => {
+  it("takes the supplier's defaults over the scan's suggestion, field by field", () => {
+    expect(asFactura).toEqual([
+      { name: "account_id", id: "acc-fuel" },
+      { name: "cost_center_id", id: "cc-ai" },
+    ]);
+  });
+
+  it("clears what the supplier or the scan prefilled when the type becomes NC or ND", () => {
     for (const kind of ["nc", "nd"] as const) {
       expect(
         supplierCostWrites(
           asFactura,
-          supplierCostDefaultsForKind(kind, supplier, OPTIONS),
-          (name) => ({
-            value: name === "account_id" ? "acc-fuel" : "cc-jouve",
-            dirty: false,
-          }),
+          purchaseCostDefaults(kind, suggested, supplier),
+          untouched,
         ),
       ).toEqual([
         { name: "account_id", id: "" },
@@ -135,16 +148,45 @@ describe("supplierCostDefaultsForKind", () => {
     }
   });
 
+  it("clears a scanned suggestion with no supplier, and puts it back as factura", () => {
+    const scanOnly = purchaseCostDefaults("factura", suggested, []);
+    expect(
+      supplierCostWrites(
+        scanOnly,
+        purchaseCostDefaults("nc", suggested, []),
+        (name) => ({
+          value: name === "account_id" ? "acc-ai" : "cc-ai",
+          dirty: false,
+        }),
+      ),
+    ).toEqual([
+      { name: "account_id", id: "" },
+      { name: "cost_center_id", id: "" },
+    ]);
+    expect(
+      supplierCostWrites([], scanOnly, () => ({ value: "", dirty: false })),
+    ).toEqual(scanOnly);
+  });
+
   it("keeps an account the user picked on the NC", () => {
     expect(
       supplierCostWrites(
         asFactura,
-        supplierCostDefaultsForKind("nc", supplier, OPTIONS),
+        purchaseCostDefaults("nc", suggested, supplier),
         (name) =>
           name === "account_id"
             ? { value: "acc-other", dirty: true }
-            : { value: "cc-jouve", dirty: false },
+            : { value: "cc-ai", dirty: false },
       ),
     ).toEqual([{ name: "cost_center_id", id: "" }]);
+  });
+});
+
+describe("suggestedCostDefaults", () => {
+  it("is empty without a draft or with a draft that suggests nothing", () => {
+    expect(suggestedCostDefaults(null)).toEqual([]);
+    expect(
+      suggestedCostDefaults({ account: null, cost_center_id: null }),
+    ).toEqual([]);
   });
 });

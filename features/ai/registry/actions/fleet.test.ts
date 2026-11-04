@@ -17,14 +17,20 @@ vi.mock("@/features/fleet-documents/actions/fleet-documents-actions", () => ({
 }));
 vi.mock("@/features/fleet-reports/actions/profitability-actions", () => ({
   getFleetProfitabilityAction: vi.fn(),
+  listTripRevenueAction: vi.fn(),
 }));
 
 import { listFleetDocumentsAction } from "@/features/fleet-documents/actions/fleet-documents-actions";
-import { getFleetProfitabilityAction } from "@/features/fleet-reports/actions/profitability-actions";
+import {
+  getFleetProfitabilityAction,
+  listTripRevenueAction,
+} from "@/features/fleet-reports/actions/profitability-actions";
 import { listFuelLoadsAction } from "@/features/fuel/actions/fuel-actions";
 import { listMaintenanceAction } from "@/features/maintenance/actions/maintenance-actions";
 import { listTripsAction } from "@/features/trips/actions/trips-actions";
+import type { Trip, TripStatus } from "@/features/trips/schema";
 import { listVehiclesAction } from "@/features/vehicles/actions/vehicles-actions";
+import { resolveAccess } from "@/lib/auth/permissions";
 
 import {
   runFleetDocuments,
@@ -68,10 +74,99 @@ describe("runTrips / runFuelLoads / runMaintenance / runFleetDocuments", () => {
       data: [],
     });
 
-    expect((await runTrips()).summary).toContain("trips");
+    vi.mocked(listTripRevenueAction).mockResolvedValue({ ok: true, data: [] });
+
+    expect((await runTrips(OPERATIONS)).summary).toContain("trips");
     expect((await runFuelLoads()).summary).toContain("fuel");
     expect((await runMaintenance()).summary).toContain("maintenance");
     expect((await runFleetDocuments()).summary).toContain("documents");
+  });
+});
+
+const OPERATIONS = resolveAccess(["operations"]);
+
+function trip(id: string, status: TripStatus, revenue: number | null): Trip {
+  return {
+    id,
+    trip_date: "2026-10-01",
+    driver_id: null,
+    vehicle_id: null,
+    channel_id: null,
+    origin: null,
+    destination: null,
+    cargo_description: null,
+    status,
+    km: null,
+    revenue,
+    cost: null,
+    notes: null,
+    created_at: "2026-10-01T00:00:00Z",
+    updated_at: "2026-10-01T00:00:00Z",
+    driver: null,
+    vehicle: null,
+  };
+}
+
+describe("runTrips revenue", () => {
+  it("sums the invoiced freight of the trips that are not cancelled", async () => {
+    vi.mocked(listTripsAction).mockResolvedValue({
+      ok: true,
+      data: [
+        // No manual revenue: its shipments were invoiced for 1000.
+        trip("t1", "completed", null),
+        // Cancelled: its manual 5000 is no revenue.
+        trip("t2", "cancelled", 5000),
+      ],
+    });
+    vi.mocked(listTripRevenueAction).mockResolvedValue({
+      ok: true,
+      data: [
+        { trip_id: "t1", revenue: 1000 },
+        { trip_id: "t2", revenue: 5000 },
+      ],
+    });
+    const res = await runTrips(OPERATIONS);
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.summary).toContain("1 cancelled");
+    expect(res.summary).toContain("revenue of the 1 not cancelled $1.000");
+    expect(res.summary).not.toContain("6.000");
+    expect(res.data).toEqual([
+      expect.objectContaining({
+        id: "t1",
+        revenue: 1000,
+        manual_revenue: null,
+      }),
+      expect.objectContaining({
+        id: "t2",
+        revenue: 5000,
+        manual_revenue: 5000,
+      }),
+    ]);
+  });
+
+  it("gives no revenue total without shipments:read", async () => {
+    vi.mocked(listTripsAction).mockResolvedValue({
+      ok: true,
+      data: [trip("t1", "completed", 300)],
+    });
+    const res = await runTrips(resolveAccess(["driver"]));
+    expect(listTripRevenueAction).not.toHaveBeenCalled();
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.summary).toContain("Revenue not summed");
+    expect(res.data).toEqual([
+      expect.objectContaining({ revenue: null, manual_revenue: 300 }),
+    ]);
+  });
+
+  it("fails when the revenue read fails", async () => {
+    vi.mocked(listTripsAction).mockResolvedValue({ ok: true, data: [] });
+    vi.mocked(listTripRevenueAction).mockResolvedValue({
+      ok: false,
+      error: "boom",
+    });
+    expect((await runTrips(OPERATIONS)).ok).toBe(false);
   });
 });
 

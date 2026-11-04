@@ -116,6 +116,24 @@ describe("buildPurchaseInvoiceDraft", () => {
     expect(none?.tributes).toBeUndefined();
   });
 
+  it("keeps the expense suggestion for a factura only: an NC/ND inherits its origin's", () => {
+    const suggested = {
+      ...OPTS,
+      account: { id: "acc-ai", label: "Combustibles" },
+      costCenterId: "cc-ai",
+    };
+    expect(buildPurchaseInvoiceDraft(COMPLETE, suggested)).toMatchObject({
+      kind: "factura",
+      account: { id: "acc-ai" },
+      cost_center_id: "cc-ai",
+    });
+    for (const kind of ["credit_note", "debit_note"] as const) {
+      expect(
+        buildPurchaseInvoiceDraft({ ...COMPLETE, kind }, suggested),
+      ).toMatchObject({ account: null, cost_center_id: null });
+    }
+  });
+
   it("produces form values the create schema accepts once channel is chosen", () => {
     const draft = buildPurchaseInvoiceDraft(COMPLETE, OPTS);
     if (!draft) throw new Error("expected a draft");
