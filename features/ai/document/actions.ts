@@ -337,10 +337,15 @@ export async function getPurchaseInvoiceDraftAction(
   }
 
   // Only for the otros tributos suggestion: a failed read suggests without it.
-  const tributeHistory = supplier
-    ? ((await latestTributeSplits(supabase, [supplier.id]))?.get(supplier.id) ??
-      null)
+  const histories = supplier
+    ? await latestTributeSplits(supabase, [supplier.id])
     : null;
+  if (supplier && !histories) {
+    logger.warn("ai_document.purchase_draft.tribute_history_failed", {
+      userId: ctx.userId,
+    });
+  }
+  const tributeHistory = (supplier && histories?.get(supplier.id)) || null;
 
   const draft = buildPurchaseInvoiceDraft(ext.payload, {
     fallbackKind: ext.detected_type === "credit_debit_note" ? "nc" : "factura",
