@@ -25,6 +25,10 @@ decimal, y esas reglas lo leen igual que antes. `nextMoneyInputText` decide
 qué muestra el campo después de cada cambio (tecla o pegado); `decimals` y
 `allowNegative` siguen funcionando.
 
+Reemplaza lo del punto tipeado de
+`2026-11-04-montos-de-rrhh-con-formato-al-tipear-sueldo.md` (el signo menos
+se sigue descartando sin `allowNegative`).
+
 **Por qué.** La regla anterior descartaba el punto tipeado ("1500.50" →
 150.050, a la vista). Evitaba guardar 100 veces el monto, pero obligaba a
 tipear la coma, y en el teclado numérico eso no es natural.
