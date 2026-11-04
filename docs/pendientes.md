@@ -389,7 +389,8 @@ mitigación en el schema: el límite se respeta operando.
 - [x] ~~**M.5** — aprobaciones de montos altos~~ (decisión #20, 2026-06-22).
 - [x] ~~**M.6** — portal cliente~~ (decisión #19, 2026-06-22).
 - [x] ~~**RAG / embeddings (pgvector)**~~ (decisión 2026-07-04): infra paga
-      nueva sin caso de uso; la FTS `search_global` cubre free-text.
+      nueva sin caso de uso; la FTS `search_global` cubría free-text (retirada
+      2026-11-04).
 - [x] ~~**Write-tools IA + NL→SQL**~~ (decisión 2026-07-04): el agente queda
       read-only; las escrituras pasan por los flujos normales con confirmación
       humana (Document Intelligence incluida). Vale a 2026-07-04: hoy el
@@ -467,6 +468,19 @@ mitigación en el schema: el límite se respeta operando.
       del día y documento escaneado) y se lee con `parseUsdRate`.
 - [ ] Sin migraciones. Rollback: el código anterior vuelve al campo sin
       formato; los saldos ya guardados no cambian.
+## Búsqueda global retirada (2026-11-04)
+
+- [x] Sale la búsqueda global ⌘K: UI, `searchGlobalAction`, la herramienta
+      `searchGlobal` del AI CFO y la función Inngest `search-index-refresh`
+      (`docs/decisions.md`). Solo código; la DB no cambia.
+- [ ] **Migración de contrato:** borrar la vista materializada
+      `search_index`, `search_global`, `refresh_search_index*`, los triggers
+      `search_index_mark_dirty` y `search_index_state` cuando la próxima
+      promoción quede firme. Con ella, sacar los pgTAP que los cubren
+      (`supabase/tests/user_access_test.sql`, `receipts_letter_x_test.sql`,
+      `definer_hardening_test.sql`, `schema_rls_and_grants_test.sql`) y
+      regenerar `lib/db/database.types.ts`. Después ya no se puede volver a un
+      SHA anterior a este cambio.
 ## Decisiones del owner, tanda 1 (2026-11-04)
 
 - [x] Producción sin compras, cheques, OP, préstamos, RRHH, recibos ni
@@ -1681,9 +1695,9 @@ mitigación en el schema: el límite se respeta operando.
 ## Accesos por usuario — follow-ups (2026-10-28)
 
 - [ ] **Aprobar la migración `20261028140000_user_permission_denies`** apenas
-      mergea el PR; después quitar las tolerancias de ventana de deploy en
-      `lib/auth/denies.ts` (tabla faltante) y `features/search/actions/search-actions.ts`
-      (firma vieja de `search_global`).
+      mergea el PR; después quitar la tolerancia de ventana de deploy en
+      `lib/auth/denies.ts` (tabla faltante). La de `search_global` se fue con la
+      búsqueda global (2026-11-04).
 - [ ] **Denegaciones en la DB** (overlays RESTRICTIVE por tabla + storage + RPC
       DEFINER). Hoy la DB aplica solo el techo del rol; ver `docs/decisions.md`.
 - [ ] Suite pgTAP rol × tabla contra `ROLE_PERMISSIONS` (y auditar el desvío

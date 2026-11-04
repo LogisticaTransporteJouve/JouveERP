@@ -61,7 +61,6 @@ recurrentes. Sueldos: a confirmar (por ahora compartido).
   (`PageSideProvider`); los formularios de documentos IA quedan del lado fiscal.
 - Alta interna: nombre, nombre de fantasía, teléfono, email, domicilio, notas.
   Sin CUIT ni AFIP. Pickers, listas y export filtran por lado.
-- Pendiente: la búsqueda global (`search_global`) todavía mezcla los dos lados.
 
 ### 3. Remito interno
 

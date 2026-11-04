@@ -41,14 +41,14 @@ Y abrí <http://localhost:4173>.
 ```
 docs/manual/
 ├── index.html              # Home + grilla de secciones
-├── getting-started.html    # Login, sidebar, scope, búsqueda, tema, roles
+├── getting-started.html    # Login, sidebar, scope, tema, roles
 ├── sales.html              # Clientes · Comprobantes · Recibos · Aging
 ├── purchases.html          # Proveedores · Categorías · Compras · OPs · Aging
 ├── treasury.html           # Cuentas · Caja · Cheques recibidos · Cheques propios
 ├── accounting.html         # Plan · Diario · Mayor · IVA · Balance · CC · Inflación · Impuestos
 ├── hr.html                 # Empleados · Asistencia · Sueldos · Pagos · Vacaciones
 ├── admin.html              # Usuarios · Padrón · POS · Preview PDF · Backups
-├── collaboration.html      # Chat · Búsqueda · Notif · Adjuntos · Perfil
+├── collaboration.html      # Chat · Notif · Adjuntos · Perfil
 ├── README.md               # Este archivo
 └── assets/
     ├── styles.css          # Paleta monocromática oklch (igual a globals.css)

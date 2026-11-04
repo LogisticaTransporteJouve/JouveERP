@@ -105,16 +105,6 @@ describe("per-user denies", () => {
   });
 });
 
-describe("searchGlobal gate", () => {
-  const visible = (access: ReturnType<typeof resolveAccess>) =>
-    visibleAiActions(access).some((a) => a.name === "searchGlobal");
-
-  it("needs any one of the searchable entities' read permissions", () => {
-    expect(visible(resolveAccess(["finance"], ["clients:read"]))).toBe(true);
-    expect(visible(resolveAccess(["warehouse"]))).toBe(false);
-  });
-});
-
 describe("payroll isolation", () => {
   it("exposes payroll tools to finance (hr:read)", () => {
     const tools = buildAiTools(ctx(["finance"]));

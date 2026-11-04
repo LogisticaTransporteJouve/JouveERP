@@ -86,6 +86,7 @@ const TOOL_LABELS: Record<string, string> = {
   getStorageBilling: "Facturación de almacenaje",
   getStorageBillingRuns: "Liquidaciones de almacenaje",
   getAfipStatus: "Estado AFIP",
+  // Retired tool, still named in saved conversations.
   searchGlobal: "Búsqueda",
   getAttachments: "Adjuntos",
   getTasks: "Tareas",

@@ -21,7 +21,7 @@
 | Modelos fallback | Gemini Pro + GPT (reasoning) | Resiliencia a outages single-vendor |
 | Workflows IA | **Inngest** (no Temporal) | Ya está en JouveERP; alcanza para tool loops bounded |
 | Streaming | `createUIMessageStream` + AI SDK (sin Redis hace falta para single-app) | La implementación de referencia usa Redis pub/sub porque su agent corre en worker separado; JouveERP puede mantenerlo in-process |
-| Embeddings | ~~pgvector~~ **descartado** (2026-07-04, §11) | FTS `search_global` cubre free-text |
+| Embeddings | ~~pgvector~~ **descartado** (2026-07-04, §11) | FTS `search_global` cubría free-text (retirada 2026-11-04) |
 | Sandbox de código (opt) | **Modal** (`modal` JS SDK) sólo si hay tool de `bash`/`file_*` | Postergable hasta que aparezca necesidad concreta |
 | Persistencia chat | Tablas Supabase `chat_sessions` + `chat_messages` | Reusa RLS por rol/usuario |
 | UI | shadcn + `@ai-sdk-tools/artifacts/client` para artifacts streamed | Patrón canvas/artefacto, ver §7 |
@@ -481,7 +481,7 @@ en bloques cacheables. El contexto dinámico (fecha, org actual) va sin cache.
 
 **Decisión 2026-07-04:** no se implementa. Requería pgvector + un proveedor de
 embeddings (infra paga nueva) sin un caso de uso que la búsqueda FTS existente
-(`search_global`) no cubra. Si algún día se revierte, el patrón de referencia
+(`search_global`, retirada el 2026-11-04) no cubra. Si algún día se revierte, el patrón de referencia
 era: extensión `vector` + tabla `ai_embeddings` (768 dims) + índice HNSW + RPC
 `match_embeddings` + job Inngest de embedding on-change.
 

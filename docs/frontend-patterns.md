@@ -1374,37 +1374,11 @@ return (
 
 `side="right" | "left" | "top" | "bottom"`.
 
-### 13.5 Command palette (Cmd+K) ✅ (Fase J)
+### 13.5 Command palette (Cmd+K) — retirada (2026-11-04)
 
-```tsx
-import { Command, CommandDialog, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
-
-<CommandDialog open={open} onOpenChange={setOpen}>
-  <CommandInput placeholder="Type a command or search..." />
-  <CommandList>
-    <CommandEmpty>No results found.</CommandEmpty>
-    <CommandGroup heading="Suggestions">
-      <CommandItem onSelect={() => router.push("/transactions/new")}>
-        <Plus /> Nuevo movimiento
-      </CommandItem>
-    </CommandGroup>
-  </CommandList>
-</CommandDialog>
-```
-
-Atajo Cmd+K (registrarlo en un hook con `useEffect`):
-```tsx
-useEffect(() => {
-  const onKey = (e) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-      e.preventDefault();
-      setOpen((o) => !o);
-    }
-  };
-  window.addEventListener("keydown", onKey);
-  return () => window.removeEventListener("keydown", onKey);
-}, []);
-```
+La búsqueda global ⌘K se sacó de la app (`docs/decisions.md`, 2026-11-04). ⌘K
+queda solo para la búsqueda de chat (`features/chat/components/channel-list.tsx`).
+`@/components/ui/command` sigue en uso por los combobox.
 
 ---
 

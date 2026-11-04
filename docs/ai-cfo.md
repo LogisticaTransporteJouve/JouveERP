@@ -58,8 +58,8 @@ exchangeRate?, note? }` y el prompt obliga a citarlo y a avisar si es parcial.
 - **Dominios sin cobertura previa:** pagos recurrentes, depósito (stock de pallets
   `ai_pallets_summary`, depósitos, productos, tarifas y facturación de almacenaje), cargas
   (`ai_shipments_summary`), choferes, categorías de proveedor, AFIP (`afip:admin`: numeración por punto
-  de venta `ai_afip_last_numbers` y CAEA, sin llamar a AFIP), búsqueda global y adjuntos (solo
-  metadatos).
+  de venta `ai_afip_last_numbers` y CAEA, sin llamar a AFIP) y adjuntos (solo metadatos). La búsqueda global
+  (`searchGlobal`) se retiró el 2026-11-04.
 
 **System prompt:** persona "AI CFO de Jouve" en español rioplatense con voseo, solo lectura, resumen de
 capacidades del usuario, "nunca inventes cifras; citá fuente y fecha; si un resultado es parcial,
