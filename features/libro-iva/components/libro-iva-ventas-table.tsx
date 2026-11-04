@@ -6,8 +6,9 @@ import { useMemo } from "react";
 import { useLibroIvaVentas } from "../hooks/use-libro-iva";
 import { CONDITION_LEGEND, TC_LEGEND, ventasBook } from "../lib/book-layout";
 
+import { BookReadError } from "./book-read-error";
 import { CurrencyNote } from "./currency-note";
-import { ItemlessNote } from "./itemless-note";
+import { hasItemlessNote, ItemlessNote } from "./itemless-note";
 import { LibroIvaBookTable, LibroIvaBookTitle } from "./libro-iva-book-table";
 import { LibroIvaExportButtons } from "./libro-iva-export-buttons";
 
@@ -18,17 +19,34 @@ export function LibroIvaVentasTable({
   period: string;
   channelId: string | null;
 }) {
-  const { data: rows, isLoading } = useLibroIvaVentas(period, channelId);
+  const {
+    data: rows,
+    error,
+    isLoading,
+    isFetching,
+    refetch,
+  } = useLibroIvaVentas(period, channelId);
 
   const model = useMemo(() => ventasBook(rows ?? []), [rows]);
   const sinCae = model.docs.filter((d) => !d.cae).length;
-  const sinItems = model.grouped.filter((g) => !g.has_items).length;
 
   if (isLoading) {
     return (
       <div className="rounded-lg border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
         Cargando…
       </div>
+    );
+  }
+
+  // A failed refetch keeps the book already read; a failed first read is
+  // not an empty period.
+  if (error && !rows) {
+    return (
+      <BookReadError
+        error={error}
+        retrying={isFetching}
+        onRetry={() => void refetch()}
+      />
     );
   }
 
@@ -42,7 +60,7 @@ export function LibroIvaVentasTable({
 
   return (
     <div className="space-y-4">
-      {(sinCae > 0 || sinItems > 0) && (
+      {(sinCae > 0 || hasItemlessNote(model.grouped)) && (
         <div className="flex items-start gap-3 rounded-lg border border-border bg-muted p-3 text-sm">
           <AlertTriangle className="size-4 shrink-0 text-muted-foreground" />
           <div className="space-y-1">

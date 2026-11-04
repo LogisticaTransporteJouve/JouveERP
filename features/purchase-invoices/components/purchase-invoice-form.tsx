@@ -76,7 +76,11 @@ import {
   followHeaderTotal,
   partsGapFix,
 } from "../lib/header-total";
-import { supplierCostDefaults } from "../lib/supplier-defaults";
+import {
+  type CostDefault,
+  supplierCostDefaults,
+  supplierCostWrites,
+} from "../lib/supplier-defaults";
 import {
   PURCHASE_INVOICE_KINDS,
   PURCHASE_INVOICE_KIND_LABEL,
@@ -502,6 +506,9 @@ export function PurchaseInvoiceForm({
   const supplierDetail = supplierDetailQuery.data ?? null;
   // Which accounts and centers are still offered (active), for the defaults.
   const costTagOptions = useCostTagOptions().data;
+  // The account and center the last supplier's defaults wrote, so switching
+  // supplier does not leave them on the new one's purchase.
+  const appliedCostDefaults = useRef<CostDefault[]>([]);
 
   useEffect(() => {
     if (mode !== "create" || !supplierDetail) return;
@@ -510,14 +517,18 @@ export function PurchaseInvoiceForm({
     // active (a retired FLOTA_DZ is not copied). An NC/ND left empty takes
     // its origin's (purchase_invoices_nc_nd_inherit_account).
     if (form.getValues("kind") === "factura") {
-      for (const { name, id } of supplierCostDefaults(
-        supplierDetail,
-        costTagOptions,
+      const next = supplierCostDefaults(supplierDetail, costTagOptions);
+      for (const { name, id } of supplierCostWrites(
+        appliedCostDefaults.current,
+        next,
+        (name) => ({
+          value: form.getValues(name),
+          dirty: form.getFieldState(name).isDirty,
+        }),
       )) {
-        if (!form.getFieldState(name).isDirty) {
-          form.setValue(name, id, { shouldDirty: false });
-        }
+        form.setValue(name, id, { shouldDirty: false });
       }
+      appliedCostDefaults.current = next;
     }
     // Channel: pre-fill only if the form still has the default-from-scope channel
     // and the supplier has one saved. An ARCA voucher is fiscal whatever the

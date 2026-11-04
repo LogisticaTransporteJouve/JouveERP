@@ -26,6 +26,8 @@ import {
   type PerRate,
   SIN_ALICUOTA,
   SIN_ALICUOTA_LABEL,
+  SIN_DISCRIMINAR,
+  SIN_DISCRIMINAR_LABEL,
   VENTAS_AMOUNT_COLUMNS,
 } from "../schema";
 
@@ -122,8 +124,8 @@ export function ivaConditionCode(
 export type RateColumn = { id: number; label: string };
 
 /** The alícuotas a set of vouchers uses, in ascending order, then "Sin
- *  alícuota" when a voucher's rate could not be inferred. A month with only
- *  21% prints one Neto/IVA pair. */
+ *  alícuota" when a voucher's rate could not be inferred, then the B/C
+ *  purchases. A month with only 21% prints one Neto/IVA pair. */
 export function presentRates(
   docs: readonly { per_rate: PerRate }[],
 ): RateColumn[] {
@@ -139,6 +141,9 @@ export function presentRates(
     })),
     ...(used(SIN_ALICUOTA)
       ? [{ id: SIN_ALICUOTA, label: SIN_ALICUOTA_LABEL }]
+      : []),
+    ...(used(SIN_DISCRIMINAR)
+      ? [{ id: SIN_DISCRIMINAR, label: SIN_DISCRIMINAR_LABEL }]
       : []),
   ];
 }
@@ -158,23 +163,36 @@ export type AmountColumn<F> = {
   lines?: (f: F) => { code: string; amount: number }[];
 };
 
+/** A Neto/IVA pair per alícuota; B/C purchases get one column, their amount
+ *  with the IVA included, since it is not discriminated. */
 function rateColumns<F extends { per_rate: PerRate }>(
   rates: readonly RateColumn[],
 ): AmountColumn<F>[] {
-  return rates.flatMap((r) => [
-    {
-      key: `neto-${r.id}`,
-      group: r.label,
-      header: "Neto",
-      value: (f: F) => f.per_rate[r.id]?.neto ?? 0,
-    },
-    {
-      key: `iva-${r.id}`,
-      group: r.label,
-      header: "IVA",
-      value: (f: F) => f.per_rate[r.id]?.iva ?? 0,
-    },
-  ]);
+  return rates.flatMap((r) =>
+    r.id === SIN_DISCRIMINAR
+      ? [
+          {
+            key: `neto-${r.id}`,
+            group: r.label,
+            header: "Importe",
+            value: (f: F) => f.per_rate[r.id]?.neto ?? 0,
+          },
+        ]
+      : [
+          {
+            key: `neto-${r.id}`,
+            group: r.label,
+            header: "Neto",
+            value: (f: F) => f.per_rate[r.id]?.neto ?? 0,
+          },
+          {
+            key: `iva-${r.id}`,
+            group: r.label,
+            header: "IVA",
+            value: (f: F) => f.per_rate[r.id]?.iva ?? 0,
+          },
+        ],
+  );
 }
 
 export type VentasFigures = {
@@ -394,7 +412,7 @@ export function printCurrency(moneda: string): string {
 
 /** The notes the PDF and the Excel print with the book: what the peso
  *  figures include in foreign currency, vouchers left at rate 1, vouchers
- *  under "Sin alícuota", then the given legends. */
+ *  under "Sin alícuota", B/C purchases, then the given legends. */
 export function bookNotes<F>(
   model: BookModel<F>,
   legends: readonly string[],
@@ -403,6 +421,9 @@ export function bookNotes<F>(
   const suspect = countSuspectRates(model.grouped);
   const unrated = model.grouped.filter(
     (g) => g.per_rate[SIN_ALICUOTA] !== undefined,
+  ).length;
+  const undiscriminated = model.grouped.filter(
+    (g) => g.per_rate[SIN_DISCRIMINAR] !== undefined,
   ).length;
   return [
     ...(foreign.length > 0
@@ -424,8 +445,14 @@ export function bookNotes<F>(
           `${unrated} comprobante(s) sin ítems cuyo IVA / neto no cierra con ninguna alícuota: van en «${SIN_ALICUOTA_LABEL}» y el TXT los excluye.`,
         ]
       : []),
+    ...(undiscriminated > 0 ? [undiscriminatedNote(undiscriminated)] : []),
     ...legends,
   ];
+}
+
+/** B/C purchases: why they have no alícuota, as the TXT declares them. */
+export function undiscriminatedNote(count: number): string {
+  return `${count} comprobante(s) B o C: el IVA no se discrimina, así que van en «${SIN_DISCRIMINAR_LABEL}» con el IVA incluido y el TXT los declara sin alícuota.`;
 }
 
 /** A totals cell (the figures already signed): blank at zero except Total. */

@@ -477,7 +477,10 @@ Reportes fiscales de solo lectura. Dos RPCs `SECURITY INVOKER`:
   saldo de apertura no tiene moneda: es en pesos.
 - **Validación pre-presentación advisoria** (no bloquea): aviso con "N sin
   CAE" / "N sin ítems". Un comprobante sin ítems va en la alícuota que el TXT
-  infiere de IVA / neto (`inferIvaRateId`, al agrupar) o en "Sin alícuota". El
+  infiere de IVA / neto (`inferIvaRateId`, al agrupar) o en "Sin alícuota".
+  Una compra B o C va en "Sin discriminar (B/C)", con el IVA incluido, como el
+  TXT, que no le declara alícuota. Si la lectura falla, la pantalla muestra el
+  error y no el período vacío. El
   **export no está gateado** por estas alertas.
 - **Layout:** `features/libro-iva/lib/book-layout.ts`, compartido por pantalla,
   PDF y Excel: título con Previo / Definitivo, TC, C.I., solo las alícuotas del

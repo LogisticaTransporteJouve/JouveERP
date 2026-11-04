@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { FuelImportConfirmSchema, FuelLoadCreateSchema } from "./schema";
+import {
+  FuelImportConfirmSchema,
+  FuelLoadCreateSchema,
+  FuelLoadUpdateSchema,
+} from "./schema";
 
 const VEHICLE_ID = "11111111-1111-4111-8111-111111111111";
 
@@ -55,6 +59,27 @@ describe("FuelLoadCreateSchema", () => {
         amount: "100000",
       }).success,
     ).toBe(false);
+  });
+
+  it("refuses a blank «Importe» instead of saving $0", () => {
+    const r = FuelLoadCreateSchema.safeParse({
+      vehicle_id: VEHICLE_ID,
+      load_date: "2026-06-22",
+      liters: "50",
+      amount: "",
+    });
+    expect(r.success).toBe(false);
+    if (!r.success)
+      expect(r.error.issues[0]?.message).toBe("Importe requerido.");
+    expect(
+      FuelLoadUpdateSchema.safeParse({ id: VEHICLE_ID, amount: "" }).success,
+    ).toBe(false);
+    expect(
+      FuelLoadUpdateSchema.safeParse({ id: VEHICLE_ID, amount: "0" }).success,
+    ).toBe(true);
+    expect(FuelLoadUpdateSchema.safeParse({ id: VEHICLE_ID }).success).toBe(
+      true,
+    );
   });
 
   it("rejects a negative amount", () => {
