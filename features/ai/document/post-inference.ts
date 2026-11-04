@@ -96,7 +96,11 @@ export function computeItemTotals(item: {
   let iva = item.iva_amount ?? null;
   let total = item.total_amount ?? null;
 
-  if (neto === null && item.quantity != null && item.unit_price != null) {
+  if (
+    neto === null &&
+    item.quantity != null &&
+    item.unit_price != null
+  ) {
     const bonif = item.discount_pct ?? 0;
     neto = round2(item.quantity * item.unit_price * (1 - bonif / 100));
   }
@@ -210,7 +214,8 @@ export function applyInvoicePostInference(
     net_amount: header.neto,
     iva_amount: header.iva,
     total_amount: header.total,
-    due_date: inv.due_date ?? dueDateFromTerms(inv.date, inv.payment_terms),
+    due_date:
+      inv.due_date ?? dueDateFromTerms(inv.date, inv.payment_terms),
     items: filledItems,
   };
 }
