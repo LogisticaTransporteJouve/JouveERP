@@ -7,7 +7,6 @@ const runs = {
   skipRun: vi.fn(async () => true),
   completeRun: vi.fn(async () => true),
   failRun: vi.fn(async () => true),
-  materializeDueRuns: vi.fn(),
 };
 const resolveHeadlessUser = vi.fn();
 const runAsHeadlessUser = vi.fn(
@@ -48,7 +47,6 @@ vi.mock("@/lib/supabase/service", () => ({
 }));
 
 const { aiWorkflowRun } = await import("./ai-workflow-run");
-const { aiWorkflowsMaterialize } = await import("./ai-workflows-materialize");
 const { aiWeeklySummary } = await import("./ai-weekly-summary");
 
 const RUN = "3f0c9a9e-5a51-4c55-9b0e-0b7d1c1c2a10";
@@ -291,25 +289,5 @@ describe("ai-weekly-summary", () => {
     expect(await invoke(aiWeeklySummary, data)).toEqual({ saved: true });
     expect(checkAiDailyCap).toHaveBeenCalledWith({ background: true });
     expect(order).toEqual(["save", "usage"]);
-  });
-});
-
-describe("ai-workflows-materialize", () => {
-  it("fans out one event per queued run with the run id as event id", async () => {
-    runs.materializeDueRuns.mockResolvedValue([{ runId: RUN, userId: USER }]);
-    await invoke(aiWorkflowsMaterialize, {});
-    expect(step.sendEvent).toHaveBeenCalledWith("fan-out-runs", [
-      {
-        id: `ai-workflow-run-${RUN}`,
-        name: "ai/workflow-run.requested",
-        data: { run_id: RUN, user_id: USER },
-      },
-    ]);
-  });
-
-  it("sends nothing when nothing is due", async () => {
-    runs.materializeDueRuns.mockResolvedValue([]);
-    await invoke(aiWorkflowsMaterialize, {});
-    expect(step.sendEvent).not.toHaveBeenCalled();
   });
 });

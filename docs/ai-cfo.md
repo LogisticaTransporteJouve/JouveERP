@@ -385,19 +385,38 @@ asimétricas, deshabilita estos jobs hasta configurar el secreto vigente.
 - RLS: `authenticated` solo lee sus filas (`user_id = (select auth.uid())` + roles con `ai:chat`);
   toda escritura va por el service client después del gate del server action o desde Inngest,
   filtrando por el dueño.
-- **Inngest:** `ai-workflows-materialize` (cada 15 min) toma las tareas vencidas, inserta la corrida
-  (upsert que ignora duplicados), avanza `next_run_at` con compare-and-set (ocurrencias perdidas se
-  juntan en una sola corrida) y manda un evento por corrida en cola con `id` = la corrida; cierra como
-  `expired` las que llevan más de 23 h en cola (contadas desde que se encolaron, así la corrida de
-  recuperación después de una caída larga sí corre). `ai-workflow-run` (idempotente por `run_id`,
-  concurrencia 3 y 1 por usuario): _claim_ (tarea pausada, usuario sin acceso o tope de fondo →
-  `skipped` con motivo; si no, `queued → running`), _execute_ (relee al usuario, corre el agente con
-  `generateText` y solo tools `read` del usuario + `openEarlierRun`, sin propuestas, artefactos ni
-  `askQuestions`, auditando cada tool como `ai-agent`) y _notify_ (notificación in-app
-  `ai_workflow_run`). Si todas las consultas de la corrida fallaron, queda `failed` ("Ninguna
-  consulta devolvió datos.") y no se notifica. Un error transitorio de Auth al releer al usuario
-  reintenta en vez de marcarlo deshabilitado. El dueño sale de la fila, nunca del evento. El uso va
-  a `ai_usage` como `workflow_run` una sola vez, después del compare-and-set que guardó el resultado.
+- **Inngest, programación por eventos** (sin polling): crear, pausar, reanudar o borrar una tarea
+  (`features/ai/workflows/actions.ts` y la tarjeta `proposeAiWorkflow`) llama a
+  `announceWorkflowChange` (`features/ai/workflows/scheduling.ts`), que manda
+  `ai/workflow.changed` `{ workflow_id, version }` y, si la tarea queda activa,
+  `ai/workflow.scheduled` `{ workflow_id, next_run_at, version }`. La `version` es el `updated_at` de
+  la fila (`"deleted"` al borrar) y va en el id de los eventos, así un reintento de la acción se
+  deduplica. Si el envío falla, la escritura ya está hecha: se loguea y lo recupera el reconcile.
+  - `ai-workflow-scheduler`: un run por ocurrencia. Duerme con `step.sleepUntil` hasta `next_run_at`
+    (en tramos de 6 días, debajo del tope de 7 días del plan Hobby), relee la tarea y sale sin correr si
+    se borró, se pausó o cambió su `version` o `next_run_at` (_stale guard_, por si se perdió la
+    cancelación). Si no, `queueOccurrence` inserta la corrida (upsert que ignora duplicados), avanza
+    `next_run_at` con compare-and-set (ocurrencias perdidas se juntan en una sola corrida), manda
+    `ai/workflow-run.requested` con `id` = la corrida y se reprograma mandándose el
+    `ai/workflow.scheduled` de la ocurrencia siguiente. `cancelOn` corta el sueño ante un
+    `ai/workflow.changed` de la misma tarea **con otra versión** (por eso `if` y no `match`, que el SDK
+    reemplaza: el `changed` que acompaña a una programación nueva no la cancela aunque llegue después).
+  - `ai-workflows-reconcile` (diario, 04:52 AR): reenvía las corridas en cola de menos de 23 h, cierra
+    como `expired` las más viejas (contadas desde que se encolaron, así la corrida de recuperación
+    después de una caída larga sí corre) y vuelve a programar toda tarea activa con `next_run_at`
+    antes de las próximas 26 h, vencidas incluidas (scheduler perdido o fallado, envío fallido, tareas
+    anteriores al scheduler). Una vencida lleva un id propio de la pasada; una futura, el mismo id de
+    su programación (deduplicado si es de menos de 24 h; si no, un gemelo que pierde el
+    compare-and-set y no corre nada de más).
+  - `ai-workflow-run` (idempotente por `run_id`,
+    concurrencia 3 y 1 por usuario): _claim_ (tarea pausada, usuario sin acceso o tope de fondo →
+    `skipped` con motivo; si no, `queued → running`), _execute_ (relee al usuario, corre el agente con
+    `generateText` y solo tools `read` del usuario + `openEarlierRun`, sin propuestas, artefactos ni
+    `askQuestions`, auditando cada tool como `ai-agent`) y _notify_ (notificación in-app
+    `ai_workflow_run`). Si todas las consultas de la corrida fallaron, queda `failed` ("Ninguna
+    consulta devolvió datos.") y no se notifica. Un error transitorio de Auth al releer al usuario
+    reintenta en vez de marcarlo deshabilitado. El dueño sale de la fila, nunca del evento. El uso va
+    a `ai_usage` como `workflow_run` una sola vez, después del compare-and-set que guardó el resultado.
 - **Tope para jobs de fondo:** las tareas y el resumen semanal frenan al
   `AI_BACKGROUND_CAP_FRACTION` (70%) del tope diario de tokens (`checkAiDailyCap({ background:
 true })`), así el chat siempre conserva margen.

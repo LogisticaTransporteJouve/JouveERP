@@ -90,34 +90,34 @@ vigentes.
       meses pasados sin cerrar; los de períodos cerrados conservan el suyo
       (los cuenta un NOTICE). Lista de lo que entra (los de un período
       cerrado salen también, y no cambian):
-      ```sql
-      select 'recibo' as doc, r.id, r.receipt_date as fecha
-        from receipts r
-        join receipt_allocations ra on ra.receipt_id = r.id
-        join invoices i on i.id = ra.invoice_id
-       where r.status = 'issued' and r.currency = 'USD'
-         and coalesce(i.moneda, 'PES') in ('DOL', 'USD')
-         and nullif(coalesce(nullif(i.cotizacion, 0), get_exchange_rate('USD', i.fecha)), 1)
-             is distinct from nullif(coalesce(nullif(r.cotizacion, 0), get_exchange_rate('USD', r.receipt_date)), 1)
-      union
-      select 'orden de pago', po.id, po.payment_date
-        from payment_orders po
-        join payment_order_allocations poa on poa.payment_order_id = po.id
-        join purchase_invoices pi on pi.id = poa.purchase_invoice_id
-       where po.status = 'issued' and po.currency = 'USD'
-         and coalesce(pi.moneda, 'PES') in ('DOL', 'USD')
-         and nullif(coalesce(nullif(pi.cotizacion, 0), get_exchange_rate('USD', pi.fecha)), 1)
-             is distinct from nullif(coalesce(nullif(po.cotizacion, 0), get_exchange_rate('USD', po.payment_date)), 1)
-      union
-      select 'NC', n.id, n.fecha
-        from invoices n
-        join invoices o on o.id = n.invoice_origin_id
-       where n.kind = 'nc' and n.status = 'emitted'
-         and coalesce(n.moneda, 'PES') <> 'PES' and coalesce(o.moneda, 'PES') <> 'PES'
-         and nullif(coalesce(nullif(o.cotizacion, 0), get_exchange_rate('USD', o.fecha)), 1)
-             is distinct from nullif(coalesce(nullif(n.cotizacion, 0), get_exchange_rate('USD', n.fecha)), 1)
-      order by fecha;
-      ```
+      `sql
+    select 'recibo' as doc, r.id, r.receipt_date as fecha
+      from receipts r
+      join receipt_allocations ra on ra.receipt_id = r.id
+      join invoices i on i.id = ra.invoice_id
+     where r.status = 'issued' and r.currency = 'USD'
+       and coalesce(i.moneda, 'PES') in ('DOL', 'USD')
+       and nullif(coalesce(nullif(i.cotizacion, 0), get_exchange_rate('USD', i.fecha)), 1)
+           is distinct from nullif(coalesce(nullif(r.cotizacion, 0), get_exchange_rate('USD', r.receipt_date)), 1)
+    union
+    select 'orden de pago', po.id, po.payment_date
+      from payment_orders po
+      join payment_order_allocations poa on poa.payment_order_id = po.id
+      join purchase_invoices pi on pi.id = poa.purchase_invoice_id
+     where po.status = 'issued' and po.currency = 'USD'
+       and coalesce(pi.moneda, 'PES') in ('DOL', 'USD')
+       and nullif(coalesce(nullif(pi.cotizacion, 0), get_exchange_rate('USD', pi.fecha)), 1)
+           is distinct from nullif(coalesce(nullif(po.cotizacion, 0), get_exchange_rate('USD', po.payment_date)), 1)
+    union
+    select 'NC', n.id, n.fecha
+      from invoices n
+      join invoices o on o.id = n.invoice_origin_id
+     where n.kind = 'nc' and n.status = 'emitted'
+       and coalesce(n.moneda, 'PES') <> 'PES' and coalesce(o.moneda, 'PES') <> 'PES'
+       and nullif(coalesce(nullif(o.cotizacion, 0), get_exchange_rate('USD', o.fecha)), 1)
+           is distinct from nullif(coalesce(nullif(n.cotizacion, 0), get_exchange_rate('USD', n.fecha)), 1)
+    order by fecha;
+    `
 - [ ] **Aprobar `20261104094000`–`20261104094300`** (#344). `094000` agrega
       el valor `diferencia_cambio` al enum de roles del plan de cuentas: no se
       puede quitar. Rollback: las RPC de saldos de apertura y el aging tienen
@@ -145,27 +145,20 @@ vigentes.
       escritura que cubría cada `:read` quitado; las filas viejas quedan y el
       código anterior las lee como antes.
 - [ ] **Aprobar `20261104100000`–`20261104100300`** (#350, emisión AFIP).
-      No tocan filas existentes:
-      - `100000` agrega el guard de cotización USD mayor a 1 para comprobantes
-        fiscales en dólares.
-      - `100100` cambia el total de la lista de comprobantes a solo emitidos.
-      - `100200` impide emitir con un CAEA declarado "sin movimiento".
-      - `100300` agrega el RPC `delete_orphan_files`.
+      No tocan filas existentes: - `100000` agrega el guard de cotización USD mayor a 1 para comprobantes
+      fiscales en dólares. - `100100` cambia el total de la lista de comprobantes a solo emitidos. - `100200` impide emitir con un CAEA declarado "sin movimiento". - `100300` agrega el RPC `delete_orphan_files`.
 
       **N/A en producción (base sin recibos ni comprobantes en dólares a 2026-11-04).** Antes de aprobar, ver si hay comprobantes USD guardados con cotización 1
       (el guard no los repara):
       `select id, fecha, cotizacion from public.invoices where moneda <> 'PES' and coalesce(cotizacion, 0) <= 1;`
       Rollback: firmas sin cambio; el código anterior reintenta y falla la
       emisión con un CAEA "sin movimiento".
-- [ ] **Aprobar `20261104101000`–`20261104101400`** (#351, tesorería).
-      - Los cheques USD de proveedores y las cuotas de préstamos USD **nuevos**
-        se asientan a la cotización de la OP y del desembolso.
-      - Los asientos ya existentes no se reasientan. Reasentarlos cambia
-        períodos pasados y lo decide el dueño.
-      - Las cuentas con movimientos quedan con moneda, tipo y saldo inicial
-        congelados.
-      - Un rechazo de cheque con fecha en un período cerrado ahora se rechaza
-        (antes se asentaba con fecha de hoy).
+
+- [ ] **Aprobar `20261104101000`–`20261104101400`** (#351, tesorería). - Los cheques USD de proveedores y las cuotas de préstamos USD **nuevos**
+      se asientan a la cotización de la OP y del desembolso. - Los asientos ya existentes no se reasientan. Reasentarlos cambia
+      períodos pasados y lo decide el dueño. - Las cuentas con movimientos quedan con moneda, tipo y saldo inicial
+      congelados. - Un rechazo de cheque con fecha en un período cerrado ahora se rechaza
+      (antes se asentaba con fecha de hoy).
 
       **N/A en producción (base sin compras/cheques/OP/préstamos/RRHH a 2026-11-04).** Ver las cuentas que quedan congeladas (lo que va a mirar
       `account_has_movements`, que crea `101100`):
@@ -179,6 +172,7 @@ vigentes.
       ```
       Rollback: columnas agregadas al final, firmas sin cambio; la cuenta
       corriente vieja muestra la fila del cheque rechazado sin link.
+
 - [x] **N/A en producción (base sin compras/cheques/OP/préstamos/RRHH a 2026-11-04).** **Antes de aprobar `20261104102300`** (#349): el backfill resincroniza
       los cargos de compras a cargo de empleados que tienen NC y reasienta
       esas NC a `anticipos_personal`. Saltea los períodos cerrados. El cargo
@@ -263,15 +257,14 @@ vigentes.
       ```
       Las NC que quedan con su asiento viejo por período cerrado se ven
       **después** de promover (sección de #349 más abajo).
-- [ ] **Aprobar `20261104102000`–`20261104102400`** (#349, RRHH y Gestión).
-      - `102000` reescribe `management_pnl_lines`. Las diferencias de cambio
-        pasan a "Intereses" (fuera del margen operativo), y en las cuotas sin
-        desglose los intereses ya no cuentan como capital.
-      - `102100` corrige el mensaje de la rendición.
-      - `102400` reescribe `sync_automatic_tasks` sobre la versión de `101400`.
+
+- [ ] **Aprobar `20261104102000`–`20261104102400`** (#349, RRHH y Gestión). - `102000` reescribe `management_pnl_lines`. Las diferencias de cambio
+      pasan a "Intereses" (fuera del margen operativo), y en las cuotas sin
+      desglose los intereses ya no cuentan como capital. - `102100` corrige el mensaje de la rendición. - `102400` reescribe `sync_automatic_tasks` sobre la versión de `101400`.
 
       Rollback: el código anterior lee las mismas columnas; Gestión con
       código viejo muestra los mismos buckets.
+
 - [ ] **Aprobar `20261104104000`** (valida seis CHECK que habían quedado
       `NOT VALID`; no cambia datos). Toda fila existente los cumple; si una
       validación igual fallara, la migración entera se revierte y el promote
@@ -405,6 +398,31 @@ mitigación en el schema: el límite se respeta operando.
       cobertura 100%.
 
 ---
+
+## Tareas IA por eventos (2026-11-04)
+
+- [x] Sin polling: `ai-workflow-scheduler` duerme hasta el `next_run_at` de
+      cada tarea, `cancelOn` + _stale guard_ ante crear, pausar, reanudar o
+      borrar, y `ai-workflows-reconcile` diario (04:52 AR) reemplaza al cron
+      `ai-workflows-materialize` cada 15 min. Comparación de opciones,
+      evidencia y límites en `docs/decisions.md`.
+- [ ] **Después de promover:** correr `ai-workflows-reconcile` a mano desde el
+      dashboard de Inngest. Las tareas existentes no tienen scheduler
+      durmiendo; sin la corrida manual, las que vencen antes de la primera
+      pasada de las 04:52 corren tarde, en esa pasada. Lo mismo después de
+      un rollback y vuelta adelante.
+- [ ] Rollback: el código anterior vuelve a registrar el cron de 15 min y
+      no conoce `ai-workflow-scheduler`; los runs dormidos fallan al
+      despertar (función inexistente) y el cron cubre esas tareas. Sin
+      cambio de schema (la migración `20261104120000` solo cambia el
+      comentario de la tabla).
+- [ ] No verificado contra Inngest real (sin dev server en esta sesión ni
+      acceso a inngest.com): el comportamiento se probó con
+      `InngestTestEngine` y el modelo `tests/helpers/inngest-sim.ts`. Los
+      límites de sleep (7 días Hobby), 1.000 steps y dedupe de 24 h son
+      supuestos de la doc, no verificados.
+- [ ] Editar una tarea (título, pedido u horario) no existe todavía; cuando
+      se agregue, tiene que llamar a `announceWorkflowChange`.
 
 ## Decisiones del owner, tanda 1 (2026-11-04)
 
@@ -577,6 +595,7 @@ mitigación en el schema: el límite se respeta operando.
   promover**.
 - [ ] Las compras internas no tienen el guard en la base (no generan asiento);
       la app las valida igual.
+
 ## Tesorería: auditoría w3 (2026-11-04)
 
 - [x] **Cheque propio de una OP que rebota** (`20261104110600`): el rechazo
@@ -697,7 +716,7 @@ mitigación en el schema: el límite se respeta operando.
       `stock_movements:read` (ningún gate los leía); un test exige que cada
       permiso se lea fuera de la matriz.
 - Aprobación de `20261104096000` y `20261104096100`: en **Antes de
-      promover**.
+  promover**.
 - [ ] pgTAP verde en CI (stack fresco); sin verificar contra datos de
       producción: las dos migraciones y el anti-join de tareas sin asignar.
 
@@ -737,6 +756,7 @@ mitigación en el schema: el límite se respeta operando.
       argentina.
 - [ ] No verificado en el navegador: los diálogos y paneles se probaron con
       tests de componentes (jsdom), no en la app.
+
 ## Auditoría RRHH y rendiciones (2026-11-04)
 
 - [x] SAC de la liquidación final estable al reaplicar (`20261104095000`).
@@ -753,7 +773,7 @@ mitigación en el schema: el límite se respeta operando.
       empleado (decisión en `docs/decisions.md`); si molesta, agregar un
       aviso al cerrar el período.
 - Aprobación de `20261104095000`–`20261104095300` y revisión previa de
-      `20261104095200`: en **Antes de promover**.
+  `20261104095200`: en **Antes de promover**.
 - [ ] Diferencias asentadas al chofer antes de `20261104095300`
       (movimiento `charge` o `payment` con `driver_settlement_id`): un
       faltante deja también la factura del cliente abierta y un sobrante queda
@@ -821,15 +841,15 @@ mitigación en el schema: el límite se respeta operando.
 - [ ] Antes de aprobar `20261104102300`, el dueño revisa los cargos que baja
       el backfill (compras a cargo de empleado con NC):
       `select f.id, f.charged_employee_id, m.amount from purchase_invoices f
-      left join employee_account_movements m on m.purchase_invoice_id = f.id
-      where f.charged_employee_id is not null and exists (select 1 from
-      purchase_invoices nc where nc.invoice_origin_id = f.id and nc.kind = 'nc'
-      and nc.status = 'received');`. Y después, las NC que quedaron con su
+    left join employee_account_movements m on m.purchase_invoice_id = f.id
+    where f.charged_employee_id is not null and exists (select 1 from
+    purchase_invoices nc where nc.invoice_origin_id = f.id and nc.kind = 'nc'
+    and nc.status = 'received');`. Y después, las NC que quedaron con su
       asiento viejo por período cerrado:
       `select nc.id from purchase_invoices nc join purchase_invoices f on f.id
-      = nc.invoice_origin_id where nc.kind = 'nc' and nc.status = 'received'
-      and f.charged_employee_id is not null and
-      journal_entry_status('purchase_invoices', nc.id) = 'differs';`.
+    = nc.invoice_origin_id where nc.kind = 'nc' and nc.status = 'received'
+    and f.charged_employee_id is not null and
+    journal_entry_status('purchase_invoices', nc.id) = 'differs';`.
 - [ ] Planes de deuda tipeados desde el total viejo de un cargo que bajó
       (al neto con `20261104095200`, o por una NC con `20261104102300`): la
       planilla sigue descontando hasta el total del plan. El dueño los
@@ -910,7 +930,7 @@ mitigación en el schema: el límite se respeta operando.
       asignada, así que aparece en "Sin clasificar" hasta que el owner la
       clasifique.
 - Aprobación de `20261104094000`–`20261104094300` y vista previa del
-      backfill de `094300`: en **Antes de promover**.
+  backfill de `094300`: en **Antes de promover**.
 
 ## Auditoría: liquidaciones y flete (2026-11-04)
 
@@ -990,7 +1010,7 @@ mitigación en el schema: el límite se respeta operando.
       refresca aunque falle el vínculo; resultados de varias ND con su
       comprobante.
 - Aprobación de `20261104093000`–`20261104093400`: en **Antes de
-      promover**.
+  promover**.
 - [ ] Filas existentes sin tocar: cuotas sin desglose ya pagadas y cheques
       propios sin OP ya cobrados conservan su asiento viejo hasta que algo los
       re-asiente (revisar `prestamos` y `cheques_diferidos_emitidos`). Lo
@@ -1059,7 +1079,7 @@ mitigación en el schema: el límite se respeta operando.
       F931, monotributo, otro con nombre), período, vencimiento, importe
       (manual o estimado desde el libro IVA) y estado pendiente → liquidado
       → pagado / anulado; VEP o DDJJ como adjunto (`file_attachments.
-    tax_document_id`); lista y calendario; "Preparar el mes" copia los del
+  tax_document_id`); lista y calendario; "Preparar el mes" copia los del
       mes anterior. **Pagar** (`pay_tax_document`) registra el egreso en el
       canal fiscal como movimiento con dueño y su asiento Debe cuenta del
       impuesto / Haber caja o banco; rechaza un período cerrado. Tareas
@@ -1157,7 +1177,7 @@ mitigación en el schema: el límite se respeta operando.
       vencer, pagados en un mes, estimados y, a pedido, el estimado de IVA.
 - [ ] Aprobar las migraciones `20261104050100` a `20261104050400` con el
       deploy. Rollback: el código anterior no llama a `undo_tax_document_
-      payment` ni lee las columnas nuevas; gestión percibido sigue en rubros
+    payment` ni lee las columnas nuevas; gestión percibido sigue en rubros
       que conoce; las policies nuevas solo agregan filas a un rol al que el
       código viejo no le pide adjuntos.
 - [ ] pgTAP verde en CI (stack fresco: `tax_documents_undo_test.sql`); sin verificar contra
