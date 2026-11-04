@@ -179,10 +179,17 @@
           gravado van dentro del neto.
         </p>
         <p>
-          Los <strong>otros tributos</strong> se reparten a mano en percepción
-          de IVA, percepción de IIBB, municipales e impuestos internos: ni la
-          factura ni ARCA dicen de qué es cada uno. La percepción de IVA se
-          resta en el estimado de IVA; el resto no.
+          Los <strong>otros tributos</strong> se reparten en percepción de
+          IVA, percepción de Ganancias y otros nacionales, percepción de IIBB,
+          municipales e impuestos internos: ni la factura ni ARCA dicen de qué
+          es cada uno. Cuando la compra viene de ARCA o de un escaneo, el
+          sistema <strong>sugiere</strong> un reparto (con una nota): el de la
+          última compra del proveedor, si da el mismo total; si no, percepción
+          de IVA cuando el monto es el 1,5&nbsp;% o el 3&nbsp;% del neto
+          gravado (o esa parte más el resto como IIBB); si no, IIBB. Revisalo
+          antes de guardar. La percepción de IVA se resta en el estimado de
+          IVA; el resto no. Ganancias no es IVA: va a su propia cuenta de
+          crédito fiscal.
         </p>
 
         <div class="callout warn">
@@ -237,7 +244,11 @@
             en <em>Cargadas</em>.</li>
           <li>En <em>Pendientes</em>, <strong>Aceptar y cargar</strong> abre la
             factura con los importes de ARCA, que no se pueden cambiar. Elegí
-            cuenta y centro de costo, repartí los otros tributos y guardá.</li>
+            cuenta y centro de costo, revisá el reparto sugerido de los otros
+            tributos y guardá. Si ARCA da solo el neto y el IVA, la alícuota
+            sale de IVA/neto (21&nbsp;%, 10,5&nbsp;% o 27&nbsp;%); si no
+            coincide ninguna se carga al 21&nbsp;% con un aviso para que la
+            revises.</li>
           <li>Si un comprobante no corresponde, <strong>Descartar</strong>.
             Desde <em>Descartadas</em> lo podés volver a pendientes.</li>
         </ol>

@@ -33,7 +33,18 @@ schema que hay hoy (sin las migraciones de esta lista):
 `promote-to-production.yml` aplica todas las migraciones pendientes juntas.
 Las de cada sección más vieja siguen con su ítem "Aprobar …" en su sección.
 
-- [ ] **Antes de aprobar `20261104096400`** (#339, exento, no gravado y
+**Estado de producción (owner, 2026-11-04):** la base tiene solo clientes y
+facturas de venta en pesos: ni recibos, ni comprobantes en dólares, ni
+compras, cheques, órdenes de pago, préstamos, planillas o movimientos de
+empleados. Todo backfill sobre esas tablas es un no-op en producción y no
+hace falta re-asentar nada viejo. Los ítems de revisión de esos datos quedan
+marcados **N/A en producción** con su SQL (sirven si se promueve sobre otra
+base). La única revisión real que queda antes de promover es la lista de
+borradores del reconciliador (#340), que revisa el owner. Los ítems
+"Aprobar …" de cada migración (irreversibles y límites de rollback) siguen
+vigentes.
+
+- [x] **N/A en producción (base sin compras/cheques/OP/préstamos/RRHH a 2026-11-04).** **Antes de aprobar `20261104096400`** (#339, exento, no gravado y
       tributos por compra): el backfill pasa el `imp_trib` de cada compra a
       percepción de IIBB. El asiento no cambia, pero el TXT del libro IVA
       Compras de un período ya presentado declara esos tributos en el campo de
@@ -50,7 +61,8 @@ Las de cada sección más vieja siguen con su ítem "Aprobar …" en su sección
       cuenta "Percepciones IVA sufridas" en Plan de cuentas (no conoce el
       rol, como "Diferencias de cambio" abajo).
 - [ ] **Reconciliador de emisiones** (#340, `issue-invoice-reconcile`, sin
-      migración): su primera corrida vuelve a mandar a AFIP los borradores de
+      migración). **Revisión real: el owner revisa la lista de borradores de
+      abajo antes de promover.** Su primera corrida vuelve a mandar a AFIP los borradores de
       los últimos 3 días y resuelve las emisiones trabadas que ya existen. Un
       borrador que el usuario ya volvió a facturar con otro comprobante se
       borra antes, o se emitiría dos veces:
@@ -70,7 +82,8 @@ Las de cada sección más vieja siguen con su ítem "Aprobar …" en su sección
       Rollback: mismas funciones y argumentos; lo que el código anterior
       dejaba editar después de cobrar un cheque propio o anular un préstamo
       con plata ahora recibe el mensaje del guard.
-- [ ] **Antes de aprobar `20261104094300`** (#344, diferencia de cambio): su
+- [x] **N/A en producción (base sin recibos ni comprobantes en dólares a 2026-11-04).** Sin recibos, OP ni NC en dólares, el
+      re-asiento no toca nada. **Antes de aprobar `20261104094300`** (#344, diferencia de cambio): su
       backfill re-asienta, en los períodos abiertos, los recibos y OP en
       dólares emitidos contra comprobantes a otra cotización y las NC en
       dólares emitidas contra un origen a otra cotización. Cambian asientos de
@@ -112,7 +125,7 @@ Las de cada sección más vieja siguen con su ítem "Aprobar …" en su sección
       anterior a #344 **no editar la cuenta "Diferencias de cambio"** en Plan
       de cuentas: el código viejo no conoce el rol (la insignia sale vacía y
       guardar falla con "Datos inválidos").
-- [ ] **Antes de aprobar `20261104095200`** (#345), el dueño revisa los
+- [x] **N/A en producción (base sin compras/cheques/OP/préstamos/RRHH a 2026-11-04).** **Antes de aprobar `20261104095200`** (#345), el dueño revisa los
       cargos que el backfill baja del total al neto (los saldos de esos
       empleados bajan el IVA y las percepciones; si un cierre de planilla ya
       descontó el total, queda saldo a favor del empleado):
@@ -139,7 +152,7 @@ Las de cada sección más vieja siguen con su ítem "Aprobar …" en su sección
       - `100200` impide emitir con un CAEA declarado "sin movimiento".
       - `100300` agrega el RPC `delete_orphan_files`.
 
-      Antes de aprobar, ver si hay comprobantes USD guardados con cotización 1
+      **N/A en producción (base sin recibos ni comprobantes en dólares a 2026-11-04).** Antes de aprobar, ver si hay comprobantes USD guardados con cotización 1
       (el guard no los repara):
       `select id, fecha, cotizacion from public.invoices where moneda <> 'PES' and coalesce(cotizacion, 0) <= 1;`
       Rollback: firmas sin cambio; el código anterior reintenta y falla la
@@ -154,7 +167,7 @@ Las de cada sección más vieja siguen con su ítem "Aprobar …" en su sección
       - Un rechazo de cheque con fecha en un período cerrado ahora se rechaza
         (antes se asentaba con fecha de hoy).
 
-      Ver las cuentas que quedan congeladas (lo que va a mirar
+      **N/A en producción (base sin compras/cheques/OP/préstamos/RRHH a 2026-11-04).** Ver las cuentas que quedan congeladas (lo que va a mirar
       `account_has_movements`, que crea `101100`):
       ```sql
       select a.id, a.name from public.accounts a
@@ -166,7 +179,7 @@ Las de cada sección más vieja siguen con su ítem "Aprobar …" en su sección
       ```
       Rollback: columnas agregadas al final, firmas sin cambio; la cuenta
       corriente vieja muestra la fila del cheque rechazado sin link.
-- [ ] **Antes de aprobar `20261104102300`** (#349): el backfill resincroniza
+- [x] **N/A en producción (base sin compras/cheques/OP/préstamos/RRHH a 2026-11-04).** **Antes de aprobar `20261104102300`** (#349): el backfill resincroniza
       los cargos de compras a cargo de empleados que tienen NC y reasienta
       esas NC a `anticipos_personal`. Saltea los períodos cerrados. El cargo
       nuevo es la cifra de la factura (canal fiscal: neto + no gravado +
@@ -265,7 +278,7 @@ Las de cada sección más vieja siguen con su ítem "Aprobar …" en su sección
       frena. Ver cuáles siguen sin validar:
       `select conrelid::regclass, conname from pg_constraint where not convalidated and connamespace = 'public'::regnamespace;`
       Rollback: nada que hacer, el código no lee el flag.
-- [ ] **Antes de aprobar `20261104112000`** (auditoría w3, compras): una
+- [x] **N/A en producción (base sin compras/cheques/OP/préstamos/RRHH a 2026-11-04).** **Antes de aprobar `20261104112000`** (auditoría w3, compras): una
       compra fiscal nueva, o editada en sus importes, cuyo total no da neto +
       IVA + otros tributos + no gravado + exento se rechaza. Las existentes no
       se tocan: siguen guardando ediciones que no cambian importes, y en
@@ -276,14 +289,14 @@ Las de cada sección más vieja siguen con su ítem "Aprobar …" en su sección
       `select pi.id, pi.fecha, pi.letter, pi.punto_venta, pi.numero, pi.imp_total - (pi.imp_neto + pi.imp_iva + pi.imp_trib + pi.imp_no_gravado + pi.imp_op_exentas) as gap, exists (select 1 from public.accounting_closed_periods cp where cp.period = to_char(pi.fecha, 'YYYY-MM')) as closed from public.purchase_invoices pi where pi.status = 'received' and public.is_channel_fiscal(pi.channel_id) and abs(pi.imp_total - (pi.imp_neto + pi.imp_iva + pi.imp_trib + pi.imp_no_gravado + pi.imp_op_exentas)) > 0.01 order by pi.fecha;`
       Rollback: el código anterior escribe las mismas columnas; una compra
       fiscal que no cierra recibe el mensaje del guard.
-- [ ] **Decidir las compras fiscales B y C con IVA** (auditoría w3, S1 F2;
+- [x] **N/A en producción (base sin compras/cheques/OP/préstamos/RRHH a 2026-11-04).** **Decidir las compras fiscales B y C con IVA** (auditoría w3, S1 F2;
       no se cambian datos). Las cargadas antes de #339 pueden tener IVA,
       exento o no gravado aparte: el libro IVA, el estimado y `iva_credito`
       cuentan ese IVA como crédito fiscal y el TXT no. El dueño y el contador
       deciden si se pliegan al neto en los períodos abiertos (re-asienta) y
       qué hacer con las de períodos cerrados. Contarlas:
       `select exists (select 1 from public.accounting_closed_periods cp where cp.period = to_char(pi.fecha, 'YYYY-MM')) as closed, count(*), sum(pi.imp_iva) as iva from public.purchase_invoices pi where pi.status = 'received' and pi.letter in ('B', 'C') and public.is_channel_fiscal(pi.channel_id) and pi.imp_iva + pi.imp_no_gravado + pi.imp_op_exentas > 0 group by 1;`
-- [ ] **Antes de aprobar `20261104110600`** (tesorería w3): desde esa
+- [x] **N/A en producción (base sin compras/cheques/OP/préstamos/RRHH a 2026-11-04).** **Antes de aprobar `20261104110600`** (tesorería w3): desde esa
       migración, un cheque propio de una OP que el banco rechaza devuelve en
       Caja el egreso de la OP. Los ya rechazados antes no lo tienen: su banco
       sigue con el egreso de más. El owner decide si cargarles el ingreso a
@@ -296,6 +309,17 @@ Las de cada sección más vieja siguen con su ítem "Aprobar …" en su sección
       `select ic.id, ic.check_number, ic.amount, ic.currency, po.punto_venta, po.numero from issued_checks ic join payment_orders po on po.id = ic.payment_order_id where ic.status = 'cancelled' and po.status = 'issued';`
       Rollback: mismas funciones y argumentos; el código anterior lee el
       movimiento nuevo como cualquier movimiento de cheque propio.
+- [ ] **Aprobar `20261104113000`–`20261104113002`** (percepciones de
+      Ganancias y otros impuestos nacionales en compras). `113000` agrega el
+      rol `percepciones_ganancias` al enum del plan de cuentas: no se puede
+      quitar. `113001` agrega `imp_perc_nacionales` (0 en toda fila: sin
+      backfill) y crea la cuenta 1.1.3.N "Percepciones y pagos a cuenta de
+      Ganancias"; `113002` suma la columna al libro IVA Compras. Rollback: el
+      código anterior no manda la columna (queda en 0) y lee las columnas del
+      libro que nombra; editar los tributos desde el código anterior en una
+      compra que tiene Ganancias se rechaza ("Los tributos no suman…"). Con
+      código anterior no editar la cuenta nueva en Plan de cuentas (no conoce
+      el rol).
 
 ## Límites de rollback (vigentes)
 
@@ -381,6 +405,29 @@ mitigación en el schema: el límite se respeta operando.
       cobertura 100%.
 
 ---
+
+## Decisiones del owner, tanda 1 (2026-11-04)
+
+- [x] Producción sin compras, cheques, OP, préstamos, RRHH, recibos ni
+      comprobantes en dólares: los ítems de esos datos en **Antes de
+      promover** quedan N/A con su SQL (`docs/decisions.md`).
+- [x] Pagos de planilla, borrar un movimiento de la cuenta corriente con
+      caja y pagar la deuda de un cheque vendido piden `transactions:write`;
+      el botón queda oculto o deshabilitado con el motivo.
+- [x] Percepciones o pagos a cuenta de Ganancias y otros impuestos
+      nacionales en compras (`imp_perc_nacionales`, `20261104113000`–
+      `20261104113002`): formulario, bandeja de ARCA, borrador de IA, asiento
+      a `percepciones_ganancias`, campo 13 del TXT de compras; no es IVA.
+- [x] Libro IVA Compras (pantalla, PDF, Excel) con una columna
+      "Percepciones" con código (B, I, G, M), como el libro del contador.
+- [x] Reparto sugerido de otros tributos en la bandeja de ARCA y el
+      borrador de IA (historia del proveedor, 1,5 %/3 % de IVA, IIBB), y
+      alícuota inferida de IVA/neto en los comprobantes de ARCA sin columnas
+      por alícuota (21/10,5/27 %, 21 % con aviso si no coincide).
+- [ ] No verificado contra una base real: las tres migraciones y el pgTAP
+      `purchase_perc_nacionales` (corren en el job `database` de CI); el
+      lector de Mis Comprobantes toma una columna de "percepciones de otros
+      impuestos nacionales" por nombre, sin un archivo real que la traiga.
 
 ## Recibidos de ARCA (2026-11-04)
 
@@ -752,23 +799,24 @@ mitigación en el schema: el límite se respeta operando.
       canales (el saldo es siempre de todos).
 - [x] Una DDJJ de IVA que solo deja saldo a favor no abre "Pagar IVA"
       (`20261104102400`).
-- [ ] **Decisión abierta:** los pagos de planilla
-      (`payroll-payments-actions.ts`, individual y masivo, editar y borrar) y
-      borrar un movimiento de la cuenta corriente con caja
-      (`deleteEmployeeAccountMovementAction`) mueven o borran tesorería con
-      `hr:write` solo. El adelanto manual y la rendición piden también
-      `transactions:write`. Decidir si todo lo de RRHH que mueve plata lo
-      pide, y aplicarlo a todos.
+- [x] **Decidido (owner, 2026-11-04):** todo lo de RRHH y cheques que mueve
+      o borra tesorería pide también `transactions:write`: los pagos de
+      planilla (individual y masivo, editar y borrar), borrar un movimiento de
+      la cuenta corriente que tiene movimiento de caja
+      (`deleteAccountMovementAction`) y pagar la deuda de un cheque vendido
+      (`payCheckSaleDebtAction`). El botón queda oculto o deshabilitado con
+      el motivo, con el mismo predicado que la acción (`HR_CASH_PERMISSIONS`,
+      `CHECK_SALE_DEBT_PAY_PERMISSIONS`). La matriz no cambia: todo rol con
+      `hr:write` o `cheques:write` (owner, admin, finance) ya tiene
+      `transactions:write`; lo frena una denegación por usuario.
 - La revisión previa de los cargos que baja `20261104102300` y de los
   planes de deuda que quedan por encima: en **Antes de promover**.
 - [ ] **Después de promover** `20261104102300`, las NC de compras a cargo de
       empleado que quedaron con su asiento viejo por período cerrado (no
       quedan en `pending_journal_entries`: reabrir el período no las
-      re-asienta solo):
-      pide, y aplicarlo a todos. Entra en la misma decisión pagar la deuda
-      de un cheque vendido (`payCheckSaleDebtAction`): saca plata de Caja
-      con `cheques:write` solo (`docs/decisions.md` lo eligió para la venta
-      de cheques).
+      re-asienta solo): la consulta es la segunda del ítem siguiente.
+      **N/A en producción (base sin compras/cheques/OP/préstamos/RRHH a
+      2026-11-04).**
 - [ ] Antes de aprobar `20261104102300`, el dueño revisa los cargos que baja
       el backfill (compras a cargo de empleado con NC):
       `select f.id, f.charged_employee_id, m.amount from purchase_invoices f
