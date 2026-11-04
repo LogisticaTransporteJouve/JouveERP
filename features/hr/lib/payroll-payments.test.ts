@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { latestDefinition } from "@/lib/db/testing/migration-sql";
+
 import {
   exceedsBalance,
   payrollDbErrorMessage,
@@ -52,13 +54,49 @@ describe("exceedsBalance", () => {
 });
 
 describe("payrollDbErrorMessage", () => {
-  it("explains a closed accounting period", () => {
+  it("explains the closed-period guard with what to do", () => {
     expect(
-      payrollDbErrorMessage({ code: "55006", message: "raw" }, "x"),
-    ).toMatch(/período contable/);
+      payrollDbErrorMessage(
+        {
+          code: "55006",
+          hint: "jouve_guard",
+          message:
+            "El período contable 2026-10 está cerrado y no admite movimientos",
+        },
+        "x",
+      ),
+    ).toMatch(/Reabrilo en Contabilidad/);
   });
 
-  it("passes through guard messages", () => {
+  it("the closed-period guard still raises the message it detects", () => {
+    expect(latestDefinition("guard_journal_period_closed")).toContain(
+      "'El período contable % está cerrado y no admite movimientos'",
+    );
+  });
+
+  it("keeps an already actionable closed-period message", () => {
+    const message =
+      "El período contable 2026-10 está cerrado: el asiento del movimiento no se puede rehacer. Pedí que lo reabran en Contabilidad.";
+    expect(
+      payrollDbErrorMessage(
+        { code: "55006", hint: "jouve_guard", message },
+        "x",
+      ),
+    ).toBe(message);
+  });
+
+  it("keeps another guard's own message on the same SQLSTATE", () => {
+    const message =
+      "El movimiento está conciliado con el extracto bancario: desconciliá su línea en Tesorería › Conciliación antes de editarlo.";
+    expect(
+      payrollDbErrorMessage(
+        { code: "55006", hint: "jouve_guard", message },
+        "x",
+      ),
+    ).toBe(message);
+  });
+
+  it("passes through the unhinted payroll guards", () => {
     expect(
       payrollDbErrorMessage(
         {
@@ -68,6 +106,31 @@ describe("payrollDbErrorMessage", () => {
         "x",
       ),
     ).toBe("Los sueldos se pagan desde una cuenta en pesos");
+  });
+
+  it("hides raw Postgres text behind the fallback", () => {
+    expect(
+      payrollDbErrorMessage(
+        { code: "55006", message: "raw object in use" },
+        "No se pudo.",
+      ),
+    ).toBe("No se pudo.");
+    expect(
+      payrollDbErrorMessage(
+        {
+          code: "23514",
+          message:
+            'new row for relation "payroll_payments" violates check constraint "x"',
+        },
+        "No se pudo.",
+      ),
+    ).toBe("No se pudo.");
+    expect(
+      payrollDbErrorMessage(
+        { code: "57014", message: "canceling statement due to timeout" },
+        "No se pudo.",
+      ),
+    ).toBe("No se pudo.");
   });
 
   it("falls back when there is no error detail", () => {

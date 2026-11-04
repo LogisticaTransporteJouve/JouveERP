@@ -3,6 +3,7 @@
 import { AlertTriangle, Receipt } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { ReadError } from "@/components/read-error";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -21,7 +22,7 @@ import {
   useStorageBilling,
   useStorageBillingRuns,
 } from "../hooks/use-storage-billing";
-import { lastBilledEnd } from "../lib/continuity";
+import { billedRuns, lastBilledEnd } from "../lib/continuity";
 
 import { StorageInvoiceDialog } from "./storage-invoice-dialog";
 
@@ -45,8 +46,12 @@ export function StorageBillingReport() {
     setEnd(todayInAR());
   }, []);
 
-  const { data, isLoading } = useStorageBilling(start, end);
-  const { data: runs } = useStorageBillingRuns();
+  const { data, isLoading, isError, refetch } = useStorageBilling(start, end);
+  const {
+    data: runs,
+    isError: runsFailed,
+    refetch: refetchRuns,
+  } = useStorageBillingRuns();
   const [invoiceClient, setInvoiceClient] = useState<{
     client_id: string;
     client_name: string;
@@ -126,7 +131,19 @@ export function StorageBillingReport() {
         </p>
       )}
 
-      {isLoading || !data ? (
+      {runsFailed && !runs && (
+        <ReadError
+          message="No se pudo leer hasta cuándo se facturó cada cliente."
+          onRetry={() => void refetchRuns()}
+        />
+      )}
+
+      {isError && !data ? (
+        <ReadError
+          message="No se pudo cargar la facturación de almacenaje."
+          onRetry={() => void refetch()}
+        />
+      ) : isLoading || !data ? (
         <Skeleton className="h-64 w-full" />
       ) : (
         <>
@@ -156,7 +173,7 @@ export function StorageBillingReport() {
                   ) : (
                     data.byClient.map((c) => {
                       const lastEnd = lastBilledEnd(
-                        (runs ?? []).filter((r) => r.client_id === c.client_id),
+                        billedRuns(runs ?? [], c.client_id, null),
                       );
                       return (
                         <TableRow key={c.client_id}>
@@ -170,12 +187,15 @@ export function StorageBillingReport() {
                             {money(c.charge)}
                           </TableCell>
                           <TableCell className="text-muted-foreground text-sm">
-                            {lastEnd ? fmtDate(lastEnd) : "—"}
+                            {!runs ? "…" : lastEnd ? fmtDate(lastEnd) : "—"}
                           </TableCell>
                           <TableCell>
                             <Button
                               variant="outline"
                               size="sm"
+                              // The dialog's continuity and overlap checks
+                              // need the earlier runs.
+                              disabled={!runs}
                               onClick={() =>
                                 setInvoiceClient({
                                   client_id: c.client_id,

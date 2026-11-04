@@ -203,6 +203,88 @@ function fmtDate(iso: string): string {
 }
 
 /**
+ * claim_storage_billing_period linked a stale run's orphan invoice (issued
+ * under the run's id) instead of claiming. That lost link never wrote
+ * `storage.invoiced`, so write it now, marked `relinked`, for each such run
+ * the requested period overlaps on its channel. A run whose event already
+ * exists is skipped. Best effort, like logAudit: a failed read only logs.
+ */
+async function auditRelinkedRuns(
+  supabase: Awaited<ReturnType<typeof createSupabaseClient>>,
+  userId: string,
+  period: {
+    client_id: string;
+    channel_id: string;
+    period_start: string;
+    period_end: string;
+  },
+): Promise<void> {
+  const { data: runs, error: runsErr } = await supabase
+    .from("storage_billing_runs")
+    .select("id, invoice_id, channel_id, period_start, period_end, total")
+    .eq("client_id", period.client_id)
+    .not("invoice_id", "is", null)
+    .lte("period_start", period.period_end)
+    .gte("period_end", period.period_start);
+  if (runsErr) {
+    logger.error("storage.invoice.relink_audit.failed", {
+      userId,
+      error: runsErr,
+    });
+    return;
+  }
+  const linked = (runs ?? []).filter(
+    (r): r is typeof r & { invoice_id: string } =>
+      r.invoice_id !== null &&
+      (r.channel_id === null || r.channel_id === period.channel_id),
+  );
+  if (linked.length === 0) return;
+
+  const invoiceIds = linked.map((r) => r.invoice_id);
+  const [invoicesRes, auditRes] = await Promise.all([
+    supabase
+      .from("invoices")
+      .select("id, idempotency_key")
+      .in("id", invoiceIds),
+    getServiceClient()
+      .from("audit_events")
+      .select("target_resource_id")
+      .eq("event_type", "storage.invoiced")
+      .in("target_resource_id", invoiceIds),
+  ]);
+  if (invoicesRes.error || auditRes.error) {
+    logger.error("storage.invoice.relink_audit.failed", {
+      userId,
+      error: invoicesRes.error ?? auditRes.error,
+    });
+    return;
+  }
+  const keyOf = new Map(
+    (invoicesRes.data ?? []).map((i) => [i.id, i.idempotency_key]),
+  );
+  const audited = new Set(
+    (auditRes.data ?? []).map((a) => a.target_resource_id),
+  );
+  for (const run of linked) {
+    if (keyOf.get(run.invoice_id) !== run.id) continue;
+    if (audited.has(run.invoice_id)) continue;
+    await logAudit(
+      "storage.invoiced",
+      userId,
+      {
+        invoice_id: run.invoice_id,
+        client_id: period.client_id,
+        period_start: run.period_start,
+        period_end: run.period_end,
+        total: Number(run.total),
+        relinked: true,
+      },
+      run.invoice_id,
+    );
+  }
+}
+
+/**
  * History of billed storage periods. Feeds the "facturado hasta" indicator and
  * the gap/overlap checks per client. Gated on storage_billing:read.
  */
@@ -218,7 +300,7 @@ export async function listStorageBillingRunsAction(): Promise<
     supabase
       .from("storage_billing_runs")
       .select(
-        "id, client_id, period_start, period_end, storage_total, handling_in_total, handling_out_total, total, invoice_id, created_at, client:clients(legal_name)",
+        "id, client_id, period_start, period_end, storage_total, handling_in_total, handling_out_total, total, invoice_id, channel_id, pending_since, created_at, client:clients(legal_name)",
       )
       .order("period_end", { ascending: false })
       .order("id")
@@ -239,6 +321,8 @@ export async function listStorageBillingRunsAction(): Promise<
     handling_out_total: Number(r.handling_out_total),
     total: Number(r.total),
     invoice_id: r.invoice_id,
+    channel_id: r.channel_id,
+    pending_since: r.pending_since,
     created_at: r.created_at,
   }));
   return { ok: true, data: runs };
@@ -436,10 +520,11 @@ export async function invoiceStorageAction(
     return { ok: false, error: "No se pudo validar el período." };
   }
   if (!runId) {
+    await auditRelinkedRuns(supabase, ctx.userId, parsed.data);
     return {
       ok: false,
       error:
-        "Ese período ya está facturado: se registró la factura que había quedado sin vincular. Revisala en el historial.",
+        "Ese período ya está facturado: se registró la factura que había quedado sin vincular. La encontrás entre los comprobantes del cliente: Ventas › Comprobantes, u Otras ventas › Remitos internos si es interna.",
     };
   }
 

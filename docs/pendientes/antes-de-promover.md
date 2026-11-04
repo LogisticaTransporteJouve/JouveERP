@@ -571,7 +571,6 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
     reservas vencidas se borran como antes. Una reserva que deja el código
     nuevo y que el anterior vincula al reclamar devuelve null, y el código
     anterior muestra «No se pudo validar el período.» sin emitir nada.
-    columnas; el código anterior lee `center_cost` como un número.
 - [ ] **Aprobar `20261104160100`** (auditoría w9, fiscal): RPC nueva
       `import_arca_issued_invoice`, que la importación de ventas de ARCA usa
       para guardar la cabecera y sus ítems por alícuota en una sola
@@ -589,15 +588,34 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
     origen cuando quedan vacíos, y al cambiarle el origen pasa al nuevo lo
     heredado del anterior (salvo un campo ya vacío en un período cerrado).
     El trigger ahora también corre al cambiar cuenta, centro o tipo. El
-    código anterior manda los mismos campos; con el trigger nuevo, dejar
-    vacía la cuenta de una NC/ND en «Modificar» guarda la de su origen en
-    vez de «Compras», que es lo que dice la opción. Las ya guardadas sin
-    cuenta o centro:
+    código anterior no tiene cuenta ni centro en el formulario y no los
+    manda al editar, pero manda `kind`: con el trigger nuevo, cualquier
+    edición de una NC/ND sin cuenta o centro, en período abierto, guarda los
+    de su origen. El rollback es seguro. Las ya guardadas sin cuenta o
+    centro:
     `docs/pendientes/2026-11-04-gestion-nc-nd-edicion-insights-y-flota-ia-w9.md`.
   - `160201`: `ai_fleet_margin` suma dos columnas al final
     (`uninvoiced_freight`, `total_uninvoiced_freight`) con un `drop` y
     `create` en la misma transacción; ingreso y neto no cambian. El código
     anterior y `get_vehicle_margin` leen las columnas por nombre.
+- [ ] **Aprobar `20261104170000`, `170001` y `170002`** (auditoría w10,
+      tesorería). No tocan filas existentes ni cambian políticas RLS.
+  - `170000`: `payroll_payments_guard_transaction` también corre cuando
+    cambia `entry_id`: un pago de sueldo queda en la liquidación en que se
+    cargó. Rollback: el código anterior nunca actualiza `entry_id`.
+  - `170001`: `guard_loan` deja cargar `import_run_id` solo desde
+    `commit_import_run` y nunca lo cambia en un UPDATE;
+    `guard_loan_installment_payment` no deja pasar una cuota a otro
+    préstamo ni renumerar una cuota pagada. Rollback: el código anterior
+    escribe `import_run_id` solo por el importador y no mueve ni renumera
+    cuotas.
+  - `170002`: trigger nuevo `storage_billing_runs_guard_delete`. Un período
+    de almacenaje con una factura vigente (la vinculada, o la emitida bajo
+    el id de su reserva) no se borra; `release_invoice_billing_links` lo
+    sigue liberando porque corre con la factura ya fallida o anulada.
+    Rollback: el código anterior borra solo reservas sin factura vinculada
+    y sin factura viva bajo su id (emite con una clave al azar, o la
+    emisión falló), así que esos borrados pasan.
 - [ ] **Aprobar `20261104170200` y `170201`** (auditoría w10, gestión). No
       tocan filas existentes. Rollback de cada una:
   - `170200`: el trigger de herencia de las NC/ND de compra deja como está
