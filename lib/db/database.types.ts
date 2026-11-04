@@ -10147,6 +10147,10 @@ export type Database = {
           supplier_id: string
         }[]
       }
+      purchase_items_change_refused: {
+        Args: { p_invoice_id: string; p_items: Json }
+        Returns: boolean
+      }
       purchase_items_period_closed: {
         Args: { p_invoice_id: string }
         Returns: boolean
