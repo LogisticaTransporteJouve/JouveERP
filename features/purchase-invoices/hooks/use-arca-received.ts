@@ -22,7 +22,7 @@ import {
   getArcaSyncStatusAction,
   requestArcaReceivedSyncAction,
 } from "../actions/arca-received-sync-actions";
-import { syncPhase } from "../lib/arca-sync-run";
+import { syncPhase } from "@/lib/afip/arca-sync-run";
 import type { PurchaseInvoiceCreateRawInput } from "../lib/purchase-invoice-draft";
 import {
   arcaReceivedKeys,

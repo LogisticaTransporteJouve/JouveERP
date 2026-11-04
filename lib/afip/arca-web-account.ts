@@ -21,6 +21,7 @@ const CountsSchema = z.object({
 const SyncResultSchema = z.discriminatedUnion("outcome", [
   z.object({ outcome: z.literal("skipped"), reason: z.string() }),
   z.object({ outcome: z.literal("sign_in_failed"), code: z.string() }),
+  z.object({ outcome: z.literal("failed"), code: z.string() }),
   z.object({
     outcome: z.literal("done"),
     counts: CountsSchema,

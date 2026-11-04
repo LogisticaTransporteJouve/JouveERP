@@ -179,7 +179,7 @@ describe("signInToMisComprobantes", () => {
     const { calls, fetchImpl } = fakeArca({ claveOk: false });
     await expect(
       signInToMisComprobantes(credentials, fetchImpl),
-    ).rejects.toMatchObject({ code: "SIGN_IN_REJECTED" });
+    ).rejects.toMatchObject({ code: "SIGN_IN_REJECTED", claveSent: true });
     expect(calls.some((c) => c.url.includes("portalcf"))).toBe(false);
   });
 
@@ -191,7 +191,7 @@ describe("signInToMisComprobantes", () => {
         : fetchImpl(url, init);
     await expect(
       signInToMisComprobantes(credentials, maintenance),
-    ).rejects.toMatchObject({ code: "SIGN_IN_FAILED" });
+    ).rejects.toMatchObject({ code: "SIGN_IN_FAILED", claveSent: false });
   });
 
   it("refuses a period with more results than one page", async () => {

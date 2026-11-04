@@ -28,7 +28,7 @@ import {
   syncPhase,
   syncResultText,
   type SyncPhase,
-} from "../lib/arca-sync-run";
+} from "@/lib/afip/arca-sync-run";
 
 function currentMonth(): string {
   return new Intl.DateTimeFormat("en-CA", {
@@ -45,7 +45,10 @@ function statusText(s: ArcaSyncStatus, phase: SyncPhase): string {
   if (phase === "waiting") return "Pedido enviado: esperando que arranque…";
   if (phase === "running") return "Trayendo de ARCA…";
   if (phase === "not_started") {
-    return "El último pedido no arrancó. Probá de nuevo; si se repite, revisá Inngest.";
+    return "El último pedido no arrancó. Probá de nuevo; si se repite, avisale a un owner o admin.";
+  }
+  if (phase === "died") {
+    return "La última corrida se cortó sin terminar. Probá de nuevo; si se repite, avisale a un owner o admin.";
   }
   if (s.state === "rejected") {
     return s.lastErrorCode === "SIGN_IN_REJECTED"
@@ -162,6 +165,8 @@ export function ArcaSyncCard() {
     const result = status.data.sync.result;
     if (phase === "not_started") {
       toast.error("El pedido a ARCA no arrancó. Probá de nuevo.");
+    } else if (phase === "died") {
+      toast.error("La corrida de ARCA se cortó sin terminar. Probá de nuevo.");
     } else if (result?.outcome === "done") {
       toast.success(`ARCA: ${syncResultText(result)}`);
     } else if (result) {
