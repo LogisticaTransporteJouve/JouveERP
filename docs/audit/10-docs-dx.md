@@ -39,7 +39,7 @@
 3. No instruction to copy .env.local.example → .env.local, nor where local anon/service keys come from (supabase status).
 4. Supabase CLI install not covered.
 5. VAPID key generation not explained (npx web-push generate-vapid-keys).
-6. Undocumented scripts newcomer needs: db:types:generate, db:reset, seed:all, import:afip-purchases, format.
+6. Undocumented scripts newcomer needs: db:types:generate, db:reset, seed:all, format.
 7. Node ≥20 / pnpm 10 only in package.json engines.
 8. Integration tests read .env.local directly (needs service key); not mentioned in RUN_INTEGRATION=1 snippet.
 

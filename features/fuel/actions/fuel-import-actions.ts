@@ -7,10 +7,8 @@ import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { fetchInChunks, paginateRange } from "@/lib/supabase/paginate";
 import { getServiceClient } from "@/lib/supabase/service";
-import {
-  MAX_UPLOAD_TABLE_BYTES,
-  readUploadedTable,
-} from "@/lib/tables/read-upload";
+import { readUploadedTable } from "@/lib/tables/read-upload";
+import { MAX_UPLOAD_TABLE_BYTES } from "@/lib/tables/limits";
 
 import {
   FUEL_IMPORT_LIMITS,

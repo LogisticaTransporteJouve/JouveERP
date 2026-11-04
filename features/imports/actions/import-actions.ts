@@ -13,10 +13,8 @@ import { fetchInChunks, paginateRange } from "@/lib/supabase/paginate";
 import { getServiceClient } from "@/lib/supabase/service";
 import { findHeaderRowIndex, suggestColumnMapping } from "@/lib/tables/columns";
 import type { TableLimits } from "@/lib/tables/csv";
-import {
-  MAX_UPLOAD_TABLE_BYTES,
-  readUploadedTable,
-} from "@/lib/tables/read-upload";
+import { readUploadedTable } from "@/lib/tables/read-upload";
+import { MAX_UPLOAD_TABLE_BYTES } from "@/lib/tables/limits";
 
 import { isAccountType, isCheckAccount } from "@/features/accounts/schema";
 

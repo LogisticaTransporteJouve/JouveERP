@@ -3,11 +3,14 @@ import type { z } from "zod";
 import type { IvaCondition } from "@/features/clients/schema";
 
 import type {
+  PURCHASE_TRIBUTE_FIELDS,
   PurchaseInvoiceCreateSchema,
   PurchaseInvoiceKind,
   PurchaseInvoiceLetter,
   PurchaseIvaRateId,
 } from "../schema";
+
+type PurchaseTributeField = (typeof PURCHASE_TRIBUTE_FIELDS)[number];
 
 // A prefilled purchase invoice coming from outside the form (e.g. a scanned
 // document). The form only knows this contract: whoever builds the draft also
@@ -51,6 +54,13 @@ export type PurchaseInvoiceDraftData = {
   imp_iva: number | null;
   imp_trib: number | null;
   imp_total: number | null;
+  /** Letter A only; 0 when the source does not tell them apart. */
+  imp_no_gravado?: number;
+  imp_op_exentas?: number;
+  /** How otros tributos split, when the source says. Left out: all IIBB (a
+   *  scanned document does not tell them apart). A field missing from the
+   *  object starts at 0, for the user to split. */
+  tributes?: Partial<Record<PurchaseTributeField, number>>;
   moneda: "PES" | "DOL";
   cotizacion: number | null;
   motivo_nc_nd: string | null;
@@ -68,11 +78,15 @@ export type PurchaseInvoiceDraftSource = {
 };
 
 export type PurchaseInvoiceDraft = {
+  /** "arca": a voucher from the ARCA received tray, whose identity and
+   *  amounts come from ARCA and cannot be changed. Default "document". */
+  origin?: "document" | "arca";
   data: PurchaseInvoiceDraftData;
-  source: PurchaseInvoiceDraftSource;
+  /** The scanned file; null for an ARCA voucher (no file). */
+  source: PurchaseInvoiceDraftSource | null;
   submitCreate: (
     invoice: PurchaseInvoiceCreateRawInput,
-  ) => Promise<{ id: string }>;
+  ) => Promise<{ id: string; linkedExisting?: boolean }>;
 };
 
 /** Form fields a draft can fill (and mark as filled from the document). */
@@ -116,8 +130,12 @@ export type PurchaseInvoiceDraftPatch = {
   imp_neto: string;
   imp_iva: string;
   imp_trib: string;
-  /** A scanned document does not tell its tributes apart: they start as IIBB. */
+  imp_no_gravado: string;
+  imp_op_exentas: string;
+  imp_perc_iva: string;
   imp_perc_iibb: string;
+  imp_perc_municipales: string;
+  imp_impuestos_internos: string;
   imp_total: string;
   moneda: string;
   cotizacion: string;
@@ -133,6 +151,18 @@ export type PurchaseInvoiceDraftPatch = {
 
 function str(value: number | string | null, fallback: string): string {
   return value === null ? fallback : String(value);
+}
+
+function tributePatch(
+  data: PurchaseInvoiceDraftData,
+): Record<PurchaseTributeField, string> {
+  const split = data.tributes ?? { imp_perc_iibb: data.imp_trib ?? 0 };
+  return {
+    imp_perc_iva: String(split.imp_perc_iva ?? 0),
+    imp_perc_iibb: String(split.imp_perc_iibb ?? 0),
+    imp_perc_municipales: String(split.imp_perc_municipales ?? 0),
+    imp_impuestos_internos: String(split.imp_impuestos_internos ?? 0),
+  };
 }
 
 /**
@@ -180,7 +210,9 @@ export function draftToFormPatch(
       imp_neto: str(data.imp_neto, "0"),
       imp_iva: str(data.imp_iva, "0"),
       imp_trib: str(data.imp_trib, "0"),
-      imp_perc_iibb: str(data.imp_trib, "0"),
+      imp_no_gravado: String(data.imp_no_gravado ?? 0),
+      imp_op_exentas: String(data.imp_op_exentas ?? 0),
+      ...tributePatch(data),
       imp_total: str(data.imp_total, ""),
       moneda: data.moneda,
       // A foreign-currency draft without a rate stays empty: the user types it.
