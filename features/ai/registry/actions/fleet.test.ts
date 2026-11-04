@@ -28,6 +28,7 @@ import {
 import { listFuelLoadsAction } from "@/features/fuel/actions/fuel-actions";
 import { listMaintenanceAction } from "@/features/maintenance/actions/maintenance-actions";
 import { listTripsAction } from "@/features/trips/actions/trips-actions";
+import type { MaintenanceRecord } from "@/features/maintenance/schema";
 import type { Trip, TripStatus } from "@/features/trips/schema";
 import { listVehiclesAction } from "@/features/vehicles/actions/vehicles-actions";
 import { resolveAccess } from "@/lib/auth/permissions";
@@ -121,8 +122,8 @@ describe("runTrips revenue", () => {
     vi.mocked(listTripRevenueAction).mockResolvedValue({
       ok: true,
       data: [
-        { trip_id: "t1", revenue: 1000 },
-        { trip_id: "t2", revenue: 5000 },
+        { trip_id: "t1", revenue: 1000, uninvoiced_freight: 0 },
+        { trip_id: "t2", revenue: 5000, uninvoiced_freight: 0 },
       ],
     });
     const res = await runTrips(OPERATIONS);
@@ -131,6 +132,7 @@ describe("runTrips revenue", () => {
     expect(res.summary).toContain("1 cancelled");
     expect(res.summary).toContain("revenue of the 1 not cancelled $1.000");
     expect(res.summary).not.toContain("6.000");
+    expect(res.summary).not.toContain("sin facturar");
     expect(res.data).toEqual([
       expect.objectContaining({
         id: "t1",
@@ -142,6 +144,41 @@ describe("runTrips revenue", () => {
         revenue: 5000,
         manual_revenue: 5000,
       }),
+    ]);
+  });
+
+  it("says how much freight the trips still have to invoice", async () => {
+    vi.mocked(listTripsAction).mockResolvedValue({
+      ok: true,
+      data: [
+        trip("t1", "completed", null),
+        trip("t2", "completed", null),
+        // Cancelled: its pending freight does not count.
+        trip("t3", "cancelled", null),
+      ],
+    });
+    vi.mocked(listTripRevenueAction).mockResolvedValue({
+      ok: true,
+      data: [
+        { trip_id: "t1", revenue: 0, uninvoiced_freight: 800 },
+        { trip_id: "t2", revenue: 500, uninvoiced_freight: 0 },
+        { trip_id: "t3", revenue: 0, uninvoiced_freight: 900 },
+      ],
+    });
+    const res = await runTrips(OPERATIONS);
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.summary).toContain(
+      "Flete sin facturar $800 en 1 viaje(s): no está en los ingresos",
+    );
+    expect(res.data).toEqual([
+      expect.objectContaining({
+        id: "t1",
+        revenue: 0,
+        uninvoiced_freight: 800,
+      }),
+      expect.objectContaining({ id: "t2", uninvoiced_freight: 0 }),
+      expect.objectContaining({ id: "t3", uninvoiced_freight: 900 }),
     ]);
   });
 
@@ -170,6 +207,43 @@ describe("runTrips revenue", () => {
   });
 });
 
+const MAINTENANCE: MaintenanceRecord = {
+  id: "m",
+  vehicle_id: "v1",
+  service_date: "2026-10-01",
+  kind: "service",
+  description: "Service",
+  cost: null,
+  odometer_km: null,
+  next_service_date: null,
+  next_service_km: null,
+  provider: null,
+  notes: null,
+  purchase_invoice_id: null,
+  transaction_id: null,
+  created_at: "2026-10-01T00:00:00Z",
+  vehicle: null,
+};
+
+describe("runMaintenance cost", () => {
+  it("leaves a record without cost out of the total and counts it", async () => {
+    vi.mocked(listMaintenanceAction).mockResolvedValue({
+      ok: true,
+      data: [{ cost: 1000 }, { cost: null }, { cost: 500 }].map((m, i) => ({
+        ...MAINTENANCE,
+        id: `m${i}`,
+        ...m,
+      })),
+    });
+    const res = await runMaintenance();
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.summary).toBe(
+      "3 maintenance records · $1.500 · 1 without cost (not in the total).",
+    );
+  });
+});
+
 describe("runFleetProfitability", () => {
   it("rejects an invalid date range without calling the action", async () => {
     const res = await runFleetProfitability({
@@ -192,6 +266,8 @@ describe("runFleetProfitability", () => {
           manual_revenue: 300,
           cost: 400,
           net: 600,
+          uninvoiced_freight: 0,
+          pending_invoicing_trips: 0,
         },
         unvouchered: {
           fuel_count: 0,
@@ -208,9 +284,45 @@ describe("runFleetProfitability", () => {
     expect(res.ok).toBe(true);
     if (res.ok) expect(res.summary).toContain("600");
     if (res.ok) expect(res.summary).toContain("invoiced $700");
+    if (res.ok) expect(res.summary).not.toContain("sin facturar");
     expect(getFleetProfitabilityAction).toHaveBeenCalledWith({
       periodStart: "2026-01-01",
       periodEnd: "2026-01-31",
     });
+  });
+
+  it("says the net is not final when freight is still to invoice", async () => {
+    vi.mocked(getFleetProfitabilityAction).mockResolvedValue({
+      ok: true,
+      data: {
+        trips: [],
+        vehicles: [],
+        totals: {
+          revenue: 0,
+          invoiced_revenue: 0,
+          manual_revenue: 0,
+          cost: 400,
+          net: -400,
+          uninvoiced_freight: 1500,
+          pending_invoicing_trips: 2,
+        },
+        unvouchered: {
+          fuel_count: 0,
+          fuel_amount: 0,
+          maintenance_count: 0,
+          maintenance_cost: 0,
+        },
+      },
+    });
+    const res = await runFleetProfitability({
+      periodStart: "2026-01-01",
+      periodEnd: "2026-01-31",
+    });
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      expect(res.summary).toContain(
+        "Flete sin facturar $1.500 en 2 viaje(s): no está en los ingresos, así que esos netos no son definitivos",
+      );
+    }
   });
 });

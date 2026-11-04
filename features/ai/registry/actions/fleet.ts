@@ -35,6 +35,26 @@ import { readScope } from "../scope";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+/** The freight a fleet read has still to invoice. It is not in the revenue,
+ *  so a net that carries it is not final and is not a loss yet: the rule of
+ *  the «Viajes con margen negativo» insight, which skips those trips. Null
+ *  when there is none. */
+export function pendingFreightNote(
+  amount: number,
+  trips?: number,
+): string | null {
+  if (!(amount > 0)) return null;
+  const where = trips === undefined ? "" : ` en ${trips} viaje(s)`;
+  return `Flete sin facturar ${money(amount)}${where}: no está en los ingresos, así que esos netos no son definitivos (no es pérdida todavía).`;
+}
+
+/** Text to say a trip with freight still to invoice is not a loss yet. */
+const PENDING_FREIGHT_RULE =
+  "uninvoiced_freight is the freight of its shipments still to invoice: it " +
+  "is not in revenue, so a trip or group with uninvoiced_freight > 0 has a " +
+  "net that is not final; never call it a loss (the loss-trip insight " +
+  "skips it).";
+
 export async function runVehicles(input: {
   onlyActive?: boolean | null;
 }): Promise<AiRunResult> {
@@ -77,24 +97,36 @@ export async function runTrips(access: Access): Promise<AiRunResult> {
   }
   const revenue = await listTripRevenueAction();
   if (!revenue.ok) return errResult(revenue.error);
-  const byTrip = new Map(revenue.data.map((r) => [r.trip_id, r.revenue]));
+  const byTrip = new Map(revenue.data.map((r) => [r.trip_id, r]));
   let total = 0;
   let missing = 0;
+  let uninvoiced = 0;
+  let pendingTrips = 0;
   for (const t of live) {
     const tripRevenue = byTrip.get(t.id);
     // Created between the two reads: left out rather than counted as 0.
-    if (tripRevenue === undefined) missing += 1;
-    else total += tripRevenue;
+    if (tripRevenue === undefined) {
+      missing += 1;
+      continue;
+    }
+    total += tripRevenue.revenue;
+    if (tripRevenue.uninvoiced_freight > 0) {
+      uninvoiced += tripRevenue.uninvoiced_freight;
+      pendingTrips += 1;
+    }
   }
+  const pending = pendingFreightNote(uninvoiced, pendingTrips);
   return okResult(
     `${head} · revenue of the ${live.length - missing} not cancelled ${money(total)} ` +
       "(invoiced freight of their shipments; a trip without shipments, its manual revenue)" +
       (missing > 0
         ? `; ${missing} trip(s) without a revenue read left out.`
-        : "."),
+        : ".") +
+      (pending ? ` ${pending}` : ""),
     res.data.map((t) => ({
       ...t,
-      revenue: byTrip.get(t.id) ?? null,
+      revenue: byTrip.get(t.id)?.revenue ?? null,
+      uninvoiced_freight: byTrip.get(t.id)?.uninvoiced_freight ?? null,
       manual_revenue: t.revenue,
     })),
     { currency: "ARS", partial: missing > 0 },
@@ -112,8 +144,9 @@ export const getTrips = defineAiAction({
     "revenue and manual_revenue. revenue is the invoiced freight of the " +
     "trip's shipments (without shipments, the manual figure), as in " +
     "getFleetProfitability; the total leaves out cancelled trips; without " +
-    "shipments:read, revenue is null and there is no total. For queries " +
-    "about trips or transport; " +
+    "shipments:read, revenue is null and there is no total. " +
+    PENDING_FREIGHT_RULE +
+    " For queries about trips or transport; " +
     "per-trip net and per-vehicle margin are in getFleetProfitability and " +
     "getFleetMargin.",
   input: z.object({}),
@@ -149,11 +182,13 @@ export const getFuelLoads = defineAiAction({
 export async function runMaintenance(): Promise<AiRunResult> {
   const res = await listMaintenanceAction();
   if (!res.ok) return errResult(res.error);
+  // A record without cost (unknown) is left out of the total and counted.
   const cost = res.data.reduce((s, m) => s + Number(m.cost ?? 0), 0);
+  const noCost = res.data.filter((m) => m.cost === null).length;
   return okResult(
     `${res.data.length} maintenance records · $${cost.toLocaleString(
       "es-AR",
-    )}.`,
+    )}` + (noCost > 0 ? ` · ${noCost} without cost (not in the total).` : "."),
     res.data,
   );
 }
@@ -166,7 +201,8 @@ export const getMaintenance = defineAiAction({
   sources: ["maintenance_records"],
   description:
     "Vehicle maintenance: service date, vehicle, description, cost and next " +
-    "service. For fleet repairs or servicing.",
+    "service. A record with cost null has an unknown cost: it is not in the " +
+    "total and the summary counts it. For fleet repairs or servicing.",
   input: z.object({}),
   run: () => runMaintenance(),
 });
@@ -238,6 +274,10 @@ export async function runFleetProfitability(input: {
   const res = await getFleetProfitabilityAction(input);
   if (!res.ok) return errResult(res.error);
   const { totals, trips, vehicles } = res.data;
+  const pending = pendingFreightNote(
+    totals.uninvoiced_freight,
+    totals.pending_invoicing_trips,
+  );
   return okResult(
     `Fleet profitability ${input.periodStart}→${input.periodEnd}: ` +
       `${trips.length} trips, ${vehicles.length} vehicles · ` +
@@ -245,7 +285,8 @@ export async function runFleetProfitability(input: {
       `(revenue $${totals.revenue.toLocaleString("es-AR")} − cost $${totals.cost.toLocaleString(
         "es-AR",
       )}; invoiced $${totals.invoiced_revenue.toLocaleString("es-AR")}, ` +
-      `manual $${totals.manual_revenue.toLocaleString("es-AR")}).`,
+      `manual $${totals.manual_revenue.toLocaleString("es-AR")}).` +
+      (pending ? ` ${pending}` : ""),
     res.data,
   );
 }
@@ -269,6 +310,9 @@ export const getFleetProfitability = defineAiAction({
     "A trip with shipments earns the freight of its invoiced shipments; " +
     "without shipments, its manual revenue. Both figures (invoiced, manual) " +
     "come per trip, per vehicle and in the totals. " +
+    PENDING_FREIGHT_RULE +
+    " The totals give it with the count of such trips " +
+    "(pending_invoicing_trips). " +
     "Requires date from and to (YYYY-MM-DD). For trip or truck profitability.",
   input: z.object({
     periodStart: z.string().describe("Date from, format YYYY-MM-DD."),
@@ -291,7 +335,7 @@ export const getFleetMargin = defineAiAction({
     "shipments",
   ],
   description:
-    "Margen de flota en un rango de fechas agrupado por viaje, chofer, vehículo o cliente: ingresos (el flete facturado de las cargas del viaje; sin cargas, el ingreso manual del viaje), facturado y manual por separado, costo del viaje, combustible imputado, mantenimiento (por vehículo), neto y margen %, con totales del rango. Por cliente, cada carga aporta su flete facturado y los costos se reparten según el flete. Alcance opcional (fiscal/internal/all) por el canal del viaje; con un alcance, el combustible sin viaje y el mantenimiento (sin canal) no cuentan.",
+    "Margen de flota en un rango de fechas agrupado por viaje, chofer, vehículo o cliente: ingresos (el flete facturado de las cargas del viaje; sin cargas, el ingreso manual del viaje), facturado y manual por separado, costo del viaje, combustible imputado, mantenimiento (por vehículo), neto y margen %, con totales del rango. uninvoiced_freight (y total_uninvoiced_freight) es el flete de las cargas todavía sin facturar: no está en los ingresos, así que el neto de un grupo que lo tiene no es definitivo y no hay que llamarlo pérdida. Por cliente, cada carga aporta su flete facturado y los costos se reparten según el flete. Alcance opcional (fiscal/internal/all) por el canal del viaje; con un alcance, el combustible sin viaje y el mantenimiento (sin canal) no cuentan.",
   input: FleetMarginInputSchema,
   run: async (_ctx, input) => {
     const { label } = readScope(input.scope);
@@ -299,10 +343,14 @@ export const getFleetMargin = defineAiAction({
     if (!res.ok) return errResult(res.error);
     const first = res.data[0];
     const groups = first?.total_groups ?? 0;
+    const pending = pendingFreightNote(first?.total_uninvoiced_freight ?? 0);
     return okResult(
       `${label}: margen ${input.from}→${input.to} por ${input.groupBy ?? "vehicle"}: ${groups} grupos · ` +
         `ingresos ${money(first?.total_revenue ?? 0)} · neto ${money(first?.total_net ?? 0)}` +
-        (groups > res.data.length ? ` (se muestran ${res.data.length}).` : "."),
+        (groups > res.data.length
+          ? ` (se muestran ${res.data.length}).`
+          : ".") +
+        (pending ? ` ${pending}` : ""),
       { rows: res.data },
       { currency: "ARS", partial: groups > res.data.length },
     );

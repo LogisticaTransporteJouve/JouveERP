@@ -65,7 +65,9 @@ export async function getFleetProfitabilityAction(
       paginateRange((from, to) =>
         supabase
           .from("v_trip_revenue")
-          .select("trip_id, revenue, revenue_source, invoiced_revenue")
+          .select(
+            "trip_id, revenue, revenue_source, invoiced_revenue, uninvoiced_freight",
+          )
           .gte("trip_date", input.periodStart)
           .lte("trip_date", input.periodEnd)
           .order("trip_id")
@@ -116,7 +118,10 @@ export async function getFleetProfitabilityAction(
 
   const revenueByTrip = new Map<
     string,
-    Pick<TripInput, "revenue" | "revenue_source" | "invoiced_revenue">
+    Pick<
+      TripInput,
+      "revenue" | "revenue_source" | "invoiced_revenue" | "uninvoiced_freight"
+    >
   >();
   for (const r of revenueRes.data ?? []) {
     if (!r.trip_id || !isRevenueSource(r.revenue_source)) continue;
@@ -124,6 +129,7 @@ export async function getFleetProfitabilityAction(
       revenue: Number(r.revenue ?? 0),
       revenue_source: r.revenue_source,
       invoiced_revenue: Number(r.invoiced_revenue ?? 0),
+      uninvoiced_freight: Number(r.uninvoiced_freight ?? 0),
     });
   }
 
@@ -172,13 +178,21 @@ export async function getFleetProfitabilityAction(
   };
 }
 
+/** A trip's revenue as the report counts it, and its freight still to
+ *  invoice (not in revenue). */
+export type TripRevenue = {
+  trip_id: string;
+  revenue: number;
+  uninvoiced_freight: number;
+};
+
 /**
  * Every trip's revenue as the profitability report counts it
  * (v_trip_revenue: invoiced freight of its shipments, else the manual
- * figure), drained. Gated like the report.
+ * figure) and its freight still to invoice, drained. Gated like the report.
  */
 export async function listTripRevenueAction(): Promise<
-  ActionResult<{ trip_id: string; revenue: number }[]>
+  ActionResult<TripRevenue[]>
 > {
   const ctx = await requireUserContext();
   if (
@@ -191,7 +205,7 @@ export async function listTripRevenueAction(): Promise<
   const { data, error } = await paginateRange((from, to) =>
     supabase
       .from("v_trip_revenue")
-      .select("trip_id, revenue")
+      .select("trip_id, revenue, uninvoiced_freight")
       .order("trip_id")
       .range(from, to),
   );
@@ -199,10 +213,14 @@ export async function listTripRevenueAction(): Promise<
     logger.error("fleet.trip_revenue.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo leer el ingreso de los viajes." };
   }
-  const rows: { trip_id: string; revenue: number }[] = [];
+  const rows: TripRevenue[] = [];
   for (const r of data ?? []) {
     if (r.trip_id)
-      rows.push({ trip_id: r.trip_id, revenue: Number(r.revenue ?? 0) });
+      rows.push({
+        trip_id: r.trip_id,
+        revenue: Number(r.revenue ?? 0),
+        uninvoiced_freight: Number(r.uninvoiced_freight ?? 0),
+      });
   }
   return { ok: true, data: rows };
 }

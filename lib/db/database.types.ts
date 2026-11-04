@@ -8927,8 +8927,10 @@ export type Database = {
           total_groups: number
           total_net: number
           total_revenue: number
+          total_uninvoiced_freight: number
           trip_cost: number
           trips: number
+          uninvoiced_freight: number
         }[]
       }
       ai_leaves_summary: {

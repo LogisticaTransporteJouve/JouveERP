@@ -544,6 +544,21 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
   - `150201`: `get_vehicle_margin` cuenta en su centro la NC/ND de una
     compra vinculada a una carga de combustible o un service. Mismas
     columnas; el código anterior lee `center_cost` como un número.
+- [ ] **Aprobar `20261104160200` y `160201`** (auditoría w9, gestión). No
+      tocan filas existentes. Rollback de cada una:
+  - `160200`: una NC/ND de compra editada toma la cuenta y el centro de su
+    origen cuando quedan vacíos, y al cambiarle el origen pasa al nuevo lo
+    heredado del anterior (salvo un campo ya vacío en un período cerrado).
+    El trigger ahora también corre al cambiar cuenta, centro o tipo. El
+    código anterior manda los mismos campos; con el trigger nuevo, dejar
+    vacía la cuenta de una NC/ND en «Modificar» guarda la de su origen en
+    vez de «Compras», que es lo que dice la opción. Las ya guardadas sin
+    cuenta o centro:
+    `docs/pendientes/2026-11-04-gestion-nc-nd-edicion-insights-y-flota-ia-w9.md`.
+  - `160201`: `ai_fleet_margin` suma dos columnas al final
+    (`uninvoiced_freight`, `total_uninvoiced_freight`) con un `drop` y
+    `create` en la misma transacción; ingreso y neto no cambian. El código
+    anterior y `get_vehicle_margin` leen las columnas por nombre.
 
 ## Después de promover
 

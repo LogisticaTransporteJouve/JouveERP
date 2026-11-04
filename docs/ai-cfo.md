@@ -229,7 +229,10 @@ no reparte sueldos, mantenimiento ni gastos generales. Por vehículo, con `manag
 (`get_vehicle_margin`, por meses completos) y trae aparte el costo sin camión; sin ese permiso,
 seguros, patentes, cubiertas y compras cargadas solo con centro no entran. `getDriverActivity` trae
 las rendiciones de cobranza contra entrega con `receipts:read`. `ai_fleet_margin` no cuenta viajes
-cancelados.
+cancelados. El flete de cargas todavía sin facturar no entra en los ingresos: `ai_fleet_margin`
+(`uninvoiced_freight`), `getFleetProfitability`, `getTrips`, `getVehicleEconomics` y
+`getDriverActivity` lo traen aparte y avisan que ese neto no es definitivo, la misma regla del
+insight de viajes con margen negativo (no lo trata como pérdida).
 
 **Impuestos** (`getTaxDocuments`, `features/ai/registry/actions/taxes.ts`, `taxes:read`, así que
 también lo usa el contador): envuelve `listTaxDocumentsAction` y separa los impuestos vencidos,
