@@ -16,6 +16,10 @@ Decisiones: `docs/decisions/2026-11-04-gestion-recategorizar-nc-nd-y-flota-pendi
       recategorizarla.
 - [ ] **«Posible factura duplicada» con 3 o 4 facturas en días seguidos**
       se sigue marcando, aunque sea un abono diario recién empezado.
+- [ ] **Una carga que nunca se va a facturar** (sin cargo, o cargada por
+      error y no anulada) deja su viaje como «pendiente de facturar» para
+      siempre: no entra en «Viajes con margen negativo». Hay que anularla
+      para que el viaje se evalúe.
 - [ ] **`get_vehicle_margin` con 500 camiones con movimientos y algún viaje
       sin vehículo** ahora rechaza el rango (el grupo `none` ocupa un lugar
       en la página de `ai_fleet_margin`). Antes el tope era 500 camiones.
