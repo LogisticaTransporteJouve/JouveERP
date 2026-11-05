@@ -13,7 +13,7 @@ export type PartialCreateFailure = {
 };
 
 /** "lost": another caller holds the claim. "failed": the claim write itself
- *  errored, so nobody may hold it and the user can retry. */
+ *  errored; the record may still be free, so the user can retry. */
 export type ClaimOutcome = "won" | "lost" | "failed";
 
 /**
