@@ -13,6 +13,11 @@ select set_config('request.jwt.claims', '{"role":"service_role"}', true);
 
 select plan(38);
 
+-- The fixture below points an employee document at a fleet document's file,
+-- which 20261105130100 refuses for new writes; it stands for a link written
+-- before that rule.
+alter table public.employee_documents disable trigger employee_documents_file_visible;
+
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000001501a1', 'finance@file-link-w15.test'),
   ('00000000-0000-0000-0000-0000001501a2', 'operations@file-link-w15.test'),
@@ -56,7 +61,10 @@ select set_config('request.jwt.claims', '{"role":"service_role"}', true);
 -- existing fleet document and an existing employee document both point at
 -- (written before this migration; the fleet ceiling hides it from finance);
 -- c3 operations' own upload; c4 finance's scan; c5 finance2's own upload;
--- c6 operations' chat attachment; c7 warehouse's own upload.
+-- c6 operations' chat attachment; c7 warehouse's own upload; c8, c9
+-- operations' fresh uploads; ca finance's fresh upload; cb finance2's fresh
+-- upload. A fleet or employee document links only a file nothing else links
+-- (20261105130100), so those links use the fresh ones.
 insert into public.files (id, uploaded_by, original_filename, bucket, bucket_path, source) values
   ('00000000-0000-0000-0000-0000001501c1', '00000000-0000-0000-0000-0000001501a1',
    'finanzas.pdf', 'files', '00000000-0000-4000-8000-0000001501d1.pdf', 'manual_upload'),
@@ -71,7 +79,15 @@ insert into public.files (id, uploaded_by, original_filename, bucket, bucket_pat
   ('00000000-0000-0000-0000-0000001501c6', '00000000-0000-0000-0000-0000001501a2',
    'foto.png', 'files', '00000000-0000-4000-8000-0000001501d6.png', 'chat_attachment'),
   ('00000000-0000-0000-0000-0000001501c7', '00000000-0000-0000-0000-0000001501a3',
-   'deposito.pdf', 'files', '00000000-0000-4000-8000-0000001501d7.pdf', 'manual_upload');
+   'deposito.pdf', 'files', '00000000-0000-4000-8000-0000001501d7.pdf', 'manual_upload'),
+  ('00000000-0000-0000-0000-0000001501c8', '00000000-0000-0000-0000-0000001501a2',
+   'ruta.pdf', 'files', '00000000-0000-4000-8000-0000001501d8.pdf', 'manual_upload'),
+  ('00000000-0000-0000-0000-0000001501c9', '00000000-0000-0000-0000-0000001501a2',
+   'seguro.pdf', 'files', '00000000-0000-4000-8000-0000001501d9.pdf', 'manual_upload'),
+  ('00000000-0000-0000-0000-0000001501ca', '00000000-0000-0000-0000-0000001501a1',
+   'arn.pdf', 'files', '00000000-0000-4000-8000-0000001501da.pdf', 'manual_upload'),
+  ('00000000-0000-0000-0000-0000001501cb', '00000000-0000-0000-0000-0000001501a5',
+   'poliza.pdf', 'files', '00000000-0000-4000-8000-0000001501db.pdf', 'manual_upload');
 insert into public.fleet_documents (id, vehicle_id, kind, expires_at, attachment_file_id) values
   ('00000000-0000-0000-0000-0000001501e1', '00000000-0000-0000-0000-0000001501b1', 'seguro',
    current_date + 200, null),
@@ -188,14 +204,14 @@ select throws_ok(
 select lives_ok(
   $$insert into public.fleet_documents (vehicle_id, kind, expires_at, attachment_file_id, created_by)
     values ('00000000-0000-0000-0000-0000001501b1', 'ruta', current_date + 100,
-            '00000000-0000-0000-0000-0000001501c3', '00000000-0000-0000-0000-0000001501a2')$$,
+            '00000000-0000-0000-0000-0000001501c8', '00000000-0000-0000-0000-0000001501a2')$$,
   'operations creates a fleet document with its own file'
 );
 select lives_ok(
   $$update public.fleet_documents
-       set attachment_file_id = '00000000-0000-0000-0000-0000001501c3'
+       set attachment_file_id = '00000000-0000-0000-0000-0000001501c9'
      where id = '00000000-0000-0000-0000-0000001501e1'$$,
-  'and points another one at it (upload and replace)'
+  'and points another one at its next upload (upload and replace)'
 );
 select lives_ok(
   $$update public.fleet_documents set notes = 'renovada'
@@ -275,7 +291,7 @@ select throws_ok(
 select lives_ok(
   $$insert into public.employee_documents (employee_id, kind, expires_at, attachment_file_id, created_by)
     values ('00000000-0000-0000-0000-0000001501b5', 'arn', current_date + 100,
-            '00000000-0000-0000-0000-0000001501c1', '00000000-0000-0000-0000-0000001501a1')$$,
+            '00000000-0000-0000-0000-0000001501ca', '00000000-0000-0000-0000-0000001501a1')$$,
   'finance creates an employee document with its own file'
 );
 select throws_ok(
@@ -312,9 +328,9 @@ select throws_ok(
 );
 select lives_ok(
   $$update public.fleet_documents
-       set attachment_file_id = '00000000-0000-0000-0000-0000001501c1'
+       set attachment_file_id = '00000000-0000-0000-0000-0000001501cb'
      where id = '00000000-0000-0000-0000-0000001501e1'$$,
-  'an admin points a fleet document at any file'
+  'an admin points a fleet document at any file nothing else links'
 );
 
 -- 4. Warehouse -----------------------------------------------------------------------

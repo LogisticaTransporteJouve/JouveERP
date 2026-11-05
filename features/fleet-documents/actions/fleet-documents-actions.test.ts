@@ -9,6 +9,7 @@ const OLD_FILE_ID = "33333333-3333-4333-8333-333333333333";
 const stored = { fileId: FILE_ID, bucketPath: `${FILE_ID}/vtv.pdf` };
 
 let roles: Role[] = ["operations"];
+let denied: string[] = [];
 let updatedRows: { id: string }[] = [{ id: DOC_ID }];
 let fileError: string | null = null;
 let attachedFile: string | null = OLD_FILE_ID;
@@ -38,9 +39,13 @@ const select = vi.fn(() => ({
     }),
   }),
 }));
+let insertError: { message: string; code: string; hint: string } | null = null;
 const insert = vi.fn(() => ({
   select: () => ({
-    single: async () => ({ data: { id: DOC_ID }, error: null }),
+    single: async () =>
+      insertError
+        ? { data: null, error: insertError }
+        : { data: { id: DOC_ID }, error: null },
   }),
 }));
 const storeUploadedFile = vi.fn(async () => ({
@@ -49,20 +54,23 @@ const storeUploadedFile = vi.fn(async () => ({
 }));
 const discardStoredFile = vi.fn(async () => undefined);
 const removeReplacedFile = vi.fn(async () => undefined);
+const linkableFileError = vi.fn(
+  async (_client: unknown, id: string | null | undefined) =>
+    id ? fileError : null,
+);
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/auth/context", () => ({
   requireUserContext: async () => ({
     userId: "u1",
-    access: resolveAccess(roles),
+    access: resolveAccess(roles, denied),
   }),
 }));
 vi.mock("@/lib/actions/audit", () => ({ logAudit: async () => undefined }));
 vi.mock("@/lib/files/store", () => ({
   storeUploadedFile,
   discardStoredFile,
-  linkableFileError: async (_client: unknown, id: string | null | undefined) =>
-    id ? fileError : null,
+  linkableFileError,
 }));
 vi.mock("@/lib/files/remove-unlinked", () => ({ removeReplacedFile }));
 vi.mock("@/lib/supabase/server", () => ({
@@ -88,10 +96,12 @@ function formData(): FormData {
 beforeEach(() => {
   vi.clearAllMocks();
   roles = ["operations"];
+  denied = [];
   updatedRows = [{ id: DOC_ID }];
   fileError = null;
   attachedFile = OLD_FILE_ID;
   updateError = null;
+  insertError = null;
 });
 
 describe("uploadFleetDocumentFileAction", () => {
@@ -153,6 +163,66 @@ describe("createFleetDocumentAction attachment", () => {
       error: "No encontramos el archivo adjunto.",
     });
     expect(insert).not.toHaveBeenCalled();
+  });
+
+  it("asks files:write to link a file (audit w16-s4 F2)", async () => {
+    denied = ["files:write"];
+    expect(await createFleetDocumentAction(input)).toEqual({
+      ok: false,
+      error: "No tenés permiso para adjuntar archivos.",
+    });
+    expect(linkableFileError).not.toHaveBeenCalled();
+    expect(insert).not.toHaveBeenCalled();
+    expect(
+      (await createFleetDocumentAction({ ...input, attachment_file_id: null }))
+        .ok,
+    ).toBe(true);
+  });
+
+  it("shows the database guard's message when the link loses a race", async () => {
+    insertError = {
+      message: "Ese archivo ya está vinculado a otro registro.",
+      code: "55006",
+      hint: "jouve_guard",
+    };
+    expect(await createFleetDocumentAction(input)).toEqual({
+      ok: false,
+      error: "Ese archivo ya está vinculado a otro registro.",
+    });
+  });
+});
+
+describe("updateFleetDocumentAction attachment", () => {
+  const edit = { id: DOC_ID, vehicle_id: VEHICLE_ID };
+
+  it("checks a new file and asks files:write for it (audit w16-s4 F1, F2)", async () => {
+    fileError = "Ese archivo ya está vinculado a otro registro.";
+    expect(
+      await updateFleetDocumentAction({ ...edit, attachment_file_id: FILE_ID }),
+    ).toEqual({
+      ok: false,
+      error: "Ese archivo ya está vinculado a otro registro.",
+    });
+    fileError = null;
+    denied = ["files:write"];
+    expect(
+      await updateFleetDocumentAction({ ...edit, attachment_file_id: FILE_ID }),
+    ).toEqual({ ok: false, error: "No tenés permiso para adjuntar archivos." });
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it("keeps the file the document already has without re-checking it", async () => {
+    denied = ["files:write"];
+    fileError = "Ese archivo ya está vinculado a otro registro.";
+    expect(
+      (
+        await updateFleetDocumentAction({
+          ...edit,
+          attachment_file_id: OLD_FILE_ID,
+        })
+      ).ok,
+    ).toBe(true);
+    expect(linkableFileError).not.toHaveBeenCalled();
   });
 });
 

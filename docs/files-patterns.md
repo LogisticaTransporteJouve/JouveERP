@@ -298,6 +298,36 @@ escritura del registro (`ATTACHMENT_WRITE_PERMISSION`,
 `lib/files/attachment-targets.ts`), igual que adjuntar. Decisión:
 `docs/decisions/2026-11-05-archivos-por-registro-w14.md`.
 
+### 3.2 ter Escritura de vínculos (`20261105120000`, `20261105130100`)
+
+La política de alta de §3.2 tampoco es la de hoy. La base es el techo real,
+no solo defensa en profundidad. Un vínculo a un archivo (`file_attachments`,
+`ai_document_extractions.file_id`, y el `attachment_file_id` de un
+documento de flota o de RRHH), escrito por un usuario, pide:
+
+1. **Lo escribe quien figura:** `created_by = auth.uid()`.
+2. **Su rol escribe ese registro:** compras, comprobantes, recibos, órdenes
+   de pago, cheques, movimientos, impuestos, clientes y proveedores, owner,
+   admin y finance; combustible, owner, admin y operations; escaneos, owner,
+   admin, finance y operations; documentos de flota, owner, admin y
+   operations; documentos de RRHH, owner, admin y finance. Operations ya no
+   adjunta a clientes ni proveedores. Los vínculos del chat los escribe solo
+   la ruta del chat (service role).
+3. **Ya ve el archivo:** `guard_link_file_visible` (trigger en las cuatro
+   tablas, `SECURITY INVOKER`) busca el archivo con la RLS de quien escribe
+   y rechaza con `42501`. En una edición corre solo si cambia el archivo.
+4. **Un documento de flota o de RRHH tiene un archivo propio**
+   (`20261105130100`): la misma guarda rechaza (`55006`, `jouve_guard`) un
+   archivo que ya vincula otro registro, sea un adjunto, un escaneo u otro
+   documento (`is_linked_file`). Vale para todos, owner y service role
+   incluidos. Sin esto, apuntar un documento a un adjunto de un cliente o
+   proveedor se lo ocultaba al otro rol (los techos de flota y RRHH sobre
+   `files`). En la app, `linkableFileError` pregunta lo mismo, y vincular un
+   archivo existente pide `files:write`, como subirlo.
+
+Decisiones: `docs/decisions/2026-11-05-vinculos-de-archivos-w15.md` y
+`docs/decisions/2026-11-05-archivo-propio-de-documentos-w16.md`.
+
 ### 3.3 Storage bucket
 
 Las policies del bucket validan **contra la fila en `public.files`**, no contra

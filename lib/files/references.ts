@@ -3,13 +3,15 @@ import "server-only";
 import { getServiceClient } from "@/lib/supabase/service";
 
 /**
- * True when something still points at the file: an attachment, a Document
- * Intelligence extraction (deleting the file would cascade it away), an
- * employee document or a fleet document. Mirrors the exclusions of
- * `find_orphan_files`. Service role: the caller's RLS hides attachments of
- * records it cannot read (20261105100100) and rows of other users.
+ * Whether something points at the file: an attachment (chat included), a
+ * Document Intelligence extraction (deleting the file would cascade it away),
+ * an employee document or a fleet document; null when a lookup fails. Mirrors
+ * `is_linked_file` and the exclusions of `find_orphan_files`. Service role:
+ * the caller's RLS hides attachments of records it cannot read
+ * (20261105100100) and rows of other users, so call it only after the
+ * action's permission check.
  */
-export async function isFileStillReferenced(fileId: string): Promise<boolean> {
+export async function isLinkedFile(fileId: string): Promise<boolean | null> {
   const service = getServiceClient();
   const [attachments, extractions, employeeDocs, fleetDocs] = await Promise.all(
     [
@@ -32,9 +34,13 @@ export async function isFileStillReferenced(fileId: string): Promise<boolean> {
     ],
   );
   const reads = [attachments, extractions, employeeDocs, fleetDocs];
-  // Fail safe: if any lookup errors, keep the file.
-  if (reads.some((r) => r.error)) return true;
+  if (reads.some((r) => r.error)) return null;
   return reads.some((r) => (r.count ?? 0) > 0);
+}
+
+/** True when something still points at the file; a failed lookup keeps it. */
+export async function isFileStillReferenced(fileId: string): Promise<boolean> {
+  return (await isLinkedFile(fileId)) ?? true;
 }
 
 /**
