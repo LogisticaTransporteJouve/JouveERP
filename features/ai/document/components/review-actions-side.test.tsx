@@ -58,6 +58,7 @@ const CHANNELS: InvoicingChannelSummary[] = [
 function extraction(
   detected_type: string,
   matches: Record<string, string | boolean>,
+  payload: ExtractionDetail["payload"] = {},
 ): ExtractionDetail {
   return {
     id: "x1",
@@ -68,7 +69,7 @@ function extraction(
     matches,
     created_at: "2026-11-01T00:00:00Z",
     file: null,
-    payload: {},
+    payload,
   };
 }
 
@@ -197,9 +198,27 @@ describe("ReviewActions offers only what the viewer can create", () => {
   );
 
   it("a counterparty that was checked and not found keeps the create hint", () => {
-    renderReview(extraction("receipt", {}), { menu: "fiscal" });
+    renderReview(
+      extraction("receipt", {}, { counterparty_cuit: "20-12345678-9" }),
+      { menu: "fiscal" },
+    );
     expect(screen.getByText(/No se encontró el cliente por CUIT/)).toBeTruthy();
   });
+
+  it.each([
+    ["receipt", "cliente"],
+    ["payment_order", "proveedor"],
+    ["sales_invoice", "cliente"],
+  ] as const)(
+    "a %s with no CUIT read says nothing was looked up (audit w13-s6 F1)",
+    (kind, entity) => {
+      renderReview(extraction(kind, {}), { menu: "fiscal" });
+      expect(
+        screen.getByText(new RegExp(`No se leyó el CUIT del ${entity}`)),
+      ).toBeTruthy();
+      expect(screen.queryByText(/No se encontró/)).toBeNull();
+    },
+  );
 
   it("finance without accounts:read is told why it cannot create the receipt", () => {
     renderReview(extraction("receipt", { client_id: "c1" }), {

@@ -248,7 +248,8 @@ create policy "files_delete_uploader_or_admin"
 
 Desde `20261104194101`, el INSERT («Files write requires uploader = self»)
 además exige un rol con `files:write`, el bucket `files` y una key que no
-nombre una fila de otro usuario (`files_storage_key_is_free`).
+nombre otra fila (`files_storage_key_is_free`; desde `20261105090100`,
+ninguna fila, tampoco una propia).
 
 ### 3.2 Tabla `file_attachments`
 
@@ -295,8 +296,9 @@ create policy "files_storage_select"
 -- INSERT: el caller arma la key con un UUID que él generó. La fila en files
 -- todavía no existe en el momento del INSERT (storage va primero). Se chequea
 -- el shape del path, que el caller tenga un rol con files:write y que ninguna
--- fila de otro usuario nombre esa key (files_storage_key_is_free, SECURITY
--- DEFINER: ve filas que la RLS del caller oculta). 20261104194101.
+-- fila nombre esa key (files_storage_key_is_free, SECURITY DEFINER: ve filas
+-- que la RLS del caller oculta). 20261104194101; desde 20261105090100 cuenta
+-- también las filas propias, así una key se escribe una sola vez.
 create policy "files_storage_insert"
   on storage.objects for insert to authenticated
   with check (
@@ -1192,9 +1194,16 @@ policy SELECT de `files` exige un rol con `fleet_documents:read`
 y `getSignedFileUrlAction` repite el chequeo. `uploadFleetDocumentFileAction`
 sube el archivo (`storeUploadedFile`, el mismo paso que `uploadFileAction`) y
 apunta el documento a él; si el documento no se actualiza, descarta el
-archivo. Un archivo reemplazado o quitado queda sin vínculo y lo borra el
-barrido de huérfanos. `find_orphan_files`, `delete_chat_draft_file` e
+archivo. `find_orphan_files`, `delete_chat_draft_file` e
 `isFileReferencedElsewhere` cuentan este vínculo.
+
+Cuando un documento de flota o de RRHH deja de apuntar a su archivo (se
+reemplaza, se quita o se borra el documento), la acción lo borra en el
+momento con `removeReplacedFile` (`lib/files/remove-unlinked.ts`): cliente
+de servicio y `delete_orphan_files` sin margen de antigüedad, así que un
+archivo que otra cosa vincula se queda. Si falla, queda para el barrido.
+Mientras tanto, desde `20261105090100`, un archivo que nada vincula lo ven
+solo quien lo subió y owner/admin (`public.is_linked_file`).
 
 ### 14.4 Pendiente
 

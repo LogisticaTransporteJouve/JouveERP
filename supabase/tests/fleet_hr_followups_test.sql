@@ -23,12 +23,14 @@ insert into public.user_roles (user_id, role_id) values
 insert into public.vehicles (id, patente, vehicle_type) values
   ('00000000-0000-0000-0000-00000000fe01', 'FH001AA', 'camion');
 
+-- ff02 is linked to nothing, so since 20261105090100 only its uploader
+-- (finance here) and owner/admin see it.
 insert into public.files
   (id, uploaded_by, original_filename, mime_type, file_size, bucket, bucket_path, source, created_at)
 values
   ('00000000-0000-0000-0000-00000000ff01', '00000000-0000-0000-0000-00000000fd01',
    'vtv.pdf', 'application/pdf', 10, 'files', 'fleet-hr/vtv.pdf', 'manual_upload', now() - interval '2 days'),
-  ('00000000-0000-0000-0000-00000000ff02', '00000000-0000-0000-0000-00000000fd01',
+  ('00000000-0000-0000-0000-00000000ff02', '00000000-0000-0000-0000-00000000fd02',
    'suelto.pdf', 'application/pdf', 10, 'files', 'fleet-hr/suelto.pdf', 'manual_upload', now() - interval '2 days');
 
 insert into public.fleet_documents (id, vehicle_id, kind, expires_at, attachment_file_id) values

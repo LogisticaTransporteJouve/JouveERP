@@ -9824,6 +9824,7 @@ export type Database = {
         Returns: boolean
       }
       is_fleet_document_file: { Args: { p_file_id: string }; Returns: boolean }
+      is_linked_file: { Args: { p_file_id: string }; Returns: boolean }
       is_postable_expense_account: {
         Args: { p_account_id: string }
         Returns: boolean
@@ -10592,6 +10593,10 @@ export type Database = {
         Returns: undefined
       }
       settle_billed_remito: { Args: { p_factura_id: string }; Returns: string }
+      shipment_invoice_is_void: {
+        Args: { p_shipment_id: string }
+        Returns: boolean
+      }
       shipment_remito_conflict: {
         Args: {
           p_client_id: string

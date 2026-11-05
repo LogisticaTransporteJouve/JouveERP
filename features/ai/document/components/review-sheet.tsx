@@ -165,6 +165,8 @@ export function ReviewSheet({
   const match = matchInfo(data?.matches);
   const expense = expenseInfo(data?.matches);
   const recon = reconInfo(data?.matches);
+  const reconUnchecked =
+    isRecord(data?.matches) && data.matches.reconciliation_unchecked === true;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -279,6 +281,13 @@ export function ReviewSheet({
                 Conciliación: {recon.matched}/{recon.total} conciliados
                 {recon.imported > 0 &&
                   ` · ${recon.imported} ya importados (${recon.importedOpen} pendientes en Conciliación)`}
+              </span>
+            )}
+            {reconUnchecked && (
+              <span className="text-muted-foreground flex items-center gap-1 text-xs">
+                <AlertTriangle className="size-3" />
+                Conciliación no calculada: el período tiene demasiados
+                movimientos
               </span>
             )}
           </div>

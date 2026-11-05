@@ -77,18 +77,11 @@ describe("scanned-document duplicate check", () => {
     expect(lookup && filterValue(lookup, "eq", "letter")).toBe("B");
   });
 
-  it("flags the check as unknown when the lookup fails, instead of no duplicate", async () => {
+  it("throws when the lookup fails, so the step retries instead of storing no duplicate", async () => {
     answer = () => ({ data: null, error: { message: "timeout" } });
-    const matches = await matchForKind(
-      "sales_invoice",
-      {
-        number: 5,
-        sales_point: 1,
-      },
-      all,
-    );
-    expect(matches.duplicate_of).toBeUndefined();
-    expect(matches.duplicate_unknown).toBe(true);
+    await expect(
+      matchForKind("sales_invoice", { number: 5, sales_point: 1 }, all),
+    ).rejects.toMatchObject({ message: "timeout" });
   });
 
   it("reports the duplicate it finds", async () => {
@@ -206,6 +199,46 @@ describe("scanned-document matches follow the uploader's access", () => {
     expect(await matchForKind("bank_statement", statement, all)).toEqual({
       reconciliation: { matched: 1 },
     });
+  });
+});
+
+describe("a failed lookup is not «not found» (audit w13-s6 F1)", () => {
+  it.each([
+    ["receipt", "clients"],
+    ["payment_order", "suppliers"],
+  ])(
+    "a %s's failed %s lookup throws, so the step retries",
+    async (kind, table) => {
+      answer = (call) =>
+        call.table === table
+          ? { data: null, error: { message: "timeout" } }
+          : { data: [], error: null };
+      await expect(
+        matchForKind(kind, { counterparty_cuit: "20-12345678-9" }, all),
+      ).rejects.toMatchObject({ message: "timeout" });
+    },
+  );
+
+  it("a bank statement whose reconciliation read fails throws too", async () => {
+    reconcileExtracto.mockRejectedValue(new Error("reconcile-extracto: boom"));
+    await expect(
+      matchForKind(
+        "bank_statement",
+        { movements: [{ date: "2026-11-01", credit: 10 }] },
+        all,
+      ),
+    ).rejects.toThrow("boom");
+  });
+
+  it("a statement over the row cap is stored as not reconciled, not as no movements", async () => {
+    reconcileExtracto.mockResolvedValue("too_many_rows");
+    expect(
+      await matchForKind(
+        "bank_statement",
+        { movements: [{ date: "2026-11-01", credit: 10 }] },
+        all,
+      ),
+    ).toEqual({ reconciliation_unchecked: true });
   });
 });
 
