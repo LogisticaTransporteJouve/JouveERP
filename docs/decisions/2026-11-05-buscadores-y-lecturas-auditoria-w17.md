@@ -50,6 +50,8 @@ encontramos».
 - Una lectura fallida del borrador dice «No se pudo leer el documento.
   Reintentá.», no «No se encontró la extracción.». Una liberación fallida
   dice «No se pudo reabrir el documento. Reintentá.», no «ya fue procesado».
+  En la revisión y en «Completar desde archivo» ese aviso trae
+  «Reintentar» (antes, el segundo ofrecía subir otro archivo).
 
 **AI CFO.** La descripción de `getFleetMargin` dice que el neto por vehículo
 cuenta el combustible por su fecha en el rango y no es la suma de los netos

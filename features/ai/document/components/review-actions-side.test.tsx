@@ -7,14 +7,23 @@ import type { InvoicingChannelSummary, ScopeSide } from "@/lib/scope";
 
 import type { ExtractionDetail } from "../actions";
 
-const h = vi.hoisted(() => ({ pathname: "/treasury" }));
+const h = vi.hoisted(() => ({
+  pathname: "/treasury",
+  draft: {} as {
+    isError: boolean;
+    data: undefined;
+    error?: Error;
+    refetch: () => void;
+  },
+  refetchDraft: vi.fn(),
+}));
 
 vi.mock("next/navigation", () => ({
   usePathname: () => h.pathname,
   useRouter: () => ({ refresh: vi.fn() }),
 }));
 vi.mock("../hooks/use-documents", () => ({
-  usePurchaseInvoiceDraft: () => ({ isError: false, data: undefined }),
+  usePurchaseInvoiceDraft: () => h.draft,
   useSubmitPurchaseInvoiceDraft: () => ({}),
 }));
 vi.mock(
@@ -94,6 +103,8 @@ function renderReview(
 
 beforeEach(() => {
   h.pathname = "/treasury";
+  h.refetchDraft.mockReset();
+  h.draft = { isError: false, data: undefined, refetch: h.refetchDraft };
 });
 afterEach(cleanup);
 
@@ -251,5 +262,23 @@ describe("ReviewActions offers only what the viewer can create", () => {
     });
     expect(screen.queryByRole("button", { name: /Crear recibo/ })).toBeNull();
     expect(screen.getByText(/No tenés permiso para ver cuentas/)).toBeTruthy();
+  });
+});
+
+describe("ReviewActions: the purchase draft read failed", () => {
+  it("says what failed with «Reintentar»", () => {
+    h.draft = {
+      ...h.draft,
+      isError: true,
+      error: new Error("No se pudo leer el documento. Reintentá."),
+    };
+    renderReview(extraction("purchase_invoice", { supplier_id: "s1" }), {
+      menu: "fiscal",
+    });
+    expect(
+      screen.getByText("No se pudo leer el documento. Reintentá."),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Reintentar/ }));
+    expect(h.refetchDraft).toHaveBeenCalledOnce();
   });
 });

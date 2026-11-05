@@ -92,17 +92,17 @@ export function OriginPicker({
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
         <div className="max-h-72 overflow-y-auto">
-          {search.isError ? (
+          {isFetching && items.length === 0 ? (
+            <div className="flex items-center gap-2 p-4 text-sm text-muted-foreground">
+              <Loader2 className="size-4 animate-spin" />
+              Buscando…
+            </div>
+          ) : search.isError ? (
             <ReadError
               message="No se pudieron buscar las facturas."
               onRetry={() => void search.refetch()}
               className="justify-center p-4"
             />
-          ) : isFetching && items.length === 0 ? (
-            <div className="flex items-center gap-2 p-4 text-sm text-muted-foreground">
-              <Loader2 className="size-4 animate-spin" />
-              Buscando…
-            </div>
           ) : items.length === 0 ? (
             <div className="p-4 text-center text-sm text-muted-foreground">
               {debounced.length === 0

@@ -247,6 +247,13 @@ function ResultsList({
   onRetry: () => void;
   canCreate: boolean;
 }) {
+  if (isSearching) {
+    return (
+      <div className="px-3 py-4 text-center text-sm text-muted-foreground">
+        Buscando…
+      </div>
+    );
+  }
   // A failed search is not "no match": it would invite creating the party
   // again.
   if (failed) {
@@ -256,13 +263,6 @@ function ResultsList({
         onRetry={onRetry}
         className="justify-center px-3 py-4"
       />
-    );
-  }
-  if (isSearching) {
-    return (
-      <div className="px-3 py-4 text-center text-sm text-muted-foreground">
-        Buscando…
-      </div>
     );
   }
   if (results.length === 0) {

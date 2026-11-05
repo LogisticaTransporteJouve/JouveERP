@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { PageSideProvider } from "@/components/providers/scope-provider";
+import { ReadError } from "@/components/read-error";
 import { Button } from "@/components/ui/button";
 import { PurchaseInvoiceDraftDialog } from "@/features/purchase-invoices/components/purchase-invoice-draft-dialog";
 import type { Access } from "@/lib/auth/permissions";
@@ -143,12 +144,20 @@ function PurchaseDraftAction({
   const submitCreate = useSubmitPurchaseInvoiceDraft(extractionId);
   const result = draftQuery.data;
 
-  const problem = draftQuery.isError
-    ? draftQuery.error.message
-    : result?.state === "closed"
-      ? "Este documento ya fue procesado o descartado."
-      : null;
-  if (problem) return <FooterHint>{problem}</FooterHint>;
+  if (draftQuery.isError) {
+    return (
+      <ReadError
+        message={draftQuery.error.message}
+        onRetry={() => void draftQuery.refetch()}
+        className="border-t pt-3"
+      />
+    );
+  }
+  if (result?.state === "closed") {
+    return (
+      <FooterHint>Este documento ya fue procesado o descartado.</FooterHint>
+    );
+  }
   return (
     <div className="flex items-center gap-2 border-t pt-3">
       <Button
