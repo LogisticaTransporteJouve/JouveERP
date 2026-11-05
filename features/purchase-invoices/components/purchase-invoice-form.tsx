@@ -1601,12 +1601,7 @@ export function PurchaseInvoiceForm({
               name="origin_invoice"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>
-                    Factura origen{" "}
-                    <span className="text-xs font-normal text-muted-foreground">
-                      (opcional, recomendado para que el aging la descuente)
-                    </span>
-                  </FormLabel>
+                  <FormLabel>Factura origen</FormLabel>
                   <FormControl>
                     <PurchaseInvoicePicker
                       value={field.value}
