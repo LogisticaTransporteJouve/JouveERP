@@ -77,6 +77,8 @@ export default async function PurchaseInvoiceDetailPage({
   const imputations = imputationsRes.ok ? imputationsRes.data : null;
 
   const supabase = await createClient();
+  // Every user reads every channel: no row means the read failed, and then
+  // neither the side (fiscal or internal) nor its actions are known.
   const { data: channelRow } = await supabase
     .from("invoicing_channels")
     .select("id, name, is_fiscal")
@@ -86,7 +88,12 @@ export default async function PurchaseInvoiceDetailPage({
 
   const number = formatInvoiceNumber(invoice);
   const isCancelled = invoice.status === "cancelled";
+  // What is owed exists only for a live factura or ND, as for «Pagar».
+  const isPayable =
+    !isCancelled && (invoice.kind === "factura" || invoice.kind === "nd");
+  const showsBalance = canReadPayments && isPayable;
   const canImpute =
+    imputations !== null &&
     channelRow?.is_fiscal === true &&
     invoice.kind === "factura" &&
     invoice.moneda === "PES" &&
@@ -97,16 +104,17 @@ export default async function PurchaseInvoiceDetailPage({
   // "Pagar" opens the OP form with this purchase picked for what it still
   // owes (the same pending list the OP form reads).
   let payOpen: { outstanding: number } | null = null;
+  let pendingFailed = false;
   if (
-    !isCancelled &&
+    isPayable &&
     channelRow &&
-    (invoice.kind === "factura" || invoice.kind === "nd") &&
     userCanAll(ctx.access, PAYMENT_ORDER_FORM_PERMISSIONS)
   ) {
     const pendingRes = await listPendingInvoicesForSupplierAction(
       invoice.supplier_id,
       channelRow.id,
     );
+    pendingFailed = !pendingRes.ok;
     const mine = pendingRes.ok
       ? pendingRes.data.find((p) => p.id === invoice.id)
       : undefined;
@@ -148,7 +156,9 @@ export default async function PurchaseInvoiceDetailPage({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">
-            {purchaseKindLabel(invoice.kind, isInternal)}{" "}
+            {channelRow
+              ? purchaseKindLabel(invoice.kind, isInternal)
+              : "Comprobante de compra"}{" "}
             <span className="font-mono text-base text-muted-foreground">
               {number}
             </span>
@@ -172,6 +182,17 @@ export default async function PurchaseInvoiceDetailPage({
               </Badge>
             )}
           </p>
+          {!channelRow && (
+            <p className="text-sm text-muted-foreground">
+              No se pudo leer el canal de la compra: no se muestran sus
+              acciones.
+            </p>
+          )}
+          {pendingFailed && (
+            <p className="text-sm text-muted-foreground">
+              No se pudo leer lo pendiente de pago: no se muestra «Pagar».
+            </p>
+          )}
           {imputations?.imputedTo && (
             <p className="text-sm text-muted-foreground">
               Imputado a la factura{" "}
@@ -276,7 +297,7 @@ export default async function PurchaseInvoiceDetailPage({
               value={money(invoice.imp_total, invoice.moneda)}
               emphasize
             />
-            {canReadPayments && open && (
+            {showsBalance && open && (
               <>
                 <Row label="Pagado" value={money(open.paid, invoice.moneda)} />
                 {open.credited > 0 && (
@@ -297,19 +318,24 @@ export default async function PurchaseInvoiceDetailPage({
                 />
               </>
             )}
-            {canReadPayments && !open && (
+            {showsBalance && !open && (
               <>
                 <Row label="Pagado" value="—" />
                 <Row label="Saldo" value="—" />
               </>
             )}
           </dl>
-          {canReadPayments && (!open || !allocRes?.ok) && (
+          {showsBalance && !open ? (
             <p className="mt-2 text-xs text-muted-foreground">
-              {open
-                ? "No se pudieron leer las órdenes de pago imputadas."
-                : "No se pudieron leer los pagos."}
+              No se pudieron leer los pagos.
             </p>
+          ) : (
+            canReadPayments &&
+            !allocRes?.ok && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                No se pudieron leer las órdenes de pago imputadas.
+              </p>
+            )
           )}
         </div>
       </div>
