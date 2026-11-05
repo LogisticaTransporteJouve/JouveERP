@@ -29,6 +29,7 @@ import {
   useSetGuideCollapsed,
   useSetGuideItemDone,
 } from "../hooks/use-guide";
+import { useScope } from "@/components/providers/scope-provider";
 import { MANUAL_WINDOW } from "@/lib/manual/windows";
 
 import { guideForPath } from "../lib/route-guides";
@@ -58,6 +59,8 @@ function writeHint(collapsed: boolean) {
  *  checklist, collapsible and remembered per user. */
 export function SidebarGuide() {
   const pathname = usePathname();
+  // A fiscal-only user cannot open the guide (lib/manual/serve.ts).
+  const { locked } = useScope();
   const { setOpenMobile } = useSidebar();
   const { data } = useGuideState();
   const setCollapsed = useSetGuideCollapsed();
@@ -115,16 +118,20 @@ export function SidebarGuide() {
                     ))}
                   </ol>
                 )}
-                {/* The guide is static HTML the app serves, not a Next
+                {!locked && (
+                  <>
+                    {/* The guide is static HTML the app serves, not a Next
                     page: a plain link, in its own tab. */}
-                <a
-                  href={`/manual/para?ruta=${encodeURIComponent(pathname)}`}
-                  target={MANUAL_WINDOW}
-                  className="text-muted-foreground hover:text-sidebar-foreground flex items-center gap-1 underline-offset-4 hover:underline"
-                >
-                  <BookOpen className="size-3 shrink-0" />
-                  Ver los pasos en la guía
-                </a>
+                    <a
+                      href={`/manual/para?ruta=${encodeURIComponent(pathname)}`}
+                      target={MANUAL_WINDOW}
+                      className="text-muted-foreground hover:text-sidebar-foreground flex items-center gap-1 underline-offset-4 hover:underline"
+                    >
+                      <BookOpen className="size-3 shrink-0" />
+                      Ver los pasos en la guía
+                    </a>
+                  </>
+                )}
               </section>
             )}
             {items.length > 0 && (

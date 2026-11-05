@@ -31,6 +31,11 @@ generarse desde contenido tipado en `features/guide/manual/content/<capítulo>.t
   `lib/manual/windows.ts`) en vez de apilar pestañas; los enlaces de la guía a la app («Volver a
   JouveERP», «Abrir esta pantalla en JouveERP») van a la pestaña de la app (`jouve-app`, el nombre que
   la app le pone a su pestaña) y no reemplazan la guía. El layout funciona a media pantalla.
+- **Quién la ve**: todo usuario con un rol que vea el lado interno. La guía documenta el canal interno
+  (remitos internos, Otras ventas/compras), así que un usuario solo fiscal (Contador externo) recibe
+  403 en `/manual` y en `searchGuide`, y no ve «Guía de uso» ni el **?**; un usuario sin rol recibe
+  404 (`manualAccess`, `lib/manual/serve.ts`). Una versión solo fiscal de la guía queda para más
+  adelante.
 - **IA**: `searchGuide` en el registry (permiso `ai:chat`, solo lectura) devuelve las tareas con sus
   pasos, si el usuario puede hacerlas y el link. Ver `docs/ai-cfo.md`.
 

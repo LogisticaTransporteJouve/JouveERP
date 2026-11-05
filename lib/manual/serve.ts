@@ -1,5 +1,7 @@
 import path from "node:path";
 
+import { isFiscalOnly, type Access } from "@/lib/auth/permissions";
+
 // The user manual (docs/manual/, static HTML) as the app serves it at
 // /manual: which files a URL may name and how a page is adjusted to the
 // app's Content-Security-Policy (lib/security/csp.ts). The route handler is
@@ -59,4 +61,15 @@ export function adaptManualPage(html: string, nonce: string | null): string {
   );
   if (!nonce || !/^[A-Za-z0-9+/=_-]+$/.test(nonce)) return withoutFonts;
   return withoutFonts.replace(/<script(?=[\s>])/g, `<script nonce="${nonce}"`);
+}
+
+/**
+ * Who may read the guide. It documents the internal channel (remitos
+ * internos, Otras ventas/compras) that a fiscal-only user (the external
+ * accountant) must not learn about, so they are refused; a user with no role
+ * sees no module at all, so for them the guide does not exist.
+ */
+export function manualAccess(access: Access): "allowed" | "forbidden" | "none" {
+  if (access.roles.length === 0) return "none";
+  return isFiscalOnly(access) ? "forbidden" : "allowed";
 }
