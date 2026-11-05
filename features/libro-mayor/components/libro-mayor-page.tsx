@@ -6,7 +6,7 @@ import { useMemo, useState } from "react";
 
 import { ReadError } from "@/components/read-error";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import {
   Select,
   SelectContent,
@@ -86,20 +86,20 @@ export function LibroMayorPage() {
         </div>
         <div className="space-y-1">
           <label className="text-xs text-muted-foreground">Desde</label>
-          <Input
-            type="date"
+          <DatePicker
             value={from}
-            onChange={(e) => setFrom(e.target.value)}
+            onChange={setFrom}
             className="w-[160px]"
+            clearable
           />
         </div>
         <div className="space-y-1">
           <label className="text-xs text-muted-foreground">Hasta</label>
-          <Input
-            type="date"
+          <DatePicker
             value={to}
-            onChange={(e) => setTo(e.target.value)}
+            onChange={setTo}
             className="w-[160px]"
+            clearable
           />
         </div>
       </div>

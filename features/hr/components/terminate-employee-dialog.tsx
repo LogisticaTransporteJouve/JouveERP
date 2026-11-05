@@ -25,7 +25,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Textarea } from "@/components/ui/textarea";
 import { todayInAR } from "@/lib/format";
 
@@ -137,7 +137,7 @@ export function TerminateEmployeeDialog({ employee }: { employee: Employee }) {
                   <FormItem>
                     <FormLabel>Fecha de egreso</FormLabel>
                     <FormControl>
-                      <Input {...field} type="date" />
+                      <DatePicker {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

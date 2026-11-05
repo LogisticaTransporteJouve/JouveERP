@@ -12,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -194,12 +194,7 @@ export function RecordDisbursementDialog({
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label htmlFor="disb-date">Fecha</Label>
-                <Input
-                  id="disb-date"
-                  type="date"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                />
+                <DatePicker id="disb-date" value={date} onChange={setDate} />
               </div>
               <div className="space-y-1">
                 <Label htmlFor="disb-account">Cuenta</Label>

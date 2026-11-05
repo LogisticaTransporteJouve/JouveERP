@@ -2,7 +2,7 @@
 
 import { Suspense, useState } from "react";
 
-import { Input } from "@/components/ui/input";
+import { MonthPicker } from "@/components/ui/month-picker";
 import {
   Select,
   SelectContent,
@@ -225,14 +225,13 @@ export function HistoricTripsView({ currentMonth }: { currentMonth: string }) {
           referencia: no generan facturas, extras de chofer ni entran en la
           rentabilidad de flota, Gestión ni los libros.
         </p>
-        <Input
-          type="month"
+        <MonthPicker
           aria-label="Mes"
           className="w-44"
           value={month}
           max={currentMonth}
-          onChange={(e) => {
-            if (/^\d{4}-\d{2}$/.test(e.target.value)) setMonth(e.target.value);
+          onChange={(value) => {
+            if (/^\d{4}-\d{2}$/.test(value)) setMonth(value);
           }}
         />
       </div>

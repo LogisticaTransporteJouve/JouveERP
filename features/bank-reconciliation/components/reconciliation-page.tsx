@@ -22,7 +22,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
+import { MonthPicker } from "@/components/ui/month-picker";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -123,13 +123,11 @@ export function ReconciliationPage({
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="recon-month">Mes</Label>
-          <Input
+          <MonthPicker
             id="recon-month"
-            type="month"
             value={month}
-            onChange={(e) => {
-              if (/^\d{4}-\d{2}$/.test(e.target.value))
-                setMonth(e.target.value);
+            onChange={(value) => {
+              if (/^\d{4}-\d{2}$/.test(value)) setMonth(value);
             }}
           />
         </div>

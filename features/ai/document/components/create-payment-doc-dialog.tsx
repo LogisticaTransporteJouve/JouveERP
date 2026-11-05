@@ -19,6 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -225,12 +226,7 @@ export function CreatePaymentDocDialog({
             </div>
             <div className="space-y-1">
               <Label htmlFor="pd-fecha">{copy.dateLabel}</Label>
-              <Input
-                id="pd-fecha"
-                type="date"
-                value={fecha}
-                onChange={(e) => setFecha(e.target.value)}
-              />
+              <DatePicker id="pd-fecha" value={fecha} onChange={setFecha} />
             </div>
             <div className="space-y-1">
               <Label htmlFor="pd-importe">Importe</Label>

@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { todayInAR } from "@/lib/format";
@@ -94,11 +95,10 @@ export function IncreaseTariffsDialog({
           </div>
           <div className="space-y-1">
             <Label htmlFor="inc-from">Vigente desde</Label>
-            <Input
+            <DatePicker
               id="inc-from"
-              type="date"
               value={validFrom}
-              onChange={(e) => setValidFrom(e.target.value)}
+              onChange={setValidFrom}
             />
           </div>
         </div>

@@ -13,7 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+import { MonthPicker } from "@/components/ui/month-picker";
 import { Label } from "@/components/ui/label";
 import { arcaErrorText } from "@/lib/afip/arca-error-text";
 import { formatArgentineDate, formatArgentineDateTime } from "@/lib/format";
@@ -86,22 +86,20 @@ function SyncDialog({
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="arca-sync-from">Desde</Label>
-            <Input
+            <MonthPicker
               id="arca-sync-from"
-              type="month"
               value={fromMonth}
               max={month}
-              onChange={(e) => setFromMonth(e.target.value)}
+              onChange={setFromMonth}
             />
           </div>
           <div className="space-y-2">
             <Label htmlFor="arca-sync-to">Hasta</Label>
-            <Input
+            <MonthPicker
               id="arca-sync-to"
-              type="month"
               value={toMonth}
               max={month}
-              onChange={(e) => setToMonth(e.target.value)}
+              onChange={setToMonth}
             />
           </div>
         </div>

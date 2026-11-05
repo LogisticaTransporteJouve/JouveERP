@@ -13,7 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
@@ -215,20 +215,18 @@ export function FreightSettlementDialog({
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="fs-from">Desde</Label>
-              <Input
+              <DatePicker
                 id="fs-from"
-                type="date"
                 value={periodStart}
-                onChange={(e) => setPeriodStart(e.target.value)}
+                onChange={setPeriodStart}
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="fs-to">Hasta</Label>
-              <Input
+              <DatePicker
                 id="fs-to"
-                type="date"
                 value={periodEnd}
-                onChange={(e) => setPeriodEnd(e.target.value)}
+                onChange={setPeriodEnd}
               />
             </div>
           </div>
