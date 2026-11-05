@@ -137,13 +137,6 @@ export const issueInvoiceReconcile = inngest.createFunction(
       resend: await loadUnsentWithItems(),
     }));
 
-    const failedItemless = await step.run("fail-itemless", failItemlessDrafts);
-    if (failedItemless.length > 0) {
-      logger.warn("issue_invoice_reconcile.itemless_failed", {
-        invoice_ids: failedItemless,
-      });
-    }
-
     const outcomes: Record<string, number> = {};
     for (const row of stuck) {
       const { outcome, billsRemito } = await step.run(
@@ -177,6 +170,14 @@ export const issueInvoiceReconcile = inngest.createFunction(
           },
         })),
       );
+    }
+
+    // Last, so its failure does not hold back the work above.
+    const failedItemless = await step.run("fail-itemless", failItemlessDrafts);
+    if (failedItemless.length > 0) {
+      logger.warn("issue_invoice_reconcile.itemless_failed", {
+        invoice_ids: failedItemless,
+      });
     }
 
     logger.info("issue_invoice_reconcile.done", {
