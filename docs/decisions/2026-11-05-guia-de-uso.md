@@ -26,6 +26,11 @@ generarse desde contenido tipado en `features/guide/manual/content/<capítulo>.t
   («Ayuda de esta pantalla») abre `/manual/para?ruta=<pantalla>`, que redirige a la sección de esa ruta
   (la más profunda que la cubra; si no hay, al inicio); la guía del sidebar enlaza igual. Búsqueda
   dentro de la guía (`assets/guide.js`, tecla `/`).
+- **Pestaña propia**: la guía se usa abierta al lado de la app. Todos los enlaces a la guía (sidebar,
+  **?**, guía del sidebar, links del asistente) abren la misma pestaña con nombre (`jouve-manual`,
+  `lib/manual/windows.ts`) en vez de apilar pestañas; los enlaces de la guía a la app («Volver a
+  JouveERP», «Abrir esta pantalla en JouveERP») van a la pestaña de la app (`jouve-app`, el nombre que
+  la app le pone a su pestaña) y no reemplazan la guía. El layout funciona a media pantalla.
 - **IA**: `searchGuide` en el registry (permiso `ai:chat`, solo lectura) devuelve las tareas con sus
   pasos, si el usuario puede hacerlas y el link. Ver `docs/ai-cfo.md`.
 
