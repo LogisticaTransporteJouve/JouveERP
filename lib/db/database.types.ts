@@ -9190,6 +9190,14 @@ export type Database = {
       audit_event_types: { Args: never; Returns: string[] }
       backfill_check_channels: { Args: never; Returns: undefined }
       billed_remito_blocker: { Args: { p_remito_id: string }; Returns: string }
+      billing_invoice_is_void: {
+        Args: { p_invoice_id: string }
+        Returns: boolean
+      }
+      billing_void_invoice_ids: {
+        Args: { p_invoice_ids: string[] }
+        Returns: string[]
+      }
       bootstrap_first_owner: { Args: { p_user_id: string }; Returns: boolean }
       build_invoice_journal_lines: {
         Args: {
@@ -9263,6 +9271,13 @@ export type Database = {
           receipt_channel_id: string
         }[]
       }
+      claim_shipment_for_invoicing: {
+        Args: { p_shipment_id: string }
+        Returns: {
+          claimed: boolean
+          freed_invoice_id: string
+        }[]
+      }
       claim_storage_billing_period: {
         Args: {
           p_channel_id: string
@@ -9271,6 +9286,18 @@ export type Database = {
           p_period_start: string
         }
         Returns: string
+      }
+      claim_storage_billing_period_with_relinks: {
+        Args: {
+          p_channel_id: string
+          p_client_id: string
+          p_period_end: string
+          p_period_start: string
+        }
+        Returns: {
+          relinked_run_ids: string[]
+          run_id: string
+        }[]
       }
       cleanup_padron_cache: { Args: { p_older_than?: string }; Returns: number }
       cleanup_rate_limit_buckets: {

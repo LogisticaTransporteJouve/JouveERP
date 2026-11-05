@@ -13,28 +13,40 @@ const SHIPMENT_ID = "00000000-0000-4000-8000-000000000001";
 const issue = vi.fn();
 let shipmentChannel: string | null = "jouve_internal";
 let claimed = true;
+// The void invoice claim_shipment_for_invoicing unlinked, if any.
+let freedInvoice: string | null = null;
 // Invoices already issued under the carga's keys.
 let priorInvoices: { id: string; status: string; idempotency_key: string }[] =
   [];
 // What the live one bills.
 let priorBills = { client_id: "c1", imp_neto: 1000 };
-// What the invoice reads as when its link is refused.
-let invoiceStatus = "emitting";
+// Invoices billing_invoice_is_void answers true for.
+let voidInvoices = new Set<string>();
 let link: { data: unknown; error: unknown } = { data: null, error: null };
 let fake = recordingSupabase(respond);
 const key = (attempt: number) =>
   sourceInvoiceKey("shipment_freight", SHIPMENT_ID, attempt);
 
 function respond(call: RecordedCall) {
-  if (call.table === "shipments" && call.op === "update") {
-    const isClaim =
+  if (call.table === "claim_shipment_for_invoicing") {
+    return {
+      data: [{ claimed, freed_invoice_id: freedInvoice }],
+      error: null,
+    };
+  }
+  if (call.table === "billing_invoice_is_void") {
+    const id =
       typeof call.payload === "object" &&
       call.payload !== null &&
-      "invoicing_claimed_at" in call.payload &&
-      call.payload.invoicing_claimed_at !== null;
-    if (isClaim) {
-      return { data: claimed ? [{ id: SHIPMENT_ID }] : [], error: null };
-    }
+      "p_invoice_id" in call.payload
+        ? call.payload.p_invoice_id
+        : null;
+    return {
+      data: typeof id === "string" && voidInvoices.has(id),
+      error: null,
+    };
+  }
+  if (call.table === "shipments" && call.op === "update") {
     if (
       typeof call.payload === "object" &&
       call.payload !== null &&
@@ -64,7 +76,7 @@ function respond(call: RecordedCall) {
   if (call.table === "invoices") {
     return filterValue(call, "eq", "id") === undefined
       ? { data: priorInvoices, error: null }
-      : { data: { ...priorBills, status: invoiceStatus }, error: null };
+      : { data: priorBills, error: null };
   }
   return { data: null, error: null };
 }
@@ -81,7 +93,10 @@ vi.mock("@/lib/supabase/server", () => ({
 vi.mock("@/lib/channels", () => ({
   getActiveInvoicingChannels: async () => [],
 }));
-vi.mock("@/lib/actions/audit", () => ({ logAudit: vi.fn() }));
+const logAudit = vi.fn();
+vi.mock("@/lib/actions/audit", () => ({
+  logAudit: (...args: unknown[]) => logAudit(...args),
+}));
 vi.mock("@/features/invoices/actions/invoices-actions", () => ({
   issueFiscalInvoiceAction: (input: unknown) => issue(input),
 }));
@@ -94,10 +109,12 @@ const updates = () =>
 beforeEach(() => {
   issue.mockReset();
   issue.mockResolvedValue({ ok: true, data: { id: "inv1" } });
+  logAudit.mockReset();
   claimed = true;
+  freedInvoice = null;
   priorInvoices = [];
   priorBills = { client_id: "c1", imp_neto: 1000 };
-  invoiceStatus = "emitting";
+  voidInvoices = new Set();
   link = { data: null, error: null };
   fake = recordingSupabase(respond);
 });
@@ -207,8 +224,45 @@ describe("invoiceFreightAction", () => {
     });
     expect(res.ok).toBe(false);
     expect(issue).not.toHaveBeenCalled();
-    const claim = updates()[0];
-    expect(claim && filterValue(claim, "is", "invoice_id")).toBeNull();
+    expect(
+      fake.calls.find((c) => c.table === "claim_shipment_for_invoicing")
+        ?.payload,
+    ).toEqual({ p_shipment_id: SHIPMENT_ID });
+    expect(updates()).toHaveLength(0);
+  });
+
+  it("audits the void invoice the claim unlinked, then bills the carga again", async () => {
+    shipmentChannel = null;
+    freedInvoice = "inv-credited";
+    const res = await invoiceFreightAction({
+      shipmentId: SHIPMENT_ID,
+      channel_id: "jouve_fiscal",
+      punto_venta: 3,
+    });
+    expect(res).toEqual({ ok: true, data: { invoiceId: "inv1" } });
+    expect(logAudit).toHaveBeenCalledWith(
+      "shipment.invoice_unlinked",
+      "u1",
+      { invoice_id: "inv-credited", reason: "invoice_void" },
+      SHIPMENT_ID,
+    );
+  });
+
+  it("issues under the next key when the earlier factura is credited in full", async () => {
+    shipmentChannel = null;
+    priorInvoices = [
+      { id: "inv0", status: "emitted", idempotency_key: key(0) },
+    ];
+    voidInvoices = new Set(["inv0"]);
+    const res = await invoiceFreightAction({
+      shipmentId: SHIPMENT_ID,
+      channel_id: "jouve_fiscal",
+      punto_venta: 3,
+    });
+    expect(res.ok).toBe(true);
+    expect(issue).toHaveBeenCalledWith(
+      expect.objectContaining({ idempotency_key: key(1) }),
+    );
   });
 
   it("frees the carga when the link finds its invoice void", async () => {
@@ -217,7 +271,7 @@ describe("invoiceFreightAction", () => {
       data: null,
       error: { message: "falló", hint: "jouve_guard", code: "55006" },
     };
-    invoiceStatus = "failed";
+    voidInvoices = new Set(["inv1"]);
     const res = await invoiceFreightAction({
       shipmentId: SHIPMENT_ID,
       channel_id: "jouve_fiscal",
