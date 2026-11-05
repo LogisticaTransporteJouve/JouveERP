@@ -706,7 +706,7 @@ export const platformPage: GuidePage = {
       routes: ["/files"],
       permission: "files:read",
       intro: [
-        "Todos los archivos que podés ver en un solo lugar: adjuntos de comprobantes, compras, recibos, órdenes de pago, cheques, clientes, proveedores, movimientos de caja, combustible e impuestos, documentos escaneados, documentos de empleados y de flota, y adjuntos de tus chats con la IA.",
+        "Todos los archivos que podés ver en un solo lugar: adjuntos de comprobantes, compras, recibos, órdenes de pago, clientes, proveedores, combustible e impuestos, documentos escaneados, documentos de empleados y de flota, y adjuntos de tus chats con la IA.",
         "La lista muestra {{Archivo}} (nombre y tamaño), {{Origen}} (a qué registro pertenece, con link), {{Subido por}} y {{Fecha}}, los más nuevos primero. Se carga más al bajar.",
       ],
       screens: [
@@ -744,7 +744,7 @@ export const platformPage: GuidePage = {
         {
           title: "Qué archivos ves",
           body: [
-            "Ves los archivos de los módulos que podés leer: por ejemplo, sin acceso a Compras no aparecen las facturas de compra. Los documentos escaneados y los adjuntos del chat con la IA son de quien los subió; solo los usuarios con administración de IA ven los de todos.",
+            "Un archivo se ve solo a través de un registro que podés leer: por ejemplo, sin acceso a Compras no aparecen las facturas de compra. Los documentos escaneados y los adjuntos del chat con la IA los ve solo quien los subió, además de owner y admin.",
             "Los archivos se suben desde la pantalla de cada registro ([[#adjuntar-archivo]]), no desde acá.",
           ],
         },
@@ -792,14 +792,14 @@ export const platformPage: GuidePage = {
           id: "adjuntar-archivo",
           title: "Adjuntar un archivo a un registro",
           summary:
-            "En la ficha de un comprobante, compra, recibo, orden de pago, cliente o proveedor (y otros registros), la sección de adjuntos.",
+            "En la ficha de un comprobante, compra, recibo, orden de pago, cliente o proveedor, o en una carga de combustible o un impuesto, la sección de adjuntos. Los cheques y los movimientos de caja no tienen zona para subir archivos.",
           permission: "files:write",
           prerequisites: [
             "Además, el permiso de escritura del registro (por ejemplo `purchase_invoices:write` para una compra): sin él, la subida se rechaza. En clientes y proveedores, sin ese permiso no aparece la zona para subir; en una compra anulada tampoco.",
           ],
           steps: [
             "Abrí el registro y bajá hasta sus adjuntos.",
-            "Si el registro admite varios tipos de adjunto, elegí el tipo en {{Tipo:}} (por ejemplo {{Comprobante}}, {{Remito}}, {{Comprobante de pago}}, {{Foto del cheque}}, {{Otro}}).",
+            "Si el registro admite varios tipos de adjunto, elegí el tipo en {{Tipo:}} (por ejemplo {{Comprobante}}, {{Remito}}, {{Comprobante de pago}}, {{Otro}}).",
             "Arrastrá el archivo al recuadro, o hacé clic en {{Elegir archivo}}. En el celular también podés usar {{Tomar foto}}.",
           ],
           after: [
@@ -836,7 +836,7 @@ export const platformPage: GuidePage = {
           title: "Borrar un adjunto",
           permission: "files:write",
           prerequisites: [
-            "En la ficha de clientes y proveedores, además, poder editarlos.",
+            "Además, el permiso de escritura del registro (como para adjuntar), y haber adjuntado vos ese archivo, salvo que seas owner o admin.",
           ],
           screens: [
             {
@@ -856,7 +856,7 @@ export const platformPage: GuidePage = {
           ],
           after: [
             "Aparece «Adjunto eliminado.»: el archivo deja de estar asociado al registro y la baja queda en su auditoría.",
-            "Si ningún otro registro lo usa, el archivo se borra también del almacenamiento cuando lo hace quien lo subió o un owner o admin; si no, lo elimina después la limpieza automática.",
+            "La baja es inmediata: si ningún otro registro usa el archivo, se borra también en ese momento.",
           ],
           errors: [
             {
@@ -866,6 +866,10 @@ export const platformPage: GuidePage = {
             {
               message: "Adjunto no encontrado.",
               fix: "Otro usuario ya lo borró: actualizá la pantalla.",
+            },
+            {
+              message: "Solo quien lo adjuntó o un admin lo quita.",
+              fix: "Pedile la baja a quien lo adjuntó o a un owner o admin.",
             },
           ],
           related: ["adjuntar-archivo"],
