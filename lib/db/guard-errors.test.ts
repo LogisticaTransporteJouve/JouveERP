@@ -185,6 +185,7 @@ const GUARDS = [
   "guard_shipment_invoice",
   "guard_billed_shipment",
   "guard_check_import_run",
+  "guard_link_file_visible",
 ];
 
 describe("guard hints in migrations", () => {
