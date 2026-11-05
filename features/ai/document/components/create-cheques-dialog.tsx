@@ -13,6 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -237,17 +238,16 @@ export function CreateChequesDialog({
                   />
                 </Field>
                 <Field label="Emisión">
-                  <Input
-                    type="date"
+                  <DatePicker
                     value={r.fecha}
-                    onChange={(e) => update(i, { fecha: e.target.value })}
+                    onChange={(value) => update(i, { fecha: value })}
                   />
                 </Field>
                 <Field label="Pago / vto">
-                  <Input
-                    type="date"
+                  <DatePicker
                     value={r.fecha_pago}
-                    onChange={(e) => update(i, { fecha_pago: e.target.value })}
+                    onChange={(value) => update(i, { fecha_pago: value })}
+                    clearable
                   />
                 </Field>
                 <Field label="Moneda">

@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { MoneyInput } from "@/components/money-input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -312,20 +313,19 @@ function GarnishmentDialog({
           </div>
           <div className="space-y-2">
             <Label htmlFor="garnishment-from">Vigente desde</Label>
-            <Input
+            <DatePicker
               id="garnishment-from"
-              type="date"
               value={draft.active_from}
-              onChange={(e) => set("active_from", e.target.value)}
+              onChange={(value) => set("active_from", value)}
             />
           </div>
           <div className="space-y-2">
             <Label htmlFor="garnishment-to">Hasta (opcional)</Label>
-            <Input
+            <DatePicker
               id="garnishment-to"
-              type="date"
               value={draft.active_to}
-              onChange={(e) => set("active_to", e.target.value)}
+              onChange={(value) => set("active_to", value)}
+              clearable
             />
           </div>
           <div className="space-y-2 sm:col-span-2">

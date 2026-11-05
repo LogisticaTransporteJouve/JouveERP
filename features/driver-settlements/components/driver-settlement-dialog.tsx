@@ -16,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -261,12 +262,7 @@ export function DriverSettlementDialog({
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="ds-date">Fecha</Label>
-              <Input
-                id="ds-date"
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-              />
+              <DatePicker id="ds-date" value={date} onChange={setDate} />
             </div>
           </div>
 
@@ -377,15 +373,15 @@ export function DriverSettlementDialog({
                                       })
                                     }
                                   />
-                                  <Input
-                                    type="date"
+                                  <DatePicker
                                     aria-label="Fecha de pago del cheque"
                                     value={l.check_due_date}
-                                    onChange={(e) =>
+                                    onChange={(value) =>
                                       updateLine(r.shipment_id, l.key, {
-                                        check_due_date: e.target.value,
+                                        check_due_date: value,
                                       })
                                     }
+                                    clearable
                                   />
                                   <Input
                                     aria-label="Banco"

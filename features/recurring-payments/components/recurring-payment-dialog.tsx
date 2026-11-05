@@ -26,6 +26,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -267,7 +268,7 @@ export function RecurringPaymentDialog({
                   <FormItem>
                     <FormLabel>Próximo vencimiento</FormLabel>
                     <FormControl>
-                      <Input {...field} type="date" />
+                      <DatePicker {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -280,7 +281,7 @@ export function RecurringPaymentDialog({
                   <FormItem>
                     <FormLabel>Fin (opcional)</FormLabel>
                     <FormControl>
-                      <Input {...field} type="date" />
+                      <DatePicker {...field} clearable />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

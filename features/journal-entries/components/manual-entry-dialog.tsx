@@ -17,6 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -149,12 +150,7 @@ export function ManualEntryDialog({
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           <div className="space-y-1">
             <Label htmlFor="me-fecha">Fecha</Label>
-            <Input
-              id="me-fecha"
-              type="date"
-              value={fecha}
-              onChange={(e) => setFecha(e.target.value)}
-            />
+            <DatePicker id="me-fecha" value={fecha} onChange={setFecha} />
           </div>
           <div className="space-y-1">
             <Label htmlFor="me-canal">Canal fiscal (opcional)</Label>

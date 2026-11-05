@@ -6836,7 +6836,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name: string
-          slug: string
+          slug?: string
           updated_at?: string
         }
         Update: {

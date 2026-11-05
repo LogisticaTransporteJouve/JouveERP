@@ -13,7 +13,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { formatArgentineDate, formatMoney, todayInAR } from "@/lib/format";
 import { paymentCurrencyOf } from "@/lib/fx";
@@ -195,14 +195,12 @@ export function LateInterestPage({
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="space-y-2">
           <Label htmlFor="li-as-of">Calcular hasta</Label>
-          <Input
+          <DatePicker
             id="li-as-of"
-            type="date"
             className="w-44"
             value={asOf}
             max={today}
-            onChange={(e) => {
-              const next = e.target.value;
+            onChange={(next) => {
               if (/^\d{4}-\d{2}-\d{2}$/.test(next) && next <= today) {
                 startTransition(() => setAsOf(next));
               }

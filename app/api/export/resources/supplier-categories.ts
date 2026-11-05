@@ -8,8 +8,7 @@ import { dateCell, endOfDay, type Exporter } from "../shared";
 
 // Portrait A4 ≈ 547pt of usable width.
 const COLUMNS: TableReportColumn[] = [
-  { header: "Nombre", width: 207 },
-  { header: "Slug", width: 160, mono: true },
+  { header: "Nombre", width: 367 },
   { header: "Estado", width: 90 },
   { header: "Alta", width: 90, mono: true },
 ];
@@ -24,7 +23,7 @@ export const supplierCategories: Exporter = {
     const build = () => {
       let query = supabase
         .from("supplier_categories")
-        .select("name, slug, is_active, created_at")
+        .select("name, is_active, created_at")
         .order("name", { ascending: true })
         .order("id", { ascending: true });
 
@@ -39,7 +38,6 @@ export const supplierCategories: Exporter = {
 
     const rows = (data ?? []).map((row) => [
       row.name,
-      row.slug,
       row.is_active ? "Activa" : "Inactiva",
       dateCell(row.created_at),
     ]);

@@ -14,7 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { amountToInput, formatMoney, parseArAmount } from "@/lib/format";
 
@@ -142,12 +142,7 @@ export function EditInstallmentDialog({
             </div>
             <div className="space-y-1">
               <Label htmlFor="edit-due">Vencimiento</Label>
-              <Input
-                id="edit-due"
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-              />
+              <DatePicker id="edit-due" value={dueDate} onChange={setDueDate} />
             </div>
           </div>
           <div className="flex items-center gap-2">

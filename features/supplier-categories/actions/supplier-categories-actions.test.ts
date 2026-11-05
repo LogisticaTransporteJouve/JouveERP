@@ -77,14 +77,13 @@ describe("createSupplierCategoryAction", () => {
     expect(ilike).toHaveBeenCalledWith("name", "100\\%\\_ok");
   });
 
-  it("creates the trimmed name with its slug and audits it", async () => {
+  it("creates the trimmed name and audits it", async () => {
     expect(await createSupplierCategoryAction({ name: " Peajes " })).toEqual({
       ok: true,
       data: { id: "cat-new" },
     });
     expect(insert).toHaveBeenCalledWith({
       name: "Peajes",
-      slug: "peajes",
       is_active: true,
     });
     expect(logAudit).toHaveBeenCalledWith(

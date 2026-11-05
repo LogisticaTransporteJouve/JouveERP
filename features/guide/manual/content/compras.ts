@@ -587,7 +587,7 @@ export const purchasesPage: GuidePage = {
       permission: "suppliers:read",
       intro: [
         "Las categorías clasifican a los proveedores (por ejemplo Combustible, Repuestos, Peajes) para filtrar la lista de proveedores. Son las mismas en Compras y en Otras compras.",
-        "Columnas: {{Nombre}}, {{Slug}} (identificador interno) y {{Estado}} ({{Activa}} o {{Inactiva}}). Cada fila tiene el menú {{Acciones}} con {{Editar}} y {{Borrar}}. {{Exportar}} descarga la lista.",
+        "Columnas: {{Nombre}} y {{Estado}} ({{Activa}} o {{Inactiva}}). Cada fila tiene el menú {{Acciones}} con {{Editar}} y {{Borrar}}. {{Exportar}} descarga la lista.",
       ],
       tasks: [
         {
@@ -607,24 +607,17 @@ export const purchasesPage: GuidePage = {
                   value: "Combustible",
                   marker: 2,
                 },
-                {
-                  label: "Slug",
-                  kind: "input",
-                  value: "combustible",
-                  marker: 3,
-                },
                 { label: "Activa", kind: "switch", value: "sí" },
               ],
               footer: [
                 { label: "Cancelar", variant: "ghost" },
-                { label: "Crear", variant: "primary", marker: 4 },
+                { label: "Crear", variant: "primary", marker: 3 },
               ],
             },
           ],
           steps: [
             "En [[/suppliers/categories]], hacé clic en {{Nueva categoría}}.",
             "Escribí el {{Nombre}} (hasta 60 caracteres).",
-            "El {{Slug}} se completa solo desde el nombre; cambialo solo si necesitás otro (minúsculas, números y _, empezando con letra).",
             "Dejá {{Activa}} encendido y hacé clic en {{Crear}}.",
           ],
           after: [
@@ -635,21 +628,12 @@ export const purchasesPage: GuidePage = {
             { message: "Ingresá un nombre.", fix: "Escribí el nombre." },
             { message: "Máximo 60 caracteres.", fix: "Acortá el nombre." },
             {
-              message: "El nombre necesita al menos una letra o un número.",
-              fix: "Usá un nombre con letras o números.",
-            },
-            {
-              message:
-                "Solo letras minúsculas, números y _. Debe empezar con letra.",
-              fix: "Corregí el slug o borralo para que se genere solo.",
-            },
-            {
               message: 'Ya existe la categoría "…".',
               fix: "Usá la categoría existente (el nombre se compara sin mayúsculas).",
             },
             {
-              message: "Ya existe una categoría con ese nombre o slug.",
-              fix: "Elegí otro nombre o slug.",
+              message: "Ya existe una categoría con ese nombre.",
+              fix: "Elegí otro nombre.",
             },
             {
               message: "No tenés permiso para crear categorías.",
@@ -665,7 +649,7 @@ export const purchasesPage: GuidePage = {
           permission: "suppliers:write",
           steps: [
             "En la fila de la categoría, abrí el menú {{Acciones}} y elegí {{Editar}}.",
-            "Cambiá {{Nombre}} o {{Slug}}, o apagá {{Activa}} para que deje de ofrecerse al elegir categoría en un proveedor.",
+            "Cambiá {{Nombre}}, o apagá {{Activa}} para que deje de ofrecerse al elegir categoría en un proveedor.",
             "Hacé clic en {{Guardar cambios}}.",
           ],
           after: [

@@ -13,7 +13,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
+import { MonthPicker } from "@/components/ui/month-picker";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -197,15 +197,14 @@ export function VehicleKmView({
             recuerda el día 1 y avisa el día 5 si falta.
           </p>
         </div>
-        <Input
-          type="month"
+        <MonthPicker
           aria-label="Mes"
           className="w-44"
           value={period}
           max={initialPeriod}
-          onChange={(e) => {
-            if (/^\d{4}-\d{2}$/.test(e.target.value)) {
-              setPeriod(e.target.value);
+          onChange={(value) => {
+            if (/^\d{4}-\d{2}$/.test(value)) {
+              setPeriod(value);
             }
           }}
         />

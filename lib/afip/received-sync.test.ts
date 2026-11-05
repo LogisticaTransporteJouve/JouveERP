@@ -30,11 +30,16 @@ const supabase = {
   }),
 } as never;
 const COMPANY = "30711111118";
+const sleeps: number[] = [];
+const noSleep = async (ms: number) => {
+  sleeps.push(ms);
+};
 const voucher = { kind: "factura" } as never;
 
 beforeEach(() => {
   vi.clearAllMocks();
   marks.length = 0;
+  sleeps.length = 0;
   status.mockResolvedValue({
     state: "ok",
     cuit: "20111111112",
@@ -71,12 +76,15 @@ describe("runReceivedSync", () => {
     const queryReceived = vi.fn(async () => ({
       vouchers: [voucher],
       skippedByReason: { bad_cuit: 1 },
+      skipped: [
+        { reason: "bad_cuit" as const, ref: "tipo 1 · 00003-00000007" },
+      ],
     }));
     const signIn = vi.fn(async () => ({ queryReceived }));
     const out = await runReceivedSync(
       supabase,
       { from: "2026-10-15", to: "2026-11-04" },
-      { representedCuit: COMPANY, signIn },
+      { representedCuit: COMPANY, sleep: noSleep, signIn },
     );
     expect(signIn).toHaveBeenCalledTimes(1);
     expect(signIn).toHaveBeenCalledWith({
@@ -100,6 +108,18 @@ describe("runReceivedSync", () => {
       outcome: "done",
       counts: { inserted: 2, unsupported: 0, alreadyInTray: 4, linked: 0 },
       skippedRows: 2,
+      skipped: [
+        {
+          month: "2026-10",
+          reason: "bad_cuit",
+          ref: "tipo 1 · 00003-00000007",
+        },
+        {
+          month: "2026-11",
+          reason: "bad_cuit",
+          ref: "tipo 1 · 00003-00000007",
+        },
+      ],
       failedMonths: {},
     });
     // The tray follows the run: started, then finished with this result.
@@ -118,6 +138,7 @@ describe("runReceivedSync", () => {
         { from: "2026-11-01", to: "2026-11-04" },
         {
           representedCuit: COMPANY,
+          sleep: noSleep,
           signIn,
         },
       ),
@@ -133,6 +154,7 @@ describe("runReceivedSync", () => {
         { from: "2026-11-01", to: "2026-11-04" },
         {
           representedCuit: COMPANY,
+          sleep: noSleep,
           signIn,
         },
       ),
@@ -148,7 +170,7 @@ describe("runReceivedSync", () => {
     const out = await runReceivedSync(
       supabase,
       { from: "2026-11-01", to: "2026-11-04" },
-      { representedCuit: COMPANY, signIn },
+      { representedCuit: COMPANY, sleep: noSleep, signIn },
     );
     expect(out).toEqual({
       outcome: "sign_in_failed",
@@ -166,12 +188,20 @@ describe("runReceivedSync", () => {
     const queryReceived = vi
       .fn()
       .mockRejectedValueOnce(new ArcaRobotError("TOO_MANY", "x"))
-      .mockResolvedValueOnce({ vouchers: [voucher], skippedByReason: {} })
+      .mockResolvedValueOnce({
+        vouchers: [voucher],
+        skippedByReason: {},
+        skipped: [],
+      })
       .mockRejectedValueOnce(new ArcaRobotError("NETWORK", "x"));
     const out = await runReceivedSync(
       supabase,
       { from: "2026-08-01", to: "2026-11-30" },
-      { representedCuit: COMPANY, signIn: async () => ({ queryReceived }) },
+      {
+        representedCuit: COMPANY,
+        sleep: noSleep,
+        signIn: async () => ({ queryReceived }),
+      },
     );
     expect(queryReceived).toHaveBeenCalledTimes(3);
     expect(out).toMatchObject({
@@ -193,6 +223,7 @@ describe("runReceivedSync", () => {
         { from: "2026-11-01", to: "2026-11-04" },
         {
           representedCuit: COMPANY,
+          sleep: noSleep,
           signIn: async () => {
             throw new ArcaRobotError("SIGN_IN_FAILED", "x", "clave");
           },
@@ -209,13 +240,14 @@ describe("runReceivedSync", () => {
     let t = 0;
     const queryReceived = vi.fn(async () => {
       t += 150_000;
-      return { vouchers: [], skippedByReason: {} };
+      return { vouchers: [], skippedByReason: {}, skipped: [] };
     });
     const out = await runReceivedSync(
       supabase,
       { from: "2026-08-01", to: "2026-11-30" },
       {
         representedCuit: COMPANY,
+        sleep: noSleep,
         signIn: async () => ({ queryReceived }),
         now: () => t,
       },
@@ -233,6 +265,7 @@ describe("runReceivedSync", () => {
       { from: "2026-11-01", to: "2026-11-04" },
       {
         representedCuit: COMPANY,
+        sleep: noSleep,
         signIn: async () => {
           throw new ArcaRobotError("SIGN_IN_FAILED", "captcha");
         },
@@ -247,12 +280,14 @@ describe("runReceivedSync", () => {
     const queryReceived = vi.fn(async () => ({
       vouchers: [],
       skippedByReason: {},
+      skipped: [],
     }));
     const out = await runReceivedSync(
       supabase,
       { from: "2026-10-01", to: "2026-11-30" },
       {
         representedCuit: COMPANY,
+        sleep: noSleep,
         signIn: async () => {
           t += 210_000;
           return { queryReceived };
@@ -274,10 +309,12 @@ describe("runReceivedSync", () => {
         { from: "2026-11-01", to: "2026-11-04" },
         {
           representedCuit: COMPANY,
+          sleep: noSleep,
           signIn: async () => ({
             queryReceived: async () => ({
               vouchers: [voucher],
               skippedByReason: {},
+              skipped: [],
             }),
           }),
         },
@@ -295,7 +332,7 @@ describe("runReceivedSync", () => {
       await runReceivedSync(
         supabase,
         { from: "2026-11-01", to: "2026-11-04" },
-        { representedCuit: COMPANY, signIn: vi.fn() },
+        { representedCuit: COMPANY, sleep: noSleep, signIn: vi.fn() },
       ),
     ).toEqual({ outcome: "skipped", reason: "read_failed" });
     password.mockResolvedValueOnce(null);
@@ -303,7 +340,7 @@ describe("runReceivedSync", () => {
       await runReceivedSync(
         supabase,
         { from: "2026-11-01", to: "2026-11-04" },
-        { representedCuit: COMPANY, signIn: vi.fn() },
+        { representedCuit: COMPANY, sleep: noSleep, signIn: vi.fn() },
       ),
     ).toEqual({ outcome: "skipped", reason: "read_failed" });
   });
@@ -312,13 +349,24 @@ describe("runReceivedSync", () => {
     const queryReceived = vi
       .fn()
       .mockRejectedValueOnce(new ArcaRobotError("QUERY_FAILED", "x"))
-      .mockResolvedValueOnce({ vouchers: [voucher], skippedByReason: {} });
+      .mockRejectedValueOnce(new ArcaRobotError("QUERY_FAILED", "x"))
+      .mockRejectedValueOnce(new ArcaRobotError("QUERY_FAILED", "x"))
+      .mockResolvedValueOnce({
+        vouchers: [voucher],
+        skippedByReason: {},
+        skipped: [],
+      });
     const out = await runReceivedSync(
       supabase,
       { from: "2026-10-01", to: "2026-11-30" },
-      { representedCuit: COMPANY, signIn: async () => ({ queryReceived }) },
+      {
+        representedCuit: COMPANY,
+        sleep: noSleep,
+        signIn: async () => ({ queryReceived }),
+      },
     );
-    expect(queryReceived).toHaveBeenCalledTimes(2);
+    // The bad month is retried twice, then given up.
+    expect(queryReceived).toHaveBeenCalledTimes(4);
     expect(out).toMatchObject({
       counts: { inserted: 1 },
       failedMonths: { "2026-10": "QUERY_FAILED" },
@@ -331,6 +379,7 @@ describe("runReceivedSync", () => {
       { from: "2026-11-01", to: "2026-11-04" },
       {
         representedCuit: COMPANY,
+        sleep: noSleep,
         signIn: async () => {
           throw new ArcaRobotError("SIGN_IN_FAILED", "portal", "after_clave");
         },
@@ -341,6 +390,57 @@ describe("runReceivedSync", () => {
       p_ok: true,
       p_error_code: "",
       p_version: "2026-11-04T08:00:00Z",
+    });
+  });
+
+  it("pauses between months and retries a refused month with growing waits", async () => {
+    const queryReceived = vi
+      .fn()
+      .mockResolvedValueOnce({ vouchers: [], skippedByReason: {}, skipped: [] })
+      .mockRejectedValueOnce(
+        new ArcaRobotError("QUERY_REFUSED", "ARCA rechazó la consulta: x"),
+      )
+      .mockResolvedValueOnce({
+        vouchers: [voucher],
+        skippedByReason: {},
+        skipped: [],
+      });
+    const out = await runReceivedSync(
+      supabase,
+      { from: "2015-01-01", to: "2015-02-28" },
+      {
+        representedCuit: COMPANY,
+        sleep: noSleep,
+        signIn: async () => ({ queryReceived }),
+      },
+    );
+    expect(sleeps).toEqual([1_500, 3_000]);
+    // Both months were read and ingested (the ingest stub counts 1 each).
+    expect(out).toMatchObject({ counts: { inserted: 2 }, failedMonths: {} });
+  });
+
+  it("keeps ARCA's words for a month it kept refusing", async () => {
+    const queryReceived = vi
+      .fn()
+      .mockRejectedValue(
+        new ArcaRobotError(
+          "QUERY_REFUSED",
+          "ARCA rechazó la consulta: Fuera de rango",
+        ),
+      );
+    const out = await runReceivedSync(
+      supabase,
+      { from: "2015-01-01", to: "2015-01-31" },
+      {
+        representedCuit: COMPANY,
+        sleep: noSleep,
+        signIn: async () => ({ queryReceived }),
+      },
+    );
+    expect(queryReceived).toHaveBeenCalledTimes(3);
+    expect(out).toMatchObject({
+      failedMonths: { "2015-01": "QUERY_REFUSED" },
+      failedDetail: { "2015-01": "ARCA rechazó la consulta: Fuera de rango" },
     });
   });
 });

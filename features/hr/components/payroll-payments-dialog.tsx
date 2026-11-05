@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/form";
 import { MoneyInput } from "@/components/money-input";
 import { ReadError } from "@/components/read-error";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -495,7 +496,7 @@ function PaymentsBody({
                   <FormItem>
                     <FormLabel>Fecha</FormLabel>
                     <FormControl>
-                      <Input {...field} type="date" />
+                      <DatePicker {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

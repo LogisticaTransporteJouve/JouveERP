@@ -16,7 +16,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import {
   Select,
   SelectContent,
@@ -405,7 +405,7 @@ function NewLeaveForm({
               <FormItem>
                 <FormLabel>Desde</FormLabel>
                 <FormControl>
-                  <Input {...field} type="date" />
+                  <DatePicker {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -418,7 +418,7 @@ function NewLeaveForm({
               <FormItem>
                 <FormLabel>Hasta</FormLabel>
                 <FormControl>
-                  <Input {...field} type="date" />
+                  <DatePicker {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>

@@ -24,6 +24,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { formatInteger, formatPeriod, todayInAR } from "@/lib/format";
@@ -136,7 +137,7 @@ export function KmReadingDialog({
                   <FormItem>
                     <FormLabel>Fecha de lectura</FormLabel>
                     <FormControl>
-                      <Input {...field} type="date" max={todayInAR()} />
+                      <DatePicker {...field} max={todayInAR()} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

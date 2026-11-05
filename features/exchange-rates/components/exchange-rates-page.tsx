@@ -29,7 +29,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Textarea } from "@/components/ui/textarea";
 import { userCan, type Access } from "@/lib/auth/permissions";
 import { formatArgentineDate, parseArAmount } from "@/lib/format";
@@ -242,7 +242,7 @@ function ExchangeRateDialog({
                 <FormItem>
                   <FormLabel>Fecha</FormLabel>
                   <FormControl>
-                    <Input {...field} type="date" />
+                    <DatePicker {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

@@ -17,6 +17,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { MoneyInput } from "@/components/money-input";
+import { DatePicker } from "@/components/ui/date-picker";
+import { MonthPicker } from "@/components/ui/month-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -614,12 +616,7 @@ function ManualMovementDialog({
           </div>
           <div className="space-y-2">
             <Label htmlFor="manual-date">Fecha</Label>
-            <Input
-              id="manual-date"
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-            />
+            <DatePicker id="manual-date" value={date} onChange={setDate} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="manual-plan">Plan (opcional)</Label>
@@ -766,11 +763,10 @@ function PlanDialog({
           </div>
           <div className="space-y-2">
             <Label htmlFor="plan-start">Primer mes</Label>
-            <Input
+            <MonthPicker
               id="plan-start"
-              type="month"
               value={startMonth}
-              onChange={(e) => setStartMonth(e.target.value)}
+              onChange={setStartMonth}
             />
           </div>
           <div className="space-y-2">
