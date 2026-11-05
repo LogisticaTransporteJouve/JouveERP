@@ -15,6 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
+import { userCan, type Access } from "@/lib/auth/permissions";
 
 import {
   useDeleteWarehouse,
@@ -26,7 +27,10 @@ import type { Warehouse } from "../schema";
 import { StorageAreasDialog } from "./storage-areas-dialog";
 import { WarehouseDialog } from "./warehouse-dialog";
 
-export function WarehousesTable() {
+export function WarehousesTable({ actorAccess }: { actorAccess: Access }) {
+  // The permission every warehouse and storage-area write action checks
+  // («Activo» and the «Áreas» editor included).
+  const canWrite = userCan(actorAccess, "warehouses:write");
   const { data: items } = useWarehouses();
   const deleteMut = useDeleteWarehouse();
   const toggleMut = useSetWarehouseActive();
@@ -79,6 +83,7 @@ export function WarehousesTable() {
         cell: ({ row }) => (
           <Switch
             checked={row.original.is_active}
+            disabled={!canWrite}
             onCheckedChange={(v) =>
               toggleMut.mutate(
                 { id: row.original.id, is_active: v },
@@ -94,39 +99,40 @@ export function WarehousesTable() {
         header: "",
         enableSorting: false,
         meta: { headerClassName: "w-12" },
-        cell: ({ row }) => (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <MoreHorizontal className="size-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onClick={() =>
-                  setDialog({ mode: "edit", warehouse: row.original })
-                }
-              >
-                <Pencil className="size-4" />
-                Editar
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setAreasFor(row.original)}>
-                <LayoutGrid className="size-4" />
-                Áreas
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="text-destructive"
-                onClick={() => handleDelete(row.original)}
-              >
-                <Trash2 className="size-4" />
-                Borrar
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ),
+        cell: ({ row }) =>
+          canWrite && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" aria-label="Acciones">
+                  <MoreHorizontal className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={() =>
+                    setDialog({ mode: "edit", warehouse: row.original })
+                  }
+                >
+                  <Pencil className="size-4" />
+                  Editar
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setAreasFor(row.original)}>
+                  <LayoutGrid className="size-4" />
+                  Áreas
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="text-destructive"
+                  onClick={() => handleDelete(row.original)}
+                >
+                  <Trash2 className="size-4" />
+                  Borrar
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ),
       },
     ];
-  }, [confirm, deleteMut, toggleMut]);
+  }, [canWrite, confirm, deleteMut, toggleMut]);
 
   return (
     <>
@@ -139,10 +145,12 @@ export function WarehousesTable() {
         </div>
         <div className="flex items-center gap-2">
           <ExportButton resource="warehouses" />
-          <Button onClick={() => setDialog({ mode: "create" })}>
-            <Plus />
-            Nuevo depósito
-          </Button>
+          {canWrite && (
+            <Button onClick={() => setDialog({ mode: "create" })}>
+              <Plus />
+              Nuevo depósito
+            </Button>
+          )}
         </div>
       </div>
 
@@ -153,7 +161,7 @@ export function WarehousesTable() {
         emptyMessage="Sin depósitos. Agregá el primero."
       />
 
-      {dialog && (
+      {canWrite && dialog && (
         <WarehouseDialog
           mode={dialog.mode}
           warehouse={dialog.mode === "edit" ? dialog.warehouse : undefined}
@@ -164,7 +172,7 @@ export function WarehousesTable() {
         />
       )}
 
-      {areasFor && (
+      {canWrite && areasFor && (
         <StorageAreasDialog
           warehouse={areasFor}
           open={areasFor !== null}

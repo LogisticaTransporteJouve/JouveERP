@@ -28,7 +28,7 @@ export default async function SupplierCategoriesPage() {
   return (
     <Hydrate state={dehydratedState}>
       <div className="space-y-6">
-        <SupplierCategoriesTable />
+        <SupplierCategoriesTable actorAccess={ctx.access} />
       </div>
     </Hydrate>
   );

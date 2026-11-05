@@ -16,6 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { fetchSignedUrl } from "@/features/files/hooks/use-attachments";
+import { userCan, type Access } from "@/lib/auth/permissions";
 import { cn } from "@/lib/utils";
 
 import {
@@ -45,12 +46,18 @@ async function openFile(fileId: string) {
 }
 
 export function FleetDocumentsTable({
+  actorAccess,
   vehicleOptions,
   driverOptions,
 }: {
+  actorAccess: Access;
   vehicleOptions: { id: string; patente: string }[];
   driverOptions: { id: string; full_name: string }[];
 }) {
+  // The permissions the actions check: fleet_documents:write for the
+  // document, plus files:write to upload its file.
+  const canWrite = userCan(actorAccess, "fleet_documents:write");
+  const canAttach = canWrite && userCan(actorAccess, "files:write");
   const { data: items } = useFleetDocuments();
   const deleteMut = useDeleteFleetDocument();
   const confirm = useConfirm();
@@ -149,33 +156,34 @@ export function FleetDocumentsTable({
         header: "",
         enableSorting: false,
         meta: { headerClassName: "w-12" },
-        cell: ({ row }) => (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <MoreHorizontal className="size-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onClick={() => setDialog({ mode: "edit", doc: row.original })}
-              >
-                <Pencil className="size-4" />
-                Editar
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="text-destructive"
-                onClick={() => handleDelete(row.original)}
-              >
-                <Trash2 className="size-4" />
-                Borrar
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ),
+        cell: ({ row }) =>
+          canWrite && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" aria-label="Acciones">
+                  <MoreHorizontal className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={() => setDialog({ mode: "edit", doc: row.original })}
+                >
+                  <Pencil className="size-4" />
+                  Editar
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="text-destructive"
+                  onClick={() => handleDelete(row.original)}
+                >
+                  <Trash2 className="size-4" />
+                  Borrar
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ),
       },
     ];
-  }, [confirm, deleteMut]);
+  }, [canWrite, confirm, deleteMut]);
 
   return (
     <>
@@ -191,10 +199,12 @@ export function FleetDocumentsTable({
         </div>
         <div className="flex items-center gap-2">
           <ExportButton resource="fleet-documents" />
-          <Button onClick={() => setDialog({ mode: "create" })}>
-            <Plus />
-            Nuevo documento
-          </Button>
+          {canWrite && (
+            <Button onClick={() => setDialog({ mode: "create" })}>
+              <Plus />
+              Nuevo documento
+            </Button>
+          )}
         </div>
       </div>
 
@@ -205,12 +215,13 @@ export function FleetDocumentsTable({
         emptyMessage="Sin documentación. Agregá el primero."
       />
 
-      {dialog && (
+      {canWrite && dialog && (
         <FleetDocumentDialog
           mode={dialog.mode}
           doc={dialog.mode === "edit" ? dialog.doc : undefined}
           vehicleOptions={vehicleOptions}
           driverOptions={driverOptions}
+          canAttach={canAttach}
           open={dialog !== null}
           onOpenChange={(o) => {
             if (!o) setDialog(null);

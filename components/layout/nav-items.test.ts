@@ -86,6 +86,24 @@ describe("nav sides agree with isScopedPath", () => {
   );
 });
 
+describe("Rentabilidad follows its report's gate", () => {
+  const item = navItemForPath("/fleet-reports")!;
+
+  it.each([
+    ["operations", resolveAccess(["operations"]), true],
+    // The driver reads trips but not cargas, which the report needs.
+    ["driver", resolveAccess(["driver"]), false],
+    [
+      "operations with shipments:read denied",
+      resolveAccess(["operations"], ["shipments:read"]),
+      false,
+    ],
+  ])("%s sees it: %s", (_, access, visible) => {
+    expect(item.label).toBe("Rentabilidad");
+    expect(canSee(access, item)).toBe(visible);
+  });
+});
+
 describe("canSee / visibleSections for a fiscal-only user", () => {
   const reader = resolveAccess(["fiscal_reader"]);
 

@@ -15,10 +15,12 @@ import {
 } from "@/features/ai/document/schemas";
 import {
   downloadFileBytes,
+  extractionAwaitsPipeline,
   extractionRequester,
   markExtractionFailed,
   matchForKind,
   saveExtractionResult,
+  unverifiedMatches,
   type ExtractionMatches,
 } from "@/features/ai/document/store";
 import { recordAiUsage } from "@/features/ai/lib/chat-store";
@@ -32,6 +34,8 @@ import {
   DocumentExtractionRequestedSchema,
 } from "@/lib/inngest/events";
 import { logger } from "@/lib/logger";
+
+const RETRIES = 2;
 
 const INVOICE_KINDS = [
   "purchase_invoice",
@@ -77,7 +81,7 @@ export const documentExtraction = inngest.createFunction(
     // so a bulk upload doesn't hit provider rate limits (429 → retries) or
     // spike spend; the rest queue in Inngest.
     concurrency: { limit: 5 },
-    retries: 2,
+    retries: RETRIES,
     onFailure: async ({ event, error }) => {
       const originalData = (event.data as { event?: { data?: unknown } }).event
         ?.data;
@@ -95,7 +99,7 @@ export const documentExtraction = inngest.createFunction(
       await markExtractionFailed(parsed.data.extraction_id);
     },
   },
-  async ({ event, step }) => {
+  async ({ event, step, attempt, maxAttempts }) => {
     const { extraction_id, file_id, declared_type } =
       DocumentExtractionRequestedSchema.parse(event.data);
 
@@ -104,6 +108,9 @@ export const documentExtraction = inngest.createFunction(
     );
 
     const extracted = await step.run("classify-and-extract", async () => {
+      // Checked before the vision calls: a deleted or discarded draft has no
+      // one to read it.
+      if (!(await extractionAwaitsPipeline(extraction_id))) return null;
       const meter = usageMeter(requester);
       try {
         return await classifyAndExtract(file_id, declared_type, meter.sink);
@@ -112,18 +119,39 @@ export const documentExtraction = inngest.createFunction(
       }
     });
 
+    if (!extracted) {
+      logger.warn("document_extraction.draft_gone", { extraction_id });
+      return { extraction_id, kind: null };
+    }
+
+    const lastAttempt = attempt + 1 >= (maxAttempts ?? RETRIES + 1);
+
     // The matches are the uploader's: each comparison runs only against data
-    // they may read now (roles minus denies). Unknown uploader: none.
+    // they may read now (roles minus denies). Unknown uploader: none. A failed
+    // lookup retries; on the last attempt the extraction, already paid for,
+    // is saved with the comparisons marked «no se pudo verificar».
     const matches = await step.run("match", async () => {
-      const access = requester ? await loadUserAccess(requester) : null;
-      return matchForKind(extracted.kind, extracted.payload, (permission) =>
-        userCan(access, permission),
-      );
+      try {
+        const access = requester ? await loadUserAccess(requester) : null;
+        return await matchForKind(
+          extracted.kind,
+          extracted.payload,
+          (permission) => userCan(access, permission),
+        );
+      } catch (err) {
+        if (!lastAttempt) throw err;
+        logger.warn("document_extraction.match_unverified", {
+          extraction_id,
+          err: err instanceof Error ? err.message : String(err),
+        });
+        return unverifiedMatches(extracted.kind);
+      }
     });
 
     // Suggest the expense account (+ confirm cost center) for purchase invoices.
     // Suggestion-only: it rides on `matches.expense` for human review; nothing
-    // posts differently until the account is confirmed.
+    // posts differently until the account is confirmed. A catalog read still
+    // failing on the last attempt saves the draft without a suggestion.
     const expense =
       extracted.kind === "purchase_invoice"
         ? await step.run("classify-expense", async () => {
@@ -134,6 +162,13 @@ export const documentExtraction = inngest.createFunction(
                 matches,
                 meter.sink,
               );
+            } catch (err) {
+              if (!lastAttempt) throw err;
+              logger.warn("document_extraction.expense_unsuggested", {
+                extraction_id,
+                err: err instanceof Error ? err.message : String(err),
+              });
+              return null;
             } finally {
               await meter.flush();
             }

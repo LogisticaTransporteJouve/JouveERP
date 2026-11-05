@@ -511,7 +511,6 @@ export async function createPurchaseInvoiceFromReceivedAction(input: {
   }
 
   const items = receivedVoucherItems(voucher);
-  let claimFailed = false;
   const created = await createWithClaim({
     claim: async () => {
       const cutoff = new Date(Date.now() - STALE_CLAIM_MS).toISOString();
@@ -527,10 +526,10 @@ export async function createPurchaseInvoiceFromReceivedAction(input: {
         .select("id")
         .maybeSingle();
       if (error) {
-        claimFailed = true;
         fail(error.code);
+        return "failed";
       }
-      return !error && data !== null;
+      return data !== null ? "won" : "lost";
     },
     release: async () => {
       const { error } = await supabase
@@ -544,10 +543,8 @@ export async function createPurchaseInvoiceFromReceivedAction(input: {
     // amounts just checked.
     create: () => createPurchaseInvoiceAction({ ...invoice.data, items }),
     alreadyProcessed: BEING_LOADED,
+    claimFailed: "No se pudo cargar el comprobante.",
   });
-  if (claimFailed) {
-    return { ok: false, error: "No se pudo cargar el comprobante." };
-  }
   // A partial failure (createdId) still made the purchase: the
   // purchase_invoices_link_received trigger linked the voucher to it.
   if (!created.ok) return { ok: false, error: created.error };

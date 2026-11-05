@@ -5,6 +5,7 @@ import { useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
+import { ChannelsReadError } from "@/components/channels-read-error";
 import {
   CounterpartyIdentityFields,
   type CounterpartyIdentityValues,
@@ -220,6 +221,7 @@ export function SupplierForm({
                       ))}
                     </SelectContent>
                   </Select>
+                  <ChannelsReadError inline />
                   <FormMessage />
                 </FormItem>
               )}

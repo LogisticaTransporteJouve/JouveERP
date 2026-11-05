@@ -24,6 +24,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { userCan, type Access } from "@/lib/auth/permissions";
 
 import {
   useDeleteSupplierCategory,
@@ -32,7 +33,13 @@ import {
 import type { SupplierCategory } from "../schema";
 import { SupplierCategoryDialog } from "./supplier-category-dialog";
 
-export function SupplierCategoriesTable() {
+export function SupplierCategoriesTable({
+  actorAccess,
+}: {
+  actorAccess: Access;
+}) {
+  // The permission the create, update and delete actions check.
+  const canWrite = userCan(actorAccess, "suppliers:write");
   const { data: categories } = useSupplierCategories();
   const deleteMut = useDeleteSupplierCategory();
 
@@ -93,35 +100,36 @@ export function SupplierCategoriesTable() {
         header: "",
         enableSorting: false,
         meta: { headerClassName: "w-12" },
-        cell: ({ row }) => (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" aria-label="Acciones">
-                <MoreHorizontal className="size-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onClick={() =>
-                  setDialogState({ mode: "edit", category: row.original })
-                }
-              >
-                <Pencil className="size-4" />
-                Editar
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => setConfirmDelete(row.original)}
-                variant="destructive"
-              >
-                <Trash2 className="size-4" />
-                Borrar
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ),
+        cell: ({ row }) =>
+          canWrite && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" aria-label="Acciones">
+                  <MoreHorizontal className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={() =>
+                    setDialogState({ mode: "edit", category: row.original })
+                  }
+                >
+                  <Pencil className="size-4" />
+                  Editar
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setConfirmDelete(row.original)}
+                  variant="destructive"
+                >
+                  <Trash2 className="size-4" />
+                  Borrar
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ),
       },
     ],
-    [],
+    [canWrite],
   );
 
   return (
@@ -137,10 +145,12 @@ export function SupplierCategoriesTable() {
         </div>
         <div className="flex items-center gap-2">
           <ExportButton resource="supplier-categories" />
-          <Button onClick={() => setDialogState({ mode: "create" })}>
-            <Plus />
-            Nueva categoría
-          </Button>
+          {canWrite && (
+            <Button onClick={() => setDialogState({ mode: "create" })}>
+              <Plus />
+              Nueva categoría
+            </Button>
+          )}
         </div>
       </div>
 
@@ -151,19 +161,21 @@ export function SupplierCategoriesTable() {
         emptyMessage="Sin categorías. Creá la primera para empezar a clasificar proveedores."
       />
 
-      <SupplierCategoryDialog
-        mode={dialogState?.mode ?? "create"}
-        category={
-          dialogState?.mode === "edit" ? dialogState.category : undefined
-        }
-        open={dialogState !== null}
-        onOpenChange={(open) => {
-          if (!open) setDialogState(null);
-        }}
-      />
+      {canWrite && (
+        <SupplierCategoryDialog
+          mode={dialogState?.mode ?? "create"}
+          category={
+            dialogState?.mode === "edit" ? dialogState.category : undefined
+          }
+          open={dialogState !== null}
+          onOpenChange={(open) => {
+            if (!open) setDialogState(null);
+          }}
+        />
+      )}
 
       <AlertDialog
-        open={confirmDelete !== null}
+        open={canWrite && confirmDelete !== null}
         onOpenChange={(open) => {
           if (!open) setConfirmDelete(null);
         }}

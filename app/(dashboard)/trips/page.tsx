@@ -41,6 +41,7 @@ export default async function TripsPageRoute() {
     <Hydrate state={dehydratedState}>
       <div className="space-y-6">
         <TripsTable
+          actorAccess={ctx.access}
           driverOptions={driverOptions}
           vehicleOptions={vehicleOptions}
         />
