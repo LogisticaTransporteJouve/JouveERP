@@ -26,6 +26,12 @@ import {
 //     sends it under a per-run key, so a slow first run can get a second one.
 //     It is internal, and both converge on one number
 //     (next_internal_invoice_numero_atomic) and one guarded mark-emitted.
+//   * A draft with no items: its header was inserted and its items never were
+//     (issueFiscalInvoiceAction writes them in two requests). It is not a
+//     voucher, yet it holds what it was billing: a remito interno, a
+//     late-interest period, a carga, a storage period. Once it is past the
+//     resend wait it is marked failed (fail_itemless_invoice_drafts), which
+//     frees them.
 
 /** A draft younger than this may still be on its way to Inngest. */
 const UNSENT_AFTER_MS = 15 * 60_000;
@@ -76,29 +82,43 @@ async function loadStuck() {
 }
 
 /** Drafts old enough to have missed their send, with at least one item: a
- *  draft with no items is a half-written insert, not a voucher. */
+ *  draft with no items is a half-written insert, not a voucher (failed by
+ *  failItemlessDrafts). Filtered in the query, so they take no row of the
+ *  batch. */
 async function loadUnsentWithItems() {
-  const supabase = getServiceClient();
   const now = Date.now();
-  const { data, error } = await supabase
+  const { data, error } = await getServiceClient()
     .from("invoices")
-    .select("id, idempotency_key, channel_id, punto_venta")
+    .select(
+      "id, idempotency_key, channel_id, punto_venta, invoice_items!inner(id)",
+    )
     .eq("status", "draft")
     .lt("created_at", new Date(now - UNSENT_AFTER_MS).toISOString())
     .gt("created_at", new Date(now - UNSENT_MAX_AGE_MS).toISOString())
     .order("created_at")
+    .limit(1, { referencedTable: "invoice_items" })
     .limit(BATCH);
   if (error) throw new Error(`load-unsent: ${error.message}`);
-  const kept: NonNullable<typeof data> = [];
-  for (const draft of data ?? []) {
-    const { count, error: itemsError } = await supabase
-      .from("invoice_items")
-      .select("id", { count: "exact", head: true })
-      .eq("invoice_id", draft.id);
-    if (itemsError) throw new Error(`load-unsent-items: ${itemsError.message}`);
-    if ((count ?? 0) > 0) kept.push(draft);
-  }
-  return kept;
+  return (data ?? []).map((d) => ({
+    id: d.id,
+    idempotency_key: d.idempotency_key,
+    channel_id: d.channel_id,
+    punto_venta: d.punto_venta,
+  }));
+}
+
+/** Marks failed the drafts past the resend wait that still have no items,
+ *  whatever their age: each one holds its source until then. */
+async function failItemlessDrafts(): Promise<string[]> {
+  const { data, error } = await getServiceClient().rpc(
+    "fail_itemless_invoice_drafts",
+    {
+      p_created_before: new Date(Date.now() - UNSENT_AFTER_MS).toISOString(),
+      p_limit: BATCH,
+    },
+  );
+  if (error) throw new Error(`fail-itemless: ${error.message}`);
+  return data ?? [];
 }
 
 export const issueInvoiceReconcile = inngest.createFunction(
@@ -110,8 +130,8 @@ export const issueInvoiceReconcile = inngest.createFunction(
     triggers: [{ cron: "TZ=America/Argentina/Buenos_Aires */15 * * * *" }],
   },
   async ({ step }) => {
-    // One step for every read: a run with nothing to do costs two executions
-    // (the run and this step), and it runs every 15 minutes.
+    // One step for every read and one for the itemless drafts: a run with
+    // nothing to do costs three executions, and it runs every 15 minutes.
     const { stuck, resend } = await step.run("load-work", async () => ({
       stuck: await loadStuck(),
       resend: await loadUnsentWithItems(),
@@ -152,11 +172,25 @@ export const issueInvoiceReconcile = inngest.createFunction(
       );
     }
 
+    // Last, so its failure does not hold back the work above.
+    const failedItemless = await step.run("fail-itemless", failItemlessDrafts);
+    if (failedItemless.length > 0) {
+      logger.warn("issue_invoice_reconcile.itemless_failed", {
+        invoice_ids: failedItemless,
+      });
+    }
+
     logger.info("issue_invoice_reconcile.done", {
       stuck: stuck.length,
       outcomes,
       resent: resend.length,
+      itemless_failed: failedItemless.length,
     });
-    return { stuck: stuck.length, outcomes, resent: resend.length };
+    return {
+      stuck: stuck.length,
+      outcomes,
+      resent: resend.length,
+      itemlessFailed: failedItemless.length,
+    };
   },
 );

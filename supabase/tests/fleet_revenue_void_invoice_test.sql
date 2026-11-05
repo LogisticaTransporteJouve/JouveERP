@@ -3,8 +3,9 @@
 -- invoiced revenue: v_trip_revenue, ai_fleet_margin (by trip, vehicle and
 -- client) and ai_shipments_summary count it as still to invoice, for owner,
 -- for operations (who cannot read invoices) and for the service role. A
--- partial NC keeps it billed. 2038 has no seed data. One transaction, rolled
--- back.
+-- partial NC keeps it billed, at the share its factura still bills
+-- (20261105100001: 100 × 71 / 121 = 58.68). 2038 has no seed data. One
+-- transaction, rolled back.
 
 select set_config('request.jwt.claims', '{"role":"service_role"}', true);
 
@@ -83,8 +84,8 @@ values
 select is(
   (select revenue || ':' || invoiced_revenue || ':' || uninvoiced_freight || ':' || uninvoiced_shipments
      from public.v_trip_revenue where trip_id = '00000000-0000-0000-0000-00000013b0b1'),
-  '100.00:100.00:100.00:1',
-  'the carga credited in full leaves the revenue and counts as still to invoice; the partial NC keeps the other'
+  '58.68:58.68:100.00:1',
+  'the carga credited in full leaves the revenue and counts as still to invoice; the partial NC keeps the other at its share'
 );
 
 create temporary table by_trip as
@@ -97,21 +98,21 @@ create temporary table by_client as
 select results_eq(
   $$select invoiced_revenue, uninvoiced_freight, uninvoiced_shipments from by_trip
      where group_key = '00000000-0000-0000-0000-00000013b0b1'$$,
-  $$values (100.00::numeric, 100.00::numeric, 1)$$,
+  $$values (58.68::numeric, 100.00::numeric, 1)$$,
   'ai_fleet_margin by trip: the credited carga is pending'
 );
 
 select results_eq(
   $$select revenue, net, uninvoiced_shipments from by_vehicle
      where group_key = '00000000-0000-0000-0000-00000013b0e1'$$,
-  $$values (100.00::numeric, 50.00::numeric, 1)$$,
+  $$values (58.68::numeric, 8.68::numeric, 1)$$,
   'ai_fleet_margin by vehicle: the truck''s net leaves out the credited flete and is not final'
 );
 
 select results_eq(
   $$select revenue, invoiced_revenue, uninvoiced_freight, uninvoiced_shipments from by_client
      where group_key = '00000000-0000-0000-0000-00000013b0c1'$$,
-  $$values (100.00::numeric, 100.00::numeric, 100.00::numeric, 1)$$,
+  $$values (58.68::numeric, 58.68::numeric, 100.00::numeric, 1)$$,
   'ai_fleet_margin by client: the split counts the credited carga as still to invoice'
 );
 
@@ -132,7 +133,7 @@ select set_config('request.jwt.claims',
 select is(
   (select invoiced_revenue || ':' || uninvoiced_shipments
      from public.v_trip_revenue where trip_id = '00000000-0000-0000-0000-00000013b0b1'),
-  '100.00:1',
+  '58.68:1',
   'owner reads the same figures'
 );
 
@@ -149,7 +150,7 @@ select is_empty(
 select is(
   (select invoiced_revenue || ':' || uninvoiced_shipments
      from public.v_trip_revenue where trip_id = '00000000-0000-0000-0000-00000013b0b1'),
-  '100.00:1',
+  '58.68:1',
   'operations reads the same figures as owner'
 );
 

@@ -9007,8 +9007,10 @@ export type Database = {
           client_name: string
           freight: number
           invoiced: number
+          invoiced_freight: number
           shipments: number
           status: string
+          unpriced: number
         }[]
       }
       ai_supplier_price_evolution: {
@@ -9597,6 +9599,10 @@ export type Database = {
         Args: { p_employee_id: string; p_month: string }
         Returns: number
       }
+      fail_itemless_invoice_drafts: {
+        Args: { p_created_before: string; p_limit?: number }
+        Returns: string[]
+      }
       files_storage_key_is_free: { Args: { p_name: string }; Returns: boolean }
       fill_payroll_period: { Args: { p_period_id: string }; Returns: number }
       find_account_by_role: {
@@ -9974,6 +9980,7 @@ export type Database = {
           punto_venta: number
         }[]
       }
+      like_contains_pattern: { Args: { p_search: string }; Returns: string }
       link_freight_settlement_invoice: {
         Args: { p_invoice_id: string; p_settlement_id: string }
         Returns: undefined
@@ -10593,6 +10600,10 @@ export type Database = {
         Returns: undefined
       }
       settle_billed_remito: { Args: { p_factura_id: string }; Returns: string }
+      shipment_invoice_billed_ratio: {
+        Args: { p_shipment_id: string }
+        Returns: number
+      }
       shipment_invoice_is_void: {
         Args: { p_shipment_id: string }
         Returns: boolean
