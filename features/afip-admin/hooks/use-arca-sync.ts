@@ -33,6 +33,9 @@ export function useArcaSync() {
   const running = progress.data?.running ?? null;
   const sawRunning = useRef(false);
   const lastCount = useRef(-1);
+  // The last finished run when the user clicked: a newer one means this
+  // click's run is done, even if it started and finished between two polls.
+  const lastAtClick = useRef<string | null>(null);
 
   useEffect(() => {
     if (running) {
@@ -50,10 +53,19 @@ export function useArcaSync() {
       }
       return;
     }
-    if (sawRunning.current && progress.data) {
+    const last = progress.data?.last;
+    const finishedSinceClick =
+      waitingSince !== null &&
+      last != null &&
+      last.finishedAt !== lastAtClick.current &&
+      // With no status read before the click, only a run that finished
+      // after it (a minute of clock skew allowed) counts.
+      (lastAtClick.current !== null ||
+        Date.parse(last.finishedAt) >= waitingSince - 60_000);
+    if ((sawRunning.current || finishedSinceClick) && progress.data) {
       sawRunning.current = false;
+      if (waitingSince !== null) setWaitingSince(null);
       lastCount.current = -1;
-      const last = progress.data.last;
       if (last?.error) {
         toast.error(`La importación de ARCA falló: ${last.error}`, {
           id: TOAST_ID,
@@ -81,6 +93,7 @@ export function useArcaSync() {
     request.mutate(undefined, {
       onError: (err) => toast.error(err.message),
       onSuccess: () => {
+        lastAtClick.current = progress.data?.last?.finishedAt ?? null;
         setWaitingSince(Date.now());
         toast.loading("Importando comprobantes de ARCA…", { id: TOAST_ID });
         void progress.refetch();
