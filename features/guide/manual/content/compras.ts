@@ -583,7 +583,7 @@ export const purchasesPage: GuidePage = {
       id: "categorias-de-proveedores",
       title: "Categorías de proveedores",
       menuPath: "Compras › Categorías",
-      routes: ["/suppliers/categories"],
+      routes: ["/suppliers/categories", "/suppliers/categories/[id]"],
       permission: "suppliers:read",
       intro: [
         "Las categorías clasifican a los proveedores (por ejemplo Combustible, Repuestos, Peajes) para filtrar la lista de proveedores. Son las mismas en Compras y en Otras compras.",
