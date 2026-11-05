@@ -5,6 +5,9 @@ import { platformPage } from "./plataforma";
 import { assistantPage } from "./asistente";
 import { salesPage } from "./ventas";
 import { purchasesPage } from "./compras";
+import { treasuryPage } from "./tesoreria";
+import { accountingPage } from "./contabilidad";
+import { hrPage } from "./personal";
 import { adminPage } from "./admin";
 
 /** The guide's chapters, in menu order. Each one renders to
@@ -15,5 +18,8 @@ export const GUIDE_PAGES: readonly GuidePage[] = [
   assistantPage,
   salesPage,
   purchasesPage,
+  treasuryPage,
+  accountingPage,
+  hrPage,
   adminPage,
 ];
