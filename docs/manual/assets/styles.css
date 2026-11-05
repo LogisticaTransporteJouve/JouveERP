@@ -768,9 +768,36 @@ ol {
   content: "⚠ ";
 }
 
-/* ── Phone ────────────────────────────────────────────────────────────── */
+.open a {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--primary);
+  text-decoration: none;
+}
 
-@media (max-width: 860px) {
+/* ── Half a screen (tiled next to the app) and phone ─────────────────── */
+
+@media (max-width: 1100px) {
+  .layout {
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
+
+  .topbar,
+  main {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+
+  .toc ul {
+    columns: 1;
+  }
+
+  .meta {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
   .layout {
     grid-template-columns: 1fr;
   }
@@ -792,15 +819,7 @@ ol {
     padding-right: 16px;
   }
 
-  .toc ul {
-    columns: 1;
-  }
-
   .m-form {
-    grid-template-columns: 1fr;
-  }
-
-  .meta {
     grid-template-columns: 1fr;
   }
 }

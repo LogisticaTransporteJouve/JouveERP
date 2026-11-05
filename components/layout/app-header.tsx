@@ -2,6 +2,7 @@
 
 import { CircleHelp } from "lucide-react";
 import { usePathname } from "next/navigation";
+import { useEffect } from "react";
 
 import { useScope } from "@/components/providers/scope-provider";
 import {
@@ -14,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import { APP_WINDOW, MANUAL_WINDOW } from "@/lib/manual/windows";
 
 import { navItemForPath, navSectionForItem } from "./nav-items";
 
@@ -24,6 +26,12 @@ export function AppHeader({ actions }: { actions: React.ReactNode }) {
   const pathname = usePathname();
   const item = navItemForPath(pathname, fiscalFilter);
   const section = item ? navSectionForItem(item) : undefined;
+
+  // Names this tab so the guide's links back to the app land here instead
+  // of replacing the guide.
+  useEffect(() => {
+    if (!window.name) window.name = APP_WINDOW;
+  }, []);
 
   return (
     <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-2 border-b bg-background px-4 md:rounded-t-xl">
@@ -52,12 +60,11 @@ export function AppHeader({ actions }: { actions: React.ReactNode }) {
       )}
       <div className="ml-auto flex min-w-0 items-center gap-1.5 sm:gap-2">
         {/* The guide section of this screen (app/manual resolves the route);
-            static HTML, so a plain link in its own tab. */}
+            static HTML, so a plain link, in the guide's own reused tab. */}
         <Button variant="ghost" size="icon" asChild>
           <a
             href={`/manual/para?ruta=${encodeURIComponent(pathname)}`}
-            target="_blank"
-            rel="noopener"
+            target={MANUAL_WINDOW}
             aria-label="Ayuda de esta pantalla"
             title="Ayuda de esta pantalla"
           >

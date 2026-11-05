@@ -1,3 +1,5 @@
+import { APP_WINDOW } from "@/lib/manual/windows";
+
 import { escapeHtml, toHtml, toPlainText, type RefResolver } from "./markup";
 import {
   makeResolver,
@@ -186,6 +188,12 @@ function renderSection(section: GuideSection, r: RefResolver): string {
           : ""
       }</p>`
     : "";
+  // A screen with no route parameter can be opened from the guide, in the
+  // app's own tab (the guide stays open next to it).
+  const openable = section.routes.find((route) => !route.includes("["));
+  const open = openable
+    ? `<p class="open"><a href="${e(openable)}" target="${APP_WINDOW}">Abrir esta pantalla en JouveERP ↗</a></p>`
+    : "";
   const who =
     section.routes.length > 0
       ? `<p class="where">Ven esta pantalla: ${whoCan(section.permission)}</p>`
@@ -201,7 +209,7 @@ function renderSection(section: GuideSection, r: RefResolver): string {
     : "";
   return `<section class="section" id="${e(section.id)}">
 <h2><a class="anchor" href="#${e(section.id)}">${e(section.title)}</a></h2>
-${where}${who}
+${where}${who}${open}
 ${section.intro.map((p) => `<p>${toHtml(p, r)}</p>`).join("")}
 ${(section.screens ?? []).map(renderScreen).join("\n")}
 ${concepts}
@@ -245,7 +253,7 @@ function shell(
 <div class="layout">
 ${sidebar(pages, current)}
 <div class="content">
-<header class="topbar"><a href="index.html">Guía</a><span class="sep">›</span><strong>${e(title)}</strong><a class="back" href="/dashboard">Volver a JouveERP</a></header>
+<header class="topbar"><a href="index.html">Guía</a><span class="sep">›</span><strong>${e(title)}</strong><a class="back" href="/dashboard" target="${APP_WINDOW}">Volver a JouveERP</a></header>
 <main>
 ${body}
 </main>
