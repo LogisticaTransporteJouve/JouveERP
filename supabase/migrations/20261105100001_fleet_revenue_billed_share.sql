@@ -5,10 +5,11 @@ SET LOCAL statement_timeout = '15min';
 -- flete its invoice still bills, and the cargas summary says what it leaves
 -- out.
 --
--- 1. shipment_invoice_billed_ratio (security definer, like
---    shipment_invoice_is_void, which stays for older code): the share of the
---    flete the carga's invoice still bills after its emitted NCs and NDs,
---    (imp_total − Σ NC + Σ ND) / imp_total, clamped to 0 or more. It is 0
+-- 1. shipment_invoice_billed_ratio (security definer, with the role gate of
+--    shipment_invoice_is_void, which no reader calls any more and is kept):
+--    the share of the flete the carga's invoice still bills after its
+--    emitted NCs and NDs, (imp_total − Σ NC + Σ ND) / imp_total, clamped to
+--    0 or more. It is 0
 --    exactly when billing_invoice_is_void is true (failed, cancelled, or a
 --    fiscal factura its NCs credit in full), so «billed» (share > 0) and the
 --    pending counts read as before. It follows the void rule's convention:

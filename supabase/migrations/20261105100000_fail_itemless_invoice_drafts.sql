@@ -20,10 +20,10 @@ SET LOCAL statement_timeout = '15min';
 -- fail_itemless_invoice_drafts marks failed every draft older than the
 -- cutoff that still has no items, in one statement, and returns their ids.
 -- issue-invoice-reconcile calls it every 15 minutes with a 15-minute cutoff.
--- Every writer that inserts a draft with its items in one transaction
--- (settle_billed_remito, import_arca_issued_invoice) never leaves one
--- without items; issueFiscalInvoiceAction inserts the items within the same
--- request, well under the cutoff.
+-- The other writers of invoices insert the header and its items in one
+-- transaction (settle_billed_remito, import_arca_issued_invoice), so they
+-- never leave one; issueFiscalInvoiceAction inserts the items within the
+-- same request, well under the cutoff.
 --
 -- draft → failed fires, as for an emission AFIP rejects:
 -- - invoices_release_billing_links: the cargas' link is cleared and the
