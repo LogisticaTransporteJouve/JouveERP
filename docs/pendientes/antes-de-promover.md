@@ -920,6 +920,91 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
     ```
 
   - `docs/pendientes/2026-11-05-archivos-y-escaneo-auditoria-w13.md`.
+- [ ] **Aprobar `20261105100000`–`100002`** (auditoría w14, borradores sin
+      ítems, ingreso de flota y totales de listados). Van después de
+      `20261105090001`, de la que reemplazan funciones. Ninguna toca filas
+      al aplicarse ni cambia políticas RLS.
+  - `100000`: función nueva `fail_itemless_invoice_drafts`
+    (`SECURITY DEFINER`, solo `service_role`). Desde el deploy,
+    `issue-invoice-reconcile` marca **fallido**, cada 15 minutos, todo
+    borrador con más de 15 minutos y sin ítems, con el motivo en
+    `afip_observaciones`. Eso libera su remito interno, período de mora,
+    cargas (se desvinculan), períodos de almacenaje (se borran) o
+    liquidación (vuelve a confirmada). En producción afecta a los que
+    devuelva la consulta de abajo, en la primera corrida. Rollback: el
+    código anterior no llama a la función y vuelve a saltear esos
+    borradores. Los que ya pasaron a fallido quedan fallidos (no se
+    revierte).
+  - Consulta de control antes de promover (solo lectura, válida sobre el
+    esquema de producción): los borradores sin ítems que la primera corrida
+    va a marcar fallidos y lo que cada uno retiene.
+
+    ```sql
+    select i.id, i.channel_id, i.kind, i.client_id, i.imp_total, i.created_at,
+           i.source_remito_id,
+           exists (select 1 from public.shipments s where s.invoice_id = i.id) as cargas,
+           exists (select 1 from public.storage_billing_runs r where r.invoice_id = i.id) as almacenaje,
+           exists (select 1 from public.freight_settlements f where f.invoice_id = i.id) as liquidacion,
+           exists (select 1 from public.late_interest_charges lc
+                    where lc.id::text = i.idempotency_key) as interes_por_mora
+      from public.invoices i
+     where i.status = 'draft'
+       and i.created_at < now() - interval '15 minutes'
+       and not exists (select 1 from public.invoice_items it where it.invoice_id = i.id)
+     order by i.created_at;
+    ```
+
+  - `100001`: función nueva `shipment_invoice_billed_ratio`
+    (`SECURITY DEFINER`, para `authenticated` y `service_role`; responde
+    solo a owner, admin, operations y el service role). `v_trip_revenue` y
+    `ai_fleet_margin` se reemplazan con las mismas columnas, firmas y
+    permisos. `ai_shipments_summary` se borra y se recrea con dos columnas
+    nuevas al final (`invoiced_freight`, `unpriced`) y los mismos permisos.
+    Una carga de una factura fiscal con NC o ND emitidas cuenta en el
+    ingreso de flota por la parte que su factura todavía factura. Rollback:
+    el código anterior lee las columnas por nombre y recibe las cifras
+    nuevas.
+  - Consulta de control antes de promover (solo lectura, válida sobre el
+    esquema de producción): las cargas cuyo ingreso de flota cambia, con el
+    flete que van a contar.
+
+    ```sql
+    with adj as (
+      select n.invoice_origin_id as invoice_id,
+             coalesce(sum(n.imp_total) filter (where n.kind = 'nc'), 0) as acreditado,
+             coalesce(sum(n.imp_total) filter (where n.kind = 'nd'), 0) as debitado
+        from public.invoices n
+       where n.status = 'emitted'
+         and n.kind in ('nc', 'nd')
+         and n.invoice_origin_id is not null
+         and not exists (select 1 from public.late_interest_charges lc
+                          where lc.nd_invoice_id = n.id or lc.id::text = n.idempotency_key)
+       group by n.invoice_origin_id
+    )
+    select s.id, s.trip_id, s.freight_amount, i.id as invoice_id, i.imp_total,
+           a.acreditado, a.debitado,
+           round(coalesce(s.freight_amount, 0)
+                 * greatest(0, (i.imp_total - a.acreditado + a.debitado) / i.imp_total), 2)
+             as flete_que_cuenta
+      from public.shipments s
+      join public.invoices i on i.id = s.invoice_id
+      join public.invoicing_channels c on c.id = i.channel_id and c.is_fiscal
+      join adj a on a.invoice_id = i.id
+     where s.status <> 'cancelled'
+       and i.status not in ('failed', 'cancelled')
+       and i.imp_total > 0
+       and a.acreditado < i.imp_total - 0.01
+     order by s.trip_id, s.id;
+    ```
+
+  - `100002`: función nueva `like_contains_pattern` (invoker, inmutable,
+    para `authenticated` y `service_role`). `invoice_list_totals` y
+    `receipt_list_totals` se reemplazan con las mismas firmas y permisos;
+    el nombre del cliente se busca como en sus listados (`%`, `_` y `\`
+    literales, `*` un carácter). Rollback: el código anterior pasa el mismo
+    término y obtiene la regla nueva. Sin consulta de control: no cambia
+    datos y solo cambian los totales de una búsqueda con `%`, `_` o `*`.
+  - `docs/pendientes/2026-11-05-facturacion-y-flota-auditoria-w14.md`.
 
 ## Después de promover
 
