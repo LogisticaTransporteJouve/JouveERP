@@ -1,5 +1,5 @@
 -- Tareas (roadmap 1.4/1.5): the automatic tasks' sync (create once, close when
--- settled, reopen, a user's close and due date kept), the recurring
+-- settled, reopen, a user's due date kept, no close by hand), the recurring
 -- occurrences, the identity guard, the RPC grants and RLS by role and source.
 -- One transaction, rolled back.
 
