@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Conceptos generales — Guía JouveERP</title>
+<link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+<a class="brand" href="index.html"><span class="logo">J</span><span>Guía de JouveERP</span></a>
+<div class="search"><input id="guide-search" type="search" placeholder="Buscar: emitir factura, cheque…" autocomplete="off" aria-label="Buscar en la guía" /><div id="guide-results" class="results" hidden></div></div>
+<nav><ul class="nav"><li class="active"><a href="conceptos.html">Conceptos generales</a><ul><li><a href="conceptos.html#usar-la-guia">Cómo usar esta guía</a></li><li><a href="conceptos.html#roles-y-permisos">Roles, permisos y accesos por usuario</a></li><li><a href="conceptos.html#periodos-cerrados">Períodos contables cerrados</a></li></ul></li></ul></nav>
+</aside>
+<div class="content">
+<header class="topbar"><a href="index.html">Guía</a><span class="sep">›</span><strong>Conceptos generales</strong><a class="back" href="/dashboard">Volver a JouveERP</a></header>
+<main>
+<h1>Conceptos generales</h1>
+<p class="lead">Lo que vale para todo el sistema: cómo pedir ayuda, quién puede hacer qué, los dos lados (fiscal e interno) y los períodos cerrados.</p>
+<nav class="toc"><h4>En esta página</h4><ul><li><a href="#usar-la-guia">Cómo usar esta guía</a></li><li><a href="#roles-y-permisos">Roles, permisos y accesos por usuario</a></li><li><a href="#periodos-cerrados">Períodos contables cerrados</a></li></ul></nav>
+<section class="section" id="usar-la-guia">
+<h2><a class="anchor" href="#usar-la-guia">Cómo usar esta guía</a></h2>
+
+<p>La guía describe el sistema tal como está hoy: cada nombre de botón, campo o pestaña que aparece <strong>así</strong> es el texto exacto de la pantalla, y un test del sistema avisa cuando la pantalla cambia y la guía queda vieja.</p>
+
+<div class="concept"><h4>Desde el sistema</h4><p>En el pie de la barra lateral, <span class="ui" data-ui="Guía de uso">Guía de uso</span> abre esta guía en otra pestaña.</p><p>En el encabezado de cada pantalla, el botón <strong>?</strong> (<span class="ui" data-ui="Ayuda de esta pantalla">Ayuda de esta pantalla</span>) abre directamente la sección de la pantalla donde estás.</p><p>En la barra lateral, el bloque <span class="ui" data-ui="Guía">Guía</span> resume la pantalla actual en dos o tres líneas y enlaza a su sección.</p></div><div class="concept"><h4>Preguntarle al asistente</h4><p>En el chat del asistente podés preguntar «¿cómo hago una nota de crédito?» o «¿dónde cargo un cheque rechazado?»: busca en esta guía y responde con los pasos y el enlace a la sección. Si la tarea pide un permiso que tu usuario no tiene, te lo dice.</p></div><div class="concept"><h4>Cómo leer una tarea</h4><p><strong>Quién puede</strong> lista los roles que tienen el permiso según la matriz de roles; el owner además puede quitarle un módulo a un usuario puntual (ver <a class="ref" href="conceptos.html#roles-y-permisos">Roles, permisos y accesos por usuario</a>).</p><p><strong>Antes</strong> es lo que tiene que existir para empezar. Los <strong>pasos</strong> siguen el orden de la pantalla; los números en los dibujos marcan dónde hacer clic en cada paso.</p><p><strong>Qué pasa después</strong> cuenta los efectos: asientos, saldos, CAE de AFIP, avisos, qué queda bloqueado. <strong>Si aparece un error</strong> lista los mensajes exactos que puede mostrar el sistema y qué hacer con cada uno.</p></div>
+
+
+</section>
+<section class="section" id="roles-y-permisos">
+<h2><a class="anchor" href="#roles-y-permisos">Roles, permisos y accesos por usuario</a></h2>
+<p class="where">En el menú: <strong>Administración › Usuarios</strong></p>
+<p>Cada usuario tiene uno o más roles. Un rol trae un conjunto fijo de permisos (por ejemplo <code>invoices:issue</code> para emitir comprobantes). El sistema esconde los módulos y botones que tu usuario no puede usar y, si igual se intenta, responde con un error de permiso.</p>
+
+<div class="concept"><h4>Los roles</h4><p><strong>Owner</strong>: acceso total; es el único que asigna el rol owner, edita los accesos por usuario, borra movimientos de caja y carga saldos de apertura.</p><p><strong>Admin</strong>: acceso total excepto el rol owner y los accesos por usuario.</p><p><strong>Finanzas</strong>: clientes, caja, comprobantes y cobranzas.</p><p><strong>Operaciones</strong>: flota, viajes, combustible, mantenimientos.</p><p><strong>Depósito</strong>: pallets, productos, movimientos de stock.</p><p><strong>Chofer</strong>: acceso de chofer (próximamente).</p><p><strong>Contador externo</strong>: solo lectura de lo fiscal: comprobantes, compras, libros IVA y contabilidad. Siempre ve solo el lado fiscal.</p></div><div class="concept"><h4>Accesos por usuario</h4><p>El owner puede quitarle a un usuario un módulo que su rol sí trae (por ejemplo, que alguien de Finanzas no vea Sueldos). Quitar la lectura de un módulo lo oculta entero del menú y de las consultas del asistente; los datos que otro módulo muestra con su propio permiso se siguen viendo ahí.</p><p>Un owner no se puede quitar accesos a sí mismo ni a otro owner. Los cambios se hacen en <a class="ref" href="index.html">/admin/users</a>.</p></div><div class="concept"><h4>Cuando falta un permiso</h4><p>La guía igual muestra las tareas que tu usuario no puede hacer, con los roles que sí pueden: pedíselas a alguien con ese rol o pedile al owner el acceso.</p></div>
+
+
+</section>
+<section class="section" id="periodos-cerrados">
+<h2><a class="anchor" href="#periodos-cerrados">Períodos contables cerrados</a></h2>
+<p class="where">En el menú: <strong>Contabilidad › Libro diario</strong></p>
+<p>Cerrar un mes congela su contabilidad: un período cerrado no admite asientos nuevos, ediciones, reversas ni emisión de comprobantes fiscales con fecha en ese mes. Cualquier operación que generaría o cambiaría un asiento de ese mes se rechaza con un mensaje que nombra el período.</p>
+
+
+<ul class="task-toc"><li><a href="#cerrar-periodo">Cerrar un período contable</a></li><li><a href="#reabrir-periodo">Reabrir un período contable</a></li></ul>
+<article class="task" id="cerrar-periodo">
+<h3><a class="anchor" href="#cerrar-periodo">Cerrar un período contable</a></h3>
+<p>Se hace cuando el contador terminó el mes, para que nadie cambie lo ya declarado.</p>
+<dl class="meta"><dt>Quién puede</dt><dd>Owner, Admin, Finanzas <span class="muted">(permiso <code class="perm">accounting:write</code>)</span></dd><dt>Antes</dt><dd><ul><li>Ser owner o admin: aunque otro rol tenga el permiso, solo owner y admin cierran y reabren períodos.</li></ul></dd></dl>
+<figure class="mock"><div class="m-frame m-backdrop"><div class="m-dialog"><div class="m-dialog-title" data-ui="Períodos cerrados">Períodos cerrados<span class="m-close">×</span></div><div class="m-sub">Un período cerrado no admite asientos nuevos, ediciones, reversas ni emisión de comprobantes fiscales con fecha en ese mes.</div><div class="m-form"><div class="m-field"><span class="m-label" data-ui="Período">Período</span><span class="m-input">octubre de 2026</span><span class="mk" aria-label="Paso 2">2</span></div></div><div class="m-footer"><span class="m-btn m-btn-primary" data-ui="Cerrar período">Cerrar período<span class="mk" aria-label="Paso 3">3</span></span><span class="m-btn m-btn-outline" data-ui="Listo">Listo</span></div></div></div><figcaption>Libro diario › Períodos cerrados</figcaption></figure>
+<ol class="steps"><li>En <a class="ref" href="index.html">/accounting/journal</a>, hacé clic en <span class="ui" data-ui="Períodos cerrados">Períodos cerrados</span>.</li><li>En <span class="ui" data-ui="Período">Período</span>, elegí el mes.</li><li>Hacé clic en <span class="ui" data-ui="Cerrar período">Cerrar período</span> y confirmá en el aviso.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>El mes queda en la lista con la fecha de cierre. Desde ese momento no se pueden registrar, editar ni revertir asientos con fecha en ese mes.</li><li>Si AFIP autoriza un comprobante con fecha en un mes cerrado, su asiento queda pendiente y se genera al reabrir; la lista lo indica en cada período.</li></ul></div>
+<div class="block errors"><h4>Si aparece un error</h4><dl><dt>“Solo owner/admin pueden cerrar períodos.”</dt><dd>Pedile el cierre a un owner o admin.</dd><dt>“El período ya está cerrado.”</dt><dd>No hace falta hacer nada: ya figura en la lista.</dd></dl></div>
+<p class="related">Relacionado: <a class="ref" href="conceptos.html#reabrir-periodo">Reabrir un período contable</a></p>
+</article>
+<article class="task" id="reabrir-periodo">
+<h3><a class="anchor" href="#reabrir-periodo">Reabrir un período contable</a></h3>
+
+<dl class="meta"><dt>Quién puede</dt><dd>Owner, Admin, Finanzas <span class="muted">(permiso <code class="perm">accounting:write</code>)</span></dd><dt>Antes</dt><dd><ul><li>Ser owner o admin.</li></ul></dd></dl>
+
+<ol class="steps"><li>En <a class="ref" href="index.html">/accounting/journal</a>, hacé clic en <span class="ui" data-ui="Períodos cerrados">Períodos cerrados</span>.</li><li>En la fila del mes, hacé clic en <span class="ui" data-ui="Reabrir">Reabrir</span> y confirmá.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>Se vuelven a poder registrar y modificar asientos con fecha en ese mes.</li><li>Los comprobantes autorizados por AFIP mientras estuvo cerrado reciben ahora su asiento; el aviso dice cuántos se generaron.</li></ul></div>
+<div class="block errors"><h4>Si aparece un error</h4><dl><dt>“Solo owner/admin pueden reabrir períodos.”</dt><dd>Pedile la reapertura a un owner o admin.</dd><dt>“El período no estaba cerrado.”</dt><dd>Otro usuario ya lo reabrió: actualizá la pantalla.</dd></dl></div>
+<p class="related">Relacionado: <a class="ref" href="conceptos.html#cerrar-periodo">Cerrar un período contable</a></p>
+</article>
+</section>
+</main>
+</div>
+</div>
+<script src="assets/search-index.js"></script>
+<script src="assets/guide.js"></script>
+</body>
+</html>

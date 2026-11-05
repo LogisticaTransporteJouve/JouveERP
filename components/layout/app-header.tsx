@@ -1,5 +1,6 @@
 "use client";
 
+import { CircleHelp } from "lucide-react";
 import { usePathname } from "next/navigation";
 
 import { useScope } from "@/components/providers/scope-provider";
@@ -10,6 +11,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
+import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 
@@ -19,7 +21,8 @@ import { navItemForPath, navSectionForItem } from "./nav-items";
 // so it reads as part of the card.
 export function AppHeader({ actions }: { actions: React.ReactNode }) {
   const { fiscalFilter } = useScope();
-  const item = navItemForPath(usePathname(), fiscalFilter);
+  const pathname = usePathname();
+  const item = navItemForPath(pathname, fiscalFilter);
   const section = item ? navSectionForItem(item) : undefined;
 
   return (
@@ -48,6 +51,19 @@ export function AppHeader({ actions }: { actions: React.ReactNode }) {
         </Breadcrumb>
       )}
       <div className="ml-auto flex min-w-0 items-center gap-1.5 sm:gap-2">
+        {/* The guide section of this screen (app/manual resolves the route);
+            static HTML, so a plain link in its own tab. */}
+        <Button variant="ghost" size="icon" asChild>
+          <a
+            href={`/manual/para?ruta=${encodeURIComponent(pathname)}`}
+            target="_blank"
+            rel="noopener"
+            aria-label="Ayuda de esta pantalla"
+            title="Ayuda de esta pantalla"
+          >
+            <CircleHelp />
+          </a>
+        </Button>
         {actions}
       </div>
     </header>

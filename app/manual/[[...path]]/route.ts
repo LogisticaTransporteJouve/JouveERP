@@ -3,6 +3,8 @@ import path from "node:path";
 
 import { NextResponse, type NextRequest } from "next/server";
 
+import { GUIDE_PAGES } from "@/features/guide/manual/content";
+import { guideHrefForPath } from "@/features/guide/manual/model";
 import { getCurrentUserContext } from "@/lib/auth/context";
 import { logger } from "@/lib/logger";
 import { adaptManualPage, MANUAL_DIR, manualFile } from "@/lib/manual/serve";
@@ -22,6 +24,15 @@ export async function GET(
   // The pages link their assets relatively: /manual has to be a file URL.
   if (segments.length === 0) {
     return NextResponse.redirect(new URL("/manual/index.html", request.url));
+  }
+
+  // The "?" of each screen: /manual/para?ruta=/invoices/42 opens the guide
+  // section of that route. Only a path inside the app is ever redirected to.
+  if (segments.length === 1 && segments[0] === "para") {
+    const route = request.nextUrl.searchParams.get("ruta") ?? "";
+    return NextResponse.redirect(
+      new URL(guideHrefForPath(GUIDE_PAGES, route), request.url),
+    );
   }
 
   const file = manualFile(segments);

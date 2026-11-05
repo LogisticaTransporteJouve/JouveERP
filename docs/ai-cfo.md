@@ -245,6 +245,21 @@ sin importe no suma (el resumen dice cuántos). Con `ivaPeriod` agrega el estima
 `getIvaPositionEstimateAction`, que tiene su propio gate (`taxes:write` + `accounting:read`): si
 lo rechaza, el resultado sale `partial` con la nota del motivo.
 
+## Ayuda de uso: `searchGuide` (hecha)
+
+El asistente también responde **cómo se hace algo** en el sistema («¿cómo emito una nota de
+crédito?»). `searchGuide` (`features/ai/registry/actions/guide.ts`, dominio `general`, `read`,
+permiso `ai:chat`) busca en el contenido tipado de la guía de uso (`features/guide/manual/content/`,
+el mismo que genera `docs/manual/`) con un puntaje por palabras (`features/guide/manual/search.ts`:
+título y palabras clave pesan más que los pasos; sin embeddings ni llamadas externas) y devuelve hasta
+5 tareas con quién puede hacerlas (roles de la matriz), `allowed` para este usuario (roles + accesos
+por usuario), los pasos con los textos exactos de los botones entre « », qué pasa después, los
+errores posibles y el `href` a la sección (`/manual/<capítulo>.html#<tarea>`).
+
+La guía documenta todas las tareas, también las que el usuario no puede hacer: el prompt pide decir
+qué roles pueden en vez de ocultarla, y no inventar pasos si la guía no tiene la tarea. Ver
+[`decisions/2026-11-05-guia-de-uso.md`](./decisions/2026-11-05-guia-de-uso.md).
+
 ## Propuestas para todo, siempre con aceptación (roadmap 6.3, hecha)
 
 El AI CFO propone escrituras y **nunca** las ejecuta sin que el usuario acepte. Es el mismo

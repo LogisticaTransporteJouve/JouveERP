@@ -1,4 +1,9 @@
-import type { Role } from "@/lib/auth/permissions";
+import {
+  ROLE_PERMISSIONS,
+  ROLES,
+  type Permission,
+  type Role,
+} from "@/lib/auth/permissions";
 
 export const ROLE_LABELS: Record<Role, string> = {
   owner: "Owner",
@@ -20,3 +25,13 @@ export const ROLE_DESCRIPTIONS: Record<Role, string> = {
   fiscal_reader:
     "Solo lectura de lo fiscal: comprobantes, compras, libros IVA y contabilidad.",
 };
+
+/** For display only (the user guide's "Quién puede"): the roles whose matrix
+ *  passes `check`, before any per-user deny. Never a gate. */
+export function rolesGranting(
+  check: (has: (perm: Permission) => boolean) => boolean,
+): Role[] {
+  return ROLES.filter((role) =>
+    check((perm) => ROLE_PERMISSIONS[role].includes(perm)),
+  );
+}

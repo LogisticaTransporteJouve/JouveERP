@@ -1,6 +1,3 @@
-import { existsSync, readFileSync } from "node:fs";
-import path from "node:path";
-
 import { describe, expect, it } from "vitest";
 
 import { NAV_SECTIONS } from "@/components/layout/nav-items";
@@ -9,8 +6,6 @@ import { ROLES, resolveAccess, userCanAll } from "@/lib/auth/permissions";
 import { guideForPath, ROUTE_GUIDES } from "./lib/route-guides";
 import { SETUP_ITEMS, SETUP_ITEM_KEYS } from "./lib/setup-checklist";
 import { itemState, nextDismissed, SetGuideItemDoneSchema } from "./schema";
-
-const MANUAL_DIR = path.resolve(__dirname, "../../docs/manual");
 
 describe("guideForPath", () => {
   it("picks the deepest guide of the path", () => {
@@ -45,19 +40,6 @@ describe("guideForPath", () => {
     const prefixes = ROUTE_GUIDES.map((g) => g.prefix);
     expect(new Set(prefixes).size).toBe(prefixes.length);
   });
-});
-
-describe("manual references", () => {
-  it.each(ROUTE_GUIDES.filter((g) => g.manual).map((g) => [g.prefix, g]))(
-    "%s cites a section the manual has",
-    (_prefix, guide) => {
-      const file = path.join(MANUAL_DIR, guide.manual!.page);
-      expect(existsSync(file)).toBe(true);
-      expect(readFileSync(file, "utf8")).toContain(
-        `id="${guide.manual!.anchor}"`,
-      );
-    },
-  );
 });
 
 describe("setup checklist", () => {

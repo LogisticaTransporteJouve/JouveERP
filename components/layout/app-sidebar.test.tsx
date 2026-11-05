@@ -43,6 +43,7 @@ vi.mock("@/features/guide/components/sidebar-guide", () => ({
   SidebarGuide: () => null,
 }));
 vi.mock("./nav-theme", () => ({ NavTheme: () => null }));
+vi.mock("./nav-help", () => ({ NavHelp: () => null }));
 vi.mock("@/components/ui/sidebar", async () => {
   const { Slot } = await import("@radix-ui/react-slot");
   const Pass = ({ children }: { children?: React.ReactNode }) => (
