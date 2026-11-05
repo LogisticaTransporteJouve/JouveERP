@@ -32,6 +32,11 @@ menús de tres puntos.
   tooltip va en un `span` enfocable que lo envuelve. Por eso el motivo de un
   botón bloqueado (por ejemplo, el permiso de caja en la cuenta del empleado)
   ahora va en el `label` y no en un `title`.
+- **Solo con mouse encima o foco de teclado:** al cerrar un diálogo o un
+  menú, el foco vuelve al botón que lo abrió; Radix abriría el tooltip ahí.
+  `IconButton` lo abre solo si el mouse está encima o si el foco es de
+  teclado (`:focus-visible`), así no queda un «Editar» flotando después de
+  cerrar el diálogo con el mouse.
 - **Provider propio:** cada `IconButton` trae su `TooltipProvider`, así se
   renderiza en cualquier árbol (tests, portales) sin depender del layout. El
   layout raíz también tiene uno para el resto de los tooltips.

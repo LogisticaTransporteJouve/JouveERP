@@ -42,8 +42,22 @@ describe("IconButton", () => {
         <Pencil />
       </IconButton>,
     );
-    fireEvent.focus(screen.getByRole("button"));
+    screen.getByRole("button").focus();
     expect((await screen.findByRole("tooltip")).textContent).toBe("Editar");
+  });
+
+  it("stays closed on a focus that is not keyboard focus", async () => {
+    render(
+      <IconButton label="Editar">
+        <Pencil />
+      </IconButton>,
+    );
+    const button = screen.getByRole("button");
+    // A dialog closed with the mouse hands focus back without :focus-visible.
+    button.matches = () => false;
+    fireEvent.focus(button);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(screen.queryByRole("tooltip")).toBeNull();
   });
 
   it("keeps the tooltip on a disabled button, through a focusable wrapper", async () => {
@@ -57,7 +71,7 @@ describe("IconButton", () => {
     const wrapper = button.parentElement!;
     expect(wrapper.tagName).toBe("SPAN");
     expect(wrapper.tabIndex).toBe(0);
-    fireEvent.focus(wrapper);
+    wrapper.focus();
     expect((await screen.findByRole("tooltip")).textContent).toBe("Borrar");
   });
 
