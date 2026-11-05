@@ -134,11 +134,13 @@ export async function reconcileExtracto(
       MAX_ROWS,
     ),
   ]);
-  const readError = lineRes.error ?? txRes.error;
-  if (readError) {
-    logger.warn("ai.reconciliation.read_failed", { error: readError });
-    if (readError.code === "row_cap") return "too_many_rows";
-    throw new Error(`reconcile-extracto: ${readError.message}`);
+  if (lineRes.error || txRes.error) {
+    const error = lineRes.error ?? txRes.error;
+    logger.warn("ai.reconciliation.read_failed", { error });
+    if (lineRes.error?.code === "row_cap" || txRes.error?.code === "row_cap") {
+      return "too_many_rows";
+    }
+    throw new Error(`reconcile-extracto: ${error?.message}`);
   }
 
   const lines: ImportedLine[] = lineRes.data.flatMap((l) =>

@@ -58,7 +58,7 @@ const CHANNELS: InvoicingChannelSummary[] = [
 function extraction(
   detected_type: string,
   matches: Record<string, string | boolean>,
-  payload: Record<string, unknown> = {},
+  payload: ExtractionDetail["payload"] = {},
 ): ExtractionDetail {
   return {
     id: "x1",

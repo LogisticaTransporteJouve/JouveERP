@@ -867,6 +867,7 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
        and not exists (select 1 from public.fleet_documents d where d.attachment_file_id = f.id)
      order by f.created_at desc;
     ```
+
   - `docs/pendientes/2026-11-05-archivos-y-escaneo-auditoria-w13.md`.
 
 ## Después de promover
