@@ -1,9 +1,11 @@
 // Pure profitability aggregation (no DB) — used by getFleetProfitabilityAction
 // and unit-tested in isolation. A trip's revenue is the freight of its invoiced
 // shipments, or its manual revenue when it has no shipments (v_trip_revenue);
-// both figures travel along. Trip net = revenue − trip cost − fuel tied to
-// that trip. Vehicle net = Σ trip revenue − Σ trip cost − ALL fuel for the
-// vehicle − ALL maintenance for the vehicle (over the period). The trips
+// both figures travel along. Trip net = revenue − trip cost − every fuel load
+// tied to that trip, whatever its date (as ai_fleet_margin and the
+// losing-trip insight count it). Vehicle net = Σ trip revenue − Σ trip cost −
+// ALL fuel for the vehicle − ALL maintenance for the vehicle, dated in the
+// period. The trips
 // without a vehicle come as one more row (without_vehicle), and the totals
 // cover the vehicles and that row: every trip listed. docs/roadmap.md
 // Fase G.7.
@@ -39,12 +41,18 @@ export function isRevenueSource(v: unknown): v is RevenueSource {
   return v === "invoiced" || v === "manual";
 }
 
+/** A fuel load dated in the period: the vehicle's fuel. */
 export type FuelInput = {
   vehicle_id: string;
-  trip_id: string | null;
   amount: number;
   /** Linked to a purchase invoice or a treasury movement. */
   has_voucher: boolean;
+};
+
+/** A fuel load tied to a listed trip, whatever its date: the trip's fuel. */
+export type TripFuelInput = {
+  trip_id: string;
+  amount: number;
 };
 
 export type MaintenanceInput = {
@@ -144,15 +152,14 @@ function add(map: Map<string, number>, key: string, value: number): void {
 export function computeProfitability(input: {
   trips: TripInput[];
   fuel: FuelInput[];
+  tripFuel: TripFuelInput[];
   maintenance: MaintenanceInput[];
   vehicleNames: Map<string, string>;
 }): FleetProfitability {
   const fuelByTrip = new Map<string, number>();
+  for (const f of input.tripFuel) add(fuelByTrip, f.trip_id, f.amount);
   const fuelByVehicle = new Map<string, number>();
-  for (const f of input.fuel) {
-    if (f.trip_id) add(fuelByTrip, f.trip_id, f.amount);
-    add(fuelByVehicle, f.vehicle_id, f.amount);
-  }
+  for (const f of input.fuel) add(fuelByVehicle, f.vehicle_id, f.amount);
 
   const maintenanceByVehicle = new Map<string, number>();
   const noCostByVehicle = new Map<string, number>();
