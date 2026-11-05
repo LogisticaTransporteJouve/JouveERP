@@ -67,7 +67,7 @@ export const ROUTE_GUIDES: readonly RouteGuide[] = [
       "Facturas, notas de crédito y débito. Del lado fiscal se emiten con CAE de AFIP; del interno son remitos.",
     steps: [
       "Nuevo comprobante → cliente, ítems y punto de venta.",
-      "Emitir pide el CAE; si AFIP rechaza, el borrador queda para corregir.",
+      "Del lado fiscal, al guardar se pide el CAE; si AFIP rechaza, corregí la causa y emití uno nuevo.",
     ],
   },
   {
