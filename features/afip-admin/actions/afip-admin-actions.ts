@@ -18,7 +18,11 @@ import type { Database } from "@/lib/db/database.types";
 import type { PairReconciliation } from "@/lib/afip/sync-issued";
 import type { ArcaSyncStatus } from "@/lib/afip/sync-runs";
 
-import { ConfigurePosSchema, type ConfigurePosInput } from "../schema";
+import {
+  ConfigurePosSchema,
+  type ConfigurePosInput,
+  type PosChannel,
+} from "../schema";
 
 export type ActionResult<T> =
   { ok: true; data: T } | { ok: false; error: string; code?: string };
@@ -300,8 +304,10 @@ export async function configurePosAction(
   return { ok: true, data: rowToSalesPoint(update.data) };
 }
 
+/** Every channel, inactive ones included: the POS table names the channel of
+ *  each POS, and the configure dialog picks from them (posChannelOptions). */
 export async function listInvoicingChannelsAction(): Promise<
-  ActionResult<Array<{ id: string; name: string; is_fiscal: boolean }>>
+  ActionResult<PosChannel[]>
 > {
   const ctx = await requireAfipAdmin();
   if (!ctx) {
@@ -312,8 +318,6 @@ export async function listInvoicingChannelsAction(): Promise<
   const res = await supabase
     .from("invoicing_channels")
     .select("id, name, is_fiscal, is_active")
-    .eq("is_active", true)
-    .eq("is_fiscal", true)
     .order("name");
   if (res.error) {
     return { ok: false, error: res.error.message };
@@ -324,6 +328,7 @@ export async function listInvoicingChannelsAction(): Promise<
       id: c.id,
       name: c.name,
       is_fiscal: c.is_fiscal,
+      is_active: c.is_active,
     })),
   };
 }

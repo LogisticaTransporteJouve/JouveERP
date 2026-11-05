@@ -4,6 +4,9 @@ import {
   currentPeriod,
   isKnownSource,
   isPeriodFormat,
+  JOURNAL_SOURCE_TABLES,
+  journalSourceHref,
+  journalSourceLabel,
   ManualJournalEntryCreateSchema,
 } from "./schema";
 
@@ -19,6 +22,33 @@ describe("isKnownSource", () => {
     expect(isKnownSource(null)).toBe(false);
     expect(isKnownSource("foo")).toBe(false);
     expect(isKnownSource("Invoices")).toBe(false);
+  });
+});
+
+describe("journalSourceLabel", () => {
+  it("rotula en castellano cada origen que genera asientos", () => {
+    expect(journalSourceLabel("purchase_invoices")).toBe(
+      "Comprobante de compra",
+    );
+    expect(journalSourceLabel("checks")).toBe("Cheque recibido");
+    expect(journalSourceLabel("issued_checks")).toBe("Cheque propio");
+    for (const t of JOURNAL_SOURCE_TABLES) {
+      expect(journalSourceLabel(t)).not.toBe(t);
+    }
+  });
+
+  it("manual para null y nunca el nombre crudo de la tabla", () => {
+    expect(journalSourceLabel(null)).toBe("Manual");
+    expect(journalSourceLabel("fleet_documents")).toBe("Otro origen");
+  });
+});
+
+describe("journalSourceHref", () => {
+  it("enlaza solo orígenes con página de detalle", () => {
+    expect(journalSourceHref("purchase_invoices", "p1")).toBe("/purchases/p1");
+    expect(journalSourceHref("issued_checks", "c1")).toBeNull();
+    expect(journalSourceHref("invoices", null)).toBeNull();
+    expect(journalSourceHref(null, "x")).toBeNull();
   });
 });
 

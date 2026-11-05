@@ -16,9 +16,8 @@ import {
 } from "@/components/ui/select";
 import { useChartOfAccounts } from "@/features/chart-of-accounts/hooks/use-chart-of-accounts";
 import {
-  SOURCE_HREF_PREFIX,
-  SOURCE_LABEL,
-  isKnownSource,
+  journalSourceHref,
+  journalSourceLabel,
 } from "@/features/journal-entries/schema";
 import { formatArgentineDate, formatNumber2 as money } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -195,10 +194,7 @@ export function LibroMayorPage() {
                     const debit = Number(r.debit);
                     const credit = Number(r.credit);
                     const running = Number(r.running);
-                    const href =
-                      isKnownSource(r.source_table) && r.source_id
-                        ? `${SOURCE_HREF_PREFIX[r.source_table]}/${r.source_id}`
-                        : null;
+                    const href = journalSourceHref(r.source_table, r.source_id);
                     return (
                       <tr
                         key={r.line_id}
@@ -229,12 +225,17 @@ export function LibroMayorPage() {
                                 variant="outline"
                                 className="text-xs font-normal"
                               >
-                                {isKnownSource(r.source_table)
-                                  ? SOURCE_LABEL[r.source_table]
-                                  : r.source_table}
+                                {journalSourceLabel(r.source_table)}
                               </Badge>
                               <ExternalLink className="size-3" />
                             </Link>
+                          ) : r.source_table ? (
+                            <Badge
+                              variant="outline"
+                              className="text-xs font-normal"
+                            >
+                              {journalSourceLabel(r.source_table)}
+                            </Badge>
                           ) : (
                             <span className="text-xs text-muted-foreground">
                               —

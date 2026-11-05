@@ -21,14 +21,13 @@ import type { RecurringTask } from "../schema";
 import { assigneesSummary, useUserLabels } from "./assignee-picker";
 import { TaskFormDialog } from "./task-form-dialog";
 
+/** Managing recurring tasks needs `tasks:write`; the caller mounts it only then. */
 export function RecurringTasksDialog({
   open,
   onOpenChange,
-  canWrite,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  canWrite: boolean;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -40,14 +39,14 @@ export function RecurringTasksDialog({
           </DialogDescription>
         </DialogHeader>
         <Suspense fallback={<Skeleton className="h-24 w-full" />}>
-          <RecurringList canWrite={canWrite} />
+          <RecurringList />
         </Suspense>
       </DialogContent>
     </Dialog>
   );
 }
 
-function RecurringList({ canWrite }: { canWrite: boolean }) {
+function RecurringList() {
   const { data: items } = useRecurringTasks();
   const label = useUserLabels();
   const update = useUpdateRecurringTask();
@@ -80,30 +79,26 @@ function RecurringList({ canWrite }: { canWrite: boolean }) {
                 Día {r.day_of_month} · {assigneesSummary(r.assignee_ids, label)}
               </p>
             </div>
-            {canWrite && (
-              <>
-                <Switch
-                  checked={r.is_active}
-                  aria-label={r.is_active ? "Desactivar" : "Activar"}
-                  disabled={update.isPending}
-                  onCheckedChange={(checked) =>
-                    update.mutate(
-                      { id: r.id, is_active: checked },
-                      { onError: (err) => toast.error(err.message) },
-                    )
-                  }
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Editar"
-                  onClick={() => setEditing(r)}
-                >
-                  <Pencil className="size-4" />
-                </Button>
-              </>
-            )}
+            <Switch
+              checked={r.is_active}
+              aria-label={r.is_active ? "Desactivar" : "Activar"}
+              disabled={update.isPending}
+              onCheckedChange={(checked) =>
+                update.mutate(
+                  { id: r.id, is_active: checked },
+                  { onError: (err) => toast.error(err.message) },
+                )
+              }
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label="Editar"
+              onClick={() => setEditing(r)}
+            >
+              <Pencil className="size-4" />
+            </Button>
           </li>
         ))}
       </ul>

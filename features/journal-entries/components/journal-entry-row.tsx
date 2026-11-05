@@ -10,9 +10,8 @@ import { formatArgentineDate, formatMoney as money } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 import {
-  isKnownSource,
-  SOURCE_HREF_PREFIX,
-  SOURCE_LABEL,
+  journalSourceHref,
+  journalSourceLabel,
   type JournalEntryWithLines,
 } from "../schema";
 
@@ -22,17 +21,16 @@ export function JournalEntryRow({ entry }: { entry: JournalEntryWithLines }) {
   const creditSum = entry.lines.reduce((a, l) => a + Number(l.credit), 0);
   const balanced = Math.abs(debitSum - creditSum) < 0.005;
 
-  const sourceLabel = isKnownSource(entry.source_table)
-    ? SOURCE_LABEL[entry.source_table]
-    : entry.source_table ?? "Manual";
-
-  const sourceHref =
-    isKnownSource(entry.source_table) && entry.source_id
-      ? `${SOURCE_HREF_PREFIX[entry.source_table]}/${entry.source_id}`
-      : null;
+  const sourceLabel = journalSourceLabel(entry.source_table);
+  const sourceHref = journalSourceHref(entry.source_table, entry.source_id);
 
   return (
-    <li className={cn("border-b last:border-b-0", entry.is_reversal && "bg-muted")}>
+    <li
+      className={cn(
+        "border-b last:border-b-0",
+        entry.is_reversal && "bg-muted",
+      )}
+    >
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -57,7 +55,10 @@ export function JournalEntryRow({ entry }: { entry: JournalEntryWithLines }) {
           )}
           {entry.description}
         </span>
-        <Badge variant="outline" className="hidden text-xs font-normal md:inline-flex">
+        <Badge
+          variant="outline"
+          className="hidden text-xs font-normal md:inline-flex"
+        >
           {sourceLabel}
         </Badge>
         {entry.channel && (
@@ -119,13 +120,21 @@ export function JournalEntryRow({ entry }: { entry: JournalEntryWithLines }) {
                 <td colSpan={3} className="py-1 pr-3 text-right text-xs">
                   Totales
                 </td>
-                <td className="py-1 pr-3 text-right font-mono">{money(debitSum)}</td>
-                <td className="py-1 text-right font-mono">{money(creditSum)}</td>
+                <td className="py-1 pr-3 text-right font-mono">
+                  {money(debitSum)}
+                </td>
+                <td className="py-1 text-right font-mono">
+                  {money(creditSum)}
+                </td>
               </tr>
               {!balanced && (
                 <tr>
-                  <td colSpan={5} className="pt-2 text-right text-xs text-foreground">
-                    Asiento desbalanceado: diferencia {money(Math.abs(debitSum - creditSum))}
+                  <td
+                    colSpan={5}
+                    className="pt-2 text-right text-xs text-foreground"
+                  >
+                    Asiento desbalanceado: diferencia{" "}
+                    {money(Math.abs(debitSum - creditSum))}
                   </td>
                 </tr>
               )}

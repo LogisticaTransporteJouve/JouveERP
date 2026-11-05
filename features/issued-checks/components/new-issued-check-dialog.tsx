@@ -38,8 +38,9 @@ export function NewIssuedCheckDialog({
         <DialogHeader>
           <DialogTitle>Nuevo cheque propio</DialogTitle>
           <DialogDescription>
-            Registrá manualmente un cheque emitido. El movimiento de caja se
-            hace por la OP correspondiente.
+            Registrá un cheque emitido fuera de una orden de pago. No mueve
+            plata hasta que lo marques cobrado: ahí sale de la chequera como un
+            gasto en Caja.
           </DialogDescription>
         </DialogHeader>
         <IssuedCheckForm

@@ -385,6 +385,10 @@ export const accountingPage: GuidePage = {
           ],
           errors: [
             {
+              message: "Nombre requerido.",
+              fix: "Escribí un nombre de al menos 2 caracteres.",
+            },
+            {
               message: "Otra cuenta activa ya tiene ese rol del sistema.",
               fix: "Quitale el rol a la otra cuenta antes de asignarlo a esta.",
             },
@@ -442,7 +446,7 @@ export const accountingPage: GuidePage = {
       permission: "accounting:read",
       intro: [
         "Los asientos contables, del más nuevo al más viejo. Casi todos se generan solos desde comprobantes, compras, recibos, órdenes de pago y movimientos de caja; los manuales se cargan acá.",
-        "Cada fila muestra fecha, período de devengamiento, descripción, origen, canal y el total del Debe. Al hacer clic se despliegan las líneas: {{Código}}, {{Cuenta}}, {{Descripción}}, {{Debe}} y {{Haber}}, con los {{Totales}} y, si el asiento viene de un comprobante emitido, un recibo, una orden de pago o un movimiento de caja, un enlace **Ver …** que abre ese documento.",
+        "Cada fila muestra fecha, período de devengamiento, descripción, origen, canal y el total del Debe. Al hacer clic se despliegan las líneas: {{Código}}, {{Cuenta}}, {{Descripción}}, {{Debe}} y {{Haber}}, con los {{Totales}} y, si el asiento viene de un comprobante emitido, un comprobante de compra, un recibo, una orden de pago o un movimiento de caja, un enlace **Ver …** que abre ese documento.",
         "Arriba, el contador de asientos cargados; al final, {{Cargar más}} trae los siguientes 50.",
       ],
       screens: [
@@ -506,11 +510,11 @@ export const accountingPage: GuidePage = {
               text: "En [[/accounting/journal]], usá los filtros (al entrar muestra el mes actual):",
               substeps: [
                 "{{Período (YYYY-MM)}}: el mes de devengamiento. {{Hoy}} vuelve al mes actual y {{Limpiar}} saca el filtro para ver todos los meses.",
-                "{{Origen}}: {{Todos los orígenes}}, {{Movimiento de caja}}, {{Comprobante emitido}}, {{Recibo}} u {{Orden de pago}}. Los asientos de compras, cheques y otros documentos, y los manuales, solo se ven con {{Todos los orígenes}}.",
+                "{{Origen}}: {{Todos los orígenes}}, {{Movimiento de caja}}, {{Comprobante emitido}}, {{Comprobante de compra}}, {{Recibo}}, {{Orden de pago}}, {{Cheque recibido}} o {{Cheque propio}}. Los asientos manuales solo se ven con {{Todos los orígenes}}.",
                 "{{Canal}}: {{Todos los canales}} o uno puntual.",
               ],
             },
-            "Hacé clic en un asiento para ver sus líneas. Si viene de un comprobante emitido, un recibo, una orden de pago o un movimiento de caja, el enlace **Ver …** lo abre.",
+            "Hacé clic en un asiento para ver sus líneas. Si viene de un comprobante emitido, un comprobante de compra, un recibo, una orden de pago o un movimiento de caja, el enlace **Ver …** lo abre.",
             "Si hay más asientos de los que se ven, hacé clic en {{Cargar más}} al final de la lista.",
           ],
           after: [
@@ -734,7 +738,7 @@ export const accountingPage: GuidePage = {
               substeps: [
                 "Arriba, {{Total Debe}}, {{Total Haber}} y {{Saldo final}}.",
                 "Con {{Desde}}, la primera fila es el {{Saldo anterior}} a esa fecha.",
-                "Cada fila tiene fecha, período, descripción, origen, Debe, Haber y el saldo acumulado; si el asiento viene de un comprobante emitido, un recibo, una orden de pago o un movimiento de caja, el origen enlaza a ese documento (los demás muestran «—»). Las reversas se ven sombreadas.",
+                "Cada fila tiene fecha, período, descripción, origen, Debe, Haber y el saldo acumulado; si el asiento viene de un comprobante emitido, un comprobante de compra, un recibo, una orden de pago o un movimiento de caja, el origen enlaza a ese documento; los de cheques muestran el origen sin enlace y los manuales, «—». Las reversas se ven sombreadas.",
               ],
             },
           ],

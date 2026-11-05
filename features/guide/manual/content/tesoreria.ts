@@ -2235,7 +2235,7 @@ export const treasuryPage: GuidePage = {
               kind: "dialog",
               title: "Nuevo cheque propio",
               description:
-                "Registrá manualmente un cheque emitido. El movimiento de caja se hace por la OP correspondiente.",
+                "Registrá un cheque emitido fuera de una orden de pago. No mueve plata hasta que lo marques cobrado: ahí sale de la chequera como un gasto en Caja.",
               fields: [
                 { label: "Tipo", kind: "select", value: "Físico", marker: 2 },
                 {
@@ -2301,7 +2301,7 @@ export const treasuryPage: GuidePage = {
             "Hacé clic en {{Cargar cheque}}.",
           ],
           after: [
-            "El cheque queda {{Emitido}}. No mueve plata ni genera asiento hasta que lo marques {{Cobrado}}: recién ahí sale de la chequera ([[#marcar-cheque-propio-cobrado]]). El aviso del formulario habla de la orden de pago, pero un cheque cargado a mano no tiene una.",
+            "El cheque queda {{Emitido}}. No mueve plata ni genera asiento hasta que lo marques {{Cobrado}}: recién ahí sale de la chequera como un egreso en Caja ([[#marcar-cheque-propio-cobrado]]).",
           ],
           errors: [
             {

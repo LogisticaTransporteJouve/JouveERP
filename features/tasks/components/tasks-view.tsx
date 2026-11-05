@@ -95,18 +95,18 @@ export function TasksView({ canWrite }: { canWrite: boolean }) {
             renovar.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => setRecurringOpen(true)}>
-            <Repeat />
-            Recurrentes
-          </Button>
-          {canWrite && (
+        {canWrite && (
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => setRecurringOpen(true)}>
+              <Repeat />
+              Recurrentes
+            </Button>
             <Button onClick={() => setCreating(true)}>
               <Plus />
               Nueva tarea
             </Button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -148,11 +148,12 @@ export function TasksView({ canWrite }: { canWrite: boolean }) {
           }}
         />
       )}
-      <RecurringTasksDialog
-        open={recurringOpen}
-        onOpenChange={setRecurringOpen}
-        canWrite={canWrite}
-      />
+      {canWrite && (
+        <RecurringTasksDialog
+          open={recurringOpen}
+          onOpenChange={setRecurringOpen}
+        />
+      )}
     </div>
   );
 }

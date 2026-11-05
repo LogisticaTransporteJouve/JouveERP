@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { ConfigurePosSchema } from "./schema";
+import {
+  ConfigurePosSchema,
+  posChannelOptions,
+  type PosChannel,
+} from "./schema";
 
 const base = {
   numero: 3,
@@ -60,5 +64,50 @@ describe("ConfigurePosSchema", () => {
       ConfigurePosSchema.safeParse({ ...base, nickname: "x".repeat(121) })
         .success,
     ).toBe(false);
+  });
+});
+
+describe("posChannelOptions", () => {
+  const channels: PosChannel[] = [
+    {
+      id: "jouve_fiscal",
+      name: "Logística Jouve",
+      is_fiscal: true,
+      is_active: true,
+    },
+    {
+      id: "jouve_internal",
+      name: "Logística Jouve — Interno",
+      is_fiscal: false,
+      is_active: true,
+    },
+    {
+      id: "dz_fiscal",
+      name: "DZ Instalaciones",
+      is_fiscal: true,
+      is_active: false,
+    },
+  ];
+  const ids = (point: {
+    channel_id: string | null;
+    last_synced_at: string | null;
+  }) => posChannelOptions(point, channels).map((c) => c.id);
+
+  it("a POS synced with AFIP lists the active fiscal channels", () => {
+    expect(
+      ids({ channel_id: null, last_synced_at: "2026-11-01T00:00:00Z" }),
+    ).toEqual(["jouve_fiscal"]);
+  });
+
+  it("the local internal POS lists its own channel", () => {
+    expect(ids({ channel_id: "jouve_internal", last_synced_at: null })).toEqual(
+      ["jouve_internal"],
+    );
+  });
+
+  it("keeps the current channel even when inactive", () => {
+    expect(
+      ids({ channel_id: "dz_fiscal", last_synced_at: "2026-11-01T00:00:00Z" }),
+    ).toEqual(["jouve_fiscal", "dz_fiscal"]);
   });
 });
