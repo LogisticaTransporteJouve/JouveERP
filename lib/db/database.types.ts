@@ -9597,6 +9597,10 @@ export type Database = {
         Args: { p_employee_id: string; p_month: string }
         Returns: number
       }
+      fail_itemless_invoice_drafts: {
+        Args: { p_created_before: string; p_limit?: number }
+        Returns: string[]
+      }
       files_storage_key_is_free: { Args: { p_name: string }; Returns: boolean }
       fill_payroll_period: { Args: { p_period_id: string }; Returns: number }
       find_account_by_role: {
