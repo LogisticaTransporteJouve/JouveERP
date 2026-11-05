@@ -99,6 +99,8 @@ export interface OpsKpis {
 /** A trip of today, with the clients of its loads. */
 export interface TodayTrip {
   id: string;
+  /** The trip's page (its cargas) with shipments:read, else the trips list. */
+  href: string;
   status: string;
   patente: string | null;
   driver: string | null;
