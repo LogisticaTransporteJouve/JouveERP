@@ -49,29 +49,12 @@ export type StatusConfig = {
 };
 
 /** Monochrome status visuals (icon + copy; danger reserved for failures). */
-export const EXTRACTION_STATUS_CONFIG: Record<ExtractionStatus, StatusConfig> =
-  {
-    pending_review: {
-      label: "Pendiente",
-      icon: CircleDot,
-      className: "text-foreground",
-    },
-    confirmed: {
-      label: "Confirmado",
-      icon: CheckCircle2,
-      className: "text-foreground",
-    },
-    discarded: {
-      label: "Descartado",
-      icon: CircleX,
-      className: "text-muted-foreground",
-    },
-    failed: {
-      label: "Falló",
-      icon: AlertTriangle,
-      className: "text-destructive",
-    },
-  };
+export const EXTRACTION_STATUS_CONFIG: Record<ExtractionStatus, StatusConfig> = {
+  pending_review: { label: "Pendiente", icon: CircleDot, className: "text-foreground" },
+  confirmed: { label: "Confirmado", icon: CheckCircle2, className: "text-foreground" },
+  discarded: { label: "Descartado", icon: CircleX, className: "text-muted-foreground" },
+  failed: { label: "Falló", icon: AlertTriangle, className: "text-destructive" },
+};
 
 export function statusConfig(status: string): StatusConfig {
   return (
@@ -82,9 +65,7 @@ export function statusConfig(status: string): StatusConfig {
 
 export type ConfidenceBand = "high" | "medium" | "low";
 
-export function confidenceBand(
-  confidence: number | null,
-): ConfidenceBand | null {
+export function confidenceBand(confidence: number | null): ConfidenceBand | null {
   if (confidence == null) return null;
   if (confidence >= 0.8) return "high";
   if (confidence >= 0.6) return "medium";

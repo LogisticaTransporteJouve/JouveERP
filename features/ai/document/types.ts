@@ -20,4 +20,7 @@ export type Alicuota = (typeof VALID_ALICUOTAS)[number];
 
 /** Extraction status mirrors the ai_document_extractions.status check. */
 export type ExtractionStatus =
-  "pending_review" | "confirmed" | "discarded" | "failed";
+  | "pending_review"
+  | "confirmed"
+  | "discarded"
+  | "failed";
