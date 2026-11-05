@@ -464,15 +464,34 @@ export async function terminateEmployeeAction(
   }
 
   const supabase = await createSupabaseClient();
+
+  // The reason is appended to the employee's notes, never replaces them.
+  let notes: string | undefined;
+  if (parsed.data.notes) {
+    const { data: current, error: readError } = await supabase
+      .from("employees")
+      .select("notes")
+      .eq("id", parsed.data.id)
+      .maybeSingle();
+    if (readError) {
+      logger.error("employees.terminate.read_failed", {
+        userId: ctx.userId,
+        id: parsed.data.id,
+        error: readError,
+      });
+      return { ok: false, error: "No se pudo dar de baja al empleado." };
+    }
+    notes = current?.notes
+      ? `${current.notes}\n\n${parsed.data.notes}`
+      : parsed.data.notes;
+  }
+
   const { error } = await supabase
     .from("employees")
     .update({
       termination_date: parsed.data.termination_date,
       is_active: false,
-      // Cumulative notes: if the caller sent something, it gets concatenated;
-      // otherwise the old ones are kept. The concatenation happens on the client
-      // so history isn't silently lost.
-      ...(parsed.data.notes ? { notes: parsed.data.notes } : {}),
+      ...(notes !== undefined && { notes }),
     })
     .eq("id", parsed.data.id);
 

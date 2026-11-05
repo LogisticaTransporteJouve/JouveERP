@@ -54,7 +54,8 @@ export function DriversTable({
     async function handleDelete(d: Driver) {
       const ok = await confirm({
         title: `Borrar ${d.full_name}`,
-        description: "Si tiene viajes, quedan sin chofer asignado.",
+        description:
+          "Si tiene viajes, documentos o rendiciones no se puede borrar: desactivalo.",
         confirmLabel: "Borrar",
         tone: "destructive",
       });
