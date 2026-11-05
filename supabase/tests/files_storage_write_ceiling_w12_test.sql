@@ -113,11 +113,13 @@ select throws_ok(
 
 select set_config('request.jwt.claims',
   '{"sub":"00000000-0000-0000-0000-0000001295a1","role":"authenticated"}', true);
-select lives_ok(
+-- W13 S4 F3 (20261105090100): not even the row's own uploader.
+select throws_ok(
   $$insert into storage.objects (bucket_id, name, owner_id)
     values ('files', '00000000-0000-4000-8000-0000001295d2.pdf',
             '00000000-0000-0000-0000-0000001295a1')$$,
-  'the row''s own uploader may write its key'
+  '42501', null,
+  'the row''s own uploader cannot refill its key either'
 );
 
 -- 3. The uploader and the admin delete -----------------------------------------------
