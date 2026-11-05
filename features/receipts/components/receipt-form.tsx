@@ -244,6 +244,9 @@ export function ReceiptForm({
     mode === "edit" && receipt ? receipt.receipt.client_id : null;
   const editClient = useClientByIdOptional(editClientId);
   const editClientData = editClient.data;
+  // Read but not found: there is nothing to show, as with a failed read.
+  const editClientFailed =
+    editClient.isError || (editClient.isSuccess && !editClientData);
   useEffect(() => {
     if (!editClientData) return;
     form.setValue("client", {
@@ -547,7 +550,7 @@ export function ReceiptForm({
             <FormItem className="space-y-1">
               <FormLabel className="text-xs">Cliente</FormLabel>
               <FormControl>
-                {editClient.isError ? (
+                {editClientFailed ? (
                   <ReadError
                     message="No se pudo leer el cliente del recibo."
                     onRetry={() => void editClient.refetch()}

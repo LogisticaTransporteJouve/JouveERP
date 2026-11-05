@@ -306,7 +306,9 @@ export default async function PurchaseInvoiceDetailPage({
           </dl>
           {canReadPayments && (!open || !allocRes?.ok) && (
             <p className="mt-2 text-xs text-muted-foreground">
-              No se pudieron leer los pagos.
+              {open
+                ? "No se pudieron leer las órdenes de pago imputadas."
+                : "No se pudieron leer los pagos."}
             </p>
           )}
         </div>

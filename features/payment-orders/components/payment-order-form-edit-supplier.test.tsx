@@ -107,6 +107,7 @@ beforeEach(() => {
       iva_condition: "responsable_inscripto",
       is_fiscal: true,
     },
+    isSuccess: true,
     isError: false,
     refetch: h.refetch,
   };

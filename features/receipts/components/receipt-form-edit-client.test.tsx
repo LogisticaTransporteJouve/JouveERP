@@ -103,6 +103,7 @@ beforeEach(() => {
       iva_condition: "responsable_inscripto",
       is_fiscal: true,
     },
+    isSuccess: true,
     isError: false,
     refetch: h.refetch,
   };
@@ -126,5 +127,19 @@ describe("ReceiptForm edit client", () => {
     expect(screen.getByText("allocations client=client-1")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /Reintentar/ }));
     expect(h.refetch).toHaveBeenCalledOnce();
+  });
+
+  it("says so for a client read but not found, instead of loading forever", () => {
+    h.client = {
+      data: null,
+      isSuccess: true,
+      isError: false,
+      refetch: h.refetch,
+    };
+    renderEdit();
+    expect(
+      screen.getByText("No se pudo leer el cliente del recibo."),
+    ).toBeTruthy();
+    expect(screen.getByText("allocations client=client-1")).toBeTruthy();
   });
 });

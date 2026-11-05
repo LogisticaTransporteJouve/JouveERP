@@ -10,6 +10,7 @@ const h = vi.hoisted(() => ({
   openRes: null as unknown,
   itemsRes: null as unknown,
   allocCalls: 0,
+  allocFails: false,
 }));
 
 vi.mock("next/navigation", () => ({
@@ -68,7 +69,9 @@ vi.mock(
     }),
     getPurchaseInvoiceAllocationsAction: async () => {
       h.allocCalls += 1;
-      return { ok: true, data: [] };
+      return h.allocFails
+        ? { ok: false, error: "No se pudieron leer las imputaciones." }
+        : { ok: true, data: [] };
     },
     getPurchaseInvoiceOpenAction: async () => h.openRes,
     getPurchaseInvoiceItemsAction: async () => h.itemsRes,
@@ -118,6 +121,7 @@ beforeEach(() => {
   };
   h.itemsRes = { ok: true, data: [] };
   h.allocCalls = 0;
+  h.allocFails = false;
 });
 
 function rowValue(label: string): string | null {
@@ -171,6 +175,15 @@ describe("purchase detail — Pagado y Saldo", () => {
     expect(rowValue("Pagado")).toBe("—");
     expect(rowValue("Saldo")).toBe("—");
     expect(screen.getByText("No se pudieron leer los pagos.")).toBeTruthy();
+  });
+
+  it("keeps the measured figures and says only the OP list failed", async () => {
+    h.allocFails = true;
+    await renderPage();
+    expect(rowValue("Saldo")).toContain("121,00");
+    expect(
+      screen.getByText("No se pudieron leer las órdenes de pago imputadas."),
+    ).toBeTruthy();
   });
 
   it("leaves out «Pagado» and «Saldo» for a role that cannot read OPs", async () => {

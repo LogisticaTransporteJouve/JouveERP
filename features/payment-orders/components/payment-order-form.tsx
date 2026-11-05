@@ -273,6 +273,9 @@ export function PaymentOrderForm({
       : null;
   const editSupplier = useSupplierByIdOptional(editSupplierId);
   const editSupplierData = editSupplier.data;
+  // Read but not found: there is nothing to show, as with a failed read.
+  const editSupplierFailed =
+    editSupplier.isError || (editSupplier.isSuccess && !editSupplierData);
   useEffect(() => {
     if (!editSupplierData) return;
     form.setValue("supplier", {
@@ -599,7 +602,7 @@ export function PaymentOrderForm({
             <FormItem className="space-y-1">
               <FormLabel className="text-xs">Proveedor</FormLabel>
               <FormControl>
-                {editSupplier.isError ? (
+                {editSupplierFailed ? (
                   <ReadError
                     message="No se pudo leer el proveedor de la orden de pago."
                     onRetry={() => void editSupplier.refetch()}
