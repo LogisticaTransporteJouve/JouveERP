@@ -12,3 +12,6 @@ Decisión: [`2026-11-05-buscadores-y-lecturas-auditoria-w17.md`](../decisions/20
 - [ ] **Id mal formado en el detalle de un comprobante.** Cae en «Algo salió
       mal» en vez de «No encontramos lo que buscás». Un enlace de la app
       nunca lo arma.
+- [ ] **Endosante sin `clients:read`.** El buscador de endosante de «Crear
+      cheques en cartera» no distingue la falta de permiso: dice «No se
+      pudieron buscar los clientes.» con un «Reintentar» que no puede andar.

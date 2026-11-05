@@ -8,7 +8,9 @@ S7 F4). Solo código de la app, sin migración.
 - Una búsqueda fallida dice «No se pudieron buscar los clientes.» (o «…los
   proveedores.», «…las facturas.») con «Reintentar». Antes decía «Sin
   resultados. Probá creando un nuevo cliente.» e invitaba a cargarlo dos
-  veces (un cliente de Otras ventas no tiene CUIT que lo frene).
+  veces (un cliente de Otras ventas no tiene CUIT que lo frene). El
+  buscador de endosante de «Crear cheques en cartera» también dice «No se
+  pudieron buscar los clientes.» en vez de «Sin resultados.».
 - «Nuevo» (y «Crear proveedor «…»» de un escaneo) se ve solo con
   `clients:write` + `clients:read` (o `suppliers:write` + `suppliers:read`).
   Mientras no se sabe el permiso, no se ve. Sin permiso de alta, el texto
