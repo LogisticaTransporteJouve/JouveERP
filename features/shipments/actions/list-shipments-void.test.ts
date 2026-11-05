@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { resolveAccess } from "@/lib/auth/permissions";
+import { resolveAccess, type Role } from "@/lib/auth/permissions";
 import {
   recordingSupabase,
   type RecordedCall,
@@ -17,7 +17,11 @@ const row = (id: string, invoiceId: string | null) => ({
 
 let rows: unknown[] = [];
 let voidRead: { data: unknown; error: unknown } = { data: [], error: null };
+let role: Role = "owner";
+// The viewer's client reads the cargas; the service client reads the void
+// rule (operations cannot read invoices).
 let fake = recordingSupabase(respond);
+let service = recordingSupabase(respond);
 
 function respond(call: RecordedCall) {
   if (call.table === "shipments") return { data: rows, error: null };
@@ -28,11 +32,14 @@ function respond(call: RecordedCall) {
 vi.mock("@/lib/auth/context", () => ({
   requireUserContext: async () => ({
     userId: "u1",
-    access: resolveAccess(["owner"], []),
+    access: resolveAccess([role], []),
   }),
 }));
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => fake.client,
+}));
+vi.mock("@/lib/supabase/service", () => ({
+  getServiceClient: () => service.client,
 }));
 vi.mock("@/lib/actions/audit", () => ({ logAudit: vi.fn() }));
 vi.mock("@/features/invoices/actions/invoices-actions", () => ({
@@ -44,7 +51,9 @@ const { listShipmentsAction } = await import("./shipments-actions");
 beforeEach(() => {
   rows = [row("s1", "inv-live"), row("s2", "inv-credited"), row("s3", null)];
   voidRead = { data: ["inv-credited"], error: null };
+  role = "owner";
   fake = recordingSupabase(respond);
+  service = recordingSupabase(respond);
 });
 
 describe("listShipmentsAction", () => {
@@ -57,12 +66,24 @@ describe("listShipmentsAction", () => {
       ["s2", true],
       ["s3", false],
     ]);
-    const probe = fake.calls.find(
+    const probe = service.calls.find(
       (c) => c.table === "billing_void_invoice_ids",
     );
     expect(probe?.payload).toEqual({
       p_invoice_ids: ["inv-live", "inv-credited"],
     });
+  });
+
+  it("gives operations, who cannot read invoices, the same answer", async () => {
+    role = "operations";
+    const res = await listShipmentsAction();
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.data.find((s) => s.id === "s2")?.invoice_void).toBe(true);
+    // The rule is not read under the viewer's RLS, which hides the invoice.
+    expect(fake.calls.some((c) => c.table === "billing_void_invoice_ids")).toBe(
+      false,
+    );
   });
 
   it("fails instead of showing a void invoice as billing its carga", async () => {
