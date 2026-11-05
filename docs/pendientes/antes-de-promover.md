@@ -2,19 +2,19 @@
 
 Lo que el owner revisa y aprueba antes de correr **Promote to production**
 con cualquier commit posterior a `production-latest`. Cubre **todas las
-migraciones posteriores a `production-latest`** (hoy `94f942b`, promovido el
-2026-11-05; su última migración es `20261104194201`):
+migraciones posteriores a `production-latest`** (hoy `d71de85`, promovido el
+2026-11-05; su última migración es `20261105140000`):
 `promote-to-production.yml` las aplica todas juntas. Las consultas son de
 solo lectura y se corren en el SQL editor de producción **antes** de
 promover, sobre el schema de `production-latest` (sin ninguna migración
 pendiente).
 
 **Qué falta aprobar.** Solo los ítems de
-[Pendientes para el próximo promote](#pendientes-para-el-próximo-promote):
-`20261105090000`, `20261105090001`, `20261105090100` y los que se sumen
-después, más el paso de [Después de promover](#después-de-promover). Todas
-las migraciones hasta `20261104194201` ya están en producción: sus ítems
-quedan marcados abajo, en
+[Pendientes para el próximo promote](#pendientes-para-el-próximo-promote)
+(hoy ninguno) y el paso de [Después de promover](#después-de-promover).
+Todas las migraciones hasta `20261105140000` ya están en producción: las del
+promote de `d71de85` quedan marcadas en
+[su sección](#aplicadas-en-el-promote-de-d71de85-2026-11-05) y las anteriores en
 [Aplicadas en producción](#aplicadas-en-producción-promotes-hasta-el-2026-11-05),
 y los «Aprobar» de `20261103000000`–`20261104080500` que viven en los
 archivos de tema de `docs/pendientes/` tampoco gatean nada ya.
@@ -28,7 +28,7 @@ compras, cheques, órdenes de pago, préstamos, planillas o movimientos de
 empleados. Todo backfill sobre esas tablas es un no-op en producción y no
 hace falta re-asentar nada viejo. Los ítems de revisión de esos datos quedan
 marcados **N/A en producción** con su SQL (sirven si se promueve sobre otra
-base). Hoy (`94f942b`) producción tiene todas las tablas que
+base). Desde `94f942b` producción tiene todas las tablas que
 nombran esas consultas (`employee_account_movements`, `employee_debt_plans`,
 `bank_statement_lines`, `freight_settlements`, …), así que ya corren, aunque
 sobre una base sin esos datos no devuelven nada.
@@ -860,7 +860,15 @@ un rollback a un SHA anterior a `94f942b`.
 Migraciones de `main` que todavía no están en `production-latest`. Cada rama
 que agrega una migración suma su ítem al final de esta sección.
 
-- [ ] **Aprobar `20261105090000` y `090001`** (auditoría w13, vínculos de
+Ninguna por ahora: el promote de `d71de85` (2026-11-05) aplicó todas.
+
+## Aplicadas en el promote de `d71de85` (2026-11-05)
+
+Promovidas con el workflow completo (migraciones, sync de Inngest, deploy y
+smoke test en verde). Se marcan aplicadas; sus notas de rollback hablan del
+código que estaba en producción antes (`94f942b`).
+
+- [x] **Aprobar `20261105090000` y `090001`** (auditoría w13, vínculos de
       facturación y flota). No tocan filas existentes ni cambian políticas
       RLS. Van después de `20261103090000`, `20261103090100`,
       `20261104030000`, `20261104194000` y `20261104194201`, de las que
@@ -902,7 +910,7 @@ que agrega una migración suma su ítem al final de esta sección.
     ```
 
     `docs/pendientes/2026-11-05-facturacion-y-flota-auditoria-w13.md`.
-- [ ] **Aprobar `20261105090100`** (auditoría w13, archivos). Va después de
+- [x] **Aprobar `20261105090100`** (auditoría w13, archivos). Va después de
       `20261104194101`. No toca filas existentes ni objetos guardados.
   - Cambia la política «Roles with files:read can view files» de
     `public.files`: un archivo que nada vincula (sin adjunto, sin extracción
@@ -931,7 +939,7 @@ que agrega una migración suma su ítem al final de esta sección.
     ```
 
   - `docs/pendientes/2026-11-05-archivos-y-escaneo-auditoria-w13.md`.
-- [ ] **Aprobar `20261105100000`–`100002`** (auditoría w14, borradores sin
+- [x] **Aprobar `20261105100000`–`100002`** (auditoría w14, borradores sin
       ítems, ingreso de flota y totales de listados). Van después de
       `20261105090001`, de la que reemplazan funciones. Ninguna toca filas
       al aplicarse ni cambia políticas RLS.
@@ -1016,7 +1024,7 @@ que agrega una migración suma su ítem al final de esta sección.
     término y obtiene la regla nueva. Sin consulta de control: no cambia
     datos y solo cambian los totales de una búsqueda con `%`, `_` o `*`.
   - `docs/pendientes/2026-11-05-facturacion-y-flota-auditoria-w14.md`.
-- [ ] **Aprobar `20261105100100`** (auditoría w14, archivos por registro).
+- [x] **Aprobar `20261105100100`** (auditoría w14, archivos por registro).
       Va después de `20261105090100`. No toca filas existentes ni objetos
       guardados: cambia quién los lee.
   - Cambia dos políticas de lectura:
@@ -1145,7 +1153,7 @@ que agrega una migración suma su ítem al final de esta sección.
     ```
 
   - `docs/pendientes/2026-11-05-archivos-por-registro-auditoria-w14.md`.
-- [ ] **Aprobar `20261105120000`** (auditoría w15, quién escribe un vínculo
+- [x] **Aprobar `20261105120000`** (auditoría w15, quién escribe un vínculo
       a un archivo). Va después de `20261105100100`. No toca filas
       existentes: cambia quién puede escribir vínculos nuevos.
   - Cambia cuatro políticas de alta: «Finance and ops can attach files»
@@ -1232,7 +1240,7 @@ que agrega una migración suma su ítem al final de esta sección.
     ```
 
   - `docs/pendientes/2026-11-05-vinculos-de-archivos-auditoria-w15.md`.
-- [ ] **Aprobar `20261105120100`** (auditoría w15, flota: ND acreditadas).
+- [x] **Aprobar `20261105120100`** (auditoría w15, flota: ND acreditadas).
       Va después de `20261104194000` y `20261105100001`, de las que
       reemplaza funciones. No toca filas al aplicarse ni cambia políticas
       RLS.
@@ -1286,7 +1294,7 @@ que agrega una migración suma su ítem al final de esta sección.
     ```
 
   - `docs/pendientes/2026-11-05-flota-nd-acreditadas-auditoria-w15.md`.
-- [ ] **Aprobar `20261105130000`** (auditoría w16, facturación: cadena de
+- [x] **Aprobar `20261105130000`** (auditoría w16, facturación: cadena de
       notas). Va después de `20261105120100`, de la que reemplaza
       funciones. No toca filas al aplicarse ni cambia políticas RLS.
   - Función nueva `billing_invoice_live_amount` (invoker, para
@@ -1351,7 +1359,7 @@ que agrega una migración suma su ítem al final de esta sección.
     ```
 
   - `docs/pendientes/2026-11-05-facturacion-y-flota-auditoria-w16.md`.
-- [ ] **Aprobar `20261105130001`** (auditoría w16, flota: combustible del
+- [x] **Aprobar `20261105130001`** (auditoría w16, flota: combustible del
       viaje). Va después de `20261105100001`, de la que reemplaza
       `ai_fleet_margin`. No toca filas ni políticas.
   - `ai_fleet_margin` (misma firma, invoker y permisos): el combustible de
@@ -1376,7 +1384,7 @@ que agrega una migración suma su ítem al final de esta sección.
     ```
 
   - `docs/decisions/2026-11-05-facturacion-y-flota-auditoria-w16.md`.
-- [ ] **Aprobar `20261105130100`** (auditoría w16, un documento de flota o
+- [x] **Aprobar `20261105130100`** (auditoría w16, un documento de flota o
       de RRHH tiene un archivo propio). Va después de `20261105090100` y
       `20261105120000`, de las que usa y reemplaza funciones. No toca filas
       existentes ni políticas RLS.
@@ -1434,7 +1442,7 @@ que agrega una migración suma su ítem al final de esta sección.
 
   - `docs/pendientes/2026-11-05-archivo-propio-de-documentos-auditoria-w16.md`.
 
-- [ ] **Aprobar `20261105140000`** (auditoría w17, compras: NC/ND contra su
+- [x] **Aprobar `20261105140000`** (auditoría w17, compras: NC/ND contra su
       origen). Va después de `20261031173652` (de la que reemplaza una
       función) y de `20261031180534` (cuya función usa). No toca filas
       existentes ni políticas RLS.
@@ -1483,8 +1491,10 @@ que agrega una migración suma su ítem al final de esta sección.
       antes corren tarde. Lo mismo después de un rollback y vuelta adelante
       (`docs/pendientes/2026-11-04-tareas-ia-por-eventos.md`).
       **Ya corresponde:** el promote de `94f942b` (2026-11-05) sacó
-      `ai-workflows-materialize`. Owner: marcá este ítem cuando la hayas
-      corrido.
+      `ai-workflows-materialize` y el de `d71de85` (mismo día) volvió a
+      sincronizar Inngest. Owner: marcá este ítem cuando la hayas corrido
+      (Inngest → Functions → «AI — reconciliar tareas programadas» →
+      Invoke con `{}`).
 - [x] **N/A en producción (base sin compras/cheques/OP/préstamos/RRHH a
       2026-11-04).** Las NC de compras a cargo de empleados que `102300`
       dejó con su asiento viejo por período cerrado: ítem **Después de
