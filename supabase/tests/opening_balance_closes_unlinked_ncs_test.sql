@@ -1,5 +1,5 @@
 -- An opening balance closes everything up to its date, NCs with no origin
--- included (20261105200100): they are neither subtracted when it is applied
+-- included (20261105230100): they are neither subtracted when it is applied
 -- nor spread again by v_aging_documents onto invoices after the cut-off. An
 -- unlinked NC after the cut-off still spreads. One transaction, rolled back.
 
