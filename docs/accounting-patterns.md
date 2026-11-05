@@ -478,8 +478,10 @@ Reportes fiscales de solo lectura. Dos RPCs `SECURITY INVOKER`:
   `usd_*` por separado (`usd_*` = DOL/USD; cualquier otra moneda cae en `ars_*`,
   la app solo emite PES y DOL). El total único (pantallas, dashboard, PDF, IA) es
   el equivalente en pesos al último dólar oficial (`lib/fx.ts`, `lib/aging.ts`),
-  o ninguno si hay USD y no hay cotización cargada. Clientes y proveedores
-  cuentan los días desde `fch_vto_pago` (o `fecha` si no tiene).
+  o ninguno si hay USD y no hay cotización cargada. Los proveedores cuentan
+  los días desde `fch_vto_pago` (o `fecha` si no tiene); los clientes, desde
+  `v_aging_documents.due_date` = `invoice_effective_due_date` (`fch_vto_pago`
+  si es posterior a `fecha`, si no `fecha` + 7 días).
 - **Cuenta corriente por moneda:** `v_client_account_movements` /
   `v_supplier_account_movements` traen `currency` (ARS/USD) por movimiento; las
   acciones llevan un saldo corrido por moneda y devuelven `balances: { ARS, USD }`

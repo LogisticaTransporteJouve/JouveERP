@@ -37,6 +37,7 @@ import {
   userCan,
   type Access,
 } from "@/lib/auth/permissions";
+import { SALES_INVOICE_DUE_DAYS } from "@/lib/aging";
 import { periodEnd } from "@/lib/fiscal-year";
 import { round2 } from "@/lib/format";
 import {
@@ -429,7 +430,7 @@ export const getClientPaymentBehavior = defineAiAction({
     ).length;
     const page = pageOf(rows, input);
     const notes = [
-      "Vencido en pesos: comprobantes pasados de su vencimiento (o 30 días desde la fecha si no tiene). La deuda es la de hoy, no la del rango. Dólares aparte; open_ars_equivalent al último oficial (null si no hay cotización).",
+      `Vencido en pesos: comprobantes pasados de su vencimiento (${SALES_INVOICE_DUE_DAYS} días después de su fecha, salvo que traigan un vencimiento posterior). La deuda es la de hoy, no la del rango. Dólares aparte; open_ars_equivalent al último oficial (null si no hay cotización).`,
     ];
     if (!salesComplete) {
       notes.push(

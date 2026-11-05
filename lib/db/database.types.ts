@@ -7908,6 +7908,7 @@ export type Database = {
           days_overdue: number | null
           document_id: string | null
           document_type: string | null
+          due_date: string | null
           fch_vto_pago: string | null
           fecha: string | null
           imp_total: number | null
@@ -9805,6 +9806,10 @@ export type Database = {
           p_user_id: string
         }
         Returns: string[]
+      }
+      invoice_effective_due_date: {
+        Args: { p_fch_vto_pago: string; p_fecha: string }
+        Returns: string
       }
       invoice_list_totals: {
         Args: {

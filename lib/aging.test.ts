@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 
+import { latestDefinition } from "@/lib/db/testing/migration-sql";
+
 import {
   aggregateClientAging,
   aggregateSupplierAging,
   formatCurrencyAmounts,
   isAgingOverdue,
   onAccountFromRows,
+  SALES_INVOICE_DUE_DAYS,
   type AgingViewAmounts,
   type ClientAgingViewRow,
 } from "./aging";
@@ -259,5 +262,30 @@ describe("rejected checks in the client aging", () => {
     });
     expect(r.totals.rejected_checks).toEqual({ ars: 100, usd: 20 });
     expect(r.totals.total).toEqual({ ars: 350, usd: 20 });
+  });
+});
+
+describe("SALES_INVOICE_DUE_DAYS", () => {
+  it("is the number invoice_effective_due_date adds in SQL", () => {
+    const sql = latestDefinition("invoice_effective_due_date");
+    expect(sql).toMatch(/else\s+p_fecha\s*\+\s*(\d+)/);
+    expect(Number(/else\s+p_fecha\s*\+\s*(\d+)/.exec(sql)?.[1])).toBe(
+      SALES_INVOICE_DUE_DAYS,
+    );
+  });
+});
+
+describe("the sales due date has one rule", () => {
+  it("is read from v_aging_documents.due_date by every SQL reader", () => {
+    for (const fn of ["late_interest_candidates", "ai_client_sales_summary"]) {
+      const sql = latestDefinition(fn);
+      expect(sql, fn).toContain("d.due_date");
+      expect(sql, fn).not.toContain("fch_vto_pago");
+    }
+    const sync = latestDefinition("sync_automatic_tasks");
+    const collection = sync.slice(sync.indexOf("'collection'"));
+    expect(collection.slice(0, collection.indexOf("union all"))).toMatch(
+      /d\.due_date\s+from public\.v_aging_documents[\s\S]*and d\.due_date < p_today/,
+    );
   });
 });
