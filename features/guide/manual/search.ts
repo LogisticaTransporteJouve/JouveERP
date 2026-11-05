@@ -2,6 +2,10 @@ import { toPlainText } from "./markup";
 import {
   accessCan,
   anchorHref,
+  combine,
+  permissionsOf,
+  taskAllowed,
+  taskRoleNames,
   makeResolver,
   roleNames,
   stepText,
@@ -155,10 +159,16 @@ export function searchGuide(
         href,
         where,
         permission: t.permission,
-        roles: roleNames(t.permission),
-        allowed: accessCan(access, t.permission),
+        roles: taskRoleNames(t),
+        allowed: taskAllowed(access, t),
         summary: t.summary ? plain(t.summary) : undefined,
-        prerequisites: (t.prerequisites ?? []).map(plain),
+        prerequisites: [
+          ...(t.permissionByRecord ?? []).map(
+            (r) =>
+              `${r.record}: además ${permissionsOf(r.permission).join(" + ")} (${roleNames(combine(t.permission, r.permission))})`,
+          ),
+          ...(t.prerequisites ?? []).map(plain),
+        ],
         steps: t.steps.map((s) =>
           [
             plain(stepText(s)),

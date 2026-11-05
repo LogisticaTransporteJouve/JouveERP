@@ -1,3 +1,5 @@
+import { attachmentPermission } from "./attachment-permissions";
+
 import type { GuidePage } from "../types";
 
 // Sales chapter: clients (list, ficha, cuenta corriente, opening balance,
@@ -675,7 +677,7 @@ export const salesPage: GuidePage = {
         {
           id: "adjuntar-archivo-cliente",
           title: "Adjuntar documentos al cliente",
-          permission: ["files:write", "clients:write"],
+          permission: attachmentPermission("client"),
           steps: [
             "En la ficha del cliente, entrá a la pestaña {{Adjuntos}}.",
             "En {{Tipo:}}, elegí {{Constancia de inscripción}}, {{Contrato}} u {{Otro}}.",
@@ -1590,7 +1592,7 @@ export const salesPage: GuidePage = {
         {
           id: "adjuntar-archivo-comprobante",
           title: "Adjuntar archivos a un comprobante",
-          permission: "files:write",
+          permission: attachmentPermission("invoice"),
           steps: [
             "En el detalle del comprobante, en {{Adjuntos}}, elegí el {{Tipo:}} ({{Comprobante}}, {{Remito}} u {{Otro}}).",
             "Arrastrá el archivo a {{Arrastrá un archivo o elegí desde el dispositivo}} o hacé clic para elegirlo.",
@@ -2055,7 +2057,7 @@ export const salesPage: GuidePage = {
         {
           id: "adjuntar-archivo-recibo",
           title: "Adjuntar el comprobante de pago a un recibo",
-          permission: "files:write",
+          permission: attachmentPermission("receipt"),
           steps: [
             "Abrí el detalle del recibo ({{Ver recibo}}).",
             "En {{Adjuntos}}, elegí el {{Tipo:}} ({{Comprobante}}, {{Comprobante de pago}} u {{Otro}}) y arrastrá el archivo a {{Arrastrá un archivo o elegí desde el dispositivo}}.",

@@ -19,6 +19,8 @@ decisión completa está en [`docs/decisions/2026-11-05-guia-de-uso.md`](../deci
 - **En la app:** «Guía de uso» en el pie de la barra lateral, o el botón **?** del encabezado de cada
   pantalla (va directo a su sección). La sirve `app/manual/[[...path]]/route.ts` (solo usuarios con
   sesión, con el nonce de la CSP).
+- **Quién la ve:** cualquier usuario con un rol que vea el lado interno. El Contador externo (solo
+  fiscal) no la ve, porque documenta el canal interno; un usuario sin rol tampoco.
 - **Fuera de la app:** son archivos estáticos: `xdg-open docs/manual/index.html`, o
   `python3 -m http.server -d docs/manual 4173`.
 

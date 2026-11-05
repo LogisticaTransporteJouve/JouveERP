@@ -1,3 +1,5 @@
+import { PAYMENT_ORDER_FORM_PERMISSIONS } from "@/features/payment-orders/lib/payment-order-form";
+
 import type { GuidePage } from "../types";
 
 // Treasury chapter: the summary and its shortcuts, cash flow, accounts, Caja,
@@ -205,7 +207,7 @@ export const treasuryPage: GuidePage = {
           title: "Pagar a un proveedor desde Tesorería",
           summary:
             "Atajo para emitir una orden de pago sin ir a Órdenes de pago: es el mismo formulario y la misma orden.",
-          permission: "payment_orders:write",
+          permission: [...PAYMENT_ORDER_FORM_PERMISSIONS],
           prerequisites: [
             "Que exista al menos una cuenta activa de la que sale la plata (ver [[#crear-cuenta]]).",
           ],
@@ -1911,7 +1913,7 @@ export const treasuryPage: GuidePage = {
           title: "Endosar un cheque a un proveedor",
           summary:
             "Un cheque de la cartera se entrega como medio de pago en una orden de pago.",
-          permission: "payment_orders:write",
+          permission: [...PAYMENT_ORDER_FORM_PERMISSIONS],
           prerequisites: [
             "Que el cheque esté {{En cartera}} y en la moneda de la orden de pago.",
           ],

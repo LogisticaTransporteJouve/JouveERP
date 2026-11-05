@@ -1,4 +1,8 @@
+import { PAYMENT_ORDER_FORM_PERMISSIONS } from "@/features/payment-orders/lib/payment-order-form";
+
 import type { GuidePage } from "../types";
+
+import { attachmentPermission } from "./attachment-permissions";
 
 // Purchases chapter: suppliers and their categories, purchase invoices and
 // internal remitos, the ARCA received tray, payment orders and supplier aging.
@@ -539,7 +543,7 @@ export const purchasesPage: GuidePage = {
           title: "Adjuntar archivos a un proveedor",
           summary:
             "Constancia de inscripción, contratos y otros documentos del proveedor.",
-          permission: ["files:write", "suppliers:write"],
+          permission: attachmentPermission("supplier"),
           steps: [
             "En la ficha del proveedor, abrí la pestaña {{Adjuntos}}.",
             "En {{Tipo:}}, elegí {{Constancia de inscripción}}, {{Contrato}} u {{Otro}}.",
@@ -1475,7 +1479,7 @@ export const purchasesPage: GuidePage = {
           title: "Pagar una factura desde su detalle",
           summary:
             "{{Pagar}} abre la orden de pago con la factura ya elegida por lo que falta pagar.",
-          permission: "payment_orders:write",
+          permission: [...PAYMENT_ORDER_FORM_PERMISSIONS],
           prerequisites: [
             "Poder ver las cuentas de Tesorería (`accounts:read`): cada línea de pago elige una cuenta y, sin ese permiso, el botón no aparece.",
             "Una factura o nota de débito {{Recibida}} con saldo pendiente.",
@@ -1572,7 +1576,7 @@ export const purchasesPage: GuidePage = {
         {
           id: "adjuntar-archivos-compra",
           title: "Adjuntar archivos a una compra",
-          permission: ["files:write", "purchase_invoices:write"],
+          permission: attachmentPermission("purchase_invoice"),
           steps: [
             "Abrí la compra y bajá hasta {{Adjuntos}}.",
             "En {{Tipo:}}, elegí {{Comprobante}}, {{Remito}} u {{Otro}}.",
@@ -1958,7 +1962,7 @@ export const purchasesPage: GuidePage = {
         {
           id: "emitir-orden-de-pago",
           title: "Emitir una orden de pago",
-          permission: "payment_orders:write",
+          permission: [...PAYMENT_ORDER_FORM_PERMISSIONS],
           prerequisites: [
             "Poder ver las cuentas de Tesorería (`accounts:read`): cada línea de pago elige una cuenta y, sin ese permiso, el botón no aparece.",
             "Un punto de venta habilitado para órdenes de pago en el canal.",
@@ -2150,7 +2154,7 @@ export const purchasesPage: GuidePage = {
         {
           id: "pagar-con-cheque-propio",
           title: "Pagar con un cheque propio",
-          permission: "payment_orders:write",
+          permission: [...PAYMENT_ORDER_FORM_PERMISSIONS],
           prerequisites: [
             "Poder ver las cuentas de Tesorería (`accounts:read`): cada línea de pago elige una cuenta y, sin ese permiso, el botón no aparece.",
             "Una cuenta bancaria activa en la moneda de la OP (la chequera).",
@@ -2311,7 +2315,7 @@ export const purchasesPage: GuidePage = {
         {
           id: "editar-orden-de-pago",
           title: "Editar una orden de pago",
-          permission: "payment_orders:write",
+          permission: [...PAYMENT_ORDER_FORM_PERMISSIONS],
           prerequisites: [
             "Poder ver las cuentas de Tesorería (`accounts:read`): cada línea de pago elige una cuenta y, sin ese permiso, el botón no aparece.",
             "Una OP {{Emitida}}, sin cheques propios cobrados o rechazados y sin cheques endosados rechazados.",
@@ -2427,7 +2431,7 @@ export const purchasesPage: GuidePage = {
         {
           id: "adjuntar-archivos-orden-de-pago",
           title: "Adjuntar archivos a una orden de pago",
-          permission: ["files:write", "payment_orders:write"],
+          permission: attachmentPermission("payment_order"),
           steps: [
             "Abrí la OP y bajá hasta {{Adjuntos}}.",
             "En {{Tipo:}}, elegí {{Comprobante de pago}}, {{Transferencia}} u {{Otro}}.",

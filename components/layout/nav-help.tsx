@@ -1,5 +1,8 @@
+"use client";
+
 import { LifeBuoy } from "lucide-react";
 
+import { useScope } from "@/components/providers/scope-provider";
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -10,10 +13,13 @@ import {
 import { MANUAL_WINDOW } from "@/lib/manual/windows";
 
 /** The user guide (docs/manual/, served at /manual), in its own named tab
- *  that every help link reuses: it is static HTML, not a Next page. */
+ *  that every help link reuses: it is static HTML, not a Next page. Hidden
+ *  from a fiscal-only user, whom the guide refuses (lib/manual/serve.ts). */
 export function NavHelp(
   props: React.ComponentPropsWithoutRef<typeof SidebarGroup>,
 ) {
+  const { locked } = useScope();
+  if (locked) return null;
   return (
     <SidebarGroup {...props}>
       <SidebarGroupContent>
