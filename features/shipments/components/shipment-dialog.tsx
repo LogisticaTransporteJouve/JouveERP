@@ -361,7 +361,8 @@ export function ShipmentDialog({
                           ))}
                         </SelectContent>
                       </Select>
-                      {optionsFailed && !options && (
+                      {((optionsFailed && !options) ||
+                        options?.trips === null) && (
                         <ReadError
                           message="No se pudieron cargar los viajes."
                           onRetry={() => void refetchOptions()}

@@ -177,9 +177,12 @@ export async function listShipmentsAction(): Promise<ActionResult<Shipment[]>> {
   return { ok: true, data: rows };
 }
 
+/** Each list is null when its own read failed: the carga form needs only the
+ *  trips and «Facturar flete» only the channels, so each reports its own
+ *  failure instead of an empty select. */
 type ShipmentOptions = {
-  trips: { id: string; trip_date: string; status: string }[];
-  channels: { id: string; name: string; is_fiscal: boolean }[];
+  trips: { id: string; trip_date: string; status: string }[] | null;
+  channels: { id: string; name: string; is_fiscal: boolean }[] | null;
 };
 
 /** Select options for the shipment forms (recent trips, active channels).
@@ -200,22 +203,21 @@ export async function listShipmentOptionsAction(): Promise<
       .limit(200),
     readInvoicingChannels(),
   ]);
-  // Without channels «Facturar flete» has nothing to pick: an error, not an
-  // empty select.
-  if (trips.error || !channels.ok) {
-    logger.error("shipments.options.failed", {
+  if (trips.error) {
+    logger.error("shipments.options.trips_failed", {
       userId: ctx.userId,
-      error: trips.error ?? "invoicing_channels read failed",
+      error: trips.error,
     });
-    return { ok: false, error: "No se pudieron cargar las opciones." };
   }
   return {
     ok: true,
     data: {
-      trips: trips.data ?? [],
-      channels: channels.channels
-        .filter((c) => c.is_active)
-        .map((c) => ({ id: c.id, name: c.name, is_fiscal: c.is_fiscal })),
+      trips: trips.error ? null : (trips.data ?? []),
+      channels: channels.ok
+        ? channels.channels
+            .filter((c) => c.is_active)
+            .map((c) => ({ id: c.id, name: c.name, is_fiscal: c.is_fiscal }))
+        : null,
     },
   };
 }

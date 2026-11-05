@@ -3,13 +3,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { resolveAccess } from "@/lib/auth/permissions";
 import { recordingSupabase } from "@/tests/helpers/recording-supabase";
 
-// listShipmentOptionsAction feeds the «Facturar flete» channel select: a
-// failed channel read is an error, not an empty select.
+// listShipmentOptionsAction feeds the carga form's trip select and the
+// «Facturar flete» channel select: each read that fails comes back as null,
+// not an empty list, and does not take the other one down.
 
-const fake = recordingSupabase(() => ({
-  data: [{ id: "t1", trip_date: "2026-11-01", status: "planned" }],
-  error: null,
-}));
+const trip = { id: "t1", trip_date: "2026-11-01", status: "planned" };
+let tripsFail = false;
+const fake = recordingSupabase(() =>
+  tripsFail
+    ? { data: null, error: { message: "boom" } }
+    : { data: [trip], error: null },
+);
 let channelsRead:
   | {
       ok: true;
@@ -43,14 +47,23 @@ const { listShipmentOptionsAction } = await import("./shipments-actions");
 
 beforeEach(() => {
   channelsRead = { ok: true, channels: [] };
+  tripsFail = false;
 });
 
 describe("listShipmentOptionsAction and the channels", () => {
-  it("fails when the channel read fails", async () => {
+  it("keeps the trips when the channel read fails", async () => {
     channelsRead = { ok: false };
     expect(await listShipmentOptionsAction()).toEqual({
-      ok: false,
-      error: "No se pudieron cargar las opciones.",
+      ok: true,
+      data: { trips: [trip], channels: null },
+    });
+  });
+
+  it("keeps the channels when the trips read fails", async () => {
+    tripsFail = true;
+    expect(await listShipmentOptionsAction()).toEqual({
+      ok: true,
+      data: { trips: null, channels: [] },
     });
   });
 

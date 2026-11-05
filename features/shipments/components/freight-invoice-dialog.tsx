@@ -131,7 +131,7 @@ export function FreightInvoiceDialog({
           </div>
           <div className="space-y-2">
             <Label htmlFor="freight-channel">Canal</Label>
-            {optionsFailed && !options && (
+            {((optionsFailed && !options) || options?.channels === null) && (
               <ReadError
                 message="No se pudieron cargar los canales."
                 onRetry={() => void refetchOptions()}
