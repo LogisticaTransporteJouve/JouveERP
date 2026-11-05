@@ -20,6 +20,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -1523,6 +1524,9 @@ export function PurchaseInvoiceForm({
                     </SelectContent>
                   </Select>
                 </FormControl>
+                {watchedOriginId !== null && !arcaLocked && (
+                  <FormDescription>La de la factura origen.</FormDescription>
+                )}
                 <FormMessage />
               </FormItem>
             )}
