@@ -184,8 +184,8 @@ export default async function PurchaseInvoiceDetailPage({
           </p>
           {!channelRow && (
             <p className="text-sm text-muted-foreground">
-              No se pudo leer el canal de la compra: no se muestran sus
-              acciones.
+              No se pudo leer el canal de la compra: no se muestran «Pagar» ni
+              «Imputar remitos».
             </p>
           )}
           {pendingFailed && (

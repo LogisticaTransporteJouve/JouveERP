@@ -176,7 +176,7 @@ describe("purchase detail — canal", () => {
     );
     expect(
       screen.getByText(
-        "No se pudo leer el canal de la compra: no se muestran sus acciones.",
+        "No se pudo leer el canal de la compra: no se muestran «Pagar» ni «Imputar remitos».",
       ),
     ).toBeTruthy();
     expect(screen.queryByText("stub-pagar")).toBeNull();

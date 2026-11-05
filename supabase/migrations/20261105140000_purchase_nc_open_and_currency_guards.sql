@@ -3,11 +3,15 @@ SET LOCAL statement_timeout = '15min';
 
 -- Purchase NC/ND against their origin (audit w17, compras):
 --
---   * purchase_invoices_open_after_edit also runs on INSERT, so a new NC
---     larger than what its origin still has open is refused, as on the sales
---     side (invoices_nc_open_after_change). Its function
---     guard_purchase_invoice_open_after_edit (20261031180534) is unchanged:
---     on insert OLD is null, so it checks the new row and its origin.
+--   * purchase_invoices_open_after_insert runs the open-amount check of
+--     purchase_invoices_open_after_edit (20261031180534, update only) on the
+--     INSERT of a note with an origin, so a new NC larger than what its
+--     origin still has open is refused, as on the sales side
+--     (invoices_nc_open_after_change). The function
+--     guard_purchase_invoice_open_after_edit is unchanged: on insert OLD is
+--     null, so it checks the new row and its origin. A purchase without
+--     origin cannot lower another's open amount, so its insert skips the
+--     check (and the view read).
 --   * guard_purchase_invoice_origin (latest: 20261031173652) also refuses an
 --     NC/ND in another currency than its origin, and a change of currency on
 --     an origin whose received NC/ND are in the old one (cancel them first).
@@ -16,12 +20,13 @@ SET LOCAL statement_timeout = '15min';
 --     currency or its origin change, so an existing pair still saves its
 --     other fields.
 
-drop trigger if exists purchase_invoices_open_after_edit on public.purchase_invoices;
-create constraint trigger purchase_invoices_open_after_edit
-  after insert or update of imp_total, kind, invoice_origin_id
+create constraint trigger purchase_invoices_open_after_insert
+  after insert
   on public.purchase_invoices
   deferrable initially deferred
-  for each row execute function public.guard_purchase_invoice_open_after_edit();
+  for each row
+  when (new.invoice_origin_id is not null)
+  execute function public.guard_purchase_invoice_open_after_edit();
 
 create or replace function public.guard_purchase_invoice_origin()
 returns trigger

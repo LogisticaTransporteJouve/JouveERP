@@ -5,12 +5,14 @@ Migración: `20261105140000`. Pendientes:
 
 - **Una NC de compra no supera lo que su origen tiene abierto, también al
   cargarla.** La guarda de saldo abierto de compras
-  (`purchase_invoices_open_after_edit`) corría solo al editar. Ahora corre
-  también al insertar, como en ventas. Una NC por más de lo que queda abierto
-  de la factura se rechaza con «La edición deja un comprobante con más pagado
-  o acreditado que su total» y no se guarda nada. La alternativa (aceptar el
-  excedente como crédito del proveedor) obligaba a que el aging y el saldo
-  por canal llevaran saldos negativos; se descartó.
+  (`purchase_invoices_open_after_edit`) corría solo al editar. Un trigger
+  nuevo (`purchase_invoices_open_after_insert`) corre el mismo control al
+  cargar una compra con origen, como en ventas. Una compra sin origen no
+  baja el saldo de otra, así que no lo corre. Una NC por más de lo que queda
+  abierto de la factura se rechaza con «La edición deja un comprobante con
+  más pagado o acreditado que su total» y no se guarda nada. La alternativa
+  (aceptar el excedente como crédito del proveedor) obligaba a que el aging
+  y el saldo por canal llevaran saldos negativos; se descartó.
 - **Una NC/ND va en la moneda de su origen.** `guard_purchase_invoice_origin`
   la rechaza en otra moneda («La factura de origen está en otra moneda: una
   NC/ND va en la misma moneda que su factura») al cargarla y cuando cambian
@@ -27,8 +29,8 @@ Migración: `20261105140000`. Pendientes:
   factura o ND no anulada**, la misma condición que «Pagar». Una NC no debe
   nada y una compra anulada ya no cuenta para saldos.
 - **El detalle dice cuando una lectura falla** en vez de suponer un valor:
-  - sin el canal, el título es «Comprobante de compra» (no «Factura») y no
-    se ofrecen «Pagar» ni «Imputar remitos»;
+  - sin el canal, el título es «Comprobante de compra» (no «Factura» ni
+    «Remito interno») y no se ofrecen «Pagar» ni «Imputar remitos»;
   - sin las imputaciones, no se ofrece «Imputar remitos» con el total como
     disponible;
   - sin lo pendiente de pago, avisa en lugar de esconder «Pagar» sin

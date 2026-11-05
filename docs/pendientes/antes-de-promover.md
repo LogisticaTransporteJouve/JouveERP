@@ -1435,12 +1435,13 @@ que agrega una migración suma su ítem al final de esta sección.
   - `docs/pendientes/2026-11-05-archivo-propio-de-documentos-auditoria-w16.md`.
 
 - [ ] **Aprobar `20261105140000`** (auditoría w17, compras: NC/ND contra su
-      origen). Va después de `20261031173652` y `20261031180534`, de las que
-      reemplaza una función y un trigger. No toca filas existentes ni
-      políticas RLS.
-  - El constraint trigger `purchase_invoices_open_after_edit` se recrea
-    para correr también al insertar (misma función, sin cambios). Una NC de
-    compra por más de lo que su origen tiene abierto ya no se carga.
+      origen). Va después de `20261031173652` (de la que reemplaza una
+      función) y de `20261031180534` (cuya función usa). No toca filas
+      existentes ni políticas RLS.
+  - Constraint trigger nuevo `purchase_invoices_open_after_insert`: al
+    cargar una compra con origen corre el mismo control que
+    `purchase_invoices_open_after_edit` (misma función, sin cambios). Una NC
+    de compra por más de lo que su origen tiene abierto ya no se carga.
   - `guard_purchase_invoice_origin` (misma firma, `SECURITY DEFINER`,
     revocada de `public`, `anon` y `authenticated`) rechaza (`23514`,
     `jouve_guard`) una NC/ND en otra moneda que su origen, al cargarla o al
