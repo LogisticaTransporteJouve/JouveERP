@@ -61,11 +61,11 @@ const { ShipmentDialog } = await import("./shipment-dialog");
 
 afterEach(cleanup);
 
-function renderEdit() {
+function renderEdit(edited: Shipment = shipment) {
   render(
     <ShipmentDialog
       mode="edit"
-      shipment={shipment}
+      shipment={edited}
       open
       onOpenChange={() => {}}
     />,
@@ -80,6 +80,23 @@ describe("ShipmentDialog trip picker", () => {
     };
     renderEdit();
     expect(screen.queryByText("No se pudieron cargar los viajes.")).toBeNull();
+  });
+
+  it("shows a carga's own trip when it is older than the listed ones", () => {
+    h.options = {
+      trips: [{ id: "t1", trip_date: "2026-11-01", status: "planned" }],
+      channels: [],
+    };
+    renderEdit({
+      ...shipment,
+      trip_id: "t-old",
+      trip: { trip_date: "2025-03-14" },
+    });
+    const trigger = screen
+      .getByText("Viaje")
+      .closest("[data-slot=form-item]")
+      ?.querySelector("button");
+    expect(trigger?.textContent).toContain("2025-03-14");
   });
 
   it("says the trips could not be read when that read failed", () => {
