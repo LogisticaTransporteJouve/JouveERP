@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { useConfirm } from "@/components/providers/confirm-provider";
 import { FileDropzone } from "@/components/file-upload/file-dropzone";
+import { ReadError } from "@/components/read-error";
 import { DataTable } from "@/components/ui/data-table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { Access } from "@/lib/auth/permissions";
@@ -15,6 +16,7 @@ import {
   useExtractions,
   useScanDocument,
 } from "../hooks/use-documents";
+import { EXTRACTIONS_LIST_LIMIT } from "../types";
 
 import { buildDocumentColumns } from "./columns";
 import { ReviewSheet } from "./review-sheet";
@@ -28,7 +30,8 @@ const STATUS_TABS = [
 
 export function DocumentsTray({ access }: { access: Access }) {
   const [status, setStatus] = useState("pending_review");
-  const { data: rows = [], isLoading } = useExtractions(status);
+  const list = useExtractions(status);
+  const { data: rows = [], isLoading } = list;
   const scan = useScanDocument();
   const discard = useDiscardExtraction();
   const confirm = useConfirm();
@@ -93,16 +96,32 @@ export function DocumentsTray({ access }: { access: Access }) {
         </TabsList>
       </Tabs>
 
-      <DataTable
-        columns={columns}
-        data={rows}
-        getRowId={(r) => r.id}
-        isLoading={isLoading}
-        emptyMessage="No hay documentos en este estado."
-        enablePagination
-        initialPageSize={20}
-        defaultSorting={[{ id: "created_at", desc: true }]}
-      />
+      {/* A failed read is not an empty tab: the document just scanned would
+          look lost and get scanned again. */}
+      {list.isError ? (
+        <ReadError
+          message="No se pudieron cargar los documentos."
+          onRetry={() => void list.refetch()}
+        />
+      ) : (
+        <>
+          <DataTable
+            columns={columns}
+            data={rows}
+            getRowId={(r) => r.id}
+            isLoading={isLoading}
+            emptyMessage="No hay documentos en este estado."
+            enablePagination
+            initialPageSize={20}
+            defaultSorting={[{ id: "created_at", desc: true }]}
+          />
+          {rows.length >= EXTRACTIONS_LIST_LIMIT && (
+            <p className="text-sm text-muted-foreground">
+              Se muestran los {EXTRACTIONS_LIST_LIMIT} más recientes.
+            </p>
+          )}
+        </>
+      )}
 
       <ReviewSheet
         extractionId={reviewId}

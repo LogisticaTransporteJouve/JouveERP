@@ -60,7 +60,7 @@ import {
   InvoiceExtractionSchema,
 } from "./schemas";
 import { guardExtractionQuota, startExtraction } from "./start";
-import { DOCUMENT_KINDS } from "./types";
+import { DOCUMENT_KINDS, EXTRACTIONS_LIST_LIMIT } from "./types";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -228,7 +228,7 @@ export async function listExtractionsAction(
     .from("ai_document_extractions")
     .select(LIST_COLUMNS)
     .order("created_at", { ascending: false })
-    .limit(100);
+    .limit(EXTRACTIONS_LIST_LIMIT);
   if (valid !== "all") query = query.eq("status", valid);
 
   const { data, error } = await query;
