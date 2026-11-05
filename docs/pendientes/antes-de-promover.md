@@ -882,6 +882,35 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
     ```
 
     `docs/pendientes/2026-11-05-facturacion-y-flota-auditoria-w13.md`.
+- [ ] **Aprobar `20261105090100`** (auditoría w13, archivos). Va después de
+      `20261104194101`. No toca filas existentes ni objetos guardados.
+  - Cambia la política «Roles with files:read can view files» de
+    `public.files`: un archivo que nada vincula (sin adjunto, sin extracción
+    de Document Intelligence, sin documento de RRHH ni de flota) solo lo ven
+    quien lo subió y owner/admin. Como `files_storage_select` sigue a esa
+    fila, lo mismo vale para sus bytes. Función nueva `is_linked_file`
+    (DEFINER, para `authenticated`).
+  - `files_storage_key_is_free` se reemplaza: una key que nombra cualquier
+    fila, también una propia, ya no se puede volver a subir.
+  - Los archivos vinculados se leen igual. Subir y vincular sigue
+    funcionando porque quien sube es quien vincula.
+  - Rollback: el código anterior sube a keys nuevas y vincula como quien
+    subió. Los escaneos reemplazados que deja quedan ocultos hasta el
+    barrido de las 03:00.
+  - Consulta de control antes de aplicar (solo lectura): archivos que nada
+    vincula y que, con la política nueva, dejan de ver los demás roles.
+
+    ```sql
+    select f.id, f.original_filename, f.source, f.uploaded_by, f.created_at
+      from public.files f
+     where not exists (select 1 from public.file_attachments fa where fa.file_id = f.id)
+       and not exists (select 1 from public.ai_document_extractions e where e.file_id = f.id)
+       and not exists (select 1 from public.employee_documents d where d.attachment_file_id = f.id)
+       and not exists (select 1 from public.fleet_documents d where d.attachment_file_id = f.id)
+     order by f.created_at desc;
+    ```
+
+  - `docs/pendientes/2026-11-05-archivos-y-escaneo-auditoria-w13.md`.
 
 ## Después de promover
 

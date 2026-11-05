@@ -9824,6 +9824,7 @@ export type Database = {
         Returns: boolean
       }
       is_fleet_document_file: { Args: { p_file_id: string }; Returns: boolean }
+      is_linked_file: { Args: { p_file_id: string }; Returns: boolean }
       is_postable_expense_account: {
         Args: { p_account_id: string }
         Returns: boolean
