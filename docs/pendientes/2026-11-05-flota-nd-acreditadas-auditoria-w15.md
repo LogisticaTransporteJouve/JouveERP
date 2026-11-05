@@ -18,4 +18,7 @@ Migración: `20261105120100`.
 - [ ] **Facturas que dejan de leerse anuladas** al aplicar `120100`: la
       consulta de control está en su ítem de `antes-de-promover.md`. Owner:
       revisá si alguna carga, período o liquidación de esas facturas ya se
-      volvió a facturar.
+      volvió a facturar. Si una carga ya se volvió a facturar y esa factura
+      nueva se acredita después, «Facturar flete» encuentra la factura vieja
+      (con su ND viva) como intento vigente y vincula la carga a ella en vez
+      de emitir otra (`lib/source-invoice-key.ts`).
