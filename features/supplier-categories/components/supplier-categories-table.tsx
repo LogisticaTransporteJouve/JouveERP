@@ -1,6 +1,7 @@
 "use client";
 
 import { MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -70,7 +71,12 @@ export function SupplierCategoriesTable({
         accessorKey: "name",
         header: "Nombre",
         cell: ({ row }) => (
-          <span className="font-medium">{row.original.name}</span>
+          <Link
+            href={`/suppliers/categories/${row.original.id}`}
+            className="font-medium hover:underline"
+          >
+            {row.original.name}
+          </Link>
         ),
       },
       {

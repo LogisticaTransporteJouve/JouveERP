@@ -46,3 +46,14 @@ describe("SupplierCategoriesTable: write controls follow suppliers:write", () =>
     );
   });
 });
+
+describe("SupplierCategoriesTable: names open the category page", () => {
+  it("links each name to /suppliers/categories/[id]", () => {
+    render(
+      <SupplierCategoriesTable actorAccess={resolveAccess(["operations"])} />,
+    );
+    expect(
+      screen.getByRole("link", { name: "Combustible" }).getAttribute("href"),
+    ).toBe("/suppliers/categories/cat1");
+  });
+});
