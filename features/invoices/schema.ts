@@ -220,6 +220,8 @@ const currencySchema = z.union([
   z.literal(MONEDA.DOLARES),
 ]);
 
+export const NOTES_MAX_LENGTH = 1000;
+
 export const CreateComprobanteSchema = z
   .object({
     channel_id: z.string().min(1),
@@ -250,6 +252,16 @@ export const CreateComprobanteSchema = z
     moneda: currencySchema.default(MONEDA.PESOS),
     cotizacion: z.number().positive().default(1),
     motivo_nc_nd: z.string().trim().max(500).nullable().optional(),
+    /** Internal «Observaciones»: never sent to AFIP nor printed. */
+    notes: z
+      .string()
+      .trim()
+      .max(
+        NOTES_MAX_LENGTH,
+        `Las observaciones admiten hasta ${NOTES_MAX_LENGTH} caracteres.`,
+      )
+      .nullable()
+      .optional(),
     invoice_origin_id: z.string().uuid().nullable().optional(),
     /** A factura billed from this remito interno (Otras ventas). */
     source_remito_id: z.string().uuid().nullable().optional(),

@@ -79,12 +79,23 @@ describe("NcNdForm cotización", () => {
   });
 });
 
-describe("NcNdForm fields", () => {
-  // The note has no column for internal notes; a field that is never sent
-  // would drop what the user types.
-  it("offers no «Observaciones» field", () => {
+describe("NcNdForm «Observaciones»", () => {
+  async function savedNotes(typed: string): Promise<unknown> {
     render(<NcNdForm origin={ORIGIN} kind="nc" />);
-    expect(screen.queryByText(/Observaciones/)).toBeNull();
+    fireEvent.change(screen.getByLabelText("Observaciones (opcional)"), {
+      target: { value: typed },
+    });
+    return savedRate().then(() => issue.mock.calls[0]?.[0]?.notes);
+  }
+
+  it("sends what the user typed, trimmed", async () => {
+    expect(await savedNotes("  Pedido por el cliente  ")).toBe(
+      "Pedido por el cliente",
+    );
+  });
+
+  it("sends a blank field as null", async () => {
+    expect(await savedNotes("   ")).toBeNull();
   });
 });
 

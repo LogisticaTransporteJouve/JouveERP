@@ -495,6 +495,8 @@ export async function issueFiscalInvoiceAction(
     invoice_origin_id: data.invoice_origin_id ?? null,
     source_remito_id: data.source_remito_id ?? null,
     motivo_nc_nd: data.motivo_nc_nd ?? null,
+    // Trimmed by the schema; a blank note is no note.
+    notes: data.notes || null,
     idempotency_key,
     created_by: ctx.userId,
   };
@@ -889,6 +891,8 @@ export interface ComprobanteDetail {
   status: InvoiceRow["status"];
   pdf_hash: string | null;
   motivo_nc_nd: string | null;
+  /** Internal «Observaciones» (NC/ND); never sent to AFIP nor printed. */
+  notes: string | null;
   emitted_at: string | null;
   items: Array<{
     id: string;
@@ -1042,6 +1046,7 @@ export async function getInvoiceDetailAction(
       status: row.status as InvoiceRow["status"],
       pdf_hash: row.pdf_hash,
       motivo_nc_nd: row.motivo_nc_nd,
+      notes: row.notes,
       emitted_at: row.emitted_at,
       items: (row.items ?? [])
         .slice()
