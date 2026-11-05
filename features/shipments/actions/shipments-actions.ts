@@ -12,7 +12,7 @@ import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { findSourceInvoiceSlot, invoiceIsVoid } from "@/lib/source-invoice-key";
-import { fetchInChunks } from "@/lib/supabase/paginate";
+import { fetchInChunks, paginateRange } from "@/lib/supabase/paginate";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { getServiceClient } from "@/lib/supabase/service";
 
@@ -159,11 +159,15 @@ export async function listShipmentsAction(): Promise<ActionResult<Shipment[]>> {
     return { ok: false, error: "No tenés permiso para ver cargas." };
   }
   const supabase = await createSupabaseClient();
-  const { data, error } = await supabase
-    .from("shipments")
-    .select(SELECT_COLUMNS)
-    .order("scheduled_date", { ascending: false, nullsFirst: false })
-    .order("created_at", { ascending: false });
+  const { data, error } = await paginateRange((from, to) =>
+    supabase
+      .from("shipments")
+      .select(SELECT_COLUMNS)
+      .order("scheduled_date", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false })
+      .order("id")
+      .range(from, to),
+  );
   if (error) {
     logger.error("shipments.list.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudieron listar las cargas." };

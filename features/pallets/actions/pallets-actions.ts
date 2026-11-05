@@ -12,6 +12,7 @@ import {
 } from "@/lib/db/pg-error-codes";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
+import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { getServiceClient } from "@/lib/supabase/service";
 
@@ -102,10 +103,14 @@ export async function listPalletsAction(): Promise<ActionResult<Pallet[]>> {
   // Service client after the gate: the embedded client name sits behind the
   // clients RLS, which leaves the warehouse role out ("—" in every row).
   const supabase = getServiceClient();
-  const { data, error } = await supabase
-    .from("pallets")
-    .select(SELECT_COLUMNS)
-    .order("entry_date", { ascending: false });
+  const { data, error } = await paginateRange((from, to) =>
+    supabase
+      .from("pallets")
+      .select(SELECT_COLUMNS)
+      .order("entry_date", { ascending: false })
+      .order("id")
+      .range(from, to),
+  );
   if (error) {
     logger.error("pallets.list.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudieron listar los pallets." };
