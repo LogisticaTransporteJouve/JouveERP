@@ -38,7 +38,7 @@ export default async function DriversPageRoute() {
   return (
     <Hydrate state={dehydratedState}>
       <div className="space-y-6">
-        <DriversTable linkableUsers={linkableUsers} />
+        <DriversTable actorAccess={ctx.access} linkableUsers={linkableUsers} />
       </div>
     </Hydrate>
   );

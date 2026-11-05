@@ -35,7 +35,7 @@ export default async function ProductsPageRoute() {
   return (
     <Hydrate state={dehydratedState}>
       <div className="space-y-6">
-        <ProductsTable clientOptions={clientOptions} />
+        <ProductsTable actorAccess={ctx.access} clientOptions={clientOptions} />
       </div>
     </Hydrate>
   );

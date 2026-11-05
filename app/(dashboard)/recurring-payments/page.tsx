@@ -31,7 +31,7 @@ export default async function RecurringPaymentsPageRoute() {
   return (
     <Hydrate state={dehydratedState}>
       <div className="space-y-6">
-        <RecurringPaymentsTable />
+        <RecurringPaymentsTable actorAccess={ctx.access} />
       </div>
     </Hydrate>
   );

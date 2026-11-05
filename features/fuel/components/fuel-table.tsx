@@ -21,6 +21,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { userCan, type Access } from "@/lib/auth/permissions";
 import type { CostVoucherAccess } from "@/lib/cost-vouchers";
 
 import { useDeleteFuelLoad, useFuelLoads } from "../hooks/use-fuel";
@@ -35,11 +36,13 @@ function formatMoney(n: number) {
 }
 
 export function FuelTable({
+  actorAccess,
   vehicleOptions,
   tripOptions,
   voucherAccess,
   fileAccess,
 }: {
+  actorAccess: Access;
   vehicleOptions: { id: string; patente: string }[];
   tripOptions: {
     id: string;
@@ -51,6 +54,9 @@ export function FuelTable({
   /** null: the user cannot read files, so tickets are not offered. */
   fileAccess: FuelFileAccess | null;
 }) {
+  // The permission the load and import actions check. The ticket keeps
+  // its own fileAccess.
+  const canWrite = userCan(actorAccess, "fuel:write");
   const { data: items } = useFuelLoads();
   const deleteMut = useDeleteFuelLoad();
   const confirm = useConfirm();
@@ -125,41 +131,46 @@ export function FuelTable({
         header: "",
         enableSorting: false,
         meta: { headerClassName: "w-12" },
-        cell: ({ row }) => (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <MoreHorizontal className="size-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onClick={() =>
-                  setDialog({ mode: "edit", fuelLoad: row.original })
-                }
-              >
-                <Pencil className="size-4" />
-                Editar
-              </DropdownMenuItem>
-              {fileAccess && (
-                <DropdownMenuItem onClick={() => setTicketOf(row.original)}>
-                  <Paperclip className="size-4" />
-                  Ticket o remito
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuItem
-                className="text-destructive"
-                onClick={() => handleDelete(row.original)}
-              >
-                <Trash2 className="size-4" />
-                Borrar
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ),
+        cell: ({ row }) =>
+          (canWrite || fileAccess) && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" aria-label="Acciones">
+                  <MoreHorizontal className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {canWrite && (
+                  <DropdownMenuItem
+                    onClick={() =>
+                      setDialog({ mode: "edit", fuelLoad: row.original })
+                    }
+                  >
+                    <Pencil className="size-4" />
+                    Editar
+                  </DropdownMenuItem>
+                )}
+                {fileAccess && (
+                  <DropdownMenuItem onClick={() => setTicketOf(row.original)}>
+                    <Paperclip className="size-4" />
+                    Ticket o remito
+                  </DropdownMenuItem>
+                )}
+                {canWrite && (
+                  <DropdownMenuItem
+                    className="text-destructive"
+                    onClick={() => handleDelete(row.original)}
+                  >
+                    <Trash2 className="size-4" />
+                    Borrar
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ),
       },
     ];
-  }, [confirm, deleteMut, fileAccess]);
+  }, [canWrite, confirm, deleteMut, fileAccess]);
 
   return (
     <>
@@ -174,14 +185,18 @@ export function FuelTable({
         </div>
         <div className="flex items-center gap-2">
           <ExportButton resource="fuel" />
-          <Button variant="outline" onClick={() => setImporting(true)}>
-            <FileUp />
-            Importar resumen
-          </Button>
-          <Button onClick={() => setDialog({ mode: "create" })}>
-            <Plus />
-            Nueva carga
-          </Button>
+          {canWrite && (
+            <>
+              <Button variant="outline" onClick={() => setImporting(true)}>
+                <FileUp />
+                Importar resumen
+              </Button>
+              <Button onClick={() => setDialog({ mode: "create" })}>
+                <Plus />
+                Nueva carga
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -192,7 +207,9 @@ export function FuelTable({
         emptyMessage="Sin cargas. Agregá la primera."
       />
 
-      <FuelImportDialog open={importing} onOpenChange={setImporting} />
+      {canWrite && (
+        <FuelImportDialog open={importing} onOpenChange={setImporting} />
+      )}
       {fileAccess && (
         <FuelTicketDialog
           fuelLoad={ticketOf}
@@ -203,7 +220,7 @@ export function FuelTable({
         />
       )}
 
-      {dialog && (
+      {canWrite && dialog && (
         <FuelDialog
           mode={dialog.mode}
           fuelLoad={dialog.mode === "edit" ? dialog.fuelLoad : undefined}

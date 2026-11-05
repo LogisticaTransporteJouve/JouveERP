@@ -76,6 +76,7 @@ export function FleetDocumentDialog({
   doc,
   vehicleOptions,
   driverOptions,
+  canAttach,
   open,
   onOpenChange,
 }: {
@@ -83,6 +84,8 @@ export function FleetDocumentDialog({
   doc?: FleetDocument;
   vehicleOptions: { id: string; patente: string }[];
   driverOptions: { id: string; full_name: string }[];
+  /** files:write too: uploadFleetDocumentFileAction needs both. */
+  canAttach: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -343,7 +346,9 @@ export function FleetDocumentDialog({
                 <div className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
                   <FileText className="text-muted-foreground size-4 shrink-0" />
                   <span className="text-muted-foreground min-w-0 flex-1 truncate">
-                    Tiene un archivo adjunto. Subí otro para reemplazarlo.
+                    {canAttach
+                      ? "Tiene un archivo adjunto. Subí otro para reemplazarlo."
+                      : "Tiene un archivo adjunto."}
                   </span>
                   <Button
                     type="button"
@@ -356,7 +361,7 @@ export function FleetDocumentDialog({
                   </Button>
                 </div>
               ) : null}
-              {!file && (
+              {canAttach && !file && (
                 <FileDropzone
                   onFile={setFile}
                   onError={(message) => toast.error(message)}
