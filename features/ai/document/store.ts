@@ -4,6 +4,7 @@ import type { Permission } from "@/lib/auth/permissions";
 import type { Json } from "@/lib/db/database.types";
 import { logger } from "@/lib/logger";
 import { getServiceClient } from "@/lib/supabase/service";
+import { normalizeCuit } from "@/lib/validation/cuit";
 
 import {
   reconcileExtracto,
@@ -49,26 +50,20 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/** CUIT formats to try when matching: raw, digits-only, and XX-XXXXXXXX-X. */
-function cuitCandidates(raw: string): string[] {
-  const digits = raw.replace(/\D/g, "");
-  const set = new Set<string>([raw.trim(), digits]);
-  if (digits.length === 11) {
-    set.add(`${digits.slice(0, 2)}-${digits.slice(2, 10)}-${digits.slice(10)}`);
-  }
-  return [...set].filter(Boolean);
-}
-
 export type ExtractionMatches = {
   supplier_id?: string;
   supplier_name?: string;
   client_id?: string;
   client_name?: string;
   duplicate_of?: string;
-  /** The duplicate lookup failed: whether it is already loaded is unknown. */
+  /** The duplicate check did not run: the uploader may not read that
+   *  invoice table, or the lookups failed on every attempt (`lookup_failed`;
+   *  on rows stored before 2026-11-05, a single failed lookup). Whether it is
+   *  already loaded is unknown. */
   duplicate_unknown?: true;
-  /** The uploader may not read the counterparty's table (or is unknown): the
-   *  CUIT lookup did not run, so a missing client/supplier means "not
+  /** The uploader may not read the counterparty's table (or is unknown), or
+   *  with `lookup_failed` the lookup failed on every attempt: the CUIT
+   *  lookup gave no answer, so a missing client/supplier means "not
    *  checked", not "none". */
   counterparty_unchecked?: true;
   /** Expense classification suggestion (purchase_invoice). Human-confirmed. */
@@ -78,7 +73,36 @@ export type ExtractionMatches = {
   /** The period has more movements than one summary reads: the statement
    *  was not compared with Caja, which is not "nothing to reconcile". */
   reconciliation_unchecked?: true;
+  /** Every attempt of the lookups failed: what the flags above mark as
+   *  unchecked could not be verified, which is not "no permission". */
+  lookup_failed?: true;
 };
+
+/**
+ * What a scan stores when its lookups failed on the last attempt: the paid
+ * extraction is kept, with every comparison its kind runs marked unchecked,
+ * so the review says «no se pudo verificar» instead of "none".
+ */
+export function unverifiedMatches(kind: string): ExtractionMatches {
+  if (
+    kind === "purchase_invoice" ||
+    kind === "credit_debit_note" ||
+    kind === "sales_invoice"
+  ) {
+    return {
+      lookup_failed: true,
+      counterparty_unchecked: true,
+      duplicate_unknown: true,
+    };
+  }
+  if (kind === "receipt" || kind === "payment_order") {
+    return { lookup_failed: true, counterparty_unchecked: true };
+  }
+  if (kind === "bank_statement") {
+    return { lookup_failed: true, reconciliation_unchecked: true };
+  }
+  return { lookup_failed: true };
+}
 
 /** Whether the uploader may read a permission's data, resolved at scan time
  *  (roles minus denies). A comparison against data they may not read is not
@@ -120,21 +144,22 @@ export async function matchDocument(input: {
   ) {
     matches.duplicate_unknown = true;
   }
-  if (input.cuit && !input.counterparty) {
+  // Clients and suppliers store the 11 digits only (`*_cuit_format`). A CUIT
+  // the scan did not read as 11 digits is not looked up: the review reads it
+  // as "no CUIT read", and the model's raw text never reaches the filter.
+  const cuit = input.cuit ? normalizeCuit(input.cuit) : null;
+  if (cuit && !input.counterparty) {
     matches.counterparty_unchecked = true;
   }
 
   let matchedSupplierId: string | null = null;
   // A purchase's duplicate check needs the supplier even when its name is
   // not shown.
-  if (
-    input.cuit &&
-    (input.counterparty || invoiceTable === "purchase_invoices")
-  ) {
+  if (cuit && (input.counterparty || invoiceTable === "purchase_invoices")) {
     const { data, error } = await service
       .from(input.table)
       .select("id, legal_name, cuit")
-      .in("cuit", cuitCandidates(input.cuit))
+      .eq("cuit", cuit)
       .limit(1);
     if (error) throw error;
     const row = data[0];

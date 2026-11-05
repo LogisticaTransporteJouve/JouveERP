@@ -19,6 +19,7 @@ import {
   markExtractionFailed,
   matchForKind,
   saveExtractionResult,
+  unverifiedMatches,
   type ExtractionMatches,
 } from "@/features/ai/document/store";
 import { recordAiUsage } from "@/features/ai/lib/chat-store";
@@ -32,6 +33,8 @@ import {
   DocumentExtractionRequestedSchema,
 } from "@/lib/inngest/events";
 import { logger } from "@/lib/logger";
+
+const RETRIES = 2;
 
 const INVOICE_KINDS = [
   "purchase_invoice",
@@ -77,7 +80,7 @@ export const documentExtraction = inngest.createFunction(
     // so a bulk upload doesn't hit provider rate limits (429 → retries) or
     // spike spend; the rest queue in Inngest.
     concurrency: { limit: 5 },
-    retries: 2,
+    retries: RETRIES,
     onFailure: async ({ event, error }) => {
       const originalData = (event.data as { event?: { data?: unknown } }).event
         ?.data;
@@ -95,7 +98,7 @@ export const documentExtraction = inngest.createFunction(
       await markExtractionFailed(parsed.data.extraction_id);
     },
   },
-  async ({ event, step }) => {
+  async ({ event, step, attempt, maxAttempts }) => {
     const { extraction_id, file_id, declared_type } =
       DocumentExtractionRequestedSchema.parse(event.data);
 
@@ -113,12 +116,25 @@ export const documentExtraction = inngest.createFunction(
     });
 
     // The matches are the uploader's: each comparison runs only against data
-    // they may read now (roles minus denies). Unknown uploader: none.
+    // they may read now (roles minus denies). Unknown uploader: none. A failed
+    // lookup retries; on the last attempt the extraction, already paid for,
+    // is saved with the comparisons marked «no se pudo verificar».
     const matches = await step.run("match", async () => {
-      const access = requester ? await loadUserAccess(requester) : null;
-      return matchForKind(extracted.kind, extracted.payload, (permission) =>
-        userCan(access, permission),
-      );
+      try {
+        const access = requester ? await loadUserAccess(requester) : null;
+        return await matchForKind(
+          extracted.kind,
+          extracted.payload,
+          (permission) => userCan(access, permission),
+        );
+      } catch (err) {
+        if (attempt + 1 < (maxAttempts ?? RETRIES + 1)) throw err;
+        logger.warn("document_extraction.match_unverified", {
+          extraction_id,
+          err: err instanceof Error ? err.message : String(err),
+        });
+        return unverifiedMatches(extracted.kind);
+      }
     });
 
     // Suggest the expense account (+ confirm cost center) for purchase invoices.

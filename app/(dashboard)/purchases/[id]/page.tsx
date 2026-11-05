@@ -33,6 +33,7 @@ import {
 import { formatPaymentOrderNumber } from "@/features/payment-orders/schema";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan, userCanAll } from "@/lib/auth/permissions";
+import { canChangeAttachments } from "@/lib/files/attachment-targets";
 import {
   amountToInput,
   formatArgentineDate,
@@ -475,8 +476,11 @@ export default async function PurchaseInvoiceDetailPage({
           <AttachmentsZone
             targetType="purchase_invoice"
             targetId={invoice.id}
-            canWrite={userCan(ctx.access, "files:write") && !isCancelled}
-            canDelete={userCan(ctx.access, "files:write")}
+            canWrite={
+              canChangeAttachments(ctx.access, "purchase_invoice") &&
+              !isCancelled
+            }
+            canDelete={canChangeAttachments(ctx.access, "purchase_invoice")}
           />
         </div>
       </div>

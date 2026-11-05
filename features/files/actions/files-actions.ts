@@ -5,9 +5,16 @@ import { z } from "zod";
 import { logAudit } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
 import { ENTITY_READ_PERMISSION } from "@/lib/auth/entity-permissions";
-import { userCan, type Permission } from "@/lib/auth/permissions";
-import { ATTACHMENT_FK_COLUMN } from "@/lib/files/attachment-targets";
-import { isFileReferencedElsewhere } from "@/lib/files/references";
+import { userCan } from "@/lib/auth/permissions";
+import {
+  ATTACHMENT_FK_COLUMN,
+  ATTACHMENT_WRITE_PERMISSION,
+  canChangeAttachments,
+} from "@/lib/files/attachment-targets";
+import {
+  isDocumentScanFile,
+  isFileStillReferenced,
+} from "@/lib/files/references";
 import { discardStoredFile, storeUploadedFile } from "@/lib/files/store";
 import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
@@ -20,22 +27,6 @@ import {
 } from "../schema";
 
 type ActionResult<T> = { ok: true; data: T } | { ok: false; error: string };
-
-// Per-target write permission. The upload action requires `files:write`
-// plus this — attach is gated by the user's right to write the target.
-const TARGET_WRITE_PERMISSION: Record<AttachmentTargetType, Permission> = {
-  purchase_invoice: "purchase_invoices:write",
-  invoice: "invoices:issue",
-  receipt: "receipts:write",
-  payment_order: "payment_orders:write",
-  check: "cheques:write",
-  issued_check: "issued_checks:write",
-  client: "clients:write",
-  supplier: "suppliers:write",
-  transaction: "transactions:write",
-  fuel_load: "fuel:write",
-  tax_document: "taxes:write",
-};
 
 const TARGET_FK_COLUMN: Record<AttachmentTargetType, string> =
   ATTACHMENT_FK_COLUMN;
@@ -63,7 +54,7 @@ export async function uploadFileAction(
   }
   const { targetType, targetId } = targetParsed.data;
 
-  if (!userCan(ctx.access, TARGET_WRITE_PERMISSION[targetType])) {
+  if (!userCan(ctx.access, ATTACHMENT_WRITE_PERMISSION[targetType])) {
     return { ok: false, error: "Sin permiso para atachar a esa entidad." };
   }
 
@@ -130,13 +121,12 @@ const ATTACHMENT_TARGETS = Object.keys(ATTACHMENT_FK_COLUMN).filter(
   (t): t is keyof typeof ATTACHMENT_FK_COLUMN => t in ATTACHMENT_FK_COLUMN,
 );
 
-/** True unless every link points at an attachable entity the user's access
- *  cannot read. */
+/** True when some link is to an entity the user's access reads, or to no
+ *  attachable entity (chat, which keeps its own RLS). */
 function canReadSomeLink(
   access: Parameters<typeof userCan>[0],
   links: readonly Partial<Record<string, string | null>>[],
 ): boolean {
-  if (links.length === 0) return true;
   return links.some((link) => {
     const target = ATTACHMENT_TARGETS.find(
       (t) => link[ATTACHMENT_FK_COLUMN[t]] != null,
@@ -145,6 +135,30 @@ function canReadSomeLink(
       target === undefined || userCan(access, ENTITY_READ_PERMISSION[target])
     );
   });
+}
+
+type Client = Awaited<ReturnType<typeof createClient>>;
+
+/**
+ * Whether a Document Intelligence scan opens for this user: ai:read and an
+ * extraction of the file their RLS returns (their own, any for owner/admin),
+ * the rule of the review screen. "not_scan" when no extraction reads the file.
+ */
+async function scanAccess(
+  supabase: Client,
+  access: Parameters<typeof userCan>[0],
+  fileId: string,
+): Promise<"allowed" | "refused" | "not_scan"> {
+  const isScan = await isDocumentScanFile(fileId);
+  if (isScan === null) return "refused";
+  if (!isScan) return "not_scan";
+  if (!userCan(access, "ai:read")) return "refused";
+  const { data, error } = await supabase
+    .from("ai_document_extractions")
+    .select("id")
+    .eq("file_id", fileId)
+    .limit(1);
+  return error || (data ?? []).length === 0 ? "refused" : "allowed";
 }
 
 /** files:read opens every attachment the module gates allow. Without it,
@@ -221,9 +235,9 @@ export async function getSignedFileUrlAction(
     }
   }
 
-  // A file attached only to entities whose module this user cannot read stays
-  // hidden, as in the files hub. Links without an attachable entity (chat,
-  // scanned documents) keep their own RLS.
+  // A file is opened through a record this user can read, as in the files
+  // hub: an attachment whose entity's module they read, or the scan they may
+  // review. A link without an attachable entity (chat) keeps its own RLS.
   const { data: links, error: linksErr } = await supabase
     .from("file_attachments")
     .select(
@@ -238,13 +252,17 @@ export async function getSignedFileUrlAction(
     });
     return { ok: false, error: "Archivo no encontrado." };
   }
-  if (!canReadSomeLink(ctx.access, links ?? [])) {
-    return { ok: false, error: "Archivo no encontrado." };
+  const linkRows = links ?? [];
+  if (linkRows.length === 0 || !canReadSomeLink(ctx.access, linkRows)) {
+    const scan = await scanAccess(supabase, ctx.access, parsed.data);
+    if (scan === "refused" || (scan === "not_scan" && linkRows.length > 0)) {
+      return { ok: false, error: "Archivo no encontrado." };
+    }
   }
   // Without files:read, only a file a tax document has attached.
   if (
     !userCan(ctx.access, "files:read") &&
-    !(links ?? []).some((l) => l.tax_document_id != null)
+    !linkRows.some((l) => l.tax_document_id != null)
   ) {
     return { ok: false, error: "Archivo no encontrado." };
   }
@@ -305,6 +323,15 @@ export async function detachFileAction(
     return { ok: false, error: "Adjunto no encontrado." };
   }
 
+  // The entity it was attached to: removing its file is a write on it, as
+  // attaching one is, and the event lands in that record's history.
+  const target = ATTACHMENT_TARGETS.find(
+    (t) => attRow[ATTACHMENT_FK_COLUMN[t]] != null,
+  );
+  if (!target || !canChangeAttachments(ctx.access, target)) {
+    return { ok: false, error: "No tenés permiso para modificar archivos." };
+  }
+
   const { data: fileRow, error: fileLookupErr } = await supabase
     .from("files")
     .select("bucket, bucket_path")
@@ -314,41 +341,33 @@ export async function detachFileAction(
     return { ok: false, error: fileLookupErr.message };
   }
 
-  const { error: delErr } = await supabase
+  // RLS lets only the link's creator or owner/admin delete it; any other
+  // caller deletes no row, which is not a detach.
+  const { data: deleted, error: delErr } = await supabase
     .from("file_attachments")
     .delete()
-    .eq("id", parsed.data);
+    .eq("id", parsed.data)
+    .select("id");
   if (delErr) {
     return { ok: false, error: delErr.message };
   }
+  if ((deleted ?? []).length === 0) {
+    return { ok: false, error: "Solo quien lo adjuntó o un admin lo quita." };
+  }
 
-  // The entity it was attached to, so the event lands in that record's
-  // history.
-  const target = ATTACHMENT_TARGETS.find(
-    (t) => attRow[ATTACHMENT_FK_COLUMN[t]] != null,
-  );
   await logAudit(
     "file.detached",
     ctx.userId,
     {
-      target_type: target ?? null,
+      target_type: target,
       kind: attRow.kind,
       file_id: attRow.file_id,
       attachment_id: parsed.data,
     },
-    target ? (attRow[ATTACHMENT_FK_COLUMN[target]] ?? undefined) : undefined,
+    attRow[ATTACHMENT_FK_COLUMN[target]] ?? undefined,
   );
 
-  const { count } = await supabase
-    .from("file_attachments")
-    .select("id", { count: "exact", head: true })
-    .eq("file_id", attRow.file_id);
-
-  if (
-    count === 0 &&
-    fileRow &&
-    !(await isFileReferencedElsewhere(attRow.file_id))
-  ) {
+  if (fileRow && !(await isFileStillReferenced(attRow.file_id))) {
     await supabase.storage.from(fileRow.bucket).remove([fileRow.bucket_path]);
     await supabase.from("files").delete().eq("id", attRow.file_id);
     return { ok: true, data: { deletedBlob: true } };

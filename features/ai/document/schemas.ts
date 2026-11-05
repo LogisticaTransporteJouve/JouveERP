@@ -221,7 +221,9 @@ export function isExtractableKind(kind: string): kind is ExtractableKind {
 }
 
 /** What the duplicate lookup of a scan found (`matches.duplicate_of` /
- *  `duplicate_unknown`, written by store.ts): "unknown" when it failed. */
+ *  `duplicate_unknown`, written by store.ts): "unknown" when it did not run,
+ *  because the uploader may not read that invoice table or the lookups
+ *  failed on every attempt. */
 export type DuplicateCheck = "found" | "none" | "unknown";
 
 export const DUPLICATE_UNKNOWN_MESSAGE =

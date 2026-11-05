@@ -87,7 +87,9 @@ vi.mock(
   () => ({ ImputeRemitosDialog: () => null }),
 );
 vi.mock("@/features/files/components/attachments-zone", () => ({
-  AttachmentsZone: () => null,
+  AttachmentsZone: (props: { canWrite: boolean; canDelete: boolean }) => (
+    <span>{`adjuntos write=${props.canWrite} delete=${props.canDelete}`}</span>
+  ),
 }));
 
 const { default: PurchaseInvoiceDetailPage } = await import("./page");
@@ -116,5 +118,18 @@ describe("purchase detail — Pagar", () => {
     h.access = resolveAccess(["finance"], ["accounts:read"]);
     await renderPage();
     expect(screen.queryByText("stub-pagar")).toBeNull();
+  });
+});
+
+describe("purchase detail — Adjuntos", () => {
+  it("offers attaching and «Eliminar» with files:write and purchase_invoices:write", async () => {
+    await renderPage();
+    expect(screen.getByText("adjuntos write=true delete=true")).toBeTruthy();
+  });
+
+  it("offers neither when purchase_invoices:write is denied", async () => {
+    h.access = resolveAccess(["admin"], ["purchase_invoices:write"]);
+    await renderPage();
+    expect(screen.getByText("adjuntos write=false delete=false")).toBeTruthy();
   });
 });

@@ -10,6 +10,10 @@ const ctx: { userId: string; access: Access } = {
 let isHrFile = false;
 let isFleetFile = false;
 let links: Record<string, string | null>[] = [];
+/** Whether an extraction reads the file (service role), null on error. */
+let isScan: boolean | null = false;
+/** The extractions of the file the caller's RLS returns. */
+let visibleExtractions: { id: string }[] = [];
 const rpc = vi.fn(async (name: string) => ({
   data: name === "is_fleet_document_file" ? isFleetFile : isHrFile,
   error: null,
@@ -21,16 +25,26 @@ const createSignedUrl = vi.fn(async () => ({
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/auth/context", () => ({ requireUserContext: async () => ctx }));
+vi.mock("@/lib/files/references", () => ({
+  isDocumentScanFile: async () => isScan,
+  isFileStillReferenced: async () => true,
+}));
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({
     from: (table: string) => {
       const builder = {
         select: () => builder,
         eq: () => builder,
+        limit: () => builder,
         then: <T>(resolve: (v: { data: unknown; error: null }) => T) =>
           Promise.resolve(
             resolve({
-              data: table === "file_attachments" ? links : null,
+              data:
+                table === "file_attachments"
+                  ? links
+                  : table === "ai_document_extractions"
+                    ? visibleExtractions
+                    : null,
               error: null,
             }),
           ),
@@ -58,6 +72,8 @@ beforeEach(() => {
   isHrFile = false;
   isFleetFile = false;
   links = [];
+  isScan = false;
+  visibleExtractions = [];
   ctx.access = resolveAccess(["operations"]);
 });
 
@@ -161,5 +177,55 @@ describe("getSignedFileUrlAction — tax document attachments", () => {
       ok: false,
       error: "No tenés permiso para ver archivos.",
     });
+  });
+});
+
+describe("getSignedFileUrlAction — Document Intelligence scans", () => {
+  const notFound = { ok: false, error: "Archivo no encontrado." };
+
+  it("refuses another user's scan to operations (no extraction it can read)", async () => {
+    isScan = true;
+    expect(await getSignedFileUrlAction(FILE_ID)).toEqual(notFound);
+    expect(createSignedUrl).not.toHaveBeenCalled();
+  });
+
+  it("signs the scan for the user who scanned it", async () => {
+    isScan = true;
+    visibleExtractions = [{ id: "e1" }];
+    expect((await getSignedFileUrlAction(FILE_ID)).ok).toBe(true);
+  });
+
+  it("refuses an own scan when ai:read is denied", async () => {
+    ctx.access = resolveAccess(["finance"], ["ai:read"]);
+    isScan = true;
+    visibleExtractions = [{ id: "e1" }];
+    expect(await getSignedFileUrlAction(FILE_ID)).toEqual(notFound);
+  });
+
+  it("refuses warehouse (files:read without ai:read)", async () => {
+    ctx.access = resolveAccess(["warehouse"]);
+    isScan = true;
+    visibleExtractions = [{ id: "e1" }];
+    expect(await getSignedFileUrlAction(FILE_ID)).toEqual(notFound);
+  });
+
+  it("refuses when it cannot tell whether the file is a scan", async () => {
+    isScan = null;
+    expect(await getSignedFileUrlAction(FILE_ID)).toEqual(notFound);
+  });
+
+  it("signs a scan through a record the user reads, without the extraction", async () => {
+    ctx.access = resolveAccess(["finance"]);
+    isScan = true;
+    links = [{ purchase_invoice_id: "pi1" }];
+    expect((await getSignedFileUrlAction(FILE_ID)).ok).toBe(true);
+  });
+
+  it("signs an own scan whose only record's module is denied", async () => {
+    ctx.access = resolveAccess(["finance"], ["purchase_invoices:read"]);
+    isScan = true;
+    visibleExtractions = [{ id: "e1" }];
+    links = [{ purchase_invoice_id: "pi1" }];
+    expect((await getSignedFileUrlAction(FILE_ID)).ok).toBe(true);
   });
 });
