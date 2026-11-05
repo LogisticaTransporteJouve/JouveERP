@@ -8,6 +8,7 @@ import { ChannelsReadError } from "@/components/channels-read-error";
 import { useScope } from "@/components/providers/scope-provider";
 import { MoneyInput } from "@/components/money-input";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import {
   Dialog,
   DialogContent,
@@ -217,18 +218,17 @@ export function ManualEntryDialog({
                   onChange={(credit) => updateLine(i, { credit, debit: "" })}
                 />
               </div>
-              <Button
+              <IconButton
+                label="Quitar línea"
                 type="button"
                 variant="ghost"
-                size="icon"
-                aria-label="Quitar línea"
                 disabled={lines.length <= 2}
                 onClick={() =>
                   setLines((prev) => prev.filter((_, idx) => idx !== i))
                 }
               >
                 <Trash2 className="size-4" />
-              </Button>
+              </IconButton>
             </div>
           ))}
           <Button

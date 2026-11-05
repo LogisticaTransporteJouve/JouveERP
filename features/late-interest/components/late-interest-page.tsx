@@ -5,6 +5,7 @@ import { useMemo, useState, useTransition } from "react";
 
 import { useScopeIsFiscal } from "@/components/providers/scope-provider";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import {
   DropdownMenu,
@@ -153,9 +154,9 @@ export function LateInterestPage({
         cell: ({ row }) => (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" aria-label="Acciones">
+              <IconButton label="Acciones" variant="ghost">
                 <MoreHorizontal className="size-4" />
-              </Button>
+              </IconButton>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               {canIssue && (

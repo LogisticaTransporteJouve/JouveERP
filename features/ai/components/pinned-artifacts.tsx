@@ -5,6 +5,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
@@ -77,9 +78,9 @@ function UnpinButton({ id }: { id: string }) {
 function PinnedCard({ pin }: { pin: AiPinnedArtifact }) {
   const view = useAiPinnedView(pin.id);
   const refresh = (
-    <Button
+    <IconButton
+      label="Recalcular"
       variant="ghost"
-      size="icon"
       className="size-8"
       disabled={view.isFetching}
       onClick={() => void view.refetch()}
@@ -87,8 +88,7 @@ function PinnedCard({ pin }: { pin: AiPinnedArtifact }) {
       <RefreshCw
         className={cn("size-3.5", view.isFetching && "animate-spin")}
       />
-      <span className="sr-only">Recalcular</span>
-    </Button>
+    </IconButton>
   );
 
   if (view.isLoading) return <Skeleton className="h-64" />;

@@ -3,7 +3,7 @@
 import { Power, PowerOff } from "lucide-react";
 import { toast } from "sonner";
 
-import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 
 import { useSetAccountActive } from "../hooks/use-accounts";
 import type { Account } from "../schema";
@@ -29,15 +29,13 @@ export function ToggleAccountActiveButton({ account }: { account: Account }) {
   const label = account.is_active ? "Desactivar" : "Reactivar";
 
   return (
-    <Button
+    <IconButton
+      label={label}
       variant="ghost"
-      size="icon"
       onClick={onToggle}
       disabled={mut.isPending}
-      aria-label={label}
-      title={label}
     >
       <Icon className="size-4" />
-    </Button>
+    </IconButton>
   );
 }

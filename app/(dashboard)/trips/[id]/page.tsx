@@ -2,7 +2,7 @@ import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
-import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { getTripAction } from "@/features/trips/actions/trips-actions";
 import { ShipmentsForTrip } from "@/features/shipments/components/shipments-for-trip";
 import { requireUserContext } from "@/lib/auth/context";
@@ -39,11 +39,11 @@ export default async function TripDetailPage({
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" asChild>
-          <Link href="/trips" aria-label="Volver a viajes">
+        <IconButton label="Volver a viajes" variant="ghost" asChild>
+          <Link href="/trips">
             <ArrowLeft className="size-4" />
           </Link>
-        </Button>
+        </IconButton>
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">
             Viaje del {trip.trip_date}

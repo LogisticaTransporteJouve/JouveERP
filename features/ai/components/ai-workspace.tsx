@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import { InsightsPanel } from "@/features/ai/insights/components/insights-panel";
@@ -110,15 +111,14 @@ export function AiWorkspace({
   return (
     <div className="flex h-[calc(100dvh-7rem)] flex-col md:h-[calc(100dvh-8rem)] gap-4">
       <header className="flex items-center gap-2">
-        <Button
+        <IconButton
+          label="Historial"
           variant="ghost"
-          size="icon"
           className="md:hidden"
           onClick={() => setHistoryOpen((v) => !v)}
         >
           <PanelLeft className="size-5" />
-          <span className="sr-only">Historial</span>
-        </Button>
+        </IconButton>
         <Sparkles className="size-5" />
         <h1 className="text-2xl font-semibold">Asistente IA</h1>
         <div className="ml-auto flex items-center gap-2">

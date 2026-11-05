@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { getChatAttachmentUrlAction } from "../attachments/actions";
 import type { ChatAttachment } from "../attachments/schema";
 import type { DraftAttachment } from "../hooks/use-chat-attachments";
+import { IconButton } from "@/components/ui/icon-button";
 
 const CHIP =
   "flex max-w-[16rem] items-center gap-2 rounded-md border bg-card px-2 py-1.5 text-left text-xs";
@@ -59,14 +60,15 @@ export function ComposerAttachments({
           {d.status === "uploading" ? (
             <Loader2 className="text-muted-foreground size-3.5 shrink-0 animate-spin" />
           ) : (
-            <button
-              type="button"
+            <IconButton
+              label={`Quitar ${d.filename}`}
+              variant="ghost"
+              size="icon-xs"
               onClick={() => onRemove(d.localId)}
-              className="text-muted-foreground hover:text-foreground shrink-0 rounded p-0.5"
-              aria-label={`Quitar ${d.filename}`}
+              className="text-muted-foreground hover:text-foreground size-5 shrink-0 rounded"
             >
               <X className="size-3.5" />
-            </button>
+            </IconButton>
           )}
         </li>
       ))}

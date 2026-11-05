@@ -8,7 +8,7 @@ import { toast } from "sonner";
 
 import { useConfirm } from "@/components/providers/confirm-provider";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import { AccountOptionsError } from "@/features/accounts/components/account-options-gate";
 import { useAccountOptions } from "@/features/accounts/hooks/use-accounts";
@@ -184,26 +184,22 @@ export function IssuedChecksTable({
                 <>
                   {canMoveMoney && (
                     <>
-                      <Button
+                      <IconButton
+                        label="Marcar cobrado"
                         variant="ghost"
-                        size="icon"
-                        aria-label="Marcar cobrado"
-                        title="Marcar cobrado"
                         onClick={() => transition(c.id, "cashed", "Cobrado")}
                       >
                         <CheckCircle2 className="size-4 text-muted-foreground" />
-                      </Button>
-                      <Button
+                      </IconButton>
+                      <IconButton
+                        label="Marcar rechazado"
                         variant="ghost"
-                        size="icon"
-                        aria-label="Marcar rechazado"
-                        title="Marcar rechazado"
                         onClick={() =>
                           transition(c.id, "rejected", "Rechazado")
                         }
                       >
                         <XCircle className="size-4 text-foreground" />
-                      </Button>
+                      </IconButton>
                     </>
                   )}
                   {canPickAccount && (
@@ -217,15 +213,13 @@ export function IssuedChecksTable({
                       (annul or edit it); annulling it alone gave the debt
                       back twice once the order was annulled too. */}
                   {c.payment_order_id === null && (
-                    <Button
+                    <IconButton
+                      label="Anular"
                       variant="ghost"
-                      size="icon"
-                      aria-label="Anular"
-                      title="Anular"
                       onClick={() => transition(c.id, "cancelled", "Anulado")}
                     >
                       <Ban className="size-4" />
-                    </Button>
+                    </IconButton>
                   )}
                 </>
               )}

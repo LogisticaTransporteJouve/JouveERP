@@ -3,7 +3,7 @@
 import { AlertTriangle, Check, ChevronLeft, ChevronRight } from "lucide-react";
 import { useMemo } from "react";
 
-import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { formatMoney, formatPeriod } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -46,23 +46,21 @@ export function TaxCalendar({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
-        <Button
+        <IconButton
+          label="Mes anterior"
           variant="outline"
-          size="icon"
-          aria-label="Mes anterior"
           onClick={() => onMonthChange(shiftMonth(month, -1))}
         >
           <ChevronLeft />
-        </Button>
+        </IconButton>
         <p className="text-sm font-medium capitalize">{formatPeriod(month)}</p>
-        <Button
+        <IconButton
+          label="Mes siguiente"
           variant="outline"
-          size="icon"
-          aria-label="Mes siguiente"
           onClick={() => onMonthChange(shiftMonth(month, 1))}
         >
           <ChevronRight />
-        </Button>
+        </IconButton>
       </div>
 
       {/* Grid from sm up; a list below it, where seven columns do not fit. */}

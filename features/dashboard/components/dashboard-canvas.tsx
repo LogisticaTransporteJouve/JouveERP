@@ -33,6 +33,7 @@ import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { cn } from "@/lib/utils";
 
 import {
@@ -191,16 +192,14 @@ export function DashboardCanvas({
         ) : (
           <>
             {toolbar}
-            <Button
+            <IconButton
+              label="Personalizar dashboard"
               variant="outline"
-              size="icon"
               className="ml-auto size-8"
-              aria-label="Personalizar dashboard"
-              title="Personalizar"
               onClick={() => setEditing(true)}
             >
               <Pencil className="size-3.5" />
-            </Button>
+            </IconButton>
           </>
         )}
       </div>
@@ -317,41 +316,48 @@ function SortableWidget({
       )}
     >
       <div className="absolute -top-3 right-2 z-10 flex items-center gap-1 rounded-md border bg-background px-1 py-0.5 shadow-sm">
-        <button
-          type="button"
-          className="cursor-grab touch-none p-1 text-muted-foreground hover:text-foreground active:cursor-grabbing max-md:hidden"
-          aria-label={`Mover ${WIDGET_LABEL[id]}`}
+        <IconButton
+          label={`Mover ${WIDGET_LABEL[id]}`}
+          variant="ghost"
+          size="icon-xs"
+          className="cursor-grab touch-none text-muted-foreground hover:text-foreground active:cursor-grabbing max-md:hidden"
           {...attributes}
           {...listeners}
         >
           <GripVertical className="size-3.5" />
-        </button>
-        <button
-          type="button"
-          className="p-2 text-muted-foreground hover:text-foreground disabled:opacity-30 md:hidden"
-          aria-label={`Subir ${WIDGET_LABEL[id]}`}
-          disabled={!canMoveUp}
-          onClick={onMoveUp}
-        >
-          <ArrowUp className="size-4" />
-        </button>
-        <button
-          type="button"
-          className="p-2 text-muted-foreground hover:text-foreground disabled:opacity-30 md:hidden"
-          aria-label={`Bajar ${WIDGET_LABEL[id]}`}
-          disabled={!canMoveDown}
-          onClick={onMoveDown}
-        >
-          <ArrowDown className="size-4" />
-        </button>
-        <button
-          type="button"
-          className="p-1 text-muted-foreground hover:text-foreground max-lg:hidden"
-          aria-label={
+        </IconButton>
+        {/* The wrapper hides them, also when disabled wraps them in a span. */}
+        <div className="flex items-center gap-1 md:hidden">
+          <IconButton
+            label={`Subir ${WIDGET_LABEL[id]}`}
+            variant="ghost"
+            size="icon-sm"
+            className="text-muted-foreground hover:text-foreground disabled:opacity-30"
+            disabled={!canMoveUp}
+            onClick={onMoveUp}
+          >
+            <ArrowUp className="size-4" />
+          </IconButton>
+          <IconButton
+            label={`Bajar ${WIDGET_LABEL[id]}`}
+            variant="ghost"
+            size="icon-sm"
+            className="text-muted-foreground hover:text-foreground disabled:opacity-30"
+            disabled={!canMoveDown}
+            onClick={onMoveDown}
+          >
+            <ArrowDown className="size-4" />
+          </IconButton>
+        </div>
+        <IconButton
+          label={
             size === "full"
               ? `Achicar ${WIDGET_LABEL[id]} a media fila`
               : `Agrandar ${WIDGET_LABEL[id]} a fila completa`
           }
+          variant="ghost"
+          size="icon-xs"
+          className="text-muted-foreground hover:text-foreground max-lg:hidden"
           onClick={onToggleSize}
         >
           {size === "full" ? (
@@ -359,15 +365,16 @@ function SortableWidget({
           ) : (
             <RectangleHorizontal className="size-3.5" />
           )}
-        </button>
-        <button
-          type="button"
-          className="p-1 text-muted-foreground hover:text-foreground"
-          aria-label={`Quitar ${WIDGET_LABEL[id]}`}
+        </IconButton>
+        <IconButton
+          label={`Quitar ${WIDGET_LABEL[id]}`}
+          variant="ghost"
+          size="icon-xs"
+          className="text-muted-foreground hover:text-foreground"
           onClick={onRemove}
         >
           <X className="size-3.5" />
-        </button>
+        </IconButton>
       </div>
       <div className="pointer-events-none opacity-90">{children}</div>
     </div>

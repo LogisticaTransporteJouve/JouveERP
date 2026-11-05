@@ -13,7 +13,7 @@ import {
 import { PeriodFilter } from "@/components/period-filter";
 import { useScopeIsFiscal } from "@/components/providers/scope-provider";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import {
   Select,
@@ -144,16 +144,11 @@ function buildPaymentOrderColumns({
         const isCanceled = op.status === "canceled";
         return (
           <div className="flex items-center justify-end gap-1">
-            <Button
-              asChild
-              variant="ghost"
-              size="icon"
-              aria-label="Ver detalle"
-            >
+            <IconButton label="Ver detalle" asChild variant="ghost">
               <Link href={`/payment-orders/${op.id}`}>
                 <Eye className="size-4" />
               </Link>
-            </Button>
+            </IconButton>
             {canWrite && !isCanceled && (
               <ImputePaymentOrderDialog
                 paymentOrderId={op.id}

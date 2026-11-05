@@ -26,6 +26,7 @@ import { PeriodFilter } from "@/components/period-filter";
 import { useConfirm } from "@/components/providers/confirm-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import {
   DropdownMenu,
@@ -281,13 +282,12 @@ function useTransactionColumns(
                 return (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button
+                      <IconButton
+                        label="Acciones del movimiento"
                         variant="ghost"
-                        size="icon"
-                        aria-label="Acciones del movimiento"
                       >
                         <MoreHorizontal className="size-4" />
-                      </Button>
+                      </IconButton>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       {showEdit && (

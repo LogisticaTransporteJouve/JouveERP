@@ -3,7 +3,7 @@
 import { Power } from "lucide-react";
 import { toast } from "sonner";
 
-import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 
 import { useSetClientActive } from "../hooks/use-clients";
 import type { Client } from "../schema";
@@ -22,15 +22,13 @@ export function ReactivateClientButton({ client }: { client: Client }) {
   }
 
   return (
-    <Button
+    <IconButton
+      label="Reactivar"
       variant="ghost"
-      size="icon"
       onClick={onReactivate}
       disabled={mut.isPending}
-      aria-label="Reactivar"
-      title="Reactivar"
     >
       <Power className="size-4" />
-    </Button>
+    </IconButton>
   );
 }

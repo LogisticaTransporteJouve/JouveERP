@@ -3,7 +3,7 @@
 import { Pencil } from "lucide-react";
 import { useState } from "react";
 
-import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import {
   Dialog,
   DialogContent,
@@ -22,9 +22,9 @@ export function EditAccountDialog({ account }: { account: Account }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label="Editar">
+        <IconButton label="Editar" variant="ghost">
           <Pencil className="size-4" />
-        </Button>
+        </IconButton>
       </DialogTrigger>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>

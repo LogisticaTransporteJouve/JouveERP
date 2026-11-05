@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { MoneyInput } from "@/components/money-input";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
@@ -348,18 +349,17 @@ export function DriverSettlementDialog({
                                   updateLine(r.shipment_id, l.key, { amount })
                                 }
                               />
-                              <Button
+                              <IconButton
+                                label={`Quitar el pago ${index + 1}`}
                                 type="button"
                                 variant="ghost"
-                                size="icon"
-                                aria-label={`Quitar el pago ${index + 1}`}
                                 disabled={
                                   r.lines.length === 1 && l.amount === ""
                                 }
                                 onClick={() => removeLine(r, l.key)}
                               >
                                 <Trash2 className="size-4" />
-                              </Button>
+                              </IconButton>
                               {check && (
                                 <div className="grid grid-cols-1 gap-2 sm:col-span-3 sm:grid-cols-3">
                                   <Input

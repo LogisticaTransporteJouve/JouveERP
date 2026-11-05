@@ -4,7 +4,7 @@ import { Undo2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { useConfirm } from "@/components/providers/confirm-provider";
-import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import {
   Table,
   TableBody,
@@ -109,16 +109,14 @@ export function ImportRunsTable({
                 {run.status === "committed" &&
                   run.inserted_rows > 0 &&
                   undoableKinds.includes(run.kind) && (
-                    <Button
+                    <IconButton
+                      label={`Deshacer la importación de ${run.file_name}`}
                       variant="ghost"
-                      size="icon"
-                      aria-label={`Deshacer la importación de ${run.file_name}`}
-                      title="Deshacer"
                       disabled={undoMut.isPending}
                       onClick={() => undo(run)}
                     >
                       <Undo2 className="size-4" />
-                    </Button>
+                    </IconButton>
                   )}
               </TableCell>
             </TableRow>

@@ -19,6 +19,7 @@ import {
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
 import { runAction } from "@/lib/query/run-action";
 import { cn } from "@/lib/utils";
@@ -412,30 +413,29 @@ export function AiChat({
         }}
         className="flex items-center gap-2"
       >
-        <Button
+        <IconButton
+          label="Adjuntar PDF, imagen o planilla"
           type="button"
           variant="outline"
-          size="icon"
           disabled={locked}
           onClick={() => pickerRef.current?.click()}
           className="size-11 shrink-0 rounded-lg"
-          title="Adjuntar PDF, imagen o planilla"
         >
           <Paperclip className="size-5" />
-          <span className="sr-only">Adjuntar archivo</span>
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          disabled={locked}
-          onClick={() => cameraRef.current?.click()}
-          className="hidden size-11 shrink-0 rounded-lg pointer-coarse:inline-flex"
-          title="Sacar una foto"
-        >
-          <Camera className="size-5" />
-          <span className="sr-only">Sacar una foto</span>
-        </Button>
+        </IconButton>
+        {/* The wrapper hides it, also when disabled wraps it in a span. */}
+        <span className="hidden shrink-0 pointer-coarse:inline-flex">
+          <IconButton
+            label="Sacar una foto"
+            type="button"
+            variant="outline"
+            disabled={locked}
+            onClick={() => cameraRef.current?.click()}
+            className="size-11 rounded-lg"
+          >
+            <Camera className="size-5" />
+          </IconButton>
+        </span>
         <input
           ref={pickerRef}
           type="file"
@@ -477,9 +477,9 @@ export function AiChat({
           autoFocus
           className="h-11 rounded-lg px-4 text-base shadow-none focus-visible:border-input focus-visible:ring-0 focus-visible:outline-none"
         />
-        <Button
+        <IconButton
+          label="Enviar"
           type="submit"
-          size="icon"
           disabled={
             locked ||
             attachments.uploading ||
@@ -488,8 +488,7 @@ export function AiChat({
           className="size-11 shrink-0 rounded-lg"
         >
           <Send className="size-5" />
-          <span className="sr-only">Enviar</span>
-        </Button>
+        </IconButton>
       </form>
     </div>
   );

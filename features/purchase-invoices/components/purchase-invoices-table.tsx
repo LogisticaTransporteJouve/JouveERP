@@ -12,7 +12,7 @@ import {
 } from "@/components/list-toolbar";
 import { PeriodFilter } from "@/components/period-filter";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import {
   Select,
@@ -215,16 +215,11 @@ function usePurchaseInvoiceColumns({
                 inv.status === "cancelled" && "opacity-60",
               )}
             >
-              <Button
-                asChild
-                variant="ghost"
-                size="icon"
-                aria-label="Ver detalle"
-              >
+              <IconButton label="Ver detalle" asChild variant="ghost">
                 <Link href={`/purchases/${inv.id}`}>
                   <Eye className="size-4" />
                 </Link>
-              </Button>
+              </IconButton>
               {canWrite && inv.status === "received" && (
                 <EditPurchaseInvoiceDialog invoice={inv} />
               )}

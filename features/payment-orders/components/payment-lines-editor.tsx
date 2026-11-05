@@ -3,6 +3,7 @@
 import { BookCheck, Plus, Trash2, Wallet } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { MoneyInput } from "@/components/money-input";
 import { Input } from "@/components/ui/input";
@@ -285,15 +286,14 @@ export function PaymentLinesEditor({
                       }
                     />
                   </div>
-                  <Button
+                  <IconButton
+                    label="Quitar línea"
                     type="button"
                     variant="ghost"
-                    size="icon"
                     onClick={() => remove(idx)}
-                    aria-label="Quitar línea"
                   >
                     <Trash2 className="size-4" />
-                  </Button>
+                  </IconButton>
                 </div>
               );
             }
@@ -323,15 +323,14 @@ export function PaymentLinesEditor({
                         {currency} {moneyFmt.format(line.amount)}
                       </div>
                     </div>
-                    <Button
+                    <IconButton
+                      label="Quitar línea"
                       type="button"
                       variant="ghost"
-                      size="icon"
                       onClick={() => remove(idx)}
-                      aria-label="Quitar línea"
                     >
                       <Trash2 className="size-4" />
-                    </Button>
+                    </IconButton>
                   </div>
                 </div>
               );
@@ -348,15 +347,14 @@ export function PaymentLinesEditor({
                     <Wallet className="size-4 text-muted-foreground dark:text-muted-foreground" />
                     <span className="font-medium">Emitir cheque propio</span>
                   </div>
-                  <Button
+                  <IconButton
+                    label="Quitar línea"
                     type="button"
                     variant="ghost"
-                    size="icon"
                     onClick={() => remove(idx)}
-                    aria-label="Quitar línea"
                   >
                     <Trash2 className="size-4" />
-                  </Button>
+                  </IconButton>
                 </div>
                 <div className="grid gap-2 sm:grid-cols-2">
                   <div className="space-y-1">

@@ -4,6 +4,7 @@ import { CalendarDays, ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import { useRef, useState, type KeyboardEvent } from "react";
 
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import {
   Popover,
   PopoverContent,
@@ -189,31 +190,29 @@ export function MonthPicker({
         }}
       >
         <div className="flex items-center justify-between pb-2">
-          <Button
+          <IconButton
             type="button"
             variant="ghost"
-            size="icon"
             className="size-8"
-            aria-label="Año anterior"
+            label="Año anterior"
             disabled={!canPrevYear}
             onClick={() => setYear((y) => y - 1)}
           >
             <ChevronLeftIcon className="size-4" />
-          </Button>
+          </IconButton>
           <span className="text-sm font-medium" aria-live="polite">
             {year}
           </span>
-          <Button
+          <IconButton
             type="button"
             variant="ghost"
-            size="icon"
             className="size-8"
-            aria-label="Año siguiente"
+            label="Año siguiente"
             disabled={!canNextYear}
             onClick={() => setYear((y) => y + 1)}
           >
             <ChevronRightIcon className="size-4" />
-          </Button>
+          </IconButton>
         </div>
         <div
           role="group"

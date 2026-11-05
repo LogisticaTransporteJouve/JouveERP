@@ -11,6 +11,7 @@ import {
   useScope,
 } from "@/components/providers/scope-provider";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
@@ -358,27 +359,25 @@ function PaymentsBody({
                 {!disabled && (
                   <>
                     {canPickAccount && (
-                      <Button
-                        size="icon"
+                      <IconButton
+                        label="Editar pago"
                         variant="ghost"
                         className="size-7"
                         onClick={() => startEdit(payment.id)}
                         disabled={saving || deleteMut.isPending}
-                        aria-label="Editar pago"
                       >
                         <Pencil className="size-3.5" />
-                      </Button>
+                      </IconButton>
                     )}
-                    <Button
-                      size="icon"
+                    <IconButton
+                      label="Borrar pago"
                       variant="ghost"
                       className="size-7"
                       onClick={() => onDelete(payment.id)}
                       disabled={deleteMut.isPending}
-                      aria-label="Borrar pago"
                     >
                       <Trash2 className="size-3.5" />
-                    </Button>
+                    </IconButton>
                   </>
                 )}
               </li>

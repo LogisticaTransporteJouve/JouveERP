@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import {
   Popover,
   PopoverContent,
@@ -89,16 +90,15 @@ export function NotificationBell({ currentUserId }: Props) {
       }}
     >
       <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="relative size-9"
-          aria-label={
+        <IconButton
+          label={
             unreadCount > 0
               ? `Notificaciones (${unreadCount} sin leer)`
               : "Notificaciones"
           }
+          type="button"
+          variant="ghost"
+          className="relative size-9"
         >
           <Bell className="size-4" />
           {unreadCount > 0 ? (
@@ -106,7 +106,7 @@ export function NotificationBell({ currentUserId }: Props) {
               {unreadCount > 99 ? "99+" : unreadCount}
             </Badge>
           ) : null}
-        </Button>
+        </IconButton>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-96 p-0" sideOffset={8}>
         <div className="flex items-center justify-between border-b px-3 py-2">

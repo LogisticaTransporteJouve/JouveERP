@@ -5,6 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import {
   Dialog,
   DialogContent,
@@ -47,9 +48,9 @@ export function CancelReceiptDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label="Anular">
+        <IconButton label="Anular" variant="ghost">
           <Ban className="size-4" />
-        </Button>
+        </IconButton>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>

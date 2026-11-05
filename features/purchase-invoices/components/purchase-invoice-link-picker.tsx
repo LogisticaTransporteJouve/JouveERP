@@ -3,7 +3,7 @@
 import { FileText, Search, X } from "lucide-react";
 import { useState } from "react";
 
-import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
 import {
   Popover,
@@ -77,16 +77,15 @@ export function PurchaseInvoiceLinkPicker({
             </p>
           )}
         </div>
-        <Button
+        <IconButton
+          label="Quitar factura de compra"
           type="button"
           variant="ghost"
-          size="icon"
-          aria-label="Quitar factura de compra"
           onClick={() => onChange(null)}
           disabled={disabled}
         >
           <X className="size-4" />
-        </Button>
+        </IconButton>
       </div>
     );
   }

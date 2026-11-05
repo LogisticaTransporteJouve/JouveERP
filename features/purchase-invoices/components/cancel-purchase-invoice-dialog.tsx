@@ -5,6 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import {
   Dialog,
   DialogContent,
@@ -43,15 +44,14 @@ export function CancelPurchaseInvoiceDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button
+        <IconButton
+          label="Anular"
           variant="ghost"
-          size="icon"
-          aria-label="Anular"
           className="text-destructive hover:text-destructive"
           disabled={invoice.status === "cancelled"}
         >
           <Ban className="size-4" />
-        </Button>
+        </IconButton>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>

@@ -9,6 +9,7 @@ import { z } from "zod";
 
 import { FileDropzone } from "@/components/file-upload/file-dropzone";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import {
   Dialog,
   DialogContent,
@@ -333,15 +334,14 @@ export function FleetDocumentDialog({
                 <div className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
                   <FileText className="text-muted-foreground size-4 shrink-0" />
                   <span className="min-w-0 flex-1 truncate">{file.name}</span>
-                  <Button
+                  <IconButton
+                    label="Quitar archivo elegido"
                     type="button"
                     variant="ghost"
-                    size="icon"
-                    aria-label="Quitar archivo elegido"
                     onClick={() => setFile(null)}
                   >
                     <X className="size-4" />
-                  </Button>
+                  </IconButton>
                 </div>
               ) : hasFile ? (
                 <div className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
@@ -351,15 +351,14 @@ export function FleetDocumentDialog({
                       ? "Tiene un archivo adjunto. Subí otro para reemplazarlo."
                       : "Tiene un archivo adjunto."}
                   </span>
-                  <Button
+                  <IconButton
+                    label="Quitar el archivo adjunto"
                     type="button"
                     variant="ghost"
-                    size="icon"
-                    aria-label="Quitar el archivo adjunto"
                     onClick={() => setRemoveFile(true)}
                   >
                     <X className="size-4" />
-                  </Button>
+                  </IconButton>
                 </div>
               ) : null}
               {canAttach && !file && (

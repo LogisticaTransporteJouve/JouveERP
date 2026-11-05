@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import {
   Tooltip,
@@ -319,34 +320,40 @@ export function ClientAccountTab({
               return (
                 <div className="flex items-center justify-end gap-1">
                   {isOpening ? (
-                    <OwnerOnly disabled={!canSetOpening}>
+                    <>
                       <div className="flex items-center gap-1">
                         <OpeningBalanceDialog
                           clientId={clientId}
                           prefill
                           trigger={
-                            <Button
+                            <IconButton
+                              label={
+                                canSetOpening
+                                  ? "Editar ajuste de saldo"
+                                  : `Editar ajuste de saldo. ${OWNER_ONLY_HINT}`
+                              }
                               variant="ghost"
-                              size="icon"
-                              aria-label="Editar ajuste de saldo"
                               disabled={!canSetOpening}
                             >
                               <Pencil className="size-4" />
-                            </Button>
+                            </IconButton>
                           }
                         />
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
-                            <Button
+                            <IconButton
+                              label={
+                                canSetOpening
+                                  ? "Borrar ajuste de saldo"
+                                  : `Borrar ajuste de saldo. ${OWNER_ONLY_HINT}`
+                              }
                               variant="ghost"
-                              size="icon"
-                              aria-label="Borrar ajuste de saldo"
                               disabled={
                                 !canSetOpening || clearOpeningMut.isPending
                               }
                             >
                               <Trash2 className="size-4" />
-                            </Button>
+                            </IconButton>
                           </AlertDialogTrigger>
                           <AlertDialogContent>
                             <AlertDialogHeader>
@@ -368,65 +375,49 @@ export function ClientAccountTab({
                           </AlertDialogContent>
                         </AlertDialog>
                       </div>
-                    </OwnerOnly>
+                    </>
                   ) : m.source_type === "invoice" && m.source_id ? (
                     <>
-                      <Button
+                      <IconButton
+                        label="Ver comprobante"
                         asChild
                         variant="ghost"
-                        size="icon"
-                        aria-label="Ver comprobante"
                       >
                         <Link
                           href={`/invoices/${m.source_id}?from=client&clientId=${clientId}`}
                         >
                           <Eye className="size-4" />
                         </Link>
-                      </Button>
+                      </IconButton>
                       <PdfViewerDialog
                         id={m.source_id}
                         label={formatMovementNumber(m)}
                       />
-                      <Button
-                        asChild
-                        variant="ghost"
-                        size="icon"
-                        aria-label="Descargar PDF"
-                      >
+                      <IconButton label="Descargar PDF" asChild variant="ghost">
                         <Link href={`/api/invoices/${m.source_id}/pdf`}>
                           <Download className="size-4" />
                         </Link>
-                      </Button>
+                      </IconButton>
                     </>
                   ) : m.source_type === "receipt" && m.source_id ? (
                     <>
-                      <Button
-                        asChild
-                        variant="ghost"
-                        size="icon"
-                        aria-label="Ver recibo"
-                      >
+                      <IconButton label="Ver recibo" asChild variant="ghost">
                         <Link
                           href={`/receipts/${m.source_id}?from=client&clientId=${clientId}`}
                         >
                           <Eye className="size-4" />
                         </Link>
-                      </Button>
+                      </IconButton>
                       <PdfViewerDialog
                         id={m.source_id}
                         label={formatMovementNumber(m)}
                         kind="receipt"
                       />
-                      <Button
-                        asChild
-                        variant="ghost"
-                        size="icon"
-                        aria-label="Descargar PDF"
-                      >
+                      <IconButton label="Descargar PDF" asChild variant="ghost">
                         <Link href={`/api/receipts/${m.source_id}/pdf`}>
                           <Download className="size-4" />
                         </Link>
-                      </Button>
+                      </IconButton>
                     </>
                   ) : null}
                 </div>
@@ -563,6 +554,8 @@ export function ClientAccountTab({
   );
 }
 
+const OWNER_ONLY_HINT = "Solo el owner puede tocar el ajuste de saldo.";
+
 /**
  * Wraps the children in a Tooltip when `disabled=true`. The children
  * (typically a Button) receive their normal props — the tooltip only
@@ -583,9 +576,7 @@ function OwnerOnly({
         <TooltipTrigger asChild>
           <span className="inline-block">{children}</span>
         </TooltipTrigger>
-        <TooltipContent>
-          Solo el owner puede tocar el ajuste de saldo.
-        </TooltipContent>
+        <TooltipContent>{OWNER_ONLY_HINT}</TooltipContent>
       </Tooltip>
     </TooltipProvider>
   );

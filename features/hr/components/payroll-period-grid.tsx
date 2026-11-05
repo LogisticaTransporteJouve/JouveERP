@@ -8,6 +8,7 @@ import { useScope } from "@/components/providers/scope-provider";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import {
   Table,
   TableBody,
@@ -380,12 +381,10 @@ export function PayrollPeriodGrid({
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
                         {e.deudas_override && canEdit && (
-                          <Button
+                          <IconButton
+                            label="Cargado a mano. Volver a la cuota de los planes."
                             variant="ghost"
-                            size="icon"
                             className="size-6"
-                            title="Cargado a mano. Volver a la cuota de los planes."
-                            aria-label="Volver a la cuota de los planes"
                             disabled={resetMut.isPending}
                             onClick={() =>
                               resetMut.mutate(
@@ -395,7 +394,7 @@ export function PayrollPeriodGrid({
                             }
                           >
                             <RotateCcw className="size-3" />
-                          </Button>
+                          </IconButton>
                         )}
                         <InlineMoneyInput
                           value={e.deudas}
@@ -414,12 +413,10 @@ export function PayrollPeriodGrid({
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
                         {e.embargo_override && canEdit && (
-                          <Button
+                          <IconButton
+                            label="Cargado a mano. Volver al embargo vigente del empleado."
                             variant="ghost"
-                            size="icon"
                             className="size-6"
-                            title="Cargado a mano. Volver al embargo vigente del empleado."
-                            aria-label="Volver al embargo vigente del empleado"
                             disabled={resetMut.isPending}
                             onClick={() =>
                               resetMut.mutate(
@@ -429,7 +426,7 @@ export function PayrollPeriodGrid({
                             }
                           >
                             <RotateCcw className="size-3" />
-                          </Button>
+                          </IconButton>
                         )}
                         <InlineMoneyInput
                           value={e.embargo}

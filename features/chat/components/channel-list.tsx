@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { UserAvatar } from "@/components/user-avatar";
 import { cn } from "@/lib/utils";
@@ -51,17 +52,15 @@ export function ChannelList({ activeChannelId, currentUserId }: Props) {
       <div className="flex h-14 shrink-0 items-center justify-between gap-1.5 border-b px-3">
         <h2 className="text-sm font-semibold">Chat</h2>
         <div className="flex items-center gap-1">
-          <Button
+          <IconButton
+            label="Buscar (⌘K)"
             type="button"
-            size="icon"
             variant="ghost"
             className="size-8"
-            aria-label="Buscar (⌘K)"
-            title="Buscar (⌘K)"
             onClick={() => setSearchOpen(true)}
           >
             <Search className="size-4" />
-          </Button>
+          </IconButton>
           <Button
             type="button"
             size="sm"

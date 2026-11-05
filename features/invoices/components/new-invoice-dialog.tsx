@@ -16,6 +16,7 @@ import {
 import { ChannelsReadError } from "@/components/channels-read-error";
 import { ReadError } from "@/components/read-error";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import {
   Dialog,
   DialogContent,
@@ -891,17 +892,16 @@ function NewInvoiceForm({
                       </div>
                       <div className="flex justify-end">
                         {!seguro && (
-                          <Button
+                          <IconButton
+                            label="Quitar ítem"
                             type="button"
                             variant="ghost"
-                            size="icon"
                             className="size-8"
                             onClick={() => removeItem(idx)}
                             disabled={items.length <= (showSeguro ? 2 : 1)}
-                            aria-label="Quitar ítem"
                           >
                             <X />
-                          </Button>
+                          </IconButton>
                         )}
                       </div>
                     </div>

@@ -4,7 +4,7 @@ import { Loader2, Search, X } from "lucide-react";
 import { useState } from "react";
 
 import { ReadError } from "@/components/read-error";
-import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
 import {
   Popover,
@@ -56,15 +56,14 @@ export function OriginPicker({
             {value.fecha} · ${formatARS(value.imp_total)}
           </p>
         </div>
-        <Button
+        <IconButton
+          label="Cambiar factura origen"
           type="button"
           variant="ghost"
-          size="icon"
-          aria-label="Cambiar factura origen"
           onClick={() => onChange(null)}
         >
           <X className="size-4" />
-        </Button>
+        </IconButton>
       </div>
     );
   }

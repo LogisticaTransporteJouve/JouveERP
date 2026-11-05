@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { useConfirm } from "@/components/providers/confirm-provider";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -138,13 +139,12 @@ function KmMonthTable({
                   {canWrite && row.reading && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button
+                        <IconButton
+                          label={`Acciones de ${row.patente}`}
                           variant="ghost"
-                          size="icon"
-                          aria-label={`Acciones de ${row.patente}`}
                         >
                           <MoreHorizontal className="size-4" />
-                        </Button>
+                        </IconButton>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => setEditing(row)}>
