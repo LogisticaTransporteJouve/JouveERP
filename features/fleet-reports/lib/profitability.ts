@@ -5,10 +5,9 @@
 // tied to that trip, whatever its date (as ai_fleet_margin and the
 // losing-trip insight count it). Vehicle net = Σ trip revenue − Σ trip cost −
 // ALL fuel for the vehicle − ALL maintenance for the vehicle, dated in the
-// period. The trips
-// without a vehicle come as one more row (without_vehicle), and the totals
-// cover the vehicles and that row: every trip listed. docs/roadmap.md
-// Fase G.7.
+// period. The trips without a vehicle come as one more row
+// (without_vehicle), and the totals cover the vehicles and that row: every
+// trip listed. docs/roadmap.md Fase G.7.
 
 export type TripInput = {
   id: string;
