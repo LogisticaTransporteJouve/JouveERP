@@ -1434,6 +1434,45 @@ que agrega una migración suma su ítem al final de esta sección.
 
   - `docs/pendientes/2026-11-05-archivo-propio-de-documentos-auditoria-w16.md`.
 
+- [ ] **Aprobar `20261105140000`** (auditoría w17, compras: NC/ND contra su
+      origen). Va después de `20261031173652` y `20261031180534`, de las que
+      reemplaza una función y un trigger. No toca filas existentes ni
+      políticas RLS.
+  - El constraint trigger `purchase_invoices_open_after_edit` se recrea
+    para correr también al insertar (misma función, sin cambios). Una NC de
+    compra por más de lo que su origen tiene abierto ya no se carga.
+  - `guard_purchase_invoice_origin` (misma firma, `SECURITY DEFINER`,
+    revocada de `public`, `anon` y `authenticated`) rechaza (`23514`,
+    `jouve_guard`) una NC/ND en otra moneda que su origen, al cargarla o al
+    cambiarle la moneda o el origen, y el cambio de moneda de una factura
+    con NC/ND recibidas. Su trigger corre además al cambiar `moneda`.
+  - Rollback: el código anterior inserta y edita igual y recibe el mensaje
+    de la guarda. Su formulario no fija la moneda al elegir el origen: si el
+    usuario la deja distinta, la guarda lo dice.
+  - **N/A en producción** (no tiene compras). Consulta de control antes de
+    aplicar (solo lectura, válida sobre el esquema de `production-latest`):
+    las NC/ND recibidas en otra moneda que su origen y las que dejan a su
+    origen con más acreditado que su total. Esas filas no se tocan, pero
+    después de aplicar no se les puede cambiar el importe, la moneda ni el
+    origen sin corregir primero el par. Lo esperado es que no devuelva nada.
+
+    ```sql
+    select n.id, n.kind, n.imp_total, n.moneda, o.id as origen,
+           o.moneda as moneda_origen, v.open_amount as abierto_origen
+      from public.purchase_invoices n
+      join public.purchase_invoices o on o.id = n.invoice_origin_id
+      left join public.v_purchase_invoice_open v on v.purchase_invoice_id = o.id
+     where n.status = 'received'
+       and n.kind in ('nc', 'nd')
+       and (coalesce(n.moneda, 'PES') <> coalesce(o.moneda, 'PES')
+            or (o.status = 'received'
+                and o.kind in ('factura', 'nd')
+                and v.open_amount < -0.01))
+     order by o.id, n.id;
+    ```
+
+  - `docs/pendientes/2026-11-05-compras-nc-nd-auditoria-w17.md`.
+
 ## Después de promover
 
 - [ ] Correr `ai-workflows-reconcile` a mano una vez, desde el dashboard de
