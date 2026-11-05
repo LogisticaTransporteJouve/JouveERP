@@ -14,7 +14,6 @@ export type PickerFieldProps = {
   name?: string;
   placeholder?: string;
   disabled?: boolean;
-  required?: boolean;
   className?: string;
   /** Offer a way to empty the field; only where an empty value is valid. */
   clearable?: boolean;
@@ -37,10 +36,10 @@ export function PickerTrigger({
   placeholder,
   clearLabel,
   onClear,
-  required,
   className,
   disabled,
   onKeyDown,
+  "aria-label": ariaLabel,
   ...props
 }: Omit<React.ComponentProps<typeof Button>, "children"> & {
   icon: LucideIcon;
@@ -48,7 +47,6 @@ export function PickerTrigger({
   placeholder: string;
   clearLabel: string;
   onClear?: () => void;
-  required?: boolean;
 }) {
   const canClear = Boolean(onClear && display && !disabled);
   return (
@@ -57,7 +55,8 @@ export function PickerTrigger({
       variant="outline"
       size="sm"
       disabled={disabled}
-      aria-required={required || undefined}
+      // An aria-label replaces the button text: keep the value audible.
+      aria-label={ariaLabel && display ? `${ariaLabel}: ${display}` : ariaLabel}
       className={cn(
         "h-9 w-full justify-between font-normal",
         !display && "text-muted-foreground",

@@ -111,6 +111,21 @@ describe("DatePicker", () => {
     expect(onBlur).toHaveBeenCalled();
   });
 
+  it("keeps the value in the name when an aria-label names it", () => {
+    render(
+      <DatePicker
+        value="2026-11-05"
+        onChange={vi.fn()}
+        aria-label="Fecha de pago del cheque"
+      />,
+    );
+    expect(
+      screen.getByRole("button", {
+        name: "Fecha de pago del cheque: 05/11/2026",
+      }),
+    ).toBeTruthy();
+  });
+
   it("clears only when clearable", () => {
     const onChange = vi.fn();
     const { rerender } = render(

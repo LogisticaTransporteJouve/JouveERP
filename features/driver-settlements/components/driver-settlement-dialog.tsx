@@ -381,6 +381,7 @@ export function DriverSettlementDialog({
                                         check_due_date: value,
                                       })
                                     }
+                                    clearable
                                   />
                                   <Input
                                     aria-label="Banco"

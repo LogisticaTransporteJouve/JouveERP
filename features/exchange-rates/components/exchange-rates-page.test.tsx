@@ -1,5 +1,11 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { resolveAccess } from "@/lib/auth/permissions";
@@ -59,7 +65,9 @@ afterEach(() => {
 function pickFirstOfOctober() {
   fireEvent.click(screen.getByRole("button", { name: "Fecha" }));
   fireEvent.click(
-    screen.getByRole("button", { name: /, 1 de octubre de 2026/ }),
+    within(screen.getByRole("grid")).getByRole("button", {
+      name: /, 1 de octubre de 2026/,
+    }),
   );
 }
 
