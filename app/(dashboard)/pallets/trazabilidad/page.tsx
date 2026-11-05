@@ -30,9 +30,10 @@ export default async function PalletTraceabilityRoute() {
     listPalletClientOptionsAction(),
   ]);
 
+  // null = the read failed: the pickers and filters say so.
   const clientOptions = clientsRes.ok
     ? clientsRes.data.map((c) => ({ id: c.id, legal_name: c.legal_name }))
-    : [];
+    : null;
 
   return (
     <Hydrate state={dehydratedState}>

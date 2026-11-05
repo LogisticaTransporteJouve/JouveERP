@@ -35,6 +35,7 @@ import { BlockPalletDialog } from "./block-pallet-dialog";
 import { BulkPalletDialog } from "./bulk-pallet-dialog";
 import { DispatchPalletsDialog } from "./dispatch-pallets-dialog";
 import { PalletDialog } from "./pallet-dialog";
+import { ClientOptionsReadError } from "./client-options-read-error";
 
 export function PalletsTable({
   warehouseOptions,
@@ -45,7 +46,8 @@ export function PalletsTable({
   canMoveStock,
 }: {
   warehouseOptions: { id: string; name: string }[];
-  clientOptions: { id: string; legal_name: string }[];
+  /** null: the clients could not be read. */
+  clientOptions: { id: string; legal_name: string }[] | null;
   productOptions: { id: string; name: string }[];
   areaOptions: AreaOption[];
   /** pallets:write: edit and block. */
@@ -354,7 +356,7 @@ export function PalletsTable({
 
       <div className="flex items-center gap-2">
         <Combobox
-          options={clientOptions.map((c) => ({
+          options={(clientOptions ?? []).map((c) => ({
             value: c.id,
             label: c.legal_name,
           }))}
@@ -365,6 +367,7 @@ export function PalletsTable({
           emptyText="Sin clientes."
           className="w-72"
         />
+        <ClientOptionsReadError clientOptions={clientOptions} />
         {clientFilter && (
           <Button variant="ghost" size="sm" onClick={() => setClientFilter("")}>
             Limpiar
