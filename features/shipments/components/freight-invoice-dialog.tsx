@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { ReadError } from "@/components/read-error";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -38,7 +39,11 @@ export function FreightInvoiceDialog({
   shipment: Shipment | null;
   onClose: () => void;
 }) {
-  const { data: options } = useShipmentOptions();
+  const {
+    data: options,
+    isError: optionsFailed,
+    refetch: refetchOptions,
+  } = useShipmentOptions();
   const invoiceMut = useInvoiceFreight();
   const [channelId, setChannelId] = useState("");
   const [puntoVenta, setPuntoVenta] = useState("");
@@ -126,6 +131,12 @@ export function FreightInvoiceDialog({
           </div>
           <div className="space-y-2">
             <Label htmlFor="freight-channel">Canal</Label>
+            {optionsFailed && !options && (
+              <ReadError
+                message="No se pudieron cargar los canales."
+                onRetry={() => void refetchOptions()}
+              />
+            )}
             <Select
               value={channelId}
               onValueChange={setChannelId}

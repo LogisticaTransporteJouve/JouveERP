@@ -15,6 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
+import { userCan, type Access } from "@/lib/auth/permissions";
 
 import {
   useDeleteProduct,
@@ -26,10 +27,14 @@ import type { Product } from "../schema";
 import { ProductDialog } from "./product-dialog";
 
 export function ProductsTable({
+  actorAccess,
   clientOptions,
 }: {
+  actorAccess: Access;
   clientOptions: { id: string; legal_name: string }[];
 }) {
+  // The permission every product write action checks («Activo» included).
+  const canWrite = userCan(actorAccess, "products:write");
   const { data: items } = useProducts();
   const deleteMut = useDeleteProduct();
   const toggleMut = useSetProductActive();
@@ -93,6 +98,7 @@ export function ProductsTable({
         cell: ({ row }) => (
           <Switch
             checked={row.original.is_active}
+            disabled={!canWrite}
             onCheckedChange={(v) =>
               toggleMut.mutate(
                 { id: row.original.id, is_active: v },
@@ -109,35 +115,36 @@ export function ProductsTable({
         header: "",
         enableSorting: false,
         meta: { headerClassName: "w-12" },
-        cell: ({ row }) => (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <MoreHorizontal className="size-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onClick={() =>
-                  setDialog({ mode: "edit", product: row.original })
-                }
-              >
-                <Pencil className="size-4" />
-                Editar
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="text-destructive"
-                onClick={() => handleDelete(row.original)}
-              >
-                <Trash2 className="size-4" />
-                Borrar
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ),
+        cell: ({ row }) =>
+          canWrite && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" aria-label="Acciones">
+                  <MoreHorizontal className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={() =>
+                    setDialog({ mode: "edit", product: row.original })
+                  }
+                >
+                  <Pencil className="size-4" />
+                  Editar
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="text-destructive"
+                  onClick={() => handleDelete(row.original)}
+                >
+                  <Trash2 className="size-4" />
+                  Borrar
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ),
       },
     ];
-  }, [confirm, deleteMut, toggleMut]);
+  }, [canWrite, confirm, deleteMut, toggleMut]);
 
   return (
     <>
@@ -150,10 +157,12 @@ export function ProductsTable({
         </div>
         <div className="flex items-center gap-2">
           <ExportButton resource="products" />
-          <Button onClick={() => setDialog({ mode: "create" })}>
-            <Plus />
-            Nuevo producto
-          </Button>
+          {canWrite && (
+            <Button onClick={() => setDialog({ mode: "create" })}>
+              <Plus />
+              Nuevo producto
+            </Button>
+          )}
         </div>
       </div>
 
@@ -164,7 +173,7 @@ export function ProductsTable({
         emptyMessage="Sin productos. Agregá el primero."
       />
 
-      {dialog && (
+      {canWrite && dialog && (
         <ProductDialog
           mode={dialog.mode}
           product={dialog.mode === "edit" ? dialog.product : undefined}

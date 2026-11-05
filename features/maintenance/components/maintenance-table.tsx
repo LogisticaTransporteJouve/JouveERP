@@ -15,6 +15,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { userCan, type Access } from "@/lib/auth/permissions";
 import type { CostVoucherAccess } from "@/lib/cost-vouchers";
 
 import { useDeleteMaintenance, useMaintenance } from "../hooks/use-maintenance";
@@ -28,12 +29,16 @@ function formatMoney(n: number | null) {
 }
 
 export function MaintenanceTable({
+  actorAccess,
   vehicleOptions,
   voucherAccess,
 }: {
+  actorAccess: Access;
   vehicleOptions: { id: string; patente: string }[];
   voucherAccess: CostVoucherAccess;
 }) {
+  // The permission the create, update and delete actions check.
+  const canWrite = userCan(actorAccess, "maintenance:write");
   const { data: items } = useMaintenance();
   const deleteMut = useDeleteMaintenance();
   const confirm = useConfirm();
@@ -109,35 +114,36 @@ export function MaintenanceTable({
         header: "",
         enableSorting: false,
         meta: { headerClassName: "w-12" },
-        cell: ({ row }) => (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <MoreHorizontal className="size-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onClick={() =>
-                  setDialog({ mode: "edit", record: row.original })
-                }
-              >
-                <Pencil className="size-4" />
-                Editar
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="text-destructive"
-                onClick={() => handleDelete(row.original)}
-              >
-                <Trash2 className="size-4" />
-                Borrar
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ),
+        cell: ({ row }) =>
+          canWrite && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" aria-label="Acciones">
+                  <MoreHorizontal className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={() =>
+                    setDialog({ mode: "edit", record: row.original })
+                  }
+                >
+                  <Pencil className="size-4" />
+                  Editar
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="text-destructive"
+                  onClick={() => handleDelete(row.original)}
+                >
+                  <Trash2 className="size-4" />
+                  Borrar
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ),
       },
     ];
-  }, [confirm, deleteMut]);
+  }, [canWrite, confirm, deleteMut]);
 
   return (
     <>
@@ -153,10 +159,12 @@ export function MaintenanceTable({
         </div>
         <div className="flex items-center gap-2">
           <ExportButton resource="maintenance" />
-          <Button onClick={() => setDialog({ mode: "create" })}>
-            <Plus />
-            Nuevo mantenimiento
-          </Button>
+          {canWrite && (
+            <Button onClick={() => setDialog({ mode: "create" })}>
+              <Plus />
+              Nuevo mantenimiento
+            </Button>
+          )}
         </div>
       </div>
 
@@ -167,7 +175,7 @@ export function MaintenanceTable({
         emptyMessage="Sin mantenimientos. Agregá el primero."
       />
 
-      {dialog && (
+      {canWrite && dialog && (
         <MaintenanceDialog
           mode={dialog.mode}
           record={dialog.mode === "edit" ? dialog.record : undefined}

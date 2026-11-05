@@ -758,23 +758,27 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
     y vincula solo después de reservar, como owner o admin. Una carga
     acreditada sigue facturada para él, como hoy.
   - Consulta de control antes de aplicar (solo lectura): las cargas que la
-    próxima «Facturar flete» libera, y las liquidaciones facturadas cuyo
-    remito interno tiene NC internas por el total, que ya no se pueden
-    cancelar.
+    próxima «Facturar flete» libera.
 
     ```sql
-    select 'carga' as que, s.id, s.invoice_id, i.imp_total,
-           sum(n.imp_total) as acreditado
+    select s.id, s.invoice_id, i.imp_total, sum(n.imp_total) as acreditado
       from public.shipments s
       join public.invoices i on i.id = s.invoice_id
       join public.invoicing_channels c on c.id = i.channel_id and c.is_fiscal
       join public.invoices n on n.invoice_origin_id = i.id
                             and n.kind = 'nc' and n.status = 'emitted'
      group by s.id, s.invoice_id, i.imp_total
-    having sum(n.imp_total) >= i.imp_total - 0.01
-    union all
-    select 'liquidación', fs.id, fs.invoice_id, i.imp_total,
-           sum(n.imp_total)
+    having sum(n.imp_total) >= i.imp_total - 0.01;
+    ```
+
+  - **N/A en producción:** las liquidaciones facturadas cuyo remito interno
+    tiene NC internas por el total, que ya no se pueden cancelar.
+    `freight_settlements` nace en `20261103090000`, que producción todavía
+    no tiene: ahí no hay liquidaciones y esta consulta falla. Sirve si se
+    promueve sobre una base que ya la tiene.
+
+    ```sql
+    select fs.id, fs.invoice_id, i.imp_total, sum(n.imp_total) as acreditado
       from public.freight_settlements fs
       join public.invoices i on i.id = fs.invoice_id
       join public.invoicing_channels c on c.id = i.channel_id and not c.is_fiscal
@@ -833,13 +837,18 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
     versión (`170200`). Tampoco rellena lo que fija el trigger
     `purchase_nc_nd_follow_factura`, así que una NC/ND que tenía la cuenta o
     el centro vacíos a propósito los mantiene vacíos cuando se edita la
-    factura. El código anterior escribe las mismas columnas.
+    factura. Un rollback de código deja la función nueva, y el «Modificar»
+    de `production-latest` no manda `account_id` ni `cost_center_id`: el
+    trigger de seguimiento no corre y no se rellena nada.
   - `194201`: `ai_fleet_margin` se reemplaza (`create or replace`, misma
     firma y mismos permisos). Por cliente, `uninvoiced_shipments` suma las
     cargas sin facturar y sin flete de otros clientes en sus viajes.
-    `total_uninvoiced_shipments` no cambia. El código anterior lee las mismas
-    columnas y ese número como «no definitivo».
+    `total_uninvoiced_shipments` no cambia. El código de `production-latest`
+    no lee `uninvoiced_shipments` (su `ai_fleet_margin` no lo tenía) y lee
+    las demás columnas por nombre: el rollback no cambia nada.
     `docs/pendientes/2026-11-04-gestion-nc-nd-vacia-y-reparto-por-cliente-w12.md`.
+  - Corrección de los encabezados de `194200` y `194201`:
+    `docs/pendientes/2026-11-05-notas-de-rollback-w12-auditoria-w13.md`.
 - [ ] **Aprobar `20261105090000` y `090001`** (auditoría w13, vínculos de
       facturación y flota). No tocan filas existentes ni cambian políticas
       RLS. Van después de `20261103090000`, `20261103090100`,

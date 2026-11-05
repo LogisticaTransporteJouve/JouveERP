@@ -47,6 +47,7 @@ export default async function FuelPageRoute() {
     <Hydrate state={dehydratedState}>
       <div className="space-y-6">
         <FuelTable
+          actorAccess={ctx.access}
           vehicleOptions={vehicleOptions}
           tripOptions={tripOptions}
           voucherAccess={costVoucherAccess(ctx.access)}

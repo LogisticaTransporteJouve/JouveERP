@@ -4,7 +4,7 @@ import { logAudit } from "@/lib/actions/audit";
 import type { JsonValue } from "@/lib/actions/audit";
 import { CONCEPTO, IVA_RATE, MONEDA, voucherReceptor } from "@/lib/afip/codes";
 import { requireUserContext } from "@/lib/auth/context";
-import { getActiveInvoicingChannels } from "@/lib/channels";
+import { readInvoicingChannels } from "@/lib/channels";
 import { round2, todayInAR } from "@/lib/format";
 import { userCan } from "@/lib/auth/permissions";
 import { mapDbGuardError } from "@/lib/db/guard-errors";
@@ -194,12 +194,14 @@ export async function listShipmentOptionsAction(): Promise<
       .select("id, trip_date, status")
       .order("trip_date", { ascending: false })
       .limit(200),
-    getActiveInvoicingChannels(),
+    readInvoicingChannels(),
   ]);
-  if (trips.error) {
+  // Without channels «Facturar flete» has nothing to pick: an error, not an
+  // empty select.
+  if (trips.error || !channels.ok) {
     logger.error("shipments.options.failed", {
       userId: ctx.userId,
-      error: trips.error,
+      error: trips.error ?? "invoicing_channels read failed",
     });
     return { ok: false, error: "No se pudieron cargar las opciones." };
   }
@@ -207,11 +209,9 @@ export async function listShipmentOptionsAction(): Promise<
     ok: true,
     data: {
       trips: trips.data ?? [],
-      channels: channels.map((c) => ({
-        id: c.id,
-        name: c.name,
-        is_fiscal: c.is_fiscal,
-      })),
+      channels: channels.channels
+        .filter((c) => c.is_active)
+        .map((c) => ({ id: c.id, name: c.name, is_fiscal: c.is_fiscal })),
     },
   };
 }

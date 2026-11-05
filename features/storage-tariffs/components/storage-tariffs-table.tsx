@@ -16,6 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
+import { userCan, type Access } from "@/lib/auth/permissions";
 import { todayInAR } from "@/lib/format";
 
 import {
@@ -43,10 +44,15 @@ function rate(amount: number): string {
 }
 
 export function StorageTariffsTable({
+  actorAccess,
   clientOptions,
 }: {
+  actorAccess: Access;
   clientOptions: { id: string; legal_name: string }[];
 }) {
+  // The permission every tariff write action checks («Activo» and
+  // «Aumentar %» included), as on the client page's tarifario.
+  const canWrite = userCan(actorAccess, "storage_billing:issue");
   const { data: items } = useStorageTariffs();
   const deleteMut = useDeleteStorageTariff();
   const toggleMut = useSetStorageTariffActive();
@@ -158,6 +164,7 @@ export function StorageTariffsTable({
         cell: ({ row }) => (
           <Switch
             checked={row.original.is_active}
+            disabled={!canWrite}
             onCheckedChange={() => handleToggle(row.original)}
             aria-label="Activo"
           />
@@ -168,35 +175,36 @@ export function StorageTariffsTable({
         header: "",
         enableSorting: false,
         meta: { headerClassName: "w-12" },
-        cell: ({ row }) => (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <MoreHorizontal className="size-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onClick={() =>
-                  setDialog({ mode: "edit", tariff: row.original })
-                }
-              >
-                <Pencil className="size-4" />
-                Editar
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="text-destructive"
-                onClick={() => handleDelete(row.original)}
-              >
-                <Trash2 className="size-4" />
-                Borrar
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ),
+        cell: ({ row }) =>
+          canWrite && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" aria-label="Acciones">
+                  <MoreHorizontal className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={() =>
+                    setDialog({ mode: "edit", tariff: row.original })
+                  }
+                >
+                  <Pencil className="size-4" />
+                  Editar
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="text-destructive"
+                  onClick={() => handleDelete(row.original)}
+                >
+                  <Trash2 className="size-4" />
+                  Borrar
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ),
       },
     ];
-  }, [confirm, deleteMut, toggleMut]);
+  }, [canWrite, confirm, deleteMut, toggleMut]);
 
   return (
     <>
@@ -212,14 +220,18 @@ export function StorageTariffsTable({
         </div>
         <div className="flex items-center gap-2">
           <ExportButton resource="storage-tariffs" />
-          <Button variant="outline" onClick={() => setIncreaseOpen(true)}>
-            <TrendingUp />
-            Aumentar %
-          </Button>
-          <Button onClick={() => setDialog({ mode: "create" })}>
-            <Plus />
-            Nueva tarifa
-          </Button>
+          {canWrite && (
+            <>
+              <Button variant="outline" onClick={() => setIncreaseOpen(true)}>
+                <TrendingUp />
+                Aumentar %
+              </Button>
+              <Button onClick={() => setDialog({ mode: "create" })}>
+                <Plus />
+                Nueva tarifa
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -230,7 +242,7 @@ export function StorageTariffsTable({
         emptyMessage="Sin tarifas. Agregá la primera."
       />
 
-      {dialog && (
+      {canWrite && dialog && (
         <StorageTariffDialog
           mode={dialog.mode}
           tariff={dialog.mode === "edit" ? dialog.tariff : undefined}
@@ -242,11 +254,13 @@ export function StorageTariffsTable({
         />
       )}
 
-      <IncreaseTariffsDialog
-        tariffs={items}
-        open={increaseOpen}
-        onOpenChange={setIncreaseOpen}
-      />
+      {canWrite && (
+        <IncreaseTariffsDialog
+          tariffs={items}
+          open={increaseOpen}
+          onOpenChange={setIncreaseOpen}
+        />
+      )}
     </>
   );
 }

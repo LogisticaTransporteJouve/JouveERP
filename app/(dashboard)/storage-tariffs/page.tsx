@@ -35,7 +35,10 @@ export default async function StorageTariffsPageRoute() {
   return (
     <Hydrate state={dehydratedState}>
       <div className="space-y-6">
-        <StorageTariffsTable clientOptions={clientOptions} />
+        <StorageTariffsTable
+          actorAccess={ctx.access}
+          clientOptions={clientOptions}
+        />
       </div>
     </Hydrate>
   );
