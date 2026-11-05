@@ -11,6 +11,7 @@ import type { InvoicingChannelSummary } from "@/lib/scope";
 const h = vi.hoisted(() => ({
   client: {} as Record<string, unknown>,
   refetch: vi.fn(),
+  access: undefined as { canRead: boolean; canCreate: boolean } | undefined,
 }));
 
 vi.mock("next/navigation", () => ({
@@ -30,6 +31,7 @@ vi.mock("@/features/checks/actions/checks-actions", () => ({
 }));
 vi.mock("@/features/suppliers/hooks/use-suppliers", () => ({
   useSupplierByIdOptional: () => h.client,
+  useSupplierPickerAccess: () => h.access,
 }));
 vi.mock("@/features/suppliers/components/supplier-picker", () => ({
   SupplierPicker: (props: {
@@ -97,6 +99,7 @@ function renderEdit() {
 }
 
 beforeEach(() => {
+  h.access = { canRead: true, canCreate: true };
   h.refetch.mockReset();
   h.client = {
     data: {
@@ -133,5 +136,16 @@ describe("PaymentOrderForm edit supplier", () => {
     expect(screen.getByText("allocations supplier=supplier-1")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /Reintentar/ }));
     expect(h.refetch).toHaveBeenCalledOnce();
+  });
+
+  it("a user denied suppliers:read gets the picker, not a «Reintentar» that cannot work", () => {
+    h.access = { canRead: false, canCreate: false };
+    h.client = { data: undefined, isError: true, refetch: h.refetch };
+    renderEdit();
+    expect(
+      screen.queryByText("No se pudo leer el proveedor de la orden de pago."),
+    ).toBeNull();
+    expect(screen.getByText("picker value=none disabled=true")).toBeTruthy();
+    expect(screen.getByText("allocations supplier=supplier-1")).toBeTruthy();
   });
 });

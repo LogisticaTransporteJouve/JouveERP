@@ -26,6 +26,7 @@ import {
   createSupplierAction,
   deleteSupplierAction,
   getSupplierByIdAction,
+  getSupplierPickerAccessAction,
   getSupplierReferencesAction,
   searchSuppliersAction,
   setSupplierActiveAction,
@@ -92,6 +93,16 @@ export function useSuppliersSearch(
     enabled: options.enabled,
     placeholderData: (prev) => prev,
   });
+}
+
+/** What the supplier picker may offer; undefined while it loads or if the
+ *  read failed (the picker then offers no «Nuevo»). */
+export function useSupplierPickerAccess() {
+  return useQuery({
+    queryKey: suppliersKeys.pickerAccess(),
+    queryFn: () => runAction(() => getSupplierPickerAccessAction()),
+    staleTime: 5 * 60_000,
+  }).data;
 }
 
 export function useSupplierByIdOptional(

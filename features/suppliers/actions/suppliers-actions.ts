@@ -14,7 +14,10 @@ import { logger } from "@/lib/logger";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { getServiceClient } from "@/lib/supabase/service";
 
-import { isIvaCondition } from "@/features/clients/schema";
+import {
+  isIvaCondition,
+  type PartyPickerAccess,
+} from "@/features/clients/schema";
 
 import {
   SupplierCreateSchema,
@@ -53,6 +56,20 @@ export type SearchSuppliersPage = {
   suppliers: Supplier[];
   nextOffset: number | null;
 };
+
+export async function getSupplierPickerAccessAction(): Promise<
+  ActionResult<PartyPickerAccess>
+> {
+  const ctx = await requireUserContext();
+  const canRead = userCan(ctx.access, "suppliers:read");
+  return {
+    ok: true,
+    data: {
+      canRead,
+      canCreate: canRead && userCan(ctx.access, "suppliers:write"),
+    },
+  };
+}
 
 export async function searchSuppliersAction(
   input: SearchSuppliersInput = {},

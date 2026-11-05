@@ -38,7 +38,10 @@ import {
   ClientPicker,
   type PickedClient,
 } from "@/features/invoices/components/client-picker";
-import { useClientByIdOptional } from "@/features/clients/hooks/use-clients";
+import {
+  useClientByIdOptional,
+  useClientPickerAccess,
+} from "@/features/clients/hooks/use-clients";
 import type { Account } from "@/features/accounts/schema";
 import {
   amountToInput,
@@ -244,9 +247,13 @@ export function ReceiptForm({
     mode === "edit" && receipt ? receipt.receipt.client_id : null;
   const editClient = useClientByIdOptional(editClientId);
   const editClientData = editClient.data;
-  // Read but not found: there is nothing to show, as with a failed read.
+  // Read but not found: there is nothing to show, as with a failed read. A
+  // user denied clients:read gets the picker's «sin permiso» instead: a
+  // «Reintentar» could never succeed.
+  const clientReadDenied = useClientPickerAccess()?.canRead === false;
   const editClientFailed =
-    editClient.isError || (editClient.isSuccess && !editClientData);
+    !clientReadDenied &&
+    (editClient.isError || (editClient.isSuccess && !editClientData));
   useEffect(() => {
     if (!editClientData) return;
     form.setValue("client", {

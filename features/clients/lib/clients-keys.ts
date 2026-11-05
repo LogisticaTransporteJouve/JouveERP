@@ -25,6 +25,7 @@ export const clientsKeys = {
     isFiscal: boolean | null;
   }) => [...clientsKeys.all, "search", filters] as const,
   byId: (id: string) => [...clientsKeys.all, "byId", id] as const,
+  pickerAccess: () => [...clientsKeys.all, "pickerAccess"] as const,
   references: (id: string) => [...clientsKeys.all, "references", id] as const,
   account: (id: string) => [...clientsKeys.all, "account", id] as const,
   accountByScope: (id: string, isFiscal: boolean | null) =>

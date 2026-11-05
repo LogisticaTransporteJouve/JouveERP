@@ -11,6 +11,7 @@ import type { InvoicingChannelSummary } from "@/lib/scope";
 const h = vi.hoisted(() => ({
   client: {} as Record<string, unknown>,
   refetch: vi.fn(),
+  access: undefined as { canRead: boolean; canCreate: boolean } | undefined,
 }));
 
 vi.mock("next/navigation", () => ({
@@ -24,6 +25,7 @@ vi.mock("@/hooks/use-usd-rate-prefill", () => ({
 }));
 vi.mock("@/features/clients/hooks/use-clients", () => ({
   useClientByIdOptional: () => h.client,
+  useClientPickerAccess: () => h.access,
 }));
 vi.mock("@/features/invoices/components/client-picker", () => ({
   ClientPicker: (props: {
@@ -94,6 +96,7 @@ function renderEdit() {
 
 beforeEach(() => {
   h.refetch.mockReset();
+  h.access = { canRead: true, canCreate: true };
   h.client = {
     data: {
       id: "client-1",
@@ -140,6 +143,17 @@ describe("ReceiptForm edit client", () => {
     expect(
       screen.getByText("No se pudo leer el cliente del recibo."),
     ).toBeTruthy();
+    expect(screen.getByText("allocations client=client-1")).toBeTruthy();
+  });
+
+  it("a user denied clients:read gets the picker, not a «Reintentar» that cannot work", () => {
+    h.access = { canRead: false, canCreate: false };
+    h.client = { data: undefined, isError: true, refetch: h.refetch };
+    renderEdit();
+    expect(
+      screen.queryByText("No se pudo leer el cliente del recibo."),
+    ).toBeNull();
+    expect(screen.getByText("picker value=none disabled=true")).toBeTruthy();
     expect(screen.getByText("allocations client=client-1")).toBeTruthy();
   });
 });

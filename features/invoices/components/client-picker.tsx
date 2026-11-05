@@ -2,6 +2,9 @@
 
 import { Building2, Plus, Search, X } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
+
+import { ReadError } from "@/components/read-error";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,7 +25,10 @@ import { useDebouncedValue } from "@/hooks/use-debounced-value";
 
 import { getClientByIdAction } from "@/features/clients/actions/clients-actions";
 import { ClientForm } from "@/features/clients/components/client-form";
-import { useClientsSearch } from "@/features/clients/hooks/use-clients";
+import {
+  useClientPickerAccess,
+  useClientsSearch,
+} from "@/features/clients/hooks/use-clients";
 import {
   counterpartyIdentityLabel,
   IVA_CONDITION_LABEL,
@@ -63,9 +69,13 @@ export function ClientPicker({
 
   const debouncedQuery = useDebouncedValue(query.trim(), 200);
 
+  const access = useClientPickerAccess();
+  const readDenied = access?.canRead === false;
+  const canCreate = isFiscal !== null && access?.canCreate === true;
+
   const searchQuery = useClientsSearch(
     { query: debouncedQuery, onlyActive: true, limit: RESULT_LIMIT, isFiscal },
-    { enabled: open },
+    { enabled: open && !readDenied },
   );
   const results = searchQuery.data?.clients ?? [];
   const isSearching = searchQuery.isFetching;
@@ -92,8 +102,13 @@ export function ClientPicker({
     setShowCreate(false);
     // A one-shot read of the client just created; a query cache entry would
     // buy nothing here.
-    const res = await getClientByIdAction(id);
-    if (!res.ok || !res.data) return;
+    const res = await getClientByIdAction(id).catch(() => null);
+    if (!res?.ok || !res.data) {
+      toast.error(
+        "El cliente se creó, pero no se pudo elegir: buscalo y elegilo.",
+      );
+      return;
+    }
     const c = res.data;
     onChange({
       id: c.id,
@@ -105,6 +120,13 @@ export function ClientPicker({
     });
   }
 
+  if (readDenied && !value) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        No tenés permiso para ver clientes.
+      </p>
+    );
+  }
   if (disabled && !value) {
     return <p className="text-sm text-muted-foreground">Cargando…</p>;
   }
@@ -164,10 +186,13 @@ export function ClientPicker({
                 isSearching={isSearching}
                 onPick={pick}
                 hasQuery={debouncedQuery.length > 0}
+                failed={searchQuery.isError}
+                onRetry={() => void searchQuery.refetch()}
+                canCreate={canCreate}
               />
             </PopoverContent>
           </Popover>
-          {isFiscal !== null && (
+          {canCreate && (
             <Button
               type="button"
               variant="outline"
@@ -181,7 +206,7 @@ export function ClientPicker({
         </div>
       )}
 
-      {isFiscal !== null && (
+      {canCreate && (
         <Dialog open={showCreate} onOpenChange={setShowCreate}>
           <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
             <DialogHeader>
@@ -210,12 +235,29 @@ function ResultsList({
   isSearching,
   onPick,
   hasQuery,
+  failed,
+  onRetry,
+  canCreate,
 }: {
   results: Client[];
   isSearching: boolean;
   onPick: (client: Client) => void;
   hasQuery: boolean;
+  failed: boolean;
+  onRetry: () => void;
+  canCreate: boolean;
 }) {
+  // A failed search is not "no match": it would invite creating the party
+  // again.
+  if (failed) {
+    return (
+      <ReadError
+        message="No se pudieron buscar los clientes."
+        onRetry={onRetry}
+        className="justify-center px-3 py-4"
+      />
+    );
+  }
   if (isSearching) {
     return (
       <div className="px-3 py-4 text-center text-sm text-muted-foreground">
@@ -227,8 +269,12 @@ function ResultsList({
     return (
       <div className="px-3 py-4 text-center text-sm text-muted-foreground">
         {hasQuery
-          ? "Sin resultados. Probá creando un nuevo cliente."
-          : "Empezá a tipear o creá un nuevo cliente."}
+          ? canCreate
+            ? "Sin resultados. Probá creando un nuevo cliente."
+            : "Sin resultados."
+          : canCreate
+            ? "Empezá a tipear o creá un nuevo cliente."
+            : "Empezá a tipear para buscar."}
       </div>
     );
   }

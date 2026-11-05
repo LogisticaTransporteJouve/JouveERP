@@ -26,6 +26,7 @@ import {
   createClientAction,
   deleteClientAction,
   getClientByIdAction,
+  getClientPickerAccessAction,
   getClientReferencesAction,
   searchClientsAction,
   setClientActiveAction,
@@ -36,6 +37,16 @@ import { CLIENTS_PAGE_SIZE, clientsKeys } from "../lib/clients-keys";
 import type { Client } from "../schema";
 
 export { CLIENTS_PAGE_SIZE };
+
+/** What the client picker may offer; undefined while it loads or if the
+ *  read failed (the picker then offers no «Nuevo»). */
+export function useClientPickerAccess() {
+  return useQuery({
+    queryKey: clientsKeys.pickerAccess(),
+    queryFn: () => runAction(() => getClientPickerAccessAction()),
+    staleTime: 5 * 60_000,
+  }).data;
+}
 
 /** One client by id, or nothing while `id` is null. */
 export function useClientByIdOptional(id: string | null) {
