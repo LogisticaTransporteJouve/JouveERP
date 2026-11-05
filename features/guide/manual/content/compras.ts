@@ -588,8 +588,71 @@ export const purchasesPage: GuidePage = {
       intro: [
         "Las categorías clasifican a los proveedores (por ejemplo Combustible, Repuestos, Peajes) para filtrar la lista de proveedores. Son las mismas en Compras y en Otras compras.",
         "Columnas: {{Nombre}} y {{Estado}} ({{Activa}} o {{Inactiva}}). Cada fila tiene el menú {{Acciones}} con {{Editar}} y {{Borrar}}. {{Exportar}} descarga la lista.",
+        "Al hacer clic en el nombre de una categoría se abre su página: cuánto se le compró a sus proveedores en un período (ver [[#ver-gasto-de-categoria]]).",
       ],
       tasks: [
+        {
+          id: "ver-gasto-de-categoria",
+          title: "Ver cuánto se gastó en una categoría",
+          summary:
+            "La página de una categoría suma las compras a sus proveedores en el lado que estás viendo: en Compras, las facturas recibidas; en Otras compras, los remitos internos.",
+          permission: ["suppliers:read", "purchase_invoices:read"],
+          prerequisites: [
+            "Sin `purchase_invoices:read` la página abre igual, pero sin montos: muestra «No tenés permiso para ver compras: los montos de esta categoría no se muestran.».",
+          ],
+          screens: [
+            {
+              kind: "page",
+              title: "~Combustible",
+              subtitle:
+                "Compras (facturas recibidas) a proveedores de esta categoría.",
+              stats: [
+                { label: "Total gastado", value: "$ 4.820.300,00" },
+                { label: "Compras", value: "37" },
+                { label: "Proveedores", value: "3" },
+              ],
+              table: {
+                columns: ["Mes", "Compras", "Neto"],
+                rows: [
+                  ["~oct 2026", "~12", "~$ 1.610.000,00"],
+                  ["~sep 2026", "~11", "~$ 1.402.500,00"],
+                ],
+              },
+            },
+          ],
+          steps: [
+            "En [[/suppliers/categories]], hacé clic en el nombre de la categoría.",
+            "Elegí el período arriba a la derecha: arranca en {{Este año}}.",
+            {
+              text: "Leé los indicadores y las tablas:",
+              substeps: [
+                "{{Total gastado}}: neto sin IVA en pesos; las notas de crédito restan.",
+                "{{Compras}}: comprobantes recibidos, NC y ND incluidas. {{Proveedores}}: los que tienen compras en el período.",
+                "{{Por mes}} y {{Por proveedor}} (con link a cada proveedor), con cantidad de compras y neto.",
+                "{{Últimas compras}}: las 20 más recientes del período, con link a cada una.",
+              ],
+            },
+          ],
+          after: [
+            "Si el período tiene demasiados proveedores, {{Por proveedor}} avisa que la lista está incompleta y {{Proveedores}} muestra «≥»: elegí un período más corto.",
+          ],
+          errors: [
+            {
+              message: "No se pudieron leer los gastos de la categoría.",
+              fix: "Hacé clic en reintentar; si sigue, recargá la página.",
+            },
+            {
+              message: "No se pudieron leer las compras de la categoría.",
+              fix: "Hacé clic en reintentar; si sigue, recargá la página.",
+            },
+          ],
+          keywords: [
+            "gasto por rubro",
+            "cuánto gastamos",
+            "categoría",
+            "rubro",
+          ],
+        },
         {
           id: "crear-categoria-proveedor",
           title: "Crear una categoría de proveedores",
