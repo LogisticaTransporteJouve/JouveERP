@@ -10,7 +10,9 @@ S7 F4). Solo código de la app, sin migración.
   resultados. Probá creando un nuevo cliente.» e invitaba a cargarlo dos
   veces (un cliente de Otras ventas no tiene CUIT que lo frene). El
   buscador de endosante de «Crear cheques en cartera» también dice «No se
-  pudieron buscar los clientes.» en vez de «Sin resultados.».
+  pudieron buscar los clientes.» en vez de «Sin resultados.», y el de
+  factura origen de una NC/ND de compra dice «No se pudieron buscar las
+  facturas.» en vez de «Sin facturas para este proveedor.».
 - «Nuevo» (y «Crear proveedor «…»» de un escaneo) se ve solo con
   `clients:write` + `clients:read` (o `suppliers:write` + `suppliers:read`).
   Mientras no se sabe el permiso, no se ve. Sin permiso de alta, el texto
