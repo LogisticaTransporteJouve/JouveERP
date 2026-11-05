@@ -25,7 +25,7 @@ import {
   type TaskStatusFilter,
 } from "../schema";
 
-import { assigneesSummary, useUserLabels } from "./assignee-picker";
+import { AssigneeInitials } from "./assignee-picker";
 import { RecurringTasksDialog } from "./recurring-tasks-dialog";
 import { TaskDetailDialog } from "./task-detail-dialog";
 import { TaskFormDialog } from "./task-form-dialog";
@@ -170,7 +170,6 @@ function TasksTable({
   onOpen: (id: string) => void;
 }) {
   const { data } = useTasks(scope, status);
-  const label = useUserLabels();
   const setTaskStatus = useSetTaskStatus();
   const today = todayInAR();
 
@@ -228,11 +227,7 @@ function TasksTable({
         header: "Responsables",
         enableSorting: false,
         meta: { mobile: "secondary" },
-        cell: ({ row }) => (
-          <span className="text-sm">
-            {assigneesSummary(row.original.assignee_ids, label)}
-          </span>
-        ),
+        cell: ({ row }) => <AssigneeInitials ids={row.original.assignee_ids} />,
       },
       {
         id: "actions",
@@ -241,7 +236,15 @@ function TasksTable({
         meta: { headerClassName: "w-28", align: "right", mobile: "primary" },
         cell: ({ row }) => {
           const t = row.original;
-          if (!canWrite || t.restricted || t.status !== "open") return null;
+          // An automatic task closes by itself once its document is settled.
+          if (
+            !canWrite ||
+            t.restricted ||
+            t.status !== "open" ||
+            t.origin === "automatic"
+          ) {
+            return null;
+          }
           return (
             <Button
               type="button"
@@ -266,7 +269,7 @@ function TasksTable({
         },
       },
     ],
-    [canWrite, label, setTaskStatus, today],
+    [canWrite, setTaskStatus, today],
   );
 
   return (

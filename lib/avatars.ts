@@ -34,9 +34,9 @@ export function getInitials(
   const l = last?.trim().charAt(0) ?? "";
   const combined = (f + l).toUpperCase();
   if (combined) return combined;
-  // Fall back to the email when there's no name yet.
+  // Fall back to the email's first two letters when there's no name yet.
   if (fallback) {
-    const c = fallback.trim().charAt(0).toUpperCase();
+    const c = fallback.trim().slice(0, 2).toUpperCase();
     if (c) return c;
   }
   return "?";
@@ -44,8 +44,8 @@ export function getInitials(
 
 export function isAvatarColor(value: unknown): value is AvatarColor {
   return (
-    typeof value === "string"
-    && (AVATAR_COLORS as readonly string[]).includes(value)
+    typeof value === "string" &&
+    (AVATAR_COLORS as readonly string[]).includes(value)
   );
 }
 

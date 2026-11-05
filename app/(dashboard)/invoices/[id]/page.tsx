@@ -62,8 +62,11 @@ const formatARS = formatNumber2;
 
 export default async function ComprobanteDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  /** `cobrar=1` (a task's «Cobrar») opens the receipt form. */
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "invoices:read")) {
@@ -71,6 +74,7 @@ export default async function ComprobanteDetailPage({
   }
 
   const { id } = await params;
+  const openCollect = (await searchParams).cobrar === "1";
   const [res, linksRes] = await Promise.all([
     getInvoiceDetailAction(id),
     getRemitoLinksAction(id),
@@ -237,6 +241,7 @@ export default async function ComprobanteDetailPage({
           {canCancel && <CancelInvoiceDialog id={c.id} label={invoiceLabel} />}
           {collectOpen && (
             <CollectDialog
+              defaultOpen={openCollect}
               side={c.channel.is_fiscal ? "fiscal" : "internal"}
               canEditRetentions={userCan(ctx.access, "retentions:write")}
               initialClient={{

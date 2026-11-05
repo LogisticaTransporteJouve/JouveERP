@@ -134,18 +134,16 @@ select is(
   'the sync keeps a due date a user moved'
 );
 
--- A user's close survives the sync, even with the document still pending.
-update public.tasks
-   set status = 'done', completed_at = now(),
-       completed_by = '00000000-0000-0000-0000-0000000007a1'
- where source_id = '00000000-0000-0000-0000-0000000007c1';
-select public.sync_automatic_tasks((select today from t_day));
-
-select is(
-  (select status from public.tasks
-    where source_id = '00000000-0000-0000-0000-0000000007c1'),
-  'done',
-  'the sync does not reopen a task a user closed'
+-- Only the sync closes an automatic task (20261105200001), also after a run
+-- in the same transaction.
+select throws_ok(
+  $$update public.tasks
+       set status = 'done', completed_at = now(),
+           completed_by = '00000000-0000-0000-0000-0000000007a1'
+     where source_id = '00000000-0000-0000-0000-0000000007c1'$$,
+  '23514',
+  'Una tarea automática no se marca como hecha: se cierra sola cuando su documento ya no tiene nada pendiente.',
+  'nobody marks an automatic task done by hand'
 );
 
 -- An own check due this week, then cashed.

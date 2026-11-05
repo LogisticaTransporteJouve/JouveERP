@@ -3,6 +3,7 @@
 import { ChevronsUpDown, Users } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -10,20 +11,71 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { getAvatarBgClass } from "@/lib/avatars";
 
 import { useTaskUsers } from "../hooks/use-tasks";
 
-/** Label of a user for the task screens; one who lost tasks:read keeps a
- *  generic name. */
-export function useUserLabels(): (id: string) => string {
+const NO_ACCESS_USER = { label: "Usuario sin acceso a Tareas", initials: "?" };
+
+/** Name and initials of a user for the task screens; one who lost
+ *  tasks:read keeps a generic name. */
+function useTaskUserLookup(): (id: string) => {
+  label: string;
+  initials: string;
+} {
   const { data: users } = useTaskUsers();
-  const labels = useMemo(
-    () => new Map(users.map((u) => [u.id, u.label])),
-    [users],
-  );
-  return useCallback(
-    (id: string) => labels.get(id) ?? "Usuario sin acceso a Tareas",
-    [labels],
+  const byId = useMemo(() => new Map(users.map((u) => [u.id, u])), [users]);
+  return useCallback((id: string) => byId.get(id) ?? NO_ACCESS_USER, [byId]);
+}
+
+/** Label of a user for the task screens. */
+export function useUserLabels(): (id: string) => string {
+  const lookup = useTaskUserLookup();
+  return useCallback((id: string) => lookup(id).label, [lookup]);
+}
+
+/** The assignees as initials badges, each named in its tooltip and label:
+ *  the compact view of the lists. */
+export function AssigneeInitials({ ids }: { ids: readonly string[] }) {
+  const lookup = useTaskUserLookup();
+  if (ids.length === 0) {
+    return (
+      <span className="text-muted-foreground text-sm">Sin responsables</span>
+    );
+  }
+  return (
+    <TooltipProvider>
+      <ul aria-label="Responsables" className="flex flex-wrap gap-1">
+        {ids.map((id) => {
+          const user = lookup(id);
+          return (
+            <li key={id}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span aria-label={user.label} className="inline-flex">
+                    <Avatar className="size-7 text-[10px]">
+                      <AvatarFallback
+                        aria-hidden
+                        className={`${getAvatarBgClass(null)} font-medium`}
+                      >
+                        {user.initials}
+                      </AvatarFallback>
+                    </Avatar>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>{user.label}</TooltipContent>
+              </Tooltip>
+            </li>
+          );
+        })}
+      </ul>
+    </TooltipProvider>
   );
 }
 

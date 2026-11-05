@@ -72,13 +72,16 @@ vi.mock("@/features/receipts/components/collect-dialog", () => ({
   CollectDialog: ({
     initialAllocations,
     canEditRetentions,
+    defaultOpen,
   }: {
     initialAllocations?: { amount_applied: string }[];
     canEditRetentions: boolean;
+    defaultOpen?: boolean;
   }) => (
     <button type="button">
       stub-cobrar {initialAllocations?.[0]?.amount_applied}
       {canEditRetentions ? " con-retenciones" : ""}
+      {defaultOpen ? " abierto" : ""}
     </button>
   ),
 }));
@@ -145,8 +148,13 @@ const okLinks = (over: Partial<RemitoLinks>): ActionResult<RemitoLinks> => ({
   data: { billedAs: null, sourceRemito: null, creditState: "settled", ...over },
 });
 
-async function renderPage(id = "x") {
-  render(await ComprobanteDetailPage({ params: Promise.resolve({ id }) }));
+async function renderPage(id = "x", search: Record<string, string> = {}) {
+  render(
+    await ComprobanteDetailPage({
+      params: Promise.resolve({ id }),
+      searchParams: Promise.resolve(search),
+    }),
+  );
 }
 
 const RUNNING = "Acreditando el remito: en unos minutos queda saldado.";
@@ -297,6 +305,32 @@ describe("invoice detail — Cobrar", () => {
     h.detail = base(true);
     h.pending = [{ id: "fac-1", document_type: "invoice", outstanding: 60.5 }];
     await renderPage();
+    expect(screen.queryByText(/stub-cobrar/)).toBeNull();
+  });
+});
+
+describe("invoice detail — Cobrar from a task", () => {
+  beforeEach(() => {
+    h.detail = base(true);
+    h.links = okLinks({});
+    h.pending = [{ id: "fac-1", document_type: "invoice", outstanding: 60.5 }];
+  });
+
+  it("opens the receipt form with ?cobrar=1 (a task's «Cobrar»)", async () => {
+    await renderPage("fac-1", { cobrar: "1" });
+    expect(
+      screen.getByText("stub-cobrar 60,50 con-retenciones abierto"),
+    ).toBeTruthy();
+  });
+
+  it("keeps it closed without the parameter", async () => {
+    await renderPage("fac-1");
+    expect(screen.getByText("stub-cobrar 60,50 con-retenciones")).toBeTruthy();
+  });
+
+  it("offers nothing when the comprobante owes nothing, parameter or not", async () => {
+    h.pending = [];
+    await renderPage("fac-1", { cobrar: "1" });
     expect(screen.queryByText(/stub-cobrar/)).toBeNull();
   });
 });

@@ -18,7 +18,7 @@ import { Switch } from "@/components/ui/switch";
 import { useRecurringTasks, useUpdateRecurringTask } from "../hooks/use-tasks";
 import type { RecurringTask } from "../schema";
 
-import { assigneesSummary, useUserLabels } from "./assignee-picker";
+import { AssigneeInitials } from "./assignee-picker";
 import { TaskFormDialog } from "./task-form-dialog";
 
 /** Managing recurring tasks needs `tasks:write`; the caller mounts it only then. */
@@ -48,7 +48,6 @@ export function RecurringTasksDialog({
 
 function RecurringList() {
   const { data: items } = useRecurringTasks();
-  const label = useUserLabels();
   const update = useUpdateRecurringTask();
   const [editing, setEditing] = useState<RecurringTask | null>(null);
 
@@ -75,9 +74,10 @@ function RecurringList() {
               >
                 {r.title}
               </p>
-              <p className="text-muted-foreground truncate text-xs">
-                Día {r.day_of_month} · {assigneesSummary(r.assignee_ids, label)}
-              </p>
+              <div className="text-muted-foreground mt-1 flex items-center gap-2 text-xs">
+                <span>Día {r.day_of_month}</span>
+                <AssigneeInitials ids={r.assignee_ids} />
+              </div>
             </div>
             <Switch
               checked={r.is_active}
