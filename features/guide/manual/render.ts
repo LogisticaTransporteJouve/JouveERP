@@ -66,7 +66,7 @@ function field(f: MockField): string {
       control = `<span class="m-input m-select">${value}<span class="m-chevron">⌄</span></span>`;
       break;
     case "date":
-      control = `<span class="m-input">${value || "dd/mm/aaaa"}</span>`;
+      control = `<span class="m-input">${value || "Elegí fecha"}</span>`;
       break;
     case "money":
       control = `<span class="m-input m-money">${value || "0,00"}</span>`;

@@ -27,7 +27,7 @@ export const accountingPage: GuidePage = {
           title: "Paquete del mes",
           subtitle:
             "Lo que hay que revisar antes de mandarle el mes al contador, y todos los archivos que necesita.",
-          toolbar: [{ label: "Período", kind: "input", value: "2026-10" }],
+          toolbar: [{ label: "Período", kind: "picker", value: "oct 2026" }],
           table: {
             columns: ["~Control", "~Detalle"],
             rows: [
@@ -460,7 +460,7 @@ export const accountingPage: GuidePage = {
             { label: "Nuevo asiento", variant: "primary" },
           ],
           toolbar: [
-            { label: "Período (YYYY-MM)", kind: "input", value: "2026-11" },
+            { label: "Período (YYYY-MM)", kind: "picker", value: "nov 2026" },
             { label: "Origen", kind: "select", value: "Todos los orígenes" },
             { label: "Canal", kind: "select", value: "Todos los canales" },
           ],
@@ -780,7 +780,7 @@ export const accountingPage: GuidePage = {
           title: "Libro IVA Ventas",
           actions: [{ label: "TXT AFIP", variant: "outline" }],
           toolbar: [
-            { label: "Período", kind: "input", value: "2026-10" },
+            { label: "Período", kind: "picker", value: "oct 2026" },
             {
               label: "Canal fiscal",
               kind: "select",
@@ -1024,7 +1024,7 @@ export const accountingPage: GuidePage = {
           kind: "page",
           title: "Balance",
           toolbar: [
-            { label: "Período de corte", kind: "input", value: "2026-10" },
+            { label: "Período de corte", kind: "picker", value: "oct 2026" },
             { label: "Desde (opcional)", kind: "input" },
             { label: "Centro de costo", kind: "select", value: "Todos" },
           ],
@@ -1721,7 +1721,7 @@ export const accountingPage: GuidePage = {
                 {
                   label: "Período",
                   kind: "input",
-                  value: "2026-10",
+                  value: "oct 2026",
                   marker: 2,
                 },
                 {
@@ -2251,7 +2251,7 @@ export const accountingPage: GuidePage = {
                 {
                   label: "Período (YYYY-MM)",
                   kind: "input",
-                  value: "2026-10",
+                  value: "oct 2026",
                   marker: 2,
                 },
                 {
