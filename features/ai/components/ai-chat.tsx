@@ -423,16 +423,19 @@ export function AiChat({
         >
           <Paperclip className="size-5" />
         </IconButton>
-        <IconButton
-          label="Sacar una foto"
-          type="button"
-          variant="outline"
-          disabled={locked}
-          onClick={() => cameraRef.current?.click()}
-          className="hidden size-11 shrink-0 rounded-lg pointer-coarse:inline-flex"
-        >
-          <Camera className="size-5" />
-        </IconButton>
+        {/* The wrapper hides it, also when disabled wraps it in a span. */}
+        <span className="hidden shrink-0 pointer-coarse:inline-flex">
+          <IconButton
+            label="Sacar una foto"
+            type="button"
+            variant="outline"
+            disabled={locked}
+            onClick={() => cameraRef.current?.click()}
+            className="size-11 rounded-lg"
+          >
+            <Camera className="size-5" />
+          </IconButton>
+        </span>
         <input
           ref={pickerRef}
           type="file"

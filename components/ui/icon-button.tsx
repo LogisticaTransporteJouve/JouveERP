@@ -69,7 +69,8 @@ function IconButton({
         >
           {disabled ? (
             // A disabled button gets no pointer or focus events, so the wrapper
-            // carries the tooltip.
+            // carries the tooltip. A class that hides or places the button
+            // stays on the button: put it on a parent instead.
             <span tabIndex={0} className="inline-flex cursor-not-allowed">
               {button}
             </span>

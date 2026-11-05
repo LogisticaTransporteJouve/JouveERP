@@ -326,26 +326,29 @@ function SortableWidget({
         >
           <GripVertical className="size-3.5" />
         </IconButton>
-        <IconButton
-          label={`Subir ${WIDGET_LABEL[id]}`}
-          variant="ghost"
-          size="icon-sm"
-          className="text-muted-foreground hover:text-foreground disabled:opacity-30 md:hidden"
-          disabled={!canMoveUp}
-          onClick={onMoveUp}
-        >
-          <ArrowUp className="size-4" />
-        </IconButton>
-        <IconButton
-          label={`Bajar ${WIDGET_LABEL[id]}`}
-          variant="ghost"
-          size="icon-sm"
-          className="text-muted-foreground hover:text-foreground disabled:opacity-30 md:hidden"
-          disabled={!canMoveDown}
-          onClick={onMoveDown}
-        >
-          <ArrowDown className="size-4" />
-        </IconButton>
+        {/* The wrapper hides them, also when disabled wraps them in a span. */}
+        <div className="flex items-center gap-1 md:hidden">
+          <IconButton
+            label={`Subir ${WIDGET_LABEL[id]}`}
+            variant="ghost"
+            size="icon-sm"
+            className="text-muted-foreground hover:text-foreground disabled:opacity-30"
+            disabled={!canMoveUp}
+            onClick={onMoveUp}
+          >
+            <ArrowUp className="size-4" />
+          </IconButton>
+          <IconButton
+            label={`Bajar ${WIDGET_LABEL[id]}`}
+            variant="ghost"
+            size="icon-sm"
+            className="text-muted-foreground hover:text-foreground disabled:opacity-30"
+            disabled={!canMoveDown}
+            onClick={onMoveDown}
+          >
+            <ArrowDown className="size-4" />
+          </IconButton>
+        </div>
         <IconButton
           label={
             size === "full"

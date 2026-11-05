@@ -52,10 +52,9 @@ describe("IconButton", () => {
         <Pencil />
       </IconButton>,
     );
-    const button = screen.getByRole("button");
-    // A dialog closed with the mouse hands focus back without :focus-visible.
-    button.matches = () => false;
-    fireEvent.focus(button);
+    // A focus event on an element that does not match :focus-visible, like
+    // the focus a dialog closed with the mouse hands back to its trigger.
+    fireEvent.focus(screen.getByRole("button"));
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(screen.queryByRole("tooltip")).toBeNull();
   });
