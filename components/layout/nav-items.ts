@@ -55,6 +55,7 @@ import {
 
 import {
   CLIENT_AGING_PERMISSIONS,
+  FLEET_PROFITABILITY_PERMISSIONS,
   isFiscalOnly,
   SUPPLIER_AGING_PERMISSIONS,
   TREASURY_PERMISSIONS,
@@ -399,7 +400,7 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         href: "/fleet-reports",
         label: "Rentabilidad",
         icon: TrendingUp,
-        permission: "trips:read",
+        permission: FLEET_PROFITABILITY_PERMISSIONS,
       },
     ],
   },
