@@ -13,7 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -105,11 +105,10 @@ export function PayTaxDocumentDialog({
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label htmlFor="tax-pay-date">Fecha de pago</Label>
-                <Input
+                <DatePicker
                   id="tax-pay-date"
-                  type="date"
                   value={paidDate}
-                  onChange={(e) => setPaidDate(e.target.value)}
+                  onChange={setPaidDate}
                 />
               </div>
               <div className="space-y-1">

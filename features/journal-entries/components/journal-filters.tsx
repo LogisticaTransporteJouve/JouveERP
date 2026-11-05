@@ -3,7 +3,7 @@
 import { CalendarRange } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { MonthPicker } from "@/components/ui/month-picker";
 import {
   Select,
   SelectContent,
@@ -52,13 +52,13 @@ export function JournalFiltersBar({ filters, onChange, channels }: Props) {
           Período (YYYY-MM)
         </label>
         <div className="flex items-center gap-2">
-          <Input
-            type="month"
+          <MonthPicker
             value={period}
-            onChange={(e) =>
-              onChange({ ...filters, period: e.target.value || null })
+            onChange={(value) =>
+              onChange({ ...filters, period: value || null })
             }
             className="w-[160px]"
+            clearable
           />
           <Button
             type="button"

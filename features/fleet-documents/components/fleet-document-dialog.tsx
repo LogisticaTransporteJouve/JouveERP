@@ -25,6 +25,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -293,7 +294,7 @@ export function FleetDocumentDialog({
                   <FormItem>
                     <FormLabel>Emisión</FormLabel>
                     <FormControl>
-                      <Input {...field} type="date" />
+                      <DatePicker {...field} clearable />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -306,7 +307,7 @@ export function FleetDocumentDialog({
                   <FormItem>
                     <FormLabel>Vencimiento</FormLabel>
                     <FormControl>
-                      <Input {...field} type="date" />
+                      <DatePicker {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

@@ -13,7 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { formatMoney, todayInAR } from "@/lib/format";
 
@@ -102,21 +102,15 @@ export function BulkFreightSettlementsDialog({
             </label>
             <div className="space-y-2">
               <Label htmlFor="fs-bulk-start">Desde</Label>
-              <Input
+              <DatePicker
                 id="fs-bulk-start"
-                type="date"
                 value={start}
-                onChange={(e) => setStart(e.target.value)}
+                onChange={setStart}
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="fs-bulk-end">Hasta</Label>
-              <Input
-                id="fs-bulk-end"
-                type="date"
-                value={end}
-                onChange={(e) => setEnd(e.target.value)}
-              />
+              <DatePicker id="fs-bulk-end" value={end} onChange={setEnd} />
             </div>
           </div>
         ) : (

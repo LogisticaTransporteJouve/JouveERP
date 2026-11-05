@@ -259,7 +259,7 @@ select public.save_driver_settlement(
 select public.confirm_driver_settlement((select id from t_ds3), null);
 select throws_ok(
   format($$select public.post_driver_settlement_difference(%L, null, 'driver')$$, (select id from t_ds3)),
-  '23514', 'El chofer Chofer Sin Legajo no está vinculado a un empleado: vinculalo en Flota › Choferes.',
+  '23514', 'El chofer Chofer Sin Legajo es contratado, sin legajo: no tiene cuenta corriente donde cargarle la diferencia. Dejala a cargo del cliente.',
   'a driver without an employee has no account to post to'
 );
 

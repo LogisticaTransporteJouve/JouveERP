@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, useWatch } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { toast } from "sonner";
 
@@ -31,17 +31,12 @@ import {
   useCreateSupplierCategory,
   useUpdateSupplierCategory,
 } from "../hooks/use-supplier-categories";
-import {
-  SupplierCategoryNameSchema,
-  slugFromName,
-  type SupplierCategory,
-} from "../schema";
+import { SupplierCategoryNameSchema, type SupplierCategory } from "../schema";
 
 type Mode = "create" | "edit";
 
 const FormSchema = z.object({
   name: SupplierCategoryNameSchema,
-  slug: z.string().trim().max(40),
   is_active: z.boolean(),
 });
 
@@ -66,7 +61,6 @@ export function SupplierCategoryDialog({
     resolver: zodResolver(FormSchema),
     defaultValues: {
       name: category?.name ?? "",
-      slug: category?.slug ?? "",
       is_active: category?.is_active ?? true,
     },
   });
@@ -76,28 +70,15 @@ export function SupplierCategoryDialog({
     if (!open) return;
     form.reset({
       name: category?.name ?? "",
-      slug: category?.slug ?? "",
       is_active: category?.is_active ?? true,
     });
   }, [open, category, form]);
-
-  const watchedName = useWatch({ control: form.control, name: "name" });
-  const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
-
-  // Auto-slug from the name in create mode, until the user edits it.
-  useEffect(() => {
-    if (mode !== "create") return;
-    if (slugManuallyEdited) return;
-    if (watchedName.length === 0) return;
-    form.setValue("slug", slugFromName(watchedName), { shouldDirty: false });
-  }, [watchedName, mode, slugManuallyEdited, form]);
 
   function onSubmit(values: FormValues) {
     if (mode === "create") {
       createMut.mutate(
         {
           name: values.name,
-          slug: values.slug || undefined,
           is_active: values.is_active,
         },
         {
@@ -113,7 +94,6 @@ export function SupplierCategoryDialog({
         {
           id: category.id,
           name: values.name,
-          slug: values.slug,
           is_active: values.is_active,
         },
         {
@@ -137,7 +117,7 @@ export function SupplierCategoryDialog({
           <DialogDescription>
             {mode === "create"
               ? "Agregá una categoría para clasificar proveedores y gastos."
-              : "Cambiá el nombre, slug o estado de la categoría."}
+              : "Cambiá el nombre o el estado de la categoría."}
           </DialogDescription>
         </DialogHeader>
 
@@ -156,31 +136,6 @@ export function SupplierCategoryDialog({
                       autoComplete="off"
                     />
                   </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="slug"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Slug</FormLabel>
-                  <FormControl>
-                    <Input
-                      {...field}
-                      placeholder="combustible"
-                      autoComplete="off"
-                      onChange={(e) => {
-                        field.onChange(e.target.value);
-                        setSlugManuallyEdited(true);
-                      }}
-                    />
-                  </FormControl>
-                  <FormDescription className="text-xs">
-                    Identificador interno. Solo minúsculas, números y _. Se
-                    autogenera desde el nombre si lo dejás vacío.
-                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}

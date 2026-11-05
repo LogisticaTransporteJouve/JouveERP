@@ -380,6 +380,12 @@ export default async function ComprobanteDetailPage({
               }
             />
           </dl>
+          {c.notes && (
+            <div className="mt-3 border-t pt-3 text-sm">
+              <div className="text-muted-foreground">Observaciones</div>
+              <p className="mt-1 whitespace-pre-wrap break-words">{c.notes}</p>
+            </div>
+          )}
         </div>
       </div>
 

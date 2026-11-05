@@ -23,7 +23,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { todayInAR } from "@/lib/format";
 
 import { useDispatchPalletsBulk } from "../hooks/use-pallets";
@@ -96,7 +96,7 @@ export function DispatchPalletsDialog({
                 <FormItem>
                   <FormLabel>Fecha de salida</FormLabel>
                   <FormControl>
-                    <Input {...field} type="date" />
+                    <DatePicker {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

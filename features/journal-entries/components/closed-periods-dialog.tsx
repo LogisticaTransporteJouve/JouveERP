@@ -14,7 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+import { MonthPicker } from "@/components/ui/month-picker";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatArgentineDateTime, formatPeriod } from "@/lib/format";
@@ -92,12 +92,7 @@ export function ClosedPeriodsDialog({ open, onOpenChange }: Props) {
         <div className="flex flex-wrap items-end gap-2">
           <div className="min-w-0 flex-1 space-y-1">
             <Label htmlFor="cp-period">Período</Label>
-            <Input
-              id="cp-period"
-              type="month"
-              value={period}
-              onChange={(e) => setPeriod(e.target.value)}
-            />
+            <MonthPicker id="cp-period" value={period} onChange={setPeriod} />
           </div>
           <Button
             onClick={onClose}

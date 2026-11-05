@@ -372,9 +372,11 @@ async function importPurchases(supabase, path, opts) {
   // Apply category + default channel for known patterns.
   const { data: cats } = await supabase
     .from("supplier_categories")
-    .select("id, slug");
-  const catBySlug = new Map((cats || []).map((c) => [c.slug, c.id]));
-  await assignSupplierCategories(supabase, supplierRows, catBySlug);
+    .select("id, name");
+  const catByName = new Map(
+    (cats || []).map((c) => [c.name.toLowerCase(), c.id]),
+  );
+  await assignSupplierCategories(supabase, supplierRows, catByName);
 
   // Bulk insert purchase invoices.
   let invInserted = 0;
@@ -428,7 +430,7 @@ async function importPurchases(supabase, path, opts) {
   return { suppliers: supplierInsert, invoices: invInserted };
 }
 
-async function assignSupplierCategories(supabase, suppliers, catBySlug) {
+async function assignSupplierCategories(supabase, suppliers, catByName) {
   // Simple heuristic: certain keywords in legal_name → category.
   const rules = [
     [/ypf|axion|shell|petrobras|combustible|estacion/i, "combustible"],
@@ -443,9 +445,9 @@ async function assignSupplierCategories(supabase, suppliers, catBySlug) {
   const updates = [];
   for (const s of suppliers) {
     const name = (s.legal_name || "").toLowerCase();
-    for (const [re, slug] of rules) {
-      if (re.test(name) && catBySlug.has(slug)) {
-        updates.push({ id: s.id, category_id: catBySlug.get(slug) });
+    for (const [re, category] of rules) {
+      if (re.test(name) && catByName.has(category)) {
+        updates.push({ id: s.id, category_id: catByName.get(category) });
         break;
       }
     }

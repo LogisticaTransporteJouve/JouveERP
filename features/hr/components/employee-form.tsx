@@ -18,6 +18,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { MoneyInput } from "@/components/money-input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -377,7 +378,7 @@ export function EmployeeForm({
               <FormItem>
                 <FormLabel>Fecha de ingreso</FormLabel>
                 <FormControl>
-                  <Input {...field} type="date" autoComplete="off" />
+                  <DatePicker {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>

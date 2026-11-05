@@ -45,6 +45,7 @@ describe("parseReceivedExport", () => {
         },
       ],
       skippedByReason: {},
+      skipped: [],
     });
   });
 
@@ -341,6 +342,13 @@ describe("parseReceivedTable", () => {
     expect(out).toEqual({
       vouchers: [],
       skippedByReason: { amount_mismatch: 1 },
+      // Named as ARCA lists it, so a person can find it.
+      skipped: [
+        {
+          reason: "amount_mismatch",
+          ref: "tipo 1 · 00003-00000001 · CUIT 30711111118 · 01/11/2026",
+        },
+      ],
     });
   });
 

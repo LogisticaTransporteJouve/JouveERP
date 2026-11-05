@@ -4038,6 +4038,7 @@ export type Database = {
           letter: string | null
           moneda: string
           motivo_nc_nd: string | null
+          notes: string | null
           notified_at: string | null
           numero: number | null
           origin_unlinked: boolean
@@ -4085,6 +4086,7 @@ export type Database = {
           letter?: string | null
           moneda?: string
           motivo_nc_nd?: string | null
+          notes?: string | null
           notified_at?: string | null
           numero?: number | null
           origin_unlinked?: boolean
@@ -4132,6 +4134,7 @@ export type Database = {
           letter?: string | null
           moneda?: string
           motivo_nc_nd?: string | null
+          notes?: string | null
           notified_at?: string | null
           numero?: number | null
           origin_unlinked?: boolean
@@ -6833,7 +6836,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name: string
-          slug: string
+          slug?: string
           updated_at?: string
         }
         Update: {

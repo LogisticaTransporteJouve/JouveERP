@@ -15,6 +15,7 @@ import {
   type ArcaRobot,
   type ArcaRobotErrorCode,
 } from "./mis-comprobantes/robot";
+import { SKIPPED_ROWS_NAMED } from "./mis-comprobantes/parse";
 import { ingestReceivedVouchers, type IngestCounts } from "./received-vouchers";
 
 type Supabase = SupabaseClient<Database>;
@@ -31,6 +32,10 @@ export type ReceivedSyncResult =
       outcome: "done";
       counts: IngestCounts;
       skippedRows: number;
+      /** The first skipped rows, named, for a person to find them. */
+      skipped?: { month: string; reason: string; ref: string }[];
+      /** What ARCA said for a month it refused (its own words). */
+      failedDetail?: Record<string, string>;
       /** Months whose query failed (YYYY-MM → code); the rest were read. */
       failedMonths: Record<string, MonthFailure>;
     };
@@ -51,7 +56,20 @@ type SyncDeps = {
   representedCuit: string;
   signIn?: SignIn;
   now?: () => number;
+  sleep?: (ms: number) => Promise<void>;
 };
+
+/** Pause between two months: ARCA is a person's portal, not an API. */
+const BETWEEN_MONTHS_MS = 1_500;
+/** Waits before retrying a month ARCA refused or answered badly. */
+const MONTH_RETRY_WAITS_MS = [3_000, 8_000];
+const RETRIED: readonly ArcaRobotErrorCode[] = [
+  "QUERY_REFUSED",
+  "QUERY_FAILED",
+];
+
+const realSleep = (ms: number) =>
+  new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 /** The calendar months between from and to (YYYY-MM-DD), as [from, to]
  *  ranges clipped to the bounds. */
@@ -121,6 +139,29 @@ async function markSync(
     .eq("id", true);
   if (error) {
     logger.error("arca_received_sync.mark_failed", { code: error.code });
+  }
+}
+
+/** One month, retried with growing waits when ARCA refuses it or answers
+ *  badly (it does so for back-to-back queries); a lost connection or any
+ *  other error is not retried. */
+async function queryWithRetries(
+  robot: ArcaRobot,
+  from: string,
+  to: string,
+  sleep: (ms: number) => Promise<void>,
+  outOfTime: () => boolean,
+): Promise<Awaited<ReturnType<ArcaRobot["queryReceived"]>>> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await robot.queryReceived(from, to);
+    } catch (err) {
+      const wait = MONTH_RETRY_WAITS_MS[attempt];
+      const retried =
+        err instanceof ArcaRobotError && RETRIED.includes(err.code);
+      if (!retried || wait === undefined || outOfTime()) throw err;
+      await sleep(wait);
+    }
   }
 }
 
@@ -214,10 +255,14 @@ async function syncReceived(
     linked: 0,
   };
   let skippedRows = 0;
+  const skipped: { month: string; reason: string; ref: string }[] = [];
   const failedMonths: Record<string, MonthFailure> = {};
   // From the start of the run: a slow sign-in eats the same 300 s.
   const deadline = startedAt + RUN_BUDGET_MS;
   let stopped = false;
+  let queried = 0;
+  const failedDetail: Record<string, string> = {};
+  const sleep = deps.sleep ?? realSleep;
   for (const [from, to] of monthRanges(range.from, range.to)) {
     const month = from.slice(0, 7);
     // Months left unread are reported, not dropped: the next run or another
@@ -230,14 +275,27 @@ async function syncReceived(
       failedMonths[month] = "TIME_BUDGET";
       continue;
     }
+    if (queried > 0) await sleep(BETWEEN_MONTHS_MS);
+    queried += 1;
     let parsed;
     try {
-      parsed = await robot.queryReceived(from, to);
+      parsed = await queryWithRetries(
+        robot,
+        from,
+        to,
+        sleep,
+        () => (deps.now ?? Date.now)() > deadline,
+      );
     } catch (err) {
       const code =
         err instanceof ArcaRobotError ? err.code : ("QUERY_FAILED" as const);
       failedMonths[month] = code;
-      logger.warn("arca_received_sync.month_failed", { month, code });
+      if (err instanceof Error) failedDetail[month] = err.message.slice(0, 200);
+      logger.warn("arca_received_sync.month_failed", {
+        month,
+        code,
+        detail: err instanceof Error ? err.message.slice(0, 200) : null,
+      });
       // A lost connection would fail the next months the same way, so they
       // are reported as not read. A month ARCA answered badly is only that
       // month: the newer ones are still read.
@@ -248,6 +306,10 @@ async function syncReceived(
       (a, n) => a + (n ?? 0),
       0,
     );
+    for (const row of parsed.skipped) {
+      if (skipped.length >= SKIPPED_ROWS_NAMED) break;
+      skipped.push({ month, ...row });
+    }
     const ingested = await ingestReceivedVouchers(supabase, parsed.vouchers, {
       origin: "sync",
     });
@@ -266,5 +328,12 @@ async function syncReceived(
     skippedRows,
     failedMonths: Object.keys(failedMonths).length,
   });
-  return { outcome: "done", counts, skippedRows, failedMonths };
+  return {
+    outcome: "done",
+    counts,
+    skippedRows,
+    skipped,
+    failedMonths,
+    ...(Object.keys(failedDetail).length > 0 && { failedDetail }),
+  };
 }

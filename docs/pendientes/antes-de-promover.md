@@ -921,6 +921,22 @@ que agrega una migración suma su ítem al final de esta sección.
 
   - `docs/pendientes/2026-11-05-vencimiento-de-ventas-y-tareas.md`.
 
+- [ ] **Aprobar `20261105230000`** (categorías de proveedores sin slug). La
+      app deja de leer y escribir `supplier_categories.slug`; la columna
+      queda, con un valor por defecto generado (`c_` + 32 caracteres hex),
+      para que un rollback siga funcionando. No toca filas existentes ni
+      políticas RLS. Rollback: el código anterior lee y escribe el slug como
+      antes; una categoría creada con el código nuevo muestra el slug
+      generado.
+  - Consulta de control antes de aplicar (solo lectura): las categorías y
+    su slug actual, que se conserva.
+
+    ```sql
+    select id, name, slug, is_active
+      from public.supplier_categories
+     order by name;
+    ```
+
 ## Aplicadas en el promote de `d71de85` (2026-11-05)
 
 Promovidas con el workflow completo (migraciones, sync de Inngest, deploy y

@@ -1,6 +1,12 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { resolveAccess } from "@/lib/auth/permissions";
 
@@ -35,12 +41,35 @@ const { ExchangeRatesPage } = await import("./exchange-rates-page");
 
 const finance = resolveAccess(["finance"]);
 
+// Radix measures the DatePicker popover; jsdom has no ResizeObserver.
+globalThis.ResizeObserver ??= class {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
+
+// The DatePicker opens on today's month: keep it on October 2026.
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date(2026, 9, 15, 12));
+});
+
 afterEach(() => {
+  vi.useRealTimers();
   cleanup();
   create.mockReset();
   confirm.mockReset();
   h.rates = [];
 });
+
+function pickFirstOfOctober() {
+  fireEvent.click(screen.getByRole("button", { name: "Fecha" }));
+  fireEvent.click(
+    within(screen.getByRole("grid")).getByRole("button", {
+      name: /, 1 de octubre de 2026/,
+    }),
+  );
+}
 
 function field(label: string): HTMLInputElement {
   const el = screen.getByLabelText(label);
@@ -56,7 +85,7 @@ describe("ExchangeRatesPage: Cargar cotización", () => {
   ])("typing %s shows %s and saves %s", async (typed, shown, saved) => {
     render(<ExchangeRatesPage actorAccess={finance} />);
     fireEvent.click(screen.getByRole("button", { name: /Cargar cotización/ }));
-    fireEvent.change(field("Fecha"), { target: { value: "2026-10-01" } });
+    pickFirstOfOctober();
     fireEvent.change(field("ARS por USD"), { target: { value: typed } });
     expect(field("ARS por USD").value).toBe(shown);
     fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
@@ -82,7 +111,7 @@ describe("ExchangeRatesPage: Cargar cotización", () => {
       fireEvent.click(
         screen.getByRole("button", { name: /Cargar cotización/ }),
       );
-      fireEvent.change(field("Fecha"), { target: { value: "2026-10-01" } });
+      pickFirstOfOctober();
       fireEvent.change(field("ARS por USD"), { target: { value: typed } });
       fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
     }

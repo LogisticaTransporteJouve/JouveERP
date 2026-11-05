@@ -189,6 +189,28 @@ describe("issueFiscalInvoiceAction for a credit note", () => {
     });
   });
 
+  it.each([
+    ["  Pedido por el cliente  ", "Pedido por el cliente"],
+    ["   ", null],
+    [undefined, null],
+  ])("stores the observaciones %j as %j", async (notes, stored) => {
+    const res = await issueFiscalInvoiceAction({ ...noteInput(), notes });
+    expect(res.ok).toBe(true);
+    const draft = h.inserts.find((i) => i.table === "invoices")?.values;
+    expect(draft).toMatchObject({ notes: stored });
+  });
+
+  it("refuses observaciones over 1000 characters", async () => {
+    const res = await issueFiscalInvoiceAction({
+      ...noteInput(),
+      notes: "x".repeat(1001),
+    });
+    expect(!res.ok && res.error).toBe(
+      "Las observaciones admiten hasta 1000 caracteres.",
+    );
+    expect(h.inserts).toEqual([]);
+  });
+
   it("rejects a credit note over another credit note", async () => {
     const origin = h.db.invoices?.[0];
     if (origin) origin.kind = "nc";

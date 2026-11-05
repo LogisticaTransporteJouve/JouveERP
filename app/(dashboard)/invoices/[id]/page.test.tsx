@@ -335,6 +335,26 @@ describe("invoice detail — Cobrar from a task", () => {
   });
 });
 
+describe("invoice detail — Observaciones", () => {
+  beforeEach(() => {
+    h.links = okLinks({});
+    h.pending = [];
+  });
+
+  it("shows a note's observaciones", async () => {
+    h.detail = { ...base(true), kind: "nc", notes: "Pedido por el cliente" };
+    await renderPage();
+    expect(screen.getByText("Observaciones")).toBeTruthy();
+    expect(screen.getByText("Pedido por el cliente")).toBeTruthy();
+  });
+
+  it("shows nothing when there are none", async () => {
+    h.detail = { ...base(true), notes: null };
+    await renderPage();
+    expect(screen.queryByText("Observaciones")).toBeNull();
+  });
+});
+
 describe("invoice detail — Historial", () => {
   it.each([
     ["owner", () => resolveAccess(["owner"]), true],
