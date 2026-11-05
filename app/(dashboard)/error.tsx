@@ -9,14 +9,15 @@ import { Button } from "@/components/ui/button";
 // Generic error boundary for the (dashboard) segment. Per-route error.tsx
 // files override this with feature-specific copy + selective cache
 // eviction. Keep the generic version conservative: it clears the entire
-// react-query cache before reset() because we don't know which queries
-// failed.
+// react-query cache before retry() because we don't know which queries
+// failed. retry() also re-fetches the server components, so a page that
+// threw on a failed read (a document detail) reads again.
 export default function DashboardError({
   error,
-  reset,
+  retry,
 }: {
   error: Error & { digest?: string };
-  reset: () => void;
+  retry: () => void;
 }) {
   const queryClient = useQueryClient();
 
@@ -34,14 +35,14 @@ export default function DashboardError({
       <div className="space-y-1">
         <h2 className="text-lg font-semibold">Algo salió mal</h2>
         <p className="text-sm text-muted-foreground">
-          No pudimos cargar esta sección. Puede ser un problema temporal de
-          red o de Supabase.
+          No pudimos cargar esta sección. Puede ser un problema temporal de red
+          o de Supabase.
         </p>
       </div>
       <Button
         onClick={() => {
           queryClient.clear();
-          reset();
+          retry();
         }}
         className="gap-2"
       >

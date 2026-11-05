@@ -12,13 +12,16 @@ import {
 const h = vi.hoisted(() => ({
   access: null as Access | null,
   invoice: null as Record<string, unknown> | null,
+  readFails: false,
 }));
 
 let fake = recordingSupabase(respond);
 
 function respond(call: RecordedCall) {
   if (call.table === "invoices" && call.filters.some(([, c]) => c === "id")) {
-    return { data: h.invoice, error: null };
+    return h.readFails
+      ? { data: null, error: { message: "timeout" } }
+      : { data: h.invoice, error: null };
   }
   return { data: [], error: null };
 }
@@ -65,6 +68,7 @@ beforeEach(() => {
   fake = recordingSupabase(respond);
   h.access = resolveAccess(["fiscal_reader"]);
   h.invoice = null;
+  h.readFails = false;
 });
 
 describe("listInvoicesAction for a fiscal_reader", () => {
@@ -89,16 +93,16 @@ describe("listInvoicesAction for a fiscal_reader", () => {
 });
 
 describe.each([
-  ["getInvoiceDetailAction", getInvoiceDetailAction],
-  ["getInvoiceStatusAction", getInvoiceStatusAction],
-] as const)("%s for a fiscal_reader", (_name, read) => {
+  ["getInvoiceDetailAction", getInvoiceDetailAction, { ok: true, data: null }],
+  [
+    "getInvoiceStatusAction",
+    getInvoiceStatusAction,
+    { ok: false, error: `Comprobante ${ID} no encontrado.` },
+  ],
+] as const)("%s for a fiscal_reader", (_name, read, notFound) => {
   it("does not find an internal invoice", async () => {
     h.invoice = invoiceOn(false);
-    const result = await read(ID);
-    expect(result).toEqual({
-      ok: false,
-      error: `Comprobante ${ID} no encontrado.`,
-    });
+    expect(await read(ID)).toEqual(notFound);
   });
 
   it("reads a fiscal invoice", async () => {
@@ -110,5 +114,21 @@ describe.each([
     h.access = resolveAccess(["finance"]);
     h.invoice = invoiceOn(false);
     expect((await read(ID)).ok).toBe(true);
+  });
+});
+
+describe("getInvoiceDetailAction tells a failed read from a missing one", () => {
+  it("a missing comprobante is data null, so the page says not found", async () => {
+    h.access = resolveAccess(["finance"]);
+    expect(await getInvoiceDetailAction(ID)).toEqual({ ok: true, data: null });
+  });
+
+  it("a failed read is an error, so the page offers «Reintentar»", async () => {
+    h.access = resolveAccess(["finance"]);
+    h.readFails = true;
+    expect(await getInvoiceDetailAction(ID)).toEqual({
+      ok: false,
+      error: "No se pudo cargar el comprobante.",
+    });
   });
 });

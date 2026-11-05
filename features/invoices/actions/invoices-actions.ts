@@ -963,9 +963,11 @@ async function expectedFiscalNumero(
   }
 }
 
+/** A comprobante the caller cannot see (or that does not exist) is
+ *  `data: null`; `ok: false` is a failed read. */
 export async function getInvoiceDetailAction(
   id: string,
-): Promise<ActionResult<ComprobanteDetail>> {
+): Promise<ActionResult<ComprobanteDetail | null>> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "invoices:read")) {
     return { ok: false, error: "No tenés permiso para ver comprobantes." };
@@ -983,13 +985,16 @@ export async function getInvoiceDetailAction(
     .eq("id", id)
     .maybeSingle();
 
-  if (error) return { ok: false, error: error.message };
-  if (!data) return { ok: false, error: `Comprobante ${id} no encontrado.` };
+  if (error) {
+    logger.error("invoices.detail.read_failed", { id, error });
+    return { ok: false, error: "No se pudo cargar el comprobante." };
+  }
+  if (!data) return { ok: true, data: null };
 
   const row = data as unknown as InvoiceDetailJoinedRow;
 
   if (isFiscalOnly(ctx.access) && !row.channel?.is_fiscal) {
-    return { ok: false, error: `Comprobante ${id} no encontrado.` };
+    return { ok: true, data: null };
   }
   if (!row.channel || !row.client) {
     return { ok: false, error: "Comprobante con relaciones inválidas." };

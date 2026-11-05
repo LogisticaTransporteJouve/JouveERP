@@ -69,7 +69,8 @@ export default async function PurchaseInvoiceDetailPage({
       getPurchaseInvoiceItemsAction(id),
       getPurchaseImputationsAction(id),
     ]);
-  if (!invRes.ok || !invRes.data) notFound();
+  if (!invRes.ok) throw new Error(invRes.error);
+  if (!invRes.data) notFound();
   const invoice = invRes.data;
   const allocations = allocRes?.ok ? allocRes.data : [];
   const open = openRes?.ok ? openRes.data : null;

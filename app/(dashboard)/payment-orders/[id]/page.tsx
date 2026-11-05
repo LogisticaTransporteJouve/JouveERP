@@ -50,7 +50,8 @@ export default async function PaymentOrderDetailPage({
 
   const { id } = await params;
   const res = await getPaymentOrderByIdAction(id);
-  if (!res.ok || !res.data) notFound();
+  if (!res.ok) throw new Error(res.error);
+  if (!res.data) notFound();
 
   const {
     paymentOrder,
