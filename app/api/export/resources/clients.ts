@@ -5,7 +5,12 @@ import type { TableReportColumn } from "@/lib/pdf/table-report-template";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 
-import { exportScope, scopedSubtitle, type Exporter } from "../shared";
+import {
+  endOfDay,
+  exportScope,
+  scopedSubtitle,
+  type Exporter,
+} from "../shared";
 
 // Portrait A4 ≈ 547pt of usable width.
 const COLUMNS: TableReportColumn[] = [
@@ -35,7 +40,7 @@ export const clients: Exporter = {
 
       if (isFiscal !== null) query = query.eq("is_fiscal", isFiscal);
       if (range.from) query = query.gte("created_at", range.from);
-      if (range.to) query = query.lte("created_at", range.to);
+      if (range.to) query = query.lte("created_at", endOfDay(range.to));
       return query;
     };
     const { data, error } = await paginateRange((from, to) =>
