@@ -153,7 +153,7 @@ export const getClientMargin = defineAiAction({
     "maintenance_records",
   ],
   description:
-    "Margen de contribución por cliente en un rango de fechas: ingreso neto facturado (facturas y ND menos NC, sin IVA ni tributos, por fecha del comprobante; moneda extranjera a la cotización del comprobante o la oficial de su fecha, y aparte si no tiene) menos los costos directos de sus viajes (costo del viaje + combustible imputado al viaje, por fecha del viaje, repartidos según el flete de cada carga; requiere permiso de viajes y cargas, si no se omiten y se avisa). Dice cuánto costo directo quedó sin cliente (viajes sin cargas) y cuánto de flota no se asigna a clientes (combustible sin viaje, mantenimiento). No descuenta sueldos ni gastos generales: no es el margen neto. Paginado (limit/offset). Alcance opcional (fiscal/internal/all).",
+    "Margen de contribución por cliente en un rango de fechas: ingreso neto facturado (facturas y ND menos NC, sin IVA ni tributos, por fecha del comprobante; moneda extranjera a la cotización del comprobante o la oficial de su fecha, y aparte si no tiene) menos los costos directos de sus viajes (costo del viaje + combustible imputado al viaje, por fecha del viaje, repartidos según el flete de cada carga; requiere permiso de viajes y cargas, si no se omiten y se avisa). uninvoiced_shipments: cargas sin facturar que afectan al cliente (las suyas, y las sin flete de otros clientes en sus viajes, que dejan abierto el reparto del costo): con más de 0 su margen no es definitivo y no hay que llamarlo pérdida. Dice cuánto costo directo quedó sin cliente (viajes sin cargas) y cuánto de flota no se asigna a clientes (combustible sin viaje, mantenimiento). No descuenta sueldos ni gastos generales: no es el margen neto. Paginado (limit/offset). Alcance opcional (fiscal/internal/all).",
   input: ClientMarginInputSchema,
   run: async (ctx, input): Promise<AiRunResult> => {
     const { label } = readScope(input.scope);
@@ -187,6 +187,7 @@ export const getClientMargin = defineAiAction({
       trips: number | null;
       trip_cost_ars: number | null;
       fuel_cost_ars: number | null;
+      uninvoiced_shipments: number | null;
     };
     const clients = new Map<string, Acc>();
     for (const r of revenue) {
@@ -198,6 +199,7 @@ export const getClientMargin = defineAiAction({
         trips: byClient ? 0 : null,
         trip_cost_ars: byClient ? 0 : null,
         fuel_cost_ars: byClient ? 0 : null,
+        uninvoiced_shipments: byClient ? 0 : null,
       });
     }
     let withoutClient = 0;
@@ -217,10 +219,13 @@ export const getClientMargin = defineAiAction({
         trips: 0,
         trip_cost_ars: 0,
         fuel_cost_ars: 0,
+        uninvoiced_shipments: 0,
       };
       acc.trips = (acc.trips ?? 0) + g.trips;
       acc.trip_cost_ars = (acc.trip_cost_ars ?? 0) + Number(g.trip_cost);
       acc.fuel_cost_ars = (acc.fuel_cost_ars ?? 0) + Number(g.fuel_cost);
+      acc.uninvoiced_shipments =
+        (acc.uninvoiced_shipments ?? 0) + Number(g.uninvoiced_shipments);
       clients.set(g.group_key, acc);
     }
 
@@ -246,6 +251,7 @@ export const getClientMargin = defineAiAction({
           contribution_pct:
             contribution === null ? null : pct(contribution, c.net_revenue_ars),
           pending_foreign: round2(c.pending_foreign),
+          uninvoiced_shipments: c.uninvoiced_shipments,
         };
       })
       .sort(
@@ -292,6 +298,12 @@ export const getClientMargin = defineAiAction({
     if (!byClient) {
       notes.push(
         "Costos directos omitidos: hacen falta los permisos de viajes y cargas (direct_cost_ars en null).",
+      );
+    }
+    const notFinal = rows.filter((r) => (r.uninvoiced_shipments ?? 0) > 0);
+    if (notFinal.length > 0) {
+      notes.push(
+        `${notFinal.length} cliente(s) con cargas sin facturar en sus viajes (uninvoiced_shipments): su margen no es definitivo, no es una pérdida.`,
       );
     }
     if (pendingForeign !== 0) {
