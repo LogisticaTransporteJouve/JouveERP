@@ -134,8 +134,7 @@ export async function getCashFlowAction(input: {
   // Without them every scope would read «otro» and the loan dedupe would drop
   // recurring «Préstamo» payments.
   const channelsRes = await readInvoicingChannels();
-  if (!channelsRes.ok)
-    return failed("channels", "invoicing_channels read failed");
+  if (!channelsRes.ok) return failed("channels", "read failed");
   const allChannels = channelsRes.channels;
   const scopeOfChannel = (channelId: string | null) =>
     cashScope(channelIsFiscal(channelId, allChannels));

@@ -19,7 +19,8 @@ corregido.
       "older code reads the same columns by name; a client row may show
       more cargas still to invoice, which it already reads as 'not final'".
       El `ai_fleet_margin` de `production-latest` no tiene
-      `uninvoiced_shipments` (nace en `20261104160201`/`170201`), y su código
+      `uninvoiced_shipments` (nace en `20261104170201`; las otras columnas
+      `uninvoiced_*`, en `20261104160201`), y su código
       (`features/fleet-reports/actions/margin-actions.ts`,
       `features/ai/registry/actions/fleet.ts`) no la lee. Lee las demás
       columnas por nombre: el rollback no cambia nada.
