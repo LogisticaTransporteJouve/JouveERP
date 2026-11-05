@@ -35,13 +35,16 @@ export function PayDialog({
   initialSupplier,
   initialAllocations,
   trigger,
+  defaultOpen = false,
 }: {
   side?: ScopeSide;
   initialSupplier?: PickedSupplier | null;
   initialAllocations?: AllocationDraft[];
   trigger?: React.ReactNode;
+  /** Open on mount (a task's «Pagar» links to the purchase with it). */
+  defaultOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const [side, setSide] = useState<ScopeSide>(fixedSide ?? "fiscal");
 
   return (

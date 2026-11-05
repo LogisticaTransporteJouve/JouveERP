@@ -93,7 +93,9 @@ vi.mock("@/features/payment-orders/actions/payment-orders-actions", () => ({
       : { ok: true, data: h.pending },
 }));
 vi.mock("@/features/payment-orders/components/pay-dialog", () => ({
-  PayDialog: () => <button type="button">stub-pagar</button>,
+  PayDialog: ({ defaultOpen }: { defaultOpen?: boolean }) => (
+    <button type="button">{`stub-pagar${defaultOpen ? " abierto" : ""}`}</button>
+  ),
 }));
 vi.mock(
   "@/features/purchase-invoices/components/impute-remitos-dialog",
@@ -109,10 +111,11 @@ vi.mock("@/features/files/components/attachments-zone", () => ({
 
 const { default: PurchaseInvoiceDetailPage } = await import("./page");
 
-async function renderPage() {
+async function renderPage(search: Record<string, string> = {}) {
   render(
     await PurchaseInvoiceDetailPage({
       params: Promise.resolve({ id: "pi-1" }),
+      searchParams: Promise.resolve(search),
     }),
   );
 }
@@ -171,6 +174,18 @@ describe("purchase detail — Pagar", () => {
     await renderPage();
     expect(screen.queryByText("stub-pagar")).toBeNull();
     expect(screen.queryByText(/No se pudo leer lo pendiente/)).toBeNull();
+  });
+});
+
+describe("purchase detail — Pagar from a task", () => {
+  it("opens the payment order form with ?pagar=1 (a task's «Pagar»)", async () => {
+    await renderPage({ pagar: "1" });
+    expect(screen.getByText("stub-pagar abierto")).toBeTruthy();
+  });
+
+  it("keeps it closed without the parameter", async () => {
+    await renderPage();
+    expect(screen.getByText("stub-pagar")).toBeTruthy();
   });
 });
 

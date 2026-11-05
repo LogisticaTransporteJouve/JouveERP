@@ -82,6 +82,7 @@ const GUARDS = [
   "guard_transaction_account_currency",
   "guard_account_currency_change",
   "guard_task_identity",
+  "guard_automatic_task_close",
   "guard_expense_account",
   "guard_transaction_expense_account",
   "guard_loan_installment_paid",

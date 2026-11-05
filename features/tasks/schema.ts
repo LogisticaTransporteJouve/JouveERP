@@ -146,6 +146,10 @@ export type RecurringTaskUpdateInput = z.input<
   typeof RecurringTaskUpdateSchema
 >;
 
+/** The button that settles an automatic task's document: a link to the
+ *  document's page that opens its «Cobrar» / «Pagar» form. */
+export type TaskSettleAction = { label: "Cobrar" | "Pagar"; href: string };
+
 /** A task as a viewer may see it: `restricted` when it comes from a module
  *  the viewer cannot read, with the title, description and source hidden. */
 export type TaskListItem = {
@@ -157,8 +161,12 @@ export type TaskListItem = {
   origin: TaskOrigin;
   kind: AutomaticTaskKind | null;
   restricted: boolean;
-  /** The module page the document lives in; null when restricted or manual. */
+  /** The document's own page (its module's when it has none); null when
+   *  restricted or manual. */
   source_href: string | null;
+  /** «Cobrar» / «Pagar» on the document's page, for an open task whose
+   *  viewer may settle it there; null otherwise. */
+  settle: TaskSettleAction | null;
   auto_closed: boolean;
   completed_at: string | null;
   completed_by: string | null;
@@ -194,6 +202,8 @@ export type TaskList = {
 export type TaskUserOption = {
   id: string;
   label: string;
+  /** Initials for the compact views: the name's, else the email's. */
+  initials: string;
 };
 
 export type RecurringTask = {

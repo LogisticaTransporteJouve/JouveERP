@@ -8,9 +8,12 @@ import {
   listUserIdsWithPermission,
   listUsersWithRoles,
 } from "@/lib/auth/users";
+import { getInitials } from "@/lib/avatars";
+import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { todayInAR } from "@/lib/format";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
+import { fetchInChunks } from "@/lib/supabase/paginate";
 import { getServiceClient } from "@/lib/supabase/service";
 import { UuidSchema } from "@/lib/validation/common";
 
@@ -19,6 +22,7 @@ import {
   canSeeTaskSource,
   RESTRICTED_TASK_TITLE,
   TASK_SOURCES,
+  taskSourceLinks,
 } from "../lib/sources";
 import {
   TaskAssigneesUpdateSchema,
@@ -30,9 +34,11 @@ import {
   isAutomaticTaskKind,
   isTaskOrigin,
   isTaskStatus,
+  type AutomaticTaskKind,
   type TaskDetail,
   type TaskList,
   type TaskListItem,
+  type TaskOrigin,
   type TaskUserOption,
 } from "../schema";
 
@@ -40,7 +46,7 @@ import {
 const TASKS_LIST_LIMIT = 300;
 
 const TASK_COLUMNS =
-  "id, title, description, due_date, status, origin, kind, auto_closed, completed_at, completed_by, created_at, assignees:task_assignees(user_id)";
+  "id, title, description, due_date, status, origin, kind, source_table, source_id, auto_closed, completed_at, completed_by, created_at, assignees:task_assignees(user_id)";
 
 type TaskRow = {
   id: string;
@@ -50,6 +56,8 @@ type TaskRow = {
   status: string;
   origin: string;
   kind: string | null;
+  source_table: string | null;
+  source_id: string | null;
   auto_closed: boolean;
   completed_at: string | null;
   completed_by: string | null;
@@ -57,9 +65,52 @@ type TaskRow = {
   assignees: { user_id: string }[];
 };
 
+/** Source id → the id of the record that source row lives in. */
+type SourceParents = Map<string, string>;
+
+/** Ids of `table`'s rows among the tasks. */
+function sourceIds(rows: readonly TaskRow[], table: string): string[] {
+  return rows.flatMap((r) =>
+    r.source_table === table && r.source_id ? [r.source_id] : [],
+  );
+}
+
+/** The loan of each installment and the employee of each document among
+ *  `rows`, so their tasks link to that record. A failed read is logged and
+ *  leaves those tasks on their module's page. */
+async function loadSourceParents(
+  rows: readonly TaskRow[],
+): Promise<SourceParents> {
+  const service = getServiceClient();
+  const [installments, documents] = await Promise.all([
+    fetchInChunks(sourceIds(rows, "loan_installments"), (ids) =>
+      service.from("loan_installments").select("id, loan_id").in("id", ids),
+    ),
+    fetchInChunks(sourceIds(rows, "employee_documents"), (ids) =>
+      service
+        .from("employee_documents")
+        .select("id, employee_id")
+        .in("id", ids),
+    ),
+  ]);
+  const parents: SourceParents = new Map();
+  if (installments.error || documents.error) {
+    logger.error("tasks.source_parents.failed", {
+      error: installments.error ?? documents.error,
+    });
+  }
+  for (const r of installments.data ?? []) parents.set(r.id, r.loan_id);
+  for (const r of documents.data ?? []) parents.set(r.id, r.employee_id);
+  return parents;
+}
+
 /** The row as `access` may see it, or null for a value the schema does not
  *  know (logged). */
-function toListItem(row: TaskRow, access: Access): TaskListItem | null {
+function toListItem(
+  row: TaskRow,
+  access: Access,
+  parents: SourceParents,
+): TaskListItem | null {
   const kind = isAutomaticTaskKind(row.kind) ? row.kind : null;
   if (!isTaskStatus(row.status) || !isTaskOrigin(row.origin)) {
     logger.error("tasks.unknown_enum", {
@@ -70,6 +121,15 @@ function toListItem(row: TaskRow, access: Access): TaskListItem | null {
     return null;
   }
   const visible = canSeeTaskSource(access, { origin: row.origin, kind });
+  const links =
+    visible && kind && row.source_table && row.source_id
+      ? taskSourceLinks(access, {
+          kind,
+          source_id: row.source_id,
+          parent_id: parents.get(row.source_id) ?? null,
+          open: row.status === "open",
+        })
+      : null;
   return {
     id: row.id,
     title: visible ? row.title : RESTRICTED_TASK_TITLE,
@@ -79,7 +139,8 @@ function toListItem(row: TaskRow, access: Access): TaskListItem | null {
     origin: row.origin,
     kind: visible ? kind : null,
     restricted: !visible,
-    source_href: visible && kind ? TASK_SOURCES[kind].href : null,
+    source_href: links?.href ?? null,
+    settle: links?.settle ?? null,
     auto_closed: row.auto_closed,
     completed_at: row.completed_at,
     completed_by: row.completed_by,
@@ -123,9 +184,10 @@ export async function listTasksAction(
     return { ok: false, error: "No se pudieron listar las tareas." };
   }
 
-  const rows = (data ?? [])
-    .slice(0, TASKS_LIST_LIMIT)
-    .map((row) => toListItem(row, ctx.access))
+  const page = (data ?? []).slice(0, TASKS_LIST_LIMIT);
+  const parents = await loadSourceParents(page);
+  const rows = page
+    .map((row) => toListItem(row, ctx.access, parents))
     .filter((row): row is TaskListItem => row !== null);
   return {
     ok: true,
@@ -166,7 +228,11 @@ export async function getTaskDetailAction(
   }
   if (!task.data) return { ok: false, error: "La tarea no existe." };
 
-  const item = toListItem(task.data, ctx.access);
+  const item = toListItem(
+    task.data,
+    ctx.access,
+    await loadSourceParents([task.data]),
+  );
   if (!item) return { ok: false, error: "No se pudo cargar la tarea." };
   // The service client skips RLS: a task whose source module the viewer
   // cannot read keeps its comments and history hidden, like its title.
@@ -199,15 +265,19 @@ export async function listTaskUserOptionsAction(): Promise<
       .select("user_id, first_name, last_name")
       .in("user_id", holders);
     if (error) throw error;
-    const names = new Map(
-      (profiles ?? []).map((p) => [
-        p.user_id,
-        `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim(),
-      ]),
-    );
+    const byId = new Map((profiles ?? []).map((p) => [p.user_id, p]));
     const options = users
       .filter((u) => ids.has(u.id))
-      .map((u) => ({ id: u.id, label: names.get(u.id) || u.email }))
+      .map((u) => {
+        const p = byId.get(u.id);
+        const name =
+          `${p?.first_name ?? ""} ${p?.last_name ?? ""}`.trim() || u.email;
+        return {
+          id: u.id,
+          label: name,
+          initials: getInitials(p?.first_name, p?.last_name, u.email),
+        };
+      })
       .sort((a, b) => a.label.localeCompare(b.label, "es"));
     return { ok: true, data: options };
   } catch (error) {
@@ -233,7 +303,12 @@ export async function createTaskAction(
   return createTask(ctx.userId, parsed.data);
 }
 
-type WritableTask = { id: string; origin: string; status: string };
+type WritableTask = {
+  id: string;
+  origin: TaskOrigin;
+  kind: AutomaticTaskKind | null;
+  status: string;
+};
 
 /** The task `access` may change: it exists and its source module is
  *  readable (a restricted task is shown with a neutral title, not edited). */
@@ -254,7 +329,10 @@ async function loadWritableTask(
   if (!canSeeTaskSource(access, { origin: data.origin, kind })) {
     return { ok: false, error: "No tenés acceso al módulo de esta tarea." };
   }
-  return { ok: true, data };
+  return {
+    ok: true,
+    data: { id: data.id, origin: data.origin, kind, status: data.status },
+  };
 }
 
 export async function setTaskStatusAction(
@@ -270,6 +348,19 @@ export async function setTaskStatusAction(
   if (!task.ok) return task;
 
   const done = parsed.data.status === "done";
+  // Only sync_automatic_tasks closes an automatic task, once its document has
+  // nothing pending (guard_automatic_task_close refuses it too).
+  if (done && task.data.origin === "automatic") {
+    const closesWhen = task.data.kind
+      ? TASK_SOURCES[task.data.kind].closesWhen
+      : null;
+    return {
+      ok: false,
+      error: closesWhen
+        ? `Esta tarea se cierra sola cuando ${closesWhen}.`
+        : "Esta tarea se cierra sola cuando su documento queda saldado.",
+    };
+  }
   const { data, error } = await getServiceClient()
     .from("tasks")
     .update({
@@ -282,6 +373,12 @@ export async function setTaskStatusAction(
     .eq("status", done ? "open" : "done")
     .select("id");
   if (error) {
+    const guard = mapDbGuardError(error, {
+      slug: "tasks.status.rejected",
+      userId: ctx.userId,
+      id: parsed.data.id,
+    });
+    if (guard) return { ok: false, error: guard };
     logger.error("tasks.status.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo actualizar la tarea." };
   }

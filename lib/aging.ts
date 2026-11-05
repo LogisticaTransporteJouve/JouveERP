@@ -7,6 +7,12 @@ import { arsEquivalent, type UsdRate } from "@/lib/fx";
 // per-party rows and the totals, and adds a single ARS-equivalent figure at
 // the latest official rate.
 
+/** Days after its date a sales comprobante is due when it carries no later
+ *  due date. The rule lives in SQL (`invoice_effective_due_date`, read by
+ *  v_aging_documents.due_date); this mirrors its number for the copy that
+ *  states it. */
+export const SALES_INVOICE_DUE_DAYS = 7;
+
 export type AgingBucket = "0_30" | "30_60" | "60_90" | "90_plus";
 export const AGING_BUCKETS: readonly AgingBucket[] = [
   "0_30",

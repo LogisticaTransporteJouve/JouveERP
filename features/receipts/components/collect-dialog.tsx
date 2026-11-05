@@ -36,6 +36,7 @@ export function CollectDialog({
   initialAllocations,
   trigger,
   canEditRetentions,
+  defaultOpen = false,
 }: {
   side?: ScopeSide;
   initialClient?: PickedClient | null;
@@ -43,8 +44,10 @@ export function CollectDialog({
   trigger?: React.ReactNode;
   /** retentions:write: without it the form offers no retentions editor. */
   canEditRetentions: boolean;
+  /** Open on mount (a task's «Cobrar» links to the comprobante with it). */
+  defaultOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const [side, setSide] = useState<ScopeSide>(fixedSide ?? "fiscal");
 
   return (

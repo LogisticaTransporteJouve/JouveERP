@@ -223,12 +223,13 @@ export async function getCashFlowAction(input: {
   cashToday = round2(cashToday);
 
   // Open client receivables → expected collection in the month of their due
-  // date (overdue ones clamp to the first projected month), channel-split.
-  // Drained past max_rows (1000): open documents grow with the business.
+  // date (the view's effective one, overdue ones clamp to the first projected
+  // month), channel-split. Drained past max_rows (1000): open documents grow
+  // with the business.
   const { data: recv, error: recvErr } = await paginateRange((from, to) =>
     supabase
       .from("v_aging_documents")
-      .select("open_amount, channel_is_fiscal, fch_vto_pago, fecha, moneda")
+      .select("open_amount, channel_is_fiscal, due_date, fecha, moneda")
       .order("document_id", { ascending: true })
       .range(from, to),
   );
@@ -237,7 +238,7 @@ export async function getCashFlowAction(input: {
   for (const r of recv) {
     const amt = arsAtRate(Number(r.open_amount), r.moneda);
     if (amt === null || amt <= 0.005) continue;
-    const m = placementMonth(r.fch_vto_pago, r.fecha, firstFwd);
+    const m = placementMonth(r.due_date, r.fecha, firstFwd);
     if (monthSet.has(m)) {
       const scope = cashScope(r.channel_is_fiscal);
       recvByScope.set(scope, (recvByScope.get(scope) ?? 0) + amt);
