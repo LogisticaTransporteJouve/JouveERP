@@ -840,6 +840,48 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
     `total_uninvoiced_shipments` no cambia. El código anterior lee las mismas
     columnas y ese número como «no definitivo».
     `docs/pendientes/2026-11-04-gestion-nc-nd-vacia-y-reparto-por-cliente-w12.md`.
+- [ ] **Aprobar `20261105090000` y `090001`** (auditoría w13, vínculos de
+      facturación y flota). No tocan filas existentes ni cambian políticas
+      RLS. Van después de `20261103090000`, `20261103090100`,
+      `20261104030000`, `20261104194000` y `20261104194201`, de las que
+      reemplazan funciones.
+  - `090000`: `guard_shipment_freight_settlement`,
+    `guard_shipment_driver_settlement` y `guard_trip_driver_settlement` se
+    reemplazan desde su última versión, con el mismo cuerpo, y pasan a
+    `SECURITY DEFINER` (siguen revocadas de `public`, `anon` y
+    `authenticated`). Operaciones ya no cambia cliente, estado, flete,
+    cobranza ni viaje de una carga de una liquidación o rendición viva, ni
+    el chofer de su viaje. Rollback: el código anterior hace los mismos
+    `update` y recibe el mensaje de la guarda (hint `jouve_guard`), como ya
+    le pasaba a owner.
+  - `090001`: función nueva `shipment_invoice_is_void` (`SECURITY DEFINER`,
+    para `authenticated` y `service_role`; responde solo a owner, admin,
+    operations y el service role). `v_trip_revenue`, `ai_fleet_margin` y
+    `ai_shipments_summary` se reemplazan con las mismas columnas, firmas y
+    permisos. Una carga cuya factura ya no la factura cuenta como por
+    facturar. Rollback: el código anterior lee las mismas columnas.
+  - Consulta de control antes de aplicar (solo lectura, válida sobre el
+    esquema de producción): las cargas que pasan de facturadas a por
+    facturar, porque su factura fiscal tiene NC emitidas por el total o
+    porque su factura falló o se anuló.
+
+    ```sql
+    select s.id, s.trip_id, s.freight_amount, i.id as invoice_id, i.status,
+           i.imp_total, coalesce(sum(n.imp_total), 0) as acreditado
+      from public.shipments s
+      join public.invoices i on i.id = s.invoice_id
+      join public.invoicing_channels c on c.id = i.channel_id
+      left join public.invoices n on n.invoice_origin_id = i.id
+                                 and n.kind = 'nc' and n.status = 'emitted'
+     where s.status <> 'cancelled'
+     group by s.id, s.trip_id, s.freight_amount, i.id, i.status, i.imp_total,
+              c.is_fiscal
+    having i.status in ('failed', 'cancelled')
+        or (c.is_fiscal
+            and coalesce(sum(n.imp_total), 0) >= i.imp_total - 0.01);
+    ```
+
+    `docs/pendientes/2026-11-05-facturacion-y-flota-auditoria-w13.md`.
 
 ## Después de promover
 
