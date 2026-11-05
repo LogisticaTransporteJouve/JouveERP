@@ -12,7 +12,8 @@ también «Acreditado» (NCs) y «Saldo inicial aplicado» cuando no son cero.
 - Sin `payment_orders:read` (el `fiscal_reader`) no se muestran «Pagado» ni
   «Saldo»: bajo RLS no ve las OPs, y la compra parecía impaga.
 - Si la lectura de pagos falla, «Pagado» y «Saldo» dicen «—» y debajo «No se
-  pudieron leer los pagos.».
+  pudieron leer los pagos.». Si falla solo la lista de órdenes de pago, las
+  cifras quedan y dice «No se pudieron leer las órdenes de pago imputadas.».
 - Si la lectura de ítems falla, dice «No se pudieron leer los ítems.» en vez
   de «Sin detalle (cargada solo por totales)».
 
