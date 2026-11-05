@@ -26,10 +26,11 @@ import type { CreateComprobanteInput } from "@/features/invoices/schema";
 
 import {
   computeStorageBilling,
+  STORAGE_TARIFF_COLUMNS,
+  toTariffInput,
   type ClientTariffInput,
   type PalletInput,
   type StorageBilling,
-  type TariffInput,
 } from "../lib/billing";
 import { StorageInvoiceSchema, type StorageBillingRun } from "../schema";
 
@@ -130,9 +131,7 @@ export async function getStorageBillingAction(
     paginateRange((from, to) =>
       supabase
         .from("storage_tariffs")
-        .select(
-          "client_id, area_id, rate_per_pallet, period, handling_in, handling_out, valid_from, valid_to, is_active",
-        )
+        .select(STORAGE_TARIFF_COLUMNS)
         .eq("is_active", true)
         .order("id")
         .range(from, to),
@@ -169,16 +168,7 @@ export async function getStorageBillingAction(
     area_id: p.area_id,
   }));
 
-  const tariffs: TariffInput[] = (tariffsRes.data ?? []).map((t) => ({
-    client_id: t.client_id,
-    rate_per_pallet: Number(t.rate_per_pallet),
-    period: t.period,
-    handling_in: Number(t.handling_in),
-    handling_out: Number(t.handling_out),
-    valid_from: t.valid_from,
-    valid_to: t.valid_to,
-    is_active: t.is_active,
-  }));
+  const tariffs = (tariffsRes.data ?? []).map(toTariffInput);
 
   const clientNames = new Map<string, string>();
   const clientIsFiscal = new Map<string, boolean>();
@@ -406,9 +396,7 @@ export async function invoiceStorageAction(
     paginateRange((from, to) =>
       supabase
         .from("storage_tariffs")
-        .select(
-          "client_id, area_id, rate_per_pallet, period, handling_in, handling_out, valid_from, valid_to, is_active",
-        )
+        .select(STORAGE_TARIFF_COLUMNS)
         .eq("is_active", true)
         .order("id")
         .range(from, to),
@@ -437,16 +425,7 @@ export async function invoiceStorageAction(
     exit_date: p.exit_date,
     area_id: p.area_id,
   }));
-  const tariffs: TariffInput[] = (tariffsRes.data ?? []).map((t) => ({
-    client_id: t.client_id,
-    rate_per_pallet: Number(t.rate_per_pallet),
-    period: t.period,
-    handling_in: Number(t.handling_in),
-    handling_out: Number(t.handling_out),
-    valid_from: t.valid_from,
-    valid_to: t.valid_to,
-    is_active: t.is_active,
-  }));
+  const tariffs = (tariffsRes.data ?? []).map(toTariffInput);
   const billing = computeStorageBilling({
     pallets,
     tariffs,
