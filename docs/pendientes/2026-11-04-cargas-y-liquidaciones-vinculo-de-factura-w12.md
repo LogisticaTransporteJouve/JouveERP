@@ -18,11 +18,17 @@ Ver [la decisión](../decisions/2026-11-04-cargas-y-liquidaciones-vinculo-de-fac
       acreditada por el total sigue apuntando a esa factura. Mientras tanto:
   - no entra en una liquidación (`guard_freight_settlement_item` y la lista
     de cargas a liquidar piden `invoice_id` nulo);
-  - el margen por camión y las cargas por facturar la cuentan como
-    facturada, con ingreso cero (la factura menos la NC).
+  - ~~el margen por camión y las cargas por facturar la cuentan como
+    facturada, con ingreso cero (la factura menos la NC).~~ Corrección
+    (auditoría w13): las contaban como facturada con **todo su flete** como
+    ingreso (ninguna cifra de flota resta la NC), y el viaje se leía como
+    definitivo. Resuelto en `20261105090001`: ahora cuentan como por
+    facturar
+    ([w13](2026-11-05-facturacion-y-flota-auditoria-w13.md)).
 
   Liberarla al emitir la NC (un trigger sobre `invoices`) lo resolvería,
   pero agrega un escritor más sobre `shipments.invoice_id`.
+
 - [ ] Una liquidación cuyo remito interno se facturó en Ventas: la NC
       interna de ese pase ya no libera la liquidación. Si después la factura
       de Ventas se acredita por el total, el remito sigue congelado
