@@ -2137,7 +2137,7 @@ export const salesPage: GuidePage = {
           title: "Qué cuenta y cómo",
           body: [
             "Solo facturas y notas de débito emitidas con saldo abierto, y cheques rechazados del cliente. Las imputaciones de recibos y las notas de crédito descuentan solas.",
-            "Los días se cuentan desde el vencimiento de pago del comprobante (o desde su fecha, si no tiene) hasta hoy.",
+            "Una factura o nota de débito de venta vence **7 días después de su fecha**, salvo que traiga un «Vto. pago» posterior. Los días se cuentan desde ese vencimiento hasta hoy. El detalle y el PDF siguen mostrando el «Vto. pago» que informó AFIP.",
             "Si hay deuda en dólares, cada importe se muestra en pesos y en dólares, y el total se consolida en pesos con la última cotización oficial cargada (si no hay, lo avisa).",
             "Se actualiza solo cuando se emite un comprobante o un recibo.",
           ],
@@ -2168,7 +2168,7 @@ export const salesPage: GuidePage = {
       routes: ["/aging/mora"],
       permission: "invoices:read",
       intro: [
-        "Se abre con {{Intereses por mora}} desde el aging. Lista las facturas y notas de débito vencidas con saldo abierto y el interés que cobraría su próxima nota de débito hasta la fecha de {{Calcular hasta}} (hoy por defecto; no admite fechas futuras).",
+        "Se abre con {{Intereses por mora}} desde el aging. Lista las facturas y notas de débito vencidas con saldo abierto (vencen 7 días después de su fecha, salvo un «Vto. pago» posterior; ver [[#aging-clientes]]) y el interés que cobraría su próxima nota de débito hasta la fecha de {{Calcular hasta}} (hoy por defecto; no admite fechas futuras).",
         "Columnas: {{Cliente}}, {{Comprobante}}, {{Vencimiento}}, {{Saldo}}, {{Cobrado hasta}} (último día ya cobrado por una nota vigente), {{Días}}, {{Tasa mensual}} (la del cliente, o la general marcada «(general)»; {{Sin tasa}} si no hay ninguna) e {{Interés}}.",
         "Nada se cobra solo: cada nota de débito se genera a mano.",
       ],

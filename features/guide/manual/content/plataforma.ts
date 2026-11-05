@@ -407,7 +407,7 @@ export const platformPage: GuidePage = {
       permission: "tasks:read",
       intro: [
         "Los pendientes del equipo: los que crean ustedes, los que se repiten cada mes y los que el sistema saca de los documentos por pagar, cobrar o renovar.",
-        "Arriba, dos filtros: de quién ({{Mías}} / {{Todas}}) y el estado ({{Abiertas}} / {{Vencidas}} / {{Hechas}}). La lista muestra {{Tarea}} (con su tipo debajo), {{Vence}} (con un aviso si ya venció), {{Responsables}} y, en las abiertas, el botón {{Hecha}}. Al hacer clic en una fila se abre su detalle.",
+        "Arriba, dos filtros: de quién ({{Mías}} / {{Todas}}) y el estado ({{Abiertas}} / {{Vencidas}} / {{Hechas}}). La lista muestra {{Tarea}} (con su tipo debajo), {{Vence}} (con un aviso si ya venció), {{Responsables}} (con sus iniciales; el nombre aparece al pasar el mouse) y, en las tareas manuales y recurrentes abiertas, el botón {{Hecha}}. Las automáticas no tienen ese botón: se cierran solas. Al hacer clic en una fila se abre su detalle.",
         "{{Recurrentes}} y {{Nueva tarea}} aparecen solo con permiso para crear y editar tareas.",
       ],
       screens: [
@@ -422,16 +422,11 @@ export const platformPage: GuidePage = {
           table: {
             columns: ["Tarea", "Vence", "Responsables", ""],
             rows: [
-              [
-                "~Pagar a YPF · Pago a proveedor",
-                "~10/11/2026",
-                "~Ana López",
-                "~Hecha",
-              ],
+              ["~Pagar a YPF · Pago a proveedor", "~10/11/2026", "~AL", "~"],
               [
                 "~Cierre de mes · Recurrente",
                 "~01/12/2026",
-                "~Ana López y 2 más",
+                "~AL JP MG",
                 "~Hecha",
               ],
             ],
@@ -444,7 +439,7 @@ export const platformPage: GuidePage = {
           body: [
             "**{{Manual}}**: la crea alguien con {{Nueva tarea}}.",
             "**{{Recurrente}}**: se crea sola una semana antes de su día, todos los meses, a partir de una tarea recurrente.",
-            "**{{Automática}}**: el sistema la crea cada mañana a partir de un documento: {{Pago a proveedor}}, {{Cobranza vencida}}, {{Cuota de préstamo}}, {{Cheque propio}}, {{Documento de flota}}, {{Documento de empleado}}, {{Km mensual}} e {{Impuesto}}. Se asigna sola a quienes pueden resolver ese documento y se cierra sola cuando el documento ya no tiene nada pendiente. Desde su detalle, {{Ir al documento}} te lleva a la pantalla donde se resuelve.",
+            "**{{Automática}}**: el sistema la crea cada mañana a partir de un documento: {{Pago a proveedor}}, {{Cobranza vencida}}, {{Cuota de préstamo}}, {{Cheque propio}}, {{Documento de flota}}, {{Documento de empleado}}, {{Km mensual}} e {{Impuesto}}. Se asigna sola a quienes pueden resolver ese documento y se cierra sola cuando el documento ya no tiene nada pendiente; no se puede marcar como hecha a mano, y su detalle dice cuándo se cierra («Se cierra sola cuando se cobre», «… se pague», «… se renueve»…). En una cobranza o un pago a proveedor, el botón principal es {{Cobrar}} o {{Pagar}}: abre el comprobante con el recibo o la orden de pago ya abiertos (si tenés permiso para cargarlos). {{Ir al documento}} abre el registro exacto de la tarea.",
           ],
         },
         {
@@ -625,12 +620,17 @@ export const platformPage: GuidePage = {
           permission: "tasks:write",
           steps: [
             "En [[/tasks]], en la fila de la tarea, hacé clic en {{Hecha}}. También podés abrir la tarea y hacer clic en {{Marcar como hecha}}.",
+            "Vale solo para tareas manuales y recurrentes: una automática no tiene esos botones y se cierra sola cuando su documento queda resuelto.",
           ],
           after: [
             "Aparece «Tarea hecha.»: la tarea pasa a {{Hechas}}, tachada, con quién y cuándo la cerró.",
-            "Una tarea automática se cierra sola cuando su documento ya no tiene nada pendiente; su detalle dice «Se cerró sola: el documento ya no tiene nada pendiente.».",
+            "Una tarea automática se cierra sola cuando su documento ya no tiene nada pendiente; después su detalle dice «Se cerró sola: el documento ya no tiene nada pendiente.».",
           ],
           errors: [
+            {
+              message: "Esta tarea se cierra sola cuando ….",
+              fix: "Es una tarea automática: resolvé su documento ({{Cobrar}}, {{Pagar}} o {{Ir al documento}}) y se cierra sola a la mañana siguiente.",
+            },
             {
               message: "La tarea ya estaba hecha.",
               fix: "Otro usuario la cerró antes: no hace falta hacer nada.",
