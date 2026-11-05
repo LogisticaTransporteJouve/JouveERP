@@ -28,9 +28,11 @@ Ahora:
 - **Corre después del chequeo de visibilidad:** un archivo que quien escribe
   no ve sigue rechazado con `42501`, sin decir si está vinculado.
 - **Vale para todos**, owner y service role incluidos: el archivo de un
-  documento es suyo. Ningún camino de la app ni del importador vincula un
-  archivo existente. El importador crea documentos sin archivo, los crons de
-  vencimientos solo marcan `notified_at` y los seeds no ponen archivo.
+  documento es suyo. Ninguna pantalla ni el importador vincula un archivo
+  existente: el diálogo de flota sube uno nuevo o lo quita, ninguna pantalla
+  de RRHH manda un archivo, el importador crea documentos sin archivo, los
+  crons de vencimientos solo marcan `notified_at` y los seeds no ponen
+  archivo.
 - **En una edición corre solo si cambia el archivo:** la fila del propio
   documento no cuenta, y editar otro campo de un documento que ya compartía
   su archivo sigue pasando.

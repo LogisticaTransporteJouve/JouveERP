@@ -147,7 +147,7 @@ select lives_ok(
   'clears a document''s file'
 );
 select lives_ok(
-  $$update public.fleet_documents set notes = 'renovada', expires_at = current_date + 400
+  $$update public.fleet_documents set notes = 'renovada'
      where id = '00000000-0000-0000-0000-0000001601e2'$$,
   'and edits a document whose file was already shared: existing links are not re-checked'
 );
@@ -198,7 +198,7 @@ select throws_ok(
   'and cannot point a second employee document at that file'
 );
 select lives_ok(
-  $$update public.employee_documents set notes = 'revisado', expires_at = current_date + 300
+  $$update public.employee_documents set notes = 'revisado'
      where id = '00000000-0000-0000-0000-0000001601e5'$$,
   'edits that document without touching its file'
 );
