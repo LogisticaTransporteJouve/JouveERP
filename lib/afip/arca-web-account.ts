@@ -32,6 +32,7 @@ const SyncResultSchema = z.discriminatedUnion("outcome", [
       )
       .optional(),
     failedMonths: z.record(z.string(), z.string()),
+    failedDetail: z.record(z.string(), z.string()).optional(),
   }),
 ]);
 

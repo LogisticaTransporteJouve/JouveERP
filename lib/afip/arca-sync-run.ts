@@ -71,6 +71,7 @@ export function syncResultText(result: ArcaSyncRunResult): string {
       return [
         `${parts.join(" · ")}.`,
         failedMonthsText(result.failedMonths),
+        arcaSaidText(result.failedDetail ?? {}),
         skippedText(result.skipped ?? [], result.skippedRows),
       ]
         .filter(Boolean)
@@ -119,4 +120,11 @@ function skippedText(
     .join("; ");
   const more = total - Math.min(skipped.length, SKIPPED_SHOWN);
   return `No se leyeron: ${shown}${more > 0 ? ` y ${more} más` : ""}.`;
+}
+
+/** What ARCA said when it refused, once per distinct message, so a person
+ *  knows why without opening Inngest. */
+function arcaSaidText(detail: Record<string, string>): string {
+  const said = [...new Set(Object.values(detail))].slice(0, 2);
+  return said.length > 0 ? `Detalle: ${said.join(" / ")}.` : "";
 }

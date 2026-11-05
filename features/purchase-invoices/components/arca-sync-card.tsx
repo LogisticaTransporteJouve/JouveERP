@@ -19,7 +19,7 @@ import { arcaErrorText } from "@/lib/afip/arca-error-text";
 import { formatArgentineDate, formatArgentineDateTime } from "@/lib/format";
 
 import type { ArcaSyncStatus } from "../actions/arca-received-sync-actions";
-import { isSyncPeriodOld, oldestSyncMonth } from "../lib/arca-sync-period";
+import { isSyncPeriodOld } from "../lib/arca-sync-period";
 import {
   useArcaSyncStatus,
   useInvalidateTray,
@@ -69,7 +69,6 @@ function SyncDialog({
 }) {
   const today = todayInArgentina();
   const month = today.slice(0, 7);
-  const oldest = oldestSyncMonth(today);
   const [fromMonth, setFromMonth] = useState(month);
   const [toMonth, setToMonth] = useState(month);
   const request = useRequestArcaSync();
@@ -91,7 +90,6 @@ function SyncDialog({
               id="arca-sync-from"
               type="month"
               value={fromMonth}
-              min={oldest}
               max={month}
               onChange={(e) => setFromMonth(e.target.value)}
             />
@@ -102,7 +100,6 @@ function SyncDialog({
               id="arca-sync-to"
               type="month"
               value={toMonth}
-              min={oldest}
               max={month}
               onChange={(e) => setToMonth(e.target.value)}
             />
@@ -110,8 +107,8 @@ function SyncDialog({
         </div>
         {isSyncPeriodOld(fromMonth, today) && (
           <p className="text-sm text-muted-foreground">
-            Ojo: el período empieza hace más de un año. Revisá el año antes de
-            traer.
+            El período empieza hace más de un año: revisá que el año sea el que
+            querés.
           </p>
         )}
         <DialogFooter>

@@ -1,6 +1,5 @@
 import {
   MAX_SYNC_MONTHS,
-  MAX_SYNC_YEARS_BACK,
   SYNC_WARN_MONTHS_BACK,
 } from "@/lib/afip/received-sync-limits";
 
@@ -22,9 +21,6 @@ export function syncPeriodFromMonths(
   if (fromMonth > toMonth)
     return "El mes desde tiene que ser anterior al mes hasta.";
   if (fromMonth > today.slice(0, 7)) return "El período no puede ser futuro.";
-  if (fromMonth < oldestSyncMonth(today)) {
-    return `Elegí un período de los últimos ${MAX_SYNC_YEARS_BACK} años.`;
-  }
   const months =
     (Number(b[1]) - Number(a[1])) * 12 + (Number(b[2]) - Number(a[2])) + 1;
   if (months > MAX_SYNC_MONTHS) {
@@ -35,12 +31,6 @@ export function syncPeriodFromMonths(
   ).getUTCDate();
   const end = `${toMonth}-${String(lastDay).padStart(2, "0")}`;
   return { from: `${fromMonth}-01`, to: end > today ? today : end };
-}
-
-/** The first month «Traer de ARCA» may ask for: January, MAX_SYNC_YEARS_BACK
- *  years before today's year. */
-export function oldestSyncMonth(today: string): string {
-  return `${Number(today.slice(0, 4)) - MAX_SYNC_YEARS_BACK}-01`;
 }
 
 /** Whether a period starts so far back it is probably a wrong year. */

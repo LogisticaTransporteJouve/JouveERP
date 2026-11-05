@@ -94,7 +94,7 @@ describe("syncResultText", () => {
       "2015-09",
       "2015-10",
     ]) {
-      failedMonths[m] = "PERIOD_REFUSED";
+      failedMonths[m] = "QUERY_REFUSED";
     }
     failedMonths["2015-11"] = "PERIOD_MISMATCH";
     expect(
@@ -118,7 +118,7 @@ describe("syncResultText", () => {
       }),
     ).toBe(
       "0 comprobantes nuevos · 0 ya estaban · 4 no se pudieron leer. " +
-        "Faltó 2014-12 a 2015-10 (ARCA no deja consultar ese período; puede ser muy viejo), " +
+        "Faltó 2014-12 a 2015-10 (ARCA rechazó la consulta), " +
         "2015-11 (ARCA devolvió otro período y no se usó). " +
         "No se leyeron: tipo 1 · 00003-00026630 (los importes no suman el total); " +
         "tipo 11 · 00002-00000108 (CUIT ilegible) y 2 más.",

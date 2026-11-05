@@ -37,6 +37,8 @@ function row(cells: Record<number, string>): (string | null)[] {
 type Call = { url: string; method: string; body: string; cookie: string };
 
 let askedPeriod: { desde: string; hasta: string } | null = null;
+/** Like ARCA: a query is accepted only right after Recibidos was opened. */
+let recibidosOpen = false;
 
 function fakeArca(
   opts: {
@@ -92,9 +94,22 @@ function fakeArca(
     if (u.pathname === "/mcmp/jsp/setearContribuyente.do") {
       return respond("<html>menu</html>");
     }
+    if (u.pathname === "/mcmp/jsp/comprobantesRecibidos.do") {
+      recibidosOpen = true;
+      return respond("<html>recibidos</html>");
+    }
     if (u.pathname === "/mcmp/jsp/ajax.do") {
       const f = u.searchParams.get("f");
       if (f === "generarConsulta") {
+        if (!recibidosOpen) {
+          return respond(
+            JSON.stringify({
+              estado: "error",
+              mensajes: ["La consulta no pudo realizarse. Ingrese nuevamente."],
+            }),
+          );
+        }
+        recibidosOpen = false;
         const [desde, hasta] = (u.searchParams.get("fechaEmision") ?? "").split(
           " - ",
         );
@@ -254,7 +269,38 @@ describe("signInToMisComprobantes", () => {
     const robot = await signInToMisComprobantes(credentials, refusing);
     await expect(
       robot.queryReceived("2014-12-01", "2014-12-31"),
-    ).rejects.toMatchObject({ code: "PERIOD_REFUSED" });
+    ).rejects.toMatchObject({ code: "QUERY_REFUSED" });
+  });
+
+  it("reads twelve months in a row, opening Recibidos before each query", async () => {
+    const { fetchImpl } = fakeArca();
+    const robot = await signInToMisComprobantes(credentials, fetchImpl);
+    for (let m = 1; m <= 12; m++) {
+      const mm = String(m).padStart(2, "0");
+      const last = new Date(Date.UTC(2015, m, 0)).getUTCDate();
+      const out = await robot.queryReceived(
+        `2015-${mm}-01`,
+        `2015-${mm}-${last}`,
+      );
+      expect(out.vouchers).toHaveLength(1);
+    }
+  });
+
+  it("keeps ARCA's own words when it refuses a query", async () => {
+    const { fetchImpl } = fakeArca();
+    const refusing = async (url: string, init: RequestInit) =>
+      url.includes("f=generarConsulta")
+        ? new Response(
+            JSON.stringify({ estado: "error", mensajes: ["Fuera de rango"] }),
+          )
+        : fetchImpl(url, init);
+    const robot = await signInToMisComprobantes(credentials, refusing);
+    await expect(
+      robot.queryReceived("2026-11-01", "2026-11-30"),
+    ).rejects.toMatchObject({
+      code: "QUERY_REFUSED",
+      message: "ARCA rechazó la consulta: Fuera de rango",
+    });
   });
 
   it("refuses a page with fewer rows than ARCA counted", async () => {

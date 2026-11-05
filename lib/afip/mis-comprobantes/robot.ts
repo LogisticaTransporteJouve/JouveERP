@@ -31,9 +31,9 @@ export type ArcaRobotErrorCode =
   | "REPRESENTED_NOT_FOUND"
   /** The query did not run or answered in an unknown shape. */
   | "QUERY_FAILED"
-  /** ARCA answered and refused to query the period (too old, or not
-   *  served). */
-  | "PERIOD_REFUSED"
+  /** ARCA answered and refused the query; the error carries ARCA's own
+   *  words. */
+  | "QUERY_REFUSED"
   /** ARCA answered with another period than the one asked: its rows are
    *  not used. */
   | "PERIOD_MISMATCH"
@@ -251,6 +251,40 @@ export function representedId(
   return "missing";
 }
 
+/** What ARCA said in an answer that is not "ok", as plain text for a person:
+ *  its messages, or the state it left the query in. */
+export function arcaMessage(answer: Record<string, unknown>): string {
+  const texts: string[] = [];
+  const take = (v: unknown) => {
+    if (typeof v === "string") texts.push(v);
+    else if (isRecord(v)) {
+      for (const k of ["texto", "mensaje", "descripcion", "error"]) {
+        if (typeof v[k] === "string") texts.push(v[k]);
+      }
+    }
+  };
+  for (const key of ["mensajes", "errores", "mensaje", "error"]) {
+    const v = answer[key];
+    if (Array.isArray(v)) v.forEach(take);
+    else take(v);
+  }
+  if (texts.length === 0 && isRecord(answer.datos)) {
+    const state = answer.datos.estado;
+    if (typeof state === "string") texts.push(`consulta en estado ${state}`);
+  }
+  if (texts.length === 0 && typeof answer.estado === "string") {
+    texts.push(`estado ${answer.estado}`);
+  }
+  return (
+    texts
+      .join(" · ")
+      .replace(/<[^>]*>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 160) || "sin detalle"
+  );
+}
+
 function formatDate(iso: string): string {
   const [y, m, d] = iso.split("-");
   return `${d}/${m}/${y}`;
@@ -397,6 +431,9 @@ export async function signInToMisComprobantes(
 
   return {
     async queryReceived(from, to) {
+      // The browser opens Recibidos before each query; without it ARCA only
+      // answers the first query of a session.
+      await session.request(`${MCMP}/comprobantesRecibidos.do`);
       const params = new URLSearchParams({
         f: "generarConsulta",
         t: "R",
@@ -407,20 +444,21 @@ export async function signInToMisComprobantes(
       const consulta = json(
         await session.request(`${MCMP}/ajax.do?${params}`, { ajax: true }),
       );
+      // As the page does: only a query left pending («PE») is read; any
+      // other answer in ARCA's shape is ARCA refusing it, in its words.
       const idConsulta =
         isRecord(consulta) &&
         consulta.estado === "ok" &&
         isRecord(consulta.datos) &&
+        consulta.datos.estado === "PE" &&
         typeof consulta.datos.idConsulta === "string"
           ? consulta.datos.idConsulta
           : null;
       if (!idConsulta) {
-        // An answer in ARCA's own shape that is not "ok" is ARCA refusing
-        // the period; anything else is a broken answer.
         throw isRecord(consulta) && typeof consulta.estado === "string"
           ? new ArcaRobotError(
-              "PERIOD_REFUSED",
-              "ARCA no aceptó consultar ese período.",
+              "QUERY_REFUSED",
+              `ARCA rechazó la consulta: ${arcaMessage(consulta)}`,
             )
           : new ArcaRobotError(
               "QUERY_FAILED",

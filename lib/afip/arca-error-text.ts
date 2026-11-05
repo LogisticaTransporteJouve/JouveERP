@@ -8,7 +8,7 @@ const ARCA_ERROR_TEXT: Record<string, string> = {
   REPRESENTED_NOT_FOUND: "el usuario no representa a la empresa",
   NETWORK: "no se pudo conectar con ARCA",
   QUERY_FAILED: "ARCA no respondió bien la consulta",
-  PERIOD_REFUSED: "ARCA no deja consultar ese período; puede ser muy viejo",
+  QUERY_REFUSED: "ARCA rechazó la consulta",
   PERIOD_MISMATCH: "ARCA devolvió otro período y no se usó",
   TOO_MANY: "demasiados comprobantes en el mes",
   INGEST_FAILED: "no se pudo guardar en la bandeja",
