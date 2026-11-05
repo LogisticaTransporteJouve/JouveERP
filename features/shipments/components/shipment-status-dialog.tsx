@@ -12,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { todayInAR } from "@/lib/format";
@@ -110,11 +110,10 @@ export function ShipmentStatusDialog({
           {action === "deliver" && (
             <div className="space-y-2">
               <Label htmlFor="shipment-delivery-date">Fecha de entrega</Label>
-              <Input
+              <DatePicker
                 id="shipment-delivery-date"
-                type="date"
                 value={deliveryDate}
-                onChange={(e) => setDeliveryDate(e.target.value)}
+                onChange={setDeliveryDate}
               />
             </div>
           )}
@@ -123,11 +122,10 @@ export function ShipmentStatusDialog({
               <Label htmlFor="shipment-scheduled-date">
                 Nueva fecha programada
               </Label>
-              <Input
+              <DatePicker
                 id="shipment-scheduled-date"
-                type="date"
                 value={scheduledDate}
-                onChange={(e) => setScheduledDate(e.target.value)}
+                onChange={setScheduledDate}
               />
             </div>
           )}

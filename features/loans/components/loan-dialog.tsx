@@ -26,6 +26,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -252,7 +253,7 @@ export function LoanDialog({
                   <FormItem>
                     <FormLabel>1ª cuota</FormLabel>
                     <FormControl>
-                      <Input {...field} type="date" />
+                      <DatePicker {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

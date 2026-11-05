@@ -14,7 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -189,22 +189,20 @@ export function StorageInvoiceDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label htmlFor="storage-start">Desde</Label>
-              <Input
+              <DatePicker
                 id="storage-start"
-                type="date"
                 value={start}
                 max={end}
-                onChange={(e) => setStart(e.target.value)}
+                onChange={setStart}
               />
             </div>
             <div className="space-y-1">
               <Label htmlFor="storage-end">Hasta</Label>
-              <Input
+              <DatePicker
                 id="storage-end"
-                type="date"
                 value={end}
                 min={start}
-                onChange={(e) => setEnd(e.target.value)}
+                onChange={setEnd}
               />
             </div>
           </div>

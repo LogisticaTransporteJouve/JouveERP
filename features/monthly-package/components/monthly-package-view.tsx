@@ -13,7 +13,7 @@ import { Suspense, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { MonthPicker } from "@/components/ui/month-picker";
 import { Skeleton } from "@/components/ui/skeleton";
 import { periodBounds } from "@/lib/accounting-period";
 import { downloadFromUrl } from "@/lib/export/download";
@@ -56,13 +56,12 @@ export function MonthlyPackageView({
           >
             Período
           </label>
-          <Input
+          <MonthPicker
             id="package-period"
-            type="month"
             value={period}
-            onChange={(e) => {
-              if (e.target.value) {
-                router.push(`/accounting/package?period=${e.target.value}`);
+            onChange={(value) => {
+              if (value) {
+                router.push(`/accounting/package?period=${value}`);
               }
             }}
             className="w-[180px]"
