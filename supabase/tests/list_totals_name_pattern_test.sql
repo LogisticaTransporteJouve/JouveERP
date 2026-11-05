@@ -3,16 +3,18 @@
 -- (containsPattern): %, _ and \ are literal and * is any one character.
 -- 2041 has no seed data. One transaction, rolled back.
 
+select set_config('request.jwt.claims', '{"role":"service_role"}', true);
+
 begin;
 
-select plan(9);
+select set_config('request.jwt.claims', '{"role":"service_role"}', true);
 
 -- The fixtures insert receipt headers by hand; in the app only
 -- create_receipt does (guard_document_insert).
 -- Disabled before any write, while no trigger event is pending.
 alter table public.receipts disable trigger receipts_guard_insert_rpc;
 
-select set_config('request.jwt.claims', '{"role":"service_role"}', true);
+select plan(9);
 
 insert into public.clients (id, is_fiscal, cuit, legal_name, iva_condition) values
   ('00000000-0000-0000-0000-00000014c1c1', false, null, 'Prueba 100% w14', null),
