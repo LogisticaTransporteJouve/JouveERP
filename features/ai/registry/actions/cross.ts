@@ -153,7 +153,7 @@ export const getClientMargin = defineAiAction({
     "maintenance_records",
   ],
   description:
-    "Margen de contribución por cliente en un rango de fechas: ingreso neto facturado (facturas y ND menos NC, sin IVA ni tributos, por fecha del comprobante; moneda extranjera a la cotización del comprobante o la oficial de su fecha, y aparte si no tiene) menos los costos directos de sus viajes (costo del viaje + combustible imputado al viaje, por fecha del viaje, repartidos según el flete de cada carga; requiere permiso de viajes y cargas, si no se omiten y se avisa). uninvoiced_shipments: cargas sin facturar que afectan al cliente (las suyas, y las sin flete de otros clientes en sus viajes, que dejan abierto el reparto del costo): con más de 0 su margen no es definitivo y no hay que llamarlo pérdida. Dice cuánto costo directo quedó sin cliente (viajes sin cargas) y cuánto de flota no se asigna a clientes (combustible sin viaje, mantenimiento). No descuenta sueldos ni gastos generales: no es el margen neto. Paginado (limit/offset). Alcance opcional (fiscal/internal/all).",
+    "Margen de contribución por cliente en un rango de fechas: ingreso neto facturado (facturas y ND menos NC, sin IVA ni tributos, por fecha del comprobante; moneda extranjera a la cotización del comprobante o la oficial de su fecha, y aparte si no tiene) menos los costos directos de sus viajes (costo del viaje + combustible imputado al viaje, por fecha del viaje, repartidos según el flete de cada carga; requiere permiso de viajes y cargas, si no se omiten y se avisa). uninvoiced_shipments: cargas sin facturar que afectan al cliente (las suyas, y las sin flete de otros clientes en sus viajes, que dejan abierto el reparto del costo): con más de 0 su margen no es definitivo y no hay que llamarlo pérdida. Dice cuánto costo directo quedó sin cliente (viajes sin cargas) y cuánto de flota no se asigna a clientes (el combustible y el mantenimiento de los vehículos en el rango menos el combustible de los viajes del rango: sobre todo combustible sin viaje y mantenimiento; el combustible de un viaje cargado antes del rango lo reduce). No descuenta sueldos ni gastos generales: no es el margen neto. Paginado (limit/offset). Alcance opcional (fiscal/internal/all).",
   input: ClientMarginInputSchema,
   run: async (ctx, input): Promise<AiRunResult> => {
     const { label } = readScope(input.scope);
@@ -271,8 +271,11 @@ export const getClientMargin = defineAiAction({
             withoutClient,
         )
       : null;
-    // Fleet cost no client carries: fuel loads without a trip and maintenance
-    // (by vehicle), only when the vehicle read is whole.
+    // Fleet cost no client carries: the vehicles' fuel and maintenance dated
+    // in the range minus the fuel of the range's trips (whatever its date),
+    // so direct + this is the vehicles' cost of the range. Mostly fuel
+    // without a trip and maintenance; a trip's load dated before the range
+    // takes it down. Only when the vehicle read is whole.
     let fleetUnassigned: number | null = null;
     if (byClient && byVehicle && marginComplete(byVehicle)) {
       const vehicleFuel = byVehicle.reduce(

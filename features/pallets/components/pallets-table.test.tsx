@@ -29,6 +29,9 @@ const pallet: Pallet = {
   area: null,
 };
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: vi.fn() }),
+}));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/components/export-button", () => ({ ExportButton: () => null }));
 vi.mock("@/components/providers/confirm-provider", () => ({
@@ -47,11 +50,15 @@ vi.mock("./pallet-dialog", () => ({ PalletDialog: () => null }));
 
 const { PalletsTable } = await import("./pallets-table");
 
-function renderTable(canWrite: boolean, canMoveStock: boolean) {
+function renderTable(
+  canWrite: boolean,
+  canMoveStock: boolean,
+  clientOptions: { id: string; legal_name: string }[] | null = [],
+) {
   return render(
     <PalletsTable
       warehouseOptions={[]}
-      clientOptions={[]}
+      clientOptions={clientOptions}
       productOptions={[]}
       areaOptions={[]}
       canWrite={canWrite}
@@ -83,5 +90,21 @@ describe("PalletsTable gates", () => {
   it("shows no row menu without pallets:write", () => {
     renderTable(false, false);
     expect(screen.queryByLabelText("Acciones")).toBeNull();
+  });
+});
+
+describe("PalletsTable client options", () => {
+  it("says a failed client read under the filter", () => {
+    renderTable(true, true, null);
+    expect(
+      screen.getByText("No se pudieron cargar los clientes."),
+    ).toBeTruthy();
+  });
+
+  it("says nothing when the clients were read, even with none", () => {
+    renderTable(true, true, []);
+    expect(
+      screen.queryByText("No se pudieron cargar los clientes."),
+    ).toBeNull();
   });
 });

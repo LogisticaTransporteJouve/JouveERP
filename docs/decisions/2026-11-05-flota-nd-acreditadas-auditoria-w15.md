@@ -24,9 +24,15 @@ exactamente cuando la regla dice anulada» sigue valiendo, ahora con las ND.
   dicen «anulada» en un caso menos: siempre del lado que conserva el
   vínculo, así que nada se factura dos veces.
 - Para liberar una carga o cancelar una liquidación con una ND viva, hay
-  que acreditar también la ND (con una NC sobre la ND o con una NC sobre la
-  factura que cubra ambas). Los mensajes de las guardas siguen diciendo
-  «una nota de crédito por el total»: ver pendientes.
+  que acreditar también la ND: una NC por el total de la factura y otra
+  por lo que queda de cada ND de flete. Una sola NC sobre la factura que
+  cubra ambas no se puede: la app y la base rechazan una NC mayor que el
+  saldo abierto de la factura, que no cuenta sus ND (corregido en la
+  auditoría w16). Los mensajes de las guardas siguen diciendo «una nota de
+  crédito por el total»: ver pendientes.
+- Desde `20261105130000` (w16) la regla recorre toda la cadena de notas
+  (`billing_invoice_live_amount`), no solo el primer nivel:
+  `docs/decisions/2026-11-05-facturacion-y-flota-auditoria-w16.md`.
 - **Descartado:** dejar la regla como estaba y documentar que una ND viva
   sobre una factura acreditada no cuenta en flota. La regla habría liberado
   una carga que el cliente todavía debe por la ND, y la carga se habría

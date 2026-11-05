@@ -16,6 +16,7 @@ import {
   type FleetProfitability,
   type FuelInput,
   type MaintenanceInput,
+  type TripFuelInput,
   type TripInput,
 } from "../lib/profitability";
 
@@ -24,8 +25,9 @@ type RangeInput = { periodStart: string; periodEnd: string };
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
- * Fleet profitability over a date range: per-trip net (revenue − cost − fuel)
- * and per-vehicle net (revenue − costs − fuel − maintenance). A trip's revenue
+ * Fleet profitability over a date range: per-trip net (revenue − cost − every
+ * fuel load tied to the trip, whatever its date) and per-vehicle net
+ * (revenue − costs − fuel and maintenance dated in the range). A trip's revenue
  * comes from v_trip_revenue (invoiced freight of its shipments, else the manual
  * figure). Cancelled trips are left out, as in get_vehicle_margin and the
  * dashboard; their fuel still counts at vehicle level. Aggregated in TS
@@ -48,7 +50,7 @@ export async function getFleetProfitabilityAction(
 
   // Every read is drained past max_rows: the totals are summed in
   // computeProfitability, so a truncated page would be a wrong number.
-  const [tripsRes, revenueRes, fuelRes, maintRes, vehiclesRes] =
+  const [tripsRes, revenueRes, fuelRes, tripFuelRes, maintRes, vehiclesRes] =
     await Promise.all([
       paginateRange((from, to) =>
         supabase
@@ -76,11 +78,20 @@ export async function getFleetProfitabilityAction(
       paginateRange((from, to) =>
         supabase
           .from("fuel_loads")
-          .select(
-            "vehicle_id, trip_id, amount, purchase_invoice_id, transaction_id",
-          )
+          .select("vehicle_id, amount, purchase_invoice_id, transaction_id")
           .gte("load_date", input.periodStart)
           .lte("load_date", input.periodEnd)
+          .order("id")
+          .range(from, to),
+      ),
+      // The fuel of the trips in the range, by the trip's date, not the
+      // load's: a load dated the night before still counts in its trip.
+      paginateRange((from, to) =>
+        supabase
+          .from("fuel_loads")
+          .select("trip_id, amount, trip:trips!inner(trip_date)")
+          .gte("trip.trip_date", input.periodStart)
+          .lte("trip.trip_date", input.periodEnd)
           .order("id")
           .range(from, to),
       ),
@@ -106,6 +117,7 @@ export async function getFleetProfitabilityAction(
     tripsRes.error ??
     revenueRes.error ??
     fuelRes.error ??
+    tripFuelRes.error ??
     maintRes.error ??
     vehiclesRes.error;
   if (firstError) {
@@ -163,10 +175,15 @@ export async function getFleetProfitabilityAction(
 
   const fuel: FuelInput[] = (fuelRes.data ?? []).map((f) => ({
     vehicle_id: f.vehicle_id,
-    trip_id: f.trip_id,
     amount: Number(f.amount),
     has_voucher: Boolean(f.purchase_invoice_id ?? f.transaction_id),
   }));
+
+  const tripFuel: TripFuelInput[] = [];
+  for (const f of tripFuelRes.data ?? []) {
+    if (f.trip_id)
+      tripFuel.push({ trip_id: f.trip_id, amount: Number(f.amount) });
+  }
 
   const maintenance: MaintenanceInput[] = (maintRes.data ?? []).map((m) => ({
     vehicle_id: m.vehicle_id,
@@ -179,7 +196,13 @@ export async function getFleetProfitabilityAction(
 
   return {
     ok: true,
-    data: computeProfitability({ trips, fuel, maintenance, vehicleNames }),
+    data: computeProfitability({
+      trips,
+      fuel,
+      tripFuel,
+      maintenance,
+      vehicleNames,
+    }),
   };
 }
 

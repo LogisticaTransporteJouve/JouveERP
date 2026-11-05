@@ -1286,6 +1286,153 @@ que agrega una migración suma su ítem al final de esta sección.
     ```
 
   - `docs/pendientes/2026-11-05-flota-nd-acreditadas-auditoria-w15.md`.
+- [ ] **Aprobar `20261105130000`** (auditoría w16, facturación: cadena de
+      notas). Va después de `20261105120100`, de la que reemplaza
+      funciones. No toca filas al aplicarse ni cambia políticas RLS.
+  - Función nueva `billing_invoice_live_amount` (invoker, para
+    `authenticated` y `service_role`). Dice lo que un comprobante todavía
+    factura o acredita después de toda su cadena de NC y ND emitidas, con
+    mínimo 0 por comprobante. Excluye las ND de intereses por mora y llega
+    hasta 10 notas de profundidad.
+  - `billing_invoice_is_void` (misma firma, invoker y permisos): una
+    factura fiscal está anulada cuando eso es 0,01 o menos. Una ND sobre
+    una NC de la factura (la forma de AFIP de revertir una NC) vuelve a
+    dejar facturada la carga, la liquidación o el período de almacenaje.
+  - `shipment_invoice_billed_ratio` (misma firma, definer y permisos):
+    divide eso por el total de la factura.
+  - Borra `billing_invoice_live_debits` (de `120100`): solo la leían las
+    dos funciones de arriba.
+  - Rollback: el código anterior llama a las mismas funciones con los
+    mismos argumentos y lee las respuestas nuevas. Ningún código llama a la
+    función borrada.
+  - Consulta de control antes de aplicar (solo lectura, válida sobre el
+    esquema de `production-latest`). Lista las facturas fiscales vigentes
+    con una nota emitida colgada de otra nota. Son las únicas cuya
+    respuesta puede cambiar, incluidas las del ítem de `120100`. Para cada
+    una muestra la cadena y qué factura. Lo esperado es que no devuelva
+    nada o que ninguna tenga cargas, almacenaje ni liquidaciones.
+
+    ```sql
+    with recursive chain as (
+      select n.id, n.invoice_origin_id as factura_id, n.kind::text as kind,
+             n.imp_total, 1 as depth,
+             array[n.invoice_origin_id, n.id] as path,
+             n.kind::text || ' ' || n.imp_total::text as label
+        from public.invoices n
+        join public.invoices f on f.id = n.invoice_origin_id
+       where f.kind = 'factura'
+         and n.kind in ('nc', 'nd')
+         and n.status = 'emitted'
+      union all
+      select n.id, c.factura_id, n.kind::text, n.imp_total, c.depth + 1,
+             c.path || n.id,
+             c.label || ' → ' || n.kind::text || ' ' || n.imp_total::text
+        from chain c
+        join public.invoices n on n.invoice_origin_id = c.id
+       where c.depth < 10
+         and n.kind in ('nc', 'nd')
+         and n.status = 'emitted'
+         and n.id <> all (c.path)
+    )
+    select f.id, f.punto_venta, f.numero, f.imp_total,
+           string_agg(c.label, ' | ' order by c.label) as cadenas,
+           (select count(*) from public.shipments s where s.invoice_id = f.id) as cargas,
+           (select count(*) from public.storage_billing_runs r where r.invoice_id = f.id) as almacenaje,
+           (select count(*) from public.freight_settlements fs
+             where fs.invoice_id = f.id and fs.status <> 'cancelled') as liquidaciones
+      from public.invoices f
+      join public.invoicing_channels ch on ch.id = f.channel_id
+      join chain c on c.factura_id = f.id
+     where ch.is_fiscal
+       and f.status not in ('failed', 'cancelled')
+       and f.id in (select c2.factura_id from chain c2 where c2.depth >= 2)
+     group by f.id, f.punto_venta, f.numero, f.imp_total
+     order by f.punto_venta, f.numero;
+    ```
+
+  - `docs/pendientes/2026-11-05-facturacion-y-flota-auditoria-w16.md`.
+- [ ] **Aprobar `20261105130001`** (auditoría w16, flota: combustible del
+      viaje). Va después de `20261105100001`, de la que reemplaza
+      `ai_fleet_margin`. No toca filas ni políticas.
+  - `ai_fleet_margin` (misma firma, invoker y permisos): el combustible de
+    un viaje es todo el ligado a él, sea cual sea su fecha. Cambia en las
+    agrupaciones por viaje, chofer y cliente. Por vehículo sigue contando
+    el combustible por su fecha en el rango. «Rentabilidad de flota» cuenta
+    igual desde el código de este cambio.
+  - Rollback: el código anterior llama a la función con los mismos
+    argumentos y lee las mismas columnas.
+  - Consulta de control (solo lectura, válida sobre el esquema de
+    `production-latest`). Lista las cargas de combustible ligadas a un
+    viaje de otro mes: el neto de ese viaje cambia en un reporte por mes.
+    Es informativa, no bloquea.
+
+    ```sql
+    select t.id as viaje, t.trip_date, fl.id as carga_combustible,
+           fl.load_date, fl.amount
+      from public.fuel_loads fl
+      join public.trips t on t.id = fl.trip_id
+     where date_trunc('month', fl.load_date) <> date_trunc('month', t.trip_date)
+     order by t.trip_date, fl.load_date;
+    ```
+
+  - `docs/decisions/2026-11-05-facturacion-y-flota-auditoria-w16.md`.
+- [ ] **Aprobar `20261105130100`** (auditoría w16, un documento de flota o
+      de RRHH tiene un archivo propio). Va después de `20261105090100` y
+      `20261105120000`, de las que usa y reemplaza funciones. No toca filas
+      existentes ni políticas RLS.
+  - Reemplaza `guard_link_file_visible` (misma firma, invoker, revocada de
+    `public`, `anon` y `authenticated`; mismos triggers). Además de lo que ya
+    hacía, en `fleet_documents` y `employee_documents` rechaza (`55006`,
+    `jouve_guard`) un archivo que ya vincula otro registro: un adjunto, un
+    escaneo u otro documento. Vale para todos, owner y service role
+    incluidos. En una edición solo corre si cambia el archivo.
+  - Da `execute` sobre `is_linked_file` a `service_role` (ya lo tenía por
+    los privilegios por defecto; queda explícito).
+  - Rollback: el código anterior solo vincula a estos documentos archivos
+    recién subidos, que pasan.
+  - Consulta de control antes de aplicar (solo lectura, válida sobre el
+    esquema de producción): los documentos que hoy apuntan a un archivo que
+    otro registro también vincula. A ese otro rol se le oculta el archivo
+    mientras exista el documento. Lo esperado es que no devuelva nada. Si
+    devuelve filas, la migración no las toca: el owner decide si le sube al
+    documento un archivo propio.
+
+    ```sql
+    with links as (
+      select fa.file_id, 'adjunto'::text as vinculo, fa.id as link_id
+        from public.file_attachments fa
+      union all
+      select e.file_id, 'escaneo', e.id
+        from public.ai_document_extractions e
+      union all
+      select d.attachment_file_id, 'documento de flota', d.id
+        from public.fleet_documents d
+       where d.attachment_file_id is not null
+      union all
+      select d.attachment_file_id, 'documento de RRHH', d.id
+        from public.employee_documents d
+       where d.attachment_file_id is not null
+    ),
+    docs as (
+      select 'fleet_documents'::text as tabla, d.id, d.kind::text as tipo,
+             d.attachment_file_id as file_id
+        from public.fleet_documents d
+       where d.attachment_file_id is not null
+      union all
+      select 'employee_documents', d.id, d.kind::text, d.attachment_file_id
+        from public.employee_documents d
+       where d.attachment_file_id is not null
+    )
+    select dc.tabla, dc.id, dc.tipo, f.original_filename,
+           array_agg(distinct l.vinculo order by l.vinculo) as otros_vinculos
+      from docs dc
+      join public.files f on f.id = dc.file_id
+      join links l on l.file_id = dc.file_id and l.link_id <> dc.id
+     group by dc.tabla, dc.id, dc.tipo, f.original_filename
+     order by dc.tabla, f.original_filename;
+    ```
+
+  - `docs/pendientes/2026-11-05-archivo-propio-de-documentos-auditoria-w16.md`.
 
 ## Después de promover
 

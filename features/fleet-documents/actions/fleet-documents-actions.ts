@@ -5,6 +5,7 @@ import type { JsonValue } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import type { Database } from "@/lib/db/database.types";
+import { mapDbGuardError } from "@/lib/db/guard-errors";
 import {
   discardStoredFile,
   linkableFileError,
@@ -74,6 +75,7 @@ async function attachedFileId(
 }
 
 const FILE_REMOVED = "fleet_document.file_removed";
+const NO_FILE_PERMISSION = "No tenés permiso para adjuntar archivos.";
 
 const SELECT_COLUMNS =
   "id, vehicle_id, driver_id, kind, number, issued_at, expires_at, notes, attachment_file_id, created_at, updated_at, vehicle:vehicles(patente), driver:drivers(full_name)";
@@ -120,6 +122,10 @@ export async function createFleetDocumentAction(
     };
   }
 
+  // Linking a file asks files:write, as uploading one does.
+  if (parsed.data.attachment_file_id && !userCan(ctx.access, "files:write")) {
+    return { ok: false, error: NO_FILE_PERMISSION };
+  }
   const supabase = await createSupabaseClient();
   const fileError = await linkableFileError(
     supabase,
@@ -142,6 +148,11 @@ export async function createFleetDocumentAction(
     .select("id")
     .single();
   if (error) {
+    const guardError = mapDbGuardError(error, {
+      slug: "fleet_documents.create.rejected",
+      userId: ctx.userId,
+    });
+    if (guardError) return { ok: false, error: guardError };
     logger.error("fleet_documents.create.failed", {
       userId: ctx.userId,
       error,
@@ -175,12 +186,20 @@ export async function updateFleetDocumentAction(
   const { id, ...rest } = parsed.data;
 
   const supabase = await createSupabaseClient();
-  const fileError = await linkableFileError(supabase, rest.attachment_file_id);
-  if (fileError) return { ok: false, error: fileError };
   const previousFileId =
     rest.attachment_file_id !== undefined
       ? await attachedFileId(supabase, id)
       : null;
+  // Only a file the document does not already have is linked: it asks
+  // files:write, as uploading one does, and must be linkable.
+  const nextFileId = rest.attachment_file_id ?? null;
+  if (nextFileId && nextFileId !== previousFileId) {
+    if (!userCan(ctx.access, "files:write")) {
+      return { ok: false, error: NO_FILE_PERMISSION };
+    }
+    const fileError = await linkableFileError(supabase, nextFileId);
+    if (fileError) return { ok: false, error: fileError };
+  }
   const { error } = await supabase
     .from("fleet_documents")
     .update({
@@ -197,6 +216,12 @@ export async function updateFleetDocumentAction(
     })
     .eq("id", id);
   if (error) {
+    const guardError = mapDbGuardError(error, {
+      slug: "fleet_documents.update.rejected",
+      userId: ctx.userId,
+      id,
+    });
+    if (guardError) return { ok: false, error: guardError };
     logger.error("fleet_documents.update.failed", {
       userId: ctx.userId,
       id,
@@ -216,7 +241,7 @@ export async function updateFleetDocumentAction(
     auditEvent: FILE_REMOVED,
     documentId: id,
     previousFileId,
-    nextFileId: rest.attachment_file_id ?? null,
+    nextFileId,
   });
   return { ok: true, data: undefined };
 }
@@ -265,7 +290,7 @@ export async function uploadFleetDocumentFileAction(
     !userCan(ctx.access, "fleet_documents:write") ||
     !userCan(ctx.access, "files:write")
   ) {
-    return { ok: false, error: "No tenés permiso para adjuntar archivos." };
+    return { ok: false, error: NO_FILE_PERMISSION };
   }
   const parsed = FleetDocumentFileSchema.safeParse({
     documentId: formData.get("documentId"),

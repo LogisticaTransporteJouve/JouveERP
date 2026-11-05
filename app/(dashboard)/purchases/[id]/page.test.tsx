@@ -7,6 +7,10 @@ import { type Access, resolveAccess } from "@/lib/auth/permissions";
 const h = vi.hoisted(() => ({
   access: null as Access | null,
   pending: [] as { id: string; outstanding: number }[],
+  openRes: null as unknown,
+  itemsRes: null as unknown,
+  allocCalls: 0,
+  allocFails: false,
 }));
 
 vi.mock("next/navigation", () => ({
@@ -63,8 +67,14 @@ vi.mock(
         notes: null,
       },
     }),
-    getPurchaseInvoiceAllocationsAction: async () => ({ ok: true, data: [] }),
-    getPurchaseInvoiceItemsAction: async () => ({ ok: true, data: [] }),
+    getPurchaseInvoiceAllocationsAction: async () => {
+      h.allocCalls += 1;
+      return h.allocFails
+        ? { ok: false, error: "No se pudieron leer las imputaciones." }
+        : { ok: true, data: [] };
+    },
+    getPurchaseInvoiceOpenAction: async () => h.openRes,
+    getPurchaseInvoiceItemsAction: async () => h.itemsRes,
   }),
 );
 vi.mock("@/features/purchase-invoices/actions/impute-remitos-actions", () => ({
@@ -105,7 +115,19 @@ async function renderPage() {
 beforeEach(() => {
   h.access = resolveAccess(["finance"]);
   h.pending = [{ id: "pi-1", outstanding: 121 }];
+  h.openRes = {
+    ok: true,
+    data: { paid: 0, credited: 0, opening_applied: 0, open_amount: 121 },
+  };
+  h.itemsRes = { ok: true, data: [] };
+  h.allocCalls = 0;
+  h.allocFails = false;
 });
+
+function rowValue(label: string): string | null {
+  const dt = screen.queryByText(label, { selector: "dt" });
+  return dt?.nextElementSibling?.textContent ?? null;
+}
 afterEach(cleanup);
 
 describe("purchase detail — Pagar", () => {
@@ -131,5 +153,62 @@ describe("purchase detail — Adjuntos", () => {
     h.access = resolveAccess(["admin"], ["purchase_invoices:write"]);
     await renderPage();
     expect(screen.getByText("adjuntos write=false delete=false")).toBeTruthy();
+  });
+});
+
+describe("purchase detail — Pagado y Saldo", () => {
+  it("takes «Saldo» from the open amount, so a fiscal NC and the opening balance count", async () => {
+    h.openRes = {
+      ok: true,
+      data: { paid: 21, credited: 60, opening_applied: 10, open_amount: 30 },
+    };
+    await renderPage();
+    expect(rowValue("Pagado")).toContain("21,00");
+    expect(rowValue("Acreditado")).toContain("60,00");
+    expect(rowValue("Saldo inicial aplicado")).toContain("10,00");
+    expect(rowValue("Saldo")).toContain("30,00");
+  });
+
+  it("shows «—» and says so when the payments read fails, not $0 paid", async () => {
+    h.openRes = { ok: false, error: "No se pudieron leer los pagos." };
+    await renderPage();
+    expect(rowValue("Pagado")).toBe("—");
+    expect(rowValue("Saldo")).toBe("—");
+    expect(screen.getByText("No se pudieron leer los pagos.")).toBeTruthy();
+  });
+
+  it("keeps the measured figures and says only the OP list failed", async () => {
+    h.allocFails = true;
+    await renderPage();
+    expect(rowValue("Saldo")).toContain("121,00");
+    expect(
+      screen.getByText("No se pudieron leer las órdenes de pago imputadas."),
+    ).toBeTruthy();
+  });
+
+  it("leaves out «Pagado» and «Saldo» for a role that cannot read OPs", async () => {
+    h.access = resolveAccess(["fiscal_reader"]);
+    await renderPage();
+    expect(rowValue("Pagado")).toBeNull();
+    expect(rowValue("Saldo")).toBeNull();
+    expect(h.allocCalls).toBe(0);
+  });
+});
+
+describe("purchase detail — Ítems", () => {
+  it("says the items could not be read instead of «cargada solo por totales»", async () => {
+    h.itemsRes = { ok: false, error: "No se pudieron leer los ítems." };
+    await renderPage();
+    expect(screen.getByText("No se pudieron leer los ítems.")).toBeTruthy();
+    expect(
+      screen.queryByText("Sin detalle (cargada solo por totales)"),
+    ).toBeNull();
+  });
+
+  it("keeps «cargada solo por totales» for a purchase read with no items", async () => {
+    await renderPage();
+    expect(
+      screen.getByText("Sin detalle (cargada solo por totales)"),
+    ).toBeTruthy();
   });
 });

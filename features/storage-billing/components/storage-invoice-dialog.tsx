@@ -82,7 +82,8 @@ export function StorageInvoiceDialog({
     : [];
   const lastEnd = lastBilledEnd(clientRuns);
 
-  const { data: channels } = useInvoicingChannels();
+  const channelsQuery = useInvoicingChannels();
+  const channels = channelsQuery.data;
   // A Ventas client is invoiced on a fiscal channel and an Otras ventas one
   // on an internal channel (issueFiscalInvoiceAction refuses the other).
   const sideChannels = (channels ?? []).filter(
@@ -90,7 +91,8 @@ export function StorageInvoiceDialog({
       client?.client_is_fiscal == null ||
       c.is_fiscal === client.client_is_fiscal,
   );
-  const { data: posList } = useEnabledPos(channelId);
+  const posQuery = useEnabledPos(channelId);
+  const posList = posQuery.data;
   const invoiceMut = useInvoiceStorage();
 
   // Live preview for [start, end] (recomputed server-side on emit).
@@ -252,6 +254,12 @@ export function StorageInvoiceDialog({
                 ))}
               </SelectContent>
             </Select>
+            {channelsQuery.isError && (
+              <ReadError
+                message="No se pudieron cargar los canales."
+                onRetry={() => void channelsQuery.refetch()}
+              />
+            )}
           </div>
 
           <div className="space-y-2">
@@ -273,6 +281,12 @@ export function StorageInvoiceDialog({
                 ))}
               </SelectContent>
             </Select>
+            {channelId && posQuery.isError && (
+              <ReadError
+                message="No se pudieron cargar los puntos de venta."
+                onRetry={() => void posQuery.refetch()}
+              />
+            )}
           </div>
 
           <div className="space-y-1 rounded-md border bg-muted/30 p-3 text-sm">

@@ -535,13 +535,25 @@ export async function discardExtractionAction(
   }
 
   const supabase = await createSupabaseClient();
-  const { data, error } = await supabase
-    .from("ai_document_extractions")
-    .update({ status: "discarded" })
-    .eq("id", extractionId)
+  const discard = () =>
+    supabase
+      .from("ai_document_extractions")
+      .update({ status: "discarded" })
+      .eq("id", extractionId);
+  let { data, error } = await discard()
     .in("status", ["pending_review", "failed"])
     .select("id")
     .maybeSingle();
+  // A claim left stale with nothing linked: its create may or may not have
+  // run, so it is not retried (claimedMessage), but it can be put away.
+  if (!error && !data) {
+    ({ data, error } = await discard()
+      .eq("status", "confirmed")
+      .is("created_entity", null)
+      .lt("updated_at", staleClaimCutoff())
+      .select("id")
+      .maybeSingle());
+  }
   if (error) {
     logger.error("ai.document.discard.failed", {
       userId: ctx.userId,
@@ -614,13 +626,22 @@ export async function createChecksFromExtractionAction(
   const supabase = await createSupabaseClient();
   const { data: ext, error } = await supabase
     .from("ai_document_extractions")
-    .select("detected_type, status, file_id")
+    .select("detected_type, status, file_id, created_entity, updated_at")
     .eq("id", extractionId)
     .maybeSingle();
   if (error || !ext)
     return { ok: false, error: "No se encontró la extracción." };
-  if (ext.status !== "pending_review") {
-    return { ok: false, error: "La extracción ya fue procesada." };
+  // A stale claim with nothing linked is retried: a cheque already inserted
+  // is refused by its bank + número key, so a retry cannot load it twice.
+  const stale =
+    ext.status === "confirmed" &&
+    ext.created_entity === null &&
+    (await releaseStaleClaim(supabase, extractionId, ext.updated_at));
+  if (
+    (ext.status !== "pending_review" || ext.created_entity !== null) &&
+    !stale
+  ) {
+    return { ok: false, error: ALREADY_PROCESSED };
   }
   if (ext.detected_type !== "check") {
     return { ok: false, error: "Solo se pueden crear cheques desde acá." };
@@ -759,6 +780,8 @@ type PendingExtractionRow = {
   matches: Json;
   payload: Json;
   file_id: string;
+  created_entity: Json | null;
+  updated_at: string;
 };
 
 /** Loads a draft and guards status + detected type. Returns an error string on failure. */
@@ -769,12 +792,14 @@ async function loadPendingForCreate(
 ): Promise<{ ext: PendingExtractionRow } | { error: string }> {
   const { data: ext, error } = await supabase
     .from("ai_document_extractions")
-    .select("detected_type, status, matches, payload, file_id")
+    .select(
+      "detected_type, status, matches, payload, file_id, created_entity, updated_at",
+    )
     .eq("id", extractionId)
     .maybeSingle();
   if (error || !ext) return { error: "No se encontró la extracción." };
-  if (ext.status !== "pending_review") {
-    return { error: "La extracción ya fue procesada." };
+  if (ext.status !== "pending_review" || ext.created_entity !== null) {
+    return { error: claimedMessage(ext) };
   }
   if (
     ext.detected_type === null ||
@@ -796,12 +821,31 @@ function matchedId(
 
 const ALREADY_PROCESSED = "La extracción ya fue procesada.";
 const CLAIM_FAILED = "No se pudo tomar el documento. Reintentá.";
+const STALE_CLAIM_UNKNOWN =
+  "Un intento anterior tomó este documento y no registró qué creó. Revisá si el comprobante ya existe; si no, descartá el documento y volvé a escanearlo.";
+
+/** Why a draft is not open for creation. A claim older than STALE_CLAIM_MS
+ *  with nothing linked may or may not have created its recibo, OP or
+ *  factura (none has a key that would refuse a second one), so it is not
+ *  released by itself: the user checks, and can discard it. */
+function claimedMessage(ext: {
+  status: string;
+  created_entity: Json | null;
+  updated_at: string;
+}): string {
+  return ext.status === "confirmed" &&
+    ext.created_entity === null &&
+    isStaleClaim(ext.updated_at)
+    ? STALE_CLAIM_UNKNOWN
+    : ALREADY_PROCESSED;
+}
 
 /**
  * Atomically claims a draft for creation: pending_review → confirmed, only if
- * it is still pending_review. Exactly one concurrent caller gets "won" (a
- * double click / second tab gets "lost"), so the entity is created once. A
- * failed update is "failed": the draft is still pending and nothing was made.
+ * it is still pending_review and nothing was created from it. Exactly one
+ * concurrent caller gets "won" (a double click / second tab gets "lost"), so
+ * the entity is created once. A failed update is "failed": nothing was made,
+ * and the draft may still be pending (or claimed, if the update committed).
  */
 async function claimExtraction(
   supabase: ServerSupabase,
@@ -812,6 +856,7 @@ async function claimExtraction(
     .update({ status: "confirmed" })
     .eq("id", extractionId)
     .eq("status", "pending_review")
+    .is("created_entity", null)
     .select("id")
     .maybeSingle();
   if (error) {
@@ -824,6 +869,10 @@ async function claimExtraction(
 /** A claim older than this with nothing created was left by a crashed save. */
 const STALE_CLAIM_MS = 10 * 60 * 1000;
 
+const staleClaimCutoff = () =>
+  new Date(Date.now() - STALE_CLAIM_MS).toISOString();
+const isStaleClaim = (updatedAt: string) => updatedAt < staleClaimCutoff();
+
 /**
  * Returns a draft stuck as claimed (confirmed, nothing linked) for longer than
  * STALE_CLAIM_MS to pending_review, so it can be saved again. True if it did.
@@ -833,7 +882,7 @@ async function releaseStaleClaim(
   extractionId: string,
   updatedAt: string,
 ): Promise<boolean> {
-  const cutoff = new Date(Date.now() - STALE_CLAIM_MS).toISOString();
+  const cutoff = staleClaimCutoff();
   if (updatedAt >= cutoff) return false;
   const { data, error } = await supabase
     .from("ai_document_extractions")

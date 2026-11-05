@@ -32,6 +32,8 @@ const h = vi.hoisted(() => ({
   billing: undefined as unknown as Read,
   runs: undefined as unknown as Read,
   channels: [] as { id: string; name: string; is_fiscal: boolean }[],
+  channelsRead: undefined as unknown as Read,
+  pos: undefined as unknown as Read,
   posChannel: "",
 }));
 
@@ -39,10 +41,10 @@ vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("../hooks/use-storage-billing", () => ({
   useStorageBilling: () => h.billing,
   useStorageBillingRuns: () => h.runs,
-  useInvoicingChannels: () => ({ data: h.channels }),
+  useInvoicingChannels: () => h.channelsRead ?? loaded(h.channels),
   useEnabledPos: (channelId: string) => {
     h.posChannel = channelId;
-    return { data: [] };
+    return h.pos;
   },
   useInvoiceStorage: () => ({ mutate: vi.fn(), isPending: false }),
 }));
@@ -69,6 +71,8 @@ beforeEach(() => {
   h.billing = loaded(report);
   h.runs = loaded([]);
   h.channels = [];
+  h.channelsRead = undefined as unknown as Read;
+  h.pos = loaded([]);
   h.posChannel = "";
 });
 
@@ -184,5 +188,24 @@ describe("StorageInvoiceDialog", () => {
     expect(
       document.getElementById("storage-pos")?.hasAttribute("disabled"),
     ).toBe(true);
+  });
+
+  it("says a failed channel read with «Reintentar», not an empty select", () => {
+    h.channelsRead = failed();
+    openDialog();
+    expect(screen.getByText("No se pudieron cargar los canales.")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Reintentar/ }));
+    expect(h.channelsRead.refetch).toHaveBeenCalled();
+  });
+
+  it("says a failed puntos-de-venta read with «Reintentar»", () => {
+    h.channels = bothChannels;
+    h.pos = failed();
+    openDialog(false);
+    expect(
+      screen.getByText("No se pudieron cargar los puntos de venta."),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Reintentar/ }));
+    expect(h.pos.refetch).toHaveBeenCalled();
   });
 });

@@ -132,11 +132,17 @@ export async function listPalletClientOptionsAction(): Promise<
   if (!userCan(ctx.access, "pallets:read")) {
     return { ok: false, error: "No tenés permiso para ver pallets." };
   }
-  const { data, error } = await getServiceClient()
-    .from("clients")
-    .select("id, legal_name")
-    .eq("is_active", true)
-    .order("legal_name");
+  // Paged: PostgREST cuts a single read at 1000 rows without an error.
+  const supabase = getServiceClient();
+  const { data, error } = await paginateRange((from, to) =>
+    supabase
+      .from("clients")
+      .select("id, legal_name")
+      .eq("is_active", true)
+      .order("legal_name")
+      .order("id")
+      .range(from, to),
+  );
   if (error) {
     logger.error("pallets.client_options.failed", {
       userId: ctx.userId,

@@ -38,6 +38,7 @@ import { useCreatePallet, useUpdatePallet } from "../hooks/use-pallets";
 import { PALLET_STATUSES, PALLET_STATUS_LABELS, type Pallet } from "../schema";
 
 import { AreaSelect, type AreaOption } from "./area-select";
+import { ClientOptionsReadError } from "./client-options-read-error";
 
 const NONE = "__none__";
 
@@ -89,7 +90,8 @@ export function PalletDialog({
   mode: "create" | "edit";
   pallet?: Pallet;
   warehouseOptions: { id: string; name: string }[];
-  clientOptions: { id: string; legal_name: string }[];
+  /** null: the clients could not be read. */
+  clientOptions: { id: string; legal_name: string }[] | null;
   productOptions: { id: string; name: string }[];
   areaOptions: AreaOption[];
   /** Without it only the fields that move no stock can change. */
@@ -220,7 +222,7 @@ export function PalletDialog({
                   <FormLabel>Cliente</FormLabel>
                   <FormControl>
                     <Combobox
-                      options={clientOptions.map((c) => ({
+                      options={(clientOptions ?? []).map((c) => ({
                         value: c.id,
                         label: c.legal_name,
                       }))}
@@ -231,6 +233,7 @@ export function PalletDialog({
                       emptyText="Sin clientes."
                     />
                   </FormControl>
+                  <ClientOptionsReadError clientOptions={clientOptions} />
                   <FormMessage />
                 </FormItem>
               )}

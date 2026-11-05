@@ -41,9 +41,10 @@ export default async function PalletsPageRoute() {
   const warehouseOptions = warehousesRes.ok
     ? warehousesRes.data.map((w) => ({ id: w.id, name: w.name }))
     : [];
+  // null = the read failed: the pickers and filters say so.
   const clientOptions = clientsRes.ok
     ? clientsRes.data.map((c) => ({ id: c.id, legal_name: c.legal_name }))
-    : [];
+    : null;
   const productOptions = productsRes.ok
     ? productsRes.data
         .filter((p) => p.is_active)
