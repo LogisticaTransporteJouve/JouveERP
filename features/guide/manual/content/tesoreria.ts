@@ -1126,6 +1126,7 @@ export const treasuryPage: GuidePage = {
           ],
           after: [
             "Los filtros quedan en la dirección de la página: podés compartir el enlace.",
+            "Si llegaste desde el enlace de un asiento (libro diario o mayor), la lista muestra solo ese movimiento y arriba aparece {{Un solo movimiento}}: hacé clic ahí (o en {{Limpiar}}) para ver todos.",
           ],
           keywords: [
             "buscar movimiento",

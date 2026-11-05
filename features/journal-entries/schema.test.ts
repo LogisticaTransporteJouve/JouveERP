@@ -50,6 +50,10 @@ describe("journalSourceHref", () => {
     expect(journalSourceHref("invoices", null)).toBeNull();
     expect(journalSourceHref(null, "x")).toBeNull();
   });
+
+  it("un movimiento de caja abre Caja filtrada por ese movimiento (no hay /transactions/<id>)", () => {
+    expect(journalSourceHref("transactions", "t1")).toBe("/transactions?id=t1");
+  });
 });
 
 describe("isPeriodFormat", () => {

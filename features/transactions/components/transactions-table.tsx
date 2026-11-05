@@ -9,6 +9,7 @@ import {
   Pencil,
   Tags,
   Trash2,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -421,6 +422,17 @@ export function TransactionsTable({
           </>
         }
       >
+        {params.id && (
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => update({ id: null })}
+            title="Mostrar todos los movimientos"
+          >
+            Un solo movimiento
+            <X className="size-4" />
+          </Button>
+        )}
         <PeriodFilter
           value={params.period}
           onChange={(period) => update({ period })}
