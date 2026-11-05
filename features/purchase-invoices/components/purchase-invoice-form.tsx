@@ -111,6 +111,7 @@ import {
   type PickedPurchaseInvoice,
 } from "./purchase-invoice-picker";
 import { ArcaLinesNote } from "./arca-lines-note";
+import { ArcaVoucherSummary } from "./arca-voucher-summary";
 import {
   PurchaseInvoiceItemsEditor,
   computeTotals,
@@ -673,14 +674,15 @@ export function PurchaseInvoiceForm({
     }
   }, [watchedChannelId, form]);
 
-  const debouncedPv = useDebouncedValue(
-    useWatch({ control: form.control, name: "punto_venta" }),
-    300,
-  );
-  const debouncedNumero = useDebouncedValue(
-    useWatch({ control: form.control, name: "numero" }),
-    300,
-  );
+  const watchedPv = useWatch({ control: form.control, name: "punto_venta" });
+  const watchedNumero = useWatch({ control: form.control, name: "numero" });
+  const watchedFecha = useWatch({ control: form.control, name: "fecha" });
+  const watchedCaeVto = useWatch({
+    control: form.control,
+    name: "cae_vto_proveedor",
+  });
+  const debouncedPv = useDebouncedValue(watchedPv, 300);
+  const debouncedNumero = useDebouncedValue(watchedNumero, 300);
 
   // Internal purchases number themselves: once the supplier is picked, the
   // next número of its (kind, PV) series fills an empty numero field.
@@ -927,100 +929,457 @@ export function PurchaseInvoiceForm({
   const isNcOrNd = watchedKind !== "factura";
   const showCotizacion = watchedMoneda !== "PES";
 
+  const draftNotice = createDraft && (
+    <DraftNotice warnings={createDraft.data.warnings} fromArca={arcaLocked} />
+  );
+
+  const supplierField = (
+    <FormField
+      control={form.control}
+      name="supplier"
+      render={({ field }) => (
+        <FormItem>
+          <FormLabel>Proveedor{aiMark("supplier")}</FormLabel>
+          <FormControl>
+            <SupplierPicker
+              value={field.value}
+              onChange={field.onChange}
+              isFiscal={pageIsFiscal ?? true}
+              suggestedNew={createDraft?.data.unmatchedSupplier ?? null}
+            />
+          </FormControl>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
+
+  const channelField = (
+    <FormField
+      control={form.control}
+      name="channel_id"
+      render={({ field }) => (
+        <FormItem>
+          <FormLabel>Canal</FormLabel>
+          <Select value={field.value} onValueChange={field.onChange}>
+            <FormControl>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Elegí canal" />
+              </SelectTrigger>
+            </FormControl>
+            <SelectContent>
+              {channelOptions.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.name}
+                  {c.is_fiscal ? " · fiscal" : " · interno"}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <ChannelsReadError inline />
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
+
+  const internalNotice = isInternalChannel && (
+    <div className="rounded-md border border-dashed bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+      <strong className="font-medium text-foreground">Gasto interno.</strong>{" "}
+      Sin letra fiscal ni CAE. Número auto-asignado por proveedor. Pagable con
+      OP interna; no va al libro IVA Compras.
+    </div>
+  );
+
+  const duplicateNotice = duplicate && (
+    <p className="flex items-start gap-2 rounded-md border border-dashed px-3 py-2 text-xs">
+      <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+      <span>
+        Ya cargaste{" "}
+        <Link
+          href={`${PURCHASE_INVOICES_PATH}/${duplicate.id}`}
+          className="font-mono underline underline-offset-2"
+        >
+          {formatInvoiceNumber(duplicate)}
+        </Link>{" "}
+        de este proveedor
+        {duplicate.status === "cancelled" ? " (anulada)" : ""}. Revisá que no
+        sea la misma factura.
+      </span>
+    </p>
+  );
+
+  const fchVtoPagoField = (
+    <FormField
+      control={form.control}
+      name="fch_vto_pago"
+      render={({ field }) => (
+        <FormItem>
+          <FormLabel>Vencimiento de pago{aiMark("fch_vto_pago")}</FormLabel>
+          <FormControl>
+            <DatePicker
+              value={field.value}
+              onChange={field.onChange}
+              clearable
+            />
+          </FormControl>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
+
+  const tributesSplit = watchedChannelIsFiscal && amountOf(watchedTrib) > 0 && (
+    <TributesSplitFields
+      control={form.control}
+      total={amountOf(watchedTrib)}
+      disabled={!breakdownKnown}
+    />
+  );
+
+  const gapNotice = gap !== null && (
+    <div className="space-y-2 rounded-md border border-dashed px-3 py-2 text-xs">
+      <p className="flex items-start gap-2">
+        <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+        <span>
+          {partsGap !== null
+            ? "Neto + IVA + otros tributos + no gravado + exento no da el total"
+            : "Los ítems más otros tributos no dan el total del comprobante"}{" "}
+          (diferencia{" "}
+          <span className="font-mono">
+            {gap.toLocaleString("es-AR", { minimumFractionDigits: 2 })}
+          </span>
+          ).{" "}
+          {partsGap === null
+            ? "Revisá los ítems contra el comprobante."
+            : amountsChanged
+              ? "Corregí los importes para guardar."
+              : "Para cambiar un importe, primero corregí la diferencia."}
+        </span>
+      </p>
+      {gapFix ? (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() =>
+            form.setValue(gapFix.field, gapFix.value, {
+              shouldDirty: true,
+            })
+          }
+        >
+          {gapFix.field === "imp_no_gravado"
+            ? "Pasar la diferencia a No gravado"
+            : "Sumar la diferencia al neto"}
+        </Button>
+      ) : null}
+      {partsGap === null ? (
+        <label className="flex items-center gap-2 text-muted-foreground">
+          <input
+            type="checkbox"
+            checked={acceptTotalsGap}
+            onChange={(e) => setAcceptTotalsGap(e.target.checked)}
+            className="size-3.5 accent-foreground"
+          />
+          Los ítems son correctos, guardar igual
+        </label>
+      ) : null}
+    </div>
+  );
+
+  const accountField = (
+    <FormField
+      control={form.control}
+      name="account_id"
+      render={({ field, fieldState }) => (
+        <FormItem>
+          <FormLabel>
+            Cuenta de gasto
+            {createDraft?.data.account &&
+              field.value === createDraft.data.account.id &&
+              !fieldState.isDirty && <AiFilledMark />}
+          </FormLabel>
+          <FormControl>
+            <CostTagSelect
+              kind="expenseAccount"
+              value={field.value}
+              onChange={field.onChange}
+              noneLabel={
+                isNcOrNd
+                  ? "La del comprobante de origen"
+                  : "Sin cuenta (Compras)"
+              }
+            />
+          </FormControl>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
+
+  const costCenterField = (
+    <FormField
+      control={form.control}
+      name="cost_center_id"
+      render={({ field }) => (
+        <FormItem>
+          <FormLabel>Centro de costo</FormLabel>
+          <FormControl>
+            <CostTagSelect
+              kind="costCenter"
+              value={field.value}
+              onChange={field.onChange}
+              noneLabel={isNcOrNd ? "El del comprobante de origen" : undefined}
+            />
+          </FormControl>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
+
+  const employeeField = watchedKind !== "nc" && chargeKnown && (
+    <FormField
+      control={form.control}
+      name="charged_employee_id"
+      render={({ field }) => (
+        <EmployeeChargeSelect
+          id="purchase-charged-employee"
+          value={field.value}
+          onChange={field.onChange}
+        />
+      )}
+    />
+  );
+
+  const cotizacionField = showCotizacion && (
+    <FormField
+      control={form.control}
+      name="cotizacion"
+      render={({ field }) => (
+        <FormItem>
+          <FormLabel>Cotización{aiMark("cotizacion")}</FormLabel>
+          <FormControl>
+            <MoneyInput {...field} decimals={COTIZACION_DECIMALS} />
+          </FormControl>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
+
+  const caeField = (
+    <FormField
+      control={form.control}
+      name="cae_proveedor"
+      render={({ field }) => (
+        <FormItem>
+          <FormLabel>
+            CAE proveedor (opcional){aiMark("cae_proveedor")}
+          </FormLabel>
+          <FormControl>
+            <Input
+              {...field}
+              autoComplete="off"
+              placeholder="14 dígitos"
+              disabled={arcaLocked && createDraft?.data.cae_proveedor != null}
+            />
+          </FormControl>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
+
+  const caeVtoField = (
+    <FormField
+      control={form.control}
+      name="cae_vto_proveedor"
+      render={({ field }) => (
+        <FormItem>
+          <FormLabel>Vto. CAE proveedor{aiMark("cae_vto_proveedor")}</FormLabel>
+          <FormControl>
+            <DatePicker
+              value={field.value}
+              onChange={field.onChange}
+              clearable
+            />
+          </FormControl>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
+
+  const ncNdBlock = isNcOrNd && (
+    <div className="space-y-4 rounded-md border border-dashed bg-muted/20 p-4">
+      <FormField
+        control={form.control}
+        name="origin_invoice"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Factura origen</FormLabel>
+            <FormControl>
+              <PurchaseInvoicePicker
+                value={field.value}
+                onChange={pickOrigin}
+                supplierId={watchedSupplierId}
+                channelId={watchedChannelId || null}
+                excludeId={invoice?.id ?? null}
+              />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={form.control}
+        name="motivo_nc_nd"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Motivo</FormLabel>
+            <FormControl>
+              <Input
+                {...field}
+                autoComplete="off"
+                placeholder="Ej: ajuste por devolución"
+              />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+    </div>
+  );
+
+  const notesField = (
+    <FormField
+      control={form.control}
+      name="notes"
+      render={({ field }) => (
+        <FormItem>
+          <FormLabel>Notas</FormLabel>
+          <FormControl>
+            <Textarea {...field} rows={3} />
+          </FormControl>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
+
+  const footer = (
+    <DialogFormFooter
+      mode={mode}
+      isSaving={isSaving}
+      isDirty={form.formState.isDirty}
+      createLabel={arcaLocked ? "Aceptar comprobante" : "Cargar factura"}
+      onCancel={() => (onCancel ? onCancel() : router.push("/purchases"))}
+    />
+  );
+
+  if (arcaLocked) {
+    // ARCA's identity and amounts are not inputs: they stay in the form
+    // state as loaded and are sent as they are.
+    const arcaCae = createDraft?.data.cae_proveedor ?? null;
+    return (
+      <Form {...form}>
+        <form
+          onSubmit={form.handleSubmit(onSubmit)}
+          className="flex min-h-0 flex-1 flex-col overflow-y-auto lg:grid lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:grid-rows-1 lg:overflow-hidden"
+        >
+          <section
+            aria-label="Comprobante"
+            className="space-y-4 border-b p-4 lg:min-h-0 lg:overflow-y-auto lg:border-r lg:border-b-0"
+          >
+            <ArcaVoucherSummary
+              supplier={supplierField}
+              kind={watchedKind}
+              letter={watchedLetter}
+              puntoVenta={watchedPv}
+              numero={watchedNumero}
+              fecha={watchedFecha}
+              moneda={watchedMoneda}
+              cae={arcaCae ?? ""}
+              caeVto={watchedCaeVto}
+              amounts={watchedAmounts}
+              linesNote={
+                <ArcaLinesNote lines={createDraft?.data.arca_lines ?? []} />
+              }
+            />
+            {duplicateNotice}
+            {gapNotice}
+          </section>
+          <div className="flex flex-col lg:min-h-0">
+            <section
+              aria-label="Imputación"
+              className="space-y-5 p-4 lg:min-h-0 lg:flex-1 lg:overflow-y-auto"
+            >
+              <h3 className="text-sm font-medium">Imputación</h3>
+              {draftNotice}
+              {internalNotice}
+              <div className="grid gap-4 sm:grid-cols-2">
+                {channelField}
+                {fchVtoPagoField}
+                {accountField}
+                {costCenterField}
+                {employeeField}
+                {cotizacionField}
+                {!isInternalChannel && arcaCae === null && (
+                  <>
+                    {caeField}
+                    {caeVtoField}
+                  </>
+                )}
+              </div>
+              {tributesSplit}
+              {ncNdBlock}
+              {notesField}
+            </section>
+            <div className="sticky bottom-0 border-t bg-background px-4 py-3">
+              {footer}
+            </div>
+          </div>
+        </form>
+      </Form>
+    );
+  }
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
-        {createDraft && (
-          <DraftNotice
-            warnings={createDraft.data.warnings}
-            fromArca={arcaLocked}
-          />
-        )}
-        <FormField
-          control={form.control}
-          name="supplier"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Proveedor{aiMark("supplier")}</FormLabel>
-              <FormControl>
-                <SupplierPicker
-                  value={field.value}
-                  onChange={field.onChange}
-                  isFiscal={pageIsFiscal ?? true}
-                  suggestedNew={createDraft?.data.unmatchedSupplier ?? null}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        {draftNotice}
+        {supplierField}
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <FormField
-            control={form.control}
-            name="channel_id"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Canal</FormLabel>
-                <FormControl>
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Elegí canal" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {channelOptions.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.name}
-                          {c.is_fiscal ? " · fiscal" : " · interno"}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </FormControl>
-                <ChannelsReadError inline />
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          {channelField}
           <FormField
             control={form.control}
             name="kind"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Tipo{aiMark("kind")}</FormLabel>
-                <FormControl>
-                  <Select
-                    disabled={arcaLocked}
-                    value={field.value}
-                    onValueChange={field.onChange}
-                  >
-                    <SelectTrigger>
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <FormControl>
+                    <SelectTrigger className="w-full">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
-                      {PURCHASE_INVOICE_KINDS.map((k) => (
-                        <SelectItem key={k} value={k}>
-                          {PURCHASE_INVOICE_KIND_LABEL[k]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </FormControl>
+                  </FormControl>
+                  <SelectContent>
+                    {PURCHASE_INVOICE_KINDS.map((k) => (
+                      <SelectItem key={k} value={k}>
+                        {PURCHASE_INVOICE_KIND_LABEL[k]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <FormMessage />
               </FormItem>
             )}
           />
         </div>
 
-        {isInternalChannel && (
-          <div className="rounded-md border border-dashed bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-            <strong className="font-medium text-foreground">
-              Gasto interno.
-            </strong>{" "}
-            Sin letra fiscal ni CAE. Número auto-asignado por proveedor. Pagable
-            con OP interna; no va al libro IVA Compras.
-          </div>
-        )}
+        {internalNotice}
 
         <div
           className={`grid gap-4 ${isInternalChannel ? "sm:grid-cols-3" : "sm:grid-cols-4"}`}
@@ -1032,31 +1391,30 @@ export function PurchaseInvoiceForm({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Letra{aiMark("letter")}</FormLabel>
-                  <FormControl>
-                    <Select
-                      disabled={arcaLocked}
-                      value={field.value || "__none"}
-                      onValueChange={(v) =>
-                        field.onChange(v === "__none" ? "" : v)
-                      }
-                    >
-                      <SelectTrigger>
+                  <Select
+                    value={field.value || "__none"}
+                    onValueChange={(v) =>
+                      field.onChange(v === "__none" ? "" : v)
+                    }
+                  >
+                    <FormControl>
+                      <SelectTrigger className="w-full">
                         <SelectValue placeholder="—" />
                       </SelectTrigger>
-                      <SelectContent>
-                        {/* Fiscal purchases need a letter; only an old one
+                    </FormControl>
+                    <SelectContent>
+                      {/* Fiscal purchases need a letter; only an old one
                             saved without it can stay that way. */}
-                        {mode === "edit" && !invoice?.letter && (
-                          <SelectItem value="__none">— Sin letra</SelectItem>
-                        )}
-                        {PURCHASE_INVOICE_LETTERS.map((l) => (
-                          <SelectItem key={l} value={l}>
-                            {l}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </FormControl>
+                      {mode === "edit" && !invoice?.letter && (
+                        <SelectItem value="__none">— Sin letra</SelectItem>
+                      )}
+                      {PURCHASE_INVOICE_LETTERS.map((l) => (
+                        <SelectItem key={l} value={l}>
+                          {l}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}
@@ -1071,7 +1429,6 @@ export function PurchaseInvoiceForm({
                 <FormControl>
                   <Input
                     {...field}
-                    disabled={arcaLocked}
                     type="number"
                     inputMode="numeric"
                     placeholder="3"
@@ -1090,7 +1447,6 @@ export function PurchaseInvoiceForm({
                 <FormControl>
                   <Input
                     {...field}
-                    disabled={arcaLocked}
                     type="number"
                     inputMode="numeric"
                     placeholder="12345"
@@ -1102,23 +1458,7 @@ export function PurchaseInvoiceForm({
           />
         </div>
 
-        {duplicate && (
-          <p className="flex items-start gap-2 rounded-md border border-dashed px-3 py-2 text-xs">
-            <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
-            <span>
-              Ya cargaste{" "}
-              <Link
-                href={`${PURCHASE_INVOICES_PATH}/${duplicate.id}`}
-                className="font-mono underline underline-offset-2"
-              >
-                {formatInvoiceNumber(duplicate)}
-              </Link>{" "}
-              de este proveedor
-              {duplicate.status === "cancelled" ? " (anulada)" : ""}. Revisá que
-              no sea la misma factura.
-            </span>
-          </p>
-        )}
+        {duplicateNotice}
 
         <div className="grid gap-4 sm:grid-cols-2">
           <FormField
@@ -1128,115 +1468,89 @@ export function PurchaseInvoiceForm({
               <FormItem>
                 <FormLabel>Fecha{aiMark("fecha")}</FormLabel>
                 <FormControl>
-                  <DatePicker
-                    disabled={arcaLocked}
-                    value={field.value}
-                    onChange={field.onChange}
-                  />
+                  <DatePicker value={field.value} onChange={field.onChange} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
-          <FormField
-            control={form.control}
-            name="fch_vto_pago"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>
-                  Vencimiento de pago{aiMark("fch_vto_pago")}
-                </FormLabel>
-                <FormControl>
-                  <DatePicker
-                    value={field.value}
-                    onChange={field.onChange}
-                    clearable
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          {fchVtoPagoField}
         </div>
 
-        {arcaLocked ? (
-          <ArcaLinesNote lines={createDraft?.data.arca_lines ?? []} />
-        ) : (
-          <div className="space-y-3 rounded-md border bg-muted/10 p-4">
+        <div className="space-y-3 rounded-md border bg-muted/10 p-4">
+          <FormField
+            control={form.control}
+            name="with_items"
+            render={({ field }) => (
+              <FormItem className="flex items-start gap-3 space-y-0">
+                <FormControl>
+                  <input
+                    type="checkbox"
+                    checked={field.value}
+                    disabled={itemsUnknown}
+                    onChange={(e) => {
+                      field.onChange(e.target.checked);
+                      if (
+                        e.target.checked &&
+                        form.getValues("items").length === 0
+                      ) {
+                        form.setValue("items", [emptyItem()]);
+                      }
+                    }}
+                    className="mt-1 size-4 accent-foreground"
+                  />
+                </FormControl>
+                <div className="space-y-1">
+                  <FormLabel className="cursor-pointer">
+                    Cargar con detalle por ítem{aiMark("items")}
+                  </FormLabel>
+                  <p className="text-xs text-muted-foreground">
+                    Discrimina IVA por alícuota (necesario para libro IVA
+                    Compras). Si lo dejás apagado, cargás solo los totales del
+                    header.
+                  </p>
+                  {itemsUnknown &&
+                    (itemsQuery.isError ? (
+                      <p className="text-xs text-muted-foreground">
+                        No se pudieron leer los ítems: al guardar quedan como
+                        están.{" "}
+                        <Button
+                          type="button"
+                          variant="link"
+                          size="sm"
+                          className="h-auto p-0 text-xs"
+                          onClick={() => void itemsQuery.refetch()}
+                        >
+                          Reintentar
+                        </Button>
+                      </p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        Leyendo los ítems…
+                      </p>
+                    ))}
+                </div>
+              </FormItem>
+            )}
+          />
+          {watchedWithItems && (
             <FormField
               control={form.control}
-              name="with_items"
+              name="items"
               render={({ field }) => (
-                <FormItem className="flex items-start gap-3 space-y-0">
+                <FormItem>
                   <FormControl>
-                    <input
-                      type="checkbox"
-                      checked={field.value}
-                      disabled={itemsUnknown}
-                      onChange={(e) => {
-                        field.onChange(e.target.checked);
-                        if (
-                          e.target.checked &&
-                          form.getValues("items").length === 0
-                        ) {
-                          form.setValue("items", [emptyItem()]);
-                        }
-                      }}
-                      className="mt-1 size-4 accent-foreground"
+                    <PurchaseInvoiceItemsEditor
+                      items={field.value}
+                      onChange={field.onChange}
                     />
                   </FormControl>
-                  <div className="space-y-1">
-                    <FormLabel className="cursor-pointer">
-                      Cargar con detalle por ítem{aiMark("items")}
-                    </FormLabel>
-                    <p className="text-xs text-muted-foreground">
-                      Discrimina IVA por alícuota (necesario para libro IVA
-                      Compras). Si lo dejás apagado, cargás solo los totales del
-                      header.
-                    </p>
-                    {itemsUnknown &&
-                      (itemsQuery.isError ? (
-                        <p className="text-xs text-muted-foreground">
-                          No se pudieron leer los ítems: al guardar quedan como
-                          están.{" "}
-                          <Button
-                            type="button"
-                            variant="link"
-                            size="sm"
-                            className="h-auto p-0 text-xs"
-                            onClick={() => void itemsQuery.refetch()}
-                          >
-                            Reintentar
-                          </Button>
-                        </p>
-                      ) : (
-                        <p className="text-xs text-muted-foreground">
-                          Leyendo los ítems…
-                        </p>
-                      ))}
-                  </div>
+                  <FormMessage />
                 </FormItem>
               )}
             />
-            {watchedWithItems && (
-              <FormField
-                control={form.control}
-                name="items"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <PurchaseInvoiceItemsEditor
-                        items={field.value}
-                        onChange={field.onChange}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )}
-          </div>
-        )}
+          )}
+        </div>
 
         <div className="grid gap-4 sm:grid-cols-4">
           <FormField
@@ -1255,7 +1569,7 @@ export function PurchaseInvoiceForm({
                 <FormControl>
                   <MoneyInput
                     {...field}
-                    disabled={arcaLocked || !breakdownKnown}
+                    disabled={!breakdownKnown}
                     readOnly={watchedWithItems}
                     className={watchedWithItems ? "bg-muted/40" : undefined}
                   />
@@ -1280,7 +1594,7 @@ export function PurchaseInvoiceForm({
                 <FormControl>
                   <MoneyInput
                     {...field}
-                    disabled={arcaLocked || !breakdownKnown}
+                    disabled={!breakdownKnown}
                     readOnly={watchedWithItems}
                     className={watchedWithItems ? "bg-muted/40" : undefined}
                   />
@@ -1296,10 +1610,7 @@ export function PurchaseInvoiceForm({
               <FormItem>
                 <FormLabel>Otros tributos{aiMark("imp_trib")}</FormLabel>
                 <FormControl>
-                  <MoneyInput
-                    {...field}
-                    disabled={arcaLocked || !breakdownKnown}
-                  />
+                  <MoneyInput {...field} disabled={!breakdownKnown} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -1321,7 +1632,7 @@ export function PurchaseInvoiceForm({
                 <FormControl>
                   <MoneyInput
                     {...field}
-                    disabled={arcaLocked || !breakdownKnown}
+                    disabled={!breakdownKnown}
                     readOnly={watchedWithItems}
                     className={
                       watchedWithItems
@@ -1353,10 +1664,7 @@ export function PurchaseInvoiceForm({
                 <FormItem>
                   <FormLabel>No gravado</FormLabel>
                   <FormControl>
-                    <MoneyInput
-                      {...field}
-                      disabled={arcaLocked || !breakdownKnown}
-                    />
+                    <MoneyInput {...field} disabled={!breakdownKnown} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -1369,10 +1677,7 @@ export function PurchaseInvoiceForm({
                 <FormItem>
                   <FormLabel>Exento</FormLabel>
                   <FormControl>
-                    <MoneyInput
-                      {...field}
-                      disabled={arcaLocked || !breakdownKnown}
-                    />
+                    <MoneyInput {...field} disabled={!breakdownKnown} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -1380,127 +1685,16 @@ export function PurchaseInvoiceForm({
             />
           </div>
         )}
-        {watchedChannelIsFiscal && amountOf(watchedTrib) > 0 && (
-          <TributesSplitFields
-            control={form.control}
-            total={amountOf(watchedTrib)}
-            disabled={!breakdownKnown}
-          />
-        )}
+        {tributesSplit}
 
-        {gap !== null && (
-          <div className="space-y-2 rounded-md border border-dashed px-3 py-2 text-xs">
-            <p className="flex items-start gap-2">
-              <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
-              <span>
-                {partsGap !== null
-                  ? "Neto + IVA + otros tributos + no gravado + exento no da el total"
-                  : "Los ítems más otros tributos no dan el total del comprobante"}{" "}
-                (diferencia{" "}
-                <span className="font-mono">
-                  {gap.toLocaleString("es-AR", { minimumFractionDigits: 2 })}
-                </span>
-                ).{" "}
-                {partsGap === null
-                  ? "Revisá los ítems contra el comprobante."
-                  : amountsChanged
-                    ? "Corregí los importes para guardar."
-                    : "Para cambiar un importe, primero corregí la diferencia."}
-              </span>
-            </p>
-            {gapFix ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  form.setValue(gapFix.field, gapFix.value, {
-                    shouldDirty: true,
-                  })
-                }
-              >
-                {gapFix.field === "imp_no_gravado"
-                  ? "Pasar la diferencia a No gravado"
-                  : "Sumar la diferencia al neto"}
-              </Button>
-            ) : null}
-            {partsGap === null ? (
-              <label className="flex items-center gap-2 text-muted-foreground">
-                <input
-                  type="checkbox"
-                  checked={acceptTotalsGap}
-                  onChange={(e) => setAcceptTotalsGap(e.target.checked)}
-                  className="size-3.5 accent-foreground"
-                />
-                Los ítems son correctos, guardar igual
-              </label>
-            ) : null}
-          </div>
-        )}
+        {gapNotice}
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <FormField
-            control={form.control}
-            name="account_id"
-            render={({ field, fieldState }) => (
-              <FormItem>
-                <FormLabel>
-                  Cuenta de gasto
-                  {createDraft?.data.account &&
-                    field.value === createDraft.data.account.id &&
-                    !fieldState.isDirty && <AiFilledMark />}
-                </FormLabel>
-                <FormControl>
-                  <CostTagSelect
-                    kind="expenseAccount"
-                    value={field.value}
-                    onChange={field.onChange}
-                    noneLabel={
-                      isNcOrNd
-                        ? "La del comprobante de origen"
-                        : "Sin cuenta (Compras)"
-                    }
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="cost_center_id"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Centro de costo</FormLabel>
-                <FormControl>
-                  <CostTagSelect
-                    kind="costCenter"
-                    value={field.value}
-                    onChange={field.onChange}
-                    noneLabel={
-                      isNcOrNd ? "El del comprobante de origen" : undefined
-                    }
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          {accountField}
+          {costCenterField}
         </div>
 
-        {watchedKind !== "nc" && chargeKnown && (
-          <FormField
-            control={form.control}
-            name="charged_employee_id"
-            render={({ field }) => (
-              <EmployeeChargeSelect
-                id="purchase-charged-employee"
-                value={field.value}
-                onChange={field.onChange}
-              />
-            )}
-          />
-        )}
+        {employeeField}
 
         <div className="grid gap-4 sm:grid-cols-3">
           <FormField
@@ -1509,153 +1703,43 @@ export function PurchaseInvoiceForm({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Moneda{aiMark("moneda")}</FormLabel>
-                <FormControl>
-                  <Select
-                    value={field.value}
-                    onValueChange={field.onChange}
-                    disabled={arcaLocked || watchedOriginId !== null}
-                  >
-                    <SelectTrigger>
+                <Select
+                  value={field.value}
+                  onValueChange={field.onChange}
+                  disabled={watchedOriginId !== null}
+                >
+                  <FormControl>
+                    <SelectTrigger className="w-full">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="PES">ARS — Peso</SelectItem>
-                      <SelectItem value="DOL">USD — Dólar</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </FormControl>
-                {watchedOriginId !== null && !arcaLocked && (
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="PES">ARS — Peso</SelectItem>
+                    <SelectItem value="DOL">USD — Dólar</SelectItem>
+                  </SelectContent>
+                </Select>
+                {watchedOriginId !== null && (
                   <FormDescription>La de la factura origen.</FormDescription>
                 )}
                 <FormMessage />
               </FormItem>
             )}
           />
-          {showCotizacion && (
-            <FormField
-              control={form.control}
-              name="cotizacion"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Cotización{aiMark("cotizacion")}</FormLabel>
-                  <FormControl>
-                    <MoneyInput {...field} decimals={COTIZACION_DECIMALS} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          )}
+          {cotizacionField}
         </div>
 
         {!isInternalChannel && (
           <div className="grid gap-4 sm:grid-cols-2">
-            <FormField
-              control={form.control}
-              name="cae_proveedor"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>
-                    CAE proveedor (opcional){aiMark("cae_proveedor")}
-                  </FormLabel>
-                  <FormControl>
-                    <Input
-                      {...field}
-                      autoComplete="off"
-                      placeholder="14 dígitos"
-                      disabled={
-                        arcaLocked && createDraft?.data.cae_proveedor != null
-                      }
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="cae_vto_proveedor"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>
-                    Vto. CAE proveedor{aiMark("cae_vto_proveedor")}
-                  </FormLabel>
-                  <FormControl>
-                    <DatePicker
-                      value={field.value}
-                      onChange={field.onChange}
-                      clearable
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {caeField}
+            {caeVtoField}
           </div>
         )}
 
-        {isNcOrNd && (
-          <div className="space-y-4 rounded-md border border-dashed bg-muted/20 p-4">
-            <FormField
-              control={form.control}
-              name="origin_invoice"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Factura origen</FormLabel>
-                  <FormControl>
-                    <PurchaseInvoicePicker
-                      value={field.value}
-                      onChange={pickOrigin}
-                      supplierId={watchedSupplierId}
-                      channelId={watchedChannelId || null}
-                      excludeId={invoice?.id ?? null}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="motivo_nc_nd"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Motivo</FormLabel>
-                  <FormControl>
-                    <Input
-                      {...field}
-                      autoComplete="off"
-                      placeholder="Ej: ajuste por devolución"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-        )}
+        {ncNdBlock}
 
-        <FormField
-          control={form.control}
-          name="notes"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Notas</FormLabel>
-              <FormControl>
-                <Textarea {...field} rows={3} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        {notesField}
 
-        <DialogFormFooter
-          mode={mode}
-          isSaving={isSaving}
-          isDirty={form.formState.isDirty}
-          createLabel="Cargar factura"
-          onCancel={() => (onCancel ? onCancel() : router.push("/purchases"))}
-        />
+        {footer}
       </form>
     </Form>
   );

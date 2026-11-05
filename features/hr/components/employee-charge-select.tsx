@@ -43,7 +43,7 @@ export function EmployeeChargeSelect({
         onValueChange={(v) => onChange(v === NONE ? "" : v)}
         disabled={disabled || data === undefined}
       >
-        <SelectTrigger id={id}>
+        <SelectTrigger id={id} className="w-full">
           <SelectValue placeholder="Cargando…" />
         </SelectTrigger>
         <SelectContent>
