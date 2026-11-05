@@ -275,6 +275,29 @@ create policy "attachments_delete_creator_or_admin"
   );
 ```
 
+### 3.2 bis Lectura por registro (`20261105100100`)
+
+Lo de arriba es el diseño original. Hoy la lectura sigue a la matriz de
+permisos (`ENTITY_READ_PERMISSION`), por rol:
+
+- `file_attachments`: una fila se ve si el rol lee el registro al que
+  apunta: compras, comprobantes, recibos, órdenes de pago, cheques,
+  movimientos e impuestos (owner, admin, finance); clientes y proveedores
+  (además operations); cargas de combustible (owner, admin, operations); un
+  mensaje del chat (dueño de la sesión, u owner/admin). El contador
+  (`fiscal_reader`) ve los adjuntos de impuestos por su propia policy.
+- `files`: lo ven quien lo subió y owner/admin; los demás, mientras alguno de
+  los registros que lo tienen sea legible para ellos (la RLS de
+  `file_attachments`, de `ai_document_extractions`, que es de quien escaneó,
+  de `employee_documents` y de `fleet_documents`). Las restricciones de
+  chat, RRHH y flota siguen encima.
+- Warehouse no lee ningún registro con adjuntos: solo ve lo que subió.
+
+Quitar un adjunto (`detachFileAction`) pide `files:write` más el permiso de
+escritura del registro (`ATTACHMENT_WRITE_PERMISSION`,
+`lib/files/attachment-targets.ts`), igual que adjuntar. Decisión:
+`docs/decisions/2026-11-05-archivos-por-registro-w14.md`.
+
 ### 3.3 Storage bucket
 
 Las policies del bucket validan **contra la fila en `public.files`**, no contra
@@ -1195,7 +1218,7 @@ y `getSignedFileUrlAction` repite el chequeo. `uploadFleetDocumentFileAction`
 sube el archivo (`storeUploadedFile`, el mismo paso que `uploadFileAction`) y
 apunta el documento a él; si el documento no se actualiza, descarta el
 archivo. `find_orphan_files`, `delete_chat_draft_file` e
-`isFileReferencedElsewhere` cuentan este vínculo.
+`isFileStillReferenced` cuentan este vínculo.
 
 Cuando un documento de flota o de RRHH deja de apuntar a su archivo (se
 reemplaza, se quita o se borra el documento), la acción lo borra en el
@@ -1203,7 +1226,8 @@ momento con `removeReplacedFile` (`lib/files/remove-unlinked.ts`): cliente
 de servicio y `delete_orphan_files` sin margen de antigüedad, así que un
 archivo que otra cosa vincula se queda. Si falla, queda para el barrido.
 Mientras tanto, desde `20261105090100`, un archivo que nada vincula lo ven
-solo quien lo subió y owner/admin (`public.is_linked_file`).
+solo quien lo subió y owner/admin (desde `20261105100100`, porque ningún
+registro legible lo tiene; §3.2 bis).
 
 ### 14.4 Pendiente
 

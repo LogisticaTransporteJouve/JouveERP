@@ -65,13 +65,14 @@ SET LOCAL statement_timeout = '15min';
 -- it no entity type).
 --
 -- No data changes. Rollback: older code reads through the same tables and
--- sees fewer rows. Its detach counts the remaining links with the caller's
--- client, which now misses links the caller cannot read; every detacher
--- (files:write plus the record's write permission in this release; files:write
--- before it) holds the roles of every link a manual upload can share, since
--- each upload is a fresh file linked to one record, and a scan's extra link
--- is to an extraction, which isFileReferencedElsewhere checks with the
--- service role.
+-- sees fewer rows. Its detach counts a file's remaining links with the
+-- caller's client, which now hides the links the caller cannot read. That
+-- does not delete a file still in use: a manual upload is a fresh file with
+-- one link, and a file has several only when a scan became documents
+-- (attachSourceFile: purchase invoice, invoice, receipt, payment order,
+-- cheques, all finance records). Whoever may delete one of those links (its
+-- creator, a finance user, or owner/admin) reads all of them, and the scan's
+-- extraction is counted with the service role (isFileReferencedElsewhere).
 
 -- file_attachments ------------------------------------------------------------
 

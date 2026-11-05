@@ -920,6 +920,135 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
     ```
 
   - `docs/pendientes/2026-11-05-archivos-y-escaneo-auditoria-w13.md`.
+- [ ] **Aprobar `20261105100100`** (auditoría w14, archivos por registro).
+      Va después de `20261105090100`. No toca filas existentes ni objetos
+      guardados: cambia quién los lee.
+  - Cambia dos políticas de lectura:
+    - «Roles with files:read can view file_attachments»: un adjunto lo ve
+      quien lee el registro al que apunta. Compras, comprobantes, recibos,
+      órdenes de pago, cheques, movimientos e impuestos: owner, admin y
+      finance. Clientes y proveedores: además operations. Combustible:
+      owner, admin y operations. Chat: el dueño de la sesión u owner/admin.
+    - «Roles with files:read can view files»: un archivo lo ven quien lo
+      subió, owner/admin, o quien lee alguno de los registros que lo tienen.
+      Un escaneo es de quien lo escaneó.
+  - Como `files_storage_select` sigue a la fila, los bytes siguen la misma
+    regla. El contador mantiene los adjuntos de impuestos (`20261104050400`
+    no cambia). Owner y admin no pierden nada.
+  - Quién pierde acceso: operations pierde los adjuntos de finanzas y los
+    escaneos de otros usuarios. Warehouse pierde todo lo que no subió (no
+    tiene pantalla que liste archivos). Finance pierde los tickets de
+    combustible y los escaneos de otros usuarios.
+  - Rollback: el código anterior lee las mismas tablas y ve menos filas. Su
+    «Eliminar» cuenta los vínculos con el cliente del usuario. No borra un
+    archivo en uso, porque los únicos archivos con varios vínculos son
+    escaneos convertidos en documentos de finanzas, y quien puede quitar uno
+    de esos vínculos los ve todos.
+  - Consulta de control antes de aplicar (solo lectura, schema de
+    `production-latest`). Lista, por cada usuario que no es owner/admin, los
+    archivos que hoy lee y deja de leer, agrupados por los registros que los
+    tienen.
+    - `linked_to = {}`: archivo que nada vincula. Ya lo oculta
+      `20261105090100` si se promueve junto.
+    - No cuenta los archivos que el usuario subió: los sigue viendo.
+    - Si alguien necesita alguno de esos archivos, darle el rol que lee el
+      registro.
+
+    ```sql
+    with user_role_sets as (
+      select ur.user_id, array_agg(ur.role_id::text order by ur.role_id) as roles
+        from public.user_roles ur
+       group by ur.user_id
+    ),
+    links as (
+      select fa.file_id,
+             case
+               when fa.purchase_invoice_id is not null then 'purchase_invoice'
+               when fa.invoice_id          is not null then 'invoice'
+               when fa.receipt_id          is not null then 'receipt'
+               when fa.payment_order_id    is not null then 'payment_order'
+               when fa.check_id            is not null then 'check'
+               when fa.issued_check_id     is not null then 'issued_check'
+               when fa.client_id           is not null then 'client'
+               when fa.supplier_id         is not null then 'supplier'
+               when fa.transaction_id      is not null then 'transaction'
+               when fa.fuel_load_id        is not null then 'fuel_load'
+               when fa.tax_document_id     is not null then 'tax_document'
+               when fa.ai_chat_message_id  is not null then 'ai_chat_message'
+             end as entity_type,
+             s.user_id as owner_id
+        from public.file_attachments fa
+        left join public.ai_chat_messages m on m.id = fa.ai_chat_message_id
+        left join public.ai_chat_sessions s on s.id = m.session_id
+      union all
+      select e.file_id, 'ai_document', e.created_by
+        from public.ai_document_extractions e
+      union all
+      select d.attachment_file_id, 'employee_document', null
+        from public.employee_documents d
+       where d.attachment_file_id is not null
+      union all
+      select d.attachment_file_id, 'fleet_document', null
+        from public.fleet_documents d
+       where d.attachment_file_id is not null
+    ),
+    -- Roles sin owner/admin que leen cada registro (lib/auth/permissions.ts).
+    read_roles (entity_type, roles) as (
+      values
+        ('purchase_invoice',  array['finance']),
+        ('invoice',           array['finance']),
+        ('receipt',           array['finance']),
+        ('payment_order',     array['finance']),
+        ('check',             array['finance']),
+        ('issued_check',      array['finance']),
+        ('transaction',       array['finance']),
+        ('tax_document',      array['finance']),
+        ('employee_document', array['finance']),
+        ('client',            array['finance', 'operations']),
+        ('supplier',          array['finance', 'operations']),
+        ('ai_chat_message',   array['finance', 'operations']),
+        ('ai_document',       array['finance', 'operations']),
+        ('fuel_load',         array['operations']),
+        ('fleet_document',    array['operations'])
+    ),
+    lost as (
+      select u.user_id, u.roles, f.original_filename,
+             array(select distinct l.entity_type from links l
+                    where l.file_id = f.id order by 1) as linked_to
+        from user_role_sets u
+        cross join public.files f
+       where not (u.roles && array['owner', 'admin'])
+         -- Lo lee hoy (política de 20261031204119).
+         and u.roles && array['finance', 'operations', 'warehouse']
+         and f.source <> 'chat_attachment'
+         and ('finance' = any (u.roles)
+              or not exists (select 1 from links l
+                              where l.file_id = f.id
+                                and l.entity_type = 'employee_document'))
+         and ('operations' = any (u.roles)
+              or not exists (select 1 from links l
+                              where l.file_id = f.id
+                                and l.entity_type = 'fleet_document'))
+         -- Y deja de leerlo.
+         and f.uploaded_by is distinct from u.user_id
+         and not exists (
+           select 1 from links l
+             join read_roles r on r.entity_type = l.entity_type
+            where l.file_id = f.id
+              and u.roles && r.roles
+              and (l.entity_type not in ('ai_chat_message', 'ai_document')
+                   or l.owner_id = u.user_id)
+         )
+    )
+    select au.email, lost.roles, lost.linked_to, count(*) as archivos,
+           (array_agg(lost.original_filename order by lost.original_filename))[1:3] as ejemplos
+      from lost
+      left join auth.users au on au.id = lost.user_id
+     group by au.email, lost.roles, lost.linked_to
+     order by au.email, archivos desc;
+    ```
+
+  - `docs/pendientes/2026-11-05-archivos-por-registro-auditoria-w14.md`.
 
 ## Después de promover
 
