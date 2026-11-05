@@ -3,6 +3,7 @@ import {
   rolesGranting,
 } from "@/features/admin-users/lib/role-labels";
 import {
+  ROLES,
   userCan,
   type Access,
   type Permission,
@@ -111,6 +112,44 @@ function permissionList(p: GuidePermission): {
   if (typeof p === "string") return { all: [p], any: [] };
   if ("anyOf" in p) return { all: [], any: p.anyOf };
   return { all: p, any: [] };
+}
+
+/** Both requirements at once (only plain lists, the only shape tasks combine). */
+export function combine(
+  a: GuidePermission,
+  b: GuidePermission,
+): GuidePermission {
+  const plain = (p: GuidePermission): readonly Permission[] => {
+    if (p === null) return [];
+    if (typeof p === "string") return [p];
+    if ("anyOf" in p) throw new Error("combine: anyOf is not supported");
+    return p;
+  };
+  return [...plain(a), ...plain(b)];
+}
+
+/** "Owner, Admin, Finanzas" for a task: with per-record permissions, the
+ *  roles that can do it on at least one record. */
+export function taskRoleNames(task: GuideTask): string {
+  const records = task.permissionByRecord ?? [];
+  if (records.length === 0) return roleNames(task.permission);
+  const roles = new Set(
+    records.flatMap((r) => rolesFor(combine(task.permission, r.permission))),
+  );
+  return ROLES.filter((r) => roles.has(r))
+    .map((r) => ROLE_LABELS[r])
+    .join(", ");
+}
+
+/** Whether an access can do the task: its permission and, when it depends on
+ *  the record, at least one record's. */
+export function taskAllowed(access: Access, task: GuideTask): boolean {
+  const records = task.permissionByRecord ?? [];
+  return (
+    accessCan(access, task.permission) &&
+    (records.length === 0 ||
+      records.some((r) => accessCan(access, r.permission)))
+  );
 }
 
 export function permissionsOf(p: GuidePermission): Permission[] {

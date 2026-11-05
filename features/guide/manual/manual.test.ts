@@ -19,6 +19,7 @@ import {
   sectionScreens,
   sectionTexts,
 } from "./model";
+import { latestFunctionBodies } from "./sql-guards";
 import type { GuideTask, MockScreen } from "./types";
 
 // The guide quotes the app; these tests hold every quote to the code, so a
@@ -59,11 +60,17 @@ const SOURCE = normalize(
     .join("\n"),
 );
 
-/** Error messages also come from the database guards. */
+/** Error messages also come from the database guards: the latest definition
+ *  of each function only, comments removed (a reworded guard drops the old
+ *  message). */
 const SOURCE_AND_SQL = `${SOURCE}\n${normalize(
-  walk(path.join(ROOT, "supabase/migrations"), (f) => f.endsWith(".sql"))
-    .map((f) => readFileSync(f, "utf8"))
-    .join("\n"),
+  [
+    ...latestFunctionBodies(
+      walk(path.join(ROOT, "supabase/migrations"), (f) =>
+        f.endsWith(".sql"),
+      ).map((f) => ({ name: path.basename(f), sql: readFileSync(f, "utf8") })),
+    ).values(),
+  ].join("\n"),
 )}`;
 
 /** Every page of the app as a route pattern: "/invoices/[id]". */
@@ -188,7 +195,12 @@ describe("quotes from the app", () => {
   it("every permission it names is in the matrix", () => {
     const perms = [
       ...SECTIONS.flatMap((s) => permissionsOf(s.permission)),
-      ...TASKS.flatMap((t) => permissionsOf(t.permission)),
+      ...TASKS.flatMap((t) => [
+        ...permissionsOf(t.permission),
+        ...(t.permissionByRecord ?? []).flatMap((r) =>
+          permissionsOf(r.permission),
+        ),
+      ]),
     ];
     for (const p of perms) expect(PERMISSIONS).toContain(p);
   });

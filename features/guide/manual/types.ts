@@ -117,6 +117,13 @@ export type GuideTask = {
   summary?: GuideText;
   /** What the app checks before letting the user do it. */
   permission: GuidePermission;
+  /** When it also takes a permission that depends on the record (attaching
+   *  a file takes the record's write permission): one line per record, each
+   *  on top of `permission`. Generate it from the app's own map. */
+  permissionByRecord?: readonly {
+    record: string;
+    permission: GuidePermission;
+  }[];
   prerequisites?: readonly GuideText[];
   /** Replicas of the screens the steps go through, in order. */
   screens?: readonly MockScreen[];
