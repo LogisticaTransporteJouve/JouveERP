@@ -13,6 +13,7 @@ import {
   usePageIsFiscal,
   useSideChannels,
 } from "@/components/providers/scope-provider";
+import { ChannelsReadError } from "@/components/channels-read-error";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -606,6 +607,7 @@ function NewInvoiceForm({
                     ))}
                   </SelectContent>
                 </Select>
+                <ChannelsReadError inline />
                 {channelId &&
                   !isNote &&
                   posQuery.isSuccess &&
