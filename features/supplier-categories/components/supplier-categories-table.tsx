@@ -80,15 +80,6 @@ export function SupplierCategoriesTable({
         ),
       },
       {
-        accessorKey: "slug",
-        header: "Slug",
-        cell: ({ row }) => (
-          <span className="font-mono text-xs text-muted-foreground">
-            {row.original.slug}
-          </span>
-        ),
-      },
-      {
         accessorKey: "is_active",
         header: "Estado",
         cell: ({ row }) =>

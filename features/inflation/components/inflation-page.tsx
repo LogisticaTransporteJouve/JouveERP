@@ -25,6 +25,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { MonthPicker } from "@/components/ui/month-picker";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ManualEntryDialog } from "@/features/journal-entries/components/manual-entry-dialog";
@@ -298,7 +299,7 @@ function InflationDialog({
                 <FormItem>
                   <FormLabel>Período (YYYY-MM)</FormLabel>
                   <FormControl>
-                    <Input {...field} type="month" />
+                    <MonthPicker {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

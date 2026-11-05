@@ -39,7 +39,7 @@ export async function listSupplierCategoriesAction(
   const { data, error } = await paginateRange((from, to) => {
     let query = supabase
       .from("supplier_categories")
-      .select("id, name, slug, is_active, created_at, updated_at")
+      .select("id, name, is_active, created_at, updated_at")
       .order("name", { ascending: true });
     if (options.onlyActive) query = query.eq("is_active", true);
     return query.order("id").range(from, to);
@@ -240,7 +240,6 @@ export async function createSupplierCategoryAction(
     .from("supplier_categories")
     .insert({
       name: parsed.data.name,
-      slug: parsed.data.slug,
       is_active: parsed.data.is_active,
     })
     .select("id")
@@ -250,7 +249,7 @@ export async function createSupplierCategoryAction(
     if (error.code === PG_UNIQUE_VIOLATION) {
       return {
         ok: false,
-        error: "Ya existe una categoría con ese nombre o slug.",
+        error: "Ya existe una categoría con ese nombre.",
       };
     }
     logger.error("supplier_categories.create.failed", {
@@ -304,7 +303,6 @@ export async function updateSupplierCategoryAction(
     .from("supplier_categories")
     .update({
       ...(rest.name !== undefined && { name: rest.name }),
-      ...(rest.slug !== undefined && { slug: rest.slug }),
       ...(rest.is_active !== undefined && { is_active: rest.is_active }),
     })
     .eq("id", id);
@@ -313,7 +311,7 @@ export async function updateSupplierCategoryAction(
     if (error.code === PG_UNIQUE_VIOLATION) {
       return {
         ok: false,
-        error: "Ya existe una categoría con ese nombre o slug.",
+        error: "Ya existe una categoría con ese nombre.",
       };
     }
     logger.error("supplier_categories.update.failed", {

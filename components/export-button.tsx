@@ -15,7 +15,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { downloadFromUrl } from "@/lib/export/download";
 import { XLSX_MIME } from "@/lib/export/mime";
 
@@ -128,19 +128,11 @@ export function ExportButton({
         <div className="grid grid-cols-2 gap-3">
           <label className="space-y-1 text-sm">
             <span className="text-muted-foreground">Desde</span>
-            <Input
-              type="date"
-              value={from}
-              onChange={(e) => setFrom(e.target.value)}
-            />
+            <DatePicker value={from} onChange={setFrom} clearable />
           </label>
           <label className="space-y-1 text-sm">
             <span className="text-muted-foreground">Hasta</span>
-            <Input
-              type="date"
-              value={to}
-              onChange={(e) => setTo(e.target.value)}
-            />
+            <DatePicker value={to} onChange={setTo} clearable />
           </label>
         </div>
         <DialogFooter>

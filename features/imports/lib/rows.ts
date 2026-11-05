@@ -129,7 +129,6 @@ export type ImportLookups = {
   supplierCategories: readonly {
     id: string;
     name: string;
-    slug: string;
     is_active: boolean;
   }[];
   /** Postable expense accounts (expense_leaf_accounts). */
@@ -315,7 +314,7 @@ function supplierDefaults(
     const m = matchCodeOrName(
       categoryRaw,
       lookups.supplierCategories,
-      (c) => c.slug,
+      (c) => c.name,
       "una categoría de proveedor",
     );
     if (m.found) {

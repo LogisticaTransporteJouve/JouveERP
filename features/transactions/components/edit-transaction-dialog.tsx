@@ -25,7 +25,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
+import { MonthPicker } from "@/components/ui/month-picker";
 import { Textarea } from "@/components/ui/textarea";
 import { amountToInput, parseArAmount } from "@/lib/format";
 import { positiveArAmountField } from "@/lib/validation/common";
@@ -188,11 +188,10 @@ export function EditTransactionDialog({
                       <span className="text-muted-foreground">(día 1)</span>
                     </FormLabel>
                     <FormControl>
-                      <Input
-                        type="month"
+                      <MonthPicker
                         disabled={locked}
                         value={field.value?.slice(0, 7) ?? ""}
-                        onChange={(e) => field.onChange(`${e.target.value}-01`)}
+                        onChange={(value) => field.onChange(`${value}-01`)}
                       />
                     </FormControl>
                     <FormMessage />

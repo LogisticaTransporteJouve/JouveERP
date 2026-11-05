@@ -27,7 +27,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import {
   Select,
   SelectContent,
@@ -321,7 +321,7 @@ export function StorageTariffDialog({
                   <FormItem>
                     <FormLabel>Vigente desde</FormLabel>
                     <FormControl>
-                      <Input {...field} type="date" />
+                      <DatePicker {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -334,7 +334,7 @@ export function StorageTariffDialog({
                   <FormItem>
                     <FormLabel>Vigente hasta (opcional)</FormLabel>
                     <FormControl>
-                      <Input {...field} type="date" />
+                      <DatePicker {...field} clearable />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

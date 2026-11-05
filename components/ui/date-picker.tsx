@@ -1,17 +1,20 @@
 "use client";
 
-import { Calendar as CalendarIcon, X } from "lucide-react";
+import { Calendar as CalendarIcon } from "lucide-react";
 import { useState } from "react";
+import type { Matcher } from "react-day-picker";
 
-import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  PickerTrigger,
+  type PickerFieldProps,
+} from "@/components/ui/picker-trigger";
 import { dateToIso, isoToDate } from "@/lib/date-range";
-import { cn } from "@/lib/utils";
 
 function formatDisplay(iso: string): string {
   const d = isoToDate(iso);
@@ -22,79 +25,69 @@ function formatDisplay(iso: string): string {
   return `${day}/${month}/${year}`;
 }
 
+function clamp(d: Date, min?: Date, max?: Date): Date {
+  if (min && d < min) return min;
+  if (max && d > max) return max;
+  return d;
+}
+
 /**
  * Uniform DatePicker: a compact trigger showing the date in AR format
- * (dd/mm/yyyy) that opens a shadcn Calendar inside a Popover. It replaces
- * the native `<input type="date">` so the experience is consistent and
- * supports quick year/month navigation via dropdowns.
+ * (dd/mm/yyyy) that opens the Spanish shadcn Calendar inside a Popover. It
+ * replaces the native date input everywhere (`components/date-inputs.test.ts`
+ * keeps it that way), so every date field looks and reads the same.
  *
- * Value and onChange use ISO strings (`YYYY-MM-DD`) for compatibility
- * with the existing forms.
+ * Value and onChange use ISO strings (`YYYY-MM-DD`, `""` when empty), the
+ * native input's format, so forms and schemas read it unchanged. `min` and
+ * `max` (also `YYYY-MM-DD`) disable the days outside the range.
  */
 export function DatePicker({
   value,
   onChange,
+  min,
+  max,
   placeholder = "Elegí fecha",
-  disabled,
-  className,
   clearable = false,
-  id,
-}: {
-  value: string;
+  ...field
+}: PickerFieldProps & {
+  value: string | null | undefined;
   onChange: (iso: string) => void;
-  placeholder?: string;
-  disabled?: boolean;
-  className?: string;
-  clearable?: boolean;
-  id?: string;
+  min?: string;
+  max?: string;
 }) {
   const [open, setOpen] = useState(false);
-  const selected = isoToDate(value);
+  const iso = value ?? "";
+  const selected = isoToDate(iso);
+  const minDate = min ? isoToDate(min) : undefined;
+  const maxDate = max ? isoToDate(max) : undefined;
+  const outside: Matcher[] = [];
+  if (minDate) outside.push({ before: minDate });
+  if (maxDate) outside.push({ after: maxDate });
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button
-          id={id}
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={disabled}
-          className={cn(
-            "h-9 w-full justify-between font-normal",
-            !value && "text-muted-foreground",
-            className,
-          )}
-        >
-          <span className="flex items-center gap-2 truncate">
-            <CalendarIcon className="size-4 shrink-0 text-muted-foreground" />
-            {value ? formatDisplay(value) : placeholder}
-          </span>
-          {clearable && value && !disabled && (
-            <span
-              role="button"
-              tabIndex={-1}
-              aria-label="Limpiar fecha"
-              onClick={(e) => {
-                e.stopPropagation();
-                onChange("");
-              }}
-              className="inline-flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
-            >
-              <X className="size-3.5" />
-            </span>
-          )}
-        </Button>
+        <PickerTrigger
+          {...field}
+          icon={CalendarIcon}
+          display={formatDisplay(iso)}
+          placeholder={placeholder}
+          clearLabel="Limpiar fecha"
+          onClear={clearable ? () => onChange("") : undefined}
+        />
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="start">
         <Calendar
           mode="single"
+          autoFocus
           selected={selected}
+          defaultMonth={selected ?? clamp(new Date(), minDate, maxDate)}
+          startMonth={minDate}
+          endMonth={maxDate}
+          disabled={outside}
           onSelect={(d) => {
-            if (d) {
-              onChange(dateToIso(d));
-              setOpen(false);
-            }
+            if (d) onChange(dateToIso(d));
+            setOpen(false);
           }}
           captionLayout="dropdown"
         />

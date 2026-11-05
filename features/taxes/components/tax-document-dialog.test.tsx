@@ -21,6 +21,13 @@ const h = vi.hoisted(() => ({
   toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() },
 }));
 
+// Radix measures the MonthPicker popover; jsdom has no ResizeObserver.
+globalThis.ResizeObserver ??= class {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
+
 vi.mock("sonner", () => ({ toast: h.toast }));
 vi.mock("@/features/files/components/attachments-zone", () => ({
   AttachmentsZone: () => null,
@@ -143,9 +150,8 @@ describe("TaxDocumentDialog · Estimar", () => {
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: /Estimar/ }));
-    fireEvent.change(screen.getByLabelText("Período"), {
-      target: { value: "2026-10" },
-    });
+    fireEvent.click(screen.getByRole("button", { name: /Período/ }));
+    fireEvent.click(screen.getByRole("button", { name: "octubre de 2026" }));
     act(() => h.calls[0]!.callbacks.onSuccess(estimate("2026-09", 500)));
     act(() => h.calls[0]!.callbacks.onError(new Error("tarde")));
     expect(amountInput().value).toBe("");

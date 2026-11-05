@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 
 import { ReadError } from "@/components/read-error";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -78,21 +78,19 @@ export function StorageBillingReport({ actorAccess }: { actorAccess: Access }) {
       <div className="bg-card flex flex-wrap items-end gap-3 rounded-lg border p-4">
         <div className="space-y-1">
           <label className="text-muted-foreground text-xs">Desde</label>
-          <Input
-            type="date"
+          <DatePicker
             value={start}
             max={end}
-            onChange={(e) => setStart(e.target.value)}
+            onChange={setStart}
             className="w-[170px]"
           />
         </div>
         <div className="space-y-1">
           <label className="text-muted-foreground text-xs">Hasta</label>
-          <Input
-            type="date"
+          <DatePicker
             value={end}
             min={start}
-            onChange={(e) => setEnd(e.target.value)}
+            onChange={setEnd}
             className="w-[170px]"
           />
         </div>

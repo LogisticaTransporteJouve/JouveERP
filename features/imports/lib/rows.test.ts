@@ -62,8 +62,8 @@ const LOOKUPS: ImportLookups = {
   channelId: null,
   tariffs: [],
   supplierCategories: [
-    { id: CAT_1, name: "Combustible", slug: "combustible", is_active: true },
-    { id: CAT_2, name: "Viejos", slug: "viejos", is_active: false },
+    { id: CAT_1, name: "Combustible", is_active: true },
+    { id: CAT_2, name: "Viejos", is_active: false },
   ],
   expenseAccounts: [
     { id: ACC_1, code: "5.1.2", name: "Combustibles" },
