@@ -57,12 +57,12 @@ export const conceptsPage: GuidePage = {
           title: "Los roles",
           body: [
             "**Owner**: acceso total; es el único que asigna el rol owner, edita los accesos por usuario, borra movimientos de caja y carga saldos de apertura.",
-            "**Admin**: acceso total excepto el rol owner y los accesos por usuario.",
-            "**Finanzas**: clientes, caja, comprobantes y cobranzas.",
-            "**Operaciones**: flota, viajes, combustible, mantenimientos.",
+            "**Admin**: acceso total excepto dar o quitar el rol owner, editar los accesos por usuario, borrar movimientos de caja y cargar saldos de apertura.",
+            "**Finanzas**: clientes y proveedores, comprobantes, compras, cobranzas y pagos, caja y bancos, contabilidad, impuestos y sueldos.",
+            "**Operaciones**: flota, viajes, cargas, combustible, mantenimientos y documentos de flota.",
             "**Depósito**: pallets, productos, movimientos de stock.",
-            "**Chofer**: acceso de chofer (próximamente).",
-            "**Contador externo**: solo lectura de lo fiscal: comprobantes, compras, libros IVA y contabilidad. Siempre ve solo el lado fiscal.",
+            "**Chofer**: por ahora solo ve los viajes.",
+            "**Contador externo**: solo lectura de lo fiscal: clientes, proveedores, comprobantes, compras, libros IVA, contabilidad e impuestos. Siempre ve solo el lado fiscal.",
           ],
         },
         {
@@ -76,6 +76,48 @@ export const conceptsPage: GuidePage = {
           title: "Cuando falta un permiso",
           body: [
             "La guía igual muestra las tareas que tu usuario no puede hacer, con los roles que sí pueden: pedíselas a alguien con ese rol o pedile al owner el acceso.",
+          ],
+        },
+      ],
+      tasks: [],
+    },
+    {
+      id: "canales-fiscal-interno",
+      title: "Los dos lados: fiscal e interno",
+      routes: [],
+      permission: null,
+      intro: [
+        "La empresa factura por dos canales: el fiscal (`jouve_fiscal`) y el interno (`jouve_internal`). Cada cliente, proveedor, comprobante, recibo, compra y orden de pago pertenece a uno de los dos lados, y el sistema no los mezcla en un mismo documento.",
+      ],
+      concepts: [
+        {
+          title: "Qué es fiscal y qué es interno",
+          body: [
+            "**Fiscal**: las facturas y notas de crédito y débito se emiten con CAE de AFIP, van a los libros IVA y generan asientos contables. Es lo que ve el contador.",
+            "**Interno**: no pasa por AFIP. En ventas se emiten remitos internos (letra X, «documento no válido como factura») y recibos internos; en compras se cargan remitos de compra. No va a los libros IVA ni a la contabilidad: es registro operativo.",
+            "La plata de los dos lados sí se mueve en las mismas cuentas de caja y banco. Por eso la caja real (todas las cuentas) no coincide con la caja contable (solo lo fiscal), a propósito. El {{Resultado de gestión}} junta los dos lados.",
+          ],
+        },
+        {
+          title: "Ventas y Otras ventas, Compras y Otras compras",
+          body: [
+            "En la barra lateral, {{Ventas}} y {{Otras ventas}} abren las mismas pantallas, una por lado: {{Clientes}}, {{Comprobantes}} (en el lado interno, {{Remitos internos}}), {{Recibos}} ({{Recibos internos}}) y {{Aging clientes}}.",
+            "Lo mismo con {{Compras}} y {{Otras compras}}: {{Proveedores}}, {{Categorías}}, {{Compras}} (en el lado interno, {{Remitos de compra}}), {{Órdenes de pago}} y {{Aging proveedores}}.",
+            "Al hacer clic en un ítem de una de esas secciones, el sistema pasa a ese lado: la lista muestra solo lo de ese lado y un alta nueva queda en su canal. El encabezado dice en qué sección estás, y el lado elegido queda recordado en ese navegador.",
+            "La ficha de un cliente o proveedor se muestra siempre en su propio lado, aunque la abras desde otra pantalla.",
+          ],
+        },
+        {
+          title: "Pantallas compartidas y el selector «Lado»",
+          body: [
+            "El resto del sistema (dashboard, tesorería, caja, contabilidad, flota…) es compartido y lee los dos lados juntos.",
+            "Cuando desde una pantalla compartida abrís un formulario que necesita un lado, por ejemplo {{Cobrar a cliente}} o {{Pagar a proveedor}} en Tesorería o en Caja, el formulario muestra el selector {{Lado}}: elegí {{Fiscal}} o {{Interno}} y el formulario ofrece los canales, clientes y proveedores de ese lado.",
+          ],
+        },
+        {
+          title: "El contador externo ve solo lo fiscal",
+          body: [
+            "Un usuario con el rol **Contador externo** está fijo en el lado fiscal: no ve {{Otras ventas}} ni {{Otras compras}}, no puede cambiar de lado y todas sus consultas leen solo lo fiscal.",
           ],
         },
       ],
