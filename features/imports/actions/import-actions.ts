@@ -204,7 +204,7 @@ async function loadLookups(
       paginateRange((from, to) =>
         service
           .from("supplier_categories")
-          .select("id, name, slug, is_active")
+          .select("id, name, is_active")
           .order("id")
           .range(from, to),
       ),

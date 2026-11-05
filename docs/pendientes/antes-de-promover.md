@@ -860,7 +860,20 @@ un rollback a un SHA anterior a `94f942b`.
 Migraciones de `main` que todavía no están en `production-latest`. Cada rama
 que agrega una migración suma su ítem al final de esta sección.
 
-Ninguna por ahora: el promote de `d71de85` (2026-11-05) aplicó todas.
+- [ ] **Aprobar `20261105230000`** (categorías de proveedores sin slug). La
+      app deja de leer y escribir `supplier_categories.slug`; la columna
+      pasa a aceptar `null` y queda, para que un rollback siga funcionando.
+      No toca filas existentes ni políticas RLS. Rollback: el código
+      anterior lee y escribe el slug como antes; una categoría creada con
+      el código nuevo tiene slug `null` y se ve igual en la tabla.
+  - Consulta de control antes de aplicar (solo lectura): las categorías y
+    su slug actual, que se conserva.
+
+    ```sql
+    select id, name, slug, is_active
+      from public.supplier_categories
+     order by name;
+    ```
 
 ## Aplicadas en el promote de `d71de85` (2026-11-05)
 
