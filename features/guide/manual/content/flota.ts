@@ -1,5 +1,7 @@
 import type { GuidePage } from "../types";
 
+import { attachmentPermission } from "./attachment-permissions";
+
 // Fleet chapter: drivers, vehicles, trips and their cargas, freight
 // liquidaciones, cash-on-delivery rendiciones, fuel, monthly km,
 // maintenance, expiring documents and profitability.
@@ -2297,7 +2299,7 @@ export const fleetPage: GuidePage = {
         {
           id: "adjuntar-ticket-combustible",
           title: "Adjuntar el ticket o remito de una carga",
-          permission: ["fuel:write", "files:write"],
+          permission: attachmentPermission("fuel_load"),
           prerequisites: [
             "Para ver el ítem del menú hace falta permiso para leer archivos; para subir, además escribir archivos y combustible.",
           ],

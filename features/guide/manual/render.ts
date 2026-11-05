@@ -2,9 +2,11 @@ import { APP_WINDOW } from "@/lib/manual/windows";
 
 import { escapeHtml, toHtml, toPlainText, type RefResolver } from "./markup";
 import {
+  combine,
   makeResolver,
   permissionsOf,
   roleNames,
+  taskRoleNames,
   stepText,
   taskTexts,
 } from "./model";
@@ -131,12 +133,28 @@ export function renderScreen(s: MockScreen): string {
   return `<figure class="mock"><div class="m-frame m-menu-frame">${trigger}<div class="m-menu">${items}</div></div>${caption}</figure>`;
 }
 
-function whoCan(p: GuidePermission): string {
+function whoCan(p: GuidePermission, roles = roleNames(p)): string {
   if (p === null) return "Cualquier usuario con sesión iniciada.";
   const perms = permissionsOf(p)
     .map((x) => `<code class="perm">${e(x)}</code>`)
     .join(typeof p === "object" && "anyOf" in p ? " o " : " + ");
-  return `${e(roleNames(p))} <span class="muted">(permiso ${perms})</span>`;
+  return `${e(roles)} <span class="muted">(permiso ${perms})</span>`;
+}
+
+/** "Además, según el registro:" one line per record with its own roles. */
+function perRecord(task: GuideTask): string {
+  if (!task.permissionByRecord?.length) return "";
+  const rows = task.permissionByRecord
+    .map(
+      (r) =>
+        `<li>${e(r.record)}: ${e(roleNames(combine(task.permission, r.permission)))} <span class="muted">(${permissionsOf(
+          r.permission,
+        )
+          .map((x) => `<code class="perm">${e(x)}</code>`)
+          .join(" + ")})</span></li>`,
+    )
+    .join("");
+  return `<div class="muted">Además, el permiso de escritura del registro:</div><ul>${rows}</ul>`;
 }
 
 function list(items: readonly string[] | undefined, r: RefResolver): string {
@@ -167,7 +185,7 @@ function renderTask(task: GuideTask, r: RefResolver): string {
   return `<article class="task" id="${e(task.id)}">
 <h3><a class="anchor" href="#${e(task.id)}">${e(task.title)}</a></h3>
 ${task.summary ? `<p>${toHtml(task.summary, r)}</p>` : ""}
-<dl class="meta"><dt>Quién puede</dt><dd>${whoCan(task.permission)}</dd>${
+<dl class="meta"><dt>Quién puede</dt><dd>${whoCan(task.permission, taskRoleNames(task))}${perRecord(task)}</dd>${
     task.prerequisites?.length
       ? `<dt>Antes</dt><dd>${list(task.prerequisites, r)}</dd>`
       : ""

@@ -1,3 +1,5 @@
+import { attachmentPermissionByRecord } from "./attachment-permissions";
+
 import type { GuidePage } from "../types";
 
 // Platform chapter: entering the app and moving around it, the dashboard,
@@ -794,6 +796,7 @@ export const platformPage: GuidePage = {
           summary:
             "En la ficha de un comprobante, compra, recibo, orden de pago, cliente o proveedor, o en una carga de combustible o un impuesto, la sección de adjuntos. Los cheques y los movimientos de caja no tienen zona para subir archivos.",
           permission: "files:write",
+          permissionByRecord: attachmentPermissionByRecord(),
           prerequisites: [
             "Además, el permiso de escritura del registro (por ejemplo `purchase_invoices:write` para una compra): sin él, la subida se rechaza. En clientes y proveedores, sin ese permiso no aparece la zona para subir; en una compra anulada tampoco.",
           ],
@@ -835,6 +838,7 @@ export const platformPage: GuidePage = {
           id: "borrar-adjunto",
           title: "Borrar un adjunto",
           permission: "files:write",
+          permissionByRecord: attachmentPermissionByRecord(),
           prerequisites: [
             "Además, el permiso de escritura del registro (como para adjuntar), y haber adjuntado vos ese archivo, salvo que seas owner o admin.",
           ],
