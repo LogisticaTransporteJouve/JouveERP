@@ -7,6 +7,7 @@ import type { InvoicingChannelSummary } from "@/lib/scope";
 const h = vi.hoisted(() => ({
   mutate: vi.fn(),
   toast: { success: vi.fn(), error: vi.fn() },
+  pos: {} as Record<string, unknown>,
 }));
 
 vi.mock("next/navigation", () => ({
@@ -16,10 +17,7 @@ vi.mock("next/navigation", () => ({
 vi.mock("sonner", () => ({ toast: h.toast }));
 vi.mock("@/components/ui/date-picker", () => ({ DatePicker: () => null }));
 vi.mock("../hooks/use-invoices", () => ({
-  useEnabledPos: () => ({
-    data: [{ numero: 3, channel_id: "jouve_fiscal", nickname: null }],
-    isSuccess: true,
-  }),
+  useEnabledPos: () => h.pos,
   useInvoiceDetailOnDemand: () => ({ data: undefined }),
   useIssueFiscalInvoice: () => ({ mutate: h.mutate, isPending: false }),
 }));
@@ -77,6 +75,11 @@ async function savedItems(): Promise<
 beforeEach(() => {
   h.mutate.mockReset();
   h.toast.error.mockReset();
+  h.pos = {
+    data: [{ numero: 3, channel_id: "jouve_fiscal", nickname: null }],
+    isSuccess: true,
+    isError: false,
+  };
   Element.prototype.hasPointerCapture ??= () => false;
   Element.prototype.releasePointerCapture ??= () => {};
   Element.prototype.scrollIntoView ??= () => {};
@@ -133,5 +136,28 @@ describe("NewInvoiceDialog item amounts", () => {
     });
     const items = await savedItems();
     expect(items[1]).toMatchObject({ quantity: 0.01, unit_price: 2_000_000 });
+  });
+});
+
+describe("NewInvoiceDialog puntos de venta read", () => {
+  it("says a failed read and retries it, instead of hiding the field", () => {
+    const refetch = vi.fn();
+    h.pos = { data: undefined, isSuccess: false, isError: true, refetch };
+    open();
+    expect(
+      screen.getByText("No se pudieron cargar los puntos de venta."),
+    ).toBeTruthy();
+    expect(screen.queryByText(/Sin POS habilitados/)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /Reintentar/ }));
+    expect(refetch).toHaveBeenCalledOnce();
+  });
+
+  it("keeps «Sin POS habilitados» for a channel read with none", () => {
+    h.pos = { data: [], isSuccess: true, isError: false };
+    open();
+    expect(screen.getByText(/Sin POS habilitados/)).toBeTruthy();
+    expect(
+      screen.queryByText("No se pudieron cargar los puntos de venta."),
+    ).toBeNull();
   });
 });
