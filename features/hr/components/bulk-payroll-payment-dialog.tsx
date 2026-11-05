@@ -7,6 +7,7 @@ import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { ChannelsReadError } from "@/components/channels-read-error";
 import { useDefaultChannel } from "@/components/providers/scope-provider";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -414,6 +415,7 @@ export function BulkPayrollPaymentDialog({
                         ))}
                       </SelectContent>
                     </Select>
+                    <ChannelsReadError inline />
                     <FormMessage />
                   </FormItem>
                 )}

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { ChannelsReadError } from "@/components/channels-read-error";
 import { useScope } from "@/components/providers/scope-provider";
 import { Button } from "@/components/ui/button";
 import {
@@ -57,7 +58,7 @@ export function BillRemitoDialog({
 
   // Same rule as a new comprobante: the only active fiscal channel and its
   // only enabled POS are taken; several POS → the user picks.
-  const { channels } = useScope();
+  const { channels, channelsFailed } = useScope();
   const fiscalChannels = channels.filter((c) => c.is_fiscal && c.is_active);
   const fiscalChannel = fiscalChannels.length === 1 ? fiscalChannels[0] : null;
   const pos = useEnabledPos(fiscalChannel?.id ?? null, { enabled: open });
@@ -65,15 +66,18 @@ export function BillRemitoDialog({
   const [pickedPos, setPickedPos] = useState<number | null>(null);
   const puntoVenta =
     posOptions.length === 1 ? posOptions[0]!.numero : pickedPos;
-  const posProblem = !fiscalChannel
-    ? "Configurá un único canal fiscal activo para facturar."
-    : pos.isPending
-      ? null
-      : pos.isError
-        ? "No se pudieron cargar los puntos de venta fiscales."
-        : posOptions.length === 0
-          ? "No hay un punto de venta fiscal habilitado."
-          : null;
+  // A failed channel read is not a configuration problem.
+  const posProblem = channelsFailed
+    ? "No se pudieron cargar los canales."
+    : !fiscalChannel
+      ? "Configurá un único canal fiscal activo para facturar."
+      : pos.isPending
+        ? null
+        : pos.isError
+          ? "No se pudieron cargar los puntos de venta fiscales."
+          : posOptions.length === 0
+            ? "No hay un punto de venta fiscal habilitado."
+            : null;
 
   const totals = useMemo(
     () =>
@@ -187,10 +191,14 @@ export function BillRemitoDialog({
               </Select>
             </div>
           )}
-          {(posProblem ?? (pos.isPending && fiscalChannel)) && (
-            <p className="text-sm text-muted-foreground">
-              {posProblem ?? "Cargando puntos de venta…"}
-            </p>
+          {channelsFailed ? (
+            <ChannelsReadError inline />
+          ) : (
+            (posProblem ?? (pos.isPending && fiscalChannel)) && (
+              <p className="text-sm text-muted-foreground">
+                {posProblem ?? "Cargando puntos de venta…"}
+              </p>
+            )
           )}
           <div className="flex flex-wrap items-center justify-end gap-x-6 gap-y-1 rounded-md border bg-muted/30 p-3 text-sm">
             <span>
