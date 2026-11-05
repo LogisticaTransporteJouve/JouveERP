@@ -524,7 +524,7 @@ export const fleetPage: GuidePage = {
       routes: ["/trips", "/trips/[id]"],
       permission: "trips:read",
       intro: [
-        "Cada viaje de la flota con {{Fecha}}, {{Chofer}}, {{Vehículo}}, {{Origen → Destino}}, {{Estado}} e {{Ingreso}}. Un viaje junta las cargas que lleva: desde el menú ⋯ de la fila, {{Ver cargas}} abre la página del viaje.",
+        "Cada viaje de la flota con {{Fecha}}, {{Chofer}}, {{Vehículo}}, {{Origen → Destino}}, {{Estado}} e {{Ingreso manual}}. Un viaje junta las cargas que lleva: desde el menú ⋯ de la fila, {{Ver cargas}} abre la página del viaje.",
         "La página del viaje (`Viaje del <fecha>`) muestra el chofer y la patente, y la tabla {{Cargas del viaje}} con {{Cliente}}, {{Ruta}}, {{Estado}} y {{Flete}} de cada carga.",
         "Un usuario con el rol Chofer vinculado a un chofer ve solo los viajes de ese chofer.",
       ],
@@ -540,7 +540,7 @@ export const fleetPage: GuidePage = {
               "Vehículo",
               "Origen → Destino",
               "Estado",
-              "Ingreso",
+              "Ingreso manual",
             ],
             rows: [
               [
@@ -566,7 +566,7 @@ export const fleetPage: GuidePage = {
         {
           title: "Ingreso y costo del viaje",
           body: [
-            "{{Ingreso}} y {{Costo}} se cargan a mano. En [[/fleet-reports]], el ingreso de un viaje que tiene cargas es el flete facturado de esas cargas; el ingreso cargado a mano cuenta solo para los viajes sin cargas.",
+            "{{Ingreso manual}} y {{Costo}} se cargan a mano. Un viaje no tiene cliente: los clientes son de sus cargas. En [[/fleet-reports]], el ingreso de un viaje que tiene cargas es el flete facturado de esas cargas; el {{Ingreso manual}} cuenta solo para los viajes sin cargas.",
           ],
         },
       ],
@@ -604,7 +604,7 @@ export const fleetPage: GuidePage = {
                 { label: "Destino", value: "Córdoba" },
                 { label: "Carga", value: "Materiales de obra", wide: true },
                 { label: "Km", kind: "money" },
-                { label: "Ingreso", kind: "money" },
+                { label: "Ingreso manual", kind: "money" },
                 { label: "Costo", kind: "money" },
                 { label: "Notas", kind: "textarea", wide: true },
               ],
@@ -623,7 +623,7 @@ export const fleetPage: GuidePage = {
                 "{{Estado}}: arranca en {{Planificado}}.",
                 "{{Chofer}} y {{Vehículo}}: solo se ofrecen los activos; {{Ninguno}} lo deja sin asignar.",
                 "{{Canal (opcional)}}, {{Origen}}, {{Destino}} y {{Carga}} (descripción de lo que lleva).",
-                "{{Km}} recorridos, e {{Ingreso}} y {{Costo}} en pesos: opcionales y no negativos.",
+                "{{Km}} recorridos, e {{Ingreso manual}} y {{Costo}} en pesos: opcionales y no negativos. El {{Ingreso manual}} solo cuenta en la rentabilidad si el viaje no tiene cargas.",
               ],
             },
             "Hacé clic en {{Crear}}.",
@@ -2943,7 +2943,7 @@ export const fleetPage: GuidePage = {
       title: "Rentabilidad de flota",
       menuPath: "Flota › Rentabilidad",
       routes: ["/fleet-reports"],
-      permission: "trips:read",
+      permission: ["trips:read", "shipments:read"],
       intro: [
         "Ingresos menos costos (viaje, combustible, mantenimiento) por vehículo y por viaje, en un rango de fechas. Arriba se ven el total {{Facturado}}, el {{Manual}} y el neto del rango.",
         "Tres bloques: {{Por vehículo}} ({{Viajes}}, {{Ingresos}}, {{Facturado}}, {{Manual}}, {{Combustible}}, {{Mant.}}, {{Costo viaje}}, {{Neto}}, con una fila {{Sin vehículo}} para los viajes sin vehículo), {{Costos sin comprobante}} (combustible y mantenimiento sin factura ni movimiento vinculado) y {{Por viaje}}.",
@@ -2988,7 +2988,7 @@ export const fleetPage: GuidePage = {
         {
           title: "Cómo se calcula",
           body: [
-            "**Ingreso de un viaje:** si tiene cargas, el flete facturado de esas cargas ({{Facturado}}); si no tiene cargas, el {{Ingreso}} cargado a mano en el viaje ({{Manual}}).",
+            "**Ingreso de un viaje:** si tiene cargas, el flete facturado de esas cargas ({{Facturado}}); si no tiene cargas, el {{Ingreso manual}} del viaje ({{Manual}}).",
             "**Neto de un viaje** = ingreso − costo del viaje − combustible asignado a ese viaje.",
             "**Neto de un vehículo** = ingresos de sus viajes − costo de sus viajes − todo su combustible − todo su mantenimiento del rango.",
             "Un viaje con cargas todavía sin facturar muestra el neto con la nota {{pendiente de facturar}}: ese flete no está en los ingresos y el neto no es definitivo. Arriba se resume cuántos viajes y cargas están en esa situación.",
