@@ -421,7 +421,8 @@ async function unlinkedLiveInvoice(
 }
 
 /** Cancels the liquidación and frees its cargas. An invoiced one needs its
- *  invoice void first (cancelled, or fully credited by an NC), and so does
+ *  invoice void first (billing_invoice_is_void: cancelled, or a fiscal
+ *  factura its NCs credit in full), and so does
  *  one whose invoice was issued but never linked. */
 export async function cancelFreightSettlementAction(input: {
   id: string;

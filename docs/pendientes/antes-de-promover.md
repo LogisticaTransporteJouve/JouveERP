@@ -735,6 +735,57 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
     «Modificar»: con el trigger, sus NC/ND también se mueven. Las facturas
     ya editadas antes no se corrigen:
     `docs/pendientes/2026-11-04-gestion-margen-por-camion-nc-nd-y-escaneo-w11.md`.
+- [ ] **Aprobar `20261104194000`** (auditoría w12, vínculo de factura de
+      cargas y liquidaciones). No toca filas existentes ni cambia políticas
+      RLS.
+  - Funciones nuevas `billing_invoice_is_void`, `billing_void_invoice_ids` y
+    `claim_shipment_for_invoicing` (invoker, para `authenticated`).
+    `storage_invoice_is_void` pasa a envoltorio de la primera, con la misma
+    firma.
+  - `guard_billed_shipment` (ahora `SECURITY DEFINER`),
+    `guard_shipment_invoice` y `guard_freight_settlement` se reemplazan
+    desde su última versión.
+  - Efectos: una carga cuya factura fiscal se acreditó por el total se
+    puede corregir y se libera en su próxima «Facturar flete»; una carga
+    facturada no suelta su factura por PATCH; operaciones no vincula
+    facturas; una NC interna ya no libera una liquidación.
+  - Rollback: el código anterior reserva con un `update` (`invoice_id` nulo)
+    y vincula solo después de reservar, como owner o admin. Una carga
+    acreditada sigue facturada para él, como hoy.
+  - Consulta de control antes de aplicar (solo lectura): las cargas que la
+    próxima «Facturar flete» libera, y las liquidaciones facturadas cuyo
+    remito interno tiene NC internas por el total, que ya no se pueden
+    cancelar.
+
+    ```sql
+    select 'carga' as que, s.id, s.invoice_id, i.imp_total,
+           sum(n.imp_total) as acreditado
+      from public.shipments s
+      join public.invoices i on i.id = s.invoice_id
+      join public.invoicing_channels c on c.id = i.channel_id and c.is_fiscal
+      join public.invoices n on n.invoice_origin_id = i.id
+                            and n.kind = 'nc' and n.status = 'emitted'
+     group by s.id, s.invoice_id, i.imp_total
+    having sum(n.imp_total) >= i.imp_total - 0.01
+    union all
+    select 'liquidación', fs.id, fs.invoice_id, i.imp_total,
+           sum(n.imp_total)
+      from public.freight_settlements fs
+      join public.invoices i on i.id = fs.invoice_id
+      join public.invoicing_channels c on c.id = i.channel_id and not c.is_fiscal
+      join public.invoices n on n.invoice_origin_id = i.id
+                            and n.kind = 'nc' and n.status = 'emitted'
+     where fs.status = 'invoiced'
+     group by fs.id, fs.invoice_id, i.imp_total
+    having sum(n.imp_total) >= i.imp_total - 0.01;
+    ```
+- [ ] **Aprobar `20261104194001`** (auditoría w12, re-vínculos de
+      almacenaje). No toca filas existentes ni cambia políticas RLS. Función
+      nueva `claim_storage_billing_period_with_relinks` (invoker, para
+      `authenticated`): la reserva de siempre, que además devuelve los
+      períodos que re-vinculó. `claim_storage_billing_period` pasa a
+      envoltorio, con la misma firma, resultado y errores. Rollback: el
+      código anterior llama al envoltorio.
 - [ ] **Aprobar `20261104194200` y `194201`** (auditoría w12, gestión). No
       tocan filas existentes ni cambian políticas RLS ni permisos. Conviene
       promoverlas junto con `190201`. Rollback de cada una:
