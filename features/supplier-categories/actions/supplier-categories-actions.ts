@@ -12,10 +12,17 @@ import { logger } from "@/lib/logger";
 import { escapeLike } from "@/lib/supabase/like-pattern";
 import { createClient } from "@/lib/supabase/server";
 import { paginateRange } from "@/lib/supabase/paginate";
+import { UuidSchema } from "@/lib/validation/common";
+
+import {
+  isPurchaseInvoiceKind,
+  type PurchaseInvoiceKind,
+} from "@/features/purchase-invoices/schema";
 
 import {
   SupplierCategoryCreateSchema,
   SupplierCategoryDeleteSchema,
+  SupplierCategoryPurchasesInputSchema,
   SupplierCategoryUpdateSchema,
   type SupplierCategory,
 } from "../schema";
@@ -46,6 +53,130 @@ export async function listSupplierCategoriesAction(
   }
 
   return { ok: true, data: data ?? [] };
+}
+
+export type SupplierCategoryHeader = Pick<
+  SupplierCategory,
+  "id" | "name" | "is_active"
+>;
+
+/** One category for its detail page; `null` when it does not exist. */
+export async function getSupplierCategoryAction(
+  id: string,
+): Promise<ActionResult<SupplierCategoryHeader | null>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.access, "suppliers:read")) {
+    return { ok: false, error: "No tenés permiso para ver categorías." };
+  }
+  if (!UuidSchema.safeParse(id).success) return { ok: true, data: null };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("supplier_categories")
+    .select("id, name, is_active")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) {
+    logger.error("supplier_categories.get.failed", {
+      userId: ctx.userId,
+      id,
+      error,
+    });
+    return { ok: false, error: "No se pudo leer la categoría." };
+  }
+  return { ok: true, data };
+}
+
+export interface SupplierCategoryPurchase {
+  id: string;
+  kind: PurchaseInvoiceKind;
+  letter: string | null;
+  punto_venta: number;
+  numero: number;
+  fecha: string;
+  imp_total: number;
+  moneda: string;
+  supplier_id: string;
+  supplier_legal_name: string;
+  is_fiscal: boolean;
+}
+
+export interface SupplierCategoryPurchasesPage {
+  purchases: SupplierCategoryPurchase[];
+  /** More received purchases in the period than `purchases` holds. */
+  hasMore: boolean;
+}
+
+/**
+ * The latest received purchases of a category's suppliers in a period, on the
+ * channel side asked (the rows behind the category's spend figures).
+ */
+export async function listSupplierCategoryPurchasesAction(
+  input: unknown,
+): Promise<ActionResult<SupplierCategoryPurchasesPage>> {
+  const ctx = await requireUserContext();
+  if (
+    !userCan(ctx.access, "suppliers:read") ||
+    !userCan(ctx.access, "purchase_invoices:read")
+  ) {
+    return { ok: false, error: "No tenés permiso para ver compras." };
+  }
+  const parsed = SupplierCategoryPurchasesInputSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
+    };
+  }
+  const v = parsed.data;
+
+  const supabase = await createClient();
+  let query = supabase
+    .from("purchase_invoices")
+    .select(
+      "id, kind, letter, punto_venta, numero, fecha, imp_total, moneda, supplier_id, suppliers!inner(legal_name, category_id), invoicing_channels!inner(is_fiscal)",
+    )
+    .eq("suppliers.category_id", v.categoryId)
+    .eq("status", "received")
+    .gte("fecha", v.from)
+    .lte("fecha", v.to);
+  if (v.isFiscal !== null) {
+    query = query.eq("invoicing_channels.is_fiscal", v.isFiscal);
+  }
+  const { data, error } = await query
+    .order("fecha", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(v.limit + 1);
+  if (error) {
+    logger.error("supplier_categories.purchases.failed", {
+      userId: ctx.userId,
+      categoryId: v.categoryId,
+      error,
+    });
+    return { ok: false, error: "No se pudieron leer las compras." };
+  }
+
+  const purchases: SupplierCategoryPurchase[] = [];
+  for (const row of (data ?? []).slice(0, v.limit)) {
+    if (!isPurchaseInvoiceKind(row.kind)) continue;
+    purchases.push({
+      id: row.id,
+      kind: row.kind,
+      letter: row.letter,
+      punto_venta: row.punto_venta,
+      numero: row.numero,
+      fecha: row.fecha,
+      imp_total: row.imp_total,
+      moneda: row.moneda,
+      supplier_id: row.supplier_id,
+      supplier_legal_name: row.suppliers.legal_name,
+      is_fiscal: row.invoicing_channels.is_fiscal,
+    });
+  }
+  return {
+    ok: true,
+    data: { purchases, hasMore: (data ?? []).length > v.limit },
+  };
 }
 
 const duplicateNameError = (name: string) =>
