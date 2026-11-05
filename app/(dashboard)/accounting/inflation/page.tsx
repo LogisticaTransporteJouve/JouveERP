@@ -24,7 +24,7 @@ export default async function InflationPageRoute() {
   ]);
   return (
     <Hydrate state={dehydratedState}>
-      <InflationPage />
+      <InflationPage actorAccess={ctx.access} />
     </Hydrate>
   );
 }

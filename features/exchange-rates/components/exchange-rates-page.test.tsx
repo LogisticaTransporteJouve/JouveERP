@@ -2,6 +2,8 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { resolveAccess } from "@/lib/auth/permissions";
+
 import { ExchangeRateCreateSchema } from "../schema";
 
 const create = vi.fn();
@@ -31,6 +33,8 @@ vi.mock("../hooks/use-exchange-rates", () => ({
 
 const { ExchangeRatesPage } = await import("./exchange-rates-page");
 
+const finance = resolveAccess(["finance"]);
+
 afterEach(() => {
   cleanup();
   create.mockReset();
@@ -50,7 +54,7 @@ describe("ExchangeRatesPage: Cargar cotización", () => {
     ["1.180,50", "1.180,50", 1180.5],
     ["1180,123456", "1.180,123456", 1180.123456],
   ])("typing %s shows %s and saves %s", async (typed, shown, saved) => {
-    render(<ExchangeRatesPage />);
+    render(<ExchangeRatesPage actorAccess={finance} />);
     fireEvent.click(screen.getByRole("button", { name: /Cargar cotización/ }));
     fireEvent.change(field("Fecha"), { target: { value: "2026-10-01" } });
     fireEvent.change(field("ARS por USD"), { target: { value: typed } });
@@ -74,7 +78,7 @@ describe("ExchangeRatesPage: Cargar cotización", () => {
     };
 
     function save(typed: string) {
-      render(<ExchangeRatesPage />);
+      render(<ExchangeRatesPage actorAccess={finance} />);
       fireEvent.click(
         screen.getByRole("button", { name: /Cargar cotización/ }),
       );
@@ -108,5 +112,37 @@ describe("ExchangeRatesPage: Cargar cotización", () => {
       await vi.waitFor(() => expect(create).toHaveBeenCalledTimes(1));
       expect(confirm).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe("ExchangeRatesPage: write controls follow accounting:write", () => {
+  it.each([
+    ["finance", finance, true],
+    ["fiscal_reader", resolveAccess(["fiscal_reader"]), false],
+    [
+      "finance with accounting:write denied",
+      resolveAccess(["finance"], ["accounting:write"]),
+      false,
+    ],
+  ])("%s sees Cargar cotización and Borrar: %s", (_, access, visible) => {
+    h.rates = [
+      {
+        id: "r1",
+        currency: "USD",
+        rate_date: "2026-09-30",
+        rate: 1450,
+        source: "bcra",
+        notes: null,
+        created_at: "2026-09-30T12:00:00Z",
+      },
+    ];
+    render(<ExchangeRatesPage actorAccess={access} />);
+    expect(screen.getByText("BCRA")).toBeTruthy();
+    expect(
+      screen.queryByRole("button", { name: /Cargar cotización/ }) !== null,
+    ).toBe(visible);
+    expect(screen.queryByRole("button", { name: "Borrar" }) !== null).toBe(
+      visible,
+    );
   });
 });

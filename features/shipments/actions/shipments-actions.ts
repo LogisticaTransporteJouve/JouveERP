@@ -171,7 +171,7 @@ export async function listShipmentsAction(): Promise<ActionResult<Shipment[]>> {
 
 type ShipmentOptions = {
   trips: { id: string; trip_date: string; status: string }[];
-  channels: { id: string; name: string }[];
+  channels: { id: string; name: string; is_fiscal: boolean }[];
 };
 
 /** Select options for the shipment forms (recent trips, active channels).
@@ -203,7 +203,11 @@ export async function listShipmentOptionsAction(): Promise<
     ok: true,
     data: {
       trips: trips.data ?? [],
-      channels: channels.map((c) => ({ id: c.id, name: c.name })),
+      channels: channels.map((c) => ({
+        id: c.id,
+        name: c.name,
+        is_fiscal: c.is_fiscal,
+      })),
     },
   };
 }

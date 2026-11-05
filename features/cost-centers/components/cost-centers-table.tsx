@@ -15,6 +15,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { userCan, type Access } from "@/lib/auth/permissions";
 
 import {
   useCostCenterVehicles,
@@ -25,7 +26,8 @@ import type { CostCenter } from "../schema";
 
 import { CostCenterDialog } from "./cost-center-dialog";
 
-export function CostCentersTable() {
+export function CostCentersTable({ actorAccess }: { actorAccess: Access }) {
+  const canWrite = userCan(actorAccess, "accounting:write");
   const { data: items } = useCostCenters();
   const vehicles = useCostCenterVehicles();
   const patenteById = useMemo(
@@ -109,35 +111,36 @@ export function CostCentersTable() {
         header: "",
         enableSorting: false,
         meta: { headerClassName: "w-12" },
-        cell: ({ row }) => (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <MoreHorizontal className="size-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onClick={() =>
-                  setDialog({ mode: "edit", costCenter: row.original })
-                }
-              >
-                <Pencil className="size-4" />
-                Editar
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="text-destructive"
-                onClick={() => handleDelete(row.original)}
-              >
-                <Trash2 className="size-4" />
-                Borrar
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ),
+        cell: ({ row }) =>
+          canWrite && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" aria-label="Acciones">
+                  <MoreHorizontal className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={() =>
+                    setDialog({ mode: "edit", costCenter: row.original })
+                  }
+                >
+                  <Pencil className="size-4" />
+                  Editar
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="text-destructive"
+                  onClick={() => handleDelete(row.original)}
+                >
+                  <Trash2 className="size-4" />
+                  Borrar
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ),
       },
     ];
-  }, [confirm, deleteMut, patenteById]);
+  }, [canWrite, confirm, deleteMut, patenteById]);
 
   return (
     <>
@@ -153,10 +156,12 @@ export function CostCentersTable() {
         </div>
         <div className="flex flex-wrap gap-2">
           <ExportButton resource="cost-centers" />
-          <Button onClick={() => setDialog({ mode: "create" })}>
-            <Plus />
-            Nuevo centro
-          </Button>
+          {canWrite && (
+            <Button onClick={() => setDialog({ mode: "create" })}>
+              <Plus />
+              Nuevo centro
+            </Button>
+          )}
         </div>
       </div>
 
@@ -167,7 +172,7 @@ export function CostCentersTable() {
         emptyMessage="Sin centros de costo."
       />
 
-      {dialog && (
+      {canWrite && dialog && (
         <CostCenterDialog
           mode={dialog.mode}
           costCenter={dialog.mode === "edit" ? dialog.costCenter : undefined}

@@ -686,6 +686,7 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
                 and n.cbte_tipo_origen_afip is null
                 and n.moneda <> f.moneda))
      order by f.fecha, f.id, n.fecha, n.numero;
+    ```
 - [ ] **Aprobar `20261104190300`, `190301` y `190302`** (auditoría w11,
       vínculos de facturación y cheques). No tocan filas existentes ni
       cambian políticas RLS.
@@ -693,8 +694,10 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
     solo a una factura de su cliente que no falló ni se anuló.
     `link_freight_settlement_invoice` ya valida lo mismo, y
     `release_invoice_billing_links` solo limpia el vínculo. Rollback: el
-    código anterior informa el rechazo como «no se vinculó», conserva la
-    reserva 15 minutos y después emite con la clave siguiente.
+    código de `production-latest` informa el rechazo como «La factura se
+    emitió pero no se vinculó…» aunque la factura falló (cosmético),
+    conserva la reserva 15 minutos y después emite otra factura (con clave
+    al azar).
   - `190301`: funciones nuevas `storage_invoice_is_void` y
     `storage_billing_void_run_ids` (invoker, para `authenticated`).
     `claim_storage_billing_period`, `guard_storage_billing_run_delete` y
@@ -706,7 +709,7 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
     período vinculado.
   - `190302`: trigger nuevo `checks_guard_import_run`. `import_run_id` de un
     cheque lo pone solo `commit_import_run` y no cambia. Rollback: el código
-    anterior lo escribe solo desde el importador.
+    de `production-latest` no tiene importador y nunca escribe la columna.
   - Consulta de control antes de aplicar (solo lectura): cuántos períodos
     libera `190301` en la próxima reserva de cada cliente.
 
@@ -725,16 +728,18 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
       tocan filas existentes ni cambian políticas RLS. Rollback de cada una:
   - `190200`: `get_vehicle_margin` suma `uninvoiced_shipments` al final, con
     `drop` y `create` en la misma transacción (permisos repuestos: solo
-    `service_role`). El código anterior lee las filas por nombre e ignora la
-    columna nueva.
+    `service_role`). El código de `production-latest` no llama a
+    `get_vehicle_margin`.
   - `190201`: trigger nuevo `purchase_invoices_nc_nd_follow_factura`. Al
     cambiar la cuenta o el centro de una factura de compra vigente, sus
     NC/ND vigentes que tenían el valor anterior lo siguen, como en
     «Recategorizar»; una NC/ND de un período cerrado rechaza el cambio de la
-    factura. El código anterior escribe las mismas columnas desde
-    «Modificar»: con el trigger, sus NC/ND también se mueven. Las facturas
-    ya editadas antes no se corrigen:
+    factura. El código de `production-latest` no cambia cuenta ni centro
+    desde «Modificar», así que el trigger no corre con él: el rollback no
+    cambia nada. Las facturas ya editadas antes no se corrigen:
     `docs/pendientes/2026-11-04-gestion-margen-por-camion-nc-nd-y-escaneo-w11.md`.
+  - Corrección de los encabezados de `190201`, `190300` y `190302`:
+    `docs/pendientes/2026-11-04-notas-de-rollback-w11-y-controles-por-permiso-w12.md`.
 - [ ] **Aprobar `20261104194000`** (auditoría w12, vínculo de factura de
       cargas y liquidaciones). No toca filas existentes ni cambia políticas
       RLS.

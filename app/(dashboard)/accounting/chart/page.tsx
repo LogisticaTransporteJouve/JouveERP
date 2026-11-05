@@ -28,7 +28,7 @@ export default async function ChartOfAccountsPage() {
   return (
     <Hydrate state={dehydratedState}>
       <div className="space-y-6">
-        <ChartOfAccountsTree />
+        <ChartOfAccountsTree actorAccess={ctx.access} />
       </div>
     </Hydrate>
   );

@@ -15,6 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { userCan, type Access } from "@/lib/auth/permissions";
 import { cn } from "@/lib/utils";
 import { todayInAR } from "@/lib/format";
 
@@ -37,7 +38,11 @@ function monthStart(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
 }
 
-export function StorageBillingReport() {
+export function StorageBillingReport({ actorAccess }: { actorAccess: Access }) {
+  // invoiceStorageAction needs both.
+  const canInvoice =
+    userCan(actorAccess, "storage_billing:issue") &&
+    userCan(actorAccess, "invoices:issue");
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
 
@@ -191,23 +196,25 @@ export function StorageBillingReport() {
                             {!runs ? "…" : lastEnd ? fmtDate(lastEnd) : "—"}
                           </TableCell>
                           <TableCell>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              // The dialog's continuity and overlap checks
-                              // need the earlier runs.
-                              disabled={!runs}
-                              onClick={() =>
-                                setInvoiceClient({
-                                  client_id: c.client_id,
-                                  client_name: c.client_name,
-                                  client_is_fiscal: c.client_is_fiscal,
-                                })
-                              }
-                            >
-                              <Receipt className="size-4" />
-                              Facturar
-                            </Button>
+                            {canInvoice && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                // The dialog's continuity and overlap checks
+                                // need the earlier runs.
+                                disabled={!runs}
+                                onClick={() =>
+                                  setInvoiceClient({
+                                    client_id: c.client_id,
+                                    client_name: c.client_name,
+                                    client_is_fiscal: c.client_is_fiscal,
+                                  })
+                                }
+                              >
+                                <Receipt className="size-4" />
+                                Facturar
+                              </Button>
+                            )}
                           </TableCell>
                         </TableRow>
                       );
@@ -279,13 +286,15 @@ export function StorageBillingReport() {
         </>
       )}
 
-      <StorageInvoiceDialog
-        client={invoiceClient}
-        reportStart={start}
-        reportEnd={end}
-        runs={runs ?? []}
-        onClose={() => setInvoiceClient(null)}
-      />
+      {canInvoice && (
+        <StorageInvoiceDialog
+          client={invoiceClient}
+          reportStart={start}
+          reportEnd={end}
+          runs={runs ?? []}
+          onClose={() => setInvoiceClient(null)}
+        />
+      )}
     </div>
   );
 }

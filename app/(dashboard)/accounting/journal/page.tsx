@@ -44,6 +44,7 @@ export default async function JournalPage() {
         channels={channelsRes.data ?? []}
         initialFilters={initialFilters}
         canManagePeriods={canManageClosedPeriods(ctx.access)}
+        canWrite={userCan(ctx.access, "accounting:write")}
       />
     </Hydrate>
   );

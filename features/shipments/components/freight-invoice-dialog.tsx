@@ -44,13 +44,30 @@ export function FreightInvoiceDialog({
   const [puntoVenta, setPuntoVenta] = useState("");
 
   const open = shipment !== null;
+  const channels = options?.channels;
+  // A Ventas client is invoiced on a fiscal channel and an Otras ventas one
+  // on an internal channel (issueFiscalInvoiceAction refuses the other). The
+  // carga's own channel stays listed: the select shows it, locked.
+  const clientIsFiscal = shipment?.client?.is_fiscal;
+  const sideChannels = (channels ?? []).filter(
+    (c) =>
+      clientIsFiscal == null ||
+      c.is_fiscal === clientIsFiscal ||
+      c.id === shipment?.channel_id,
+  );
 
+  // Preselects the carga's channel, or the client's only one once the
+  // channels arrive.
   useEffect(() => {
     if (open) {
-      setChannelId(shipment?.channel_id ?? "");
+      setChannelId(
+        shipment?.channel_id ??
+          (sideChannels.length === 1 ? sideChannels[0]!.id : ""),
+      );
       setPuntoVenta("");
     }
-  }, [open, shipment]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, shipment, channels]);
 
   function onSubmit() {
     if (!shipment) return;
@@ -118,7 +135,7 @@ export function FreightInvoiceDialog({
                 <SelectValue placeholder="Elegí un canal" />
               </SelectTrigger>
               <SelectContent>
-                {(options?.channels ?? []).map((c) => (
+                {sideChannels.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
                     {c.name}
                   </SelectItem>

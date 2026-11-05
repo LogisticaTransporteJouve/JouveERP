@@ -11,5 +11,5 @@ export default async function StorageBillingRoute() {
   if (!userCan(ctx.access, "storage_billing:read")) {
     redirect("/dashboard");
   }
-  return <StorageBillingReport />;
+  return <StorageBillingReport actorAccess={ctx.access} />;
 }

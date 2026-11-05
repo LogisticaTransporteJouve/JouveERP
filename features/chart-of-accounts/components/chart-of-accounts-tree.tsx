@@ -28,6 +28,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { userCan, type Access } from "@/lib/auth/permissions";
 import { cn } from "@/lib/utils";
 
 import {
@@ -49,7 +50,8 @@ type DialogState =
   | { mode: "edit"; account: ChartAccount }
   | null;
 
-export function ChartOfAccountsTree() {
+export function ChartOfAccountsTree({ actorAccess }: { actorAccess: Access }) {
+  const canWrite = userCan(actorAccess, "accounting:write");
   const { data: accounts } = useChartOfAccounts();
   const deleteMut = useDeleteChartAccount();
   const confirm = useConfirm();
@@ -97,9 +99,7 @@ export function ChartOfAccountsTree() {
             >
               <button
                 type="button"
-                onClick={
-                  canExpand ? row.getToggleExpandedHandler() : undefined
-                }
+                onClick={canExpand ? row.getToggleExpandedHandler() : undefined}
                 className={cn(
                   "flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground",
                   canExpand ? "hover:bg-muted" : "invisible",
@@ -152,6 +152,7 @@ export function ChartOfAccountsTree() {
         enableSorting: false,
         meta: { headerClassName: "w-12" },
         cell: ({ row }) => {
+          if (!canWrite) return null;
           const node = row.original;
           const canAddChild = node.level < 8;
           return (
@@ -168,7 +169,9 @@ export function ChartOfAccountsTree() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem
-                  onClick={() => setDialogState({ mode: "edit", account: node })}
+                  onClick={() =>
+                    setDialogState({ mode: "edit", account: node })
+                  }
                 >
                   <Pencil className="size-4" />
                   Editar
@@ -200,7 +203,7 @@ export function ChartOfAccountsTree() {
         },
       },
     ];
-  }, [confirm, deleteMut]);
+  }, [canWrite, confirm, deleteMut]);
 
   return (
     <>
@@ -210,8 +213,8 @@ export function ChartOfAccountsTree() {
             Plan de cuentas
           </h1>
           <p className="text-sm text-muted-foreground">
-            Jerarquía contable. Las cuentas con rol del sistema son destinos
-            de asientos automáticos.
+            Jerarquía contable. Las cuentas con rol del sistema son destinos de
+            asientos automáticos.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -221,10 +224,12 @@ export function ChartOfAccountsTree() {
           <Button variant="outline" size="sm" onClick={() => setExpanded({})}>
             Colapsar todo
           </Button>
-          <Button onClick={() => setDialogState({ mode: "create" })}>
-            <Plus />
-            Nueva cuenta
-          </Button>
+          {canWrite && (
+            <Button onClick={() => setDialogState({ mode: "create" })}>
+              <Plus />
+              Nueva cuenta
+            </Button>
+          )}
         </div>
       </div>
 
@@ -238,10 +243,12 @@ export function ChartOfAccountsTree() {
         emptyMessage="Sin cuentas. Creá la primera para empezar."
       />
 
-      {dialogState && (
+      {canWrite && dialogState && (
         <ChartAccountDialog
           mode={dialogState.mode}
-          account={dialogState.mode === "edit" ? dialogState.account : undefined}
+          account={
+            dialogState.mode === "edit" ? dialogState.account : undefined
+          }
           parentSuggestion={
             dialogState.mode === "create"
               ? dialogState.parentSuggestion

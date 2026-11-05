@@ -26,6 +26,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { userCan, type Access } from "@/lib/auth/permissions";
 
 import { useDeleteShipment, useShipments } from "../hooks/use-shipments";
 import { formatRoute, matchesShipmentSearch } from "../lib/format";
@@ -82,10 +83,15 @@ type StatusState = {
 
 /** `initialSearch`: the ?q= of a link (a scanned remito's carga). */
 export function ShipmentsTable({
+  actorAccess,
   initialSearch = "",
 }: {
+  actorAccess: Access;
   initialSearch?: string;
 }) {
+  // The same permissions as the actions: invoiceFreightAction needs both.
+  const canWrite = userCan(actorAccess, "shipments:write");
+  const canInvoice = canWrite && userCan(actorAccess, "invoices:issue");
   const { data: items } = useShipments();
   const [search, setSearch] = useState(initialSearch);
   const visible = useMemo(
@@ -201,8 +207,9 @@ export function ShipmentsTable({
         meta: { headerClassName: "w-12", mobile: "primary" },
         cell: ({ row }) => {
           const shipment = row.original;
-          const statusActions = STATUS_ACTIONS[shipment.status];
+          const statusActions = canWrite ? STATUS_ACTIONS[shipment.status] : [];
           const canInvoiceFreight = Boolean(
+            canInvoice &&
             shipment.freight_amount &&
             shipment.client_id &&
             (!shipment.invoice_id || shipment.invoice_void),
@@ -210,17 +217,19 @@ export function ShipmentsTable({
           return (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon">
+                <Button variant="ghost" size="icon" aria-label="Acciones">
                   <MoreHorizontal className="size-4" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem
-                  onClick={() => setDialog({ mode: "edit", shipment })}
-                >
-                  <Pencil className="size-4" />
-                  Editar
-                </DropdownMenuItem>
+                {canWrite && (
+                  <DropdownMenuItem
+                    onClick={() => setDialog({ mode: "edit", shipment })}
+                  >
+                    <Pencil className="size-4" />
+                    Editar
+                  </DropdownMenuItem>
+                )}
                 {statusActions.length > 0 && <DropdownMenuSeparator />}
                 {statusActions.map((action) => {
                   const Icon = ACTION_ICON[action];
@@ -246,25 +255,27 @@ export function ShipmentsTable({
                     </DropdownMenuItem>
                   </>
                 )}
-                <DropdownMenuSeparator />
+                {canWrite && <DropdownMenuSeparator />}
                 <DropdownMenuItem onClick={() => setHistoryId(shipment.id)}>
                   <History className="size-4" />
                   Historial
                 </DropdownMenuItem>
-                <DropdownMenuItem
-                  className="text-destructive"
-                  onClick={() => handleDelete(shipment)}
-                >
-                  <Trash2 className="size-4" />
-                  Borrar
-                </DropdownMenuItem>
+                {canWrite && (
+                  <DropdownMenuItem
+                    className="text-destructive"
+                    onClick={() => handleDelete(shipment)}
+                  >
+                    <Trash2 className="size-4" />
+                    Borrar
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           );
         },
       },
     ];
-  }, [confirm, deleteMut]);
+  }, [canInvoice, canWrite, confirm, deleteMut]);
 
   return (
     <>
@@ -275,10 +286,12 @@ export function ShipmentsTable({
             Cargas a transportar con cliente, ruta, viaje y estado de entrega.
           </p>
         </div>
-        <Button onClick={() => setDialog({ mode: "create" })}>
-          <Plus />
-          Nueva carga
-        </Button>
+        {canWrite && (
+          <Button onClick={() => setDialog({ mode: "create" })}>
+            <Plus />
+            Nueva carga
+          </Button>
+        )}
       </div>
 
       <ListSearch
@@ -298,7 +311,7 @@ export function ShipmentsTable({
         }
       />
 
-      {dialog && (
+      {canWrite && dialog && (
         <ShipmentDialog
           mode={dialog.mode}
           shipment={dialog.mode === "edit" ? dialog.shipment : undefined}
@@ -309,21 +322,25 @@ export function ShipmentsTable({
         />
       )}
 
-      <ShipmentStatusDialog
-        shipment={statusDialog?.shipment ?? null}
-        action={statusDialog?.action ?? null}
-        onClose={() => setStatusDialog(null)}
-      />
+      {canWrite && (
+        <ShipmentStatusDialog
+          shipment={statusDialog?.shipment ?? null}
+          action={statusDialog?.action ?? null}
+          onClose={() => setStatusDialog(null)}
+        />
+      )}
 
       <ShipmentHistoryDialog
         shipmentId={historyId}
         onClose={() => setHistoryId(null)}
       />
 
-      <FreightInvoiceDialog
-        shipment={freightShipment}
-        onClose={() => setFreightShipment(null)}
-      />
+      {canInvoice && (
+        <FreightInvoiceDialog
+          shipment={freightShipment}
+          onClose={() => setFreightShipment(null)}
+        />
+      )}
     </>
   );
 }
