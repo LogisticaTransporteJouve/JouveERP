@@ -31,14 +31,16 @@ export const SOURCE_LABEL: Record<JournalSourceTable, string> = {
   issued_checks: "Cheque propio",
 };
 
-/** Only origins with a detail page link out. */
-export const SOURCE_HREF_PREFIX: Partial<Record<JournalSourceTable, string>> = {
-  transactions: "/transactions",
-  invoices: "/invoices",
-  purchase_invoices: "/purchases",
-  receipts: "/receipts",
-  payment_orders: "/payment-orders",
-};
+/** Only origins with a page that shows the record link out. A cash movement
+ *  has no detail page: Caja lists just that one (`?id=`). */
+const SOURCE_HREF: Partial<Record<JournalSourceTable, (id: string) => string>> =
+  {
+    transactions: (id) => `/transactions?id=${id}`,
+    invoices: (id) => `/invoices/${id}`,
+    purchase_invoices: (id) => `/purchases/${id}`,
+    receipts: (id) => `/receipts/${id}`,
+    payment_orders: (id) => `/payment-orders/${id}`,
+  };
 
 export function isKnownSource(s: string | null): s is JournalSourceTable {
   return JOURNAL_SOURCE_TABLES.some((t) => t === s);
@@ -55,8 +57,7 @@ export function journalSourceHref(
   id: string | null,
 ): string | null {
   if (!isKnownSource(s) || !id) return null;
-  const prefix = SOURCE_HREF_PREFIX[s];
-  return prefix ? `${prefix}/${id}` : null;
+  return SOURCE_HREF[s]?.(id) ?? null;
 }
 
 export type JournalEntryWithLines = JournalEntryRow & {

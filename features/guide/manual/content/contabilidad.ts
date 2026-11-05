@@ -446,7 +446,7 @@ export const accountingPage: GuidePage = {
       permission: "accounting:read",
       intro: [
         "Los asientos contables, del más nuevo al más viejo. Casi todos se generan solos desde comprobantes, compras, recibos, órdenes de pago y movimientos de caja; los manuales se cargan acá.",
-        "Cada fila muestra fecha, período de devengamiento, descripción, origen, canal y el total del Debe. Al hacer clic se despliegan las líneas: {{Código}}, {{Cuenta}}, {{Descripción}}, {{Debe}} y {{Haber}}, con los {{Totales}} y, si el asiento viene de un comprobante emitido, un comprobante de compra, un recibo, una orden de pago o un movimiento de caja, un enlace **Ver …** que abre ese documento.",
+        "Cada fila muestra fecha, período de devengamiento, descripción, origen, canal y el total del Debe. Al hacer clic se despliegan las líneas: {{Código}}, {{Cuenta}}, {{Descripción}}, {{Debe}} y {{Haber}}, con los {{Totales}} y, si el asiento viene de un comprobante emitido, un comprobante de compra, un recibo, una orden de pago o un movimiento de caja, un enlace **Ver …** que abre ese documento (un movimiento de caja se abre en [[/transactions]] mostrando solo ese movimiento).",
         "Arriba, el contador de asientos cargados; al final, {{Cargar más}} trae los siguientes 50.",
       ],
       screens: [
@@ -738,7 +738,7 @@ export const accountingPage: GuidePage = {
               substeps: [
                 "Arriba, {{Total Debe}}, {{Total Haber}} y {{Saldo final}}.",
                 "Con {{Desde}}, la primera fila es el {{Saldo anterior}} a esa fecha.",
-                "Cada fila tiene fecha, período, descripción, origen, Debe, Haber y el saldo acumulado; si el asiento viene de un comprobante emitido, un comprobante de compra, un recibo, una orden de pago o un movimiento de caja, el origen enlaza a ese documento; los de cheques muestran el origen sin enlace y los manuales, «—». Las reversas se ven sombreadas.",
+                "Cada fila tiene fecha, período, descripción, origen, Debe, Haber y el saldo acumulado; si el asiento viene de un comprobante emitido, un comprobante de compra, un recibo, una orden de pago o un movimiento de caja, el origen enlaza a ese documento (el movimiento de caja, a [[/transactions]] mostrando solo ese movimiento); los de cheques muestran el origen sin enlace y los manuales, «—». Las reversas se ven sombreadas.",
               ],
             },
           ],

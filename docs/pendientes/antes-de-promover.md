@@ -2,7 +2,7 @@
 
 Lo que el owner revisa y aprueba antes de correr **Promote to production**
 con cualquier commit posterior a `production-latest`. Cubre **todas las
-migraciones posteriores a `production-latest`** (hoy `d71de85`, promovido el
+migraciones posteriores a `production-latest`** (hoy `ed46071`, promovido el
 2026-11-05; su última migración es `20261105140000`):
 `promote-to-production.yml` las aplica todas juntas. Las consultas son de
 solo lectura y se corren en el SQL editor de producción **antes** de
@@ -1484,7 +1484,7 @@ código que estaba en producción antes (`94f942b`).
 
 ## Después de promover
 
-- [ ] Correr `ai-workflows-reconcile` a mano una vez, desde el dashboard de
+- [x] Correr `ai-workflows-reconcile` a mano una vez, desde el dashboard de
       Inngest. El deploy saca el cron `ai-workflows-materialize` de 15
       minutos y las tareas de IA existentes no tienen scheduler durmiendo
       hasta la pasada de las 04:52; sin la corrida manual, las que vencen
@@ -1495,6 +1495,8 @@ código que estaba en producción antes (`94f942b`).
       sincronizar Inngest. Owner: marcá este ítem cuando la hayas corrido
       (Inngest → Functions → «AI — reconciliar tareas programadas» →
       Invoke con `{}`).
+      **Hecho** el 2026-11-05 a las 14:27 (run `01M6PC04YZSG7F9SGTBTTT9NFR`,
+      Completed): no había tareas para reagendar (`scheduled: 0`, `resent: 0`).
 - [x] **N/A en producción (base sin compras/cheques/OP/préstamos/RRHH a
       2026-11-04).** Las NC de compras a cargo de empleados que `102300`
       dejó con su asiento viejo por período cerrado: ítem **Después de

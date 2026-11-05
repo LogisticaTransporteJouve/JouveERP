@@ -102,6 +102,7 @@ export async function listTransactionsAction(
     // appear on two pages → React duplicate key error.
     .order("id", { ascending: false });
 
+  if (filters.id) query = query.eq("id", filters.id);
   if (filters.channel_id) query = query.eq("channel_id", filters.channel_id);
   query = applyFiscalFilter(query, filters.is_fiscal);
   if (filters.account_id) query = query.eq("account_id", filters.account_id);
