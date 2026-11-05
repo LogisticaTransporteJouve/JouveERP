@@ -11,7 +11,7 @@ se aplica a las pantallas que faltaban: cada página pasa `ctx.access`
 | -------------------------------------------- | ------------------------------------------------------------------- | --------------------------------------------------------- |
 | Proveedores › Categorías                     | `suppliers:write`                                                   | la lista                                                  |
 | Depósito › Productos                         | `products:write`                                                    | la lista                                                  |
-| Flota › Viajes                               | `trips:write`                                                       | «Ver cargas»                                              |
+| Flota › Viajes                               | `trips:write`                                                       | «Ver cargas», solo con `shipments:read` (el chofer no)    |
 | Tarifas de almacenaje (incluye «Aumentar %») | `storage_billing:issue`                                             | la lista                                                  |
 | Vehículos                                    | `vehicles:write`                                                    | la lista                                                  |
 | Choferes                                     | `drivers:write`                                                     | «Vincular usuario» (pide `users:assign_role`, como antes) |
@@ -21,7 +21,10 @@ se aplica a las pantallas que faltaban: cada página pasa `ctx.access`
 | Depósitos (incluye el editor de «Áreas»)     | `warehouses:write`                                                  | la lista                                                  |
 | Pagos recurrentes                            | `recurring_payments:write`                                          | la lista                                                  |
 
-Así, un chofer ve Viajes sin «Nuevo viaje», «Editar» ni «Borrar», y un
+Así, un chofer ve Viajes sin «Nuevo viaje», «Editar», «Borrar» ni «Ver
+cargas» (corregido en w14: la página del viaje lee las cargas con
+`shipments:read`, que el chofer no tiene;
+[`2026-11-05-listas-y-lecturas-de-canales-w14.md`](2026-11-05-listas-y-lecturas-de-canales-w14.md)), y un
 usuario de depósito ve Productos sin controles; una denegación por usuario
 (`/admin/users`) oculta lo mismo en las otras.
 
@@ -29,7 +32,9 @@ usuario de depósito ve Productos sin controles; una denegación por usuario
 devuelve la lectura o `ok: false`. «Flujo de caja» falla entero si no se
 pudo leer (muestra «No se pudo cargar el flujo de caja.» con «Reintentar»),
 en vez de pasar todo a «otros» y descartar pagos recurrentes de
-«Préstamo». Las opciones de cargas también fallan: «Facturar flete» dice
+«Préstamo». (w14 cambió lo que sigue de este párrafo: ver
+[`2026-11-05-listas-y-lecturas-de-canales-w14.md`](2026-11-05-listas-y-lecturas-de-canales-w14.md).)
+Las opciones de cargas también fallan: «Facturar flete» dice
 «No se pudieron cargar los canales.» y el viaje de «Editar carga» dice «No
 se pudieron cargar los viajes.», los dos con «Reintentar». Los selectores y
 etiquetas de canal del resto (layout, Cheques, Cheques emitidos, Movimientos,

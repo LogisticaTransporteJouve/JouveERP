@@ -2,22 +2,22 @@
 
 Lo que el owner revisa y aprueba antes de correr **Promote to production**
 con cualquier commit posterior a `production-latest`. Cubre **todas las
-migraciones posteriores a `production-latest`** (su última es
-`20261102170000`): `promote-to-production.yml` las aplica todas juntas. Las
-consultas son de solo lectura y se corren en el SQL editor de producción
-**antes** de promover, sobre el schema de `production-latest` (sin ninguna
-migración pendiente).
+migraciones posteriores a `production-latest`** (hoy `94f942b`, promovido el
+2026-11-05; su última migración es `20261104194201`):
+`promote-to-production.yml` las aplica todas juntas. Las consultas son de
+solo lectura y se corren en el SQL editor de producción **antes** de
+promover, sobre el schema de `production-latest` (sin ninguna migración
+pendiente).
 
-Dónde está el ítem "Aprobar …" de cada migración pendiente:
-
-- `20261104090500` en adelante: en este archivo.
-- `20261103000000`–`20261104080500`, salvo las de abajo: en el archivo de
-  su tema en `docs/pendientes/` (`grep -l "Aprobar" docs/pendientes/*.md`).
-- Las que entraron antes de esta lista (`20261102200000`–`20261102260000`,
-  `20261103010000`, `20261103020000`, `20261103040000`–`20261103040200`,
-  `20261103050000`, `20261103050100`, `20261103060000`–`20261103060300`,
-  `20261103070000`, `20261103130000` y `20261103210000`): en este archivo,
-  en los primeros ítems de la lista.
+**Qué falta aprobar.** Solo los ítems de
+[Pendientes para el próximo promote](#pendientes-para-el-próximo-promote):
+`20261105090000`, `20261105090001`, `20261105090100` y los que se sumen
+después, más el paso de [Después de promover](#después-de-promover). Todas
+las migraciones hasta `20261104194201` ya están en producción: sus ítems
+quedan marcados abajo, en
+[Aplicadas en producción](#aplicadas-en-producción-promotes-hasta-el-2026-11-05),
+y los «Aprobar» de `20261103000000`–`20261104080500` que viven en los
+archivos de tema de `docs/pendientes/` tampoco gatean nada ya.
 
 Los límites de rollback que no tienen mitigación en el schema (se respetan
 operando) están en [`limites-de-rollback.md`](limites-de-rollback.md).
@@ -28,29 +28,34 @@ compras, cheques, órdenes de pago, préstamos, planillas o movimientos de
 empleados. Todo backfill sobre esas tablas es un no-op en producción y no
 hace falta re-asentar nada viejo. Los ítems de revisión de esos datos quedan
 marcados **N/A en producción** con su SQL (sirven si se promueve sobre otra
-base). Las revisiones reales antes de promover son la lista de borradores
-del reconciliador (#340), que revisa el owner, Supabase Vault (`110601`:
-sin la extensión el promote frena a mitad de camino), los borradores
-fiscales con fecha en un período cerrado (`20261102200000`) y las consultas
-"ver qué cambia" de los ítems sin marcar (cuentas del plan con rol nuevo,
-FLOTA_DZ). Los ítems "Aprobar …" de cada migración (irreversibles y límites
-de rollback) siguen vigentes: ninguno está marcado N/A. Las consultas N/A
-pueden nombrar tablas que producción todavía no tiene (`employee_account_movements`, `employee_debt_plans`,
-`bank_statement_lines`) y fallar ahí: no se corren en producción.
+base). Hoy (`94f942b`) producción tiene todas las tablas que
+nombran esas consultas (`employee_account_movements`, `employee_debt_plans`,
+`bank_statement_lines`, `freight_settlements`, …), así que ya corren, aunque
+sobre una base sin esos datos no devuelven nada.
 
-- [ ] **Aprobar `20261102200000`** (comprobantes fiscales en período
+## Aplicadas en producción (promotes hasta el 2026-11-05)
+
+Marcadas porque su migración (o su código, en el reconciliador de #340)
+ya está en `production-latest` (`94f942b`). Sus
+notas de rollback hablan del código que estaba en producción cuando se
+escribieron, anterior a `94f942b`. Hoy un rollback de código vuelve a
+`94f942b`, que ya tiene todo ese código («Recategorizar», el importador,
+`uninvoiced_shipments`, `get_vehicle_margin`…): esas notas solo valen para
+un rollback a un SHA anterior a `94f942b`.
+
+- [x] **Aprobar `20261102200000`** (comprobantes fiscales en período
       cerrado y asientos pendientes). **Revisión real.** Un trigger nuevo en
       `invoices`, que tiene filas en producción: un borrador fiscal (o una
       emisión sin CAE) con fecha en un período cerrado ya no se emite ni se
       guarda con otro estado, fecha o canal. Ver los borradores fiscales que
-      quedan trabados (corre sobre el schema de `production-latest`):
+      quedan trabados (corría sobre el schema de producción de entonces):
       `select i.id, i.fecha, i.status from public.invoices i where i.status in ('draft', 'emitting') and i.cae is null and public.is_channel_fiscal(i.channel_id) and exists (select 1 from public.accounting_closed_periods cp where cp.period = to_char(i.fecha, 'YYYY-MM'));`
       Rollback: el asiento de un comprobante autorizado que no se pudo
       postear queda en `pending_journal_entries`, y solo el código nuevo lo
       postea (al reabrir el período, `post_pending_journals`). Reabrir el
       período con código anterior no lo postea: queda pendiente hasta que,
       ya con código nuevo, se cierre y reabra ese período.
-- [ ] **Aprobar `20261103040000`–`040100` y `20261103060000`–`060100`**
+- [x] **Aprobar `20261103040000`–`040100` y `20261103060000`–`060100`**
       (roles de préstamos y de anticipos al personal). `040000` agrega
       `prestamos` e `intereses_pagados` y `060000` agrega
       `anticipos_personal` al enum del plan de cuentas: no se pueden quitar.
@@ -61,13 +66,13 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
       código viejo no conoce los roles (la insignia sale vacía y guardar
       falla con "Datos inválidos"). Ver qué cambia:
       `select code, name, system_role from public.chart_of_accounts where code in ('5.4.1', '2.1', '1.1.4') or code like '2.1.%' or code like '1.1.4.%' order by code;`
-- [ ] **Aprobar `20261103050100`** (períodos SAC). Límite de rollback: no
+- [x] **Aprobar `20261103050100`** (períodos SAC). Límite de rollback: no
       crear un período SAC hasta que el deploy quede firme
       ([`limites-de-rollback.md`](limites-de-rollback.md), "SAC").
-- [ ] **Aprobar `20261103210000`** (recibos con letra X). Rollback: con
+- [x] **Aprobar `20261103210000`** (recibos con letra X). Rollback: con
       código anterior, un recibo nuevo se ve R en la app y el PDF y X en su
       asiento y su movimiento de Caja (solo la descripción).
-- [ ] **Aprobar `20261102210000`–`20261102260000`, `20261103010000`,
+- [x] **Aprobar `20261102210000`–`20261102260000`, `20261103010000`,
       `20261103020000`, `20261103040200`, `20261103050000`,
       `20261103060200`, `20261103060300`, `20261103070000` y
       `20261103130000`.** Tablas, columnas y funciones nuevas, o funciones
@@ -77,7 +82,7 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
       `230000` cambia la firma de `next_internal_purchase_numero`, pero la
       vieja estaba revocada de `authenticated` y su única llamada (el
       formulario de compras) nunca funcionó; `get_management_pnl` (`260000`,
-      `070000`) no existe en `production-latest`, así que no hay nada a qué
+      `070000`) no existía en la producción de entonces, así que no hay nada a qué
       volver.
 - [x] **N/A en producción (base sin compras/cheques/OP/préstamos/RRHH a 2026-11-04).** **Antes de aprobar `20261104096400`** (#339, exento, no gravado y
       tributos por compra): el backfill pasa el `imp_trib` de cada compra a
@@ -87,7 +92,7 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
       (`docs/decisions/2026-11-04-exento-no-gravado-y-reparto-de-otros-tributos-en-compras.md`).
       Compras que cambian, por período:
       `select to_char(fecha, 'YYYY-MM') as periodo, count(*), sum(imp_trib) from purchase_invoices where imp_trib <> 0 group by 1 order by 1;`
-- [ ] **Aprobar `20261104096200`–`20261104096700`** (#339). `096200` agrega
+- [x] **Aprobar `20261104096200`–`20261104096700`** (#339). `096200` agrega
       el rol `percepciones_iva_pagadas` al enum del plan de cuentas: no se
       puede quitar. Rollback: un trigger pasa a IIBB el `imp_trib` que manda
       el código anterior, pero cambiar los tributos desde el código anterior en
@@ -96,25 +101,25 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
       ve el exento ni el no gravado. Con código anterior a #339 no editar la
       cuenta "Percepciones IVA sufridas" en Plan de cuentas (no conoce el
       rol, como "Diferencias de cambio" abajo).
-- [ ] **Reconciliador de emisiones** (#340, `issue-invoice-reconcile`, sin
+- [x] **Reconciliador de emisiones** (#340, `issue-invoice-reconcile`, sin
       migración). **Revisión real: el owner revisa la lista de borradores de
       abajo antes de promover.** Su primera corrida vuelve a mandar a AFIP los borradores de
       los últimos 3 días y resuelve las emisiones trabadas que ya existen. Un
       borrador que el usuario ya volvió a facturar con otro comprobante se
       borra antes, o se emitiría dos veces:
       `select id, status, created_at, updated_at from invoices where (status = 'draft' and created_at > now() - interval '3 days') or status = 'emitting';`
-- [ ] **Aprobar `20261104090500`** (#340, importación de ARCA en período
+- [x] **Aprobar `20261104090500`** (#340, importación de ARCA en período
       cerrado). Rollback: es un trigger; con código anterior la importación
       guarda igual el comprobante y deja su asiento en
       `pending_journal_entries`. Sin #340 el cron de reconciliación no corre.
-- [ ] **Aprobar `20261104092000`–`20261104092300`** (#342: cheques en
+- [x] **Aprobar `20261104092000`–`20261104092300`** (#342: cheques en
       percibido, "Sin clasificar" en el margen por camión, deshacer pago de
       impuestos, NC/ND que siguen a su compra). Rollback: mismas firmas y
       columnas; el código anterior ya conoce los rubros de gestión, ignora la
       clave nueva de `recategorize_expense` y no escribe las columnas
       `payment_previous_*` (un impuesto pagado con código nuevo, deshecho y
       vuelto a pagar con el viejo conserva los valores del primer pago).
-- [ ] **Aprobar `20261104093000`–`20261104093400`** (#343, tesorería).
+- [x] **Aprobar `20261104093000`–`20261104093400`** (#343, tesorería).
       Rollback: mismas funciones y argumentos; lo que el código anterior
       dejaba editar después de cobrar un cheque propio o anular un préstamo
       con plata ahora recibe el mensaje del guard.
@@ -154,7 +159,7 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
          is distinct from nullif(coalesce(nullif(n.cotizacion, 0), get_exchange_rate('USD', n.fecha)), 1)
   order by fecha;
   ```
-- [ ] **Aprobar `20261104094000`–`20261104094300`** (#344). `094000` agrega
+- [x] **Aprobar `20261104094000`–`20261104094300`** (#344). `094000` agrega
       el valor `diferencia_cambio` al enum de roles del plan de cuentas: no se
       puede quitar. Rollback: las RPC de saldos de apertura y el aging tienen
       las mismas firmas y columnas; los asientos re-hechos quedan. Con código
@@ -166,13 +171,13 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
       empleados bajan el IVA y las percepciones; si un cierre de planilla ya
       descontó el total, queda saldo a favor del empleado):
       `select m.employee_id, m.amount, pi.imp_neto from employee_account_movements m join purchase_invoices pi on pi.id = m.purchase_invoice_id where is_channel_fiscal(pi.channel_id) and m.amount <> pi.imp_neto;`
-- [ ] **Aprobar `20261104095000`–`20261104095300`** (#345). Rollback: el
+- [x] **Aprobar `20261104095000`–`20261104095300`** (#345). Rollback: el
       código anterior llama a las RPC de la rendición con sus argumentos
       viejos (resuelven a las nuevas con "a cargo del chofer"), lista un
       faltante asentado como adelanto como "sin asentar" (volver a asentar
       devuelve el mismo), rechaza asentar un sobrante al chofer y no ve
       `embargo_override` (el trigger lo respeta igual).
-- [ ] **Aprobar `20261104096000`** (insights) **y `20261104096100`**
+- [x] **Aprobar `20261104096000`** (insights) **y `20261104096100`**
       (denegaciones de permisos quitados) (#346). Sin la primera, el analista
       falla (no existe el RPC) y las tarjetas quedan como estaban. Rollback:
       el código anterior borra e inserta con el service client; el índice
@@ -180,7 +185,7 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
       duplicar las tarjetas. La segunda solo inserta denegaciones de la
       escritura que cubría cada `:read` quitado; las filas viejas quedan y el
       código anterior las lee como antes.
-- [ ] **Aprobar `20261104100000`–`20261104100300`** (#350, emisión AFIP).
+- [x] **Aprobar `20261104100000`–`20261104100300`** (#350, emisión AFIP).
       No tocan filas existentes:
   - `100000` agrega el guard de cotización USD mayor a 1 para comprobantes
     fiscales en dólares.
@@ -194,7 +199,7 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
   Rollback: firmas sin cambio; el código anterior reintenta y falla la
   emisión con un CAEA "sin movimiento".
 
-- [ ] **Aprobar `20261104101000`–`20261104101400`** (#351, tesorería).
+- [x] **Aprobar `20261104101000`–`20261104101400`** (#351, tesorería).
   - Los cheques USD de proveedores y las cuotas de préstamos USD
     **nuevos** se asientan a la cotización de la OP y del desembolso.
   - Los asientos ya existentes no se reasientan. Reasentarlos cambia
@@ -308,7 +313,7 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
   Las NC que quedan con su asiento viejo por período cerrado se ven
   **después** de promover (`docs/pendientes/2026-11-04-auditoria-w2-rrhh-gestion-y-rendiciones.md`).
 
-- [ ] **Aprobar `20261104102000`–`20261104102400`** (#349, RRHH y Gestión).
+- [x] **Aprobar `20261104102000`–`20261104102400`** (#349, RRHH y Gestión).
   - `102000` reescribe `management_pnl_lines`. Las diferencias de cambio
     pasan a "Intereses" (fuera del margen operativo), y en las cuotas sin
     desglose los intereses ya no cuentan como capital.
@@ -319,7 +324,7 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
   Rollback: el código anterior lee las mismas columnas; Gestión con
   código viejo muestra los mismos buckets.
 
-- [ ] **Aprobar `20261104104000`** (valida seis CHECK que habían quedado
+- [x] **Aprobar `20261104104000`** (valida seis CHECK que habían quedado
       `NOT VALID`; no cambia datos). Toda fila existente los cumple; si una
       validación igual fallara, la migración entera se revierte y el promote
       frena. Ver cuáles siguen sin validar:
@@ -334,17 +339,17 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
       dueño decide pasar la diferencia a no gravado (re-asienta) o anularla y
       recargarla, y las de período cerrado piden reabrirlo:
       `select pi.id, pi.fecha, pi.letter, pi.punto_venta, pi.numero, pi.imp_total - (pi.imp_neto + pi.imp_iva + pi.imp_trib + coalesce((to_jsonb(pi) ->> 'imp_no_gravado')::numeric, 0) + coalesce((to_jsonb(pi) ->> 'imp_op_exentas')::numeric, 0)) as gap, exists (select 1 from public.accounting_closed_periods cp where cp.period = to_char(pi.fecha, 'YYYY-MM')) as closed from public.purchase_invoices pi where pi.status = 'received' and public.is_channel_fiscal(pi.channel_id) and abs(pi.imp_total - (pi.imp_neto + pi.imp_iva + pi.imp_trib + coalesce((to_jsonb(pi) ->> 'imp_no_gravado')::numeric, 0) + coalesce((to_jsonb(pi) ->> 'imp_op_exentas')::numeric, 0))) > 0.01 order by pi.fecha;`
-- [ ] **Aprobar `20261104112000`** (auditoría w3, compras: el total de una
+- [x] **Aprobar `20261104112000`** (auditoría w3, compras: el total de una
       compra fiscal es la suma de sus partes). No toca filas existentes.
       Rollback: el código anterior escribe las mismas columnas; una compra
       fiscal que no cierra recibe el mensaje del guard.
-- [ ] **Aprobar `20261104120500`** (auditoría w4, compras): una compra fiscal
+- [x] **Aprobar `20261104120500`** (auditoría w4, compras): una compra fiscal
       nueva, o editada en sus importes, tiene que cerrar al centavo (antes
       aceptaba un centavo de diferencia, que quedaba en proveedores), y una B
       o C fiscal no puede guardar IVA, exento ni no gravado por ningún camino,
       ítems incluidos. Las existentes siguen guardando ediciones que no tocan
       esas columnas. Producción no tiene compras (N/A); si las tuviera, las
-      que quedan a un centavo (sobre el schema de `production-latest`):
+      que quedan a un centavo (sobre el schema de producción de entonces):
       `select pi.id, pi.fecha, pi.letter, pi.punto_venta, pi.numero from public.purchase_invoices pi where pi.status = 'received' and public.is_channel_fiscal(pi.channel_id) and abs(pi.imp_total - (pi.imp_neto + pi.imp_iva + pi.imp_trib + coalesce((to_jsonb(pi) ->> 'imp_no_gravado')::numeric, 0) + coalesce((to_jsonb(pi) ->> 'imp_op_exentas')::numeric, 0))) between 0.005 and 0.01;`
       Rollback: el código anterior escribe las mismas columnas; lo que rompe
       una de las dos reglas recibe el mensaje del guard.
@@ -366,12 +371,12 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
       devolvió la deuda en el diario, y anular la OP la devolvería otra vez.
       El owner revisa cada una con el contador:
       `select ic.id, ic.check_number, ic.amount, ic.currency, po.punto_venta, po.numero from issued_checks ic join payment_orders po on po.id = ic.payment_order_id where ic.status = 'cancelled' and po.status = 'issued';`
-- [ ] **Aprobar `20261104110600`** (tesorería w3: el rechazo de un cheque
+- [x] **Aprobar `20261104110600`** (tesorería w3: el rechazo de un cheque
       propio de una OP devuelve su egreso en Caja; una OP con un cheque
       anulado por fuera no se anula ni se edita). No toca filas existentes.
       Rollback: mismas funciones y argumentos; el código anterior lee el
       movimiento nuevo como cualquier movimiento de cheque propio.
-- [ ] **Aprobar `20261104113000`–`20261104113002`** (percepciones de
+- [x] **Aprobar `20261104113000`–`20261104113002`** (percepciones de
       Ganancias y otros impuestos nacionales en compras). `113000` agrega el
       rol `percepciones_ganancias` al enum del plan de cuentas: no se puede
       quitar. `113001` agrega `imp_perc_nacionales` (0 en toda fila: sin
@@ -382,7 +387,7 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
       compra que tiene Ganancias se rechaza ("Los tributos no suman…"). Con
       código anterior no editar la cuenta nueva en Plan de cuentas (no conoce
       el rol).
-- [ ] **Antes de aprobar `20261104110601`: confirmar Supabase Vault en
+- [x] **Antes de aprobar `20261104110601`: confirmar Supabase Vault en
       producción.** `get_arca_web_password` es `language sql` sobre
       `vault.decrypted_secrets`: sin la extensión la migración falla y el
       promote frena a mitad de camino, con las migraciones anteriores ya
@@ -390,7 +395,7 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
       `select extname, extversion from pg_extension where extname = 'supabase_vault';`
       Sin fila, activar `supabase_vault` en Database → Extensions antes de
       promover.
-- [ ] **Aprobar `20261104104001`, `104002`, `110601`, `113003`, `120000`,
+- [x] **Aprobar `20261104104001`, `104002`, `110601`, `113003`, `120000`,
       `120200`, `120201`, `120600` y `120700`** (bandeja de Recibidos de
       ARCA, usuario web de ARCA, Gestión y cheques propios, auditorías w4).
       Salvo `120700`, ninguna de este ítem toca filas existentes. Rollback
@@ -426,7 +431,7 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
     un rollback de código no la reactiva: si hace falta, se reactiva en Contabilidad → Centros
     de costo. Ver el estado actual:
     `select code, name, is_active from public.cost_centers where code = 'FLOTA_DZ';`
-- [ ] **Aprobar `20261104122000`, `123000` y `123001`** (auditoría w5).
+- [x] **Aprobar `20261104122000`, `123000` y `123001`** (auditoría w5).
       Ninguna toca filas existentes. Rollback de cada una:
   - `122000`: el trigger que vincula una compra con Recibidos compara
     además moneda e IVA (en una A), y una compra vinculada que se edita y
@@ -438,7 +443,7 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
   - `123001`: monto, moneda, cartera, recibo y estado de un cheque de
     terceros cambian solo por sus RPC. El código anterior nunca hace PATCH
     de `checks`.
-- [ ] **Aprobar `20261104132000`** (auditoría w6): `guard_check_edit` corre
+- [x] **Aprobar `20261104132000`** (auditoría w6): `guard_check_edit` corre
       también en INSERT (un cheque de terceros nuevo es manual, en cartera y
       sin recibo, salvo que lo cargue `create_receipt`/`update_receipt`),
       fija además `source_kind`, `source_client_id` y
@@ -448,7 +453,7 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
       existentes. Rollback: el código anterior inserta cheques solo con esas
       formas, nunca hace PATCH de esas columnas y escribe `check_movements`
       solo por esas RPC y el «recibido» inicial.
-- [ ] **Aprobar `20261104131000` y `20261104132100`** (auditoría w6).
+- [x] **Aprobar `20261104131000` y `20261104132100`** (auditoría w6).
       Ninguna toca filas existentes.
   - `131000`: un comprobante de Recibidos vuelve a Pendientes también si
     se edita la clave de la compra vinculada (proveedor, tipo, letra, punto
@@ -461,30 +466,30 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
     RPC y recibe el mensaje del guard (55006). Como guarda el encabezado
     antes que los ítems, las notas, el vencimiento o la cuenta que cambió
     quedan guardados aunque vea el error.
-- [ ] **Aprobar `20261104140000`** (auditoría w7): un cheque propio cambia
+- [x] **Aprobar `20261104140000`** (auditoría w7): un cheque propio cambia
       de estado solo desde «emitido» y se inserta emitido
       (`guard_issued_check_edit`). No toca filas existentes. Rollback: el
       código anterior solo mueve cheques desde «emitido» y los inserta así.
-- [ ] **Aprobar `20261104140001`** (auditoría w7): `guard_document_header`
+- [x] **Aprobar `20261104140001`** (auditoría w7): `guard_document_header`
       en `receipts` y `payment_orders`. El estado pasa solo de emitido a
       anulado. Monto, moneda, cotización, cliente o proveedor, canal, fecha
       y número cambian solo dentro de `update_receipt` /
       `update_payment_order`. No toca filas existentes. Rollback: el código
       anterior solo anula, edita por esas RPC y escribe notas,
       `notified_at` y `created_by`.
-- [ ] **Aprobar `20261104140002`** (auditoría w7): `guard_document_line` en
+- [x] **Aprobar `20261104140002`** (auditoría w7): `guard_document_line` en
       `payment_order_payment_lines`, `receipt_payment_lines` y
       `receipt_retentions`. Las escriben solo `create_*` / `update_*` de su
       documento y las acciones de clave foránea. No toca filas existentes.
       Rollback: el código anterior escribe esas filas solo por esas RPC.
-- [ ] **Aprobar `20261104140003`** (auditoría w7): `deposit_check` acepta
+- [x] **Aprobar `20261104140003`** (auditoría w7): `deposit_check` acepta
       solo un banco activo de la moneda del cheque. `guard_check_edit`
       rechaza en INSERT una cartera que no sea `checks`/`echeq`. El
       «recibido» inicial toma de la base su `created_at`, su `created_by` y
       la emisión del cheque como fecha. No toca filas existentes. Rollback:
       el código anterior deposita solo en los bancos del diálogo, carga
       cheques solo en carteras y manda esos valores en el «recibido».
-- [ ] **Aprobar `20261104140100` y `140101`** (auditoría w7, compras). No
+- [x] **Aprobar `20261104140100` y `140101`** (auditoría w7, compras). No
       tocan filas existentes. Rollback de cada una:
   - `140100`: agrega `purchase_items_change_refused` (la regla de período
     cerrado de `replace_purchase_invoice_items`, sola y de solo lectura) y
@@ -496,19 +501,19 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
     cambio se rechaza igual. Ver si hay
     proveedores afectados (N/A en producción, sin compras):
     `select distinct s.id, s.cuit from public.suppliers s join public.purchase_invoices p on p.supplier_id = s.id join public.invoicing_channels c on c.id = p.channel_id and c.is_fiscal join public.accounting_closed_periods cp on cp.period = to_char(p.fecha, 'YYYY-MM') where p.status = 'received';`
-- [ ] **Aprobar `20261104141000`** (ARCA, #390): cambiar el CUIT de un
+- [x] **Aprobar `20261104141000`** (ARCA, #390): cambiar el CUIT de un
       proveedor devuelve a Pendientes los comprobantes de Recibidos ligados
       a sus compras con el CUIT viejo y vincula los del CUIT nuevo. Es una
       función nueva y un trigger nuevo en `suppliers`, y no toca filas
       existentes. Rollback: el código anterior edita el CUIT igual y el
       trigger corre, pero solo toca la bandeja, que el código anterior no
       tiene.
-- [ ] **Aprobar `20261104150000`** (auditoría w8): `guard_document_insert`
+- [x] **Aprobar `20261104150000`** (auditoría w8): `guard_document_insert`
       en `receipts` y `payment_orders`. Una cabecera se inserta solo dentro
       de `create_receipt` / `create_payment_order`. No toca filas
       existentes. Rollback: el código anterior inserta cabeceras solo por
       esas RPC.
-- [ ] **Aprobar `20261104150001`** (auditoría w8, préstamos). No toca filas
+- [x] **Aprobar `20261104150001`** (auditoría w8, préstamos). No toca filas
       existentes.
   - `guard_loan_installment_payment`: una cuota se inserta pendiente, y su
     estado, fecha e importe pagados y su movimiento cambian solo dentro de
@@ -519,7 +524,7 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
   - Rollback: el código anterior paga por `pay_loan_installment` y no
     registra desembolsos; inserta préstamos y cuotas pendientes de forma
     directa, lo que sigue permitido.
-- [ ] **Aprobar `20261104150002`** (auditoría w8): una línea de OP en una
+- [x] **Aprobar `20261104150002`** (auditoría w8): una línea de OP en una
       cartera tiene que endosar un cheque (trigger en la línea), y
       `create_receipt` / `update_receipt` rechazan una línea en cartera sin
       cheque. No toca filas existentes, pero un documento que ya tenga una
@@ -527,14 +532,14 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
       del código anterior no mandan esas líneas. Ver si hay documentos
       afectados (N/A en producción, sin cheques ni OP):
       `select l.payment_order_id from public.payment_order_payment_lines l join public.accounts a on a.id = l.account_id where a.type in ('checks', 'echeq') and l.endorsed_check_id is null union all select l.receipt_id from public.receipt_payment_lines l join public.accounts a on a.id = l.account_id where a.type in ('checks', 'echeq') and not exists (select 1 from public.checks k where k.source_payment_line_id = l.id);`
-- [ ] **Aprobar `20261104150003`** (auditoría w8): `guard_transaction_origin`
+- [x] **Aprobar `20261104150003`** (auditoría w8): `guard_transaction_origin`
       en `transactions`. Un movimiento en una cartera, o con un vínculo a un
       recibo, una OP o un cheque, lo escriben solo su documento y los
       triggers de cheques y sueldos. No toca filas existentes. Rollback: el
       código anterior escribe esos movimientos solo por esas RPC y
       triggers; «Nuevo movimiento» rechaza carteras y no pone esos
       vínculos.
-- [ ] **Aprobar `20261104150200` y `150201`** (auditoría w8, gestión). No
+- [x] **Aprobar `20261104150200` y `150201`** (auditoría w8, gestión). No
       tocan filas existentes. Rollback de cada una:
   - `150200`: una NC/ND de compra sin centro de costo toma el de su origen
     aunque tenga cuenta propia (antes, solo si la cuenta también venía
@@ -544,12 +549,12 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
   - `150201`: `get_vehicle_margin` cuenta en su centro la NC/ND de una
     compra vinculada a una carga de combustible o un service. Mismas
     columnas; el código anterior no llama a `get_vehicle_margin`.
-- [ ] **Aprobar `20261104160000`** (auditoría w9, sueldos):
+- [x] **Aprobar `20261104160000`** (auditoría w9, sueldos):
       `guard_payroll_payment_transaction`. El movimiento de un pago de sueldo
       es el que creó su alta: `transaction_id` no cambia después. No toca
       filas existentes. Rollback: el código anterior nunca escribe la
       columna.
-- [ ] **Aprobar `20261104160001`** (auditoría w9, préstamos). No toca filas
+- [x] **Aprobar `20261104160001`** (auditoría w9, préstamos). No toca filas
       existentes.
   - `guard_loan_installment_payment`: una cuota pagada no se borra, salvo
     con su préstamo (que `guard_loan` ya solo deja borrar sin nada pagado).
@@ -560,7 +565,7 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
   - Rollback: el código anterior no borra cuotas sueltas, anula con el
     mismo UPDATE, marca pagado por las mismas RPC y no edita las condiciones
     de un préstamo.
-- [ ] **Aprobar `20261104160002`** (auditoría w9, almacenaje). No toca filas
+- [x] **Aprobar `20261104160002`** (auditoría w9, almacenaje). No toca filas
       existentes.
   - `claim_storage_billing_period`: un período con una factura viva emitida
     bajo el id de su reserva vencida la vincula, en vez de borrar la reserva
@@ -571,7 +576,7 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
     reservas vencidas se borran como antes. Una reserva que deja el código
     nuevo y que el anterior vincula al reclamar devuelve null, y el código
     anterior muestra «No se pudo validar el período.» sin emitir nada.
-- [ ] **Aprobar `20261104160100`** (auditoría w9, fiscal): RPC nueva
+- [x] **Aprobar `20261104160100`** (auditoría w9, fiscal): RPC nueva
       `import_arca_issued_invoice`, que la importación de ventas de ARCA usa
       para guardar la cabecera y sus ítems por alícuota en una sola
       transacción. Solo la ejecuta el service role. No toca filas
@@ -582,7 +587,7 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
       INSERT de ítems aparte. Ventas importadas sin ítems hoy (solo para
       saber cuántas hay, no se cambian):
       `select count(*) from public.invoices i where i.idempotency_key like 'arca-sync-%' and not exists (select 1 from public.invoice_items it where it.invoice_id = i.id);`
-- [ ] **Aprobar `20261104160200` y `160201`** (auditoría w9, gestión). No
+- [x] **Aprobar `20261104160200` y `160201`** (auditoría w9, gestión). No
       tocan filas existentes. Rollback de cada una:
   - `160200`: una NC/ND de compra editada toma la cuenta y el centro de su
     origen cuando quedan vacíos, y al cambiarle el origen pasa al nuevo lo
@@ -598,7 +603,7 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
     (`uninvoiced_freight`, `total_uninvoiced_freight`) con un `drop` y
     `create` en la misma transacción; ingreso y neto no cambian. El código
     anterior y `get_vehicle_margin` leen las columnas por nombre.
-- [ ] **Aprobar `20261104170000`, `170001` y `170002`** (auditoría w10,
+- [x] **Aprobar `20261104170000`, `170001` y `170002`** (auditoría w10,
       tesorería). No tocan filas existentes ni cambian políticas RLS.
   - `170000`: `payroll_payments_guard_transaction` también corre cuando
     cambia `entry_id`: un pago de sueldo queda en la liquidación en que se
@@ -616,12 +621,12 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
     Rollback: el código anterior borra solo reservas sin factura vinculada
     y sin factura viva bajo su id (emite con una clave al azar, o la
     emisión falló), así que esos borrados pasan.
-- [ ] **Aprobar `20261104170200` y `170201`** (auditoría w10, gestión). No
+- [x] **Aprobar `20261104170200` y `170201`** (auditoría w10, gestión). No
       tocan filas existentes. Rollback de cada una:
   - `170200`: el trigger de herencia de las NC/ND de compra deja como está
     lo que escribe `recategorize_expense`, así que recategorizar una NC/ND
     a «Sin cuenta» o «Sin centro» guarda el vacío. El código de
-    `production-latest` no tiene «Recategorizar» ni llama a
+    producción de entonces (anterior a `94f942b`) no tiene «Recategorizar» ni llama a
     `recategorize_expense`: el rollback no cambia nada. Las recategorizadas
     a vacío antes de esto:
     `docs/pendientes/2026-11-04-gestion-recategorizar-nc-nd-y-flota-pendiente-por-cargas-w10.md`.
@@ -633,10 +638,10 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
     todo por nombre e ignora las columnas nuevas. Con el grupo `none`,
     `getFleetMargin` (asistente) del código anterior muestra por vehículo
     una fila «Sin vehículo», y sus totales (grupos, ingreso, neto) incluyen
-    esos viajes (cosmético). El código de `production-latest` no llama a
+    esos viajes (cosmético). El código de producción de entonces no llama a
     `get_vehicle_margin`. Corrección de los encabezados:
     `docs/pendientes/2026-11-04-lecturas-fallidas-y-notas-de-rollback-w11.md`.
-- [ ] **Aprobar `20261104190100`** (auditoría w11, RRHH). No toca filas
+- [x] **Aprobar `20261104190100`** (auditoría w11, RRHH). No toca filas
       existentes ni cambia políticas RLS.
       `enforce_payroll_period_immutability` pasa a `SECURITY DEFINER`:
       solo owner o admin (o el service role) sacan un período de
@@ -687,14 +692,14 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
                 and n.moneda <> f.moneda))
      order by f.fecha, f.id, n.fecha, n.numero;
     ```
-- [ ] **Aprobar `20261104190300`, `190301` y `190302`** (auditoría w11,
+- [x] **Aprobar `20261104190300`, `190301` y `190302`** (auditoría w11,
       vínculos de facturación y cheques). No tocan filas existentes ni
       cambian políticas RLS.
   - `190300`: trigger nuevo `shipments_guard_invoice`. Una carga se vincula
     solo a una factura de su cliente que no falló ni se anuló.
     `link_freight_settlement_invoice` ya valida lo mismo, y
     `release_invoice_billing_links` solo limpia el vínculo. Rollback: el
-    código de `production-latest` informa el rechazo como «La factura se
+    código de producción de entonces informa el rechazo como «La factura se
     emitió pero no se vinculó…» aunque la factura falló (cosmético),
     conserva la reserva 15 minutos y después emite otra factura (con clave
     al azar).
@@ -709,7 +714,7 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
     período vinculado.
   - `190302`: trigger nuevo `checks_guard_import_run`. `import_run_id` de un
     cheque lo pone solo `commit_import_run` y no cambia. Rollback: el código
-    de `production-latest` no tiene importador y nunca escribe la columna.
+    de producción de entonces no tiene importador y nunca escribe la columna.
   - Consulta de control antes de aplicar (solo lectura): cuántos períodos
     libera `190301` en la próxima reserva de cada cliente.
 
@@ -724,23 +729,23 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
      group by r.id, r.client_id, r.period_start, r.period_end, i.imp_total
     having sum(n.imp_total) >= i.imp_total - 0.01;
     ```
-- [ ] **Aprobar `20261104190200` y `190201`** (auditoría w11, gestión). No
+- [x] **Aprobar `20261104190200` y `190201`** (auditoría w11, gestión). No
       tocan filas existentes ni cambian políticas RLS. Rollback de cada una:
   - `190200`: `get_vehicle_margin` suma `uninvoiced_shipments` al final, con
     `drop` y `create` en la misma transacción (permisos repuestos: solo
-    `service_role`). El código de `production-latest` no llama a
+    `service_role`). El código de producción de entonces no llama a
     `get_vehicle_margin`.
   - `190201`: trigger nuevo `purchase_invoices_nc_nd_follow_factura`. Al
     cambiar la cuenta o el centro de una factura de compra vigente, sus
     NC/ND vigentes que tenían el valor anterior lo siguen, como en
     «Recategorizar»; una NC/ND de un período cerrado rechaza el cambio de la
-    factura. El código de `production-latest` no cambia cuenta ni centro
+    factura. El código de producción de entonces no cambia cuenta ni centro
     desde «Modificar», así que el trigger no corre con él: el rollback no
     cambia nada. Las facturas ya editadas antes no se corrigen:
     `docs/pendientes/2026-11-04-gestion-margen-por-camion-nc-nd-y-escaneo-w11.md`.
   - Corrección de los encabezados de `190201`, `190300` y `190302`:
     `docs/pendientes/2026-11-04-notas-de-rollback-w11-y-controles-por-permiso-w12.md`.
-- [ ] **Aprobar `20261104194000`** (auditoría w12, vínculo de factura de
+- [x] **Aprobar `20261104194000`** (auditoría w12, vínculo de factura de
       cargas y liquidaciones). No toca filas existentes ni cambia políticas
       RLS.
   - Funciones nuevas `billing_invoice_is_void`, `billing_void_invoice_ids` y
@@ -773,9 +778,9 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
 
   - **N/A en producción:** las liquidaciones facturadas cuyo remito interno
     tiene NC internas por el total, que ya no se pueden cancelar.
-    `freight_settlements` nace en `20261103090000`, que producción todavía
-    no tiene: ahí no hay liquidaciones y esta consulta falla. Sirve si se
-    promueve sobre una base que ya la tiene.
+    `freight_settlements` nace en `20261103090000`, que se aplicó en el
+    mismo promote que esta migración: producción no tenía liquidaciones.
+    Hoy la tabla existe en producción y la consulta corre.
 
     ```sql
     select fs.id, fs.invoice_id, i.imp_total, sum(n.imp_total) as acreditado
@@ -788,14 +793,14 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
      group by fs.id, fs.invoice_id, i.imp_total
     having sum(n.imp_total) >= i.imp_total - 0.01;
     ```
-- [ ] **Aprobar `20261104194001`** (auditoría w12, re-vínculos de
+- [x] **Aprobar `20261104194001`** (auditoría w12, re-vínculos de
       almacenaje). No toca filas existentes ni cambia políticas RLS. Función
       nueva `claim_storage_billing_period_with_relinks` (invoker, para
       `authenticated`): la reserva de siempre, que además devuelve los
       períodos que re-vinculó. `claim_storage_billing_period` pasa a
       envoltorio, con la misma firma, resultado y errores. Rollback: el
       código anterior llama al envoltorio.
-- [ ] **Aprobar `20261104194100` y `194101`** (auditoría w12, RRHH y
+- [x] **Aprobar `20261104194100` y `194101`** (auditoría w12, RRHH y
       archivos). No tocan filas existentes ni objetos guardados.
   - `194100`: `enforce_payroll_period_immutability` se reemplaza desde
     `190100` y además corre `before insert` en `payroll_periods` (trigger
@@ -830,7 +835,7 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
      group by bucket, bucket_path
     having count(*) > 1;
     ```
-- [ ] **Aprobar `20261104194200` y `194201`** (auditoría w12, gestión). No
+- [x] **Aprobar `20261104194200` y `194201`** (auditoría w12, gestión). No
       tocan filas existentes ni cambian políticas RLS ni permisos. Conviene
       promoverlas junto con `190201`. Rollback de cada una:
   - `194200`: `purchase_nc_nd_inherit_account` se reemplaza desde su última
@@ -838,17 +843,23 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
     `purchase_nc_nd_follow_factura`, así que una NC/ND que tenía la cuenta o
     el centro vacíos a propósito los mantiene vacíos cuando se edita la
     factura. Un rollback de código deja la función nueva, y el «Modificar»
-    de `production-latest` no manda `account_id` ni `cost_center_id`: el
+    de producción de entonces no manda `account_id` ni `cost_center_id`: el
     trigger de seguimiento no corre y no se rellena nada.
   - `194201`: `ai_fleet_margin` se reemplaza (`create or replace`, misma
     firma y mismos permisos). Por cliente, `uninvoiced_shipments` suma las
     cargas sin facturar y sin flete de otros clientes en sus viajes.
-    `total_uninvoiced_shipments` no cambia. El código de `production-latest`
-    no lee `uninvoiced_shipments` (su `ai_fleet_margin` no lo tenía) y lee
+    `total_uninvoiced_shipments` no cambia. El código de producción de
+    entonces no lee `uninvoiced_shipments` (su `ai_fleet_margin` no lo tenía) y lee
     las demás columnas por nombre: el rollback no cambia nada.
     `docs/pendientes/2026-11-04-gestion-nc-nd-vacia-y-reparto-por-cliente-w12.md`.
   - Corrección de los encabezados de `194200` y `194201`:
     `docs/pendientes/2026-11-05-notas-de-rollback-w12-auditoria-w13.md`.
+
+## Pendientes para el próximo promote
+
+Migraciones de `main` que todavía no están en `production-latest`. Cada rama
+que agrega una migración suma su ítem al final de esta sección.
+
 - [ ] **Aprobar `20261105090000` y `090001`** (auditoría w13, vínculos de
       facturación y flota). No tocan filas existentes ni cambian políticas
       RLS. Van después de `20261103090000`, `20261103090100`,
@@ -1014,6 +1025,9 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
       hasta la pasada de las 04:52; sin la corrida manual, las que vencen
       antes corren tarde. Lo mismo después de un rollback y vuelta adelante
       (`docs/pendientes/2026-11-04-tareas-ia-por-eventos.md`).
+      **Ya corresponde:** el promote de `94f942b` (2026-11-05) sacó
+      `ai-workflows-materialize`. Owner: marcá este ítem cuando la hayas
+      corrido.
 - [x] **N/A en producción (base sin compras/cheques/OP/préstamos/RRHH a
       2026-11-04).** Las NC de compras a cargo de empleados que `102300`
       dejó con su asiento viejo por período cerrado: ítem **Después de

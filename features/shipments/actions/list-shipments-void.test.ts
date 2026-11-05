@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { resolveAccess, type Role } from "@/lib/auth/permissions";
+import { FAKE_MAX_ROWS, pagedSupabase } from "@/tests/helpers/paged-supabase";
 import {
   recordingSupabase,
   type RecordedCall,
@@ -15,16 +16,15 @@ const row = (id: string, invoiceId: string | null) => ({
   invoice_id: invoiceId,
 });
 
-let rows: unknown[] = [];
+let rows: Record<string, unknown>[] = [];
 let voidRead: { data: unknown; error: unknown } = { data: [], error: null };
 let role: Role = "owner";
-// The viewer's client reads the cargas; the service client reads the void
-// rule (operations cannot read invoices).
-let fake = recordingSupabase(respond);
+// The viewer's client reads the cargas, page by page; the service client
+// reads the void rule (operations cannot read invoices).
+let fake = pagedSupabase({ shipments: rows });
 let service = recordingSupabase(respond);
 
 function respond(call: RecordedCall) {
-  if (call.table === "shipments") return { data: rows, error: null };
   if (call.table === "billing_void_invoice_ids") return voidRead;
   return { data: null, error: null };
 }
@@ -52,7 +52,7 @@ beforeEach(() => {
   rows = [row("s1", "inv-live"), row("s2", "inv-credited"), row("s3", null)];
   voidRead = { data: ["inv-credited"], error: null };
   role = "owner";
-  fake = recordingSupabase(respond);
+  fake = pagedSupabase({ shipments: rows });
   service = recordingSupabase(respond);
 });
 
@@ -81,9 +81,7 @@ describe("listShipmentsAction", () => {
     if (!res.ok) return;
     expect(res.data.find((s) => s.id === "s2")?.invoice_void).toBe(true);
     // The rule is not read under the viewer's RLS, which hides the invoice.
-    expect(fake.calls.some((c) => c.table === "billing_void_invoice_ids")).toBe(
-      false,
-    );
+    expect(fake.calls.every((c) => c.table === "shipments")).toBe(true);
   });
 
   it("fails instead of showing a void invoice as billing its carga", async () => {
@@ -93,5 +91,17 @@ describe("listShipmentsAction", () => {
       ok: false,
       error: "No se pudieron listar las cargas.",
     });
+  });
+
+  it("lists the old cargas past the PostgREST row cap", async () => {
+    rows = Array.from({ length: FAKE_MAX_ROWS + 250 }, (_, i) =>
+      row(`s${i}`, null),
+    );
+    fake = pagedSupabase({ shipments: rows });
+    const res = await listShipmentsAction();
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.data).toHaveLength(rows.length);
+    expect(res.data.at(-1)?.id).toBe(`s${rows.length - 1}`);
   });
 });

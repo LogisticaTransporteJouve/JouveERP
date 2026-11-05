@@ -38,6 +38,8 @@ export function TripsTable({
 }) {
   // The permission the create, update and delete actions check.
   const canWrite = userCan(actorAccess, "trips:write");
+  // «Ver cargas» opens a page whose cargas read checks shipments:read.
+  const canSeeShipments = userCan(actorAccess, "shipments:read");
   const { data: items } = useTrips();
   const deleteMut = useDeleteTrip();
   const confirm = useConfirm();
@@ -123,45 +125,48 @@ export function TripsTable({
         header: "",
         enableSorting: false,
         meta: { headerClassName: "w-12", mobile: "primary" },
-        cell: ({ row }) => (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" aria-label="Acciones">
-                <MoreHorizontal className="size-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem asChild>
-                <Link href={`/trips/${row.original.id}`}>
-                  <Package className="size-4" />
-                  Ver cargas
-                </Link>
-              </DropdownMenuItem>
-              {canWrite && (
-                <>
-                  <DropdownMenuItem
-                    onClick={() =>
-                      setDialog({ mode: "edit", trip: row.original })
-                    }
-                  >
-                    <Pencil className="size-4" />
-                    Editar
+        cell: ({ row }) =>
+          (canSeeShipments || canWrite) && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" aria-label="Acciones">
+                  <MoreHorizontal className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {canSeeShipments && (
+                  <DropdownMenuItem asChild>
+                    <Link href={`/trips/${row.original.id}`}>
+                      <Package className="size-4" />
+                      Ver cargas
+                    </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem
-                    className="text-destructive"
-                    onClick={() => handleDelete(row.original)}
-                  >
-                    <Trash2 className="size-4" />
-                    Borrar
-                  </DropdownMenuItem>
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ),
+                )}
+                {canWrite && (
+                  <>
+                    <DropdownMenuItem
+                      onClick={() =>
+                        setDialog({ mode: "edit", trip: row.original })
+                      }
+                    >
+                      <Pencil className="size-4" />
+                      Editar
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="text-destructive"
+                      onClick={() => handleDelete(row.original)}
+                    >
+                      <Trash2 className="size-4" />
+                      Borrar
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ),
       },
     ];
-  }, [canWrite, confirm, deleteMut]);
+  }, [canSeeShipments, canWrite, confirm, deleteMut]);
 
   return (
     <>

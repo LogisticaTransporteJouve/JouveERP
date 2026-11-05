@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
+import { ChannelsReadError } from "@/components/channels-read-error";
 import { AppHeader } from "@/components/layout/app-header";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { MobileTabBar } from "@/components/mobile-tab-bar";
@@ -14,7 +15,7 @@ import { NotificationBell } from "@/features/notifications/components/notificati
 import { getCurrentUserContext } from "@/lib/auth/context";
 import { isFiscalOnly } from "@/lib/auth/permissions";
 import { resolveAvatarUrl } from "@/lib/avatar-url";
-import { getInvoicingChannels } from "@/lib/channels";
+import { readInvoicingChannels } from "@/lib/channels";
 import {
   SCOPE_COOKIE,
   type InvoicingChannelSummary,
@@ -39,10 +40,12 @@ export default async function DashboardLayout({
 
   const supabase = await createClient();
   // Shared (React cache) with pages that also list channels in this request.
-  // Fiscal first, as the forms expect.
-  const channels: InvoicingChannelSummary[] = [
-    ...(await getInvoicingChannels()),
-  ]
+  // Fiscal first, as the forms expect. A failed read is passed on as such:
+  // the labels and side filters must not take it for "no channels".
+  const channelsRead = await readInvoicingChannels();
+  const channels: InvoicingChannelSummary[] = (
+    channelsRead.ok ? [...channelsRead.channels] : []
+  )
     .sort((a, b) => Number(b.is_fiscal) - Number(a.is_fiscal))
     .map((row) => ({
       id: row.id,
@@ -66,6 +69,7 @@ export default async function DashboardLayout({
   return (
     <ScopeProvider
       channels={channels}
+      channelsFailed={!channelsRead.ok}
       initialFiscalFilter={initialFiscalFilter}
       locked={scopeLocked}
     >
@@ -89,6 +93,7 @@ export default async function DashboardLayout({
             actions={<NotificationBell currentUserId={ctx.userId} />}
           />
           <div className="min-w-0 flex-1 px-4 py-6 max-md:pb-24 sm:px-6 lg:px-8">
+            <ChannelsReadError className="mb-4" />
             <SideKeyed>{children}</SideKeyed>
           </div>
           <MobileTabBar userAccess={ctx.access} />

@@ -35,7 +35,6 @@ const menuItem = (name: string) =>
 describe("TripsTable: write controls follow trips:write", () => {
   it.each([
     ["operations", resolveAccess(["operations"]), true],
-    ["driver", resolveAccess(["driver"]), false],
     [
       "operations with trips:write denied",
       resolveAccess(["operations"], ["trips:write"]),
@@ -58,5 +57,34 @@ describe("TripsTable: write controls follow trips:write", () => {
     expect(menuItem("Ver cargas")).toBe(true);
     expect(menuItem("Editar")).toBe(can);
     expect(menuItem("Borrar")).toBe(can);
+  });
+});
+
+describe("TripsTable: «Ver cargas» follows shipments:read", () => {
+  it("the driver, who cannot read cargas, gets no actions menu", () => {
+    render(
+      <TripsTable
+        actorAccess={resolveAccess(["driver"])}
+        driverOptions={[]}
+        vehicleOptions={[]}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: /Nuevo viaje/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Acciones" })).toBeNull();
+  });
+
+  it("operations with shipments:read denied keeps Editar, not Ver cargas", () => {
+    render(
+      <TripsTable
+        actorAccess={resolveAccess(["operations"], ["shipments:read"])}
+        driverOptions={[]}
+        vehicleOptions={[]}
+      />,
+    );
+    fireEvent.keyDown(screen.getByRole("button", { name: "Acciones" }), {
+      key: "Enter",
+    });
+    expect(menuItem("Ver cargas")).toBe(false);
+    expect(menuItem("Editar")).toBe(true);
   });
 });
