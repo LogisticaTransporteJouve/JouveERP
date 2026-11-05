@@ -148,6 +148,8 @@ export function isReconciledFilter(value: unknown): value is ReconciledFilter {
 }
 
 export const TransactionFiltersSchema = z.object({
+  /** One movement (the journal's link to its origin). */
+  id: z.string().uuid().nullable().optional(),
   channel_id: z.string().nullable().optional(),
   /** Scope filter (`isFiscalFor`): null/absent = every channel. */
   is_fiscal: z.boolean().nullable().optional(),

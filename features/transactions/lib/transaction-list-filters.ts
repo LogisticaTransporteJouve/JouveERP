@@ -13,8 +13,10 @@ import {
   type TransactionKind,
 } from "../schema";
 
-/** Caja's URL state: `?account&kind&reconciled&period&from&to`. */
+/** Caja's URL state: `?id&account&kind&reconciled&period&from&to`. */
 export interface TransactionListParams {
+  /** One movement, from a link (the journal's origin); no control sets it. */
+  id: string | null;
   accountId: string | null;
   kind: TransactionKind | null;
   reconciled: ReconciledFilter | null;
@@ -23,6 +25,7 @@ export interface TransactionListParams {
 
 /** The list with no filter (the "Limpiar" target). */
 export const DEFAULT_TRANSACTION_LIST_PARAMS: TransactionListParams = {
+  id: null,
   accountId: null,
   kind: null,
   reconciled: null,
@@ -32,8 +35,10 @@ export const DEFAULT_TRANSACTION_LIST_PARAMS: TransactionListParams = {
 export function parseTransactionListParams(
   params: Record<string, string | undefined>,
 ): TransactionListParams {
+  const id = UuidSchema.safeParse(params.id);
   const account = UuidSchema.safeParse(params.account);
   return {
+    id: id.success ? id.data : null,
     accountId: account.success ? account.data : null,
     kind: isTransactionKind(params.kind) ? params.kind : null,
     reconciled: isReconciledFilter(params.reconciled)
@@ -47,6 +52,7 @@ export function transactionListParamsToUrl(
   params: TransactionListParams,
 ): Record<string, string | null> {
   return {
+    id: params.id,
     account: params.accountId,
     kind: params.kind,
     reconciled: params.reconciled,
@@ -64,6 +70,7 @@ export function transactionListFilters(
 ): TransactionFilters {
   const range = resolvePeriod(params.period, today);
   return {
+    id: params.id,
     is_fiscal: isFiscal,
     account_id: params.accountId,
     kind: params.kind,

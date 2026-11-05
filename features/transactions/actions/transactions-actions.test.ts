@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { resolveAccess } from "@/lib/auth/permissions";
 import {
+  filterValue,
   recordingSupabase,
   type FakeResponse,
   type RecordedCall,
@@ -36,7 +37,8 @@ vi.mock("@/lib/supabase/service", () => ({
 }));
 vi.mock("@/lib/actions/audit", () => ({ logAudit: vi.fn() }));
 
-const { createTransactionAction } = await import("./transactions-actions");
+const { createTransactionAction, listTransactionsAction } =
+  await import("./transactions-actions");
 
 const input = {
   account_id: "00000000-0000-4000-8000-000000000001",
@@ -75,5 +77,21 @@ describe("createTransactionAction", () => {
   it("inserts on a bank account", async () => {
     await createTransactionAction(input);
     expect(inserted()).toHaveLength(1);
+  });
+});
+
+describe("listTransactionsAction", () => {
+  it("lists only the movement the journal links to (`?id=`)", async () => {
+    const id = "00000000-0000-4000-8000-0000000000aa";
+    const res = await listTransactionsAction({ id });
+    expect(res.ok).toBe(true);
+    const [call] = fake.calls;
+    expect(call && filterValue(call, "eq", "id")).toBe(id);
+  });
+
+  it("rejects an id that is not a uuid", async () => {
+    const res = await listTransactionsAction({ id: "t1" });
+    expect(res.ok).toBe(false);
+    expect(fake.calls).toHaveLength(0);
   });
 });
