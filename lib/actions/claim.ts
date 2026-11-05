@@ -12,6 +12,10 @@ export type PartialCreateFailure = {
   createdId: string;
 };
 
+/** "lost": another caller holds the claim. "failed": the claim write itself
+ *  errored, so nobody may hold it and the user can retry. */
+export type ClaimOutcome = "won" | "lost" | "failed";
+
 /**
  * Claim → create → (release on failure). `create` only runs for the caller
  * that won the claim, so a double click or a second tab creates nothing. A
@@ -19,13 +23,18 @@ export type PartialCreateFailure = {
  * claim: releasing it would let the user create the same document twice.
  */
 export async function createWithClaim<T>(opts: {
-  claim: () => Promise<boolean>;
+  claim: () => Promise<ClaimOutcome>;
   release: () => Promise<void>;
   create: () => Promise<ActionResult<T> | PartialCreateFailure>;
   alreadyProcessed: string;
+  claimFailed: string;
 }): Promise<ActionResult<T> | PartialCreateFailure> {
-  if (!(await opts.claim())) {
-    return { ok: false, error: opts.alreadyProcessed };
+  const claim = await opts.claim();
+  if (claim !== "won") {
+    return {
+      ok: false,
+      error: claim === "failed" ? opts.claimFailed : opts.alreadyProcessed,
+    };
   }
   let result: ActionResult<T> | PartialCreateFailure;
   try {
