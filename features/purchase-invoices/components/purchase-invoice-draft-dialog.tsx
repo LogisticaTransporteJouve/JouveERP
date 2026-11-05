@@ -82,7 +82,7 @@ function SourcePreview({ source }: { source: PurchaseInvoiceDraftSource }) {
 /**
  * Dialog body once a document filled the invoice: the source file on the left
  * (desktop) and the editable form on the right. An ARCA voucher has no file:
- * the form alone.
+ * the form lays out its own two columns (the voucher, then the imputación).
  */
 export function PurchaseInvoiceDraftDialogContent({
   draft,
@@ -94,31 +94,37 @@ export function PurchaseInvoiceDraftDialogContent({
   onClose: () => void;
 }) {
   const source = draft.source;
-  const form = (
-    <div className="min-h-0 overflow-y-auto p-4">
-      <PurchaseInvoiceForm
-        mode="create"
-        draft={draft}
-        onSuccess={onCreated}
-        onCancel={onClose}
-      />
-    </div>
+  const fromArca = draft.origin === "arca";
+  const formElement = (
+    <PurchaseInvoiceForm
+      mode="create"
+      draft={draft}
+      onSuccess={onCreated}
+      onCancel={onClose}
+    />
+  );
+  const form = fromArca ? (
+    formElement
+  ) : (
+    <div className="min-h-0 overflow-y-auto p-4">{formElement}</div>
   );
   return (
     <DialogContent
       className={
         source
           ? "flex max-h-[92vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl lg:h-[92vh] lg:max-w-6xl"
-          : "flex max-h-[92vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl"
+          : fromArca
+            ? "flex max-h-[92vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl lg:max-w-6xl"
+            : "flex max-h-[92vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl"
       }
     >
       <DialogHeader className="border-b px-4 py-3 text-left">
-        {draft.origin === "arca" ? (
+        {fromArca ? (
           <>
             <DialogTitle>Aceptar comprobante recibido de ARCA</DialogTitle>
             <DialogDescription>
-              Elegí cuenta, centro de costo y repartí los otros tributos. Los
-              importes vienen de ARCA → Mis Comprobantes y no se pueden cambiar.
+              Los datos y los importes vienen de ARCA → Mis Comprobantes y no se
+              pueden cambiar. Elegí canal, cuenta y centro de costo, y aceptalo.
             </DialogDescription>
           </>
         ) : (

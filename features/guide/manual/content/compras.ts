@@ -1810,14 +1810,16 @@ export const purchasesPage: GuidePage = {
           id: "aceptar-comprobante-de-arca",
           title: "Aceptar un comprobante de ARCA y cargarlo como compra",
           summary:
-            "Los datos y los importes vienen de ARCA y no se cambian: vos elegís cuenta, centro de costo y el reparto de otros tributos.",
+            "Los datos y los importes vienen de ARCA y no se cambian: vos elegís canal, cuenta, centro de costo y el reparto de otros tributos.",
           permission: "purchase_invoices:write",
           screens: [
             {
               kind: "dialog",
+              caption:
+                "En la computadora el diálogo tiene dos columnas: a la izquierda el comprobante tal como lo informó ARCA (proveedor, número, fecha, moneda, CAE e importes), a la derecha la imputación. En el celular van una debajo de la otra.",
               title: "Aceptar comprobante recibido de ARCA",
               description:
-                "Elegí cuenta, centro de costo y repartí los otros tributos. Los importes vienen de ARCA → Mis Comprobantes y no se pueden cambiar.",
+                "Los datos y los importes vienen de ARCA → Mis Comprobantes y no se pueden cambiar. Elegí canal, cuenta y centro de costo, y aceptalo.",
               fields: [
                 {
                   label: "Proveedor",
@@ -1830,6 +1832,7 @@ export const purchasesPage: GuidePage = {
                   label: "Canal",
                   kind: "select",
                   value: "Jouve fiscal · fiscal",
+                  marker: 3,
                 },
                 {
                   label: "Vencimiento de pago",
@@ -1837,35 +1840,59 @@ export const purchasesPage: GuidePage = {
                   value: "19/11/2026",
                   marker: 3,
                 },
+                { label: "Cuenta de gasto", kind: "select", marker: 3 },
+                { label: "Centro de costo", kind: "select", marker: 3 },
+                {
+                  label: "A cargo de empleado",
+                  kind: "select",
+                  value: "No (gasto de la empresa)",
+                },
                 {
                   label: "Percepción IIBB",
                   kind: "money",
                   value: "13.500,00",
                   marker: 3,
                 },
-                { label: "Cuenta de gasto", kind: "select", marker: 3 },
-                { label: "Centro de costo", kind: "select", marker: 3 },
+                { label: "Notas", kind: "textarea", wide: true },
               ],
+              table: {
+                columns: [
+                  "Comprobante",
+                  "Neto",
+                  "IVA",
+                  "Otros tributos",
+                  "Total",
+                ],
+                rows: [
+                  [
+                    "Factura A00012-00004521",
+                    "100.000,00",
+                    "21.000,00",
+                    "13.500,00",
+                    "134.500,00",
+                  ],
+                ],
+              },
               footer: [
                 { label: "Cancelar", variant: "ghost" },
-                { label: "Cargar factura", variant: "primary", marker: 4 },
+                { label: "Aceptar comprobante", variant: "primary", marker: 4 },
               ],
             },
           ],
           steps: [
             "En la pestaña {{Pendientes}}, opcional: hacé clic en el ojo ({{Ver detalle}}) para ver lo que informó ARCA (neto e IVA por alícuota, no gravado, exento, otros tributos, total y CAE). Después hacé clic en {{Aceptar y cargar}}.",
-            "Si el proveedor no está cargado, crealo desde el botón «Crear proveedor «…»» que aparece en {{Proveedor}}. Tiene que ser el de ese CUIT.",
+            "Revisá el recuadro **Comprobante**: proveedor, número, fecha, moneda, CAE e importes (neto, no gravado, exento, IVA, otros tributos y total) tal como los informó ARCA; no se pueden cambiar. Debajo dice con qué líneas por alícuota se guarda. Si el proveedor no está cargado, crealo desde el botón «Crear proveedor «…»» que aparece en {{Proveedor}}: tiene que ser el de ese CUIT.",
             {
-              text: "Completá lo que no viene de ARCA:",
+              text: "En **Imputación**, completá lo que no viene de ARCA:",
               substeps: [
-                "{{Vencimiento de pago}}: arranca en la fecha del comprobante, o con el plazo de pago del proveedor si lo tiene.",
+                "{{Canal}} y {{Vencimiento de pago}}: el vencimiento arranca en la fecha del comprobante, o con el plazo de pago del proveedor si lo tiene.",
+                "{{Cuenta de gasto}}, {{Centro de costo}} y {{A cargo de empleado}}.",
                 "Si ARCA informa solo el total de otros tributos, repartilo en **Otros tributos: cómo se reparten**.",
-                "{{Cuenta de gasto}}, {{Centro de costo}}, {{A cargo de empleado}} y {{Notas}}.",
-                "Si es una nota de crédito o débito, elegí la {{Factura origen}}; si es en dólares, revisá la {{Cotización}}.",
-                "Tipo, letra, punto de venta, número, fecha, moneda e importes quedan bloqueados. En lugar de los ítems, el formulario dice con qué líneas por alícuota se guarda.",
+                "Si es en dólares, revisá la {{Cotización}}; si es una nota de crédito o débito, elegí la {{Factura origen}}.",
+                "{{Notas}}, si querés.",
               ],
             },
-            "Hacé clic en {{Cargar factura}}.",
+            "Hacé clic en {{Aceptar comprobante}}.",
           ],
           after: [
             "Aviso «Comprobante de ARCA cargado.»: se crea la compra como en [[#cargar-factura-de-compra]] y el comprobante pasa a {{Cargadas}}.",

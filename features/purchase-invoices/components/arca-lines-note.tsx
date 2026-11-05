@@ -24,12 +24,12 @@ export function ArcaLinesNote({
       <ul className="space-y-1 text-sm">
         {lines.map((l) => (
           <li key={l.iva_rate_id} className="flex justify-between gap-4">
-            <span>
+            <span className="shrink-0">
               IVA{" "}
               {PURCHASE_IVA_RATE_PERCENT[l.iva_rate_id].toLocaleString("es-AR")}{" "}
               %
             </span>
-            <span className="font-mono tabular-nums">
+            <span className="text-right font-mono tabular-nums">
               neto {formatMoney(l.neto)} · IVA {formatMoney(l.iva)}
             </span>
           </li>
