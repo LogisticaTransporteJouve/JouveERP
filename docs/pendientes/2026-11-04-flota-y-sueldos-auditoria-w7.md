@@ -21,7 +21,8 @@
 - [x] Cheques propios: sin cuentas se ocultan «Cargar cheque» y «Editar» y se
       dice por qué.
 - [x] La tarjeta de cotización del AI CFO avisa un salto de más de un 30%.
-- [ ] Manual de Tesorería (`docs/manual/treasury.html`, «Cheques propios»):
-      falta decir que «Cargar cheque» y «Editar» piden `accounts:read`. Se
-      dejó para no pisar la edición del mismo bloque de permisos que hace la
-      tanda de docs de la auditoría w7.
+- [ ] Guía, capítulo de Tesorería (`features/guide/manual/content/tesoreria.ts`,
+      «Cheques propios», ruta `/issued-checks`): falta decir que «Cargar
+      cheque» y «Editar» piden `accounts:read` (por ejemplo,
+      `permission: ["issued_checks:write", "accounts:read"]` en esas tareas).
+      El manual HTML `docs/manual/treasury.html` ya no existe.
