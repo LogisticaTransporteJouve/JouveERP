@@ -178,11 +178,12 @@ const GUARDS = [
   "update_receipt",
   "guard_transaction_origin",
   "guard_payroll_payment_transaction",
-  "claim_storage_billing_period",
+  "claim_storage_billing_period_with_relinks",
   "guard_storage_billing_run_invoice",
   "guard_storage_billing_run_delete",
   "enforce_payroll_period_immutability",
   "guard_shipment_invoice",
+  "guard_billed_shipment",
   "guard_check_import_run",
 ];
 

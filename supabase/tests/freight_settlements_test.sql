@@ -229,7 +229,7 @@ select results_eq(
 
 select throws_ok(
   format($$select public.cancel_freight_settlement(%L, null)$$, (select id from t_s1)),
-  '55006', 'La liquidación está facturada: anulá la factura (o emití la nota de crédito por el total) antes de cancelarla.',
+  '55006', 'La liquidación está facturada: antes de cancelarla, anulá el remito si es interno, o emití una nota de crédito por el total si la factura es fiscal.',
   'an invoiced liquidación is not cancelled while its invoice lives'
 );
 

@@ -131,7 +131,7 @@ export function FreightSettlementsPage({
         description:
           s.status === "invoiced"
             ? settlementSide(s) === "internal"
-              ? "Solo se puede si el remito interno está anulado o acreditado por nota de crédito interna por el total. Sus cargas quedan libres."
+              ? "Solo se puede si el remito interno está anulado. Sus cargas quedan libres."
               : "Solo se puede si la factura está anulada o acreditada por nota de crédito por el total. Sus cargas quedan libres. El Remito R queda cancelado con su número."
             : "Sus cargas quedan libres para otra liquidación.",
         confirmLabel: "Cancelar liquidación",

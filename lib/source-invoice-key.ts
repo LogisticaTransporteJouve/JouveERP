@@ -11,8 +11,9 @@ import { logger } from "@/lib/logger";
 // under a key derived from the source and its attempt number, so the source
 // has at most one live invoice: a "Facturar" after a lost link or an expired
 // claim finds the invoice the first one queued, instead of issuing a second.
-// The attempt moves on only when the previous invoice is void (failed or
-// cancelled), which is when the source is billable again.
+// The attempt moves on only when the previous invoice is void
+// (billing_invoice_is_void: failed, cancelled, or a fiscal factura its
+// emitted NCs credit in full), which is when the source is billable again.
 
 export type InvoiceSource = "freight_settlement" | "shipment_freight";
 
@@ -55,8 +56,24 @@ export type SourceInvoiceSlot =
   | { kind: "exhausted" }
   | { kind: "error" };
 
-function isVoid(status: string): boolean {
+function isVoidStatus(status: string): boolean {
   return status === "failed" || status === "cancelled";
+}
+
+/** billing_invoice_is_void, which also counts a fiscal factura credited in
+ *  full. Null on a read error. */
+async function readIsVoid(
+  supabase: SupabaseClient<Database>,
+  invoiceId: string,
+): Promise<boolean | null> {
+  const { data, error } = await supabase.rpc("billing_invoice_is_void", {
+    p_invoice_id: invoiceId,
+  });
+  if (error) {
+    logger.error("source_invoice.status_read_failed", { invoiceId, error });
+    return null;
+  }
+  return data === true;
 }
 
 /** Where the source's next invoice stands, from the invoices already issued
@@ -79,28 +96,27 @@ export async function findSourceInvoiceSlot(
     return { kind: "error" };
   }
   const byKey = new Map(data.map((row) => [row.idempotency_key, row]));
-  const live = keys
-    .map((key) => byKey.get(key))
-    .find((row) => row !== undefined && !isVoid(row.status));
-  if (live) return { kind: "live", invoiceId: live.id };
+  for (const key of keys) {
+    const row = byKey.get(key);
+    if (row === undefined || isVoidStatus(row.status)) continue;
+    // Only an emitted factura carries emitted NCs.
+    if (row.status === "emitted") {
+      const credited = await readIsVoid(supabase, row.id);
+      if (credited === null) return { kind: "error" };
+      if (credited) continue;
+    }
+    return { kind: "live", invoiceId: row.id };
+  }
   const free = keys.find((key) => !byKey.has(key));
   return free ? { kind: "free", key: free } : { kind: "exhausted" };
 }
 
-/** The invoice failed or was cancelled. A read error answers false, so the
- *  caller keeps its claim (the safe side: no second invoice before the TTL). */
+/** The invoice no longer bills its source (billing_invoice_is_void). A read
+ *  error answers false, so the caller keeps its claim (the safe side: no
+ *  second invoice before the TTL). */
 export async function invoiceIsVoid(
   supabase: SupabaseClient<Database>,
   invoiceId: string,
 ): Promise<boolean> {
-  const { data, error } = await supabase
-    .from("invoices")
-    .select("status")
-    .eq("id", invoiceId)
-    .maybeSingle();
-  if (error) {
-    logger.error("source_invoice.status_read_failed", { invoiceId, error });
-    return false;
-  }
-  return data !== null && isVoid(data.status);
+  return (await readIsVoid(supabase, invoiceId)) === true;
 }
