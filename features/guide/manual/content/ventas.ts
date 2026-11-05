@@ -1174,7 +1174,7 @@ export const salesPage: GuidePage = {
       permission: "invoices:read",
       intro: [
         "Se abre con {{Ver detalle}} (el ojo) en la lista. Arriba: tipo y número, canal y fecha, el estado (se actualiza solo mientras se emite) y los botones de lo que se puede hacer según el estado y tu permiso.",
-        "Debajo: {{Cliente}}, {{Operación}} (fechas de servicio y vencimiento, concepto, moneda), {{Ítems}}, {{Totales}}, {{Datos AFIP}} ({{CAE}}, {{Vencimiento CAE}}, {{Emitido el}} y, si hay, {{Observaciones AFIP}}) o {{Documento no fiscal}} en un remito interno, {{Adjuntos}} y, con permiso de auditoría, el {{Historial}} de cambios.",
+        "Debajo: {{Cliente}}, {{Operación}} (fechas de servicio y vencimiento, concepto, moneda y, en una NC o ND con notas internas, sus {{Observaciones}}), {{Ítems}}, {{Totales}}, {{Datos AFIP}} ({{CAE}}, {{Vencimiento CAE}}, {{Emitido el}} y, si hay, {{Observaciones AFIP}}) o {{Documento no fiscal}} en un remito interno, {{Adjuntos}} y, con permiso de auditoría, el {{Historial}} de cambios.",
         "En una factura B el IVA no se discrimina; se informa aparte como {{IVA contenido (Ley 27.743)}}.",
       ],
       screens: [
@@ -1216,6 +1216,12 @@ export const salesPage: GuidePage = {
                   value: "Devolución parcial del servicio",
                   marker: 2,
                 },
+                {
+                  label: "Observaciones (opcional)",
+                  kind: "textarea",
+                  wide: true,
+                  marker: 2,
+                },
               ],
               table: {
                 columns: ["Descripción", "Cant.", "Precio unitario", "IVA"],
@@ -1238,6 +1244,7 @@ export const salesPage: GuidePage = {
           steps: [
             "Abrí el detalle de la factura y hacé clic en **Emitir NC**. (Alternativa: en [[/invoices]] → {{Nuevo}}, {{Tipo}} {{Nota de Crédito}} y elegí la {{Factura origen}}; el resto es igual.)",
             "Revisá la {{Fecha}} y escribí el {{Motivo}} (obligatorio). Si la factura es en dólares, aparece un campo de cotización que viene con la de la factura: cambiala por la del día.",
+            "Si querés, escribí {{Observaciones (opcional)}}: son notas internas, no van a AFIP ni al PDF; se ven en el detalle de la nota. Solo están en el formulario de **Emitir NC**, no en el de {{Nuevo}}.",
             "Los ítems vienen copiados de la factura: dejá solo lo que acreditás y ajustá {{Cant.}} o {{Precio unitario}} (sin IVA). {{Agregar ítem}} y {{Quitar ítem}} suman o sacan filas. Revisá Neto, IVA y Total.",
             "Hacé clic en **Emitir NC** (en el formulario de {{Nuevo}}, {{Guardar}}).",
           ],
@@ -1302,7 +1309,7 @@ export const salesPage: GuidePage = {
           prerequisites: ["Una factura fiscal {{Emitido}}."],
           steps: [
             "Abrí el detalle de la factura y hacé clic en **Emitir ND**. (O en [[/invoices]] → {{Nuevo}}, {{Tipo}} {{Nota de Débito}} y elegí la {{Factura origen}}.)",
-            "Revisá la {{Fecha}} y escribí el {{Motivo}} (obligatorio).",
+            "Revisá la {{Fecha}} y escribí el {{Motivo}} (obligatorio). Si querés, agregá {{Observaciones (opcional)}}: notas internas que no van a AFIP ni al PDF (solo en el formulario de **Emitir ND**).",
             "Reemplazá los ítems copiados por el cargo extra: {{Descripción}}, {{Cant.}}, {{Precio unitario}} sin IVA e {{IVA}}.",
             "Hacé clic en **Emitir ND** (en el formulario de {{Nuevo}}, {{Guardar}}).",
           ],

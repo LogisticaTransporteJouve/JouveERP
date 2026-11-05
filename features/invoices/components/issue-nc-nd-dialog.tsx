@@ -25,6 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import {
   CONCEPTO,
   IVA_RATE,
@@ -45,7 +46,7 @@ import {
 
 import { useIssueFiscalInvoice } from "../hooks/use-invoices";
 import { ITEM_DECIMALS, itemInput, itemNumber } from "../lib/item-amounts";
-import { computeTotals, type RevenueKind } from "../schema";
+import { computeTotals, NOTES_MAX_LENGTH, type RevenueKind } from "../schema";
 
 export type Kind = "nc" | "nd";
 
@@ -116,6 +117,7 @@ export function NcNdForm({
 
   const [fecha, setFecha] = useState(() => todayInAR());
   const [motivo, setMotivo] = useState("");
+  const [notes, setNotes] = useState("");
   // A note is in its origin's currency; a foreign one takes the cotización of
   // the day, prefilled with the origin's.
   const isForeign = origin.moneda !== "PES";
@@ -214,6 +216,7 @@ export function NcNdForm({
           : 1,
         invoice_origin_id: origin.id,
         motivo_nc_nd: motivo.trim(),
+        notes: notes.trim() || null,
         items: items.map((it) => ({
           description: it.description.trim(),
           quantity: itemNumber(it.quantity),
@@ -366,6 +369,20 @@ export function NcNdForm({
             {formatNumber2(totals.imp_total)}
           </div>
         </div>
+      </div>
+
+      <div className="space-y-1">
+        <Label htmlFor="nc-nd-notes" className="text-xs">
+          Observaciones (opcional)
+        </Label>
+        <Textarea
+          id="nc-nd-notes"
+          rows={2}
+          maxLength={NOTES_MAX_LENGTH}
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="Notas internas; no se envían a AFIP ni van al PDF."
+        />
       </div>
 
       <div className="flex items-center justify-end gap-2">

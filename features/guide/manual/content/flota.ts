@@ -2035,8 +2035,8 @@ export const fleetPage: GuidePage = {
             },
             {
               message:
-                "El chofer … no está vinculado a un empleado: vinculalo en Flota › Choferes.",
-              fix: "Un chofer contratado sin legajo no tiene cuenta corriente: dejala a cargo del cliente.",
+                "El chofer … es contratado, sin legajo: no tiene cuenta corriente donde cargarle la diferencia. Dejala a cargo del cliente.",
+              fix: "Elegí {{A cargo del cliente}}. Solo un empleado con puesto Chofer / Acompañante tiene cuenta corriente.",
             },
             {
               message:
