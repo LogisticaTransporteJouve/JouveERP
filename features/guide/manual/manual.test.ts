@@ -77,29 +77,6 @@ const APP_ROUTES = walk(path.join(ROOT, "app/(dashboard)"), (f) =>
   })
   .sort();
 
-/** Routes whose chapter is not written yet. Each domain PR removes its own;
- *  the list only shrinks (a covered route listed here fails). */
-const PENDING_ROUTES: readonly string[] = [
-  "/cargas",
-  "/drivers",
-  "/fleet-documents",
-  "/fleet-reports",
-  "/fuel",
-  "/liquidaciones",
-  "/maintenance",
-  "/pallets",
-  "/pallets/trazabilidad",
-  "/products",
-  "/rendiciones",
-  "/storage-billing",
-  "/storage-tariffs",
-  "/trips",
-  "/trips/[id]",
-  "/vehicle-km",
-  "/vehicles",
-  "/warehouses",
-];
-
 const SECTIONS = GUIDE_PAGES.flatMap((p) => p.sections);
 const TASKS: GuideTask[] = SECTIONS.flatMap((s) => s.tasks);
 const TEXTS = SECTIONS.flatMap(sectionTexts).concat(
@@ -170,24 +147,17 @@ describe("routes", () => {
     expect(unknown).toEqual([]);
   });
 
-  it("every page of the app has its section (or is pending)", () => {
+  it("every page of the app has its section", () => {
     const covered = new Set(SECTIONS.flatMap((s) => s.routes));
-    expect(
-      APP_ROUTES.filter((r) => !covered.has(r) && !PENDING_ROUTES.includes(r)),
-    ).toEqual([]);
-    // A route written up comes off the pending list.
-    expect(PENDING_ROUTES.filter((r) => covered.has(r))).toEqual([]);
-    expect(PENDING_ROUTES.filter((r) => !APP_ROUTES.includes(r))).toEqual([]);
+    expect(APP_ROUTES.filter((r) => !covered.has(r))).toEqual([]);
   });
 
-  it("every menu entry and sidebar guide leads to a section (or is pending)", () => {
+  it("every menu entry and sidebar guide leads to a section", () => {
     const paths = [
       ...NAV_SECTIONS.flatMap((s) => s.items).map((i) => i.href),
       ...ROUTE_GUIDES.map((g) => g.prefix),
     ];
-    const lost = paths.filter(
-      (p) => !sectionForPath(GUIDE_PAGES, p) && !PENDING_ROUTES.includes(p),
-    );
+    const lost = paths.filter((p) => !sectionForPath(GUIDE_PAGES, p));
     expect(lost).toEqual([]);
   });
 });

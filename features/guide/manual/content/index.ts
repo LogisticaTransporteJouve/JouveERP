@@ -8,6 +8,8 @@ import { purchasesPage } from "./compras";
 import { treasuryPage } from "./tesoreria";
 import { accountingPage } from "./contabilidad";
 import { hrPage } from "./personal";
+import { fleetPage } from "./flota";
+import { warehousePage } from "./deposito";
 import { adminPage } from "./admin";
 
 /** The guide's chapters, in menu order. Each one renders to
@@ -21,5 +23,7 @@ export const GUIDE_PAGES: readonly GuidePage[] = [
   treasuryPage,
   accountingPage,
   hrPage,
+  fleetPage,
+  warehousePage,
   adminPage,
 ];

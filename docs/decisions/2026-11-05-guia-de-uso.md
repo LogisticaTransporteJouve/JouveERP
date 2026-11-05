@@ -44,8 +44,8 @@ y la misma fuente alimenta el HTML, la búsqueda y el asistente.
 ## Qué se descartó
 
 - **Capturas reales en CI**: el contenedor de CI no levanta la app con datos. Las réplicas en HTML/CSS
-  se validan contra el código; capturas reales quedan como follow-up opcional (un script de Playwright
-  contra el stack local con `pnpm seed:all`).
+  se validan contra el código; `pnpm manual:screenshots` (Playwright contra el stack local sembrado)
+  saca capturas reales para compararlas, sin publicarlas en la guía.
 - **Renderizar en cada request**: se perdería el HTML estático que se abre sin la app, y el diff de un
   cambio de guía no se vería en el PR.
 - **Embeddings para la IA**: la guía tiene unos cientos de tareas; un puntaje por palabras alcanza y no
