@@ -2,58 +2,20 @@ import { z } from "zod";
 
 import type { Database } from "@/lib/db/database.types";
 
-const slugTransform = z
-  .string()
-  .trim()
-  .min(2, "Slug requerido.")
-  .max(40)
-  .regex(
-    /^[a-z][a-z0-9_]*$/,
-    "Solo letras minúsculas, números y _. Debe empezar con letra.",
-  );
-
-const slugFromName = (name: string): string =>
-  name
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "")
-    .replace(/^[^a-z]/, "x");
-
-/** A category name: its slug is derived from it, so it needs a letter or digit. */
 export const SupplierCategoryNameSchema = z
   .string()
   .trim()
   .min(1, "Ingresá un nombre.")
-  .max(60, "Máximo 60 caracteres.")
-  .refine((name) => slugFromName(name).length > 0, {
-    message: "El nombre necesita al menos una letra o un número.",
-  });
+  .max(60, "Máximo 60 caracteres.");
 
-export const SupplierCategoryCreateSchema = z
-  .object({
-    name: SupplierCategoryNameSchema,
-    slug: z
-      .string()
-      .trim()
-      .transform((v) => (v.length === 0 ? "" : v))
-      .optional(),
-    is_active: z.boolean().default(true),
-  })
-  .transform((data) => ({
-    ...data,
-    slug:
-      data.slug && data.slug.length > 0
-        ? slugTransform.parse(data.slug)
-        : slugFromName(data.name),
-  }));
+export const SupplierCategoryCreateSchema = z.object({
+  name: SupplierCategoryNameSchema,
+  is_active: z.boolean().default(true),
+});
 
 export const SupplierCategoryUpdateSchema = z.object({
   id: z.string().uuid(),
   name: SupplierCategoryNameSchema.optional(),
-  slug: slugTransform.optional(),
   is_active: z.boolean().optional(),
 });
 
@@ -67,7 +29,7 @@ export type SupplierCategoryCreateInput = z.infer<
 export type SupplierCategoryUpdateInput = z.infer<
   typeof SupplierCategoryUpdateSchema
 >;
-export type SupplierCategory =
-  Database["public"]["Tables"]["supplier_categories"]["Row"];
-
-export { slugFromName };
+export type SupplierCategory = Pick<
+  Database["public"]["Tables"]["supplier_categories"]["Row"],
+  "id" | "name" | "is_active" | "created_at" | "updated_at"
+>;

@@ -14,6 +14,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { MonthPicker } from "@/components/ui/month-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -178,12 +179,7 @@ function RaiseForm({ onDone }: { onDone: () => void }) {
         </div>
         <div className="space-y-2">
           <Label htmlFor="raise-month">Desde el mes</Label>
-          <Input
-            id="raise-month"
-            type="month"
-            value={month}
-            onChange={(e) => setMonth(e.target.value)}
-          />
+          <MonthPicker id="raise-month" value={month} onChange={setMonth} />
         </div>
         <div className="space-y-2 sm:col-span-2">
           <Label htmlFor="raise-reason">Motivo (opcional)</Label>

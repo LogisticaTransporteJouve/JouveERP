@@ -7,7 +7,6 @@ import { resolveAccess } from "@/lib/auth/permissions";
 const category = {
   id: "cat1",
   name: "Combustible",
-  slug: "combustible",
   is_active: true,
 };
 

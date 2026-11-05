@@ -2,7 +2,7 @@
 
 import { Suspense, useState } from "react";
 
-import { Input } from "@/components/ui/input";
+import { MonthPicker } from "@/components/ui/month-picker";
 import {
   Select,
   SelectContent,
@@ -47,10 +47,9 @@ export function LibroIvaVentasPageContent({
       <div className="flex flex-wrap items-end gap-3 rounded-lg border bg-card p-4">
         <div className="space-y-1">
           <label className="text-xs text-muted-foreground">Período</label>
-          <Input
-            type="month"
+          <MonthPicker
             value={period}
-            onChange={(e) => setPeriod(e.target.value || currentPeriod())}
+            onChange={(value) => setPeriod(value || currentPeriod())}
             className="w-[180px]"
           />
         </div>

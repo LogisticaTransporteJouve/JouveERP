@@ -26,6 +26,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -442,7 +443,7 @@ export function ShipmentDialog({
                     <FormItem>
                       <FormLabel>Fecha programada</FormLabel>
                       <FormControl>
-                        <Input {...field} type="date" />
+                        <DatePicker {...field} clearable />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

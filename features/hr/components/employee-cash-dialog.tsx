@@ -21,6 +21,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { MoneyInput } from "@/components/money-input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -287,12 +288,7 @@ function CashFormFields({
         </div>
         <div className="space-y-2">
           <Label htmlFor="cash-date">Fecha</Label>
-          <Input
-            id="cash-date"
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-          />
+          <DatePicker id="cash-date" value={date} onChange={setDate} />
         </div>
         <div className="space-y-2">
           <Label htmlFor="cash-amount">Importe ({currency})</Label>

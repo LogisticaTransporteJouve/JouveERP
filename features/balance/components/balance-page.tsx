@@ -4,7 +4,7 @@ import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import { Suspense, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
+import { MonthPicker } from "@/components/ui/month-picker";
 import {
   Select,
   SelectContent,
@@ -58,10 +58,9 @@ export function BalancePage({
           <label className="text-xs text-muted-foreground">
             Período de corte
           </label>
-          <Input
-            type="month"
+          <MonthPicker
             value={periodEnd}
-            onChange={(e) => setPeriodEnd(e.target.value || currentMonth())}
+            onChange={(value) => setPeriodEnd(value || currentMonth())}
             className="w-[180px]"
           />
         </div>
@@ -69,12 +68,12 @@ export function BalancePage({
           <label className="text-xs text-muted-foreground">
             Desde (opcional)
           </label>
-          <Input
-            type="month"
+          <MonthPicker
             value={periodStart}
             max={periodEnd}
-            onChange={(e) => setPeriodStart(e.target.value)}
+            onChange={setPeriodStart}
             className="w-[180px]"
+            clearable
           />
         </div>
         {costCenters.length > 0 && (
