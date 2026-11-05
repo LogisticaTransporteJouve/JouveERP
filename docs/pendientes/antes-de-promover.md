@@ -860,6 +860,24 @@ un rollback a un SHA anterior a `94f942b`.
 Migraciones de `main` que todavía no están en `production-latest`. Cada rama
 que agrega una migración suma su ítem al final de esta sección.
 
+- [ ] **Aprobar `20261105193211`** (rendición con chofer contratado y
+      observaciones de NC/ND de venta, #438). Agrega `invoices.notes`
+      (texto, nullable, sin default) y reemplaza
+      `post_driver_settlement_difference` con la misma firma, seguridad y
+      grants; solo cambia el mensaje para un chofer sin empleado. No toca
+      filas existentes ni políticas RLS. Rollback: el código anterior no lee
+      ni escribe `notes` y llama a la función igual.
+  - Consulta de control antes de aplicar (solo lectura): la columna todavía
+    no existe en producción (debe devolver 0 filas).
+
+    ```sql
+    select column_name
+      from information_schema.columns
+     where table_schema = 'public'
+       and table_name = 'invoices'
+       and column_name = 'notes';
+    ```
+
 - [ ] **Aprobar `20261105230000`** (categorías de proveedores sin slug). La
       app deja de leer y escribir `supplier_categories.slug`; la columna
       queda, con un valor por defecto generado (`c_` + 32 caracteres hex),
