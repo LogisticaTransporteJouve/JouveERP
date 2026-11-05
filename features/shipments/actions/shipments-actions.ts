@@ -14,6 +14,7 @@ import type { ActionResult } from "@/lib/query/run-action";
 import { findSourceInvoiceSlot, invoiceIsVoid } from "@/lib/source-invoice-key";
 import { fetchInChunks } from "@/lib/supabase/paginate";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
+import { getServiceClient } from "@/lib/supabase/service";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createSupabaseClient>>;
 
@@ -69,17 +70,20 @@ function narrow(
 
 /** The rows as Shipments, each marked when its invoice no longer bills it
  *  (billing_void_invoice_ids). Null when that read fails: a void invoice
- *  must not read as billing its carga. */
+ *  must not read as billing its carga. The rule is read with the service
+ *  client, so a viewer who cannot read invoices (operations) gets the same
+ *  answer guard_billed_shipment gives them; it only answers yes or no for
+ *  the invoices of the cargas the viewer already read. */
 async function narrowRows(
-  supabase: SupabaseServerClient,
   rows: ShipmentRow[],
   userId: string,
 ): Promise<Shipment[] | null> {
   const invoiceIds = rows.flatMap((row) =>
     row.invoice_id === null ? [] : [row.invoice_id],
   );
+  const service = getServiceClient();
   const voidRes = await fetchInChunks(invoiceIds, (ids) =>
-    supabase.rpc("billing_void_invoice_ids", { p_invoice_ids: ids }),
+    service.rpc("billing_void_invoice_ids", { p_invoice_ids: ids }),
   );
   if (voidRes.error) {
     logger.error("shipments.invoice_void.failed", {
@@ -164,7 +168,7 @@ export async function listShipmentsAction(): Promise<ActionResult<Shipment[]>> {
     logger.error("shipments.list.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudieron listar las cargas." };
   }
-  const rows = await narrowRows(supabase, data ?? [], ctx.userId);
+  const rows = await narrowRows(data ?? [], ctx.userId);
   if (!rows) return { ok: false, error: "No se pudieron listar las cargas." };
   return { ok: true, data: rows };
 }
@@ -482,7 +486,7 @@ export async function listShipmentsByTripAction(
     logger.error("shipments.by_trip.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudieron cargar las cargas del viaje." };
   }
-  const rows = await narrowRows(supabase, data ?? [], ctx.userId);
+  const rows = await narrowRows(data ?? [], ctx.userId);
   if (!rows) {
     return { ok: false, error: "No se pudieron cargar las cargas del viaje." };
   }
@@ -510,7 +514,7 @@ export async function listUnassignedShipmentsAction(): Promise<
     logger.error("shipments.unassigned.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudieron cargar las cargas sin viaje." };
   }
-  const rows = await narrowRows(supabase, data ?? [], ctx.userId);
+  const rows = await narrowRows(data ?? [], ctx.userId);
   if (!rows) {
     return { ok: false, error: "No se pudieron cargar las cargas sin viaje." };
   }

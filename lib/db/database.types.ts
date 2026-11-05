@@ -10593,6 +10593,10 @@ export type Database = {
         Returns: undefined
       }
       settle_billed_remito: { Args: { p_factura_id: string }; Returns: string }
+      shipment_invoice_is_void: {
+        Args: { p_shipment_id: string }
+        Returns: boolean
+      }
       shipment_remito_conflict: {
         Args: {
           p_client_id: string
