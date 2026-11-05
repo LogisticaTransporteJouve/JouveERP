@@ -341,12 +341,18 @@ export async function detachFileAction(
     return { ok: false, error: fileLookupErr.message };
   }
 
-  const { error: delErr } = await supabase
+  // RLS lets only the link's creator or owner/admin delete it; any other
+  // caller deletes no row, which is not a detach.
+  const { data: deleted, error: delErr } = await supabase
     .from("file_attachments")
     .delete()
-    .eq("id", parsed.data);
+    .eq("id", parsed.data)
+    .select("id");
   if (delErr) {
     return { ok: false, error: delErr.message };
+  }
+  if ((deleted ?? []).length === 0) {
+    return { ok: false, error: "Solo quien lo adjuntó o un admin lo quita." };
   }
 
   await logAudit(

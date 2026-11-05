@@ -11,6 +11,8 @@ let attachments: {
   invoice_id?: string;
   purchase_invoice_id?: string;
   rlsHidden?: boolean;
+  /** Created by someone else: the caller's delete removes no row. */
+  notDeletable?: boolean;
 }[] = [];
 let extractionRefs = 0;
 let employeeDocRefs = 0;
@@ -48,7 +50,14 @@ function rlsFrom(table: string) {
     },
     then: (resolve: (v: unknown) => unknown) => {
       if (op === "delete" && table === "file_attachments") {
-        attachments = attachments.filter((a) => a.id !== eqs.id);
+        // RLS: only the link's creator or owner/admin deletes it.
+        const gone = attachments.filter(
+          (a) => a.id === eqs.id && !a.notDeletable,
+        );
+        attachments = attachments.filter((a) => !gone.includes(a));
+        return Promise.resolve(
+          resolve({ data: gone.map((a) => ({ id: a.id })), error: null }),
+        );
       } else if (op === "delete" && table === "files") {
         deletedFiles.push(String(eqs.id));
       }
@@ -173,6 +182,26 @@ describe("detachFileAction", () => {
     expect(res).toEqual({ ok: true, data: { deletedBlob: false } });
     expect(deletedFiles).toEqual([]);
     expect(removedBlobs).toEqual([]);
+  });
+});
+
+describe("detachFileAction — a link RLS does not let the caller delete", () => {
+  it("reports it instead of auditing a detach that did not happen", async () => {
+    attachments = [
+      {
+        id: ATTACHMENT_ID,
+        file_id: FILE_ID,
+        invoice_id: "inv-1",
+        notDeletable: true,
+      },
+    ];
+    expect(await detachFileAction(ATTACHMENT_ID)).toEqual({
+      ok: false,
+      error: "Solo quien lo adjuntó o un admin lo quita.",
+    });
+    expect(attachments).toHaveLength(1);
+    expect(logAudit).not.toHaveBeenCalled();
+    expect(deletedFiles).toEqual([]);
   });
 });
 
