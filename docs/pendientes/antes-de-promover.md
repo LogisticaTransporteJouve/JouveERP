@@ -862,10 +862,11 @@ que agrega una migración suma su ítem al final de esta sección.
 
 - [ ] **Aprobar `20261105230000`** (categorías de proveedores sin slug). La
       app deja de leer y escribir `supplier_categories.slug`; la columna
-      pasa a aceptar `null` y queda, para que un rollback siga funcionando.
-      No toca filas existentes ni políticas RLS. Rollback: el código
-      anterior lee y escribe el slug como antes; una categoría creada con
-      el código nuevo tiene slug `null` y se ve igual en la tabla.
+      queda, con un valor por defecto generado (`c_` + 32 caracteres hex),
+      para que un rollback siga funcionando. No toca filas existentes ni
+      políticas RLS. Rollback: el código anterior lee y escribe el slug como
+      antes; una categoría creada con el código nuevo muestra el slug
+      generado.
   - Consulta de control antes de aplicar (solo lectura): las categorías y
     su slug actual, que se conserva.
 

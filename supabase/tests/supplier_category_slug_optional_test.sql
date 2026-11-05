@@ -1,5 +1,5 @@
--- 20261105230000: a supplier category no longer needs a slug, and two
--- categories without one coexist. One transaction, rolled back.
+-- 20261105230000: a supplier category no longer needs a slug: two created
+-- without one each get a distinct generated one. One transaction, rolled back.
 
 begin;
 
@@ -16,9 +16,9 @@ select is(
   (select count(*)::int from public.supplier_categories
     where id in ('00000000-0000-0000-0000-00000000c501',
                  '00000000-0000-0000-0000-00000000c502')
-      and slug is null),
+      and slug ~ '^c_[0-9a-f]{32}$'),
   2,
-  'both categories keep a null slug'
+  'both categories get a generated slug'
 );
 
 select * from finish();
