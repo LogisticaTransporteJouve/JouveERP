@@ -35,8 +35,6 @@ export function MonthlyPackageView({
   period: string;
   ivaDownloads: ReactNode;
 }) {
-  const router = useRouter();
-
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -56,16 +54,7 @@ export function MonthlyPackageView({
           >
             Período
           </label>
-          <MonthPicker
-            id="package-period"
-            value={period}
-            onChange={(value) => {
-              if (value) {
-                router.push(`/accounting/package?period=${value}`);
-              }
-            }}
-            className="w-[180px]"
-          />
+          <PeriodPicker id="package-period" period={period} />
         </div>
       </div>
 
@@ -79,7 +68,21 @@ export function MonthlyPackageView({
       </section>
 
       <section className="space-y-2">
-        <h2 className="text-sm font-semibold">Descargas</h2>
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold">
+              Descargas de {formatPeriod(period)}
+            </h2>
+            <p className="text-muted-foreground text-xs">
+              Cada archivo trae solo ese mes. Para otro mes, elegilo acá.
+            </p>
+          </div>
+          <PeriodPicker
+            id="package-downloads-period"
+            aria-label="Mes de las descargas"
+            period={period}
+          />
+        </div>
         <div className="divide-y rounded-lg border bg-card">
           {ivaDownloads}
           <BookDownload
@@ -103,6 +106,30 @@ export function MonthlyPackageView({
         </div>
       </section>
     </div>
+  );
+}
+
+/** The month the page shows; picking one reloads it for that month. */
+function PeriodPicker({
+  id,
+  period,
+  "aria-label": ariaLabel,
+}: {
+  id: string;
+  period: string;
+  "aria-label"?: string;
+}) {
+  const router = useRouter();
+  return (
+    <MonthPicker
+      id={id}
+      aria-label={ariaLabel}
+      value={period}
+      onChange={(value) => {
+        if (value) router.push(`/accounting/package?period=${value}`);
+      }}
+      className="w-[180px]"
+    />
   );
 }
 
