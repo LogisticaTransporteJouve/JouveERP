@@ -50,6 +50,18 @@ Un capítulo es un `GuidePage` en `features/guide/manual/content/<capítulo>.ts`
 
 Después de editar: `pnpm manual:build` y `pnpm vitest run features/guide`.
 
+## Capturas reales (opcional)
+
+Las pantallas de la guía son réplicas en HTML/CSS validadas contra el código. Para compararlas con la
+app real, con el stack local levantado y sembrado (`pnpm dev:up`, `pnpm seed:all`):
+
+```bash
+pnpm manual:screenshots
+```
+
+Saca una captura de cada pantalla que documenta la guía (salvo las que piden un registro, como
+`/invoices/[id]`) en `test-results/manual-screenshots/`. No se publican en la guía.
+
 ## Archivos
 
 ```
