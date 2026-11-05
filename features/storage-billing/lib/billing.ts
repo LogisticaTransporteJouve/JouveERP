@@ -50,6 +50,36 @@ export type TariffInput = {
   is_active: boolean;
 };
 
+/** The storage_tariffs columns a TariffInput is built from. */
+export const STORAGE_TARIFF_COLUMNS =
+  "client_id, area_id, rate_per_pallet, period, handling_in, handling_out, valid_from, valid_to, is_active";
+
+/** A storage_tariffs row as billing prices it, area included: dropping
+ *  area_id would apply an area's general tariff to every area. */
+export function toTariffInput(row: {
+  client_id: string | null;
+  area_id: string | null;
+  rate_per_pallet: number;
+  period: string;
+  handling_in: number;
+  handling_out: number;
+  valid_from: string;
+  valid_to: string | null;
+  is_active: boolean;
+}): TariffInput {
+  return {
+    client_id: row.client_id,
+    area_id: row.area_id,
+    rate_per_pallet: Number(row.rate_per_pallet),
+    period: row.period,
+    handling_in: Number(row.handling_in),
+    handling_out: Number(row.handling_out),
+    valid_from: row.valid_from,
+    valid_to: row.valid_to,
+    is_active: row.is_active,
+  };
+}
+
 /** A client_tariffs row. No two of one client and concept overlap (DB). */
 export type ClientTariffInput = {
   client_id: string;

@@ -5,11 +5,13 @@ import type { JsonValue } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import type { Database } from "@/lib/db/database.types";
+import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { fetchInChunks, paginateRange } from "@/lib/supabase/paginate";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
+import { isRaisedByIncrease } from "../lib/increase";
 import {
   StorageTariffCreateSchema,
   StorageTariffIncreaseSchema,
@@ -178,6 +180,13 @@ export async function updateStorageTariffAction(
     })
     .eq("id", id);
   if (error) {
+    // A row moved to the client's tarifario refuses price/validity changes.
+    const guardError = mapDbGuardError(error, {
+      slug: "storage_tariffs.update.rejected",
+      userId: ctx.userId,
+      id,
+    });
+    if (guardError) return { ok: false, error: guardError };
     logger.error("storage_tariffs.update.failed", {
       userId: ctx.userId,
       id,
@@ -268,10 +277,9 @@ export async function increaseStorageTariffsAction(
   const { data: current, error } = await supabase
     .from("storage_tariffs")
     .select(
-      "id, client_id, area_id, rate_per_pallet, handling_in, handling_out, period, valid_from, valid_to",
+      "id, client_id, area_id, rate_per_pallet, handling_in, handling_out, period, valid_from, valid_to, is_active, migrated_to_client_tariffs_at",
     )
     .eq("is_active", true)
-    // A row moved to the client's tarifario is raised there.
     .is("migrated_to_client_tariffs_at", null)
     .or(`valid_to.is.null,valid_to.gte.${valid_from}`);
   if (error) {
@@ -282,7 +290,10 @@ export async function increaseStorageTariffsAction(
     return { ok: false, error: "No se pudieron leer las tarifas vigentes." };
   }
 
-  const eligible = (current ?? []).filter((t) => t.valid_from < valid_from);
+  // The read leaves only the future-dated ones out of the selection.
+  const eligible = (current ?? []).filter((t) =>
+    isRaisedByIncrease(t, valid_from),
+  );
   const skipped = (current ?? []).length - eligible.length;
   if (eligible.length === 0) {
     return {

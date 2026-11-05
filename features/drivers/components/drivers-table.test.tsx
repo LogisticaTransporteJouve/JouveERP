@@ -18,8 +18,9 @@ const driver = {
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/components/export-button", () => ({ ExportButton: () => null }));
+const confirmMock = vi.fn(async (_opts: { description?: string }) => false);
 vi.mock("@/components/providers/confirm-provider", () => ({
-  useConfirm: () => vi.fn(),
+  useConfirm: () => confirmMock,
 }));
 vi.mock("../hooks/use-drivers", () => ({
   useDrivers: () => ({ data: [driver] }),
@@ -72,4 +73,20 @@ describe("DriversTable: write controls follow drivers:write", () => {
     expect(menuItem("Editar")).toBe(false);
     expect(menuItem("Borrar")).toBe(false);
   });
+});
+
+// trips, fleet_documents and driver_settlements reference drivers ON DELETE
+// RESTRICT: a driver with any of them cannot be deleted.
+it("the delete confirmation says a driver with trips cannot be deleted", () => {
+  render(<DriversTable actorAccess={resolveAccess(["operations"])} />);
+  fireEvent.keyDown(screen.getByRole("button", { name: "Acciones" }), {
+    key: "Enter",
+  });
+  fireEvent.click(screen.getByRole("menuitem", { name: "Borrar" }));
+  expect(confirmMock).toHaveBeenCalledWith(
+    expect.objectContaining({
+      description:
+        "Si tiene viajes, documentos o rendiciones no se puede borrar: desactivalo.",
+    }),
+  );
 });

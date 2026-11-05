@@ -9,8 +9,8 @@ import { inngest } from "../client";
 //
 // Strategy:
 //   - Reads `v_documents_expiring` (view in migration 20260518100000).
-//   - For each doc, fans out to ALL users with role owner/admin/finance
-//     (aligned with the hr:* permission in lib/auth/permissions.ts).
+//   - For each doc, fans out to every user with hr:read (per-user denies
+//     included).
 //   - Sets `notified_at = now()` to avoid spamming; the filter re-includes
 //     a doc if it wasn't alerted in the last 7 days (renewals that
 //     re-enter the window).

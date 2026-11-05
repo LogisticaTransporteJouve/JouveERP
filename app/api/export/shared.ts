@@ -146,6 +146,12 @@ export function exportSheet(
   };
 }
 
+/** The last instant of `date` (YYYY-MM-DD), for a `created_at <=` bound: a bare
+ * date compares as its midnight, which drops the rows created that day. */
+export function endOfDay(date: string): string {
+  return `${date}T23:59:59.999`;
+}
+
 /** True when `date` (YYYY-MM-DD) falls within the (optional) range bounds. */
 export function inRange(date: string, range: ExportRange): boolean {
   if (range.from && date < range.from) return false;

@@ -257,7 +257,7 @@ export const fleetPage: GuidePage = {
           errors: [
             {
               message:
-                "El chofer tiene viajes o documentos. Desactivalo en lugar de borrarlo.",
+                "El chofer tiene viajes, documentos o rendiciones. Desactivalo en lugar de borrarlo.",
               fix: "Usá el interruptor {{Activo}} ([[#activar-desactivar-chofer]]).",
             },
             {
@@ -2017,7 +2017,7 @@ export const fleetPage: GuidePage = {
             {
               text: "Elegí a cargo de quién queda:",
               substeps: [
-                "{{A cargo del chofer}} (solo para un faltante): se emite un recibo que salda el faltante en la cuenta del cliente y se carga como adelanto en la cuenta corriente del chofer, pagado desde la cuenta de efectivo.",
+                "{{A cargo del chofer}} (solo para un faltante): se emite un recibo que salda el faltante en la cuenta del cliente y se carga como adelanto en la cuenta corriente del chofer, pagado desde la cuenta de efectivo. Solo los choferes propios (empleados) tienen cuenta corriente: con un chofer contratado la opción no se puede elegir.",
                 "{{A cargo del cliente}}: el faltante queda abierto en la cuenta del cliente, o el sobrante queda a cuenta del cliente. No se toca la cuenta corriente del chofer.",
               ],
             },

@@ -443,7 +443,7 @@ export const hrPage: GuidePage = {
           ],
           after: [
             "El empleado queda {{Inactivo}} con su fecha de egreso. No entra en las planillas que se generen después ni en la grilla de asistencia; su historia (planillas, pagos, cuenta corriente) queda igual.",
-            "Si escribiste un motivo, reemplaza las {{Notas}} que tenía el empleado.",
+            "Si escribiste un motivo, se agrega al final de las {{Notas}} del empleado; las que tenía se conservan.",
             "Su ficha de chofer se desactiva: deja de aparecer para asignarle viajes.",
             "Aparece la tarjeta {{Liquidación final}} en la ficha: ver [[#cargar-liquidacion-final]].",
           ],

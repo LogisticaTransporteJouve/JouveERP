@@ -25,7 +25,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import {
   CONCEPTO,
   IVA_RATE,
@@ -367,11 +366,6 @@ export function NcNdForm({
             {formatNumber2(totals.imp_total)}
           </div>
         </div>
-      </div>
-
-      <div className="space-y-1">
-        <Label className="text-xs">Observaciones (opcional)</Label>
-        <Textarea rows={2} placeholder="Notas internas; no se envían a AFIP." />
       </div>
 
       <div className="flex items-center justify-end gap-2">
