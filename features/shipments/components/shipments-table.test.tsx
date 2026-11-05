@@ -7,7 +7,7 @@ import { resolveAccess } from "@/lib/auth/permissions";
 import type { Shipment } from "../schema";
 
 const h = vi.hoisted(() => ({
-  channels: [] as { id: string; name: string; is_fiscal: boolean }[],
+  channels: [] as { id: string; name: string; is_fiscal: boolean }[] | null,
   posChannel: null as string | null,
   optionsFailed: false,
 }));
@@ -157,6 +157,14 @@ describe("FreightInvoiceDialog: channel on the client's side", () => {
       "No se pudieron cargar los canales.",
     );
     expect(screen.getByRole("button", { name: /Reintentar/ })).toBeTruthy();
+  });
+
+  it("says the channels could not be read when only that read failed", () => {
+    h.channels = null;
+    render(<FreightInvoiceDialog shipment={shipment} onClose={() => {}} />);
+    expect(screen.getByRole("alert").textContent).toContain(
+      "No se pudieron cargar los canales.",
+    );
   });
 
   it("keeps the carga's own channel", () => {

@@ -133,7 +133,12 @@ function usePurchaseInvoiceColumns({
         cell: ({ row }) => {
           const inv = row.original;
           const dimmed = inv.status === "cancelled" ? "opacity-60" : undefined;
-          return channelsById[inv.channel_id]?.is_fiscal === false ? (
+          const channel = channelsById[inv.channel_id];
+          // An unread channel (the layout's read failed) is neither side.
+          if (!channel) {
+            return <span className="text-sm text-muted-foreground">—</span>;
+          }
+          return channel.is_fiscal === false ? (
             <Badge variant="outline" className={cn("text-xs", dimmed)}>
               Interno
             </Badge>

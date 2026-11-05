@@ -1,7 +1,10 @@
 "use server";
 
 import { requireUserContext } from "@/lib/auth/context";
-import { userCan } from "@/lib/auth/permissions";
+import {
+  FLEET_PROFITABILITY_PERMISSIONS,
+  userCanAll,
+} from "@/lib/auth/permissions";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { paginateRange } from "@/lib/supabase/paginate";
@@ -34,10 +37,7 @@ export async function getFleetProfitabilityAction(
   input: RangeInput,
 ): Promise<ActionResult<FleetProfitability>> {
   const ctx = await requireUserContext();
-  if (
-    !userCan(ctx.access, "trips:read") ||
-    !userCan(ctx.access, "shipments:read")
-  ) {
+  if (!userCanAll(ctx.access, FLEET_PROFITABILITY_PERMISSIONS)) {
     return { ok: false, error: "No tenés permiso para ver la rentabilidad." };
   }
   if (!DATE_RE.test(input.periodStart) || !DATE_RE.test(input.periodEnd)) {
@@ -201,10 +201,7 @@ export async function listTripRevenueAction(): Promise<
   ActionResult<TripRevenue[]>
 > {
   const ctx = await requireUserContext();
-  if (
-    !userCan(ctx.access, "trips:read") ||
-    !userCan(ctx.access, "shipments:read")
-  ) {
+  if (!userCanAll(ctx.access, FLEET_PROFITABILITY_PERMISSIONS)) {
     return { ok: false, error: "No tenés permiso para ver la rentabilidad." };
   }
   const supabase = await createSupabaseClient();

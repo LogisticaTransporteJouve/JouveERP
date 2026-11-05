@@ -8,6 +8,7 @@ import {
   useScope,
   useSideChannels,
 } from "@/components/providers/scope-provider";
+import { ChannelsReadError } from "@/components/channels-read-error";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -165,6 +166,7 @@ export function CreateSalesInvoiceDialog({
                   ))}
                 </SelectContent>
               </Select>
+              <ChannelsReadError inline />
             </div>
             <div className="space-y-1">
               <Label htmlFor="si-pos">Punto de venta</Label>
