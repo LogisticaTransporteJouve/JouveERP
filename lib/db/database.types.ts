@@ -9196,6 +9196,10 @@ export type Database = {
         Args: { p_invoice_id: string }
         Returns: boolean
       }
+      billing_invoice_live_debits: {
+        Args: { p_invoice_id: string }
+        Returns: number
+      }
       billing_void_invoice_ids: {
         Args: { p_invoice_ids: string[] }
         Returns: string[]
