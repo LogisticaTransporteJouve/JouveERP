@@ -166,7 +166,7 @@ select is(
 );
 
 select is(
-  public.billing_invoice_live_debits('00000000-0000-0000-0000-00000015b3a2'),
+  public.billing_invoice_live_amount('00000000-0000-0000-0000-00000015b402'),
   6.05::numeric,
   'an ND counts net of its own NCs'
 );
@@ -221,12 +221,12 @@ select set_config('request.jwt.claims', '{"role":"service_role"}', true);
 
 select ok(
   not (select p.prosecdef from pg_proc p
-        where p.oid = 'public.billing_invoice_live_debits(uuid)'::regprocedure)
+        where p.oid = 'public.billing_invoice_live_amount(uuid)'::regprocedure)
   and (select p.proconfig @> array['search_path=""'] from pg_proc p
-        where p.oid = 'public.billing_invoice_live_debits(uuid)'::regprocedure)
-  and has_function_privilege('authenticated', 'public.billing_invoice_live_debits(uuid)', 'execute')
-  and not has_function_privilege('anon', 'public.billing_invoice_live_debits(uuid)', 'execute'),
-  'the ND helper is invoker, for authenticated and the service role only'
+        where p.oid = 'public.billing_invoice_live_amount(uuid)'::regprocedure)
+  and has_function_privilege('authenticated', 'public.billing_invoice_live_amount(uuid)', 'execute')
+  and not has_function_privilege('anon', 'public.billing_invoice_live_amount(uuid)', 'execute'),
+  'the chain helper is invoker, for authenticated and the service role only'
 );
 
 select ok(

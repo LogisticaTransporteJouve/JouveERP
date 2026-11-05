@@ -91,7 +91,7 @@ describe("findSourceInvoiceSlot", () => {
     expect(await run()).toEqual({ kind: "live", invoiceId: "inv0" });
   });
 
-  it("moves past a draft with no items, which no run ever sends", async () => {
+  it("takes the newest attempt past a draft with no items, without asking about it", async () => {
     const { fake, run } = slotFor(
       [
         { id: "inv0", status: "draft", idempotency_key: key(0) },
@@ -101,7 +101,14 @@ describe("findSourceInvoiceSlot", () => {
       { inv0: 0 },
     );
     expect(await run()).toEqual({ kind: "live", invoiceId: "inv1" });
-    // Only the draft is asked about.
+    expect(fake.calls.filter((c) => c.table === "invoice_items")).toEqual([]);
+  });
+
+  it("asks a draft for its items before treating it as live", async () => {
+    const { fake, run } = slotFor([
+      { id: "inv0", status: "draft", idempotency_key: key(0) },
+    ]);
+    expect(await run()).toEqual({ kind: "live", invoiceId: "inv0" });
     expect(
       fake.calls
         .filter((c) => c.table === "invoice_items")
@@ -135,21 +142,44 @@ describe("findSourceInvoiceSlot", () => {
     expect(await run()).toEqual({ kind: "free", key: key(2) });
   });
 
-  it("moves past a fiscal factura its NCs credit in full", async () => {
+  it("moves past a fiscal factura its notes void", async () => {
     const { fake, run } = slotFor(
-      [
-        { id: "inv0", status: "emitted", idempotency_key: key(0) },
-        { id: "inv1", status: "draft", idempotency_key: key(1) },
-      ],
+      [{ id: "inv0", status: "emitted", idempotency_key: key(0) }],
       { inv0: true },
     );
-    expect(await run()).toEqual({ kind: "live", invoiceId: "inv1" });
-    // Only the emitted one is asked about.
+    expect(await run()).toEqual({ kind: "free", key: key(1) });
     expect(
       fake.calls
         .filter((c) => c.table === "billing_invoice_is_void")
         .map((c) => c.payload),
     ).toEqual([{ p_invoice_id: "inv0" }]);
+  });
+
+  it("never adopts an earlier factura a later ND made bill again", async () => {
+    // inv0 was credited in full, so inv1 was issued; an ND on inv0 then
+    // revived it, and inv1 was credited in full too.
+    const { fake, run } = slotFor(
+      [
+        { id: "inv0", status: "emitted", idempotency_key: key(0) },
+        { id: "inv1", status: "emitted", idempotency_key: key(1) },
+      ],
+      { inv0: false, inv1: true },
+    );
+    expect(await run()).toEqual({ kind: "free", key: key(2) });
+    // Only the newest attempt is asked about.
+    expect(
+      fake.calls
+        .filter((c) => c.table === "billing_invoice_is_void")
+        .map((c) => c.payload),
+    ).toEqual([{ p_invoice_id: "inv1" }]);
+  });
+
+  it("never adopts an earlier live attempt once a later one failed", async () => {
+    const { run } = slotFor([
+      { id: "inv0", status: "emitted", idempotency_key: key(0) },
+      { id: "inv1", status: "failed", idempotency_key: key(1) },
+    ]);
+    expect(await run()).toEqual({ kind: "free", key: key(2) });
   });
 
   it("answers error, never a free key, when the credit read fails", async () => {
