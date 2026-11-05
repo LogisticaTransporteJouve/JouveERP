@@ -31,6 +31,12 @@ export type ArcaRobotErrorCode =
   | "REPRESENTED_NOT_FOUND"
   /** The query did not run or answered in an unknown shape. */
   | "QUERY_FAILED"
+  /** ARCA answered and refused to query the period (too old, or not
+   *  served). */
+  | "PERIOD_REFUSED"
+  /** ARCA answered with another period than the one asked: its rows are
+   *  not used. */
+  | "PERIOD_MISMATCH"
   /** More results than ARCA hands in one page: query a shorter range. */
   | "TOO_MANY"
   | "NETWORK";
@@ -409,10 +415,17 @@ export async function signInToMisComprobantes(
           ? consulta.datos.idConsulta
           : null;
       if (!idConsulta) {
-        throw new ArcaRobotError(
-          "QUERY_FAILED",
-          "ARCA no aceptó la consulta de comprobantes recibidos.",
-        );
+        // An answer in ARCA's own shape that is not "ok" is ARCA refusing
+        // the period; anything else is a broken answer.
+        throw isRecord(consulta) && typeof consulta.estado === "string"
+          ? new ArcaRobotError(
+              "PERIOD_REFUSED",
+              "ARCA no aceptó consultar ese período.",
+            )
+          : new ArcaRobotError(
+              "QUERY_FAILED",
+              "ARCA no aceptó la consulta de comprobantes recibidos.",
+            );
       }
       const estimate = json(
         await session.request(
@@ -459,6 +472,23 @@ export async function signInToMisComprobantes(
         throw new ArcaRobotError(
           "QUERY_FAILED",
           "ARCA devolvió una cantidad de comprobantes distinta de la que informó.",
+        );
+      }
+      // The rows must be of the period asked: an answer for another one (an
+      // earlier query ARCA hands back) would file the wrong months.
+      const asked = { desde: formatDate(from), hasta: formatDate(to) };
+      const consultaEcho =
+        isRecord(results.datos) && isRecord(results.datos.consulta)
+          ? results.datos.consulta
+          : null;
+      if (
+        !consultaEcho ||
+        consultaEcho.filtroFechaDesde !== asked.desde ||
+        consultaEcho.filtroFechaHasta !== asked.hasta
+      ) {
+        throw new ArcaRobotError(
+          "PERIOD_MISMATCH",
+          "ARCA devolvió comprobantes de otro período que el pedido.",
         );
       }
       const parsed = parseReceivedResults(results);

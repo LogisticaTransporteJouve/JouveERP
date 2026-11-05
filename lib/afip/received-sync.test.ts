@@ -71,6 +71,9 @@ describe("runReceivedSync", () => {
     const queryReceived = vi.fn(async () => ({
       vouchers: [voucher],
       skippedByReason: { bad_cuit: 1 },
+      skipped: [
+        { reason: "bad_cuit" as const, ref: "tipo 1 · 00003-00000007" },
+      ],
     }));
     const signIn = vi.fn(async () => ({ queryReceived }));
     const out = await runReceivedSync(
@@ -100,6 +103,18 @@ describe("runReceivedSync", () => {
       outcome: "done",
       counts: { inserted: 2, unsupported: 0, alreadyInTray: 4, linked: 0 },
       skippedRows: 2,
+      skipped: [
+        {
+          month: "2026-10",
+          reason: "bad_cuit",
+          ref: "tipo 1 · 00003-00000007",
+        },
+        {
+          month: "2026-11",
+          reason: "bad_cuit",
+          ref: "tipo 1 · 00003-00000007",
+        },
+      ],
       failedMonths: {},
     });
     // The tray follows the run: started, then finished with this result.
@@ -166,7 +181,11 @@ describe("runReceivedSync", () => {
     const queryReceived = vi
       .fn()
       .mockRejectedValueOnce(new ArcaRobotError("TOO_MANY", "x"))
-      .mockResolvedValueOnce({ vouchers: [voucher], skippedByReason: {} })
+      .mockResolvedValueOnce({
+        vouchers: [voucher],
+        skippedByReason: {},
+        skipped: [],
+      })
       .mockRejectedValueOnce(new ArcaRobotError("NETWORK", "x"));
     const out = await runReceivedSync(
       supabase,
@@ -209,7 +228,7 @@ describe("runReceivedSync", () => {
     let t = 0;
     const queryReceived = vi.fn(async () => {
       t += 150_000;
-      return { vouchers: [], skippedByReason: {} };
+      return { vouchers: [], skippedByReason: {}, skipped: [] };
     });
     const out = await runReceivedSync(
       supabase,
@@ -247,6 +266,7 @@ describe("runReceivedSync", () => {
     const queryReceived = vi.fn(async () => ({
       vouchers: [],
       skippedByReason: {},
+      skipped: [],
     }));
     const out = await runReceivedSync(
       supabase,
@@ -278,6 +298,7 @@ describe("runReceivedSync", () => {
             queryReceived: async () => ({
               vouchers: [voucher],
               skippedByReason: {},
+              skipped: [],
             }),
           }),
         },
@@ -312,7 +333,11 @@ describe("runReceivedSync", () => {
     const queryReceived = vi
       .fn()
       .mockRejectedValueOnce(new ArcaRobotError("QUERY_FAILED", "x"))
-      .mockResolvedValueOnce({ vouchers: [voucher], skippedByReason: {} });
+      .mockResolvedValueOnce({
+        vouchers: [voucher],
+        skippedByReason: {},
+        skipped: [],
+      });
     const out = await runReceivedSync(
       supabase,
       { from: "2026-10-01", to: "2026-11-30" },

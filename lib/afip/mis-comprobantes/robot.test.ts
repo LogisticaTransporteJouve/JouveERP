@@ -36,8 +36,15 @@ function row(cells: Record<number, string>): (string | null)[] {
 
 type Call = { url: string; method: string; body: string; cookie: string };
 
+let askedPeriod: { desde: string; hasta: string } | null = null;
+
 function fakeArca(
-  opts: { claveOk?: boolean; serverSide?: boolean; recordsTotal?: number } = {},
+  opts: {
+    claveOk?: boolean;
+    serverSide?: boolean;
+    recordsTotal?: number;
+    otherPeriod?: boolean;
+  } = {},
 ) {
   const calls: Call[] = [];
   const respond = (
@@ -88,6 +95,10 @@ function fakeArca(
     if (u.pathname === "/mcmp/jsp/ajax.do") {
       const f = u.searchParams.get("f");
       if (f === "generarConsulta") {
+        const [desde, hasta] = (u.searchParams.get("fechaEmision") ?? "").split(
+          " - ",
+        );
+        askedPeriod = { desde: desde ?? "", hasta: hasta ?? "" };
         return respond(
           JSON.stringify({
             estado: "ok",
@@ -109,6 +120,16 @@ function fakeArca(
             estado: "ok",
             recordsTotal: opts.recordsTotal ?? 1,
             datos: {
+              // ARCA echoes the period it queried.
+              consulta: opts.otherPeriod
+                ? {
+                    filtroFechaDesde: "01/12/2014",
+                    filtroFechaHasta: "31/12/2014",
+                  }
+                : {
+                    filtroFechaDesde: askedPeriod?.desde,
+                    filtroFechaHasta: askedPeriod?.hasta,
+                  },
               data: [
                 row({
                   0: "01/11/2026",
@@ -214,6 +235,26 @@ describe("signInToMisComprobantes", () => {
     await expect(
       robot.queryReceived("2026-01-01", "2026-12-31"),
     ).rejects.toMatchObject({ code: "TOO_MANY" });
+  });
+
+  it("does not use rows of another period than the one asked", async () => {
+    const { fetchImpl } = fakeArca({ otherPeriod: true });
+    const robot = await signInToMisComprobantes(credentials, fetchImpl);
+    await expect(
+      robot.queryReceived("2026-11-01", "2026-11-30"),
+    ).rejects.toMatchObject({ code: "PERIOD_MISMATCH" });
+  });
+
+  it("tells a period ARCA refuses apart from a broken answer", async () => {
+    const { fetchImpl } = fakeArca();
+    const refusing = async (url: string, init: RequestInit) =>
+      url.includes("f=generarConsulta")
+        ? new Response(JSON.stringify({ estado: "error", mensajes: ["x"] }))
+        : fetchImpl(url, init);
+    const robot = await signInToMisComprobantes(credentials, refusing);
+    await expect(
+      robot.queryReceived("2014-12-01", "2014-12-31"),
+    ).rejects.toMatchObject({ code: "PERIOD_REFUSED" });
   });
 
   it("refuses a page with fewer rows than ARCA counted", async () => {

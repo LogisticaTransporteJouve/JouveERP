@@ -2,7 +2,7 @@ import type {
   ArcaSyncRun,
   ArcaSyncRunResult,
 } from "@/lib/afip/arca-web-account";
-import { arcaErrorText } from "@/lib/afip/arca-error-text";
+import { arcaErrorText, skipReasonText } from "@/lib/afip/arca-error-text";
 
 /** A requested run that has not started after this long never will (the
  *  event was lost, or the job is not deployed). Room for a whole run ahead
@@ -68,14 +68,55 @@ export function syncResultText(result: ArcaSyncRunResult): string {
       if (result.skippedRows > 0) {
         parts.push(`${result.skippedRows} no se pudieron leer`);
       }
-      const failed = Object.entries(result.failedMonths);
-      const tail =
-        failed.length > 0
-          ? ` Faltó ${failed
-              .map(([month, code]) => `${month} (${arcaErrorText(code)})`)
-              .join(", ")}.`
-          : "";
-      return `${parts.join(" · ")}.${tail}`;
+      return [
+        `${parts.join(" · ")}.`,
+        failedMonthsText(result.failedMonths),
+        skippedText(result.skipped ?? [], result.skippedRows),
+      ]
+        .filter(Boolean)
+        .join(" ");
     }
   }
+}
+
+/** The months a run could not read, as ranges of consecutive months with
+ *  the same reason: «Faltó 2014-12 a 2015-10 (…).» */
+function failedMonthsText(failed: Record<string, string>): string {
+  const months = Object.keys(failed).sort();
+  if (months.length === 0) return "";
+  const next = (m: string) => {
+    const [y, mo] = m.split("-").map(Number) as [number, number];
+    return mo === 12
+      ? `${y + 1}-01`
+      : `${y}-${String(mo + 1).padStart(2, "0")}`;
+  };
+  const runs: { from: string; to: string; code: string }[] = [];
+  for (const m of months) {
+    const last = runs.at(-1);
+    if (last && last.code === failed[m] && next(last.to) === m) last.to = m;
+    else runs.push({ from: m, to: m, code: failed[m]! });
+  }
+  return `Faltó ${runs
+    .map(
+      (r) =>
+        `${r.from === r.to ? r.from : `${r.from} a ${r.to}`} (${arcaErrorText(r.code)})`,
+    )
+    .join(", ")}.`;
+}
+
+const SKIPPED_SHOWN = 3;
+
+/** The first rows that could not be read, named: «No se leyeron: tipo 1 ·
+ *  00003-00026630 · CUIT … (los importes no suman el total)…» */
+function skippedText(
+  skipped: { reason: string; ref: string }[],
+  total: number,
+): string {
+  if (skipped.length === 0) return "";
+  const shown = skipped
+    .slice(0, SKIPPED_SHOWN)
+    .map((s) => `${s.ref} (${skipReasonText(s.reason)})`)
+    .join("; ");
+  const more = total - Math.min(skipped.length, SKIPPED_SHOWN);
+  return `No se leyeron: ${shown}${more > 0 ? ` y ${more} más` : ""}.`;
 }

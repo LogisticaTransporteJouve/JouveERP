@@ -26,6 +26,11 @@ const SyncResultSchema = z.discriminatedUnion("outcome", [
     outcome: z.literal("done"),
     counts: CountsSchema,
     skippedRows: z.number(),
+    skipped: z
+      .array(
+        z.object({ month: z.string(), reason: z.string(), ref: z.string() }),
+      )
+      .optional(),
     failedMonths: z.record(z.string(), z.string()),
   }),
 ]);

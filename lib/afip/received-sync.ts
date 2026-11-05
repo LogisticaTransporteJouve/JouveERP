@@ -15,6 +15,7 @@ import {
   type ArcaRobot,
   type ArcaRobotErrorCode,
 } from "./mis-comprobantes/robot";
+import { SKIPPED_ROWS_NAMED } from "./mis-comprobantes/parse";
 import { ingestReceivedVouchers, type IngestCounts } from "./received-vouchers";
 
 type Supabase = SupabaseClient<Database>;
@@ -31,6 +32,8 @@ export type ReceivedSyncResult =
       outcome: "done";
       counts: IngestCounts;
       skippedRows: number;
+      /** The first skipped rows, named, for a person to find them. */
+      skipped?: { month: string; reason: string; ref: string }[];
       /** Months whose query failed (YYYY-MM → code); the rest were read. */
       failedMonths: Record<string, MonthFailure>;
     };
@@ -214,6 +217,7 @@ async function syncReceived(
     linked: 0,
   };
   let skippedRows = 0;
+  const skipped: { month: string; reason: string; ref: string }[] = [];
   const failedMonths: Record<string, MonthFailure> = {};
   // From the start of the run: a slow sign-in eats the same 300 s.
   const deadline = startedAt + RUN_BUDGET_MS;
@@ -248,6 +252,10 @@ async function syncReceived(
       (a, n) => a + (n ?? 0),
       0,
     );
+    for (const row of parsed.skipped) {
+      if (skipped.length >= SKIPPED_ROWS_NAMED) break;
+      skipped.push({ month, ...row });
+    }
     const ingested = await ingestReceivedVouchers(supabase, parsed.vouchers, {
       origin: "sync",
     });
@@ -266,5 +274,5 @@ async function syncReceived(
     skippedRows,
     failedMonths: Object.keys(failedMonths).length,
   });
-  return { outcome: "done", counts, skippedRows, failedMonths };
+  return { outcome: "done", counts, skippedRows, skipped, failedMonths };
 }

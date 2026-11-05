@@ -48,6 +48,14 @@
       comprobantes (`20261104141000`); «Traer de ARCA» no se pide si no se
       pudo registrar el pedido; Admin → AFIP dice cuando el último pedido no
       arrancó.
+- [x] «Traer de ARCA» con un año equivocado (corrida del 2026-11-05, dic 2014
+      a nov 2015): un período que ARCA no deja consultar se informa como tal
+      (`PERIOD_REFUSED`); filas de otro período que el pedido se descartan
+      (`PERIOD_MISMATCH`); el selector llega hasta 5 años atrás y avisa
+      cuando el período empieza hace más de un año; las filas que no se
+      pudieron leer se nombran (tipo, número, CUIT) con el motivo.
+- [ ] Hasta qué fecha sirve Mis Comprobantes: el tope de 5 años es una
+      cota razonable, no un dato de ARCA.
 - [ ] Avisar por notificación a owner y admin cuando ARCA rechaza la clave
       (hoy lo muestran la bandeja y Admin → AFIP).
 - [x] Lector validado con una consulta real de Recibidos (A con otros

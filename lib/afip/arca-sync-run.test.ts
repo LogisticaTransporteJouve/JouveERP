@@ -77,4 +77,51 @@ describe("syncResultText", () => {
       ),
     ).toBe("waiting");
   });
+
+  it("groups consecutive failed months and names the rows not read", () => {
+    // The owner's run: Dec 2014 to Nov 2015, a wrong year in the picker.
+    const failedMonths: Record<string, string> = {};
+    for (const m of [
+      "2014-12",
+      "2015-01",
+      "2015-02",
+      "2015-03",
+      "2015-04",
+      "2015-05",
+      "2015-06",
+      "2015-07",
+      "2015-08",
+      "2015-09",
+      "2015-10",
+    ]) {
+      failedMonths[m] = "PERIOD_REFUSED";
+    }
+    failedMonths["2015-11"] = "PERIOD_MISMATCH";
+    expect(
+      syncResultText({
+        outcome: "done",
+        counts: { inserted: 0, unsupported: 0, alreadyInTray: 0, linked: 0 },
+        skippedRows: 4,
+        skipped: [
+          {
+            month: "2026-11",
+            reason: "amount_mismatch",
+            ref: "tipo 1 · 00003-00026630",
+          },
+          {
+            month: "2026-11",
+            reason: "bad_cuit",
+            ref: "tipo 11 · 00002-00000108",
+          },
+        ],
+        failedMonths,
+      }),
+    ).toBe(
+      "0 comprobantes nuevos · 0 ya estaban · 4 no se pudieron leer. " +
+        "Faltó 2014-12 a 2015-10 (ARCA no deja consultar ese período; puede ser muy viejo), " +
+        "2015-11 (ARCA devolvió otro período y no se usó). " +
+        "No se leyeron: tipo 1 · 00003-00026630 (los importes no suman el total); " +
+        "tipo 11 · 00002-00000108 (CUIT ilegible) y 2 más.",
+    );
+  });
 });
