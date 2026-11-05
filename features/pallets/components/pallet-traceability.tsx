@@ -17,6 +17,7 @@ import { formatArgentineDate, todayInAR } from "@/lib/format";
 import { usePallets } from "../hooks/use-pallets";
 import { storedDays } from "../lib/pallet-days";
 import { PALLET_STATUS_LABELS, type Pallet } from "../schema";
+import { ClientOptionsReadError } from "./client-options-read-error";
 
 const STATUS_FILTERS = [
   { value: "all", label: "Todos" },
@@ -29,7 +30,8 @@ type Row = Pallet & { days: number };
 export function PalletTraceability({
   clientOptions,
 }: {
-  clientOptions: { id: string; legal_name: string }[];
+  /** null: the clients could not be read. */
+  clientOptions: { id: string; legal_name: string }[] | null;
 }) {
   const { data: items } = usePallets();
   const [clientFilter, setClientFilter] = useState("");
@@ -178,7 +180,7 @@ export function PalletTraceability({
 
       <div className="flex flex-wrap items-center gap-2">
         <Combobox
-          options={clientOptions.map((c) => ({
+          options={(clientOptions ?? []).map((c) => ({
             value: c.id,
             label: c.legal_name,
           }))}
@@ -189,6 +191,7 @@ export function PalletTraceability({
           emptyText="Sin clientes."
           className="w-72"
         />
+        <ClientOptionsReadError clientOptions={clientOptions} />
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-44">
             <SelectValue />

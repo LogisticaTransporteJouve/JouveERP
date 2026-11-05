@@ -25,6 +25,7 @@ import {
 import {
   createClientAction,
   deleteClientAction,
+  getClientByIdAction,
   getClientReferencesAction,
   searchClientsAction,
   setClientActiveAction,
@@ -35,6 +36,15 @@ import { CLIENTS_PAGE_SIZE, clientsKeys } from "../lib/clients-keys";
 import type { Client } from "../schema";
 
 export { CLIENTS_PAGE_SIZE };
+
+/** One client by id, or nothing while `id` is null. */
+export function useClientByIdOptional(id: string | null) {
+  return useQuery({
+    queryKey: clientsKeys.byId(id ?? ""),
+    queryFn: () => runAction(() => getClientByIdAction(id ?? "")),
+    enabled: !!id,
+  });
+}
 
 /**
  * Suspense-driven infinite list. The keyspace includes the filters so each

@@ -999,3 +999,114 @@ describe("createSalesInvoiceFromExtractionAction", () => {
     expect(vi.mocked(issueFiscalInvoiceAction)).not.toHaveBeenCalled();
   });
 });
+
+describe("a draft the pipeline re-saved, or a claim left stale", () => {
+  const HOUR_AGO = () => new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const chequeInput = {
+    extractionId: EXTRACTION_ID,
+    cartera_account_id: ACCOUNT_ID,
+    cheques: [
+      {
+        banco: "B",
+        numero: "1",
+        librador: "ACME SA",
+        importe: 10,
+        fecha: "2026-07-01",
+      },
+    ],
+  };
+
+  it("does not create again from a pending draft that already has its entity", async () => {
+    seed("receipt", { client_id: "c1" });
+    const row = extraction();
+    if (row) row.created_entity = { table: "receipts", id: "rec-1" };
+    const res = await createReceiptFromExtractionAction(receiptInput);
+    expect(res).toEqual({
+      ok: false,
+      error: "La extracción ya fue procesada.",
+    });
+    expect(createReceiptAction).not.toHaveBeenCalled();
+  });
+
+  it("the claim itself refuses a draft that already has its entity", async () => {
+    seedPurchase();
+    const row = extraction();
+    if (row) row.created_entity = { table: "purchase_invoices", id: "pi-1" };
+    const res = await createPurchaseInvoiceFromDraftAction({
+      extractionId: EXTRACTION_ID,
+      invoice: reviewedInvoice,
+    });
+    expect(res.ok).toBe(false);
+    expect(createPurchaseInvoiceAction).not.toHaveBeenCalled();
+  });
+
+  it("a stale receipt claim says what to check instead of «ya fue procesada», and creates nothing", async () => {
+    seed("receipt", { client_id: "c1" });
+    const row = extraction();
+    if (row) {
+      row.status = "confirmed";
+      row.updated_at = HOUR_AGO();
+    }
+    const res = await createReceiptFromExtractionAction(receiptInput);
+    expect(res.ok).toBe(false);
+    expect(!res.ok && res.error).toMatch(/no registró qué creó/);
+    expect(createReceiptAction).not.toHaveBeenCalled();
+    expect(extraction()?.status).toBe("confirmed");
+  });
+
+  it("a stale cheque claim with nothing linked is retried", async () => {
+    seed("check", {});
+    db.accounts = [{ id: ACCOUNT_ID, type: "checks" }];
+    db.checks = [];
+    const row = extraction();
+    if (row) {
+      row.status = "confirmed";
+      row.updated_at = HOUR_AGO();
+    }
+    const res = await createChecksFromExtractionAction(chequeInput);
+    expect(res.ok && res.data.created).toBe(1);
+    expect(extraction()).toMatchObject({
+      status: "confirmed",
+      created_entity: { table: "checks", count: 1 },
+    });
+  });
+
+  it("a recent cheque claim is left alone", async () => {
+    seed("check", {});
+    db.accounts = [{ id: ACCOUNT_ID, type: "checks" }];
+    db.checks = [];
+    const row = extraction();
+    if (row) row.status = "confirmed";
+    const res = await createChecksFromExtractionAction(chequeInput);
+    expect(res).toEqual({
+      ok: false,
+      error: "La extracción ya fue procesada.",
+    });
+    expect(db.checks).toHaveLength(0);
+  });
+
+  it("a stale claim with nothing linked can be discarded", async () => {
+    seed("receipt", {});
+    const row = extraction();
+    if (row) {
+      row.status = "confirmed";
+      row.updated_at = HOUR_AGO();
+    }
+    const res = await discardExtractionAction(EXTRACTION_ID);
+    expect(res.ok).toBe(true);
+    expect(extraction()?.status).toBe("discarded");
+  });
+
+  it("a stale claim with its entity linked cannot be discarded", async () => {
+    seed("receipt", {});
+    const row = extraction();
+    if (row) {
+      row.status = "confirmed";
+      row.updated_at = HOUR_AGO();
+      row.created_entity = { table: "receipts", id: "rec-1" };
+    }
+    const res = await discardExtractionAction(EXTRACTION_ID);
+    expect(res.ok).toBe(false);
+    expect(extraction()?.status).toBe("confirmed");
+  });
+});

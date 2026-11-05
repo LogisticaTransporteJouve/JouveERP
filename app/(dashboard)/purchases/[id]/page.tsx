@@ -22,6 +22,7 @@ import {
   getPurchaseInvoiceAllocationsAction,
   getPurchaseInvoiceByIdAction,
   getPurchaseInvoiceItemsAction,
+  getPurchaseInvoiceOpenAction,
 } from "@/features/purchase-invoices/actions/purchase-invoices-actions";
 import {
   purchaseKindLabel,
@@ -57,16 +58,22 @@ export default async function PurchaseInvoiceDetailPage({
   }
 
   const { id } = await params;
-  const [invRes, allocRes, itemsRes, imputationsRes] = await Promise.all([
-    getPurchaseInvoiceByIdAction(id),
-    getPurchaseInvoiceAllocationsAction(id),
-    getPurchaseInvoiceItemsAction(id),
-    getPurchaseImputationsAction(id),
-  ]);
+  // Payments are measured only for a role that reads OPs: under RLS anyone
+  // else (the fiscal_reader) would read none and see every purchase unpaid.
+  const canReadPayments = userCan(ctx.access, "payment_orders:read");
+  const [invRes, allocRes, openRes, itemsRes, imputationsRes] =
+    await Promise.all([
+      getPurchaseInvoiceByIdAction(id),
+      canReadPayments ? getPurchaseInvoiceAllocationsAction(id) : null,
+      canReadPayments ? getPurchaseInvoiceOpenAction(id) : null,
+      getPurchaseInvoiceItemsAction(id),
+      getPurchaseImputationsAction(id),
+    ]);
   if (!invRes.ok || !invRes.data) notFound();
   const invoice = invRes.data;
-  const allocations = allocRes.ok ? allocRes.data : [];
-  const items = itemsRes.ok ? itemsRes.data : [];
+  const allocations = allocRes?.ok ? allocRes.data : [];
+  const open = openRes?.ok ? openRes.data : null;
+  const items = itemsRes.ok ? itemsRes.data : null;
   const imputations = imputationsRes.ok ? imputationsRes.data : null;
 
   const supabase = await createClient();
@@ -87,9 +94,6 @@ export default async function PurchaseInvoiceDetailPage({
     userCan(ctx.access, "purchase_invoices:write") &&
     userCan(ctx.access, "payment_orders:write");
 
-  const paidByActive = allocations
-    .filter((a) => a.payment_order_status !== "canceled")
-    .reduce((acc, a) => acc + a.amount_applied, 0);
   // "Pagar" opens the OP form with this purchase picked for what it still
   // owes (the same pending list the OP form reads).
   let payOpen: { outstanding: number } | null = null;
@@ -109,11 +113,6 @@ export default async function PurchaseInvoiceDetailPage({
     if (mine && mine.outstanding > 0)
       payOpen = { outstanding: mine.outstanding };
   }
-  const creditedByImputation = imputations?.imputedTo?.credited ?? 0;
-  const outstanding = Math.max(
-    0,
-    invoice.imp_total - paidByActive - creditedByImputation,
-  );
 
   // The parts a purchase states beyond neto and IVA; zeros are left out.
   const breakdown = invoice.amount_breakdown;
@@ -277,28 +276,58 @@ export default async function PurchaseInvoiceDetailPage({
               value={money(invoice.imp_total, invoice.moneda)}
               emphasize
             />
-            <Row label="Pagado" value={money(paidByActive, invoice.moneda)} />
-            {creditedByImputation > 0 && (
-              <Row
-                label="Acreditado"
-                value={money(creditedByImputation, invoice.moneda)}
-              />
+            {canReadPayments && open && (
+              <>
+                <Row label="Pagado" value={money(open.paid, invoice.moneda)} />
+                {open.credited > 0 && (
+                  <Row
+                    label="Acreditado"
+                    value={money(open.credited, invoice.moneda)}
+                  />
+                )}
+                {open.opening_applied > 0 && (
+                  <Row
+                    label="Saldo inicial aplicado"
+                    value={money(open.opening_applied, invoice.moneda)}
+                  />
+                )}
+                <Row
+                  label="Saldo"
+                  value={money(Math.max(0, open.open_amount), invoice.moneda)}
+                />
+              </>
             )}
-            <Row label="Saldo" value={money(outstanding, invoice.moneda)} />
+            {canReadPayments && !open && (
+              <>
+                <Row label="Pagado" value="—" />
+                <Row label="Saldo" value="—" />
+              </>
+            )}
           </dl>
+          {canReadPayments && (!open || !allocRes?.ok) && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              {open
+                ? "No se pudieron leer las órdenes de pago imputadas."
+                : "No se pudieron leer los pagos."}
+            </p>
+          )}
         </div>
       </div>
 
       <div className="rounded-lg border bg-card p-4">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-medium">Ítems</h2>
-          {items.length === 0 && (
+          {items?.length === 0 && (
             <Badge variant="secondary" className="text-xs">
               Sin detalle (cargada solo por totales)
             </Badge>
           )}
         </div>
-        {items.length > 0 ? (
+        {items === null ? (
+          <p className="mt-2 text-xs text-muted-foreground">
+            No se pudieron leer los ítems.
+          </p>
+        ) : items.length > 0 ? (
           <div className="mt-3 overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="text-xs uppercase tracking-wide text-muted-foreground">

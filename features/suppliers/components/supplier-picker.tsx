@@ -53,6 +53,7 @@ export function SupplierPicker({
   isFiscal,
   autoFocus,
   suggestedNew,
+  disabled = false,
 }: {
   value: PickedSupplier | null;
   onChange: (supplier: PickedSupplier | null) => void;
@@ -62,6 +63,8 @@ export function SupplierPicker({
   autoFocus?: boolean;
   /** A counterparty that is not loaded yet: offers creating it prefilled. */
   suggestedNew?: SuggestedNewSupplier | null;
+  /** Shows the picked one read-only: an edit that cannot change it. */
+  disabled?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -109,6 +112,10 @@ export function SupplierPicker({
     });
   }
 
+  if (disabled && !value) {
+    return <p className="text-sm text-muted-foreground">Cargando…</p>;
+  }
+
   return (
     <>
       {value ? (
@@ -119,15 +126,17 @@ export function SupplierPicker({
               {counterpartyIdentityLabel(value)}
             </p>
           </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label="Cambiar proveedor"
-            onClick={clear}
-          >
-            <X className="size-4" />
-          </Button>
+          {!disabled && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label="Cambiar proveedor"
+              onClick={clear}
+            >
+              <X className="size-4" />
+            </Button>
+          )}
         </div>
       ) : (
         <div className="flex gap-2">

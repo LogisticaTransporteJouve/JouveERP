@@ -13,6 +13,7 @@ import {
   useSideChannels,
 } from "@/components/providers/scope-provider";
 import { ChannelsReadError } from "@/components/channels-read-error";
+import { ReadError } from "@/components/read-error";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
@@ -36,12 +37,12 @@ import { parseUsdRate, UsdRateField } from "@/components/usd-rate-field";
 import { useUsdRatePrefill } from "@/hooks/use-usd-rate-prefill";
 import type { Account, AccountNameJoin } from "@/features/accounts/schema";
 import { listEnCarteraChecksAction } from "@/features/checks/actions/checks-actions";
-import { getSupplierByIdAction } from "@/features/suppliers/actions/suppliers-actions";
 import { checksKeys } from "@/features/checks/lib/checks-keys";
 import {
   SupplierPicker,
   type PickedSupplier,
 } from "@/features/suppliers/components/supplier-picker";
+import { useSupplierByIdOptional } from "@/features/suppliers/hooks/use-suppliers";
 import {
   amountToInput,
   COTIZACION_DECIMALS,
@@ -263,26 +264,29 @@ export function PaymentOrderForm({
     staleTime: 30_000,
   });
 
-  // Pre-load the picked supplier when editing.
+  // Editing keeps the OP's supplier (the update does not take one): it is
+  // shown read-only, and the allocations list its facturas even when the
+  // supplier's own read fails.
+  const editSupplierId =
+    mode === "edit" && paymentOrder
+      ? paymentOrder.paymentOrder.supplier_id
+      : null;
+  const editSupplier = useSupplierByIdOptional(editSupplierId);
+  const editSupplierData = editSupplier.data;
+  // Read but not found: there is nothing to show, as with a failed read.
+  const editSupplierFailed =
+    editSupplier.isError || (editSupplier.isSuccess && !editSupplierData);
   useEffect(() => {
-    if (!paymentOrder) return;
-    void (async () => {
-      const res = await getSupplierByIdAction(
-        paymentOrder.paymentOrder.supplier_id,
-      );
-      if (res.ok && res.data) {
-        form.setValue("supplier", {
-          id: res.data.id,
-          legal_name: res.data.legal_name,
-          display_name: res.data.display_name,
-          cuit: res.data.cuit,
-          iva_condition: res.data.iva_condition,
-          is_fiscal: res.data.is_fiscal,
-        });
-      }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [paymentOrder]);
+    if (!editSupplierData) return;
+    form.setValue("supplier", {
+      id: editSupplierData.id,
+      legal_name: editSupplierData.legal_name,
+      display_name: editSupplierData.display_name,
+      cuit: editSupplierData.cuit,
+      iva_condition: editSupplierData.iva_condition,
+      is_fiscal: editSupplierData.is_fiscal,
+    });
+  }, [editSupplierData, form]);
 
   useEffect(() => {
     if (mode !== "create") return;
@@ -311,7 +315,8 @@ export function PaymentOrderForm({
   const numeroLocked = mode === "edit" || !isFirst;
 
   function onSubmit(values: FormValues) {
-    if (!values.supplier) {
+    const supplierId = editSupplierId ?? values.supplier?.id;
+    if (!supplierId) {
       toast.error("Seleccioná un proveedor.");
       return;
     }
@@ -431,7 +436,7 @@ export function PaymentOrderForm({
         {
           channel_id: values.channelId,
           numero: numeroParsed,
-          supplier_id: values.supplier.id,
+          supplier_id: supplierId,
           payment_date: values.paymentDate,
           total_amount: totalAmount,
           currency: values.currency,
@@ -597,11 +602,19 @@ export function PaymentOrderForm({
             <FormItem className="space-y-1">
               <FormLabel className="text-xs">Proveedor</FormLabel>
               <FormControl>
-                <SupplierPicker
-                  value={field.value}
-                  onChange={field.onChange}
-                  isFiscal={pageIsFiscal ?? true}
-                />
+                {editSupplierFailed ? (
+                  <ReadError
+                    message="No se pudo leer el proveedor de la orden de pago."
+                    onRetry={() => void editSupplier.refetch()}
+                  />
+                ) : (
+                  <SupplierPicker
+                    value={field.value}
+                    onChange={field.onChange}
+                    isFiscal={pageIsFiscal ?? true}
+                    disabled={mode === "edit"}
+                  />
+                )}
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -632,7 +645,7 @@ export function PaymentOrderForm({
         )}
         {(mode === "edit" || allocationMode === "manual") && (
           <AllocationsPicker
-            supplierId={supplier?.id ?? null}
+            supplierId={editSupplierId ?? supplier?.id ?? null}
             channelId={channelId || null}
             excludePaymentOrderId={paymentOrder?.paymentOrder.id}
             allocations={allocations}

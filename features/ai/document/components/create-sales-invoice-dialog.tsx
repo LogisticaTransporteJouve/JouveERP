@@ -9,6 +9,7 @@ import {
   useSideChannels,
 } from "@/components/providers/scope-provider";
 import { ChannelsReadError } from "@/components/channels-read-error";
+import { ReadError } from "@/components/read-error";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -174,7 +175,9 @@ export function CreateSalesInvoiceDialog({
                 <SelectTrigger id="si-pos">
                   <SelectValue
                     placeholder={
-                      posOptions.length === 0 ? "Sin POS habilitado" : "POS"
+                      posQuery.isSuccess && posOptions.length === 0
+                        ? "Sin POS habilitado"
+                        : "POS"
                     }
                   />
                 </SelectTrigger>
@@ -187,6 +190,12 @@ export function CreateSalesInvoiceDialog({
                   ))}
                 </SelectContent>
               </Select>
+              {posQuery.isError && (
+                <ReadError
+                  message="No se pudieron cargar los puntos de venta."
+                  onRetry={() => void posQuery.refetch()}
+                />
+              )}
             </div>
           </div>
         </div>

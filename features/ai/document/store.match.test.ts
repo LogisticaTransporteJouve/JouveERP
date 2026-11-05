@@ -314,8 +314,24 @@ describe("extractionAwaitsPipeline", () => {
     expect(await extractionAwaitsPipeline("x1")).toBe(false);
     answer = () => ({ data: { status: "discarded" }, error: null });
     expect(await extractionAwaitsPipeline("x1")).toBe(false);
-    answer = () => ({ data: { status: "pending_review" }, error: null });
+    answer = () => ({
+      data: { status: "pending_review", detected_type: null },
+      error: null,
+    });
     expect(await extractionAwaitsPipeline("x1")).toBe(true);
+  });
+
+  it("is false for a draft already saved or confirmed: a replay pays nothing", async () => {
+    answer = () => ({
+      data: { status: "pending_review", detected_type: "receipt" },
+      error: null,
+    });
+    expect(await extractionAwaitsPipeline("x1")).toBe(false);
+    answer = () => ({
+      data: { status: "confirmed", detected_type: "receipt" },
+      error: null,
+    });
+    expect(await extractionAwaitsPipeline("x1")).toBe(false);
   });
 
   it("throws on a failed read, so the step retries", async () => {

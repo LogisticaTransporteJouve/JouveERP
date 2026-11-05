@@ -6,7 +6,9 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { ChannelsReadError } from "@/components/channels-read-error";
 import { MoneyInput } from "@/components/money-input";
+import { useScope } from "@/components/providers/scope-provider";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -69,14 +71,14 @@ const DEFAULTS: FormValues = {
 };
 
 export function LoanDialog({
-  channelOptions,
   open,
   onOpenChange,
 }: {
-  channelOptions: { id: string; name: string; is_fiscal: boolean }[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const { channels } = useScope();
+  const channelOptions = channels.filter((c) => c.is_active);
   const createMut = useCreateLoan();
   const form = useForm<FormValues>({
     resolver: zodResolver(FormSchema),
@@ -206,6 +208,7 @@ export function LoanDialog({
                       ))}
                     </SelectContent>
                   </Select>
+                  <ChannelsReadError inline />
                   <FormMessage />
                 </FormItem>
               )}

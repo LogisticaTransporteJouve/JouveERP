@@ -32,7 +32,7 @@ vi.mock("@/lib/supabase/server", () => ({
 }));
 vi.mock("@/lib/actions/audit", () => ({ logAudit: vi.fn() }));
 
-const { findPurchaseInvoiceDuplicateAction } =
+const { findPurchaseInvoiceDuplicateAction, getPurchaseInvoiceOpenAction } =
   await import("./purchase-invoices-actions");
 
 const SUPPLIER_ID = "11111111-1111-4111-8111-111111111111";
@@ -114,4 +114,39 @@ describe("findPurchaseInvoiceDuplicateAction", () => {
       expect(filters).toHaveLength(0);
     },
   );
+});
+
+describe("getPurchaseInvoiceOpenAction", () => {
+  beforeEach(() => {
+    rows = [
+      {
+        purchase_invoice_id: "pi-1",
+        amount_paid: "21",
+        amount_credited_by_nc: "60",
+        amount_opening_applied: "10",
+        open_amount: "30",
+      },
+    ];
+  });
+
+  it("reads the open amount of the one purchase, NCs and opening included", async () => {
+    const res = await getPurchaseInvoiceOpenAction("pi-1");
+    expect(res).toEqual({
+      ok: true,
+      data: { paid: 21, credited: 60, opening_applied: 10, open_amount: 30 },
+    });
+    expect(filters).toEqual([["purchase_invoice_id", "pi-1"]]);
+  });
+
+  it("refuses a role that cannot read OPs, whose read would count none", async () => {
+    roles = ["fiscal_reader"];
+    const res = await getPurchaseInvoiceOpenAction("pi-1");
+    expect(res.ok).toBe(false);
+    expect(filters).toEqual([]);
+  });
+
+  it("fails instead of answering zero when no row comes back", async () => {
+    const res = await getPurchaseInvoiceOpenAction("pi-2");
+    expect(res).toEqual({ ok: false, error: "No se pudieron leer los pagos." });
+  });
 });

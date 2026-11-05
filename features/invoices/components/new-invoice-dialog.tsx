@@ -14,6 +14,7 @@ import {
   useSideChannels,
 } from "@/components/providers/scope-provider";
 import { ChannelsReadError } from "@/components/channels-read-error";
+import { ReadError } from "@/components/read-error";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -608,6 +609,12 @@ function NewInvoiceForm({
                   </SelectContent>
                 </Select>
                 <ChannelsReadError inline />
+                {channelId && !isNote && posQuery.isError && (
+                  <ReadError
+                    message="No se pudieron cargar los puntos de venta."
+                    onRetry={() => void posQuery.refetch()}
+                  />
+                )}
                 {channelId &&
                   !isNote &&
                   posQuery.isSuccess &&

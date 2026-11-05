@@ -46,6 +46,7 @@ export function ClientPicker({
   onChange,
   isFiscal,
   autoFocus,
+  disabled = false,
 }: {
   value: PickedClient | null;
   onChange: (client: PickedClient | null) => void;
@@ -53,6 +54,8 @@ export function ClientPicker({
    *  null lists both and offers no "Nuevo" (the side would be a guess). */
   isFiscal: boolean | null;
   autoFocus?: boolean;
+  /** Shows the picked one read-only: an edit that cannot change it. */
+  disabled?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -102,6 +105,10 @@ export function ClientPicker({
     });
   }
 
+  if (disabled && !value) {
+    return <p className="text-sm text-muted-foreground">Cargando…</p>;
+  }
+
   return (
     <>
       {value ? (
@@ -112,15 +119,17 @@ export function ClientPicker({
               {counterpartyIdentityLabel(value)}
             </p>
           </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label="Cambiar cliente"
-            onClick={clear}
-          >
-            <X className="size-4" />
-          </Button>
+          {!disabled && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label="Cambiar cliente"
+              onClick={clear}
+            >
+              <X className="size-4" />
+            </Button>
+          )}
         </div>
       ) : (
         <div className="flex gap-2">

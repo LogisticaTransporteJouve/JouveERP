@@ -50,14 +50,14 @@ afterEach(cleanup);
 
 describe("LoansTable gates", () => {
   it("offers create and cancel with accounting:write", () => {
-    render(<LoansTable channelOptions={[]} canWrite />);
+    render(<LoansTable canWrite />);
     expect(screen.getByText("Nuevo préstamo")).toBeTruthy();
     openRowMenu();
     expect(screen.getByText("Anular")).toBeTruthy();
   });
 
   it("hides both without accounting:write", () => {
-    render(<LoansTable channelOptions={[]} canWrite={false} />);
+    render(<LoansTable canWrite={false} />);
     expect(screen.queryByText("Nuevo préstamo")).toBeNull();
     openRowMenu();
     expect(screen.getByText("Ver cuotas")).toBeTruthy();

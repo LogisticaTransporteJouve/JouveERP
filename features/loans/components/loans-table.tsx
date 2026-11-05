@@ -28,10 +28,8 @@ import {
 import { LoanDialog } from "./loan-dialog";
 
 export function LoansTable({
-  channelOptions,
   canWrite,
 }: {
-  channelOptions: { id: string; name: string; is_fiscal: boolean }[];
   /** `accounting:write`: create and cancel loans. */
   canWrite: boolean;
 }) {
@@ -206,11 +204,7 @@ export function LoansTable({
         }
       />
 
-      <LoanDialog
-        channelOptions={channelOptions}
-        open={createOpen}
-        onOpenChange={setCreateOpen}
-      />
+      <LoanDialog open={createOpen} onOpenChange={setCreateOpen} />
     </div>
   );
 }

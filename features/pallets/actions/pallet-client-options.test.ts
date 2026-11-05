@@ -6,7 +6,9 @@ import { resolveAccess, type Role } from "@/lib/auth/permissions";
 // client picker must still list clients for it, and only behind pallets:read.
 
 let roles: Role[] = ["warehouse"];
-const clients = [{ id: "c1", legal_name: "Cliente Depósito" }];
+let clients: { id: string; legal_name: string }[] = [];
+let failAt: number | null = null;
+const orders: string[] = [];
 const fromSpy = vi.fn();
 
 vi.mock("@/lib/auth/context", () => ({
@@ -22,7 +24,18 @@ vi.mock("@/lib/supabase/service", () => ({
       const b = {
         select: () => b,
         eq: () => b,
-        order: async () => ({ data: clients, error: null }),
+        order: (col: string) => {
+          orders.push(col);
+          return b;
+        },
+        // The server caps every response at 1000 rows, whatever is asked.
+        range: async (lo: number, hi: number) =>
+          failAt === lo
+            ? { data: null, error: { message: "boom" } }
+            : {
+                data: clients.slice(lo, Math.min(hi + 1, lo + 1000)),
+                error: null,
+              },
       };
       return b;
     },
@@ -35,7 +48,13 @@ vi.mock("@/lib/logger", () => ({
 
 const { listPalletClientOptionsAction } = await import("./pallets-actions");
 
-beforeEach(() => fromSpy.mockClear());
+beforeEach(() => {
+  roles = ["warehouse"];
+  fromSpy.mockClear();
+  clients = [{ id: "c1", legal_name: "Cliente Depósito" }];
+  failAt = null;
+  orders.length = 0;
+});
 
 describe("listPalletClientOptionsAction", () => {
   it("lists clients for the warehouse role", async () => {
@@ -51,5 +70,25 @@ describe("listPalletClientOptionsAction", () => {
     const res = await listPalletClientOptionsAction();
     expect(res.ok).toBe(false);
     expect(fromSpy).not.toHaveBeenCalled();
+  });
+
+  it("lists every active client past the 1000-row cap, by name then id", async () => {
+    clients = Array.from({ length: 1500 }, (_, i) => ({
+      id: `c${String(i).padStart(4, "0")}`,
+      legal_name: `Cliente ${String(i).padStart(4, "0")}`,
+    }));
+    const res = await listPalletClientOptionsAction();
+    expect(res.ok && res.data.length).toBe(1500);
+    expect(orders.slice(0, 2)).toEqual(["legal_name", "id"]);
+  });
+
+  it("a failed later page is an error, not a short list", async () => {
+    clients = Array.from({ length: 1500 }, (_, i) => ({
+      id: `c${i}`,
+      legal_name: `Cliente ${i}`,
+    }));
+    failAt = 1000;
+    const res = await listPalletClientOptionsAction();
+    expect(res.ok).toBe(false);
   });
 });

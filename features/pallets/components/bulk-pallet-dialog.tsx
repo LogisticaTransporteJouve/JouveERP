@@ -37,6 +37,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useCreatePalletsBulk } from "../hooks/use-pallets";
 
 import { AreaSelect, type AreaOption } from "./area-select";
+import { ClientOptionsReadError } from "./client-options-read-error";
 
 const NONE = "__none__";
 
@@ -87,7 +88,8 @@ export function BulkPalletDialog({
   onOpenChange,
 }: {
   warehouseOptions: { id: string; name: string }[];
-  clientOptions: { id: string; legal_name: string }[];
+  /** null: the clients could not be read. */
+  clientOptions: { id: string; legal_name: string }[] | null;
   productOptions: { id: string; name: string }[];
   areaOptions: AreaOption[];
   open: boolean;
@@ -204,7 +206,7 @@ export function BulkPalletDialog({
                   <FormLabel>Cliente</FormLabel>
                   <FormControl>
                     <Combobox
-                      options={clientOptions.map((c) => ({
+                      options={(clientOptions ?? []).map((c) => ({
                         value: c.id,
                         label: c.legal_name,
                       }))}
@@ -215,6 +217,7 @@ export function BulkPalletDialog({
                       emptyText="Sin clientes."
                     />
                   </FormControl>
+                  <ClientOptionsReadError clientOptions={clientOptions} />
                   <FormMessage />
                 </FormItem>
               )}

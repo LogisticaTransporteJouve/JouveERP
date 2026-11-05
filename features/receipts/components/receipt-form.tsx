@@ -12,6 +12,7 @@ import {
   useSideChannels,
 } from "@/components/providers/scope-provider";
 import { ChannelsReadError } from "@/components/channels-read-error";
+import { ReadError } from "@/components/read-error";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
@@ -37,6 +38,7 @@ import {
   ClientPicker,
   type PickedClient,
 } from "@/features/invoices/components/client-picker";
+import { useClientByIdOptional } from "@/features/clients/hooks/use-clients";
 import type { Account } from "@/features/accounts/schema";
 import {
   amountToInput,
@@ -51,7 +53,6 @@ import { AllocationModeSelect } from "@/components/allocation-mode-select";
 import { ALLOCATION_MODES } from "@/lib/allocations";
 import { USD_RATE_REQUIRED_MESSAGE } from "@/lib/validation/common";
 
-import { getClientByIdAction } from "@/features/clients/actions/clients-actions";
 import type { ReceiptDetail } from "../actions/receipts-actions";
 import {
   useCreateReceipt,
@@ -236,24 +237,27 @@ export function ReceiptForm({
   useUsdRatePrefill(usdRate.data?.rate, cotizacion, setCotizacion);
   const isFirst = nextNumero.isFirst;
 
-  // Pre-load the picked client when editing.
+  // Editing keeps the receipt's client (the update does not take one): it is
+  // shown read-only, and the allocations list its documents even when the
+  // client's own read fails.
+  const editClientId =
+    mode === "edit" && receipt ? receipt.receipt.client_id : null;
+  const editClient = useClientByIdOptional(editClientId);
+  const editClientData = editClient.data;
+  // Read but not found: there is nothing to show, as with a failed read.
+  const editClientFailed =
+    editClient.isError || (editClient.isSuccess && !editClientData);
   useEffect(() => {
-    if (!receipt) return;
-    void (async () => {
-      const res = await getClientByIdAction(receipt.receipt.client_id);
-      if (res.ok && res.data) {
-        form.setValue("client", {
-          id: res.data.id,
-          legal_name: res.data.legal_name,
-          display_name: res.data.display_name,
-          cuit: res.data.cuit,
-          iva_condition: res.data.iva_condition,
-          is_fiscal: res.data.is_fiscal,
-        });
-      }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [receipt]);
+    if (!editClientData) return;
+    form.setValue("client", {
+      id: editClientData.id,
+      legal_name: editClientData.legal_name,
+      display_name: editClientData.display_name,
+      cuit: editClientData.cuit,
+      iva_condition: editClientData.iva_condition,
+      is_fiscal: editClientData.is_fiscal,
+    });
+  }, [editClientData, form]);
 
   // Mirror the suggested next number into the local input when the channel
   // changes (or the query resolves). Stays a controlled input so the user
@@ -286,7 +290,8 @@ export function ReceiptForm({
   const numeroLocked = mode === "edit" || !isFirst;
 
   function onSubmit(values: FormValues) {
-    if (!values.client) {
+    const clientId = editClientId ?? values.client?.id;
+    if (!clientId) {
       toast.error("Seleccioná un cliente.");
       return;
     }
@@ -377,7 +382,7 @@ export function ReceiptForm({
         {
           channel_id: values.channelId,
           numero: numeroParsed,
-          client_id: values.client.id,
+          client_id: clientId,
           receipt_date: values.receiptDate,
           total_amount: totalAmount,
           currency: values.currency,
@@ -545,11 +550,19 @@ export function ReceiptForm({
             <FormItem className="space-y-1">
               <FormLabel className="text-xs">Cliente</FormLabel>
               <FormControl>
-                <ClientPicker
-                  value={field.value}
-                  onChange={field.onChange}
-                  isFiscal={pageIsFiscal ?? true}
-                />
+                {editClientFailed ? (
+                  <ReadError
+                    message="No se pudo leer el cliente del recibo."
+                    onRetry={() => void editClient.refetch()}
+                  />
+                ) : (
+                  <ClientPicker
+                    value={field.value}
+                    onChange={field.onChange}
+                    isFiscal={pageIsFiscal ?? true}
+                    disabled={mode === "edit"}
+                  />
+                )}
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -594,7 +607,7 @@ export function ReceiptForm({
         )}
         {(mode === "edit" || allocationMode === "manual") && (
           <AllocationsPicker
-            clientId={client?.id ?? null}
+            clientId={editClientId ?? client?.id ?? null}
             channelId={channelId || null}
             excludeReceiptId={receipt?.receipt.id}
             allocations={allocations}
