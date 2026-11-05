@@ -49,9 +49,7 @@ export function VehicleMarginSection({
       {query.isPending ? (
         <Skeleton className="m-4 h-32" />
       ) : query.isError ? (
-        <p className="px-4 py-3 text-sm">
-          No se pudo calcular el margen por camión: {query.error.message}
-        </p>
+        <p className="px-4 py-3 text-sm">{query.error.message}</p>
       ) : (
         <VehicleMarginTable
           vehicles={query.data.vehicles}

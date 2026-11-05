@@ -38,7 +38,7 @@ function options(
     : !canChargeDriver
       ? "Necesitás permiso de escritura en RRHH y en movimientos."
       : s.driver_employee_id === null
-        ? "El chofer no está vinculado a un empleado (Flota › Choferes)."
+        ? "Es un chofer contratado, sin legajo: no tiene cuenta corriente."
         : null;
   return [
     {

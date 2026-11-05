@@ -41,7 +41,8 @@ export function VehiclesTable({ actorAccess }: { actorAccess: Access }) {
     async function handleDelete(v: Vehicle) {
       const ok = await confirm({
         title: `Borrar ${v.patente}`,
-        description: "Si tiene viajes, quedan sin vehículo asignado.",
+        description:
+          "Si tiene viajes, cargas de combustible, mantenimientos o documentos no se puede borrar: desactivalo.",
         confirmLabel: "Borrar",
         tone: "destructive",
       });

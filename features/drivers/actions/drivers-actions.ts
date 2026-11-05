@@ -184,7 +184,7 @@ export async function deleteDriverAction(input: {
       return {
         ok: false,
         error:
-          "El chofer tiene viajes o documentos. Desactivalo en lugar de borrarlo.",
+          "El chofer tiene viajes, documentos o rendiciones. Desactivalo en lugar de borrarlo.",
       };
     }
     logger.error("drivers.delete.failed", { userId: ctx.userId, error });

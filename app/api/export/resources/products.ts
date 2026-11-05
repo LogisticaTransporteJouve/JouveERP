@@ -4,7 +4,7 @@ import type { TableReportColumn } from "@/lib/pdf/table-report-template";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 
-import { dateCell, type Exporter } from "../shared";
+import { dateCell, endOfDay, type Exporter } from "../shared";
 
 // Portrait A4 ≈ 547pt of usable width.
 const COLUMNS: TableReportColumn[] = [
@@ -37,7 +37,7 @@ export const products: Exporter = {
       // created_at is a timestamptz; bound the upper end to the full day so
       // same-day rows aren't dropped by the date-only range value.
       if (range.from) query = query.gte("created_at", range.from);
-      if (range.to) query = query.lte("created_at", `${range.to}T23:59:59.999`);
+      if (range.to) query = query.lte("created_at", endOfDay(range.to));
       return query;
     };
     const { data, error } = await paginateRange((from, to) =>

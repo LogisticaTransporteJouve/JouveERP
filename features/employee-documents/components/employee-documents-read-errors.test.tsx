@@ -52,3 +52,15 @@ describe("employee documents: failed reads", () => {
     expect(h.read.refetch).toHaveBeenCalled();
   });
 });
+
+// v_documents_expiring lists only documents expiring from today on, and the
+// cron alerts every hr:read user: the header must not promise more.
+it("Vencimientos says what the list and the alert really cover", () => {
+  render(<DocumentExpirationsPage />);
+  expect(
+    screen.getByText(
+      /vencen entre hoy y los próximos 30 días\. Cada mañana se avisa dentro de la app a quienes tienen acceso a Personal\./,
+    ),
+  ).toBeTruthy();
+  expect(screen.queryByText(/vencidos|owner\/admin/)).toBeNull();
+});
