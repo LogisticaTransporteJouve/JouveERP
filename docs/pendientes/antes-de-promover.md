@@ -1286,6 +1286,63 @@ que agrega una migración suma su ítem al final de esta sección.
     ```
 
   - `docs/pendientes/2026-11-05-flota-nd-acreditadas-auditoria-w15.md`.
+- [ ] **Aprobar `20261105130100`** (auditoría w16, un documento de flota o
+      de RRHH tiene un archivo propio). Va después de `20261105090100` y
+      `20261105120000`, de las que usa y reemplaza funciones. No toca filas
+      existentes ni políticas RLS.
+  - Reemplaza `guard_link_file_visible` (misma firma, invoker, revocada de
+    `public`, `anon` y `authenticated`; mismos triggers). Además de lo que ya
+    hacía, en `fleet_documents` y `employee_documents` rechaza (`55006`,
+    `jouve_guard`) un archivo que ya vincula otro registro: un adjunto, un
+    escaneo u otro documento. Vale para todos, owner y service role
+    incluidos. En una edición solo corre si cambia el archivo.
+  - Da `execute` sobre `is_linked_file` a `service_role` (ya lo tenía por
+    los privilegios por defecto; queda explícito).
+  - Rollback: el código anterior solo vincula a estos documentos archivos
+    recién subidos, que pasan.
+  - Consulta de control antes de aplicar (solo lectura, válida sobre el
+    esquema de producción): los documentos que hoy apuntan a un archivo que
+    otro registro también vincula. A ese otro rol se le oculta el archivo
+    mientras exista el documento. Lo esperado es que no devuelva nada. Si
+    devuelve filas, la migración no las toca: el owner decide si le sube al
+    documento un archivo propio.
+
+    ```sql
+    with links as (
+      select fa.file_id, 'adjunto'::text as vinculo, fa.id as link_id
+        from public.file_attachments fa
+      union all
+      select e.file_id, 'escaneo', e.id
+        from public.ai_document_extractions e
+      union all
+      select d.attachment_file_id, 'documento de flota', d.id
+        from public.fleet_documents d
+       where d.attachment_file_id is not null
+      union all
+      select d.attachment_file_id, 'documento de RRHH', d.id
+        from public.employee_documents d
+       where d.attachment_file_id is not null
+    ),
+    docs as (
+      select 'fleet_documents'::text as tabla, d.id, d.kind::text as tipo,
+             d.attachment_file_id as file_id
+        from public.fleet_documents d
+       where d.attachment_file_id is not null
+      union all
+      select 'employee_documents', d.id, d.kind::text, d.attachment_file_id
+        from public.employee_documents d
+       where d.attachment_file_id is not null
+    )
+    select dc.tabla, dc.id, dc.tipo, f.original_filename,
+           array_agg(distinct l.vinculo order by l.vinculo) as otros_vinculos
+      from docs dc
+      join public.files f on f.id = dc.file_id
+      join links l on l.file_id = dc.file_id and l.link_id <> dc.id
+     group by dc.tabla, dc.id, dc.tipo, f.original_filename
+     order by dc.tabla, f.original_filename;
+    ```
+
+  - `docs/pendientes/2026-11-05-archivo-propio-de-documentos-auditoria-w16.md`.
 
 ## Después de promover
 
