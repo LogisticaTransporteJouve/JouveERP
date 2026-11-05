@@ -20,9 +20,9 @@ describe("getInitials", () => {
     expect(getInitials(null, "Dziurdzia")).toBe("D");
   });
 
-  it("falls back to email initial when names are empty", () => {
-    expect(getInitials(null, null, "tomas@jouve.test")).toBe("T");
-    expect(getInitials("", "", "foo@bar.com")).toBe("F");
+  it("falls back to the email's first two letters when names are empty", () => {
+    expect(getInitials(null, null, "tomas@jouve.test")).toBe("TO");
+    expect(getInitials("", "", "foo@bar.com")).toBe("FO");
   });
 
   it("returns '?' when nothing is provided", () => {

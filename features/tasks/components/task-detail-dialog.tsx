@@ -1,6 +1,13 @@
 "use client";
 
-import { Check, ExternalLink, Lock, RotateCcw } from "lucide-react";
+import {
+  Banknote,
+  Check,
+  ExternalLink,
+  HandCoins,
+  Lock,
+  RotateCcw,
+} from "lucide-react";
 import Link from "next/link";
 import { Suspense, useState } from "react";
 import { toast } from "sonner";
@@ -137,14 +144,7 @@ function TaskDetailBody({
       {task.description && (
         <p className="text-sm whitespace-pre-wrap">{task.description}</p>
       )}
-      {task.source_href && (
-        <Button asChild variant="link" className="h-auto p-0">
-          <Link href={task.source_href}>
-            <ExternalLink className="size-4" />
-            Ir al documento
-          </Link>
-        </Button>
-      )}
+      <SourceActions task={task} />
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
@@ -189,7 +189,9 @@ function TaskDetailBody({
         </p>
       )}
 
-      {editable && (
+      {/* An automatic task is closed only by the sync, once its document is
+          settled (the action and the database refuse it too). */}
+      {editable && (done || task.origin !== "automatic") && (
         <Button
           type="button"
           variant={done ? "outline" : "default"}
@@ -205,6 +207,47 @@ function TaskDetailBody({
       <Comments task={task} canComment={editable} />
       <Separator />
       <History task={task} />
+    </div>
+  );
+}
+
+/** What settles an automatic task's document: «Cobrar» / «Pagar» on its page
+ *  when the viewer may, else «Ir al documento»; for an open task, the line
+ *  that says it closes by itself. */
+function SourceActions({ task }: { task: TaskDetail }) {
+  if (!task.source_href) return null;
+  const open = task.status === "open";
+  const closesWhen =
+    open && task.origin === "automatic" && task.kind
+      ? TASK_SOURCES[task.kind].closesWhen
+      : null;
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        {task.settle ? (
+          <Button asChild>
+            <Link href={task.settle.href}>
+              {task.settle.label === "Cobrar" ? <HandCoins /> : <Banknote />}
+              {task.settle.label}
+            </Link>
+          </Button>
+        ) : null}
+        <Button
+          asChild
+          variant={open && !task.settle ? "default" : "link"}
+          className={open && !task.settle ? undefined : "h-auto p-0"}
+        >
+          <Link href={task.source_href}>
+            <ExternalLink className="size-4" />
+            Ir al documento
+          </Link>
+        </Button>
+      </div>
+      {closesWhen && (
+        <p className="text-muted-foreground text-sm">
+          Se cierra sola cuando {closesWhen}.
+        </p>
+      )}
     </div>
   );
 }

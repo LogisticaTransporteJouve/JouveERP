@@ -1,17 +1,27 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { type Role, resolveAccess } from "@/lib/auth/permissions";
+import {
+  type Permission,
+  type Role,
+  resolveAccess,
+} from "@/lib/auth/permissions";
 
 import { RESTRICTED_TASK_TITLE } from "../lib/sources";
 
 const TASK_ID = "33333333-3333-4333-8333-333333333333";
 const USER_A = "11111111-1111-4111-8111-111111111111";
 const USER_B = "22222222-2222-4222-8222-222222222222";
+const DOC_ID = "44444444-4444-4444-8444-444444444444";
+const EMPLOYEE_ID = "55555555-5555-4555-8555-555555555555";
+const INVOICE_ID = "66666666-6666-4666-8666-666666666666";
+const INSTALLMENT_ID = "77777777-7777-4777-8777-777777777777";
+const LOAN_ID = "88888888-8888-4888-8888-888888888888";
 
 type Result = { data: unknown; error: unknown };
 type Call = { table: string; method: string; args: unknown[] };
 
 let roles: Role[] = ["finance"];
+let denies: Permission[] = [];
 let taskHolders: string[] = [USER_A, USER_B];
 /** Results per table, one per awaited statement, in order. */
 let results: Record<string, Result[]> = {};
@@ -44,7 +54,7 @@ vi.mock("server-only", () => ({}));
 vi.mock("@/lib/auth/context", () => ({
   requireUserContext: async () => ({
     userId: USER_A,
-    access: resolveAccess(roles),
+    access: resolveAccess(roles, denies),
   }),
 }));
 vi.mock("@/lib/actions/audit", () => ({ logAudit }));
@@ -73,6 +83,8 @@ function taskRow(overrides: Record<string, unknown>) {
     status: "open",
     origin: "automatic",
     kind: "employee_document",
+    source_table: "employee_documents",
+    source_id: DOC_ID,
     auto_closed: false,
     completed_at: null,
     completed_by: null,
@@ -88,6 +100,7 @@ const calledWith = (table: string, method: string) =>
 beforeEach(() => {
   vi.clearAllMocks();
   roles = ["finance"];
+  denies = [];
   taskHolders = [USER_A, USER_B];
   results = {};
   calls = [];
@@ -135,13 +148,94 @@ describe("listTasksAction", () => {
     expect(res.data.truncated).toBe(false);
   });
 
-  it("shows the document to a viewer who reads its module", async () => {
+  it("links an employee's document to the employee's page", async () => {
     results.tasks = [{ data: [taskRow({})], error: null }];
+    results.employee_documents = [
+      { data: [{ id: DOC_ID, employee_id: EMPLOYEE_ID }], error: null },
+    ];
     const res = await listTasksAction({ scope: "all", status: "open" });
     expect(res.ok && res.data.rows[0]).toMatchObject({
       title: "Renovar licencia de Juan Pérez",
       kind: "employee_document",
+      source_href: `/employees/${EMPLOYEE_ID}`,
+      settle: null,
+    });
+    expect(calledWith("employee_documents", "in")[0]?.args).toEqual([
+      "id",
+      [DOC_ID],
+    ]);
+  });
+
+  it("falls back to the module's page when the employee read fails", async () => {
+    results.tasks = [{ data: [taskRow({})], error: null }];
+    results.employee_documents = [{ data: null, error: { message: "boom" } }];
+    const res = await listTasksAction({ scope: "all", status: "open" });
+    expect(res.ok && res.data.rows[0]).toMatchObject({
       source_href: "/hr/document-expirations",
+    });
+  });
+
+  it("links an installment to its loan", async () => {
+    results.tasks = [
+      {
+        data: [
+          taskRow({
+            kind: "loan_installment",
+            source_table: "loan_installments",
+            source_id: INSTALLMENT_ID,
+          }),
+        ],
+        error: null,
+      },
+    ];
+    results.loan_installments = [
+      { data: [{ id: INSTALLMENT_ID, loan_id: LOAN_ID }], error: null },
+    ];
+    const res = await listTasksAction({ scope: "all", status: "open" });
+    expect(res.ok && res.data.rows[0]).toMatchObject({
+      source_href: `/loans/${LOAN_ID}`,
+      settle: null,
+    });
+  });
+
+  it("offers «Cobrar» on an overdue invoice's task, on the invoice's page", async () => {
+    results.tasks = [
+      {
+        data: [
+          taskRow({
+            kind: "collection",
+            source_table: "invoices",
+            source_id: INVOICE_ID,
+          }),
+        ],
+        error: null,
+      },
+    ];
+    const res = await listTasksAction({ scope: "all", status: "open" });
+    expect(res.ok && res.data.rows[0]).toMatchObject({
+      source_href: `/invoices/${INVOICE_ID}`,
+      settle: { label: "Cobrar", href: `/invoices/${INVOICE_ID}?cobrar=1` },
+    });
+  });
+
+  it("drops «Cobrar» for a viewer who cannot open the receipt form", async () => {
+    denies = ["receipts:write"];
+    results.tasks = [
+      {
+        data: [
+          taskRow({
+            kind: "collection",
+            source_table: "invoices",
+            source_id: INVOICE_ID,
+          }),
+        ],
+        error: null,
+      },
+    ];
+    const res = await listTasksAction({ scope: "all", status: "open" });
+    expect(res.ok && res.data.rows[0]).toMatchObject({
+      source_href: `/invoices/${INVOICE_ID}`,
+      settle: null,
     });
   });
 
@@ -220,6 +314,59 @@ describe("setTaskStatusAction", () => {
     expect(res.ok).toBe(false);
     expect(calledWith("tasks", "update")).toHaveLength(0);
     expect(logAudit).not.toHaveBeenCalled();
+  });
+
+  it("refuses to mark an automatic task done: only the sync closes it", async () => {
+    results.tasks = [
+      {
+        data: {
+          id: TASK_ID,
+          origin: "automatic",
+          kind: "collection",
+          status: "open",
+        },
+        error: null,
+      },
+    ];
+    const res = await setTaskStatusAction({ id: TASK_ID, status: "done" });
+    expect(res).toEqual({
+      ok: false,
+      error: "Esta tarea se cierra sola cuando se cobre.",
+    });
+    expect(calledWith("tasks", "update")).toHaveLength(0);
+    expect(logAudit).not.toHaveBeenCalled();
+  });
+
+  it("still reopens an automatic task", async () => {
+    results.tasks = [
+      {
+        data: {
+          id: TASK_ID,
+          origin: "automatic",
+          kind: "collection",
+          status: "done",
+        },
+        error: null,
+      },
+      { data: [{ id: TASK_ID }], error: null },
+    ];
+    const res = await setTaskStatusAction({ id: TASK_ID, status: "open" });
+    expect(res.ok).toBe(true);
+    expect(logAudit).toHaveBeenCalledWith("task.reopened", USER_A, {}, TASK_ID);
+  });
+
+  it("returns the database guard's message", async () => {
+    const message =
+      "Una tarea automática no se marca como hecha: se cierra sola cuando su documento ya no tiene nada pendiente.";
+    results.tasks = [
+      {
+        data: { id: TASK_ID, origin: "manual", kind: null, status: "open" },
+        error: null,
+      },
+      { data: null, error: { message, code: "23514", hint: "jouve_guard" } },
+    ];
+    const res = await setTaskStatusAction({ id: TASK_ID, status: "done" });
+    expect(res).toEqual({ ok: false, error: message });
   });
 
   it("marks a task done by the user and audits it", async () => {

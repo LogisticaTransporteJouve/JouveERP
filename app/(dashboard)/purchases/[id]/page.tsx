@@ -49,8 +49,11 @@ const money = formatMoneyWithCode;
 
 export default async function PurchaseInvoiceDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  /** `pagar=1` (a task's «Pagar») opens the payment order form. */
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "purchase_invoices:read")) {
@@ -58,6 +61,7 @@ export default async function PurchaseInvoiceDetailPage({
   }
 
   const { id } = await params;
+  const openPay = (await searchParams).pagar === "1";
   // Payments are measured only for a role that reads OPs: under RLS anyone
   // else (the fiscal_reader) would read none and see every purchase unpaid.
   const canReadPayments = userCan(ctx.access, "payment_orders:read");
@@ -222,6 +226,7 @@ export default async function PurchaseInvoiceDetailPage({
           )}
           {payOpen && channelRow && (
             <PayDialog
+              defaultOpen={openPay}
               side={channelRow.is_fiscal ? "fiscal" : "internal"}
               initialSupplier={{
                 id: invoice.supplier_id,

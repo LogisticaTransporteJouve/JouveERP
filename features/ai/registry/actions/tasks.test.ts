@@ -22,6 +22,7 @@ function task(overrides: Partial<TaskListItem>): TaskListItem {
     kind: null,
     restricted: false,
     source_href: null,
+    settle: null,
     auto_closed: false,
     completed_at: null,
     completed_by: null,

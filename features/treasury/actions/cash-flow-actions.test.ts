@@ -159,7 +159,7 @@ describe("getCashFlowAction and amounts on account", () => {
       {
         open_amount: 1000,
         channel_is_fiscal: true,
-        fch_vto_pago: "2020-01-01",
+        due_date: "2020-01-08",
         fecha: "2020-01-01",
         moneda: "PES",
       },
@@ -196,6 +196,44 @@ describe("getCashFlowAction and amounts on account", () => {
     if (!res.ok) return;
     const first = res.data.months.find((m) => m.month === firstProjected());
     expect(first?.outTotal).toBe(0);
+  });
+});
+
+describe("getCashFlowAction and the receivables due date", () => {
+  const projected = (offset: number) => {
+    const now = new Date();
+    const d = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + offset, 1),
+    );
+    return d.toISOString().slice(0, 7);
+  };
+
+  beforeEach(() => {
+    rateRead = { ok: true, rate: null };
+    db.accounts = db.accounts!.filter((a) => a.currency === "ARS");
+    db.loans = [];
+    db.loan_installments = [];
+    db.recurring_payments = [];
+  });
+
+  it("places a receivable in the month of the view's effective due date", async () => {
+    // Issued on the 29th with fch_vto_pago = fecha: due 7 days later, in the
+    // next month (v_aging_documents.due_date), not in the month it was issued.
+    db.v_aging_documents = [
+      {
+        open_amount: 1000,
+        channel_is_fiscal: true,
+        fecha: `${projected(1)}-29`,
+        due_date: `${projected(2)}-05`,
+        moneda: "PES",
+      },
+    ];
+    const res = await getCashFlowAction({});
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    const byMonth = new Map(res.data.months.map((m) => [m.month, m.inTotal]));
+    expect(byMonth.get(projected(1))).toBe(0);
+    expect(byMonth.get(projected(2))).toBe(1000);
   });
 });
 
