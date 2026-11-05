@@ -88,7 +88,8 @@ export function useClosePayrollPeriod() {
   return useMutation({
     mutationFn: (id: string) =>
       runAction(() => closePayrollPeriodAction({ id })),
-    onSuccess: () => {
+    // Also on a refusal: another tab may have moved the period already.
+    onSettled: () => {
       qc.invalidateQueries({ queryKey: payrollKeys.all });
     },
   });
@@ -99,7 +100,7 @@ export function useReopenPayrollPeriod() {
   return useMutation({
     mutationFn: (id: string) =>
       runAction(() => reopenPayrollPeriodAction({ id })),
-    onSuccess: () => {
+    onSettled: () => {
       qc.invalidateQueries({ queryKey: payrollKeys.all });
     },
   });

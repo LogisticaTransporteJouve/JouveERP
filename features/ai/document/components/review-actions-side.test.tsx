@@ -57,7 +57,7 @@ const CHANNELS: InvoicingChannelSummary[] = [
 
 function extraction(
   detected_type: string,
-  matches: Record<string, string>,
+  matches: Record<string, string | boolean>,
 ): ExtractionDetail {
   return {
     id: "x1",
@@ -178,6 +178,28 @@ describe("ReviewActions offers only what the viewer can create", () => {
       expect(screen.getByText(reason)).toBeTruthy();
     },
   );
+
+  it.each([
+    ["receipt", "cliente"],
+    ["payment_order", "proveedor"],
+    ["sales_invoice", "cliente"],
+  ] as const)(
+    "a %s whose counterparty was not checked says so, not that it is missing",
+    (kind, entity) => {
+      renderReview(extraction(kind, { counterparty_unchecked: true }), {
+        menu: "fiscal",
+      });
+      expect(
+        screen.getByText(new RegExp(`No se pudo verificar el ${entity}`)),
+      ).toBeTruthy();
+      expect(screen.queryByText(/No se encontró/)).toBeNull();
+    },
+  );
+
+  it("a counterparty that was checked and not found keeps the create hint", () => {
+    renderReview(extraction("receipt", {}), { menu: "fiscal" });
+    expect(screen.getByText(/No se encontró el cliente por CUIT/)).toBeTruthy();
+  });
 
   it("finance without accounts:read is told why it cannot create the receipt", () => {
     renderReview(extraction("receipt", { client_id: "c1" }), {

@@ -9597,6 +9597,7 @@ export type Database = {
         Args: { p_employee_id: string; p_month: string }
         Returns: number
       }
+      files_storage_key_is_free: { Args: { p_name: string }; Returns: boolean }
       fill_payroll_period: { Args: { p_period_id: string }; Returns: number }
       find_account_by_role: {
         Args: { p_role: Database["public"]["Enums"]["coa_system_role"] }
