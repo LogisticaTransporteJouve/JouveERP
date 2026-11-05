@@ -76,9 +76,17 @@ export type SkipReason =
   | "bad_amount"
   | "amount_mismatch";
 
+/** A row that was not read, named as ARCA lists it so a person can find it
+ *  (tipo, punto de venta-número, CUIT emisor; whatever the row has). */
+export type SkippedRow = { reason: SkipReason; ref: string };
+
+/** How many skipped rows are named; the rest are only counted. */
+export const SKIPPED_ROWS_NAMED = 20;
+
 export type ParsedReceivedExport = {
   vouchers: ReceivedVoucher[];
   skippedByReason: Partial<Record<SkipReason, number>>;
+  skipped: SkippedRow[];
 };
 
 const FIELDS = [
@@ -365,6 +373,25 @@ function parseRow(
   };
 }
 
+/** A skipped row as ARCA lists it: «tipo 1 · 00003-00026630 · CUIT …», from
+ *  whichever of those cells it has. */
+function rowRef(
+  row: readonly string[],
+  cols: Partial<Record<Field, number>>,
+): string {
+  const cell = (f: Field) =>
+    cols[f] === undefined ? "" : (row[cols[f]!] ?? "").trim();
+  const pv = cell("punto_venta").replace(/\D/g, "");
+  const numero = cell("numero").replace(/\D/g, "");
+  const parts = [
+    cell("tipo") && `tipo ${cell("tipo").slice(0, 30)}`,
+    (pv || numero) && `${pv.padStart(5, "0")}-${numero.padStart(8, "0")}`,
+    cell("cuit") && `CUIT ${cell("cuit").replace(/\D/g, "")}`,
+    cell("fecha") && cell("fecha").slice(0, 10),
+  ].filter(Boolean);
+  return parts.join(" · ").slice(0, 120) || "fila sin datos";
+}
+
 /** Reads a parsed table: header row by alias, or the old 30-column TSV by
  *  position. A row that does not read cleanly is counted, never read as 0. */
 export function parseReceivedTable(
@@ -394,15 +421,19 @@ export function parseReceivedTable(
 
   const vouchers: ReceivedVoucher[] = [];
   const skippedByReason: Partial<Record<SkipReason, number>> = {};
+  const skipped: SkippedRow[] = [];
   for (const row of dataRows) {
     const result = parseRow(row, cols, rateCols);
     if (typeof result === "string") {
       skippedByReason[result] = (skippedByReason[result] ?? 0) + 1;
+      if (skipped.length < SKIPPED_ROWS_NAMED) {
+        skipped.push({ reason: result, ref: rowRef(row, cols) });
+      }
     } else {
       vouchers.push(result);
     }
   }
-  return { vouchers, skippedByReason };
+  return { vouchers, skippedByReason, skipped };
 }
 
 /** The uploaded file (CSV in UTF-8 or windows-1252, or Excel) as vouchers, or

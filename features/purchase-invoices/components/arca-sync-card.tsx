@@ -19,6 +19,7 @@ import { arcaErrorText } from "@/lib/afip/arca-error-text";
 import { formatArgentineDate, formatArgentineDateTime } from "@/lib/format";
 
 import type { ArcaSyncStatus } from "../actions/arca-received-sync-actions";
+import { isSyncPeriodOld } from "../lib/arca-sync-period";
 import {
   useArcaSyncStatus,
   useInvalidateTray,
@@ -30,11 +31,9 @@ import {
   type SyncPhase,
 } from "@/lib/afip/arca-sync-run";
 
-function currentMonth(): string {
+function todayInArgentina(): string {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/Argentina/Buenos_Aires",
-    year: "numeric",
-    month: "2-digit",
   }).format(new Date());
 }
 
@@ -68,7 +67,8 @@ function SyncDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const month = currentMonth();
+  const today = todayInArgentina();
+  const month = today.slice(0, 7);
   const [fromMonth, setFromMonth] = useState(month);
   const [toMonth, setToMonth] = useState(month);
   const request = useRequestArcaSync();
@@ -105,6 +105,12 @@ function SyncDialog({
             />
           </div>
         </div>
+        {isSyncPeriodOld(fromMonth, today) && (
+          <p className="text-sm text-muted-foreground">
+            El período empieza hace más de un año: revisá que el año sea el que
+            querés.
+          </p>
+        )}
         <DialogFooter>
           <Button
             variant="outline"

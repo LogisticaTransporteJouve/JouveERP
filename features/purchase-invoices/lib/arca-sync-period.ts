@@ -1,4 +1,7 @@
-import { MAX_SYNC_MONTHS } from "@/lib/afip/received-sync-limits";
+import {
+  MAX_SYNC_MONTHS,
+  SYNC_WARN_MONTHS_BACK,
+} from "@/lib/afip/received-sync-limits";
 
 export type SyncPeriod = { from: string; to: string };
 
@@ -28,4 +31,13 @@ export function syncPeriodFromMonths(
   ).getUTCDate();
   const end = `${toMonth}-${String(lastDay).padStart(2, "0")}`;
   return { from: `${fromMonth}-01`, to: end > today ? today : end };
+}
+
+/** Whether a period starts so far back it is probably a wrong year. */
+export function isSyncPeriodOld(fromMonth: string, today: string): boolean {
+  const y = Number(today.slice(0, 4));
+  const m = Number(today.slice(5, 7));
+  const back = new Date(Date.UTC(y, m - 1 - SYNC_WARN_MONTHS_BACK, 1));
+  const limit = `${back.getUTCFullYear()}-${String(back.getUTCMonth() + 1).padStart(2, "0")}`;
+  return fromMonth < limit;
 }
