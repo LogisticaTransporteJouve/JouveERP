@@ -151,6 +151,24 @@ describe("getSignedFileUrlAction — entity read denies", () => {
   });
 });
 
+describe("getSignedFileUrlAction — AI chat attachments", () => {
+  it("refuses a chat-only file when ai:chat is denied to the user", async () => {
+    ctx.access = resolveAccess(["admin"], ["ai:chat"]);
+    links = [{ ai_chat_message_id: "m1" }];
+    expect(await getSignedFileUrlAction(FILE_ID)).toEqual({
+      ok: false,
+      error: "Archivo no encontrado.",
+    });
+    expect(createSignedUrl).not.toHaveBeenCalled();
+  });
+
+  it("signs it with ai:chat", async () => {
+    ctx.access = resolveAccess(["admin"]);
+    links = [{ ai_chat_message_id: "m1" }];
+    expect((await getSignedFileUrlAction(FILE_ID)).ok).toBe(true);
+  });
+});
+
 describe("getSignedFileUrlAction — tax document attachments", () => {
   it("lets the accountant (taxes:read, no files:read) open a tax document's file", async () => {
     ctx.access = resolveAccess(["fiscal_reader"]);

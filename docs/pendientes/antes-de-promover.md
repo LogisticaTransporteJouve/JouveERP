@@ -1145,6 +1145,93 @@ que agrega una migración suma su ítem al final de esta sección.
     ```
 
   - `docs/pendientes/2026-11-05-archivos-por-registro-auditoria-w14.md`.
+- [ ] **Aprobar `20261105120000`** (auditoría w15, quién escribe un vínculo
+      a un archivo). Va después de `20261105100100`. No toca filas
+      existentes: cambia quién puede escribir vínculos nuevos.
+  - Cambia cuatro políticas de alta: «Finance and ops can attach files»
+    (`file_attachments`), `ai_extractions_insert`, «fleet_documents insert»
+    y `hr_write_documents`. Para escribir un vínculo, el usuario tiene que
+    figurar como autor (`created_by`) y tener un rol que escriba ese
+    registro. Compras, comprobantes, recibos, órdenes de pago, cheques,
+    movimientos, impuestos, clientes y proveedores: owner, admin y finance.
+    Combustible: owner, admin y operations. Escaneos: owner, admin, finance
+    y operations.
+  - Función nueva `guard_link_file_visible` (invoker, revocada de `public`,
+    `anon` y `authenticated`), con triggers en las cuatro tablas. Rechaza
+    (`42501`) un vínculo a un archivo que quien escribe no ve. En una
+    edición solo corre si cambia el archivo.
+  - Rollback: el código anterior escribe solo vínculos que pasan estas
+    reglas.
+  - Consulta de control antes de aplicar (solo lectura, schema de
+    `production-latest`). Lista los vínculos existentes cuyo autor no
+    pasaría la regla nueva. Lo esperado es que no devuelva nada.
+    - `sin autor`: vínculo sin `created_by`.
+    - `su rol no escribe ese registro`: el autor no tiene hoy un rol que
+      escriba el registro.
+    - `no subió el archivo`: el autor no es owner/admin y no subió el
+      archivo. La app solo vincula archivos propios, salvo un escaneo que
+      confirma owner/admin.
+    - En documentos de flota y de RRHH, el autor es quien creó el
+      documento, no necesariamente quien le puso el archivo.
+    - La migración no toca estas filas. Si alguna no corresponde, el owner
+      quita el vínculo desde la pantalla del registro.
+
+    ```sql
+    with user_role_sets as (
+      select ur.user_id, array_agg(ur.role_id::text order by ur.role_id) as roles
+        from public.user_roles ur
+       group by ur.user_id
+    ),
+    links as (
+      select 'file_attachments'::text as tabla, fa.id as link_id, fa.file_id,
+             fa.created_by as writer,
+             case when fa.fuel_load_id is not null
+                  then array['owner', 'admin', 'operations']
+                  else array['owner', 'admin', 'finance']
+             end as write_roles
+        from public.file_attachments fa
+       where fa.ai_chat_message_id is null
+      union all
+      select 'ai_document_extractions', e.id, e.file_id, e.created_by,
+             array['owner', 'admin', 'finance', 'operations']
+        from public.ai_document_extractions e
+      union all
+      select 'fleet_documents', d.id, d.attachment_file_id, d.created_by,
+             array['owner', 'admin', 'operations']
+        from public.fleet_documents d
+       where d.attachment_file_id is not null
+      union all
+      select 'employee_documents', d.id, d.attachment_file_id, d.created_by,
+             array['owner', 'admin', 'finance']
+        from public.employee_documents d
+       where d.attachment_file_id is not null
+    ),
+    checked as (
+      select l.tabla, l.link_id, f.original_filename, l.writer,
+             coalesce(u.roles, '{}') as roles,
+             array_remove(array[
+               case when l.writer is null then 'sin autor' end,
+               case when l.writer is not null
+                     and not coalesce(u.roles && l.write_roles, false)
+                    then 'su rol no escribe ese registro' end,
+               case when l.writer is not null
+                     and f.uploaded_by is distinct from l.writer
+                     and not coalesce(u.roles && array['owner', 'admin'], false)
+                    then 'no subió el archivo' end
+             ], null) as motivos
+        from links l
+        join public.files f on f.id = l.file_id
+        left join user_role_sets u on u.user_id = l.writer
+    )
+    select c.tabla, c.link_id, c.original_filename, au.email as autor,
+           c.roles, c.motivos
+      from checked c
+      left join auth.users au on au.id = c.writer
+     where cardinality(c.motivos) > 0
+     order by c.tabla, c.original_filename;
+    ```
+
+  - `docs/pendientes/2026-11-05-vinculos-de-archivos-auditoria-w15.md`.
 
 ## Después de promover
 

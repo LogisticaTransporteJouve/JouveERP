@@ -121,18 +121,26 @@ const ATTACHMENT_TARGETS = Object.keys(ATTACHMENT_FK_COLUMN).filter(
   (t): t is keyof typeof ATTACHMENT_FK_COLUMN => t in ATTACHMENT_FK_COLUMN,
 );
 
-/** True when some link is to an entity the user's access reads, or to no
- *  attachable entity (chat, which keeps its own RLS). */
+/** Every file_attachments target column: the upload targets plus the chat
+ *  message, which only the chat route links but ai:chat still gates. */
+const LINK_FK_COLUMN = {
+  ...ATTACHMENT_FK_COLUMN,
+  ai_chat_message: "ai_chat_message_id",
+} as const;
+
+const LINK_TARGETS = Object.keys(LINK_FK_COLUMN).filter(
+  (t): t is keyof typeof LINK_FK_COLUMN => t in LINK_FK_COLUMN,
+);
+
+/** True when some link is to an entity the user's access reads. */
 function canReadSomeLink(
   access: Parameters<typeof userCan>[0],
   links: readonly Partial<Record<string, string | null>>[],
 ): boolean {
   return links.some((link) => {
-    const target = ATTACHMENT_TARGETS.find(
-      (t) => link[ATTACHMENT_FK_COLUMN[t]] != null,
-    );
+    const target = LINK_TARGETS.find((t) => link[LINK_FK_COLUMN[t]] != null);
     return (
-      target === undefined || userCan(access, ENTITY_READ_PERMISSION[target])
+      target !== undefined && userCan(access, ENTITY_READ_PERMISSION[target])
     );
   });
 }
@@ -236,12 +244,12 @@ export async function getSignedFileUrlAction(
   }
 
   // A file is opened through a record this user can read, as in the files
-  // hub: an attachment whose entity's module they read, or the scan they may
-  // review. A link without an attachable entity (chat) keeps its own RLS.
+  // hub: an attachment whose entity's module they read (a chat message:
+  // ai:chat), or the scan they may review.
   const { data: links, error: linksErr } = await supabase
     .from("file_attachments")
     .select(
-      "purchase_invoice_id, invoice_id, receipt_id, payment_order_id, check_id, issued_check_id, client_id, supplier_id, transaction_id, fuel_load_id, tax_document_id",
+      "purchase_invoice_id, invoice_id, receipt_id, payment_order_id, check_id, issued_check_id, client_id, supplier_id, transaction_id, fuel_load_id, tax_document_id, ai_chat_message_id",
     )
     .eq("file_id", parsed.data);
   if (linksErr) {
