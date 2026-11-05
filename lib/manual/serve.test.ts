@@ -74,9 +74,11 @@ describe("adaptManualPage", () => {
 
   it("each page loads its scripts relatively, so the nonce reaches them", () => {
     const html = readFileSync(path.join(MANUAL_DIR, "index.html"), "utf8");
-    expect(existsSync(path.join(MANUAL_DIR, "assets", "manual.js"))).toBe(true);
-    expect(adaptManualPage(html, "YWJj")).toMatch(
-      /<script nonce="YWJj" src="assets\/manual\.js">/,
-    );
+    for (const script of ["guide.js", "search-index.js"]) {
+      expect(existsSync(path.join(MANUAL_DIR, "assets", script))).toBe(true);
+      expect(adaptManualPage(html, "YWJj")).toContain(
+        `<script nonce="YWJj" src="assets/${script}">`,
+      );
+    }
   });
 });

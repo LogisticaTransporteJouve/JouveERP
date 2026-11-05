@@ -9196,7 +9196,7 @@ export type Database = {
         Args: { p_invoice_id: string }
         Returns: boolean
       }
-      billing_invoice_live_debits: {
+      billing_invoice_live_amount: {
         Args: { p_invoice_id: string }
         Returns: number
       }

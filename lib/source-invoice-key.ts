@@ -12,12 +12,17 @@ import { logger } from "@/lib/logger";
 // has at most one live invoice: a "Facturar" after a lost link or an expired
 // claim finds the invoice the first one queued, instead of issuing a second.
 // The attempt moves on only when the previous invoice is void
-// (billing_invoice_is_void: failed, cancelled, or a fiscal factura its
-// emitted NCs credit in full), which is when the source is billable again,
+// (billing_invoice_is_void: failed, cancelled, or a fiscal factura that,
+// after its whole chain of emitted NCs and NDs, no longer bills anything:
+// billing_invoice_live_amount), which is when the source is billable again,
 // or when it is a draft with no items: the header and the items are written
 // in two steps, so a kill or a failed rollback between them leaves a draft
 // that no run ever sends (issue-invoice-reconcile resends only drafts with
 // items), as the storage claim's relink already assumes.
+// Only the newest attempt can be the live one: a later key exists only
+// because every earlier attempt was void or itemless when it was taken. An
+// earlier factura that a later ND makes bill again (void is not final any
+// more) bills that ND, not the source, and is never adopted again.
 
 export type InvoiceSource = "freight_settlement" | "shipment_freight";
 
@@ -64,8 +69,8 @@ function isVoidStatus(status: string): boolean {
   return status === "failed" || status === "cancelled";
 }
 
-/** billing_invoice_is_void, which also counts a fiscal factura credited in
- *  full. Null on a read error. */
+/** billing_invoice_is_void, which also counts a fiscal factura its notes
+ *  leave billing nothing. Null on a read error. */
 async function readIsVoid(
   supabase: SupabaseClient<Database>,
   invoiceId: string,
@@ -99,9 +104,9 @@ async function draftHasItems(
   return data.length > 0;
 }
 
-/** Where the source's next invoice stands, from the invoices already issued
- *  under its keys (whoever issued them). A read error is "error": the caller
- *  then issues nothing. */
+/** Where the source's next invoice stands, from the newest invoice already
+ *  issued under its keys (whoever issued it). A read error is "error": the
+ *  caller then issues nothing. */
 export async function findSourceInvoiceSlot(
   supabase: SupabaseClient<Database>,
   source: InvoiceSource,
@@ -119,24 +124,31 @@ export async function findSourceInvoiceSlot(
     return { kind: "error" };
   }
   const byKey = new Map(data.map((row) => [row.idempotency_key, row]));
-  for (const key of keys) {
-    const row = byKey.get(key);
-    if (row === undefined || isVoidStatus(row.status)) continue;
-    // Only an emitted factura carries emitted NCs.
-    if (row.status === "emitted") {
-      const credited = await readIsVoid(supabase, row.id);
-      if (credited === null) return { kind: "error" };
-      if (credited) continue;
-    }
-    if (row.status === "draft") {
-      const hasItems = await draftHasItems(supabase, row.id);
-      if (hasItems === null) return { kind: "error" };
-      if (!hasItems) continue;
-    }
-    return { kind: "live", invoiceId: row.id };
+  const newest = keys.findLastIndex((key) => byKey.has(key));
+  const row = newest < 0 ? undefined : byKey.get(keys[newest]!);
+  if (row !== undefined && !isVoidStatus(row.status)) {
+    const live = await isLiveAttempt(supabase, row);
+    if (live === null) return { kind: "error" };
+    if (live) return { kind: "live", invoiceId: row.id };
   }
-  const free = keys.find((key) => !byKey.has(key));
+  const free = keys[newest + 1];
   return free ? { kind: "free", key: free } : { kind: "exhausted" };
+}
+
+/** A non-failed, non-cancelled attempt still bills its source: an emitted
+ *  one its notes do not void, a draft with items, or one being sent. Null
+ *  on a read error. */
+async function isLiveAttempt(
+  supabase: SupabaseClient<Database>,
+  row: { id: string; status: string },
+): Promise<boolean | null> {
+  // Only an emitted factura carries emitted notes.
+  if (row.status === "emitted") {
+    const isVoid = await readIsVoid(supabase, row.id);
+    return isVoid === null ? null : !isVoid;
+  }
+  if (row.status === "draft") return draftHasItems(supabase, row.id);
+  return true;
 }
 
 /** The invoice no longer bills its source (billing_invoice_is_void). A read

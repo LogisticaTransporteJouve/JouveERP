@@ -207,6 +207,56 @@ describe("getFleetProfitabilityAction", () => {
     expect(res.data.totals).toMatchObject({ revenue: 1000, cost: 250 });
   });
 
+  it("counts a trip's load dated before the range in the trip, not in the vehicle", async () => {
+    fake = pagedSupabase(
+      {
+        trips: [
+          {
+            id: "t1",
+            trip_date: "2026-03-01",
+            vehicle_id: "v1",
+            origin: null,
+            destination: null,
+            revenue: null,
+            cost: 50,
+            vehicle: { patente: "AA111AA" },
+            driver: null,
+          },
+        ],
+        v_trip_revenue: [
+          {
+            trip_id: "t1",
+            trip_date: "2026-03-01",
+            revenue: 100,
+            revenue_source: "invoiced",
+            invoiced_revenue: 100,
+          },
+        ],
+        // Filled the night before the trip.
+        fuel_loads: [
+          {
+            vehicle_id: "v1",
+            trip_id: "t1",
+            amount: 60,
+            load_date: "2026-02-28",
+            trip: { trip_date: "2026-03-01" },
+          },
+        ],
+        maintenance_records: [],
+        vehicles: [{ id: "v1", patente: "AA111AA" }],
+      },
+      { applyFilters: true },
+    );
+    const res = await getFleetProfitabilityAction({
+      periodStart: "2026-03-01",
+      periodEnd: "2026-03-31",
+    });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.data.trips[0]).toMatchObject({ fuel_cost: 60, net: -10 });
+    expect(res.data.vehicles[0]).toMatchObject({ fuel_cost: 0, net: 50 });
+  });
+
   it("requires shipments:read, since revenue comes from the shipments", async () => {
     roles = ["driver"];
     const res = await getFleetProfitabilityAction(range);

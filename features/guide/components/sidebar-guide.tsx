@@ -29,7 +29,9 @@ import {
   useSetGuideCollapsed,
   useSetGuideItemDone,
 } from "../hooks/use-guide";
-import { guideForPath, manualHref } from "../lib/route-guides";
+import { MANUAL_WINDOW } from "@/lib/manual/windows";
+
+import { guideForPath } from "../lib/route-guides";
 import { SETUP_ITEMS } from "../lib/setup-checklist";
 import type { GuideItemStatus } from "../schema";
 
@@ -113,19 +115,16 @@ export function SidebarGuide() {
                     ))}
                   </ol>
                 )}
-                {routeGuide.manual && (
-                  // The manual is static HTML the app serves, not a Next
-                  // page: a plain link, in its own tab.
-                  <a
-                    href={manualHref(routeGuide.manual)}
-                    target="_blank"
-                    rel="noopener"
-                    className="text-muted-foreground hover:text-sidebar-foreground flex items-center gap-1 underline-offset-4 hover:underline"
-                  >
-                    <BookOpen className="size-3 shrink-0" />
-                    Manual: {routeGuide.manual.label}
-                  </a>
-                )}
+                {/* The guide is static HTML the app serves, not a Next
+                    page: a plain link, in its own tab. */}
+                <a
+                  href={`/manual/para?ruta=${encodeURIComponent(pathname)}`}
+                  target={MANUAL_WINDOW}
+                  className="text-muted-foreground hover:text-sidebar-foreground flex items-center gap-1 underline-offset-4 hover:underline"
+                >
+                  <BookOpen className="size-3 shrink-0" />
+                  Ver los pasos en la guía
+                </a>
               </section>
             )}
             {items.length > 0 && (

@@ -1,560 +1,245 @@
 <!doctype html>
 <html lang="es">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Administración — Manual JouveERP</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="assets/styles.css" />
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Administración — Guía JouveERP</title>
+<link rel="stylesheet" href="assets/styles.css" />
 </head>
 <body>
-  <div class="layout">
-    <aside class="sidebar" id="sidebar"></aside>
-    <div>
-      <header class="topbar">
-        <div class="crumbs"><a href="index.html">Manual</a> · <strong>Administración</strong></div>
-        <div class="pill">Usuarios · AFIP · Importador · Backups</div>
-      </header>
-      <main>
-        <h1>Administración</h1>
-        <p class="lead">
-          Configuración global del ERP: alta de usuarios y roles,
-          integración fiscal con AFIP (padrón, puntos de venta, preview de
-          PDF) y descarga de backups diarios. Acceso restringido a owner /
-          admin.
-        </p>
+<div class="layout">
+<aside class="sidebar">
+<a class="brand" href="index.html"><span class="logo">J</span><span>Guía de JouveERP</span></a>
+<div class="search"><input id="guide-search" type="search" placeholder="Buscar: emitir factura, cheque…" autocomplete="off" aria-label="Buscar en la guía" /><div id="guide-results" class="results" hidden></div></div>
+<nav><ul class="nav"><li><a href="conceptos.html">Conceptos generales</a></li><li><a href="plataforma.html">Plataforma</a></li><li><a href="asistente.html">Asistente (IA)</a></li><li class="active"><a href="admin.html">Administración</a><ul><li><a href="admin.html#admin-usuarios">Usuarios</a></li><li><a href="admin.html#admin-padron-afip">Padrón AFIP</a></li><li><a href="admin.html#admin-puntos-de-venta">Puntos de venta AFIP</a></li><li><a href="admin.html#admin-preview-pdf">Preview de PDF</a></li><li><a href="admin.html#admin-importador">Importador</a></li><li><a href="admin.html#admin-auditoria">Auditoría</a></li><li><a href="admin.html#admin-backups">Backups</a></li></ul></li></ul></nav>
+</aside>
+<div class="content">
+<header class="topbar"><a href="index.html">Guía</a><span class="sep">›</span><strong>Administración</strong><a class="back" href="/dashboard" target="jouve-app">Volver a JouveERP</a></header>
+<main>
+<h1>Administración</h1>
+<p class="lead">Usuarios y accesos, consultas y configuración de AFIP, el importador de planillas, la auditoría y los backups.</p>
+<nav class="toc"><h4>En esta página</h4><ul><li><a href="#admin-usuarios">Usuarios</a></li><li><a href="#admin-padron-afip">Padrón AFIP</a></li><li><a href="#admin-puntos-de-venta">Puntos de venta AFIP</a></li><li><a href="#admin-preview-pdf">Preview de PDF</a></li><li><a href="#admin-importador">Importador</a></li><li><a href="#admin-auditoria">Auditoría</a></li><li><a href="#admin-backups">Backups</a></li></ul></nav>
+<section class="section" id="admin-usuarios">
+<h2><a class="anchor" href="#admin-usuarios">Usuarios</a></h2>
+<p class="where">En el menú: <strong>Admin › Usuarios</strong> · <code>/admin/users</code></p><p class="where">Ven esta pantalla: Owner, Admin <span class="muted">(permiso <code class="perm">users:read</code>)</span></p><p class="open"><a href="/admin/users" target="jouve-app">Abrir esta pantalla en JouveERP ↗</a></p>
+<p>Lista a los miembros del equipo con sus roles. Desde acá se invita a usuarios nuevos y se editan los roles y los accesos de cada uno. Qué hace cada rol y cómo funcionan los accesos por usuario está en <a class="ref" href="conceptos.html#roles-y-permisos">Roles, permisos y accesos por usuario</a>.</p><p>La tabla muestra <span class="ui" data-ui="Email">Email</span> (tu propia cuenta lleva la marca <span class="ui" data-ui="Vos">Vos</span>), <span class="ui" data-ui="Roles">Roles</span> (el de más jerarquía resaltado; <span class="ui" data-ui="Sin roles">Sin roles</span> si no tiene ninguno), <span class="ui" data-ui="Último acceso">Último acceso</span> y <span class="ui" data-ui="Creado">Creado</span>. Arriba, <span class="ui" data-ui="Buscar por email">Buscar por email</span> filtra la lista mientras escribís.</p><p>En una instalación nueva, sin ningún owner todavía, el primer usuario creado que abre esta pantalla pasa a ser owner automáticamente.</p>
+<figure class="mock"><div class="m-frame m-page"><div class="m-head"><div><div class="m-title" data-ui="Usuarios">Usuarios</div><div class="m-sub">Gestioná los miembros del equipo y sus roles.</div></div><div class="m-actions"><span class="m-btn m-btn-primary" data-ui="Invitar usuario">Invitar usuario</span></div></div><div class="m-toolbar"><div class="m-field"><span class="m-label" data-ui="Buscar por email">Buscar por email</span><span class="m-input"></span></div></div><div class="m-table"><table><thead><tr><th data-ui="Email">Email</th><th data-ui="Roles">Roles</th><th data-ui="Último acceso">Último acceso</th><th data-ui="Creado">Creado</th><th></th></tr></thead><tbody><tr><td>~maria@jouve.com.ar</td><td>~Finanzas</td><td>~04/11/2026 09:12</td><td>~01/03/2026 10:00</td><td class="m-rowmenu">⋯</td></tr><tr><td>~juan@jouve.com.ar</td><td>~Operaciones</td><td>~03/11/2026 18:40</td><td>~15/05/2026 11:20</td><td class="m-rowmenu">⋯</td></tr></tbody></table></div></div></figure>
 
-        <div class="toc">
-          <h4>En esta página</h4>
-          <ul>
-            <li><a href="#usuarios">Usuarios y roles</a></li>
-            <li><a href="#padron-afip">Padrón AFIP</a></li>
-            <li><a href="#puntos-de-venta">Puntos de venta AFIP</a></li>
-            <li><a href="#preview-pdf">Preview de PDF</a></li>
-            <li><a href="#importador">Importador de planillas</a></li>
-            <li><a href="#backups">Backups</a></li>
-          </ul>
-        </div>
+<ul class="task-toc"><li><a href="#invitar-usuario">Invitar a un usuario</a></li><li><a href="#editar-accesos-usuario">Cambiar los roles o los accesos de un usuario</a></li></ul>
+<article class="task" id="invitar-usuario">
+<h3><a class="anchor" href="#invitar-usuario">Invitar a un usuario</a></h3>
+<p>Manda un mail de activación y deja asignados los roles con los que va a entrar.</p>
+<dl class="meta"><dt>Quién puede</dt><dd>Owner, Admin <span class="muted">(permiso <code class="perm">users:invite</code> + <code class="perm">users:assign_role</code>)</span></dd><dt>Antes</dt><dd><ul><li>Ser owner o admin. El botón solo aparece si podés asignar al menos un rol: un admin no puede dar el rol owner ni un rol que traiga algo que a él le denegaron.</li></ul></dd></dl>
+<figure class="mock"><div class="m-frame m-backdrop"><div class="m-dialog"><div class="m-dialog-title" data-ui="Invitar usuario">Invitar usuario<span class="m-close">×</span></div><div class="m-sub">Se enviará un mail de activación. Los roles se asignan al confirmarse la cuenta.</div><div class="m-form"><div class="m-field wide"><span class="m-label" data-ui="Email">Email</span><span class="m-input">nuevo@jouve.com.ar</span><span class="mk" aria-label="Paso 2">2</span></div><div class="m-field m-inline wide"><span class="m-checkbox on"></span><span class="m-label" data-ui="Roles iniciales">Roles iniciales</span><span class="mk" aria-label="Paso 3">3</span></div></div><div class="m-footer"><span class="m-btn m-btn-ghost" data-ui="Cancelar">Cancelar</span><span class="m-btn m-btn-primary" data-ui="Enviar invitación">Enviar invitación<span class="mk" aria-label="Paso 4">4</span></span></div></div></div></figure>
+<ol class="steps"><li>En <a class="ref" href="admin.html#admin-usuarios">Admin › Usuarios</a>, hacé clic en <span class="ui" data-ui="Invitar usuario">Invitar usuario</span>.</li><li>En <span class="ui" data-ui="Email">Email</span>, escribí el mail de la persona.</li><li>En <span class="ui" data-ui="Roles iniciales">Roles iniciales</span>, tildá uno o más roles.<ul><li>Cada rol muestra su descripción. Los que no podés asignar aparecen deshabilitados con la aclaración «No podés cambiarlo.».</li><li>Tiene que quedar al menos un rol tildado.</li></ul></li><li>Hacé clic en <span class="ui" data-ui="Enviar invitación">Enviar invitación</span>.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>La persona recibe un mail para activar su cuenta y aparece en la lista con los roles elegidos. El sistema muestra <span class="ui" data-ui="Invitación enviada.">Invitación enviada.</span></li><li>Queda registrado en <a class="ref" href="admin.html#admin-auditoria">Admin › Auditoría</a> como <code>user.invited</code>, y los roles asignados como <code>user.roles.updated</code>.</li><li>Para recortarle módulos después, usá <a class="ref" href="admin.html#editar-accesos-usuario">Cambiar los roles o los accesos de un usuario</a>.</li></ul></div>
+<div class="block errors"><h4>Si aparece un error</h4><dl><dt>“Email y al menos un rol son obligatorios.”</dt><dd>Completá el mail y tildá al menos un rol.</dd><dt>“Datos inválidos.”</dt><dd>Revisá que el mail esté bien escrito.</dd><dt>“No podés asignar alguno de esos roles.”</dt><dd>Destildá el rol que no podés dar (por ejemplo, owner si sos admin) o pedile la invitación al owner.</dd><dt>“No podés invitarte a vos mismo.”</dt><dd>Usá el mail de la otra persona.</dd><dt>“Ya estaba invitado; editá sus accesos.”</dt><dd>La cuenta ya existe con roles: cambiáselos con <span class="ui" data-ui="Accesos">Accesos</span> en su fila.</dd><dt>“No se pudo enviar la invitación.”</dt><dd>Revisá el mail y probá de nuevo en un rato.</dd><dt>“Usuario invitado pero no se asignaron roles.”</dt><dd>La invitación salió pero sin roles: asignáselos con <span class="ui" data-ui="Accesos">Accesos</span> en su fila.</dd><dt>“No tenés permiso para invitar usuarios.”</dt><dd>Pedile la invitación a un owner o admin.</dd></dl></div>
+<p class="related">Relacionado: <a class="ref" href="admin.html#editar-accesos-usuario">Cambiar los roles o los accesos de un usuario</a> · <a class="ref" href="conceptos.html#roles-y-permisos">Roles, permisos y accesos por usuario</a></p>
+</article>
+<article class="task" id="editar-accesos-usuario">
+<h3><a class="anchor" href="#editar-accesos-usuario">Cambiar los roles o los accesos de un usuario</a></h3>
+<p>Sumar o quitar roles, y (solo el owner) ocultarle módulos enteros o denegarle acciones puntuales.</p>
+<dl class="meta"><dt>Quién puede</dt><dd>Owner, Admin <span class="muted">(permiso <code class="perm">users:assign_role</code> o <code class="perm">users:manage_access</code>)</span></dd><dt>Antes</dt><dd><ul><li>Ser owner o admin. Cambiar roles lo pueden hacer owner y admin (un admin no toca el rol owner); denegar módulos y acciones lo hace solo el owner.</li><li>Nadie edita sus propios accesos: tu fila no tiene el menú.</li></ul></dd></dl>
+<figure class="mock"><div class="m-frame m-menu-frame"><span class="m-btn m-btn-ghost" data-ui="⋯">⋯</span><div class="m-menu"><span class="m-item" data-ui="Accesos">Accesos<span class="mk" aria-label="Paso 1">1</span></span></div></div><figcaption>En la fila del usuario</figcaption></figure>
+<figure class="mock"><div class="m-frame m-backdrop"><div class="m-dialog"><div class="m-dialog-title" data-ui="Accesos">Accesos<span class="m-close">×</span></div><div class="m-sub">maria@jouve.com.ar</div><div class="m-form"><div class="m-field m-inline wide"><span class="m-checkbox on"></span><span class="m-label" data-ui="Roles">Roles</span><span class="mk" aria-label="Paso 2">2</span></div><div class="m-field m-inline"><span class="m-checkbox on"></span><span class="m-label" data-ui="Ocultar módulo">Ocultar módulo</span><span class="mk" aria-label="Paso 3">3</span></div><div class="m-field m-inline"><span class="m-checkbox on"></span><span class="m-label" data-ui="Denegar">Denegar</span><span class="mk" aria-label="Paso 3">3</span></div></div><div class="m-footer"><span class="m-btn m-btn-ghost" data-ui="Cancelar">Cancelar</span><span class="m-btn m-btn-primary" data-ui="Guardar">Guardar<span class="mk" aria-label="Paso 4">4</span></span></div></div></div></figure>
+<ol class="steps"><li>En <a class="ref" href="admin.html#admin-usuarios">Admin › Usuarios</a>, en la fila del usuario, abrí el menú ⋯ y elegí <span class="ui" data-ui="Accesos">Accesos</span>.</li><li>En <span class="ui" data-ui="Roles">Roles</span>, tildá los roles que querés sumar y destildá los que querés quitar.<ul><li>Los roles que no podés cambiar aparecen deshabilitados.</li><li>Para dar más acceso, sumá un rol; para recortarlo, usá la sección de abajo.</li></ul></li><li>Si sos owner, en <span class="ui" data-ui="Módulos y acciones">Módulos y acciones</span> recortá lo que el rol trae.<ul><li>Cada módulo lista las acciones que le dan sus roles (por ejemplo «Ver», «Crear y editar», «Anular») y de qué rol viene cada una.</li><li><span class="ui" data-ui="Ocultar módulo">Ocultar módulo</span> quita el módulo entero: desaparece del menú y se quitan todas sus acciones.</li><li><span class="ui" data-ui="Denegar">Denegar</span> en una acción quita solo esa acción. Lo denegado se ve tachado.</li><li>Arriba se ve cuántos permisos le quedan del total que dan sus roles.</li><li>Si el usuario tiene el rol owner no se le puede denegar nada: el diálogo lo avisa.</li></ul></li><li>Hacé clic en <span class="ui" data-ui="Guardar">Guardar</span>. Se habilita solo si cambiaste algo.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>El sistema muestra <span class="ui" data-ui="Accesos actualizados.">Accesos actualizados.</span> y la lista se actualiza.</li><li>Los cambios de roles quedan en <a class="ref" href="admin.html#admin-auditoria">Admin › Auditoría</a> como <code>user.roles.updated</code>, y los de módulos y acciones como <code>user.access.updated</code>.</li><li>Las denegaciones rigen en la aplicación: datos relacionados pueden verse en otros módulos que los muestran con su propio permiso.</li><li>Si el usuario pasa a ser owner, se le borran todas las denegaciones.</li></ul></div>
+<div class="block errors"><h4>Si aparece un error</h4><dl><dt>“Otro cambio se guardó antes; recargá los accesos.”</dt><dd>Alguien cambió los accesos mientras editabas. En el aviso del diálogo hacé clic en <span class="ui" data-ui="Recargar">Recargar</span> (se pierden tus cambios) y volvé a hacerlos.</dd><dt>“No podés editar tus propios accesos.”</dt><dd>Pedile el cambio a otro owner o admin.</dd><dt>“No podés modificar ese rol.”</dt><dd>Un admin no puede dar ni quitar el rol owner, ni dar un rol con algo que a él le denegaron: pedíselo al owner.</dd><dt>“Tiene que quedar al menos un usuario con rol owner.”</dt><dd>No le quites el rol owner al último owner: primero dáselo a otra persona.</dd><dt>“No tenés permiso para modificar roles.”</dt><dd>Pedile el cambio a un owner o admin.</dd><dt>“No tenés permiso para modificar accesos.”</dt><dd>Solo el owner deniega módulos y acciones.</dd><dt>“No se pudieron leer los accesos.”</dt><dd>Cerrá el diálogo y volvé a abrirlo.</dd><dt>“Actualización pendiente; reintentá en unos minutos.”</dt><dd>El sistema se está actualizando: probá de nuevo en unos minutos.</dd><dt>“No se pudieron guardar los accesos.”</dt><dd>Probá de nuevo; si sigue, avisá a soporte.</dd></dl></div>
+<p class="related">Relacionado: <a class="ref" href="admin.html#invitar-usuario">Invitar a un usuario</a> · <a class="ref" href="conceptos.html#roles-y-permisos">Roles, permisos y accesos por usuario</a></p>
+</article>
+</section>
+<section class="section" id="admin-padron-afip">
+<h2><a class="anchor" href="#admin-padron-afip">Padrón AFIP</a></h2>
+<p class="where">En el menú: <strong>Admin › Padrón AFIP</strong> · <code>/admin/padron</code></p><p class="where">Ven esta pantalla: Owner, Admin, Finanzas <span class="muted">(permiso <code class="perm">padron:lookup</code>)</span></p><p class="open"><a href="/admin/padron" target="jouve-app">Abrir esta pantalla en JouveERP ↗</a></p>
+<p>Consulta directa a la constancia de inscripción de AFIP (A5) de un CUIT. Sirve para ver los datos fiscales de un contribuyente (razón social, condición de IVA, domicilio, impuestos) tal como los devuelve AFIP, sin crear nada en el sistema.</p><p>Cada consulta queda guardada 24 horas: repetirla en ese plazo no vuelve a llamar a AFIP. Hay un límite de 60 consultas por hora por usuario.</p>
 
-        <!-- ──────── USUARIOS ──────── -->
-        <h2 id="usuarios">Usuarios y roles</h2>
-        <p>
-          Alta, baja y asignación de roles de los usuarios que pueden
-          ingresar al ERP. El primer usuario que entra al sistema se vuelve
-          <span class="badge solid">owner</span> automáticamente
-          ("bootstrap"); a partir de ese momento, los nuevos vienen por
-          invitación.
-        </p>
-        <p><strong>Ubicación:</strong> sidebar &gt; Admin &gt; <em>Usuarios</em>.</p>
 
-        <h3>Listar usuarios</h3>
-        <p>Tabla con nombre, email, avatar, roles actuales y última actividad.</p>
+<ul class="task-toc"><li><a href="#consultar-padron-afip">Consultar un CUIT en el padrón</a></li></ul>
+<article class="task" id="consultar-padron-afip">
+<h3><a class="anchor" href="#consultar-padron-afip">Consultar un CUIT en el padrón</a></h3>
 
-        <h3>Invitar usuario</h3>
-        <ol class="steps">
-          <li>Click en <strong>Invitar usuario</strong>.</li>
-          <li>Email (requerido) + al menos un rol.</li>
-          <li>Al confirmar, el usuario recibe un mail con link de alta.</li>
-        </ol>
+<dl class="meta"><dt>Quién puede</dt><dd>Owner, Admin, Finanzas <span class="muted">(permiso <code class="perm">padron:lookup</code>)</span></dd></dl>
+<figure class="mock"><div class="m-frame m-page"><div class="m-head"><div><div class="m-title" data-ui="Padrón AFIP">Padrón AFIP</div><div class="m-sub">Consulta directa a la constancia de inscripción de AFIP (A5). Cacheada 24 h y limitada a 60 consultas/hora por usuario.</div></div><div class="m-actions"><span class="m-btn m-btn-primary" data-ui="Consultar">Consultar<span class="mk" aria-label="Paso 2">2</span></span></div></div><div class="m-toolbar"><div class="m-field"><span class="m-label" data-ui="CUIT">CUIT</span><span class="m-input">30-71463743-2</span><span class="mk" aria-label="Paso 1">1</span></div></div></div></figure>
+<ol class="steps"><li>En <a class="ref" href="admin.html#admin-padron-afip">Admin › Padrón AFIP</a>, escribí el CUIT en <span class="ui" data-ui="CUIT">CUIT</span> (con o sin guiones).</li><li>Hacé clic en <span class="ui" data-ui="Consultar">Consultar</span>.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>Abajo aparecen los datos que devolvió AFIP, tal cual llegan (en formato técnico). La marca <span class="ui" data-ui="cache">cache</span> indica que vienen de una consulta de las últimas 24 horas.</li><li>Si AFIP no responde pero había una consulta anterior guardada, se muestra esa con la marca <span class="ui" data-ui="stale (AFIP no disponible)">stale (AFIP no disponible)</span>: puede estar desactualizada.</li></ul></div>
+<div class="block errors"><h4>Si aparece un error</h4><dl><dt>“CUIT inválido — debe tener 11 dígitos y empezar con 2 o 3.”</dt><dd>Revisá el número: son 11 dígitos y empieza con 2 o 3.</dd><dt>“El CUIT … no existe en el padrón de AFIP.”</dt><dd>Verificá el número con el contribuyente.</dd><dt>“El CUIT … no está en el padrón de homologación de AFIP, que solo tiene datos de prueba.”</dt><dd>El sistema está conectado al ambiente de prueba de AFIP: solo encuentra CUIT de prueba.</dd><dt>“CUIT … no encontrado en el padrón de AFIP.”</dt><dd>Verificá el número con el contribuyente.</dd><dt>“AFIP no emite constancia para el CUIT …: …”</dt><dd>AFIP explica el motivo (por ejemplo, sin impuestos activos). El contribuyente tiene que regularizarlo en AFIP.</dd><dt>“El padrón de AFIP no respondió (HTTP …). Probá de nuevo en un rato.”</dt><dd>AFIP está caído o lento: reintentá más tarde.</dd><dt>“Rate limit exceeded for …. Try again in …s.”</dt><dd>Llegaste a 60 consultas en la hora: esperá los segundos que indica «Reintentar en …».</dd><dt>“No tenés permiso para consultar el padrón.”</dt><dd>Pedile la consulta a alguien de Finanzas, admin u owner.</dd></dl></div>
 
-        <h3>Asignar / revocar roles</h3>
-        <ol class="steps">
-          <li>En la fila del usuario, abrí el dropdown de roles.</li>
-          <li>Tildá / destildá. Owner puede asignar cualquier rol incluso
-            <em>owner</em>; admin puede todos menos owner.</li>
-          <li>El sistema impide quedarse sin owners: no podés revocarle el
-            rol al último owner.</li>
-        </ol>
+</article>
+</section>
+<section class="section" id="admin-puntos-de-venta">
+<h2><a class="anchor" href="#admin-puntos-de-venta">Puntos de venta AFIP</a></h2>
+<p class="where">En el menú: <strong>Admin › Puntos de venta</strong> · <code>/admin/afip/puntos-de-venta</code></p><p class="where">Ven esta pantalla: Owner, Admin <span class="muted">(permiso <code class="perm">afip:admin</code>)</span></p><p class="open"><a href="/admin/afip/puntos-de-venta" target="jouve-app">Abrir esta pantalla en JouveERP ↗</a></p>
+<p>La pantalla de configuración de AFIP/ARCA. Arriba muestra el ambiente (<span class="ui" data-ui="Producción">Producción</span> u <span class="ui" data-ui="Homologación">Homologación</span>) y el CUIT con el que se factura, y tiene cinco bloques:</p><p><span class="ui" data-ui="Diagnóstico AFIP">Diagnóstico AFIP</span>: las validaciones que tienen que pasar antes de emitir: <span class="ui" data-ui="Variables de entorno">Variables de entorno</span>, <span class="ui" data-ui="Certificado">Certificado</span> (avisa cuando faltan menos de 30 días para que venza y cuando está vencido), el ticket de acceso a los servicios (<span class="ui" data-ui="WSAA — wsfe">WSAA — wsfe</span> y el del padrón) y el estado del servidor de facturación (<span class="ui" data-ui="WSFEv1 — FEDummy">WSFEv1 — FEDummy</span>).</p><p><span class="ui" data-ui="Puntos de venta">Puntos de venta</span>: los puntos de venta que AFIP tiene habilitados para el CUIT, con <span class="ui" data-ui="Número">Número</span>, <span class="ui" data-ui="Alias">Alias</span>, <span class="ui" data-ui="Canal">Canal</span>, <span class="ui" data-ui="Habilitado">Habilitado</span> y el estado en <span class="ui" data-ui="AFIP">AFIP</span> (activo o bloqueado y su tipo de emisión). AFIP solo devuelve los puntos de factura electrónica por web service (WSFEv1); los de Comprobantes en Línea u otros servicios no aparecen.</p><p><span class="ui" data-ui="Conciliación con ARCA">Conciliación con ARCA</span>: compara, por punto de venta y tipo de comprobante, el último número autorizado en ARCA contra lo que tiene el sistema.</p><p><span class="ui" data-ui="Usuario de ARCA para Mis Comprobantes">Usuario de ARCA para Mis Comprobantes</span>: el usuario con el que el sistema entra a ARCA para bajar los comprobantes recibidos.</p><p><span class="ui" data-ui="CAEA (contingencia)">CAEA (contingencia)</span>: el código anticipado por quincena para emitir con AFIP caído.</p>
+<figure class="mock"><div class="m-frame m-page"><div class="m-head"><div><div class="m-title" data-ui="Puntos de venta AFIP">Puntos de venta AFIP</div></div><div class="m-actions"><span class="m-btn m-btn-outline" data-ui="Refrescar">Refrescar</span><span class="m-btn m-btn-primary" data-ui="Sincronizar con AFIP">Sincronizar con AFIP</span></div></div><div class="m-table"><table><thead><tr><th data-ui="Número">Número</th><th data-ui="Alias">Alias</th><th data-ui="Canal">Canal</th><th data-ui="Habilitado">Habilitado</th><th data-ui="AFIP">AFIP</th><th data-ui="Acciones">Acciones</th></tr></thead><tbody><tr><td>~00003</td><td>~Jouve fiscal</td><td>~Jouve fiscal</td><td>~Sí</td><td>~Activo</td></tr><tr><td>~00005</td><td>~Sin asignar</td><td>~—</td><td>~No</td><td>~Activo</td></tr></tbody></table></div></div></figure>
+<div class="concept"><h4>Punto de venta y canal</h4><p>Un punto de venta solo aparece para emitir comprobantes si está asociado a un canal fiscal y habilitado. Cada canal puede tener un solo punto de venta habilitado a la vez: el sistema numera con ese.</p><p>Un punto de venta que ya numeró comprobantes, recibos u órdenes de pago en su canal no se puede pasar a otro canal.</p><p>El punto 09001 (Remitos internos) es el del canal interno: numera remitos y recibos internos, no existe en AFIP y la sincronización no lo toca.</p></div><div class="concept"><h4>Conciliación con ARCA</h4><p>ARCA numera cada tipo de comprobante sin saltos, así que del 1 al último autorizado todo tiene que estar en el sistema. La tabla muestra <span class="ui" data-ui="PV">PV</span>, <span class="ui" data-ui="Tipo">Tipo</span>, <span class="ui" data-ui="Último en ARCA">Último en ARCA</span>, <span class="ui" data-ui="Último en el ERP">Último en el ERP</span>, <span class="ui" data-ui="Por importar">Por importar</span> (números por encima del último que tiene el sistema), <span class="ui" data-ui="Huecos">Huecos</span> (números que faltan por debajo, por ejemplo NC/ND que esperan su factura de origen) y <span class="ui" data-ui="Números faltantes">Números faltantes</span> (los primeros huecos).</p><p>Lo que falta se trae con <span class="ui" data-ui="Traer de ARCA">Traer de ARCA</span> en <a class="ref" href="index.html">/invoices</a>.</p></div><div class="concept"><h4>CAEA</h4><p>El CAEA es un código que AFIP otorga por quincena para emitir desde un punto de venta de contingencia cuando AFIP no responde. El sistema lo pide solo antes de cada quincena (los días 11 y del 24 al 28); los comprobantes emitidos con CAEA se informan a AFIP automáticamente hasta la fecha tope.</p><p>La tabla muestra las últimas quincenas con <span class="ui" data-ui="Quincena">Quincena</span>, <span class="ui" data-ui="CAEA">CAEA</span>, <span class="ui" data-ui="Vigencia">Vigencia</span> y <span class="ui" data-ui="Tope p/ informar">Tope p/ informar</span>. Arriba, una marca dice el CAEA vigente o <span class="ui" data-ui="Sin CAEA vigente">Sin CAEA vigente</span>, y otra cuántos comprobantes faltan informar.</p></div>
+<ul class="task-toc"><li><a href="#sincronizar-puntos-de-venta">Sincronizar los puntos de venta con AFIP</a></li><li><a href="#configurar-punto-de-venta">Asignar un punto de venta a un canal</a></li><li><a href="#conciliar-con-arca">Conciliar la numeración con ARCA</a></li><li><a href="#configurar-usuario-arca">Configurar el usuario de ARCA para Mis Comprobantes</a></li><li><a href="#solicitar-caea">Solicitar el CAEA</a></li></ul>
+<article class="task" id="sincronizar-puntos-de-venta">
+<h3><a class="anchor" href="#sincronizar-puntos-de-venta">Sincronizar los puntos de venta con AFIP</a></h3>
+<p>Trae de AFIP los puntos de venta habilitados para el CUIT y su estado.</p>
+<dl class="meta"><dt>Quién puede</dt><dd>Owner, Admin <span class="muted">(permiso <code class="perm">afip:admin</code>)</span></dd></dl>
 
-        <h3>Matriz de roles vs permisos</h3>
-        <table>
-          <thead><tr><th>Permiso</th><th>owner</th><th>admin</th><th>finance</th><th>operations</th><th>warehouse</th><th>driver</th></tr></thead>
-          <tbody>
-            <tr><td>Ventas (clientes, comprobantes, recibos, aging)</td><td>✓</td><td>✓</td><td>✓</td><td>solo lectura</td><td>—</td><td>—</td></tr>
-            <tr><td>Compras (proveedores, facturas, OPs)</td><td>✓</td><td>✓</td><td>✓</td><td>solo lectura</td><td>—</td><td>—</td></tr>
-            <tr><td>Tesorería (cuentas, caja, cheques)</td><td>✓</td><td>✓</td><td>✓</td><td>—</td><td>—</td><td>—</td></tr>
-            <tr><td>Contabilidad</td><td>✓</td><td>✓</td><td>✓</td><td>—</td><td>—</td><td>—</td></tr>
-            <tr><td>Personal (HR)</td><td>✓</td><td>✓</td><td>✓</td><td>—</td><td>—</td><td>—</td></tr>
-            <tr><td>Flota / viajes (futuro)</td><td>✓</td><td>✓</td><td>—</td><td>✓</td><td>—</td><td>solo sus viajes</td></tr>
-            <tr><td>Depósitos / pallets (futuro)</td><td>✓</td><td>✓</td><td>—</td><td>—</td><td>✓</td><td>—</td></tr>
-            <tr><td>Admin (usuarios, AFIP, backups)</td><td>✓</td><td>✓</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
-            <tr><td>Saldos de apertura · reabrir período sueldos</td><td>✓</td><td>✓ (reabrir sueldos)</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
-          </tbody>
-        </table>
+<ol class="steps"><li>En <a class="ref" href="admin.html#admin-puntos-de-venta">Admin › Puntos de venta</a>, hacé clic en <span class="ui" data-ui="Sincronizar con AFIP">Sincronizar con AFIP</span>.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>Un aviso dice cuántos puntos se sincronizaron, cuántos son nuevos y cuántos se actualizaron. Los nuevos entran sin canal y deshabilitados: configuralos con <a class="ref" href="admin.html#configurar-punto-de-venta">Asignar un punto de venta a un canal</a>.</li><li>Un punto de venta asignado a un canal interno no se toca.</li><li>Queda registrado en <a class="ref" href="admin.html#admin-auditoria">Admin › Auditoría</a> como <code>afip.pos_synced</code>.</li><li><span class="ui" data-ui="Refrescar">Refrescar</span>, en cambio, solo vuelve a leer el diagnóstico y la lista sin consultar los puntos de venta en AFIP.</li></ul></div>
+<div class="block errors"><h4>Si aparece un error</h4><dl><dt>“No tenés permiso para administrar AFIP.”</dt><dd>Pedíselo a un owner o admin.</dd><dt>“Error consultando WSFEv1.”</dt><dd>AFIP no respondió: revisá el <span class="ui" data-ui="Diagnóstico AFIP">Diagnóstico AFIP</span> y reintentá más tarde.</dd></dl></div>
+<p class="related">Relacionado: <a class="ref" href="admin.html#configurar-punto-de-venta">Asignar un punto de venta a un canal</a></p>
+</article>
+<article class="task" id="configurar-punto-de-venta">
+<h3><a class="anchor" href="#configurar-punto-de-venta">Asignar un punto de venta a un canal</a></h3>
+<p>Le pone alias, lo asocia a un canal y lo habilita para emitir.</p>
+<dl class="meta"><dt>Quién puede</dt><dd>Owner, Admin <span class="muted">(permiso <code class="perm">afip:admin</code>)</span></dd><dt>Antes</dt><dd><ul><li>El punto de venta tiene que estar en la lista: <a class="ref" href="admin.html#sincronizar-puntos-de-venta">Sincronizar los puntos de venta con AFIP</a>.</li></ul></dd></dl>
+<figure class="mock"><div class="m-frame m-backdrop"><div class="m-dialog"><div class="m-dialog-title">Punto de venta 00003<span class="m-close">×</span></div><div class="m-sub">Asociá el POS a un canal para que aparezca en el form de emisión.</div><div class="m-form"><div class="m-field"><span class="m-label" data-ui="Alias">Alias</span><span class="m-input">Jouve fiscal</span><span class="mk" aria-label="Paso 2">2</span></div><div class="m-field"><span class="m-label" data-ui="Canal">Canal</span><span class="m-input m-select">Jouve fiscal<span class="m-chevron">⌄</span></span><span class="mk" aria-label="Paso 3">3</span></div><div class="m-field m-inline wide"><span class="m-checkbox on"></span><span class="m-label" data-ui="Habilitado para emitir desde JouveERP.">Habilitado para emitir desde JouveERP.</span><span class="mk" aria-label="Paso 4">4</span></div></div><div class="m-footer"><span class="m-btn m-btn-ghost" data-ui="Cancelar">Cancelar</span><span class="m-btn m-btn-primary" data-ui="Guardar">Guardar<span class="mk" aria-label="Paso 5">5</span></span></div></div></div></figure>
+<ol class="steps"><li>En <a class="ref" href="admin.html#admin-puntos-de-venta">Admin › Puntos de venta</a>, en la fila del punto de venta, hacé clic en el ícono de engranaje (<span class="ui" data-ui="Configurar">Configurar</span>).</li><li>En <span class="ui" data-ui="Alias">Alias</span>, escribí un nombre para reconocerlo (opcional, hasta 120 caracteres).</li><li>En <span class="ui" data-ui="Canal">Canal</span>, elegí el canal fiscal o <span class="ui" data-ui="Sin asignar">Sin asignar</span>. Solo se listan los canales fiscales activos.</li><li>Tildá <span class="ui" data-ui="Habilitado para emitir desde JouveERP.">Habilitado para emitir desde JouveERP.</span> para que aparezca en el formulario de comprobantes; destildalo para sacarlo.</li><li>Hacé clic en <span class="ui" data-ui="Guardar">Guardar</span>. Se habilita solo si cambiaste algo.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>El sistema muestra <span class="ui" data-ui="Configuración guardada.">Configuración guardada.</span> Un punto habilitado empieza a usarse para numerar los comprobantes de ese canal.</li><li>Queda registrado en <a class="ref" href="admin.html#admin-auditoria">Admin › Auditoría</a> como <code>afip.pos_configured</code>.</li></ul></div>
+<div class="block errors"><h4>Si aparece un error</h4><dl><dt>“Para habilitar el POS hay que asignarle un canal.”</dt><dd>Elegí un canal en <span class="ui" data-ui="Canal">Canal</span> o destildá la habilitación.</dd><dt>“El canal ya tiene habilitado el POS …. Deshabilitalo antes de habilitar otro.”</dt><dd>Configurá primero el otro punto de venta destildando la habilitación, y después habilitá este.</dd><dt>“El canal no existe o está inactivo.”</dt><dd>Elegí un canal activo.</dd><dt>“El POS … ya numeró comprobantes en su canal: no se lo puede cambiar de canal”</dt><dd>Dejalo en su canal. Podés cambiarle el alias o deshabilitarlo.</dd><dt>“El POS … no existe en DB. Sincronizá con AFIP primero.”</dt><dd>Hacé <a class="ref" href="admin.html#sincronizar-puntos-de-venta">Sincronizar los puntos de venta con AFIP</a> y volvé a intentar.</dd><dt>“No tenés permiso para administrar AFIP.”</dt><dd>Pedíselo a un owner o admin.</dd></dl></div>
+<p class="related">Relacionado: <a class="ref" href="admin.html#sincronizar-puntos-de-venta">Sincronizar los puntos de venta con AFIP</a></p>
+</article>
+<article class="task" id="conciliar-con-arca">
+<h3><a class="anchor" href="#conciliar-con-arca">Conciliar la numeración con ARCA</a></h3>
+<p>Verifica que el sistema tenga todos los comprobantes que ARCA autorizó.</p>
+<dl class="meta"><dt>Quién puede</dt><dd>Owner, Admin <span class="muted">(permiso <code class="perm">afip:admin</code>)</span></dd></dl>
 
-        <div class="callout">
-          <strong>Auditoría.</strong> Cada invitación, asignación o
-          revocación queda registrada en <code>audit_events</code> con
-          actor, evento, usuario destino y payload.
-        </div>
+<ol class="steps"><li>En <a class="ref" href="admin.html#admin-puntos-de-venta">Admin › Puntos de venta</a>, en el bloque <span class="ui" data-ui="Conciliación con ARCA">Conciliación con ARCA</span>, hacé clic en <span class="ui" data-ui="Conciliar con ARCA">Conciliar con ARCA</span>.</li><li>Esperá a que termine la consulta y leé el resumen y la tabla.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>Si está todo, el resumen dice que el ERP tiene cada comprobante que ARCA autorizó. Si no, dice cuántos faltan importar y cuántos son huecos, y cada fila muestra los primeros huecos en <span class="ui" data-ui="Números faltantes">Números faltantes</span>.</li><li>No cambia nada: solo consulta. Lo que falta se trae con <span class="ui" data-ui="Traer de ARCA">Traer de ARCA</span> en <a class="ref" href="index.html">/invoices</a>.</li></ul></div>
+<div class="block errors"><h4>Si aparece un error</h4><dl><dt>“No hay puntos de venta fiscales habilitados para conciliar.”</dt><dd>Asigná un punto de venta a un canal fiscal y habilitalo: <a class="ref" href="admin.html#configurar-punto-de-venta">Asignar un punto de venta a un canal</a>.</dd><dt>“No se pudo conciliar con ARCA.”</dt><dd>Reintentá en un rato; si AFIP está caído, revisá el <span class="ui" data-ui="Diagnóstico AFIP">Diagnóstico AFIP</span>.</dd></dl></div>
+<p class="related">Relacionado: <a class="ref" href="admin.html#configurar-punto-de-venta">Asignar un punto de venta a un canal</a></p>
+</article>
+<article class="task" id="configurar-usuario-arca">
+<h3><a class="anchor" href="#configurar-usuario-arca">Configurar el usuario de ARCA para Mis Comprobantes</a></h3>
+<p>El usuario con clave fiscal con el que el sistema baja de ARCA los comprobantes recibidos.</p>
+<dl class="meta"><dt>Quién puede</dt><dd>Owner, Admin <span class="muted">(permiso <code class="perm">afip:admin</code>)</span></dd><dt>Antes</dt><dd><ul><li>Un usuario de ARCA al que DZ &amp; Sons le delegó solo el servicio Mis Comprobantes.</li></ul></dd></dl>
+<figure class="mock"><div class="m-frame m-backdrop"><div class="m-dialog"><div class="m-dialog-title" data-ui="Usuario de ARCA para Mis Comprobantes">Usuario de ARCA para Mis Comprobantes<span class="m-close">×</span></div><div class="m-sub">Usá un usuario al que DZ &amp; Sons le delegó solo el servicio Mis Comprobantes. La clave se guarda cifrada y no se vuelve a mostrar.</div><div class="m-form"><div class="m-field"><span class="m-label" data-ui="CUIT del usuario">CUIT del usuario</span><span class="m-input">20-12345678-9</span><span class="mk" aria-label="Paso 2">2</span></div><div class="m-field"><span class="m-label" data-ui="Clave fiscal">Clave fiscal</span><span class="m-input">••••••••</span><span class="mk" aria-label="Paso 3">3</span></div></div><div class="m-footer"><span class="m-btn m-btn-outline" data-ui="Cancelar">Cancelar</span><span class="m-btn m-btn-primary" data-ui="Guardar">Guardar<span class="mk" aria-label="Paso 4">4</span></span></div></div></div></figure>
+<ol class="steps"><li>En <a class="ref" href="admin.html#admin-puntos-de-venta">Admin › Puntos de venta</a>, en el bloque <span class="ui" data-ui="Usuario de ARCA para Mis Comprobantes">Usuario de ARCA para Mis Comprobantes</span>, hacé clic en <span class="ui" data-ui="Configurar">Configurar</span> (o en <span class="ui" data-ui="Cambiar">Cambiar</span> si ya hay uno).</li><li>En <span class="ui" data-ui="CUIT del usuario">CUIT del usuario</span>, escribí el CUIT de la persona que entra a ARCA.</li><li>En <span class="ui" data-ui="Clave fiscal">Clave fiscal</span>, escribí su clave. Si solo cambiás el CUIT de un usuario que funciona, podés dejarla vacía para no cambiarla.</li><li>Hacé clic en <span class="ui" data-ui="Guardar">Guardar</span>.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>El sistema muestra <span class="ui" data-ui="Usuario de ARCA guardado.">Usuario de ARCA guardado.</span> La clave se guarda cifrada y no se vuelve a mostrar.</li><li>El bloque muestra el estado: <span class="ui" data-ui="Sin configurar">Sin configurar</span>, funcionando con la fecha del último ingreso, o pausado si ARCA rechazó la clave o falló dos veces (en ese caso hay que volver a cargar la clave).</li><li>Queda registrado en <a class="ref" href="admin.html#admin-auditoria">Admin › Auditoría</a> como <code>afip.arca_web_credentials_saved</code>, sin la clave.</li></ul></div>
+<div class="block errors"><h4>Si aparece un error</h4><dl><dt>“CUIT inválido.”</dt><dd>Revisá el CUIT.</dd><dt>“Falta la clave.”</dt><dd>La primera vez hay que cargar la clave.</dd><dt>“JouveERP dejó de entrar a ARCA con esta clave: cargá la clave para volver a intentar.”</dt><dd>Escribí la clave actual (o la nueva, si la cambiaste en ARCA) y guardá.</dd><dt>“La clave es demasiado larga.”</dt><dd>Revisá lo que escribiste en <span class="ui" data-ui="Clave fiscal">Clave fiscal</span>.</dd><dt>“No se pudo guardar el usuario de ARCA.”</dt><dd>Probá de nuevo en un rato.</dd><dt>“No tenés permiso para configurar AFIP.”</dt><dd>Pedíselo a un owner o admin.</dd></dl></div>
 
-        <!-- ──────── PADRÓN ──────── -->
-        <h2 id="padron-afip">Padrón AFIP</h2>
-        <p>
-          Consulta directa al padrón AFIP por CUIT. Devuelve razón social,
-          condición frente al IVA y domicilio fiscal. Se usa desde el alta
-          de cliente / proveedor (botón <em>Verificar AFIP</em>), pero
-          también está disponible como herramienta standalone.
-        </p>
-        <p><strong>Ubicación:</strong> sidebar &gt; Admin &gt; <em>Padrón AFIP</em>.</p>
-        <ol class="steps">
-          <li>Ingresá un CUIT de 11 dígitos.</li>
-          <li>Click en <strong>Buscar</strong>. El resultado se cachea 24
-            horas.</li>
-          <li>Hay un <strong>rate limit</strong> de 60 consultas por hora
-            por usuario, para no quemar el cupo AFIP.</li>
-        </ol>
-        <p>Permiso: <span class="badge">padron:lookup</span>.</p>
+</article>
+<article class="task" id="solicitar-caea">
+<h3><a class="anchor" href="#solicitar-caea">Solicitar el CAEA</a></h3>
+<p>Pide a AFIP el CAEA de la quincena actual y de la siguiente, sin esperar al proceso automático.</p>
+<dl class="meta"><dt>Quién puede</dt><dd>Owner, Admin <span class="muted">(permiso <code class="perm">afip:admin</code>)</span></dd><dt>Antes</dt><dd><ul><li>Un punto de venta de contingencia CAEA dado de alta en ARCA.</li></ul></dd></dl>
 
-        <!-- ──────── PUNTOS DE VENTA ──────── -->
-        <h2 id="puntos-de-venta">Puntos de venta AFIP</h2>
-        <p>
-          Sincroniza los puntos de venta declarados en AFIP (WSFEv1) y los
-          mapea a los canales del ERP. Cada POS define en qué letra y bajo
-          qué canal se emiten los comprobantes fiscales.
-        </p>
-        <p><strong>Ubicación:</strong> sidebar &gt; Admin &gt; <em>Puntos de venta</em>.</p>
+<ol class="steps"><li>En <a class="ref" href="admin.html#admin-puntos-de-venta">Admin › Puntos de venta</a>, en el bloque <span class="ui" data-ui="CAEA (contingencia)">CAEA (contingencia)</span>, hacé clic en <span class="ui" data-ui="Solicitar CAEA">Solicitar CAEA</span>.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>Un aviso muestra el CAEA vigente y el de la próxima quincena (o «—» si AFIP todavía no lo otorga). La tabla se actualiza.</li><li>Queda registrado en <a class="ref" href="admin.html#admin-auditoria">Admin › Auditoría</a> como <code>caea.requested</code>.</li></ul></div>
+<div class="block errors"><h4>Si aparece un error</h4><dl><dt>“No se pudo obtener el CAEA.”</dt><dd>AFIP rechazó el pedido. Si AFIP explica el motivo (por ejemplo, que no hay punto de venta CAEA registrado o que la ventana de pedido está cerrada), resolvelo en ARCA y reintentá.</dd><dt>“No se pudo leer el estado CAEA.”</dt><dd>Recargá la pantalla.</dd></dl></div>
 
-        <h3>Mapeo actual</h3>
-        <table>
-          <thead><tr><th>POS</th><th>Canal</th><th>Uso</th></tr></thead>
-          <tbody>
-            <tr><td><code>00003</code></td><td>Jouve fiscal</td><td>Facturas A/B/C de Logística Jouve.</td></tr>
-            <tr><td><code>00005</code></td><td>Deshabilitado</td><td>No usar (legacy).</td></tr>
-          </tbody>
-        </table>
+</article>
+</section>
+<section class="section" id="admin-preview-pdf">
+<h2><a class="anchor" href="#admin-preview-pdf">Preview de PDF</a></h2>
+<p class="where">En el menú: <strong>Admin › Preview PDF</strong> · <code>/admin/afip/preview-pdf</code></p><p class="where">Ven esta pantalla: Owner, Admin <span class="muted">(permiso <code class="perm">afip:admin</code>)</span></p><p class="open"><a href="/admin/afip/preview-pdf" target="jouve-app">Abrir esta pantalla en JouveERP ↗</a></p>
+<p>Muestra el PDF de un comprobante existente sin emitir nada nuevo. Sirve para revisar cómo sale la plantilla. Lista los 50 comprobantes más recientes; si no hay ninguno, lo avisa.</p>
 
-        <h3>Acciones</h3>
-        <ol class="steps">
-          <li><strong>Diagnóstico:</strong> al entrar a la página el
-            sistema muestra el estado del certificado AFIP (serial, vencimiento)
-            y la última conexión.</li>
-          <li><strong>Sincronizar:</strong> botón <em>Sincronizar AFIP</em>
-            trae el listado de POS habilitados y actualiza la tabla local.</li>
-          <li><strong>Configurar POS:</strong> abrir un POS y asignar
-            canal, alias y el toggle <em>habilitado</em>. Para habilitarlo
-            es obligatorio asignarle canal.</li>
-        </ol>
 
-        <h3>Usuario de ARCA para Mis Comprobantes</h3>
-        <p>
-          En la misma pantalla, <strong>Usuario de ARCA para Mis
-          Comprobantes</strong> guarda el CUIT y la clave fiscal con la que
-          JouveERP baja todos los días los comprobantes recibidos de ARCA. Usá un
-          usuario al que DZ &amp; Sons le delegó solo el servicio Mis
-          Comprobantes.
-        </p>
-        <ol class="steps">
-          <li>Click en <strong>Configurar</strong> (o <strong>Cambiar</strong>).</li>
-          <li>Cargá el CUIT del usuario y su clave fiscal. Para cambiar solo el
-            CUIT, dejá la clave vacía.</li>
-          <li><strong>Guardar.</strong> La clave se guarda cifrada y no se
-            vuelve a mostrar.</li>
-        </ol>
-        <div class="callout">
-          <strong>Si ARCA rechaza la clave, o el ingreso falla dos veces
-          seguidas mientras ARCA evalúa la clave</strong> (bloqueo, un error de
-          ARCA al validarla), JouveERP deja de entrar para no bloquear el
-          usuario en ARCA. El panel dice por qué. Si ARCA está caído o pide
-          captcha antes de la clave, no cuenta: vuelve a probar en la próxima
-          corrida. Si ARCA ya aceptó la clave y falla después (el portal o Mis
-          Comprobantes), tampoco cuenta y reinicia la cuenta de fallas. Para que vuelva a
-          entrar, cargá la clave otra vez (la misma, si no cambió) y guardá.
-        </div>
-        <p>
-          El estado dice si está funcionando y cuándo fue el último acceso. Si
-          ARCA rechaza la clave, dice <em>ARCA rechazó la clave: actualizala</em>
-          y no se vuelve a intentar hasta que guardes una clave nueva (o un
-          CUIT distinto). Lo editan owner y admin.
-        </p>
+<ul class="task-toc"><li><a href="#previsualizar-pdf-comprobante">Ver el PDF de un comprobante</a></li></ul>
+<article class="task" id="previsualizar-pdf-comprobante">
+<h3><a class="anchor" href="#previsualizar-pdf-comprobante">Ver el PDF de un comprobante</a></h3>
 
-        <p>Permiso: <span class="badge">afip:admin</span> (owner / admin).</p>
+<dl class="meta"><dt>Quién puede</dt><dd>Owner, Admin <span class="muted">(permiso <code class="perm">afip:admin</code> + <code class="perm">invoices:read</code>)</span></dd></dl>
+<figure class="mock"><div class="m-frame m-page"><div class="m-head"><div><div class="m-title" data-ui="Preview de PDF">Preview de PDF</div><div class="m-sub">Renderiza el PDF de un comprobante existente sin emitir nada nuevo. Útil para iterar la plantilla.</div></div><div class="m-actions"><span class="m-btn m-btn-outline" data-ui="Abrir">Abrir<span class="mk" aria-label="Paso 2">2</span></span></div></div><div class="m-toolbar"><div class="m-field"><span class="m-label" data-ui="Elegí un comprobante">Elegí un comprobante</span><span class="m-input m-select">00003-00000125 · factura A · 2026-11-04 · emitted<span class="m-chevron">⌄</span></span><span class="mk" aria-label="Paso 1">1</span></div></div></div></figure>
+<ol class="steps"><li>En <a class="ref" href="admin.html#admin-preview-pdf">Admin › Preview PDF</a>, elegí el comprobante en la lista (muestra punto de venta y número, tipo, fecha y estado). El PDF se ve abajo.</li><li>Para verlo en grande, hacé clic en <span class="ui" data-ui="Abrir">Abrir</span>: se abre en una pestaña nueva.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>No cambia nada: el PDF se genera de nuevo con los datos guardados del comprobante.</li></ul></div>
 
-        <!-- ──────── PREVIEW PDF ──────── -->
-        <h2 id="preview-pdf">Preview de PDF de comprobantes</h2>
-        <p>
-          Visualizador para diseñar / verificar cómo sale el PDF de cada
-          punto de venta. Útil después de cambiar el logo, el footer o el
-          formato del comprobante.
-        </p>
-        <p><strong>Ubicación:</strong> sidebar &gt; Admin &gt; <em>Preview PDF</em>.</p>
-        <ol class="steps">
-          <li>Elegí POS + un comprobante de muestra (puede ser real o
-            dummy).</li>
-          <li>Se renderiza el PDF tal cual le va a llegar al cliente por
-            email.</li>
-        </ol>
 
-        <!-- ──────── IMPORTADOR ──────── -->
-        <h2 id="importador">Importador de planillas</h2>
-        <p>
-          Carga datos de arranque desde una planilla <strong>.xlsx</strong> o
-          <strong>.csv</strong>: maestros (clientes, proveedores, empleados,
-          vehículos), históricos de referencia y los importes de arranque
-          (tarifas, préstamos, cheques en cartera, saldos de clientes y
-          extractos bancarios).
-        </p>
-        <p><strong>Ubicación:</strong> sidebar &gt; Admin &gt; <em>Importador</em>.</p>
+</article>
+</section>
+<section class="section" id="admin-importador">
+<h2><a class="anchor" href="#admin-importador">Importador</a></h2>
+<p class="where">En el menú: <strong>Admin › Importador</strong> · <code>/admin/imports</code></p><p class="where">Ven esta pantalla: Owner, Admin <span class="muted">(permiso <code class="perm">imports:read</code>)</span></p><p class="open"><a href="/admin/imports" target="jouve-app">Abrir esta pantalla en JouveERP ↗</a></p>
+<p>Carga planillas para el arranque: clientes, proveedores, empleados y vehículos; tarifas, préstamos, cheques en cartera y saldos de clientes al arranque; extractos bancarios para conciliar; y sueldos y viajes de antes del sistema como referencia.</p><p>La pestaña <span class="ui" data-ui="Importaciones">Importaciones</span> lista cada importación con <span class="ui" data-ui="Fecha">Fecha</span> (y quién la hizo), <span class="ui" data-ui="Tipo">Tipo</span>, <span class="ui" data-ui="Archivo">Archivo</span>, <span class="ui" data-ui="Importadas">Importadas</span>, <span class="ui" data-ui="Ya estaban">Ya estaban</span>, <span class="ui" data-ui="Con error">Con error</span> y <span class="ui" data-ui="Estado">Estado</span> (<span class="ui" data-ui="Confirmada">Confirmada</span> o <span class="ui" data-ui="Deshecha">Deshecha</span>, con fecha y quién la deshizo). Las pestañas <span class="ui" data-ui="Sueldos históricos">Sueldos históricos</span> y <span class="ui" data-ui="Viajes históricos">Viajes históricos</span> muestran lo importado de antes del sistema.</p>
+<figure class="mock"><div class="m-frame m-page"><div class="m-head"><div><div class="m-title" data-ui="Importador">Importador</div></div><div class="m-actions"><span class="m-btn m-btn-primary" data-ui="Importar planilla">Importar planilla</span></div></div><div class="m-tabs"><span class="m-tab active" data-ui="Importaciones">Importaciones</span><span class="m-tab" data-ui="Sueldos históricos">Sueldos históricos</span><span class="m-tab" data-ui="Viajes históricos">Viajes históricos</span></div><div class="m-table"><table><thead><tr><th data-ui="Fecha">Fecha</th><th data-ui="Tipo">Tipo</th><th data-ui="Archivo">Archivo</th><th data-ui="Importadas">Importadas</th><th data-ui="Ya estaban">Ya estaban</th><th data-ui="Con error">Con error</th><th data-ui="Estado">Estado</th></tr></thead><tbody><tr><td>~04/11/2026 10:20</td><td>~Clientes</td><td>~clientes.xlsx</td><td>~182</td><td>~3</td><td>~2</td><td>~Confirmada</td></tr></tbody></table></div></div></figure>
+<div class="concept"><h4>Cómo lee la planilla</h4><p>Acepta .xlsx (lee la primera hoja) o .csv, de hasta 4 MB y 5000 filas. Busca la fila de títulos y propone qué columna corresponde a cada dato; los títulos pueden variar (se reconocen sinónimos, listados abajo).</p><p>Nada se guarda hasta que confirmás. Cada fila queda <span class="ui" data-ui="Lista">Lista</span>, <span class="ui" data-ui="Ya existe">Ya existe</span> (ya estaba cargada o se repite en el archivo: se saltea) o <span class="ui" data-ui="Con error">Con error</span> (queda afuera, con el motivo).</p><p>En tarifas, préstamos, cheques y saldos iniciales, una fila que se repite en el archivo es un error en todas sus repeticiones: hay que dejar una sola con el importe total.</p><p>Importar dos veces el mismo archivo no duplica nada: lo que ya está cargado se saltea, y el diálogo avisa si ese archivo ya se importó antes.</p></div><div class="concept"><h4>Qué hace cada tipo</h4><p><strong>Clientes</strong>, <strong>Proveedores</strong>, <strong>Empleados</strong> y <strong>Vehículos</strong> crean los que no existen (se compara por CUIT, CUIL o patente; sin ese dato, por nombre). Un existente no se actualiza. Un empleado chofer crea también su ficha de chofer con la licencia.</p><p><strong>Sueldos históricos</strong> y <strong>Viajes históricos</strong> son solo de referencia: no generan asientos, pagos, facturas, cuenta corriente ni entran en Gestión ni en los libros.</p><p><strong>Tarifas por cliente</strong> crea las tarifas con su vigencia, como el tarifario del cliente.</p><p><strong>Préstamos al arranque</strong> crea los préstamos con sus cuotas pendientes; no registra el desembolso (la deuda entra con el ajuste inicial). Pide el canal.</p><p><strong>Cheques en cartera al arranque</strong> entra los cheques de terceros a la cuenta de cartera elegida con contrapartida en ajustes de caja. Pide la cuenta y el canal. Si ya cargaste el saldo inicial de esa cuenta, no lo dupliques.</p><p><strong>Saldos iniciales de clientes</strong> carga lo que debe cada cliente al corte, en pesos; no crea recibos, movimientos ni asientos.</p><p><strong>Extracto bancario</strong> carga las líneas del extracto de la cuenta elegida para conciliarlas en Tesorería; no crea movimientos.</p><p>Las diferencias de saldos se corrigen con el ajuste inicial.</p></div><div class="concept"><h4>Planilla: Clientes</h4><p><strong>Razón social</strong> (obligatoria) También se reconoce como: razon social, cliente, nombre, denominacion.</p><p><strong>Nombre de fantasía</strong> También se reconoce como: nombre de fantasia, fantasia, nombre comercial.</p><p><strong>CUIT</strong>: Con CUIT entra a Ventas/Compras; sin CUIT, a Otras ventas/compras. También se reconoce como: cuit, cuit cuil, nro cuit, documento.</p><p><strong>Condición de IVA</strong>: Responsable Inscripto, Monotributo, Exento, Consumidor Final o No Categorizado. También se reconoce como: condicion de iva, condicion iva, iva, cond iva.</p><p><strong>Email</strong> También se reconoce como: email, e mail, mail, correo.</p><p><strong>Teléfono</strong> También se reconoce como: telefono, tel, celular.</p><p><strong>Domicilio fiscal</strong> También se reconoce como: domicilio fiscal, domicilio, direccion.</p><p><strong>Domicilio real</strong> También se reconoce como: domicilio real, direccion real, domicilio de entrega.</p><p><strong>Notas</strong> También se reconoce como: notas, observaciones, obs.</p></div><div class="concept"><h4>Planilla: Proveedores</h4><p><strong>Razón social</strong> (obligatoria) También se reconoce como: razon social, proveedor, nombre, denominacion.</p><p><strong>Nombre de fantasía</strong> También se reconoce como: nombre de fantasia, fantasia, nombre comercial.</p><p><strong>CUIT</strong>: Con CUIT entra a Ventas/Compras; sin CUIT, a Otras ventas/compras. También se reconoce como: cuit, cuit cuil, nro cuit, documento.</p><p><strong>Condición de IVA</strong>: Responsable Inscripto, Monotributo, Exento, Consumidor Final o No Categorizado. También se reconoce como: condicion de iva, condicion iva, iva, cond iva.</p><p><strong>Email</strong> También se reconoce como: email, e mail, mail, correo.</p><p><strong>Teléfono</strong> También se reconoce como: telefono, tel, celular.</p><p><strong>Domicilio fiscal</strong> También se reconoce como: domicilio fiscal, domicilio, direccion.</p><p><strong>Domicilio real</strong> También se reconoce como: domicilio real, direccion real, domicilio de entrega.</p><p><strong>Notas</strong> También se reconoce como: notas, observaciones, obs.</p><p><strong>Categoría</strong>: Nombre de la categoría como está en Proveedores › Categorías. También se reconoce como: categoria, rubro, categoria de proveedor.</p><p><strong>Cuenta de gasto</strong>: Código (5.1.2) o nombre de una cuenta de gasto imputable del plan. También se reconoce como: cuenta de gasto, cuenta gasto, cuenta contable, imputacion.</p><p><strong>Centro de costo</strong>: Código o nombre del centro de costo. También se reconoce como: centro de costo, centro de costos, centro costo, cc.</p></div><div class="concept"><h4>Planilla: Empleados</h4><p><strong>Apellido y nombre</strong> (obligatoria) También se reconoce como: apellido y nombre, nombre y apellido, empleado, nombre.</p><p><strong>CUIL</strong> También se reconoce como: cuil, cuit, cuil cuit.</p><p><strong>Fecha de ingreso</strong> (obligatoria) También se reconoce como: fecha de ingreso, ingreso, fecha ingreso, alta.</p><p><strong>Fecha de egreso</strong>: Con fecha de egreso el empleado entra inactivo. También se reconoce como: fecha de egreso, egreso, fecha egreso, baja.</p><p><strong>Puesto</strong>: Chofer o acompañante crea también su ficha de chofer. También se reconoce como: puesto, cargo, funcion.</p><p><strong>Frecuencia de pago</strong>: Semanal, mensual o mixto (vacío: mensual). También se reconoce como: frecuencia de pago, frecuencia, liquidacion.</p><p><strong>Sueldo base</strong> También se reconoce como: sueldo base, sueldo, basico, sueldo basico.</p><p><strong>Viático mensual</strong> También se reconoce como: viatico mensual, viatico, viaticos.</p><p><strong>Monotributista</strong>: Sí o No (vacío: No). También se reconoce como: monotributista, monotributo, es monotributo.</p><p><strong>CBU</strong> También se reconoce como: cbu, cbu cvu.</p><p><strong>Convenio</strong> También se reconoce como: convenio, cct.</p><p><strong>Categoría</strong> También se reconoce como: categoria.</p><p><strong>Obra social</strong> También se reconoce como: obra social, os.</p><p><strong>ART</strong> También se reconoce como: art.</p><p><strong>N.º de licencia</strong>: Solo para choferes. También se reconoce como: numero de licencia, nro de licencia, nro licencia, licencia, licencia de conducir.</p><p><strong>Categoría de licencia</strong>: La clase de la licencia (E1, C2…). También se reconoce como: categoria de licencia, categoria licencia, clase de licencia.</p><p><strong>Vencimiento de licencia</strong>: Se carga como licencia del chofer en Flota › Vencimientos, que avisa antes de que venza. También se reconoce como: vencimiento de licencia, vencimiento licencia, vto licencia, licencia vence.</p><p><strong>Notas</strong> También se reconoce como: notas, observaciones, obs.</p></div><div class="concept"><h4>Planilla: Vehículos</h4><p><strong>Patente</strong> (obligatoria) También se reconoce como: patente, dominio.</p><p><strong>Tipo</strong> (obligatoria): Camión, acoplado, semi, utilitario, furgón, auto u otro. También se reconoce como: tipo, tipo de vehiculo, tipo vehiculo, clase.</p><p><strong>Alias</strong> También se reconoce como: alias, interno, nro interno.</p><p><strong>Marca</strong> También se reconoce como: marca.</p><p><strong>Modelo</strong> También se reconoce como: modelo.</p><p><strong>Año</strong> También se reconoce como: ano, anio, ano modelo.</p><p><strong>Flota</strong> También se reconoce como: flota.</p><p><strong>Tarjeta de combustible</strong> También se reconoce como: tarjeta de combustible, tarjeta, nro tarjeta.</p><p><strong>Capacidad (kg)</strong> También se reconoce como: capacidad kg, capacidad, carga util.</p><p><strong>Notas</strong> También se reconoce como: notas, observaciones, obs.</p></div><div class="concept"><h4>Planilla: Sueldos históricos</h4><p><strong>Empleado</strong> (obligatoria): Nombre como está cargado en Personal (o usá la columna CUIL). También se reconoce como: empleado, apellido y nombre, nombre y apellido, nombre.</p><p><strong>CUIL</strong> También se reconoce como: cuil, cuit.</p><p><strong>Período</strong> (obligatoria): 2025-10, 10/2025 u octubre 2025. También se reconoce como: periodo, mes, mes liquidado.</p><p><strong>Tipo</strong>: Sueldo o aguinaldo (vacío: sueldo). También se reconoce como: tipo, concepto.</p><p><strong>Neto</strong> (obligatoria) También se reconoce como: neto, sueldo neto, neto a cobrar, importe neto.</p><p><strong>Pagado</strong> También se reconoce como: pagado, importe pagado, abonado.</p><p><strong>Fecha de pago</strong> También se reconoce como: fecha de pago, fecha pago, pagado el.</p><p><strong>Notas</strong> También se reconoce como: notas, observaciones, obs.</p></div><div class="concept"><h4>Planilla: Viajes históricos</h4><p><strong>Fecha</strong> (obligatoria) También se reconoce como: fecha, fecha del viaje, fecha viaje, dia.</p><p><strong>Vehículo</strong> También se reconoce como: patente, dominio, vehiculo, camion.</p><p><strong>Chofer</strong> También se reconoce como: chofer, conductor.</p><p><strong>Cliente</strong> También se reconoce como: cliente, razon social.</p><p><strong>Origen</strong> También se reconoce como: origen, desde.</p><p><strong>Destino</strong> También se reconoce como: destino, hasta.</p><p><strong>Km</strong> También se reconoce como: km, kms, kilometros, distancia.</p><p><strong>Flete</strong>: En pesos. También se reconoce como: flete, importe, tarifa, monto, facturado.</p><p><strong>Notas</strong> También se reconoce como: notas, observaciones, obs.</p></div><div class="concept"><h4>Planilla: Tarifas por cliente</h4><p><strong>Cliente</strong> (obligatoria): Razón social, nombre de fantasía o CUIT como está cargado en Clientes. También se reconoce como: cliente, razon social, cuit.</p><p><strong>Concepto</strong> (obligatoria): Almacenaje, carga, descarga o flete. También se reconoce como: concepto, servicio, tipo.</p><p><strong>Depósito</strong>: El depósito del área. Hace falta solo si dos depósitos tienen un área con el mismo nombre. También se reconoce como: deposito, almacen.</p><p><strong>Área</strong>: Vacío: todas las áreas. Con área, pisa a la tarifa general para los pallets de esa área (el flete no lleva área). También se reconoce como: area, zona, sector.</p><p><strong>Unidad</strong>: Por pallet por mes o por día (almacenaje; vacío: por mes); carga, descarga y flete tienen una sola. También se reconoce como: unidad, por.</p><p><strong>Precio</strong> (obligatoria) También se reconoce como: precio, tarifa, importe, valor.</p><p><strong>Moneda</strong>: ARS o USD (vacío: ARS). El flete va en pesos. También se reconoce como: moneda, divisa.</p><p><strong>Vigente desde</strong> (obligatoria) También se reconoce como: vigente desde, desde, vigencia desde, fecha desde.</p><p><strong>Vigente hasta</strong>: Vacío: sin fin. También se reconoce como: vigente hasta, hasta, vigencia hasta, fecha hasta.</p><p><strong>Notas</strong> También se reconoce como: notas, observaciones, obs.</p></div><div class="concept"><h4>Planilla: Préstamos al arranque</h4><p><strong>Descripción</strong> (obligatoria) También se reconoce como: descripcion, prestamo, detalle.</p><p><strong>Entidad</strong> También se reconoce como: entidad, banco, acreedor, prestamista.</p><p><strong>Tipo</strong>: Préstamo o leasing (vacío: préstamo). También se reconoce como: tipo.</p><p><strong>Moneda</strong>: ARS o USD (vacío: ARS). También se reconoce como: moneda, divisa.</p><p><strong>Capital pendiente</strong> (obligatoria): Lo que falta devolver al arranque. También se reconoce como: capital pendiente, saldo de capital, saldo capital, capital.</p><p><strong>Cuotas pendientes</strong> (obligatoria) También se reconoce como: cuotas pendientes, cuotas restantes, cantidad de cuotas, cuotas.</p><p><strong>Próximo vencimiento</strong> (obligatoria): Las cuotas siguientes vencen el mismo día de cada mes. También se reconoce como: proximo vencimiento, primer vencimiento, vencimiento.</p><p><strong>Importe de cuota</strong>: Vacío: el capital dividido en cuotas iguales. Cada cuota se edita después. También se reconoce como: importe de cuota, importe cuota, valor cuota, cuota.</p><p><strong>Notas</strong> También se reconoce como: notas, observaciones, obs.</p></div><div class="concept"><h4>Planilla: Cheques en cartera al arranque</h4><p><strong>Tipo</strong>: Físico o e-cheq (vacío: el de la cuenta de cartera). También se reconoce como: tipo.</p><p><strong>Número</strong> (obligatoria) También se reconoce como: numero de cheque, nro cheque, nro, numero, cheque.</p><p><strong>Banco</strong> (obligatoria) También se reconoce como: banco, banco emisor, entidad.</p><p><strong>Librador</strong> (obligatoria) También se reconoce como: librador, firmante, emisor, titular.</p><p><strong>CUIT del librador</strong> También se reconoce como: cuit del librador, cuit librador, cuit firmante, cuit.</p><p><strong>Fecha de emisión</strong> (obligatoria) También se reconoce como: fecha de emision, fecha emision, emision, emitido.</p><p><strong>Fecha de pago</strong> (obligatoria) También se reconoce como: fecha de pago, fecha pago, fecha de cobro, vencimiento, pago.</p><p><strong>Importe</strong> (obligatoria) También se reconoce como: importe, monto, valor.</p><p><strong>Moneda</strong>: ARS o USD (vacío: la de la cuenta de cartera). También se reconoce como: moneda, divisa.</p><p><strong>Notas</strong> También se reconoce como: notas, observaciones, obs.</p></div><div class="concept"><h4>Planilla: Saldos iniciales de clientes</h4><p><strong>Cliente</strong> (obligatoria): Razón social, nombre de fantasía o CUIT como está cargado en Clientes. También se reconoce como: cliente, razon social, cuit.</p><p><strong>Saldo</strong> (obligatoria): En pesos, lo que el cliente debe al corte (0 si no debe nada). También se reconoce como: saldo, saldo pendiente, deuda, a cobrar, importe, total.</p><p><strong>Fecha de corte</strong> (obligatoria) También se reconoce como: fecha de corte, corte, al, fecha.</p><p><strong>Notas</strong> También se reconoce como: notas, observaciones, obs.</p></div><div class="concept"><h4>Planilla: Extracto bancario</h4><p><strong>Fecha</strong> (obligatoria) También se reconoce como: fecha, fecha de operacion, fecha operacion, fecha mov.</p><p><strong>Descripción</strong> (obligatoria) También se reconoce como: descripcion, concepto, detalle, movimiento, leyenda.</p><p><strong>Importe</strong>: Con signo (negativo = débito). Si el banco separa débitos y créditos, usá esas dos columnas. También se reconoce como: importe, monto.</p><p><strong>Débito</strong> También se reconoce como: debito, debitos, debe, egreso, egresos.</p><p><strong>Crédito</strong> También se reconoce como: credito, creditos, haber, ingreso, ingresos.</p><p><strong>Saldo</strong> También se reconoce como: saldo, saldo parcial.</p><p><strong>Referencia</strong> También se reconoce como: referencia, comprobante, nro comprobante, nro de comprobante.</p></div>
+<ul class="task-toc"><li><a href="#importar-planilla">Importar una planilla</a></li><li><a href="#deshacer-importacion">Deshacer una importación</a></li><li><a href="#ver-sueldos-historicos">Ver los sueldos históricos</a></li><li><a href="#ver-viajes-historicos">Ver los viajes históricos</a></li></ul>
+<article class="task" id="importar-planilla">
+<h3><a class="anchor" href="#importar-planilla">Importar una planilla</a></h3>
 
-        <ol class="steps">
-          <li>Elegí el <strong>tipo</strong> (y la cuenta o el canal, si el tipo lo pide).</li>
-          <li>Subí la planilla. El sistema busca la fila de títulos entre las
-            primeras 15 y propone qué columna es cada dato; podés cambiarlo.</li>
-          <li>Revisá la <strong>vista previa</strong>: cada fila queda
-            <em>Lista</em>, <em>Ya existe</em> o <em>Con error</em>, con sus
-            avisos.</li>
-          <li>Click <strong>Importar</strong>: entran todas las filas listas en
-            una sola transacción. Las filas con error no entran y se cuentan.</li>
-        </ol>
+<dl class="meta"><dt>Quién puede</dt><dd>Owner, Admin <span class="muted">(permiso <code class="perm">imports:write</code>)</span></dd><dt>Antes</dt><dd><ul><li>Ser owner o admin. Además, cada tipo pide el permiso de escritura de su módulo (por ejemplo, Clientes pide poder crear clientes); en <span class="ui" data-ui="Qué importar">Qué importar</span> solo aparecen los tipos que podés importar. <strong>Saldos iniciales de clientes</strong> lo importa solo el owner.</li><li>Para cheques y extractos, ver las cuentas de Tesorería.</li><li>Para sueldos, tarifas y saldos, que los empleados o clientes ya estén cargados.</li></ul></dd></dl>
+<figure class="mock"><div class="m-frame m-backdrop"><div class="m-dialog"><div class="m-dialog-title" data-ui="Importar planilla">Importar planilla<span class="m-close">×</span></div><div class="m-sub">Subí un .xlsx (primera hoja) o .csv con una fila de títulos. Nada se guarda hasta que confirmes; las filas con error quedan afuera y las que ya están cargadas se saltean.</div><div class="m-form"><div class="m-field"><span class="m-label" data-ui="Qué importar">Qué importar</span><span class="m-input m-select">Clientes<span class="m-chevron">⌄</span></span><span class="mk" aria-label="Paso 2">2</span></div><div class="m-field"><span class="m-label" data-ui="Archivo">Archivo</span><span class="m-input">clientes.xlsx</span><span class="mk" aria-label="Paso 3">3</span></div></div><div class="m-table"><span class="mk" aria-label="Paso 6">6</span><table><thead><tr><th data-ui="Fila">Fila</th><th data-ui="Registro">Registro</th><th data-ui="Estado">Estado</th></tr></thead><tbody><tr><td>~2</td><td>~Transportes del Sur SA</td><td>~Lista</td></tr><tr><td>~3</td><td>~Logística Norte SRL</td><td>~Ya existe</td></tr><tr><td>~4</td><td>~Cliente sin CUIT</td><td>~Con error</td></tr></tbody></table></div><div class="m-footer"><span class="m-btn m-btn-outline" data-ui="Cancelar">Cancelar</span><span class="m-btn m-btn-primary">Importar 1 fila<span class="mk" aria-label="Paso 7">7</span></span></div></div></div></figure>
+<ol class="steps"><li>En <a class="ref" href="admin.html#admin-importador">Admin › Importador</a>, hacé clic en <span class="ui" data-ui="Importar planilla">Importar planilla</span>.</li><li>En <span class="ui" data-ui="Qué importar">Qué importar</span>, elegí el tipo. Debajo se ve qué hace ese tipo y qué columnas lee.</li><li>En <span class="ui" data-ui="Archivo">Archivo</span>, elegí el .xlsx o .csv.</li><li>Si el tipo lo pide, elegí la cuenta y el canal.<ul><li>Cheques en cartera: <span class="ui" data-ui="Cuenta de cartera">Cuenta de cartera</span> (una cuenta de cheques) y <span class="ui" data-ui="Canal">Canal</span>.</li><li>Extracto bancario: <span class="ui" data-ui="Cuenta del extracto">Cuenta del extracto</span> (banco, billetera, caja o inversión).</li><li>Préstamos: <span class="ui" data-ui="Canal">Canal</span>.</li></ul></li><li>Hacé clic en <span class="ui" data-ui="Leer archivo">Leer archivo</span>.</li><li>Revisá el resultado.<ul><li>En <span class="ui" data-ui="Columnas">Columnas</span>, cada dato muestra la columna elegida; cambiala si está mal o elegí <span class="ui" data-ui="No está">No está</span>. Las obligatorias llevan * o (falta). Si cambiaste alguna, hacé clic en <span class="ui" data-ui="Volver a leer con estas columnas">Volver a leer con estas columnas</span>.</li><li>La línea de conteo dice cuántas filas están listas, ya cargadas y con error.</li><li>La tabla muestra cada <span class="ui" data-ui="Fila">Fila</span> con su <span class="ui" data-ui="Registro">Registro</span> y <span class="ui" data-ui="Estado">Estado</span>, y debajo los errores o advertencias de esa fila.</li></ul></li><li>Hacé clic en el botón <strong>Importar N filas</strong> del pie. Solo se habilita si no faltan columnas, hay filas listas, el archivo no pasa de 5000 filas y no cambiaste columnas sin volver a leer.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>Un aviso dice cuántas filas se importaron, cuántas ya estaban y cuántas con error quedaron afuera. La importación aparece en <span class="ui" data-ui="Importaciones">Importaciones</span> como <span class="ui" data-ui="Confirmada">Confirmada</span>.</li><li>Las filas listas se guardan todas juntas: si una falla, no se guarda ninguna.</li><li>Queda registrado en <a class="ref" href="admin.html#admin-auditoria">Admin › Auditoría</a> como <code>import_run.committed</code>.</li><li>Si algo quedó mal, podés <a class="ref" href="admin.html#deshacer-importacion">Deshacer una importación</a> mientras nadie haya tocado lo importado.</li></ul></div>
+<div class="block errors"><h4>Si aparece un error</h4><dl><dt>“Elegí el archivo.”</dt><dd>Elegí un archivo con datos.</dd><dt>“El archivo supera los 4 MB.”</dt><dd>Dividí la planilla en varios archivos.</dd><dt>“El formato .xls no se puede leer: guardalo como .xlsx o .csv.”</dt><dd>Abrilo en Excel y guardalo como .xlsx o .csv.</dd><dt>“Subí el archivo en .xlsx o .csv.”</dt><dd>Convertí la planilla a uno de esos formatos.</dd><dt>“No se pudo leer el Excel.”</dt><dd>Abrilo y volvé a guardarlo como .xlsx, o exportalo a .csv.</dd><dt>“No encontramos la fila de títulos: la planilla tiene que tener una fila con los nombres de las columnas.”</dt><dd>Agregá una fila con los nombres de las columnas arriba de los datos.</dd><dt>“Elegí la cuenta.”</dt><dd>Elegí la cuenta de cartera o del extracto.</dd><dt>“Elegí el canal.”</dt><dd>Elegí el canal de los préstamos o cheques.</dd><dt>“Los cheques van a una cuenta de cheques en cartera.”</dt><dd>Elegí una cuenta de cheques en <span class="ui" data-ui="Cuenta de cartera">Cuenta de cartera</span>.</dd><dt>“El extracto es de una cuenta de banco, billetera, caja o inversión.”</dt><dd>Elegí otra cuenta en <span class="ui" data-ui="Cuenta del extracto">Cuenta del extracto</span>.</dd><dt>“La cuenta no existe o está inactiva.”</dt><dd>Elegí una cuenta activa.</dd><dt>“El canal no existe o está inactivo.”</dt><dd>Elegí un canal activo.</dd><dt>“Faltan columnas obligatorias.”</dt><dd>En <span class="ui" data-ui="Columnas">Columnas</span>, elegí la columna de cada dato obligatorio y volvé a leer.</dd><dt>“El archivo tiene más de 5000 filas o celdas muy largas: dividilo y volvé a importar.”</dt><dd>Partí la planilla en archivos más chicos.</dd><dt>“No hay filas nuevas para importar.”</dt><dd>Todo ya estaba cargado o tiene errores: corregí las filas con error en la planilla y volvé a leer.</dd><dt>“No tenés permiso para importar.”</dt><dd>Pedíselo a un owner o admin.</dd><dt>“No se pudo importar el archivo.”</dt><dd>No se guardó nada: probá de nuevo.</dd></dl></div>
+<p class="related">Relacionado: <a class="ref" href="admin.html#deshacer-importacion">Deshacer una importación</a></p>
+</article>
+<article class="task" id="deshacer-importacion">
+<h3><a class="anchor" href="#deshacer-importacion">Deshacer una importación</a></h3>
+<p>Borra todo lo que trajo una importación, si nadie lo editó ni lo usa.</p>
+<dl class="meta"><dt>Quién puede</dt><dd>Owner, Admin <span class="muted">(permiso <code class="perm">imports:write</code>)</span></dd><dt>Antes</dt><dd><ul><li>Ser owner o admin, con el permiso de escritura del módulo de ese tipo.</li><li>La importación está <span class="ui" data-ui="Confirmada">Confirmada</span> e importó al menos una fila.</li></ul></dd></dl>
 
-        <h3 id="importador-reglas">Reglas comunes</h3>
-        <ul>
-          <li><strong>Archivo:</strong> hasta 4 MB, 5000 filas y 60 columnas.
-            Si es más grande, dividilo.</li>
-          <li><strong>Títulos:</strong> se comparan sin mayúsculas ni acentos
-            ("Razón social" = "razon social"). Cada columna lista sus nombres
-            aceptados; también vale un título que empiece con uno de ellos
-            ("Litros (lts)").</li>
-          <li><strong>Fechas:</strong> <code>31/10/2026</code>,
-            <code>31-10-26</code> o <code>2026-10-31</code>.</li>
-          <li><strong>Importes:</strong> notación argentina
-            (<code>1.234,56</code>) o simple (<code>1234.56</code>).</li>
-          <li><strong>Sí / No:</strong> "Sí", "S", "X" o "1"; "No", "N" o "0" (vacío = No).</li>
-          <li><strong>Sin duplicados:</strong> cada tipo compara por su clave
-            natural (CUIT, CUIL, patente…). Reimportar el mismo archivo no
-            duplica nada; un registro que ya existe <strong>no se
-            actualiza</strong>.</li>
-          <li><strong>Deshacer:</strong> cada corrida queda en el historial y se
-            deshace mientras nadie editó ni usa sus filas.</li>
-          <li>Las filas totalmente vacías (o de subtotal) se saltean.</li>
-        </ul>
+<ol class="steps"><li>En <a class="ref" href="admin.html#admin-importador">Admin › Importador</a>, pestaña <span class="ui" data-ui="Importaciones">Importaciones</span>, en la fila de la importación hacé clic en el ícono <span class="ui" data-ui="Deshacer">Deshacer</span> (flecha hacia atrás).</li><li>En <span class="ui" data-ui="Deshacer la importación">Deshacer la importación</span>, confirmá con <span class="ui" data-ui="Deshacer">Deshacer</span>.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>Se borran las filas que importó y la importación queda como <span class="ui" data-ui="Deshecha">Deshecha</span>, con fecha y usuario. El sistema muestra <span class="ui" data-ui="Importación deshecha.">Importación deshecha.</span></li><li>En cheques, también se borra su entrada a la cartera.</li><li>Queda registrado en <a class="ref" href="admin.html#admin-auditoria">Admin › Auditoría</a> como <code>import_run.undone</code>. Para volver a cargarlo, importá el archivo de nuevo.</li></ul></div>
+<div class="block errors"><h4>Si aparece un error</h4><dl><dt>“No se puede deshacer la importación: algún registro se editó después de importarlo”</dt><dd>Lo importado ya se modificó: corregí los registros a mano.</dd><dt>“No se puede deshacer la importación: sus … ya se usan en otros datos (…)”</dt><dd>Hay comprobantes, movimientos u otros datos que usan lo importado: corregí a mano.</dd><dt>“No se puede deshacer la importación: alguna tarifa se editó después de importarla”</dt><dd>Corregí las tarifas desde el tarifario del cliente.</dd><dt>“No se puede deshacer la importación: ya se facturó almacenaje con estas tarifas”</dt><dd>Las tarifas ya se usaron para facturar: cerralas o corregilas desde el tarifario.</dd><dt>“No se puede deshacer la importación: algún préstamo o cuota se editó, se pagó o tiene desembolso”</dt><dd>Corregí el préstamo desde su ficha.</dd><dt>“No se puede deshacer la importación: algún cheque se editó o ya salió de la cartera”</dt><dd>Corregí los cheques a mano.</dd><dt>“No se puede deshacer la importación: algún saldo inicial se editó después de importarlo”</dt><dd>Corregí el saldo inicial desde la ficha del cliente.</dd><dt>“No se puede deshacer la importación: algún cliente ya tiene recibos cargados después de importar su saldo”</dt><dd>Corregí el saldo inicial a mano.</dd><dt>“No se puede deshacer la importación: alguna línea del extracto ya está conciliada o marcada como que no corresponde”</dt><dd>Desconciliá esas líneas en Tesorería y volvé a intentar.</dd><dt>“La importación no existe.”</dt><dd>Recargá la pantalla.</dd><dt>“No tenés permiso para importar.”</dt><dd>Pedíselo a un owner o admin.</dd><dt>“No se pudo deshacer la importación.”</dt><dd>Probá de nuevo; no se borró nada.</dd></dl></div>
+<p class="related">Relacionado: <a class="ref" href="admin.html#importar-planilla">Importar una planilla</a></p>
+</article>
+<article class="task" id="ver-sueldos-historicos">
+<h3><a class="anchor" href="#ver-sueldos-historicos">Ver los sueldos históricos</a></h3>
 
-        <h3 id="importador-clientes">Clientes</h3>
-        <div class="fields">
-          <div class="field-name">Razón social</div><div class="field-req">requerido</div>
-          <div class="field-desc">Títulos: razón social, cliente, nombre, denominación.</div>
-          <div class="field-name">Nombre de fantasía</div><div class="field-req">opcional</div>
-          <div class="field-desc">Títulos: nombre de fantasía, fantasía, nombre comercial.</div>
-          <div class="field-name">CUIT</div><div class="field-req">opcional</div>
-          <div class="field-desc">Con CUIT válido (dígito verificador) entra a Ventas; sin CUIT, a Otras ventas (interno).</div>
-          <div class="field-name">Condición de IVA</div><div class="field-req">con CUIT</div>
-          <div class="field-desc">Responsable Inscripto (RI), Monotributo, Exento, Consumidor Final o No Categorizado. Obligatoria con CUIT.</div>
-          <div class="field-name">Email · Teléfono</div><div class="field-req">opcional</div>
-          <div class="field-desc">El email tiene que tener formato válido.</div>
-          <div class="field-name">Domicilio fiscal · Domicilio real</div><div class="field-req">opcional</div>
-          <div class="field-desc">El fiscal solo se guarda con CUIT.</div>
-          <div class="field-name">Notas</div><div class="field-req">opcional</div>
-          <div class="field-desc">Títulos: notas, observaciones, obs.</div>
-        </div>
-        <table>
-          <thead><tr><th>Razón social</th><th>CUIT</th><th>Condición de IVA</th><th>Email</th></tr></thead>
-          <tbody>
-            <tr><td>Logística Sur S.A.</td><td>30-71463743-2</td><td>RI</td><td>admin@logisur.com</td></tr>
-            <tr><td>Kiosco de Pepe</td><td></td><td></td><td></td></tr>
-          </tbody>
-        </table>
-        <p><strong>Clave:</strong> CUIT; sin CUIT, la razón social entre los internos.</p>
+<dl class="meta"><dt>Quién puede</dt><dd>Owner, Admin <span class="muted">(permiso <code class="perm">imports:read</code> + <code class="perm">hr:read</code>)</span></dd></dl>
 
-        <h3 id="importador-proveedores">Proveedores</h3>
-        <p>Las mismas columnas que clientes (con CUIT entra a Compras; sin CUIT,
-          a Otras compras), más los datos con que el formulario de compras
-          empieza una factura del proveedor:</p>
-        <div class="fields">
-          <div class="field-name">Categoría</div><div class="field-req">opcional</div>
-          <div class="field-desc">Nombre de la categoría como está en Proveedores › Categorías. Títulos: categoría, rubro.</div>
-          <div class="field-name">Cuenta de gasto</div><div class="field-req">opcional</div>
-          <div class="field-desc">Código (<code>5.1.2</code>) o nombre de una cuenta de gasto imputable (hoja) del plan. Títulos: cuenta de gasto, cuenta contable, imputación.</div>
-          <div class="field-name">Centro de costo</div><div class="field-req">opcional</div>
-          <div class="field-desc">Código o nombre del centro de costo. Títulos: centro de costo, CC.</div>
-        </div>
-        <table>
-          <thead><tr><th>Razón social</th><th>CUIT</th><th>IVA</th><th>Categoría</th><th>Cuenta de gasto</th><th>Centro de costo</th></tr></thead>
-          <tbody>
-            <tr><td>YPF Ruta 3</td><td>30-54668997-9</td><td>RI</td><td>Combustible</td><td>5.1.2</td><td>FLOTA</td></tr>
-          </tbody>
-        </table>
-        <div class="callout">
-          <strong>Validaciones.</strong> Una categoría, cuenta o centro que no
-          existe, o un nombre que tienen dos (usá el código), deja la fila con
-          error: nada se descarta en silencio. Una categoría o un centro
-          inactivo se importa con aviso. La cuenta tiene que ser de gasto e
-          imputable.
-        </div>
+<ol class="steps"><li>En <a class="ref" href="admin.html#admin-importador">Admin › Importador</a>, abrí la pestaña <span class="ui" data-ui="Sueldos históricos">Sueldos históricos</span>.</li><li>Elegí el año en el selector de la derecha (los últimos 16 años).</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>Arriba, una tabla resume cada <span class="ui" data-ui="Período">Período</span> con la cantidad de <span class="ui" data-ui="Empleados">Empleados</span>, el <span class="ui" data-ui="Neto">Neto</span> y lo <span class="ui" data-ui="Pagado">Pagado</span>. Abajo, el detalle por empleado con <span class="ui" data-ui="Tipo">Tipo</span> (mensual o aguinaldo) y <span class="ui" data-ui="Pagado el">Pagado el</span>.</li></ul></div>
+<div class="block errors"><h4>Si aparece un error</h4><dl><dt>“No tenés permiso para ver los sueldos.”</dt><dd>Hace falta poder ver Recursos humanos.</dd></dl></div>
 
-        <h3 id="importador-empleados">Empleados</h3>
-        <div class="fields">
-          <div class="field-name">Apellido y nombre</div><div class="field-req">requerido</div>
-          <div class="field-desc">Títulos: apellido y nombre, nombre y apellido, empleado, nombre.</div>
-          <div class="field-name">CUIL</div><div class="field-req">opcional</div>
-          <div class="field-desc">11 dígitos. Sin CUIL se compara por nombre (con aviso).</div>
-          <div class="field-name">Fecha de ingreso</div><div class="field-req">requerido</div>
-          <div class="field-desc">Títulos: fecha de ingreso, ingreso, alta.</div>
-          <div class="field-name">Fecha de egreso</div><div class="field-req">opcional</div>
-          <div class="field-desc">No anterior al ingreso. Con egreso el empleado entra inactivo.</div>
-          <div class="field-name">Puesto</div><div class="field-req">opcional</div>
-          <div class="field-desc">"Chofer" o "Acompañante" entra como Chofer / Acompañante y crea su ficha de chofer (Flota › Choferes).</div>
-          <div class="field-name">Frecuencia de pago</div><div class="field-req">opcional</div>
-          <div class="field-desc">Semanal, mensual o mixto (vacío: mensual).</div>
-          <div class="field-name">Sueldo base · Viático mensual</div><div class="field-req">opcional</div>
-          <div class="field-desc">Números no negativos.</div>
-          <div class="field-name">Monotributista</div><div class="field-req">opcional</div>
-          <div class="field-desc">Sí o No (vacío: No).</div>
-          <div class="field-name">CBU · Convenio · Categoría · Obra social · ART</div><div class="field-req">opcional</div>
-          <div class="field-desc">El CBU, de 22 dígitos. "Categoría" es la del convenio.</div>
-          <div class="field-name">N.º de licencia</div><div class="field-req">opcional</div>
-          <div class="field-desc">Solo choferes. Títulos: número de licencia, nro licencia, licencia.</div>
-          <div class="field-name">Categoría de licencia</div><div class="field-req">opcional</div>
-          <div class="field-desc">La clase (E1, C2…). Títulos: categoría de licencia, clase de licencia.</div>
-          <div class="field-name">Vencimiento de licencia</div><div class="field-req">opcional</div>
-          <div class="field-desc">Se carga como licencia del chofer en Flota › Vencimientos, que avisa antes de que venza.</div>
-          <div class="field-name">Notas</div><div class="field-req">opcional</div>
-          <div class="field-desc">Títulos: notas, observaciones, obs.</div>
-        </div>
-        <table>
-          <thead><tr><th>Apellido y nombre</th><th>CUIL</th><th>Fecha de ingreso</th><th>Puesto</th><th>N.º de licencia</th><th>Categoría de licencia</th><th>Vencimiento de licencia</th></tr></thead>
-          <tbody>
-            <tr><td>Pérez Juan</td><td>20-12345678-6</td><td>01/02/2020</td><td>Chofer</td><td>123456</td><td>E1</td><td>31/12/2027</td></tr>
-            <tr><td>López Eva</td><td></td><td>01/01/2019</td><td>Administrativo</td><td></td><td></td><td></td></tr>
-          </tbody>
-        </table>
-        <div class="callout">
-          <strong>Avisos.</strong> Una licencia vencida o que vence en los
-          próximos 30 días se importa con aviso. Los datos de licencia de un
-          puesto que no es Chofer / Acompañante no se guardan (con aviso).
-          Una fecha de vencimiento ilegible deja la fila con error.
-        </div>
-        <p><strong>Clave:</strong> CUIL; sin CUIL, el nombre.</p>
+</article>
+<article class="task" id="ver-viajes-historicos">
+<h3><a class="anchor" href="#ver-viajes-historicos">Ver los viajes históricos</a></h3>
 
-        <h3 id="importador-vehiculos">Vehículos</h3>
-        <div class="fields">
-          <div class="field-name">Patente</div><div class="field-req">requerido</div>
-          <div class="field-desc">Títulos: patente, dominio.</div>
-          <div class="field-name">Tipo</div><div class="field-req">requerido</div>
-          <div class="field-desc">Camión, acoplado, semi, utilitario, furgón, auto u otro.</div>
-          <div class="field-name">Alias · Marca · Modelo · Año · Flota</div><div class="field-req">opcional</div>
-          <div class="field-desc">El año, un número.</div>
-          <div class="field-name">Tarjeta de combustible</div><div class="field-req">opcional</div>
-          <div class="field-desc">No puede ser de otro vehículo (cargado o del archivo).</div>
-          <div class="field-name">Capacidad (kg) · Notas</div><div class="field-req">opcional</div>
-          <div class="field-desc">La capacidad, un número.</div>
-        </div>
-        <table>
-          <thead><tr><th>Patente</th><th>Tipo</th><th>Marca</th><th>Año</th></tr></thead>
-          <tbody><tr><td>AB 123 CD</td><td>Camión</td><td>Scania</td><td>2019</td></tr></tbody>
-        </table>
-        <p><strong>Clave:</strong> la patente (solo letras y números).</p>
+<dl class="meta"><dt>Quién puede</dt><dd>Owner, Admin <span class="muted">(permiso <code class="perm">imports:read</code> + <code class="perm">trips:read</code>)</span></dd></dl>
 
-        <h3 id="importador-sueldos-historicos">Sueldos históricos</h3>
-        <p>Solo de referencia: no generan asientos, pagos ni cuenta corriente.
-          Los empleados tienen que estar cargados.</p>
-        <div class="fields">
-          <div class="field-name">Empleado</div><div class="field-req">requerido</div>
-          <div class="field-desc">Nombre como está en Personal, o la columna CUIL.</div>
-          <div class="field-name">Período</div><div class="field-req">requerido</div>
-          <div class="field-desc"><code>2025-10</code>, <code>10/2025</code> u "octubre 2025". No futuro.</div>
-          <div class="field-name">Tipo</div><div class="field-req">opcional</div>
-          <div class="field-desc">Sueldo o aguinaldo (vacío: sueldo).</div>
-          <div class="field-name">Neto</div><div class="field-req">requerido</div>
-          <div class="field-desc">Un número.</div>
-          <div class="field-name">Pagado · Fecha de pago · Notas</div><div class="field-req">opcional</div>
-          <div class="field-desc">Lo pagado mayor al neto da aviso.</div>
-        </div>
-        <table>
-          <thead><tr><th>Empleado</th><th>Período</th><th>Neto</th><th>Pagado</th></tr></thead>
-          <tbody><tr><td>Pérez Juan</td><td>10/2025</td><td>850.000</td><td>850.000</td></tr></tbody>
-        </table>
-        <p><strong>Clave:</strong> empleado, período y tipo.</p>
+<ol class="steps"><li>En <a class="ref" href="admin.html#admin-importador">Admin › Importador</a>, abrí la pestaña <span class="ui" data-ui="Viajes históricos">Viajes históricos</span>.</li><li>Elegí el mes en el selector de la derecha.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>Arriba se ve el total del mes (viajes, km y flete) y abajo cada viaje con <span class="ui" data-ui="Fecha">Fecha</span>, <span class="ui" data-ui="Vehículo">Vehículo</span>, <span class="ui" data-ui="Chofer">Chofer</span>, <span class="ui" data-ui="Cliente">Cliente</span>, <span class="ui" data-ui="Recorrido">Recorrido</span>, <span class="ui" data-ui="Km">Km</span> y <span class="ui" data-ui="Flete">Flete</span>.</li></ul></div>
+<div class="block errors"><h4>Si aparece un error</h4><dl><dt>“No tenés permiso para ver los viajes.”</dt><dd>Hace falta poder ver Viajes.</dd></dl></div>
 
-        <h3 id="importador-viajes-historicos">Viajes históricos</h3>
-        <p>Solo de referencia: no generan facturas, extras de chofer ni
-          rentabilidad.</p>
-        <div class="fields">
-          <div class="field-name">Fecha</div><div class="field-req">requerido</div>
-          <div class="field-desc">No futura.</div>
-          <div class="field-name">Vehículo · Chofer · Cliente</div><div class="field-req">opcional</div>
-          <div class="field-desc">Por patente, nombre o CUIT; si no se encuentran, se guarda el texto (con aviso).</div>
-          <div class="field-name">Origen · Destino · Km · Flete · Notas</div><div class="field-req">opcional</div>
-          <div class="field-desc">El flete, en pesos. La fila necesita algún dato además de la fecha.</div>
-        </div>
-        <table>
-          <thead><tr><th>Fecha</th><th>Patente</th><th>Chofer</th><th>Cliente</th><th>Origen</th><th>Destino</th><th>Km</th><th>Flete</th></tr></thead>
-          <tbody><tr><td>15/09/2025</td><td>AB123CD</td><td>Pérez Juan</td><td>LogiSur</td><td>Buenos Aires</td><td>Rosario</td><td>300</td><td>450.000</td></tr></tbody>
-        </table>
+</article>
+</section>
+<section class="section" id="admin-auditoria">
+<h2><a class="anchor" href="#admin-auditoria">Auditoría</a></h2>
+<p class="where">En el menú: <strong>Admin › Auditoría</strong> · <code>/admin/audit</code></p><p class="where">Ven esta pantalla: Owner, Admin <span class="muted">(permiso <code class="perm">audit:read</code>)</span></p><p class="open"><a href="/admin/audit" target="jouve-app">Abrir esta pantalla en JouveERP ↗</a></p>
+<p>Quién hizo qué y cuándo: usuarios, el asistente IA (con el usuario que lo pidió) y los procesos automáticos. Los eventos se guardan 400 días.</p><p>La tabla muestra <span class="ui" data-ui="Fecha">Fecha</span>, <span class="ui" data-ui="Quién">Quién</span> (el usuario, «Asistente IA (por …)» o <span class="ui" data-ui="Sistema">Sistema</span>), <span class="ui" data-ui="Acción">Acción</span> (el código del evento y su módulo), <span class="ui" data-ui="Resumen">Resumen</span> y <span class="ui" data-ui="Registro">Registro</span> (con <span class="ui" data-ui="Abrir">Abrir</span> para ir al registro cuando tiene pantalla propia). Muestra de a 50 eventos; <span class="ui" data-ui="Cargar más">Cargar más</span> trae los siguientes.</p><p>El detalle de un comprobante también muestra su <span class="ui" data-ui="Historial">Historial</span> con los eventos de ese registro, para quien puede ver la auditoría.</p>
+<figure class="mock"><div class="m-frame m-page"><div class="m-head"><div><div class="m-title" data-ui="Auditoría">Auditoría</div></div><div class="m-actions"><span class="m-btn m-btn-outline" data-ui="Exportar CSV">Exportar CSV</span></div></div><div class="m-toolbar"><div class="m-field"><span class="m-label" data-ui="Desde">Desde</span><span class="m-input">dd/mm/aaaa</span></div><div class="m-field"><span class="m-label" data-ui="Hasta">Hasta</span><span class="m-input">dd/mm/aaaa</span></div><div class="m-field"><span class="m-label" data-ui="Usuario">Usuario</span><span class="m-input m-select">Todos<span class="m-chevron">⌄</span></span></div><div class="m-field"><span class="m-label" data-ui="Módulo">Módulo</span><span class="m-input m-select">Todos<span class="m-chevron">⌄</span></span></div><div class="m-field"><span class="m-label" data-ui="Acción">Acción</span><span class="m-input m-select">Todas<span class="m-chevron">⌄</span></span></div></div><div class="m-table"><table><thead><tr><th data-ui="Fecha">Fecha</th><th data-ui="Quién">Quién</th><th data-ui="Acción">Acción</th><th data-ui="Resumen">Resumen</th><th data-ui="Registro">Registro</th></tr></thead><tbody><tr><td>~05/11/2026 09:31</td><td>~maria@jouve.com.ar</td><td>~invoice.issued</td><td>~—</td><td>~Abrir</td></tr></tbody></table></div></div></figure>
 
-        <h3 id="importador-tarifas">Tarifas por cliente</h3>
-        <div class="fields">
-          <div class="field-name">Cliente</div><div class="field-req">requerido</div>
-          <div class="field-desc">Razón social, nombre de fantasía o CUIT como está en Clientes.</div>
-          <div class="field-name">Concepto</div><div class="field-req">requerido</div>
-          <div class="field-desc">Almacenaje, carga, descarga o flete.</div>
-          <div class="field-name">Depósito</div><div class="field-req">opcional</div>
-          <div class="field-desc">El depósito del área. Hace falta solo si dos depósitos tienen un área con el mismo nombre.</div>
-          <div class="field-name">Área</div><div class="field-req">opcional</div>
-          <div class="field-desc">Nombre del área (Depósitos › Áreas). Vacío: todas las áreas. La tarifa de un área pisa a la general para los pallets de esa área. El flete no lleva área.</div>
-          <div class="field-name">Unidad</div><div class="field-req">opcional</div>
-          <div class="field-desc">Almacenaje: por pallet por mes (vacío) o por día. Carga, descarga y flete tienen una sola.</div>
-          <div class="field-name">Precio</div><div class="field-req">requerido</div>
-          <div class="field-desc">No negativo.</div>
-          <div class="field-name">Moneda</div><div class="field-req">opcional</div>
-          <div class="field-desc">ARS o USD (vacío: ARS). El flete va en pesos.</div>
-          <div class="field-name">Vigente desde</div><div class="field-req">requerido</div>
-          <div class="field-desc">Inicio de la vigencia.</div>
-          <div class="field-name">Vigente hasta · Notas</div><div class="field-req">opcional</div>
-          <div class="field-desc">Vacío: sin fin. No anterior al inicio.</div>
-        </div>
-        <table>
-          <thead><tr><th>Cliente</th><th>Concepto</th><th>Depósito</th><th>Área</th><th>Precio</th><th>Vigente desde</th></tr></thead>
-          <tbody>
-            <tr><td>LogiSur</td><td>Almacenaje</td><td></td><td></td><td>1.500,00</td><td>01/01/2026</td></tr>
-            <tr><td>LogiSur</td><td>Almacenaje</td><td>Depósito Norte</td><td>Cámara de frío</td><td>2.100,00</td><td>01/01/2026</td></tr>
-          </tbody>
-        </table>
-        <div class="callout">
-          <strong>Validaciones.</strong> Un área que no existe en el depósito,
-          o un nombre de área que tienen dos depósitos sin la columna Depósito,
-          deja la fila con error. Una tarifa que se superpone con otra del
-          mismo cliente, concepto y área (cargada o del archivo) queda con
-          error; la general y la de un área no se superponen entre sí. Un
-          área inactiva da aviso.
-        </div>
-        <p><strong>Clave:</strong> cliente, concepto, área y vigente desde.</p>
+<ul class="task-toc"><li><a href="#filtrar-auditoria">Buscar eventos en la auditoría</a></li><li><a href="#exportar-auditoria">Exportar la auditoría a CSV</a></li></ul>
+<article class="task" id="filtrar-auditoria">
+<h3><a class="anchor" href="#filtrar-auditoria">Buscar eventos en la auditoría</a></h3>
 
-        <h3 id="importador-prestamos">Préstamos al arranque</h3>
-        <p>Pide el <strong>canal</strong>. Crea el préstamo con sus cuotas
-          pendientes; no registra el desembolso (la deuda entra con el ajuste
-          inicial).</p>
-        <div class="fields">
-          <div class="field-name">Descripción</div><div class="field-req">requerido</div>
-          <div class="field-desc">Títulos: descripción, préstamo, detalle.</div>
-          <div class="field-name">Entidad · Tipo · Moneda · Notas</div><div class="field-req">opcional</div>
-          <div class="field-desc">Tipo: préstamo o leasing (vacío: préstamo). Moneda: ARS o USD.</div>
-          <div class="field-name">Capital pendiente</div><div class="field-req">requerido</div>
-          <div class="field-desc">Lo que falta devolver al arranque.</div>
-          <div class="field-name">Cuotas pendientes</div><div class="field-req">requerido</div>
-          <div class="field-desc">Número entero.</div>
-          <div class="field-name">Próximo vencimiento</div><div class="field-req">requerido</div>
-          <div class="field-desc">Las cuotas siguientes vencen el mismo día de cada mes. Si ya pasó, da aviso.</div>
-          <div class="field-name">Importe de cuota</div><div class="field-req">opcional</div>
-          <div class="field-desc">Mayor a cero. Vacío: el capital en cuotas iguales.</div>
-        </div>
-        <table>
-          <thead><tr><th>Descripción</th><th>Entidad</th><th>Capital pendiente</th><th>Cuotas pendientes</th><th>Próximo vencimiento</th></tr></thead>
-          <tbody><tr><td>Préstamo camión</td><td>Banco Galicia</td><td>12.000.000</td><td>24</td><td>10/12/2026</td></tr></tbody>
-        </table>
-        <p><strong>Clave:</strong> descripción, entidad y próximo vencimiento.</p>
+<dl class="meta"><dt>Quién puede</dt><dd>Owner, Admin <span class="muted">(permiso <code class="perm">audit:read</code>)</span></dd></dl>
 
-        <h3 id="importador-cheques">Cheques en cartera al arranque</h3>
-        <p>Pide la <strong>cuenta de cartera</strong> (cheques físicos o
-          e-cheq) y el <strong>canal</strong>. Cada cheque entra a la cartera
-          con contrapartida en ajustes de caja: no cargues además el saldo
-          inicial de esa cuenta por esos cheques.</p>
-        <div class="fields">
-          <div class="field-name">Número · Banco · Librador</div><div class="field-req">requerido</div>
-          <div class="field-desc">Títulos: número de cheque, banco, librador o firmante.</div>
-          <div class="field-name">Tipo</div><div class="field-req">opcional</div>
-          <div class="field-desc">Físico o e-cheq; tiene que coincidir con la cuenta de cartera.</div>
-          <div class="field-name">CUIT del librador · Notas</div><div class="field-req">opcional</div>
-          <div class="field-desc"></div>
-          <div class="field-name">Fecha de emisión · Fecha de pago</div><div class="field-req">requerido</div>
-          <div class="field-desc">El pago no anterior a la emisión. Vencido hace más de 30 días da aviso.</div>
-          <div class="field-name">Importe</div><div class="field-req">requerido</div>
-          <div class="field-desc">Mayor a cero.</div>
-          <div class="field-name">Moneda</div><div class="field-req">opcional</div>
-          <div class="field-desc">La de la cuenta de cartera.</div>
-        </div>
-        <table>
-          <thead><tr><th>Número</th><th>Banco</th><th>Librador</th><th>Fecha de emisión</th><th>Fecha de pago</th><th>Importe</th></tr></thead>
-          <tbody><tr><td>12345678</td><td>Banco Nación</td><td>Acme S.A.</td><td>01/10/2026</td><td>01/12/2026</td><td>250.000</td></tr></tbody>
-        </table>
-        <p><strong>Clave:</strong> tipo, banco y número. Un mismo cheque
-          repetido en el archivo es error (dejá una fila con el importe total).</p>
+<ol class="steps"><li>En <a class="ref" href="admin.html#admin-auditoria">Admin › Auditoría</a>, usá los filtros (se aplican al instante).<ul><li><span class="ui" data-ui="Desde">Desde</span> y <span class="ui" data-ui="Hasta">Hasta</span>: el rango de fechas. La fecha desde no puede ser posterior a la hasta.</li><li><span class="ui" data-ui="Usuario">Usuario</span>: quién lo hizo.</li><li><span class="ui" data-ui="Módulo">Módulo</span>: el área del sistema (Comprobantes, Clientes, Importador…).</li><li><span class="ui" data-ui="Acción">Acción</span>: el evento puntual; si elegiste un módulo, lista solo los de ese módulo.</li></ul></li><li>Para ver un evento completo, hacé clic en la fila o en <span class="ui" data-ui="Ver detalle">Ver detalle</span>.</li><li>Para volver a ver todo, hacé clic en <span class="ui" data-ui="Limpiar">Limpiar</span>.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>El detalle muestra quién, el registro (con <span class="ui" data-ui="Abrir">Abrir</span>), el resumen y el <span class="ui" data-ui="Detalle">Detalle</span> completo del evento. CBU, CUIL, claves y tokens se muestran enmascarados.</li></ul></div>
+<div class="block errors"><h4>Si aparece un error</h4><dl><dt>“La fecha desde no puede ser posterior a la fecha hasta.”</dt><dd>Corregí el rango de fechas.</dd><dt>“No tenés permiso para ver la auditoría.”</dt><dd>Pedíselo a un owner o admin.</dd></dl></div>
+<p class="related">Relacionado: <a class="ref" href="admin.html#exportar-auditoria">Exportar la auditoría a CSV</a></p>
+</article>
+<article class="task" id="exportar-auditoria">
+<h3><a class="anchor" href="#exportar-auditoria">Exportar la auditoría a CSV</a></h3>
 
-        <h3 id="importador-saldos">Saldos iniciales de clientes</h3>
-        <p>Lo que debe cada cliente al corte, en pesos: no crea recibos,
-          movimientos ni asientos.</p>
-        <div class="fields">
-          <div class="field-name">Cliente</div><div class="field-req">requerido</div>
-          <div class="field-desc">Razón social, nombre de fantasía o CUIT.</div>
-          <div class="field-name">Saldo</div><div class="field-req">requerido</div>
-          <div class="field-desc">0 o más. Un saldo a favor del cliente se carga como recibo a cuenta.</div>
-          <div class="field-name">Fecha de corte</div><div class="field-req">requerido</div>
-          <div class="field-desc">No futura.</div>
-          <div class="field-name">Notas</div><div class="field-req">opcional</div>
-          <div class="field-desc"></div>
-        </div>
-        <table>
-          <thead><tr><th>Cliente</th><th>Saldo</th><th>Fecha de corte</th></tr></thead>
-          <tbody><tr><td>30-71463743-2</td><td>1.234.500,00</td><td>31/10/2026</td></tr></tbody>
-        </table>
-        <p><strong>Clave:</strong> el cliente (un saldo por cliente; uno que ya
-          tiene saldo se saltea).</p>
+<dl class="meta"><dt>Quién puede</dt><dd>Owner, Admin <span class="muted">(permiso <code class="perm">audit:read</code>)</span></dd></dl>
 
-        <h3 id="importador-extracto">Extracto bancario</h3>
-        <p>Pide la <strong>cuenta</strong> (banco, billetera, caja o
-          inversión). Carga las líneas para conciliarlas en
-          <a href="treasury.html#conciliacion">Tesorería › Conciliación</a>; no
-          crea movimientos.</p>
-        <div class="fields">
-          <div class="field-name">Fecha · Descripción</div><div class="field-req">requerido</div>
-          <div class="field-desc">La fecha, no futura.</div>
-          <div class="field-name">Importe</div><div class="field-req">uno de los dos</div>
-          <div class="field-desc">Con signo (negativo = débito).</div>
-          <div class="field-name">Débito · Crédito</div><div class="field-req">uno de los dos</div>
-          <div class="field-desc">Si el banco los separa: se leen como positivos y el importe es crédito − débito.</div>
-          <div class="field-name">Saldo · Referencia</div><div class="field-req">opcional</div>
-          <div class="field-desc">El saldo se usa para comparar con los libros.</div>
-        </div>
-        <table>
-          <thead><tr><th>Fecha</th><th>Concepto</th><th>Débito</th><th>Crédito</th><th>Saldo</th></tr></thead>
-          <tbody>
-            <tr><td>01/10/2026</td><td>Transferencia recibida 4521</td><td></td><td>1.000.000,00</td><td>1.000.000,00</td></tr>
-            <tr><td>02/10/2026</td><td>Comisión mantenimiento</td><td>12.100,00</td><td></td><td>987.900,00</td></tr>
-          </tbody>
-        </table>
-        <p><strong>Clave:</strong> el contenido de la línea en la cuenta: un
-          extracto superpuesto no duplica líneas; dos líneas iguales del mismo
-          día quedan dos.</p>
+<ol class="steps"><li>En <a class="ref" href="admin.html#admin-auditoria">Admin › Auditoría</a>, aplicá los filtros que quieras.</li><li>Hacé clic en <span class="ui" data-ui="Exportar CSV">Exportar CSV</span>.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>Se descarga un archivo <code>auditoria-AAAA-MM-DD.csv</code> con los eventos filtrados, del más nuevo al más viejo, hasta 10.000 eventos.</li></ul></div>
+<div class="block errors"><h4>Si aparece un error</h4><dl><dt>“No hay eventos para exportar con esos filtros.”</dt><dd>Ampliá los filtros.</dd><dt>“Se exportaron los … eventos más recientes; acotá las fechas para el resto.”</dt><dd>Exportá por tramos de fechas para tener todo.</dd><dt>“No se pudo exportar la auditoría.”</dt><dd>Probá de nuevo.</dd></dl></div>
+<p class="related">Relacionado: <a class="ref" href="admin.html#filtrar-auditoria">Buscar eventos en la auditoría</a></p>
+</article>
+</section>
+<section class="section" id="admin-backups">
+<h2><a class="anchor" href="#admin-backups">Backups</a></h2>
+<p class="where">En el menú: <strong>Admin › Backups</strong> · <code>/admin/backups</code></p><p class="where">Ven esta pantalla: Owner, Admin <span class="muted">(permiso <code class="perm">audit:read</code>)</span></p><p class="open"><a href="/admin/backups" target="jouve-app">Abrir esta pantalla en JouveERP ↗</a></p>
+<p>Las copias diarias de la base de datos, generadas automáticamente todas las noches (03:00 UTC). Se guardan 30 días; las más viejas se borran solas.</p><p>La tabla muestra <span class="ui" data-ui="Archivo">Archivo</span> (el más reciente con la marca <span class="ui" data-ui="último">último</span>), <span class="ui" data-ui="Tamaño">Tamaño</span>, <span class="ui" data-ui="SHA256">SHA256</span> (para verificar que el archivo no cambió) y <span class="ui" data-ui="Subido">Subido</span>.</p><p>Se recomienda una vez por mes restaurar el backup más reciente en un proyecto aparte y verificar que estén los datos.</p>
 
-        <p>Permiso: <span class="badge">imports:write</span> (owner / admin)
-          más el del módulo de cada tipo (cheques: además
-          <span class="badge">transactions:write</span>).</p>
 
-        <!-- ──────── BACKUPS ──────── -->
-        <h2 id="backups">Backups</h2>
-        <p>
-          Descarga de los backups diarios de la base. Se generan por un
-          cron externo y se guardan en el bucket
-          <code>backups-daily</code>.
-        </p>
-        <p><strong>Ubicación:</strong> sidebar &gt; Admin &gt; <em>Backups</em>.</p>
+<ul class="task-toc"><li><a href="#descargar-backup">Descargar un backup</a></li></ul>
+<article class="task" id="descargar-backup">
+<h3><a class="anchor" href="#descargar-backup">Descargar un backup</a></h3>
 
-        <ol class="steps">
-          <li>El listado muestra un archivo por día con formato
-            <code>backup-YYYY-MM-DD.dump</code>, tamaño y hash SHA256.</li>
-          <li>Click <strong>Descargar</strong> &gt; el sistema genera un
-            <em>signed URL</em> de 5 minutos.</li>
-          <li>Verificá el hash SHA256 contra el del archivo para confirmar
-            integridad.</li>
-        </ol>
+<dl class="meta"><dt>Quién puede</dt><dd>Owner, Admin <span class="muted">(permiso <code class="perm">audit:read</code>)</span></dd><dt>Antes</dt><dd><ul><li>Ser owner o admin.</li></ul></dd></dl>
 
-        <div class="callout warn">
-          <strong>Cuidado.</strong> El backup contiene datos sensibles. No
-          lo subas a servicios públicos ni lo compartas por canales no
-          autorizados.
-        </div>
+<ol class="steps"><li>En <a class="ref" href="admin.html#admin-backups">Admin › Backups</a>, en la fila del backup, hacé clic en <span class="ui" data-ui="Descargar">Descargar</span>.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>Se abre la descarga en una pestaña nueva y el sistema muestra <span class="ui" data-ui="Link de descarga generado (válido 5 min).">Link de descarga generado (válido 5 min).</span> El link vale 5 minutos.</li><li>La descarga queda registrada en <a class="ref" href="admin.html#admin-auditoria">Admin › Auditoría</a> como <code>backup.downloaded</code>: es una copia completa de la base.</li></ul></div>
+<div class="block errors"><h4>Si aparece un error</h4><dl><dt>“No se pudo generar URL de descarga.”</dt><dd>Probá de nuevo en un rato.</dd><dt>“Solo owner/admin pueden descargar backups.”</dt><dd>Pedíselo a un owner o admin.</dd></dl></div>
 
-        <p>Permiso: <span class="badge">audit:read</span> (owner / admin).</p>
-
-        <div class="footer-note">
-          ¿Seguimos? <a href="collaboration.html">Colaboración →</a>
-        </div>
-      </main>
-    </div>
-  </div>
-
-  <script src="assets/manual.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+</article>
+</section>
+</main>
+</div>
+</div>
+<script src="assets/search-index.js"></script>
+<script src="assets/guide.js"></script>
 </body>
 </html>

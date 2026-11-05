@@ -1,0 +1,434 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Plataforma — Guía JouveERP</title>
+<link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+<a class="brand" href="index.html"><span class="logo">J</span><span>Guía de JouveERP</span></a>
+<div class="search"><input id="guide-search" type="search" placeholder="Buscar: emitir factura, cheque…" autocomplete="off" aria-label="Buscar en la guía" /><div id="guide-results" class="results" hidden></div></div>
+<nav><ul class="nav"><li><a href="conceptos.html">Conceptos generales</a></li><li class="active"><a href="plataforma.html">Plataforma</a><ul><li><a href="plataforma.html#entrar-y-moverse">Entrar y moverse por el sistema</a></li><li><a href="plataforma.html#notificaciones">Notificaciones</a></li><li><a href="plataforma.html#dashboard">Dashboard</a></li><li><a href="plataforma.html#tareas">Tareas</a></li><li><a href="plataforma.html#archivos">Archivos</a></li><li><a href="plataforma.html#chat">Chat</a></li><li><a href="plataforma.html#perfil">Mi perfil</a></li></ul></li><li><a href="asistente.html">Asistente (IA)</a></li><li><a href="admin.html">Administración</a></li></ul></nav>
+</aside>
+<div class="content">
+<header class="topbar"><a href="index.html">Guía</a><span class="sep">›</span><strong>Plataforma</strong><a class="back" href="/dashboard" target="jouve-app">Volver a JouveERP</a></header>
+<main>
+<h1>Plataforma</h1>
+<p class="lead">Lo que usa todo el equipo todos los días: entrar al sistema, el dashboard, las tareas, los archivos, el chat, tu perfil y las notificaciones.</p>
+<nav class="toc"><h4>En esta página</h4><ul><li><a href="#entrar-y-moverse">Entrar y moverse por el sistema</a></li><li><a href="#notificaciones">Notificaciones</a></li><li><a href="#dashboard">Dashboard</a></li><li><a href="#tareas">Tareas</a></li><li><a href="#archivos">Archivos</a></li><li><a href="#chat">Chat</a></li><li><a href="#perfil">Mi perfil</a></li></ul></nav>
+<section class="section" id="entrar-y-moverse">
+<h2><a class="anchor" href="#entrar-y-moverse">Entrar y moverse por el sistema</a></h2>
+
+<p>El sistema se abre en <code>/auth/login</code> y, una vez que entraste, en el dashboard. A la izquierda está la barra lateral con los módulos; arriba, el encabezado con la ruta de la pantalla, el botón <strong>?</strong> de ayuda y la campanita de notificaciones.</p>
+
+<div class="concept"><h4>La barra lateral</h4><p>Arriba de todo está el botón <span class="ui" data-ui="Asistente">Asistente</span> (ver <a class="ref" href="asistente.html#asistente">Asistente</a>). Debajo, las secciones: <span class="ui" data-ui="Plataforma">Plataforma</span>, <span class="ui" data-ui="Inteligencia">Inteligencia</span>, <span class="ui" data-ui="Ventas">Ventas</span>, <span class="ui" data-ui="Otras ventas">Otras ventas</span>, <span class="ui" data-ui="Compras">Compras</span>, <span class="ui" data-ui="Otras compras">Otras compras</span>, <span class="ui" data-ui="Tesorería">Tesorería</span>, <span class="ui" data-ui="Contabilidad">Contabilidad</span>, <span class="ui" data-ui="Flota">Flota</span>, <span class="ui" data-ui="Depósito">Depósito</span>, <span class="ui" data-ui="Personal">Personal</span> y <span class="ui" data-ui="Admin">Admin</span>. Cada sección se abre y se cierra con un clic en su nombre; la sección de la pantalla actual aparece abierta.</p><p>Solo ves los módulos que tu usuario puede leer: si falta uno, es porque tu rol no lo trae o el owner te lo quitó (ver <a class="ref" href="conceptos.html#roles-y-permisos">Roles, permisos y accesos por usuario</a>).</p><p><span class="ui" data-ui="Ventas">Ventas</span> y <span class="ui" data-ui="Otras ventas">Otras ventas</span> (y lo mismo <span class="ui" data-ui="Compras">Compras</span> y <span class="ui" data-ui="Otras compras">Otras compras</span>) abren las mismas pantallas, una del lado fiscal y otra del interno: ver <a class="ref" href="conceptos.html#canales-fiscal-interno">Los dos lados: fiscal e interno</a>.</p><p>El ítem <span class="ui" data-ui="Chat">Chat</span> muestra un número con los mensajes sin leer.</p><p>Debajo de las secciones, el bloque <span class="ui" data-ui="Guía">Guía</span> resume la pantalla en la que estás, con el link <span class="ui" data-ui="Ver los pasos en la guía">Ver los pasos en la guía</span>, y muestra la lista <span class="ui" data-ui="Puesta en marcha">Puesta en marcha</span> cuando hay pasos de arranque. Se abre y se cierra con un clic y el sistema recuerda cómo lo dejaste.</p><p>En el pie: <span class="ui" data-ui="Guía de uso">Guía de uso</span> (esta guía), <span class="ui" data-ui="Tema">Tema</span> y tu usuario, con <span class="ui" data-ui="Perfil">Perfil</span> y <span class="ui" data-ui="Cerrar sesión">Cerrar sesión</span>.</p></div><div class="concept"><h4>El encabezado</h4><p>Muestra la sección y la pantalla donde estás (en el celular, solo la pantalla). El botón del extremo izquierdo esconde o muestra la barra lateral.</p><p>A la derecha, el botón <strong>?</strong> (<span class="ui" data-ui="Ayuda de esta pantalla">Ayuda de esta pantalla</span>) abre la sección de esta guía que explica la pantalla, y la campanita abre tus notificaciones (ver <a class="ref" href="plataforma.html#notificaciones">Notificaciones</a>).</p></div>
+<ul class="task-toc"><li><a href="#iniciar-sesion">Entrar al sistema</a></li><li><a href="#cerrar-sesion">Salir del sistema</a></li><li><a href="#cambiar-tema">Cambiar el tema (claro u oscuro)</a></li><li><a href="#usar-en-el-celular">Usar el sistema desde el celular</a></li></ul>
+<article class="task" id="iniciar-sesion">
+<h3><a class="anchor" href="#iniciar-sesion">Entrar al sistema</a></h3>
+
+<dl class="meta"><dt>Quién puede</dt><dd>Cualquier usuario con sesión iniciada.</dd><dt>Antes</dt><dd><ul><li>Un usuario invitado por el owner o un admin en <a class="ref" href="admin.html#admin-usuarios">Admin › Usuarios</a>, con la cuenta activada desde el mail de invitación.</li></ul></dd></dl>
+<figure class="mock"><div class="m-frame m-backdrop"><div class="m-dialog"><div class="m-dialog-title" data-ui="Logística y Transporte Jouve">Logística y Transporte Jouve<span class="m-close">×</span></div><div class="m-sub">Ingresá para continuar</div><div class="m-form"><div class="m-field"><span class="m-label" data-ui="Email">Email</span><span class="m-input">ana@jouve.com.ar</span><span class="mk" aria-label="Paso 1">1</span></div><div class="m-field"><span class="m-label" data-ui="Contraseña">Contraseña</span><span class="m-input"></span><span class="mk" aria-label="Paso 2">2</span></div></div><div class="m-footer"><span class="m-btn m-btn-primary" data-ui="Ingresar">Ingresar<span class="mk" aria-label="Paso 3">3</span></span></div></div></div><figcaption>/auth/login</figcaption></figure>
+<ol class="steps"><li>Abrí el sistema: si no tenés sesión te lleva a la pantalla de ingreso. En <span class="ui" data-ui="Email">Email</span>, escribí tu email.</li><li>En <span class="ui" data-ui="Contraseña">Contraseña</span>, escribí tu contraseña.</li><li>Hacé clic en <span class="ui" data-ui="Ingresar">Ingresar</span>.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>Entrás al dashboard. Si llegaste desde un link a otra pantalla, el sistema te lleva a esa pantalla.</li></ul></div>
+<div class="block errors"><h4>Si aparece un error</h4><dl><dt>“Credenciales inválidas.”</dt><dd>Revisá el email y la contraseña. Si no la recordás, avisale a un owner o admin: la pantalla de ingreso no tiene opción para recuperarla.</dd><dt>“Email o contraseña inválidos.”</dt><dd>El email no tiene un formato válido o falta la contraseña: completalos y volvé a probar.</dd></dl></div>
+<p class="related">Relacionado: <a class="ref" href="plataforma.html#cerrar-sesion">Salir del sistema</a></p>
+</article>
+<article class="task" id="cerrar-sesion">
+<h3><a class="anchor" href="#cerrar-sesion">Salir del sistema</a></h3>
+
+<dl class="meta"><dt>Quién puede</dt><dd>Cualquier usuario con sesión iniciada.</dd></dl>
+<figure class="mock"><div class="m-frame m-menu-frame"><span class="m-btn m-btn-ghost">Ana López</span><div class="m-menu"><span class="m-item" data-ui="Perfil">Perfil</span><span class="m-item" data-ui="Cerrar sesión">Cerrar sesión<span class="mk" aria-label="Paso 2">2</span></span></div></div><figcaption>Pie de la barra lateral</figcaption></figure>
+<ol class="steps"><li>En el pie de la barra lateral, hacé clic en tu nombre.</li><li>Elegí <span class="ui" data-ui="Cerrar sesión">Cerrar sesión</span>.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>Volvés a la pantalla de ingreso.</li></ul></div>
+
+
+</article>
+<article class="task" id="cambiar-tema">
+<h3><a class="anchor" href="#cambiar-tema">Cambiar el tema (claro u oscuro)</a></h3>
+
+<dl class="meta"><dt>Quién puede</dt><dd>Cualquier usuario con sesión iniciada.</dd></dl>
+<figure class="mock"><div class="m-frame m-menu-frame"><span class="m-btn m-btn-ghost" data-ui="Tema">Tema</span><div class="m-menu"><span class="m-item" data-ui="Claro">Claro<span class="mk" aria-label="Paso 2">2</span></span><span class="m-item" data-ui="Oscuro">Oscuro<span class="mk" aria-label="Paso 2">2</span></span><span class="m-item" data-ui="Sistema">Sistema<span class="mk" aria-label="Paso 2">2</span></span></div></div></figure>
+<ol class="steps"><li>En el pie de la barra lateral, hacé clic en <span class="ui" data-ui="Tema">Tema</span>.</li><li>Elegí una opción:<ul><li><span class="ui" data-ui="Claro">Claro</span>: fondo claro.</li><li><span class="ui" data-ui="Oscuro">Oscuro</span>: fondo oscuro.</li><li><span class="ui" data-ui="Sistema">Sistema</span>: sigue la configuración de tu computadora o celular.</li></ul></li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>El cambio se aplica al instante y queda en ese navegador.</li></ul></div>
+
+
+</article>
+<article class="task" id="usar-en-el-celular">
+<h3><a class="anchor" href="#usar-en-el-celular">Usar el sistema desde el celular</a></h3>
+
+<dl class="meta"><dt>Quién puede</dt><dd>Cualquier usuario con sesión iniciada.</dd></dl>
+
+<ol class="steps"><li>En el celular, abajo de la pantalla aparece una barra con los accesos de tu rol. Por ejemplo, Finanzas, Admin y Owner ven <span class="ui" data-ui="Inicio">Inicio</span>, <span class="ui" data-ui="Caja">Caja</span>, <span class="ui" data-ui="Recibos">Recibos</span> e <span class="ui" data-ui="IA">IA</span>; Operaciones ve <span class="ui" data-ui="Inicio">Inicio</span>, <span class="ui" data-ui="Viajes">Viajes</span>, <span class="ui" data-ui="Cargas">Cargas</span> y <span class="ui" data-ui="Chat">Chat</span>; Depósito ve <span class="ui" data-ui="Inicio">Inicio</span>, <span class="ui" data-ui="Pallets">Pallets</span>, <span class="ui" data-ui="Depósitos">Depósitos</span> y <span class="ui" data-ui="Chat">Chat</span>; el contador externo ve <span class="ui" data-ui="Inicio">Inicio</span>, <span class="ui" data-ui="Ventas">Ventas</span> y <span class="ui" data-ui="Compras">Compras</span>.</li><li>Para el resto de los módulos, tocá <span class="ui" data-ui="Más">Más</span>: se abre la barra lateral completa.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>Cada acceso de la barra aparece solo si tu usuario tiene el permiso de ese módulo.</li></ul></div>
+
+
+</article>
+</section>
+<section class="section" id="notificaciones">
+<h2><a class="anchor" href="#notificaciones">Notificaciones</a></h2>
+
+<p>La campanita del encabezado junta los avisos para vos: mensajes de chat, respuestas, menciones, tareas que vencen y tareas de IA terminadas. El número sobre la campanita son las que no leíste.</p>
+
+<div class="concept"><h4>Qué te avisa el sistema</h4><p><strong>Chat</strong>: un mensaje nuevo, una respuesta a un mensaje tuyo o una mención con @. Las podés apagar por tipo en tu perfil (<a class="ref" href="plataforma.html#preferencias-notificaciones">Elegir qué notificaciones de chat recibís</a>) y por conversación con <span class="ui" data-ui="Silenciar">Silenciar</span> (<a class="ref" href="plataforma.html#silenciar-chat">Silenciar una conversación</a>).</p><p><strong>Tareas</strong>: el día que vence una tarea tuya («tarea que vence hoy») y una vez en la semana siguiente si sigue abierta («tarea vencida»). Ver <a class="ref" href="plataforma.html#tareas">Tareas</a>.</p><p><strong>Tareas de IA</strong>: cuando una tarea programada del asistente termina («tarea de IA lista»). Ver <a class="ref" href="asistente.html#tareas-ia">Inteligencia › Tareas IA</a>.</p><p><strong>Documentos por vencer</strong> de la flota o del personal.</p></div><div class="concept"><h4>Avisos del navegador</h4><p>La primera vez que abrís la campanita, el navegador te pregunta si permitís notificaciones. Si aceptás, cuando llega un aviso con el sistema abierto pero su pestaña no está a la vista, aparece un aviso del sistema operativo; al hacer clic en uno de chat se abre esa conversación.</p><p>Para recibir los avisos de chat aun con el sistema cerrado, activá el push en tu perfil (<a class="ref" href="plataforma.html#activar-push">Recibir notificaciones con el sistema cerrado (push)</a>).</p></div>
+<ul class="task-toc"><li><a href="#ver-notificaciones">Ver y marcar las notificaciones</a></li></ul>
+<article class="task" id="ver-notificaciones">
+<h3><a class="anchor" href="#ver-notificaciones">Ver y marcar las notificaciones</a></h3>
+
+<dl class="meta"><dt>Quién puede</dt><dd>Cualquier usuario con sesión iniciada.</dd></dl>
+
+<ol class="steps"><li>En el encabezado, hacé clic en la campanita (<span class="ui" data-ui="Notificaciones">Notificaciones</span>).</li><li>Hacé clic en una notificación: queda leída y te lleva a lo que avisa (la conversación, la tarea o la tarea de IA).</li><li>Para marcar todas como leídas, hacé clic en <span class="ui" data-ui="Marcar todas">Marcar todas</span>.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>Las no leídas se ven resaltadas y con un punto a la derecha. La lista se actualiza sola cuando llega una nueva.</li></ul></div>
+
+
+</article>
+</section>
+<section class="section" id="dashboard">
+<h2><a class="anchor" href="#dashboard">Dashboard</a></h2>
+<p class="where">En el menú: <strong>Plataforma › Dashboard</strong> · <code>/dashboard</code></p><p class="where">Ven esta pantalla: Cualquier usuario con sesión iniciada.</p><p class="open"><a href="/dashboard" target="jouve-app">Abrir esta pantalla en JouveERP ↗</a></p>
+<p>La pantalla de inicio. Arriba, los accesos rápidos de tu rol (<span class="ui" data-ui="Facturar">Facturar</span>, <span class="ui" data-ui="Cobrar">Cobrar</span>, <span class="ui" data-ui="Pagar">Pagar</span>, <span class="ui" data-ui="Escanear documento">Escanear documento</span>, <span class="ui" data-ui="Viajes">Viajes</span>, <span class="ui" data-ui="Pallets">Pallets</span>, <span class="ui" data-ui="Asistente IA">Asistente IA</span>: cada uno aparece solo si tenés su permiso).</p><p>Debajo, el bloque <span class="ui" data-ui="Hoy y esta semana">Hoy y esta semana</span>, fijo: <span class="ui" data-ui="Vencimientos">Vencimientos</span> (las tareas abiertas del equipo vencidas o que vencen en los próximos 7 días; un clic abre la tarea), <span class="ui" data-ui="Viajes de hoy">Viajes de hoy</span> y <span class="ui" data-ui="Papeles por vencer">Papeles por vencer</span> (documentos de camiones, choferes y empleados vencidos o que vencen en 30 días). Cada recuadro aparece si podés ver su módulo.</p><p>Después, las tarjetas (widgets) que cada usuario elige y ordena: <span class="ui" data-ui="Indicadores financieros">Indicadores financieros</span> (<span class="ui" data-ui="Caja ARS">Caja ARS</span>, <span class="ui" data-ui="Caja USD">Caja USD</span>, <span class="ui" data-ui="Por cobrar">Por cobrar</span>, <span class="ui" data-ui="Por pagar">Por pagar</span>), <span class="ui" data-ui="Operaciones">Operaciones</span> (viajes en curso, cargas pendientes, pallets en depósito), <span class="ui" data-ui="Flujo de caja">Flujo de caja</span>, <span class="ui" data-ui="Insights IA">Insights IA</span>, <span class="ui" data-ui="Próximos vencimientos">Próximos vencimientos</span> (cobros, pagos y documentos de los próximos 14 días) y <span class="ui" data-ui="Top deudores">Top deudores</span>. Solo aparecen las tarjetas cuyos datos podés ver.</p><p>Si no tenés ninguna tarjeta disponible, el dashboard muestra los accesos rápidos y te indica usar el menú lateral.</p>
+
+<div class="concept"><h4>El dashboard de cada rol</h4><p>Hasta que lo personalizás, el dashboard usa la plantilla de tu rol principal: Owner, Admin y Finanzas ven primero los indicadores financieros y el flujo de caja; Operaciones, la operación, los vencimientos y los insights; Depósito, la operación y los vencimientos; Chofer, la operación. El contador externo no tiene tarjetas.</p><p>Lo que personalizás es solo tuyo: no cambia el dashboard de nadie más.</p></div><div class="concept"><h4>Insights IA</h4><p>La tarjeta <span class="ui" data-ui="Insights IA">Insights IA</span> muestra el resumen semanal del asistente (los lunes) y las alertas que el analista encontró en los datos (caja, cobranzas, documentos, flota…), primero las más graves. Cada alerta trae <span class="ui" data-ui="Resolver con IA">Resolver con IA</span>; algunas traen además un botón con una acción lista, y owner y admin ven también <span class="ui" data-ui="Visto">Visto</span> e <span class="ui" data-ui="Ignorar">Ignorar</span>.</p></div>
+<ul class="task-toc"><li><a href="#personalizar-dashboard">Personalizar el dashboard</a></li><li><a href="#restablecer-dashboard">Volver al dashboard de tu rol</a></li><li><a href="#resolver-insight-con-ia">Resolver una alerta con el asistente</a></li><li><a href="#aceptar-propuesta-de-insight">Aceptar la acción que propone una alerta</a></li><li><a href="#marcar-insight-visto">Marcar una alerta como vista</a></li><li><a href="#ignorar-insight">Ignorar una alerta</a></li></ul>
+<article class="task" id="personalizar-dashboard">
+<h3><a class="anchor" href="#personalizar-dashboard">Personalizar el dashboard</a></h3>
+<p>Agregar, quitar, ordenar y cambiar el tamaño de las tarjetas.</p>
+<dl class="meta"><dt>Quién puede</dt><dd>Cualquier usuario con sesión iniciada.</dd></dl>
+<figure class="mock"><div class="m-frame m-page"><div class="m-head"><div><div class="m-title" data-ui="Dashboard">Dashboard</div></div><div class="m-actions"><span class="m-btn m-btn-ghost" data-ui="Restablecer">Restablecer</span><span class="m-btn m-btn-ghost" data-ui="Cancelar">Cancelar</span><span class="m-btn m-btn-primary" data-ui="Guardar">Guardar<span class="mk" aria-label="Paso 4">4</span></span></div></div></div><figcaption>Dashboard en modo edición</figcaption></figure>
+<ol class="steps"><li>En <a class="ref" href="plataforma.html#dashboard">Plataforma › Dashboard</a>, hacé clic en el lápiz de la derecha (<span class="ui" data-ui="Personalizar">Personalizar</span>).</li><li>Cambiá lo que quieras:<ul><li>Para agregar una tarjeta que no está, hacé clic en su nombre en el recuadro <span class="ui" data-ui="Agregar:">Agregar:</span>.</li><li>Para reordenar, arrastrá la tarjeta desde su manija. En el celular, usá las flechas de subir y bajar.</li><li>Para cambiar el tamaño (media fila o fila completa), usá el botón de tamaño de la tarjeta (en pantallas grandes).</li><li>Para quitar una tarjeta, hacé clic en la X de la tarjeta.</li></ul></li><li>Si te arrepentís, <span class="ui" data-ui="Cancelar">Cancelar</span> vuelve a como estaba.</li><li>Hacé clic en <span class="ui" data-ui="Guardar">Guardar</span>.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>Aparece «Dashboard guardado.» y el dashboard queda así cada vez que entrás, en cualquier dispositivo.</li></ul></div>
+<div class="block errors"><h4>Si aparece un error</h4><dl><dt>“No se pudo guardar el layout.”</dt><dd>Volvé a hacer clic en Guardar; si sigue, recargá la página y probá de nuevo.</dd></dl></div>
+<p class="related">Relacionado: <a class="ref" href="plataforma.html#restablecer-dashboard">Volver al dashboard de tu rol</a></p>
+</article>
+<article class="task" id="restablecer-dashboard">
+<h3><a class="anchor" href="#restablecer-dashboard">Volver al dashboard de tu rol</a></h3>
+
+<dl class="meta"><dt>Quién puede</dt><dd>Cualquier usuario con sesión iniciada.</dd></dl>
+
+<ol class="steps"><li>En <a class="ref" href="plataforma.html#dashboard">Plataforma › Dashboard</a>, hacé clic en el lápiz (<span class="ui" data-ui="Personalizar">Personalizar</span>).</li><li>Hacé clic en <span class="ui" data-ui="Restablecer">Restablecer</span>.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>Aparece «Dashboard restablecido al layout de tu rol.»: se borra tu personalización y vuelve la plantilla de tu rol.</li></ul></div>
+<div class="block errors"><h4>Si aparece un error</h4><dl><dt>“No se pudo restablecer el layout.”</dt><dd>Probá de nuevo en unos segundos.</dd></dl></div>
+<p class="related">Relacionado: <a class="ref" href="plataforma.html#personalizar-dashboard">Personalizar el dashboard</a></p>
+</article>
+<article class="task" id="resolver-insight-con-ia">
+<h3><a class="anchor" href="#resolver-insight-con-ia">Resolver una alerta con el asistente</a></h3>
+
+<dl class="meta"><dt>Quién puede</dt><dd>Owner, Admin, Finanzas, Operaciones <span class="muted">(permiso <code class="perm">ai:chat</code>)</span></dd><dt>Antes</dt><dd><ul><li>La tarjeta <span class="ui" data-ui="Insights IA">Insights IA</span> en tu dashboard (necesita el permiso <code>ai:read</code>).</li></ul></dd></dl>
+
+<ol class="steps"><li>En la tarjeta <span class="ui" data-ui="Insights IA">Insights IA</span>, buscá la alerta.</li><li>Hacé clic en <span class="ui" data-ui="Resolver con IA">Resolver con IA</span>.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>Se abre el asistente (<a class="ref" href="asistente.html#asistente">Asistente</a>) con una conversación nueva que ya pregunta por esa alerta.</li></ul></div>
+
+<p class="related">Relacionado: <a class="ref" href="asistente.html#preguntar-al-asistente">Hacerle una pregunta al asistente</a></p>
+</article>
+<article class="task" id="aceptar-propuesta-de-insight">
+<h3><a class="anchor" href="#aceptar-propuesta-de-insight">Aceptar la acción que propone una alerta</a></h3>
+<p>Algunas alertas traen un botón con una acción lista (por ejemplo <span class="ui" data-ui="Generar ND por mora">Generar ND por mora</span>).</p>
+<dl class="meta"><dt>Quién puede</dt><dd>Owner, Admin, Finanzas, Operaciones <span class="muted">(permiso <code class="perm">ai:read</code>)</span></dd><dt>Antes</dt><dd><ul><li>Además, el permiso de la acción que se propone (por ejemplo, emitir comprobantes para una nota de débito).</li></ul></dd></dl>
+
+<ol class="steps"><li>En la alerta, hacé clic en el botón de la acción (debajo del texto de la alerta).</li><li>Revisá los datos de la propuesta en el diálogo.</li><li>Hacé clic en <span class="ui" data-ui="Aceptar">Aceptar</span> para registrarla, o en <span class="ui" data-ui="Descartar">Descartar</span> si no la querés.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>Al aceptar, el sistema hace la operación como si la cargaras a mano, con las mismas validaciones, y aparece «Listo, quedó registrado.». La propuesta queda marcada como <span class="ui" data-ui="Aceptada">Aceptada</span> o <span class="ui" data-ui="Descartada">Descartada</span>.</li></ul></div>
+<div class="block errors"><h4>Si aparece un error</h4><dl><dt>“No tenés permiso para esta acción.”</dt><dd>Tu usuario no puede hacer esa operación: pedíselo a alguien con el rol que corresponda.</dd><dt>“La propuesta tiene datos inválidos.”</dt><dd>Los datos cambiaron desde que se armó la propuesta: descartala y hacé la operación desde su pantalla.</dd></dl></div>
+
+</article>
+<article class="task" id="marcar-insight-visto">
+<h3><a class="anchor" href="#marcar-insight-visto">Marcar una alerta como vista</a></h3>
+
+<dl class="meta"><dt>Quién puede</dt><dd>Owner, Admin <span class="muted">(permiso <code class="perm">ai:admin</code>)</span></dd></dl>
+
+<ol class="steps"><li>En la alerta, hacé clic en <span class="ui" data-ui="Visto">Visto</span>.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>La alerta queda atenuada en la lista y el botón <span class="ui" data-ui="Visto">Visto</span> desaparece.</li></ul></div>
+<div class="block errors"><h4>Si aparece un error</h4><dl><dt>“No tenés permiso para gestionar insights.”</dt><dd>Solo owner y admin marcan o ignoran alertas.</dd><dt>“Esta tarjeta se recalculó. Recargá los insights.”</dt><dd>Recargá la página: la alerta cambió desde que la abriste.</dd></dl></div>
+<p class="related">Relacionado: <a class="ref" href="plataforma.html#ignorar-insight">Ignorar una alerta</a></p>
+</article>
+<article class="task" id="ignorar-insight">
+<h3><a class="anchor" href="#ignorar-insight">Ignorar una alerta</a></h3>
+
+<dl class="meta"><dt>Quién puede</dt><dd>Owner, Admin <span class="muted">(permiso <code class="perm">ai:admin</code>)</span></dd></dl>
+<figure class="mock"><div class="m-frame m-backdrop"><div class="m-dialog"><div class="m-dialog-title" data-ui="Ignorar insight">Ignorar insight<span class="m-close">×</span></div><div class="m-form"><div class="m-field wide"><span class="m-label" data-ui="Motivo">Motivo</span><span class="m-input m-textarea">Es una factura repetida a propósito (dos entregas).</span><span class="mk" aria-label="Paso 2">2</span></div></div><div class="m-footer"><span class="m-btn m-btn-outline" data-ui="Cancelar">Cancelar</span><span class="m-btn m-btn-primary" data-ui="Ignorar">Ignorar<span class="mk" aria-label="Paso 3">3</span></span></div></div></div></figure>
+<ol class="steps"><li>En la alerta, hacé clic en <span class="ui" data-ui="Ignorar">Ignorar</span>.</li><li>En <span class="ui" data-ui="Motivo">Motivo</span>, contá por qué la ignorás (entre 3 y 500 caracteres).</li><li>Hacé clic en <span class="ui" data-ui="Ignorar">Ignorar</span>.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>Aparece «Insight ignorado.»: el analista no vuelve a mostrar ese mismo hallazgo.</li></ul></div>
+<div class="block errors"><h4>Si aparece un error</h4><dl><dt>“Contá en pocas palabras por qué lo ignorás.”</dt><dd>Escribí un motivo de al menos 3 caracteres.</dd><dt>“No tenés permiso para gestionar insights.”</dt><dd>Solo owner y admin ignoran alertas.</dd></dl></div>
+<p class="related">Relacionado: <a class="ref" href="plataforma.html#marcar-insight-visto">Marcar una alerta como vista</a></p>
+</article>
+</section>
+<section class="section" id="tareas">
+<h2><a class="anchor" href="#tareas">Tareas</a></h2>
+<p class="where">En el menú: <strong>Plataforma › Tareas</strong> · <code>/tasks</code></p><p class="where">Ven esta pantalla: Owner, Admin, Finanzas, Operaciones, Depósito <span class="muted">(permiso <code class="perm">tasks:read</code>)</span></p><p class="open"><a href="/tasks" target="jouve-app">Abrir esta pantalla en JouveERP ↗</a></p>
+<p>Los pendientes del equipo: los que crean ustedes, los que se repiten cada mes y los que el sistema saca de los documentos por pagar, cobrar o renovar.</p><p>Arriba, dos filtros: de quién (<span class="ui" data-ui="Mías">Mías</span> / <span class="ui" data-ui="Todas">Todas</span>) y el estado (<span class="ui" data-ui="Abiertas">Abiertas</span> / <span class="ui" data-ui="Vencidas">Vencidas</span> / <span class="ui" data-ui="Hechas">Hechas</span>). La lista muestra <span class="ui" data-ui="Tarea">Tarea</span> (con su tipo debajo), <span class="ui" data-ui="Vence">Vence</span> (con un aviso si ya venció), <span class="ui" data-ui="Responsables">Responsables</span> y, en las abiertas, el botón <span class="ui" data-ui="Hecha">Hecha</span>. Al hacer clic en una fila se abre su detalle.</p>
+<figure class="mock"><div class="m-frame m-page"><div class="m-head"><div><div class="m-title" data-ui="Tareas">Tareas</div></div><div class="m-actions"><span class="m-btn m-btn-outline" data-ui="Recurrentes">Recurrentes</span><span class="m-btn m-btn-primary" data-ui="Nueva tarea">Nueva tarea</span></div></div><div class="m-tabs"><span class="m-tab active" data-ui="Mías">Mías</span><span class="m-tab" data-ui="Todas">Todas</span></div><div class="m-table"><table><thead><tr><th data-ui="Tarea">Tarea</th><th data-ui="Vence">Vence</th><th data-ui="Responsables">Responsables</th><th data-ui=""></th></tr></thead><tbody><tr><td>~Pagar a YPF · Pago a proveedor</td><td>~10/11/2026</td><td>~Ana López</td><td>~Hecha</td></tr><tr><td>~Cierre de mes · Recurrente</td><td>~01/12/2026</td><td>~Ana López y 2 más</td><td>~Hecha</td></tr></tbody></table></div></div></figure>
+<div class="concept"><h4>Los tres tipos de tarea</h4><p><strong>{{Manual}}</strong>: la crea alguien con <span class="ui" data-ui="Nueva tarea">Nueva tarea</span>.</p><p><strong>{{Recurrente}}</strong>: se crea sola una semana antes de su día, todos los meses, a partir de una tarea recurrente.</p><p><strong>{{Automática}}</strong>: el sistema la crea cada mañana a partir de un documento: <span class="ui" data-ui="Pago a proveedor">Pago a proveedor</span>, <span class="ui" data-ui="Cobranza vencida">Cobranza vencida</span>, <span class="ui" data-ui="Cuota de préstamo">Cuota de préstamo</span>, <span class="ui" data-ui="Cheque propio">Cheque propio</span>, <span class="ui" data-ui="Documento de flota">Documento de flota</span>, <span class="ui" data-ui="Documento de empleado">Documento de empleado</span>, <span class="ui" data-ui="Km mensual">Km mensual</span> e <span class="ui" data-ui="Impuesto">Impuesto</span>. Se asigna sola a quienes pueden resolver ese documento y se cierra sola cuando el documento ya no tiene nada pendiente. Desde su detalle, <span class="ui" data-ui="Ir al documento">Ir al documento</span> te lleva a la pantalla donde se resuelve.</p></div><div class="concept"><h4>Tareas de módulos que no ves</h4><p>Si una tarea automática sale de un módulo que tu usuario no puede leer, la ves con un candado y el título «Tarea de un módulo sin acceso»: no se muestra su detalle y no la podés cambiar.</p><p>Solo se puede asignar una tarea a usuarios con acceso a Tareas.</p></div><div class="concept"><h4>Avisos</h4><p>Cada responsable recibe una notificación el día que vence la tarea y otra, una sola vez, en la semana siguiente si sigue abierta (ver <a class="ref" href="plataforma.html#notificaciones">Notificaciones</a>).</p></div>
+<ul class="task-toc"><li><a href="#crear-tarea">Crear una tarea</a></li><li><a href="#crear-tarea-recurrente">Crear una tarea que se repite todos los meses</a></li><li><a href="#editar-tarea-recurrente">Editar, pausar o reactivar una tarea recurrente</a></li><li><a href="#marcar-tarea-hecha">Marcar una tarea como hecha</a></li><li><a href="#reabrir-tarea">Reabrir una tarea hecha</a></li><li><a href="#cambiar-tarea">Cambiar el vencimiento o los responsables de una tarea</a></li><li><a href="#comentar-tarea">Comentar una tarea</a></li></ul>
+<article class="task" id="crear-tarea">
+<h3><a class="anchor" href="#crear-tarea">Crear una tarea</a></h3>
+
+<dl class="meta"><dt>Quién puede</dt><dd>Owner, Admin, Finanzas, Operaciones, Depósito <span class="muted">(permiso <code class="perm">tasks:write</code>)</span></dd></dl>
+<figure class="mock"><div class="m-frame m-backdrop"><div class="m-dialog"><div class="m-dialog-title" data-ui="Nueva tarea">Nueva tarea<span class="m-close">×</span></div><div class="m-sub">Una tarea para vos o para otros. Si se repite, se crea sola todos los meses.</div><div class="m-form"><div class="m-field wide"><span class="m-label" data-ui="Título">Título</span><span class="m-input">Llamar al cliente por la factura vencida</span><span class="mk" aria-label="Paso 2">2</span></div><div class="m-field wide"><span class="m-label" data-ui="Detalle (opcional)">Detalle (opcional)</span><span class="m-input m-textarea"></span><span class="mk" aria-label="Paso 3">3</span></div><div class="m-field m-inline wide"><span class="m-switch"></span><span class="m-label" data-ui="Se repite todos los meses">Se repite todos los meses</span></div><div class="m-field"><span class="m-label" data-ui="Vencimiento (opcional)">Vencimiento (opcional)</span><span class="m-input">15/11/2026</span><span class="mk" aria-label="Paso 4">4</span></div><div class="m-field"><span class="m-label" data-ui="Responsables">Responsables</span><span class="m-input m-select">Ana López<span class="m-chevron">⌄</span></span><span class="mk" aria-label="Paso 5">5</span></div></div><div class="m-footer"><span class="m-btn m-btn-outline" data-ui="Cancelar">Cancelar</span><span class="m-btn m-btn-primary" data-ui="Crear">Crear<span class="mk" aria-label="Paso 6">6</span></span></div></div></div></figure>
+<ol class="steps"><li>En <a class="ref" href="plataforma.html#tareas">Plataforma › Tareas</a>, hacé clic en <span class="ui" data-ui="Nueva tarea">Nueva tarea</span>.</li><li>En <span class="ui" data-ui="Título">Título</span>, escribí qué hay que hacer (hasta 200 caracteres).</li><li>Si hace falta, en <span class="ui" data-ui="Detalle (opcional)">Detalle (opcional)</span> agregá más información (hasta 2000 caracteres).</li><li>En <span class="ui" data-ui="Vencimiento (opcional)">Vencimiento (opcional)</span>, elegí la fecha límite, o dejalo vacío.</li><li>En <span class="ui" data-ui="Responsables">Responsables</span>, marcá a las personas que se encargan (hasta 20). Podés dejarla sin responsables.</li><li>Hacé clic en <span class="ui" data-ui="Crear">Crear</span>.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>Aparece «Tarea creada.» y la tarea queda <span class="ui" data-ui="Abierta">Abierta</span> en la lista de cada responsable.</li><li>Los responsables reciben la notificación el día que vence.</li></ul></div>
+<div class="block errors"><h4>Si aparece un error</h4><dl><dt>“El título es obligatorio.”</dt><dd>Escribí un título.</dd><dt>“Algún responsable no tiene acceso a Tareas.”</dt><dd>Sacá de la lista a quien no puede ver Tareas, o pedile al owner que le dé el acceso.</dd><dt>“No tenés permiso para crear tareas.”</dt><dd>Pedile la tarea a alguien con permiso para crear tareas.</dd></dl></div>
+<p class="related">Relacionado: <a class="ref" href="plataforma.html#crear-tarea-recurrente">Crear una tarea que se repite todos los meses</a> · <a class="ref" href="plataforma.html#marcar-tarea-hecha">Marcar una tarea como hecha</a></p>
+</article>
+<article class="task" id="crear-tarea-recurrente">
+<h3><a class="anchor" href="#crear-tarea-recurrente">Crear una tarea que se repite todos los meses</a></h3>
+
+<dl class="meta"><dt>Quién puede</dt><dd>Owner, Admin, Finanzas, Operaciones, Depósito <span class="muted">(permiso <code class="perm">tasks:write</code>)</span></dd></dl>
+
+<ol class="steps"><li>En <a class="ref" href="plataforma.html#tareas">Plataforma › Tareas</a>, hacé clic en <span class="ui" data-ui="Nueva tarea">Nueva tarea</span>.</li><li>Completá <span class="ui" data-ui="Título">Título</span> y, si querés, <span class="ui" data-ui="Detalle (opcional)">Detalle (opcional)</span>.</li><li>Activá <span class="ui" data-ui="Se repite todos los meses">Se repite todos los meses</span>.</li><li>En <span class="ui" data-ui="Día del mes">Día del mes</span>, escribí el día en que vence cada mes (1 a 31). Si un mes es más corto, vence el último día.</li><li>Elegí los <span class="ui" data-ui="Responsables">Responsables</span> y hacé clic en <span class="ui" data-ui="Crear">Crear</span>.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>Aparece «Tarea recurrente creada.». Cada mes, una semana antes del día elegido, se crea sola una tarea <span class="ui" data-ui="Recurrente">Recurrente</span> con esos responsables; si el día ya cae dentro de esa semana, la de este mes se crea en el momento.</li><li>Las recurrentes se ven y se editan en <span class="ui" data-ui="Recurrentes">Recurrentes</span> (<a class="ref" href="plataforma.html#editar-tarea-recurrente">Editar, pausar o reactivar una tarea recurrente</a>).</li></ul></div>
+<div class="block errors"><h4>Si aparece un error</h4><dl><dt>“Día entre 1 y 31.”</dt><dd>Escribí un día del 1 al 31.</dd><dt>“Algún responsable no tiene acceso a Tareas.”</dt><dd>Sacá de la lista a quien no puede ver Tareas.</dd><dt>“No se pudo crear la tarea recurrente.”</dt><dd>No se guardó nada: probá de nuevo.</dd></dl></div>
+<p class="related">Relacionado: <a class="ref" href="plataforma.html#editar-tarea-recurrente">Editar, pausar o reactivar una tarea recurrente</a></p>
+</article>
+<article class="task" id="editar-tarea-recurrente">
+<h3><a class="anchor" href="#editar-tarea-recurrente">Editar, pausar o reactivar una tarea recurrente</a></h3>
+
+<dl class="meta"><dt>Quién puede</dt><dd>Owner, Admin, Finanzas, Operaciones, Depósito <span class="muted">(permiso <code class="perm">tasks:write</code>)</span></dd></dl>
+<figure class="mock"><div class="m-frame m-backdrop"><div class="m-dialog"><div class="m-dialog-title" data-ui="Tareas recurrentes">Tareas recurrentes<span class="m-close">×</span></div><div class="m-sub">Se crean solas una semana antes de su día de cada mes.</div><div class="m-table"><table><thead><tr><th>Tarea</th><th>Activa</th><th></th></tr></thead><tbody><tr><td>~Cierre de mes · Día 1 · Ana López</td><td>~Sí</td><td>~✎</td></tr></tbody></table></div><div class="m-footer"></div></div></div></figure>
+<ol class="steps"><li>En <a class="ref" href="plataforma.html#tareas">Plataforma › Tareas</a>, hacé clic en <span class="ui" data-ui="Recurrentes">Recurrentes</span>.</li><li>En la fila de la tarea:<ul><li>Con el interruptor la pausás o la reactivás: una pausada no crea más tareas.</li><li>Con el lápiz (<span class="ui" data-ui="Editar">Editar</span>) se abre <span class="ui" data-ui="Editar tarea recurrente">Editar tarea recurrente</span>: cambiá <span class="ui" data-ui="Título">Título</span>, <span class="ui" data-ui="Detalle (opcional)">Detalle (opcional)</span>, <span class="ui" data-ui="Día del mes">Día del mes</span> o <span class="ui" data-ui="Responsables">Responsables</span> y hacé clic en <span class="ui" data-ui="Guardar">Guardar</span>.</li></ul></li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>Aparece «Tarea recurrente guardada.». Los cambios aplican a las próximas ocurrencias; las tareas ya creadas no cambian.</li></ul></div>
+<div class="block errors"><h4>Si aparece un error</h4><dl><dt>“Se guardó la tarea pero no sus responsables. Reintentá.”</dt><dd>Volvé a abrir <span class="ui" data-ui="Editar">Editar</span>, elegí los responsables y guardá.</dd><dt>“La tarea recurrente no existe.”</dt><dd>Otro usuario la borró: cerrá el diálogo y volvé a abrirlo.</dd><dt>“No tenés permiso para editar tareas.”</dt><dd>Pedile el cambio a alguien con permiso para editar tareas.</dd></dl></div>
+<p class="related">Relacionado: <a class="ref" href="plataforma.html#crear-tarea-recurrente">Crear una tarea que se repite todos los meses</a></p>
+</article>
+<article class="task" id="marcar-tarea-hecha">
+<h3><a class="anchor" href="#marcar-tarea-hecha">Marcar una tarea como hecha</a></h3>
+
+<dl class="meta"><dt>Quién puede</dt><dd>Owner, Admin, Finanzas, Operaciones, Depósito <span class="muted">(permiso <code class="perm">tasks:write</code>)</span></dd></dl>
+
+<ol class="steps"><li>En <a class="ref" href="plataforma.html#tareas">Plataforma › Tareas</a>, en la fila de la tarea, hacé clic en <span class="ui" data-ui="Hecha">Hecha</span>. También podés abrir la tarea y hacer clic en <span class="ui" data-ui="Marcar como hecha">Marcar como hecha</span>.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>Aparece «Tarea hecha.»: la tarea pasa a <span class="ui" data-ui="Hechas">Hechas</span>, tachada, con quién y cuándo la cerró.</li><li>Una tarea automática se cierra sola cuando su documento ya no tiene nada pendiente; su detalle dice «Se cerró sola: el documento ya no tiene nada pendiente.».</li></ul></div>
+<div class="block errors"><h4>Si aparece un error</h4><dl><dt>“La tarea ya estaba hecha.”</dt><dd>Otro usuario la cerró antes: no hace falta hacer nada.</dd><dt>“No tenés acceso al módulo de esta tarea.”</dt><dd>La tarea sale de un módulo que no podés ver: pedile a alguien con ese acceso que la cierre.</dd></dl></div>
+<p class="related">Relacionado: <a class="ref" href="plataforma.html#reabrir-tarea">Reabrir una tarea hecha</a></p>
+</article>
+<article class="task" id="reabrir-tarea">
+<h3><a class="anchor" href="#reabrir-tarea">Reabrir una tarea hecha</a></h3>
+
+<dl class="meta"><dt>Quién puede</dt><dd>Owner, Admin, Finanzas, Operaciones, Depósito <span class="muted">(permiso <code class="perm">tasks:write</code>)</span></dd></dl>
+
+<ol class="steps"><li>En <a class="ref" href="plataforma.html#tareas">Plataforma › Tareas</a>, elegí <span class="ui" data-ui="Hechas">Hechas</span> y hacé clic en la tarea.</li><li>En el detalle, hacé clic en <span class="ui" data-ui="Reabrir">Reabrir</span>.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>Aparece «Tarea reabierta.» y vuelve a <span class="ui" data-ui="Abiertas">Abiertas</span>.</li></ul></div>
+<div class="block errors"><h4>Si aparece un error</h4><dl><dt>“La tarea ya estaba abierta.”</dt><dd>Otro usuario la reabrió antes: no hace falta hacer nada.</dd></dl></div>
+<p class="related">Relacionado: <a class="ref" href="plataforma.html#marcar-tarea-hecha">Marcar una tarea como hecha</a></p>
+</article>
+<article class="task" id="cambiar-tarea">
+<h3><a class="anchor" href="#cambiar-tarea">Cambiar el vencimiento o los responsables de una tarea</a></h3>
+
+<dl class="meta"><dt>Quién puede</dt><dd>Owner, Admin, Finanzas, Operaciones, Depósito <span class="muted">(permiso <code class="perm">tasks:write</code>)</span></dd></dl>
+
+<ol class="steps"><li>En <a class="ref" href="plataforma.html#tareas">Plataforma › Tareas</a>, hacé clic en la tarea.</li><li>En <span class="ui" data-ui="Vencimiento">Vencimiento</span>, elegí otra fecha (o borrala).</li><li>En <span class="ui" data-ui="Responsables">Responsables</span>, marcá o desmarcá personas.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>Cada cambio se guarda al instante y queda en el <span class="ui" data-ui="Historial">Historial</span> de la tarea con quién lo hizo.</li><li>Si reasignás a mano una tarea automática, el sistema ya no la reasigna solo.</li></ul></div>
+<div class="block errors"><h4>Si aparece un error</h4><dl><dt>“Algún responsable no tiene acceso a Tareas.”</dt><dd>Elegí solo usuarios con acceso a Tareas.</dd><dt>“No tenés permiso para reasignar tareas.”</dt><dd>Pedile el cambio a alguien con permiso para editar tareas.</dd></dl></div>
+
+</article>
+<article class="task" id="comentar-tarea">
+<h3><a class="anchor" href="#comentar-tarea">Comentar una tarea</a></h3>
+
+<dl class="meta"><dt>Quién puede</dt><dd>Owner, Admin, Finanzas, Operaciones, Depósito <span class="muted">(permiso <code class="perm">tasks:write</code>)</span></dd></dl>
+
+<ol class="steps"><li>En <a class="ref" href="plataforma.html#tareas">Plataforma › Tareas</a>, hacé clic en la tarea.</li><li>En <span class="ui" data-ui="Comentarios">Comentarios</span>, escribí el comentario (hasta 2000 caracteres).</li><li>Hacé clic en <span class="ui" data-ui="Comentar">Comentar</span>.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>El comentario queda con tu nombre y la hora, visible para todos los que ven la tarea.</li></ul></div>
+
+
+</article>
+</section>
+<section class="section" id="archivos">
+<h2><a class="anchor" href="#archivos">Archivos</a></h2>
+<p class="where">En el menú: <strong>Plataforma › Archivos</strong> · <code>/files</code></p><p class="where">Ven esta pantalla: Owner, Admin, Finanzas, Operaciones, Depósito <span class="muted">(permiso <code class="perm">files:read</code>)</span></p><p class="open"><a href="/files" target="jouve-app">Abrir esta pantalla en JouveERP ↗</a></p>
+<p>Todos los archivos que podés ver en un solo lugar: adjuntos de comprobantes, compras, recibos, órdenes de pago, clientes, proveedores, combustible e impuestos, documentos escaneados, documentos de empleados y de flota, y adjuntos de tus chats con la IA.</p><p>La lista muestra <span class="ui" data-ui="Archivo">Archivo</span> (nombre y tamaño), <span class="ui" data-ui="Origen">Origen</span> (a qué registro pertenece, con link), <span class="ui" data-ui="Subido por">Subido por</span> y <span class="ui" data-ui="Fecha">Fecha</span>, los más nuevos primero. Se carga más al bajar.</p>
+<figure class="mock"><div class="m-frame m-page"><div class="m-head"><div><div class="m-title" data-ui="Archivos">Archivos</div></div><div class="m-actions"></div></div><div class="m-toolbar"><div class="m-field"><span class="m-label" data-ui="Buscar por nombre">Buscar por nombre</span><span class="m-input"></span></div><div class="m-field"><span class="m-label" data-ui="Todos los orígenes">Todos los orígenes</span><span class="m-input m-select"><span class="m-chevron">⌄</span></span></div><div class="m-field"><span class="m-label" data-ui="Cualquier tipo">Cualquier tipo</span><span class="m-input m-select"><span class="m-chevron">⌄</span></span></div><div class="m-field"><span class="m-label" data-ui="Cualquier persona">Cualquier persona</span><span class="m-input m-select"><span class="m-chevron">⌄</span></span></div><div class="m-field"><span class="m-label" data-ui="Desde">Desde</span><span class="m-input">dd/mm/aaaa</span></div><div class="m-field"><span class="m-label" data-ui="Hasta">Hasta</span><span class="m-input">dd/mm/aaaa</span></div></div><div class="m-table"><table><thead><tr><th data-ui="Archivo">Archivo</th><th data-ui="Origen">Origen</th><th data-ui="Subido por">Subido por</th><th data-ui="Fecha">Fecha</th><th data-ui=""></th></tr></thead><tbody><tr><td>~factura-ypf.pdf</td><td>~Factura de compra</td><td>~Ana López</td><td>~04/11/2026 10:12</td></tr><tr><td>~cheque.jpg</td><td>~Cheque de tercero</td><td>~Juan Pérez</td><td>~03/11/2026 16:40</td></tr></tbody></table></div></div></figure>
+<div class="concept"><h4>Qué archivos ves</h4><p>Un archivo se ve solo a través de un registro que podés leer: por ejemplo, sin acceso a Compras no aparecen las facturas de compra. Los documentos escaneados y los adjuntos del chat con la IA los ve solo quien los subió, además de owner y admin.</p><p>Los archivos se suben desde la pantalla de cada registro (<a class="ref" href="plataforma.html#adjuntar-archivo">Adjuntar un archivo a un registro</a>), no desde acá.</p></div>
+<ul class="task-toc"><li><a href="#buscar-archivos">Buscar un archivo</a></li><li><a href="#ver-descargar-archivo">Ver o descargar un archivo</a></li><li><a href="#adjuntar-archivo">Adjuntar un archivo a un registro</a></li><li><a href="#borrar-adjunto">Borrar un adjunto</a></li></ul>
+<article class="task" id="buscar-archivos">
+<h3><a class="anchor" href="#buscar-archivos">Buscar un archivo</a></h3>
+
+<dl class="meta"><dt>Quién puede</dt><dd>Owner, Admin, Finanzas, Operaciones, Depósito <span class="muted">(permiso <code class="perm">files:read</code>)</span></dd></dl>
+
+<ol class="steps"><li>En <a class="ref" href="plataforma.html#archivos">Plataforma › Archivos</a>, usá los filtros de arriba (se pueden combinar):<ul><li><span class="ui" data-ui="Buscar por nombre">Buscar por nombre</span>: parte del nombre del archivo.</li><li><span class="ui" data-ui="Origen">Origen</span>: el tipo de registro (<span class="ui" data-ui="Factura de compra">Factura de compra</span>, <span class="ui" data-ui="Comprobante emitido">Comprobante emitido</span>, <span class="ui" data-ui="Recibo">Recibo</span>, <span class="ui" data-ui="Documento escaneado">Documento escaneado</span>, <span class="ui" data-ui="Chat con IA">Chat con IA</span>…).</li><li><span class="ui" data-ui="Tipo de archivo">Tipo de archivo</span>: <span class="ui" data-ui="PDF">PDF</span>, <span class="ui" data-ui="Imagen">Imagen</span> o <span class="ui" data-ui="Planilla">Planilla</span>.</li><li><span class="ui" data-ui="Subido por">Subido por</span>: la persona que lo subió.</li><li><span class="ui" data-ui="Desde">Desde</span> y <span class="ui" data-ui="Hasta">Hasta</span>: el rango de fechas de subida.</li></ul></li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>Los filtros quedan en la dirección de la página: podés copiarla y compartir la búsqueda.</li></ul></div>
+
+
+</article>
+<article class="task" id="ver-descargar-archivo">
+<h3><a class="anchor" href="#ver-descargar-archivo">Ver o descargar un archivo</a></h3>
+
+<dl class="meta"><dt>Quién puede</dt><dd>Owner, Admin, Finanzas, Operaciones, Depósito <span class="muted">(permiso <code class="perm">files:read</code>)</span></dd></dl>
+
+<ol class="steps"><li>En <a class="ref" href="plataforma.html#archivos">Plataforma › Archivos</a>, hacé clic en el nombre del archivo o en el ojo (<span class="ui" data-ui="Ver">Ver</span>) para verlo sin salir de la pantalla.</li><li>Para bajarlo, hacé clic en <span class="ui" data-ui="Descargar">Descargar</span>.</li><li>Para ir al registro al que pertenece, hacé clic en su <span class="ui" data-ui="Origen">Origen</span>.</li></ol>
+
+<div class="block errors"><h4>Si aparece un error</h4><dl><dt>“Archivo no encontrado.”</dt><dd>El archivo se borró o ya no tenés acceso a su módulo: actualizá la lista.</dd></dl></div>
+
+</article>
+<article class="task" id="adjuntar-archivo">
+<h3><a class="anchor" href="#adjuntar-archivo">Adjuntar un archivo a un registro</a></h3>
+<p>En la ficha de un comprobante, compra, recibo, orden de pago, cliente o proveedor, o en una carga de combustible o un impuesto, la sección de adjuntos. Los cheques y los movimientos de caja no tienen zona para subir archivos.</p>
+<dl class="meta"><dt>Quién puede</dt><dd>Owner, Admin, Finanzas, Operaciones, Depósito <span class="muted">(permiso <code class="perm">files:write</code>)</span></dd><dt>Antes</dt><dd><ul><li>Además, el permiso de escritura del registro (por ejemplo <code>purchase_invoices:write</code> para una compra): sin él, la subida se rechaza. En clientes y proveedores, sin ese permiso no aparece la zona para subir; en una compra anulada tampoco.</li></ul></dd></dl>
+
+<ol class="steps"><li>Abrí el registro y bajá hasta sus adjuntos.</li><li>Si el registro admite varios tipos de adjunto, elegí el tipo en <span class="ui" data-ui="Tipo:">Tipo:</span> (por ejemplo <span class="ui" data-ui="Comprobante">Comprobante</span>, <span class="ui" data-ui="Remito">Remito</span>, <span class="ui" data-ui="Comprobante de pago">Comprobante de pago</span>, <span class="ui" data-ui="Otro">Otro</span>).</li><li>Arrastrá el archivo al recuadro, o hacé clic en <span class="ui" data-ui="Elegir archivo">Elegir archivo</span>. En el celular también podés usar <span class="ui" data-ui="Tomar foto">Tomar foto</span>.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>Aparece «… adjuntado.» y el archivo queda en la lista del registro y en <a class="ref" href="plataforma.html#archivos">Plataforma › Archivos</a>. El alta queda en la auditoría del registro.</li><li>Se aceptan PDF, imágenes PNG, JPG y WebP, y planillas CSV y Excel, de hasta 10 MB.</li></ul></div>
+<div class="block errors"><h4>Si aparece un error</h4><dl><dt>“El archivo supera 10 MB.”</dt><dd>Achicá el archivo (por ejemplo, escaneá en menor resolución) y volvé a subirlo.</dd><dt>“Tipo no permitido (…).”</dt><dd>Convertí el archivo a PDF, imagen o planilla.</dd><dt>“El archivo está vacío.”</dt><dd>Revisá el archivo: no tiene contenido.</dd><dt>“Sin permiso para atachar a esa entidad.”</dt><dd>No podés editar ese registro: pedile a alguien con acceso que suba el archivo.</dd><dt>“Sin permiso para subir archivos.”</dt><dd>Tu rol no sube archivos: pedíselo a alguien de Finanzas, Operaciones, Depósito, Admin u Owner.</dd></dl></div>
+<p class="related">Relacionado: <a class="ref" href="plataforma.html#borrar-adjunto">Borrar un adjunto</a></p>
+</article>
+<article class="task" id="borrar-adjunto">
+<h3><a class="anchor" href="#borrar-adjunto">Borrar un adjunto</a></h3>
+
+<dl class="meta"><dt>Quién puede</dt><dd>Owner, Admin, Finanzas, Operaciones, Depósito <span class="muted">(permiso <code class="perm">files:write</code>)</span></dd><dt>Antes</dt><dd><ul><li>Además, el permiso de escritura del registro (como para adjuntar), y haber adjuntado vos ese archivo, salvo que seas owner o admin.</li></ul></dd></dl>
+<figure class="mock"><div class="m-frame m-backdrop"><div class="m-dialog"><div class="m-dialog-title" data-ui="Borrar este adjunto">Borrar este adjunto<span class="m-close">×</span></div><div class="m-sub">Vas a eliminar factura.pdf de este registro. No se puede deshacer.</div><div class="m-footer"><span class="m-btn m-btn-outline" data-ui="Cancelar">Cancelar</span><span class="m-btn m-btn-destructive" data-ui="Borrar">Borrar<span class="mk" aria-label="Paso 2">2</span></span></div></div></div></figure>
+<ol class="steps"><li>En los adjuntos del registro, hacé clic en el tacho (<span class="ui" data-ui="Borrar adjunto">Borrar adjunto</span>) del archivo.</li><li>Confirmá con <span class="ui" data-ui="Borrar">Borrar</span>.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>Aparece «Adjunto eliminado.»: el archivo deja de estar asociado al registro y la baja queda en su auditoría.</li><li>La baja es inmediata: si ningún otro registro usa el archivo, se borra también en ese momento.</li></ul></div>
+<div class="block errors"><h4>Si aparece un error</h4><dl><dt>“No tenés permiso para modificar archivos.”</dt><dd>Pedile la baja a alguien con permiso para subir archivos.</dd><dt>“Adjunto no encontrado.”</dt><dd>Otro usuario ya lo borró: actualizá la pantalla.</dd><dt>“Solo quien lo adjuntó o un admin lo quita.”</dt><dd>Pedile la baja a quien lo adjuntó o a un owner o admin.</dd></dl></div>
+<p class="related">Relacionado: <a class="ref" href="plataforma.html#adjuntar-archivo">Adjuntar un archivo a un registro</a></p>
+</article>
+</section>
+<section class="section" id="chat">
+<h2><a class="anchor" href="#chat">Chat</a></h2>
+<p class="where">En el menú: <strong>Plataforma › Chat</strong> · <code>/chat</code>, <code>/chat/[channelId]</code></p><p class="where">Ven esta pantalla: Cualquier usuario con sesión iniciada.</p><p class="open"><a href="/chat" target="jouve-app">Abrir esta pantalla en JouveERP ↗</a></p>
+<p>Mensajes entre las personas del equipo. A la izquierda, la lista de chats en tres grupos: <span class="ui" data-ui="Mis notas">Mis notas</span> (un chat solo tuyo, para notas y links), <span class="ui" data-ui="Mensajes directos">Mensajes directos</span> y <span class="ui" data-ui="Grupos">Grupos</span>, con el último mensaje y los no leídos. A la derecha, la conversación elegida. Si todavía no tenés otros chats, se abre directo <span class="ui" data-ui="Mis notas">Mis notas</span>.</p><p>En el celular se ve una cosa por vez: la lista o la conversación (la flecha de arriba vuelve a la lista).</p>
+
+<div class="concept"><h4>Lo que se puede escribir</h4><p>Cada mensaje tiene hasta 4000 caracteres. <strong>Enter</strong> envía y <strong>Shift + Enter</strong> hace un salto de línea. Los links se vuelven clickeables.</p><p>El chat del equipo es solo texto: para trabajar con archivos, adjuntalos en el chat del asistente (<a class="ref" href="asistente.html#adjuntar-archivo-al-asistente">Mandarle un archivo al asistente</a>).</p></div>
+<ul class="task-toc"><li><a href="#abrir-mensaje-directo">Escribirle a una persona</a></li><li><a href="#crear-grupo-chat">Crear un grupo</a></li><li><a href="#enviar-mensaje-chat">Enviar, responder y mencionar</a></li><li><a href="#editar-borrar-mensaje-chat">Editar o borrar un mensaje tuyo</a></li><li><a href="#reaccionar-mensaje-chat">Reaccionar a un mensaje</a></li><li><a href="#buscar-en-chat">Buscar en los chats</a></li><li><a href="#silenciar-chat">Silenciar una conversación</a></li><li><a href="#configurar-grupo-chat">Renombrar un grupo, sumar o quitar miembros</a></li><li><a href="#salir-de-grupo-chat">Salir de un grupo o cerrar un chat directo</a></li></ul>
+<article class="task" id="abrir-mensaje-directo">
+<h3><a class="anchor" href="#abrir-mensaje-directo">Escribirle a una persona</a></h3>
+
+<dl class="meta"><dt>Quién puede</dt><dd>Cualquier usuario con sesión iniciada.</dd></dl>
+<figure class="mock"><div class="m-frame m-backdrop"><div class="m-dialog"><div class="m-dialog-title" data-ui="Nuevo chat">Nuevo chat<span class="m-close">×</span></div><div class="m-sub">Mensaje directo o grupo. Los grupos pueden tener varios miembros.</div><div class="m-form"><div class="m-field wide"><span class="m-label" data-ui="Buscar por nombre o email…">Buscar por nombre o email…</span><span class="m-input">ana</span><span class="mk" aria-label="Paso 2">2</span></div></div><div class="m-footer"></div></div></div></figure>
+<ol class="steps"><li>En <a class="ref" href="plataforma.html#chat">Plataforma › Chat</a>, hacé clic en <span class="ui" data-ui="Nuevo">Nuevo</span>.</li><li>En la pestaña <span class="ui" data-ui="Persona">Persona</span>, buscá por nombre o email.</li><li>Hacé clic en la persona.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>Se abre la conversación con esa persona (si ya existía, la misma de antes).</li></ul></div>
+<div class="block errors"><h4>Si aparece un error</h4><dl><dt>“Error al abrir DM.”</dt><dd>Probá de nuevo; si sigue, recargá la página.</dd></dl></div>
+<p class="related">Relacionado: <a class="ref" href="plataforma.html#enviar-mensaje-chat">Enviar, responder y mencionar</a></p>
+</article>
+<article class="task" id="crear-grupo-chat">
+<h3><a class="anchor" href="#crear-grupo-chat">Crear un grupo</a></h3>
+
+<dl class="meta"><dt>Quién puede</dt><dd>Cualquier usuario con sesión iniciada.</dd></dl>
+
+<ol class="steps"><li>En <a class="ref" href="plataforma.html#chat">Plataforma › Chat</a>, hacé clic en <span class="ui" data-ui="Nuevo">Nuevo</span> y elegí la pestaña <span class="ui" data-ui="Grupo">Grupo</span>.</li><li>Escribí el nombre del grupo (obligatorio, hasta 60 caracteres) y, si querés, una descripción (hasta 280).</li><li>En <span class="ui" data-ui="Miembros">Miembros</span>, buscá y marcá a las personas (al menos una, hasta 50).</li><li>Hacé clic en <span class="ui" data-ui="Crear grupo">Crear grupo</span>.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>Se abre el grupo. Quien lo crea queda como administrador del grupo.</li></ul></div>
+<div class="block errors"><h4>Si aparece un error</h4><dl><dt>“Agregá al menos un miembro.”</dt><dd>Marcá al menos una persona en la lista.</dd><dt>“Máx 50 miembros.”</dt><dd>Dejá como mucho 50 personas.</dd></dl></div>
+<p class="related">Relacionado: <a class="ref" href="plataforma.html#configurar-grupo-chat">Renombrar un grupo, sumar o quitar miembros</a></p>
+</article>
+<article class="task" id="enviar-mensaje-chat">
+<h3><a class="anchor" href="#enviar-mensaje-chat">Enviar, responder y mencionar</a></h3>
+
+<dl class="meta"><dt>Quién puede</dt><dd>Cualquier usuario con sesión iniciada.</dd></dl>
+
+<ol class="steps"><li>Abrí la conversación en la lista de la izquierda.</li><li>Escribí en <span class="ui" data-ui="Escribí un mensaje…">Escribí un mensaje…</span> y apretá Enter (o el botón de enviar).</li><li>Para mencionar a alguien, escribí <code>@</code> y el comienzo de su nombre, y elegí a la persona en la lista (con las flechas y Enter, o con un clic).</li><li>Para responder un mensaje puntual, pasá el mouse sobre él y hacé clic en la flecha (<span class="ui" data-ui="Responder">Responder</span>): arriba del cuadro aparece «Respondiendo a …». Escribí y enviá.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>Los demás lo ven al instante. Cada miembro recibe una notificación de mensaje; quien es mencionado recibe la de mención en su lugar, y el autor del mensaje respondido recibe además la de respuesta (salvo que las tengan apagadas o el chat silenciado).</li></ul></div>
+<div class="block errors"><h4>Si aparece un error</h4><dl><dt>“Máx 4000 caracteres.”</dt><dd>Dividí el texto en dos mensajes.</dd></dl></div>
+<p class="related">Relacionado: <a class="ref" href="plataforma.html#editar-borrar-mensaje-chat">Editar o borrar un mensaje tuyo</a> · <a class="ref" href="plataforma.html#reaccionar-mensaje-chat">Reaccionar a un mensaje</a></p>
+</article>
+<article class="task" id="editar-borrar-mensaje-chat">
+<h3><a class="anchor" href="#editar-borrar-mensaje-chat">Editar o borrar un mensaje tuyo</a></h3>
+
+<dl class="meta"><dt>Quién puede</dt><dd>Cualquier usuario con sesión iniciada.</dd></dl>
+<figure class="mock"><div class="m-frame m-menu-frame"><span class="m-btn m-btn-ghost" data-ui="⋯">⋯</span><div class="m-menu"><span class="m-item" data-ui="Editar">Editar<span class="mk" aria-label="Paso 2">2</span></span><span class="m-item danger" data-ui="Eliminar">Eliminar<span class="mk" aria-label="Paso 3">3</span></span></div></div></figure>
+<ol class="steps"><li>Pasá el mouse sobre tu mensaje y hacé clic en <span class="ui" data-ui="Más">Más</span> (⋯).</li><li>Para corregirlo, elegí <span class="ui" data-ui="Editar">Editar</span>, cambiá el texto y hacé clic en <span class="ui" data-ui="Guardar">Guardar</span> (o Enter; Escape cancela).</li><li>Para borrarlo, elegí <span class="ui" data-ui="Eliminar">Eliminar</span> y confirmá.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>Un mensaje editado muestra «(editado)». Uno borrado se ve como «Mensaje eliminado» para todos y no se puede recuperar.</li></ul></div>
+
+
+</article>
+<article class="task" id="reaccionar-mensaje-chat">
+<h3><a class="anchor" href="#reaccionar-mensaje-chat">Reaccionar a un mensaje</a></h3>
+
+<dl class="meta"><dt>Quién puede</dt><dd>Cualquier usuario con sesión iniciada.</dd></dl>
+
+<ol class="steps"><li>Pasá el mouse sobre el mensaje y hacé clic en <span class="ui" data-ui="Reaccionar">Reaccionar</span>.</li><li>Elegí el emoji.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>La reacción aparece debajo del mensaje con la cantidad de personas. Volvé a hacer clic en ella para sacarla.</li></ul></div>
+
+
+</article>
+<article class="task" id="buscar-en-chat">
+<h3><a class="anchor" href="#buscar-en-chat">Buscar en los chats</a></h3>
+
+<dl class="meta"><dt>Quién puede</dt><dd>Cualquier usuario con sesión iniciada.</dd></dl>
+
+<ol class="steps"><li>En <a class="ref" href="plataforma.html#chat">Plataforma › Chat</a>, hacé clic en la lupa (<span class="ui" data-ui="Buscar (⌘K)">Buscar (⌘K)</span>) o apretá Ctrl+K (⌘K en Mac).</li><li>Escribí una palabra, frase o nombre.</li><li>Hacé clic en un resultado para abrir esa conversación.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>Busca en los mensajes de todas tus conversaciones y marca la palabra encontrada.</li></ul></div>
+
+
+</article>
+<article class="task" id="silenciar-chat">
+<h3><a class="anchor" href="#silenciar-chat">Silenciar una conversación</a></h3>
+
+<dl class="meta"><dt>Quién puede</dt><dd>Cualquier usuario con sesión iniciada.</dd></dl>
+<figure class="mock"><div class="m-frame m-menu-frame"><span class="m-btn m-btn-ghost" data-ui="Opciones del chat">Opciones del chat</span><div class="m-menu"><span class="m-item" data-ui="Silenciar">Silenciar<span class="mk" aria-label="Paso 2">2</span></span><span class="m-item" data-ui="Configurar grupo">Configurar grupo</span></div></div></figure>
+<ol class="steps"><li>En la conversación, hacé clic en el engranaje de arriba a la derecha (<span class="ui" data-ui="Opciones del chat">Opciones del chat</span>).</li><li>Elegí <span class="ui" data-ui="Silenciar">Silenciar</span>. Para volver a recibir avisos, elegí <span class="ui" data-ui="Activar notificaciones">Activar notificaciones</span>.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>Aparece «Notificaciones silenciadas.»: esa conversación deja de mandarte notificaciones, pero los mensajes siguen llegando.</li></ul></div>
+
+
+</article>
+<article class="task" id="configurar-grupo-chat">
+<h3><a class="anchor" href="#configurar-grupo-chat">Renombrar un grupo, sumar o quitar miembros</a></h3>
+
+<dl class="meta"><dt>Quién puede</dt><dd>Cualquier usuario con sesión iniciada.</dd><dt>Antes</dt><dd><ul><li>Ser administrador del grupo (quien lo creó). Los demás miembros ven el diálogo pero no pueden cambiar nada.</li></ul></dd></dl>
+<figure class="mock"><div class="m-frame m-backdrop"><div class="m-dialog"><div class="m-dialog-title" data-ui="Configurar grupo">Configurar grupo<span class="m-close">×</span></div><div class="m-sub">Renombrá, sumá miembros o sacá a quien ya no participa.</div><div class="m-form"><div class="m-field"><span class="m-label" data-ui="Nombre">Nombre</span><span class="m-input">Cobranzas</span><span class="mk" aria-label="Paso 2">2</span></div><div class="m-field"><span class="m-label" data-ui="Descripción">Descripción</span><span class="m-input m-textarea"></span></div></div><div class="m-footer"><span class="m-btn m-btn-ghost" data-ui="Salir del grupo">Salir del grupo</span><span class="m-btn m-btn-outline" data-ui="Cerrar">Cerrar</span><span class="m-btn m-btn-primary" data-ui="Guardar">Guardar<span class="mk" aria-label="Paso 2">2</span></span></div></div></div></figure>
+<ol class="steps"><li>En el grupo, abrí <span class="ui" data-ui="Opciones del chat">Opciones del chat</span> y elegí <span class="ui" data-ui="Configurar grupo">Configurar grupo</span>.</li><li>Para renombrarlo, cambiá <span class="ui" data-ui="Nombre">Nombre</span> o <span class="ui" data-ui="Descripción">Descripción</span> y hacé clic en <span class="ui" data-ui="Guardar">Guardar</span>.</li><li>Para sumar personas, en <span class="ui" data-ui="Agregar miembros">Agregar miembros</span> marcalas y hacé clic en el botón <strong>Agregar N</strong>.</li><li>Para sacar a alguien, hacé clic en el tacho (<span class="ui" data-ui="Quitar">Quitar</span>) de su fila y confirmá.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>Aparece «Grupo actualizado.», «Miembros agregados.» o «Miembro removido.». Quien sale del grupo deja de ver los mensajes nuevos.</li></ul></div>
+
+<p class="related">Relacionado: <a class="ref" href="plataforma.html#salir-de-grupo-chat">Salir de un grupo o cerrar un chat directo</a></p>
+</article>
+<article class="task" id="salir-de-grupo-chat">
+<h3><a class="anchor" href="#salir-de-grupo-chat">Salir de un grupo o cerrar un chat directo</a></h3>
+
+<dl class="meta"><dt>Quién puede</dt><dd>Cualquier usuario con sesión iniciada.</dd></dl>
+
+<ol class="steps"><li>En un grupo: abrí <span class="ui" data-ui="Opciones del chat">Opciones del chat</span>, elegí <span class="ui" data-ui="Configurar grupo">Configurar grupo</span>, hacé clic en <span class="ui" data-ui="Salir del grupo">Salir del grupo</span> y confirmá con <span class="ui" data-ui="Salir">Salir</span>.</li><li>En un mensaje directo: abrí <span class="ui" data-ui="Opciones del chat">Opciones del chat</span>, elegí <span class="ui" data-ui="Cerrar chat">Cerrar chat</span> y confirmá con <span class="ui" data-ui="Cerrar">Cerrar</span>.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>Del grupo: aparece «Saliste del grupo.» y dejás de ver los mensajes nuevos; para volver, alguien tiene que agregarte. Si eras el único administrador, pasa a serlo el miembro más antiguo.</li><li>El chat directo desaparece de tu lista; se vuelve a abrir si le escribís de nuevo a esa persona.</li></ul></div>
+
+
+</article>
+</section>
+<section class="section" id="perfil">
+<h2><a class="anchor" href="#perfil">Mi perfil</a></h2>
+<p class="where">En el menú: <strong>Perfil</strong> · <code>/profile</code></p><p class="where">Ven esta pantalla: Cualquier usuario con sesión iniciada.</p><p class="open"><a href="/profile" target="jouve-app">Abrir esta pantalla en JouveERP ↗</a></p>
+<p>Cómo te ven los demás en el chat, la auditoría y los listados (foto, nombre, color), y qué notificaciones recibís. Se abre desde tu nombre en el pie de la barra lateral › <span class="ui" data-ui="Perfil">Perfil</span>.</p>
+
+
+<ul class="task-toc"><li><a href="#editar-perfil">Cambiar tu nombre o el color del avatar</a></li><li><a href="#cambiar-foto-perfil">Cambiar o quitar tu foto</a></li><li><a href="#preferencias-notificaciones">Elegir qué notificaciones de chat recibís</a></li><li><a href="#activar-push">Recibir notificaciones con el sistema cerrado (push)</a></li></ul>
+<article class="task" id="editar-perfil">
+<h3><a class="anchor" href="#editar-perfil">Cambiar tu nombre o el color del avatar</a></h3>
+
+<dl class="meta"><dt>Quién puede</dt><dd>Cualquier usuario con sesión iniciada.</dd></dl>
+<figure class="mock"><div class="m-frame m-backdrop"><div class="m-dialog"><div class="m-dialog-title" data-ui="Mi perfil">Mi perfil<span class="m-close">×</span></div><div class="m-form"><div class="m-field"><span class="m-label" data-ui="Nombre">Nombre</span><span class="m-input">Ana</span><span class="mk" aria-label="Paso 1">1</span></div><div class="m-field"><span class="m-label" data-ui="Apellido">Apellido</span><span class="m-input">López</span><span class="mk" aria-label="Paso 1">1</span></div><div class="m-field"><span class="m-label" data-ui="Color del avatar">Color del avatar</span><span class="m-input m-select"><span class="m-chevron">⌄</span></span><span class="mk" aria-label="Paso 2">2</span></div></div><div class="m-footer"><span class="m-btn m-btn-primary" data-ui="Guardar cambios">Guardar cambios<span class="mk" aria-label="Paso 3">3</span></span></div></div></div><figcaption>Perfil</figcaption></figure>
+<ol class="steps"><li>En <a class="ref" href="plataforma.html#perfil">Perfil</a>, completá <span class="ui" data-ui="Nombre">Nombre</span> y <span class="ui" data-ui="Apellido">Apellido</span> (hasta 80 caracteres cada uno).</li><li>En <span class="ui" data-ui="Color del avatar">Color del avatar</span>, hacé clic en uno de los círculos de color: es el fondo de tus iniciales cuando no tenés foto.</li><li>Hacé clic en <span class="ui" data-ui="Guardar cambios">Guardar cambios</span> (se habilita cuando cambiaste algo).</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>Aparece «Perfil actualizado.» y tu nombre nuevo se ve en el chat, las tareas, la auditoría y la barra lateral.</li></ul></div>
+<div class="block errors"><h4>Si aparece un error</h4><dl><dt>“Ingresá tu nombre.”</dt><dd>El nombre no puede quedar vacío.</dd><dt>“Ingresá tu apellido.”</dt><dd>El apellido no puede quedar vacío.</dd></dl></div>
+<p class="related">Relacionado: <a class="ref" href="plataforma.html#cambiar-foto-perfil">Cambiar o quitar tu foto</a></p>
+</article>
+<article class="task" id="cambiar-foto-perfil">
+<h3><a class="anchor" href="#cambiar-foto-perfil">Cambiar o quitar tu foto</a></h3>
+
+<dl class="meta"><dt>Quién puede</dt><dd>Cualquier usuario con sesión iniciada.</dd></dl>
+
+<ol class="steps"><li>En <a class="ref" href="plataforma.html#perfil">Perfil</a>, hacé clic en <span class="ui" data-ui="Cambiar foto">Cambiar foto</span> y elegí una imagen PNG, JPG o WebP de hasta 1 MB.</li><li>Para sacarla, hacé clic en <span class="ui" data-ui="Quitar">Quitar</span>.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>Aparece «Foto actualizada.» (o «Foto eliminada.»). Sin foto se muestran tus iniciales con el color elegido.</li></ul></div>
+<div class="block errors"><h4>Si aparece un error</h4><dl><dt>“Solo PNG, JPG o WebP.”</dt><dd>Guardá la imagen en uno de esos formatos.</dd><dt>“Máx 1 MB.”</dt><dd>Usá una imagen más chica o recortala.</dd></dl></div>
+<p class="related">Relacionado: <a class="ref" href="plataforma.html#editar-perfil">Cambiar tu nombre o el color del avatar</a></p>
+</article>
+<article class="task" id="preferencias-notificaciones">
+<h3><a class="anchor" href="#preferencias-notificaciones">Elegir qué notificaciones de chat recibís</a></h3>
+
+<dl class="meta"><dt>Quién puede</dt><dd>Cualquier usuario con sesión iniciada.</dd></dl>
+
+<ol class="steps"><li>En <a class="ref" href="plataforma.html#perfil">Perfil</a>, en <span class="ui" data-ui="Notificaciones">Notificaciones</span>, activá o apagá cada tipo:<ul><li><span class="ui" data-ui="Menciones">Menciones</span>: cuando te mencionan con @.</li><li><span class="ui" data-ui="Respuestas">Respuestas</span>: cuando alguien responde un mensaje tuyo.</li><li><span class="ui" data-ui="Mensajes de chat">Mensajes de chat</span>: cualquier mensaje en tus conversaciones.</li></ul></li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>Se guarda al instante. Vale para la campanita y para los avisos del navegador; los avisos de tareas y de tareas de IA no se apagan desde acá.</li></ul></div>
+
+<p class="related">Relacionado: <a class="ref" href="plataforma.html#silenciar-chat">Silenciar una conversación</a> · <a class="ref" href="plataforma.html#activar-push">Recibir notificaciones con el sistema cerrado (push)</a></p>
+</article>
+<article class="task" id="activar-push">
+<h3><a class="anchor" href="#activar-push">Recibir notificaciones con el sistema cerrado (push)</a></h3>
+
+<dl class="meta"><dt>Quién puede</dt><dd>Cualquier usuario con sesión iniciada.</dd></dl>
+
+<ol class="steps"><li>En <a class="ref" href="plataforma.html#perfil">Perfil</a>, en <span class="ui" data-ui="Push en este dispositivo">Push en este dispositivo</span>, hacé clic en <span class="ui" data-ui="Activar push en este dispositivo">Activar push en este dispositivo</span>.</li><li>Aceptá el permiso que pide el navegador.</li><li>Para dejar de recibirlas en ese dispositivo, hacé clic en <span class="ui" data-ui="Desactivar push en este dispositivo">Desactivar push en este dispositivo</span>.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>Aparece «Push activado en este dispositivo.». Se activa por dispositivo y navegador: repetilo en cada uno donde quieras recibirlas.</li><li>Por push llegan los avisos de chat (mensajes, respuestas y menciones).</li><li>Funciona en Chrome, Firefox y Edge. En el iPhone (Safari), primero agregá el sistema a la pantalla de inicio. Si el botón no aparece, el navegador no lo soporta, bloqueaste las notificaciones o el push no está configurado en esta instalación: la pantalla lo indica.</li></ul></div>
+<div class="block errors"><h4>Si aparece un error</h4><dl><dt>“Permiso denegado. Activalo desde la configuración del browser.”</dt><dd>En la configuración del sitio del navegador, permití las notificaciones y volvé a intentar.</dd></dl></div>
+<p class="related">Relacionado: <a class="ref" href="plataforma.html#preferencias-notificaciones">Elegir qué notificaciones de chat recibís</a></p>
+</article>
+</section>
+</main>
+</div>
+</div>
+<script src="assets/search-index.js"></script>
+<script src="assets/guide.js"></script>
+</body>
+</html>

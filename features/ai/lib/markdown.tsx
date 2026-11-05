@@ -4,6 +4,7 @@ import DOMPurify from "dompurify";
 import { Marked } from "marked";
 
 import { useIsClient } from "@/hooks/use-is-client";
+import { MANUAL_WINDOW } from "@/lib/manual/windows";
 
 // Markdown rendering for AI assistant output. The team-chat composer
 // (features/chat/lib/markdown) deliberately strips headings and tables because
@@ -49,7 +50,11 @@ const SANITIZE_CONFIG = {
 
 export function renderAiMarkdown(body: string): string {
   const html = md.parse(body) as string;
-  return DOMPurify.sanitize(html, SANITIZE_CONFIG);
+  // Links into the user guide (searchGuide's href) open its one reused tab.
+  return DOMPurify.sanitize(html, SANITIZE_CONFIG).replace(
+    /<a href="(\/manual\/[^"]*)">/g,
+    `<a href="$1" target="${MANUAL_WINDOW}">`,
+  );
 }
 
 export function AiMarkdown({ body }: { body: string }) {
