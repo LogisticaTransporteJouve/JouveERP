@@ -19,7 +19,7 @@ import type { ReceivedVoucher } from "../schema";
 // Accepting an ARCA voucher shows what ARCA informed as a summary and only
 // the imputación as inputs, and still saves the voucher's own values.
 
-const h = vi.hoisted(() => ({ mutate: vi.fn() }));
+const h = vi.hoisted(() => ({ mutate: vi.fn(), submitCreate: vi.fn() }));
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/purchases/arca",
@@ -32,7 +32,16 @@ vi.mock("@/features/files/hooks/use-attachments", () => ({
 vi.mock("../hooks/use-purchase-invoices", () => ({
   usePurchaseInvoiceByIdOptional: () => ({ data: undefined, isError: false }),
   usePurchaseInvoiceItems: () => ({ data: undefined, isError: false }),
-  useCreatePurchaseInvoice: () => ({ mutate: h.mutate, isPending: false }),
+  // Saves through the draft's submit, as the real hook does.
+  useCreatePurchaseInvoice: (
+    submit?: (invoice: unknown) => Promise<unknown>,
+  ) => ({
+    mutate: (invoice: unknown) => {
+      h.mutate(invoice);
+      void submit?.(invoice);
+    },
+    isPending: false,
+  }),
   useNextInternalPurchaseNumero: () => ({ data: undefined, error: null }),
   usePurchaseInvoiceDuplicate: () => ({ data: null }),
   useUpdatePurchaseInvoice: () => ({ mutate: vi.fn(), isPending: false }),
@@ -62,6 +71,7 @@ const { PurchaseInvoiceDraftDialogContent } =
 afterEach(() => {
   cleanup();
   h.mutate.mockReset();
+  h.submitCreate.mockReset();
 });
 
 const FISCAL: InvoicingChannelSummary = {
@@ -104,12 +114,12 @@ const voucher: ReceivedVoucher = {
   },
 };
 
-function renderAccept() {
+function renderAccept(v: ReceivedVoucher = voucher) {
   const draft: PurchaseInvoiceDraft = {
     origin: "arca",
-    data: arcaVoucherToDraft(voucher),
+    data: arcaVoucherToDraft(v),
     source: null,
-    submitCreate: vi.fn(),
+    submitCreate: h.submitCreate,
   };
   render(
     <ScopeProvider channels={[FISCAL]} initialFiscalFilter="fiscal">
@@ -200,6 +210,100 @@ describe("PurchaseInvoiceForm accepting an ARCA voucher", () => {
       cotizacion: 1,
       cae_proveedor: "76123456789012",
       cae_vto_proveedor: null,
+    });
+    expect(h.submitCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ imp_total: 1260 }),
+      undefined,
+    );
+  });
+
+  describe("a total above its parts (Telefónica 02093-03198905)", () => {
+    const telefonica: ReceivedVoucher = {
+      ...voucher,
+      imp_neto_gravado: 895,
+      imp_no_gravado: 98.45,
+      imp_op_exentas: 0,
+      imp_iva: 241.65,
+      imp_trib: 0,
+      imp_total: 1281.3,
+    };
+    const accept = () =>
+      screen.getByRole("button", { name: "Aceptar comprobante" });
+
+    it("shows the gap and keeps the button disabled until the person chooses", () => {
+      renderAccept(telefonica);
+      const summary = screen.getByRole("region", { name: "Comprobante" });
+      expect(within(summary).getByText("Diferencia sin detallar")).toBeTruthy();
+      expect(within(summary).getByText("$ 46,20")).toBeTruthy();
+      const imputacion = screen.getByRole("region", { name: "Imputación" });
+      expect(
+        within(imputacion).getByText("Diferencia de $ 46,20: va a"),
+      ).toBeTruthy();
+      expect(
+        screen.getByText(
+          "Elegí a dónde va la diferencia para aceptar el comprobante.",
+        ),
+      ).toBeTruthy();
+      expect(accept()).toHaveProperty("disabled", true);
+      // IVA is not offered.
+      expect(
+        screen
+          .getAllByRole("radio")
+          .map((r) => r.closest("label")?.textContent),
+      ).toEqual(["Otros tributos (percepciones)", "No gravado"]);
+      fireEvent.click(accept());
+      expect(h.mutate).not.toHaveBeenCalled();
+    });
+
+    it("saves the gap in no gravado, adding up, and sends the choice", async () => {
+      renderAccept(telefonica);
+      fireEvent.click(screen.getByRole("radio", { name: "No gravado" }));
+      expect(accept()).toHaveProperty("disabled", false);
+      fireEvent.click(accept());
+      await waitFor(() => expect(h.mutate).toHaveBeenCalledTimes(1));
+      expect(h.mutate.mock.calls[0]?.[0]).toMatchObject({
+        imp_neto: 895,
+        imp_no_gravado: 144.65,
+        imp_iva: 241.65,
+        imp_trib: 0,
+        imp_total: 1281.3,
+      });
+      expect(h.submitCreate).toHaveBeenCalledWith(expect.anything(), {
+        arcaGapTarget: "no_gravado",
+      });
+      // ARCA's figures stay in the summary.
+      const summary = screen.getByRole("region", { name: "Comprobante" });
+      expect(within(summary).getByText("$ 98,45")).toBeTruthy();
+    });
+
+    it("puts the gap in otros tributos, to split before saving", async () => {
+      renderAccept(telefonica);
+      fireEvent.click(
+        screen.getByRole("radio", { name: "Otros tributos (percepciones)" }),
+      );
+      expect(screen.getByText("Falta repartir $ 46,20.")).toBeTruthy();
+      fireEvent.click(accept());
+      // The split must still add up.
+      await waitFor(() =>
+        expect(
+          screen.getAllByText("Falta repartir $ 46,20.").length,
+        ).toBeGreaterThan(0),
+      );
+      expect(h.mutate).not.toHaveBeenCalled();
+      fireEvent.change(screen.getByLabelText("Percepción IIBB"), {
+        target: { value: "46,20" },
+      });
+      fireEvent.click(accept());
+      await waitFor(() => expect(h.mutate).toHaveBeenCalledTimes(1));
+      expect(h.mutate.mock.calls[0]?.[0]).toMatchObject({
+        imp_no_gravado: 98.45,
+        imp_trib: 46.2,
+        imp_perc_iibb: 46.2,
+        imp_total: 1281.3,
+      });
+      expect(h.submitCreate).toHaveBeenCalledWith(expect.anything(), {
+        arcaGapTarget: "otros_tributos",
+      });
     });
   });
 });

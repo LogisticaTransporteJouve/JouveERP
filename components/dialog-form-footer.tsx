@@ -7,12 +7,15 @@ export function DialogFormFooter({
   isSaving,
   isDirty,
   createLabel,
+  submitDisabled = false,
   onCancel,
 }: {
   mode: "create" | "edit";
   isSaving: boolean;
   isDirty: boolean;
   createLabel: string;
+  /** Something the form says next to the footer is still missing. */
+  submitDisabled?: boolean;
   onCancel: () => void;
 }) {
   return (
@@ -27,7 +30,7 @@ export function DialogFormFooter({
       </Button>
       <Button
         type="submit"
-        disabled={isSaving || (mode === "edit" && !isDirty)}
+        disabled={isSaving || submitDisabled || (mode === "edit" && !isDirty)}
       >
         {isSaving
           ? "Guardando…"

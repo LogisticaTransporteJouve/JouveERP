@@ -3,6 +3,7 @@ import type { z } from "zod";
 import type { IvaCondition } from "@/features/clients/schema";
 
 import type {
+  ArcaGapTarget,
   PURCHASE_TRIBUTE_FIELDS,
   PurchaseInvoiceCreateSchema,
   PurchaseInvoiceKind,
@@ -64,6 +65,9 @@ export type PurchaseInvoiceDraftData = {
   /** Letter A only; 0 when the source does not tell them apart. */
   imp_no_gravado?: number;
   imp_op_exentas?: number;
+  /** ARCA only: what its total carries above the parts (receivedVoucherGap),
+   *  for the person to place before accepting; null or left out when none. */
+  arca_gap?: number | null;
   /** How otros tributos split, when the source says. Left out: all IIBB (a
    *  scanned document does not tell them apart). A field missing from the
    *  object starts at 0, for the user to split. */
@@ -96,6 +100,7 @@ export type PurchaseInvoiceDraft = {
   source: PurchaseInvoiceDraftSource | null;
   submitCreate: (
     invoice: PurchaseInvoiceCreateRawInput,
+    options?: { arcaGapTarget?: ArcaGapTarget },
   ) => Promise<{ id: string; linkedExisting?: boolean }>;
 };
 
@@ -169,7 +174,7 @@ function amount(value: number | null, fallback: string): string {
   return value === null ? fallback : amountToInput(value);
 }
 
-function tributePatch(
+export function tributePatch(
   data: PurchaseInvoiceDraftData,
 ): Record<PurchaseTributeField, string> {
   const split = data.tributes ?? { imp_perc_iibb: data.imp_trib ?? 0 };

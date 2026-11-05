@@ -355,6 +355,151 @@ describe("createPurchaseInvoiceFromReceivedAction", () => {
     ).toEqual({ ok: false, error: "No se pudo cargar el comprobante." });
   });
 
+  describe("a total above its parts (Telefónica 02093-03198905)", () => {
+    // ARCA: neto 895, no gravado 98,45, IVA 241,65, total 1.281,30 → 46,20.
+    const telefonica = {
+      imp_neto_gravado: 895,
+      imp_no_gravado: 98.45,
+      imp_op_exentas: 0,
+      imp_iva: 241.65,
+      imp_trib: 0,
+      imp_total: 1281.3,
+    };
+    const base = {
+      ...invoice,
+      imp_neto: 895,
+      imp_no_gravado: 98.45,
+      imp_op_exentas: 0,
+      imp_iva: 241.65,
+      imp_trib: 0,
+      imp_perc_iva: 0,
+      imp_perc_iibb: 0,
+      imp_total: 1281.3,
+    };
+    const parts = (i: Record<string, number | string>) =>
+      Math.round(
+        (Number(i.imp_neto) +
+          Number(i.imp_no_gravado) +
+          Number(i.imp_op_exentas) +
+          Number(i.imp_iva) +
+          Number(i.imp_trib)) *
+          100,
+      ) / 100;
+
+    beforeEach(() => {
+      voucherRow = row(telefonica);
+    });
+
+    it("saves the gap in otros tributos, split, and the purchase adds up", async () => {
+      const sent = { ...base, imp_trib: 46.2, imp_perc_iibb: 46.2 };
+      const res = await createPurchaseInvoiceFromReceivedAction({
+        voucherId: VOUCHER_ID,
+        invoice: sent,
+        gapTarget: "otros_tributos",
+      });
+      expect(res.ok).toBe(true);
+      expect(createPurchase).toHaveBeenCalledWith(
+        expect.objectContaining({
+          imp_neto: 895,
+          imp_no_gravado: 98.45,
+          imp_iva: 241.65,
+          imp_trib: 46.2,
+          imp_perc_iibb: 46.2,
+          imp_total: 1281.3,
+        }),
+      );
+      expect(parts(sent)).toBe(1281.3);
+    });
+
+    it("saves the gap in no gravado, and the purchase adds up", async () => {
+      const sent = { ...base, imp_no_gravado: 144.65 };
+      const res = await createPurchaseInvoiceFromReceivedAction({
+        voucherId: VOUCHER_ID,
+        invoice: sent,
+        gapTarget: "no_gravado",
+      });
+      expect(res.ok).toBe(true);
+      expect(createPurchase).toHaveBeenCalledWith(
+        expect.objectContaining({
+          imp_no_gravado: 144.65,
+          imp_iva: 241.65,
+          imp_trib: 0,
+          imp_total: 1281.3,
+        }),
+      );
+      expect(parts(sent)).toBe(1281.3);
+    });
+
+    it("puts the gap in the net on a B (no gravado goes inside it)", async () => {
+      voucherRow = row({ ...telefonica, letter: "B", cbte_tipo: 6 });
+      const res = await createPurchaseInvoiceFromReceivedAction({
+        voucherId: VOUCHER_ID,
+        invoice: {
+          ...base,
+          letter: "B",
+          imp_neto: 1281.3,
+          imp_no_gravado: 0,
+          imp_iva: 0,
+        },
+        gapTarget: "no_gravado",
+      });
+      expect(res.ok).toBe(true);
+    });
+
+    it("refuses without a choice, also when the amounts sent add up", async () => {
+      const res = await createPurchaseInvoiceFromReceivedAction({
+        voucherId: VOUCHER_ID,
+        invoice: { ...base, imp_no_gravado: 144.65 },
+      });
+      expect(res).toEqual({
+        ok: false,
+        error:
+          "Los importes de ARCA no suman el total: elegí a dónde va la diferencia de $ 46,20 (otros tributos (percepciones) o no gravado).",
+      });
+      expect(createPurchase).not.toHaveBeenCalled();
+    });
+
+    it("refuses ARCA's amounts as they are (they do not add up)", async () => {
+      const res = await createPurchaseInvoiceFromReceivedAction({
+        voucherId: VOUCHER_ID,
+        invoice: base,
+        gapTarget: "no_gravado",
+      });
+      expect(res.ok).toBe(false);
+      expect(createPurchase).not.toHaveBeenCalled();
+    });
+
+    it("recomputes the gap: a gap the client sends is ignored", async () => {
+      // 60 instead of 46,20, with the total raised to match.
+      const res = await createPurchaseInvoiceFromReceivedAction({
+        voucherId: VOUCHER_ID,
+        invoice: {
+          ...base,
+          imp_trib: 60,
+          imp_perc_iibb: 60,
+          imp_total: 1295.1,
+          gap: 60,
+        },
+        gapTarget: "otros_tributos",
+      });
+      expect(res).toEqual({
+        ok: false,
+        error: "Los importes tienen que ser los de ARCA.",
+      });
+      expect(createPurchase).not.toHaveBeenCalled();
+    });
+
+    it("refuses an unknown place for the gap (IVA is not offered)", async () => {
+      const res = await createPurchaseInvoiceFromReceivedAction({
+        voucherId: VOUCHER_ID,
+        invoice: { ...base, imp_iva: 287.85 },
+        gapTarget: "iva",
+      });
+      expect(res).toEqual({ ok: false, error: "Datos inválidos." });
+      expect(createPurchase).not.toHaveBeenCalled();
+    });
+  });
+
   it("answers ok when a retry finds it already loaded", async () => {
     voucherRow = row({
       status: "confirmed",

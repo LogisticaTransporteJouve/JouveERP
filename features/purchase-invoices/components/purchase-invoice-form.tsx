@@ -68,6 +68,7 @@ import {
   documentTotalGap,
   draftToFormPatch,
   totalsGap,
+  tributePatch,
   type DraftField,
   type PurchaseInvoiceCreateRawInput,
   type PurchaseInvoiceDraft,
@@ -78,6 +79,7 @@ import {
   followHeaderTotal,
   partsGapFix,
 } from "../lib/header-total";
+import { placeReceivedGap } from "../lib/arca-received-draft";
 import { originCurrencyFields } from "../lib/origin-currency";
 import {
   type CostDefault,
@@ -95,6 +97,7 @@ import {
   PURCHASE_TOTAL_MISMATCH_MESSAGE,
   PURCHASE_TRIBUTE_FIELDS,
   formatInvoiceNumber,
+  type ArcaGapTarget,
   type PurchaseAmountBreakdown,
   type PurchaseInvoice,
   type PurchaseInvoiceKind,
@@ -110,6 +113,7 @@ import {
   PurchaseInvoicePicker,
   type PickedPurchaseInvoice,
 } from "./purchase-invoice-picker";
+import { ArcaGapChoice } from "./arca-gap-choice";
 import { ArcaLinesNote } from "./arca-lines-note";
 import { ArcaVoucherSummary } from "./arca-voucher-summary";
 import {
@@ -122,6 +126,9 @@ import {
 } from "./purchase-invoice-items-editor";
 
 type Mode = "create" | "edit";
+
+const ARCA_GAP_PENDING_MESSAGE =
+  "Elegí a dónde va la diferencia para aceptar el comprobante.";
 
 export type PurchaseInvoiceFormValues = FormValues;
 
@@ -305,7 +312,23 @@ export function PurchaseInvoiceForm({
   const createDraft = mode === "create" ? (draft ?? null) : null;
   // An ARCA voucher: identity and amounts come from ARCA and stay as they are.
   const arcaLocked = createDraft?.origin === "arca";
-  const createMut = useCreatePurchaseInvoice(createDraft?.submitCreate);
+  // ARCA's total above its parts: the person says where it goes before
+  // accepting, and the server checks it against the voucher.
+  const arcaGap = arcaLocked ? (createDraft?.data.arca_gap ?? null) : null;
+  const [arcaGapTarget, setArcaGapTarget] = useState<ArcaGapTarget | null>(
+    null,
+  );
+  const draftSubmit = createDraft?.submitCreate;
+  const submitCreate = useMemo<
+    PurchaseInvoiceDraft["submitCreate"] | undefined
+  >(
+    () =>
+      draftSubmit &&
+      ((invoice) =>
+        draftSubmit(invoice, arcaGapTarget ? { arcaGapTarget } : undefined)),
+    [draftSubmit, arcaGapTarget],
+  );
+  const createMut = useCreatePurchaseInvoice(submitCreate);
   const updateMut = useUpdatePurchaseInvoice();
   const isSaving = createMut.isPending || updateMut.isPending;
 
@@ -761,9 +784,43 @@ export function PurchaseInvoiceForm({
     ? null
     : partsGapFix(partsGap, showsExempt, watchedAmounts);
 
+  const arcaGapPending = arcaGap !== null && arcaGapTarget === null;
+
+  // ARCA's amounts with the gap where the person put it; the tribute split
+  // starts again from ARCA's (the gap, if it goes there, is left to split).
+  function chooseArcaGap(target: ArcaGapTarget) {
+    if (!createDraft || arcaGap === null) return;
+    setArcaGapTarget(target);
+    const d = createDraft.data;
+    const placed = placeReceivedGap(
+      {
+        imp_neto: d.imp_neto ?? 0,
+        imp_no_gravado: d.imp_no_gravado ?? 0,
+        imp_op_exentas: d.imp_op_exentas ?? 0,
+        imp_iva: d.imp_iva ?? 0,
+        imp_trib: d.imp_trib ?? 0,
+        imp_total: d.imp_total ?? 0,
+      },
+      d.letter,
+      arcaGap,
+      target,
+    );
+    form.setValue("imp_neto", amountToInput(placed.imp_neto));
+    form.setValue("imp_no_gravado", amountToInput(placed.imp_no_gravado));
+    form.setValue("imp_trib", amountToInput(placed.imp_trib));
+    const tributes = tributePatch(d);
+    for (const name of PURCHASE_TRIBUTE_FIELDS) {
+      form.setValue(name, tributes[name]);
+    }
+  }
+
   function onSubmit(values: FormValues) {
     if (!values.supplier) {
       toast.error("Seleccioná un proveedor.");
+      return;
+    }
+    if (arcaGapPending) {
+      toast.error(ARCA_GAP_PENDING_MESSAGE);
       return;
     }
     if (partsGap !== null && amountsChanged) {
@@ -1274,14 +1331,26 @@ export function PurchaseInvoiceForm({
       isSaving={isSaving}
       isDirty={form.formState.isDirty}
       createLabel={arcaLocked ? "Aceptar comprobante" : "Cargar factura"}
+      submitDisabled={arcaGapPending}
       onCancel={() => (onCancel ? onCancel() : router.push("/purchases"))}
     />
   );
 
   if (arcaLocked) {
     // ARCA's identity and amounts are not inputs: they stay in the form
-    // state as loaded and are sent as they are.
+    // state as loaded and are sent as they are, plus the gap where the
+    // person put it (chooseArcaGap).
     const arcaCae = createDraft?.data.cae_proveedor ?? null;
+    const arcaData = createDraft?.data;
+    // What ARCA informed, whatever the person does with the gap.
+    const arcaAmounts = {
+      imp_neto: amountToInput(arcaData?.imp_neto ?? 0),
+      imp_no_gravado: amountToInput(arcaData?.imp_no_gravado ?? 0),
+      imp_op_exentas: amountToInput(arcaData?.imp_op_exentas ?? 0),
+      imp_iva: amountToInput(arcaData?.imp_iva ?? 0),
+      imp_trib: amountToInput(arcaData?.imp_trib ?? 0),
+      imp_total: amountToInput(arcaData?.imp_total ?? 0),
+    };
     return (
       <Form {...form}>
         <form
@@ -1302,13 +1371,14 @@ export function PurchaseInvoiceForm({
               moneda={watchedMoneda}
               cae={arcaCae ?? ""}
               caeVto={watchedCaeVto}
-              amounts={watchedAmounts}
+              amounts={arcaAmounts}
+              gap={arcaGap}
               linesNote={
                 <ArcaLinesNote lines={createDraft?.data.arca_lines ?? []} />
               }
             />
             {duplicateNotice}
-            {gapNotice}
+            {arcaGap === null && gapNotice}
           </section>
           <div className="flex flex-col lg:min-h-0">
             <section
@@ -1318,6 +1388,15 @@ export function PurchaseInvoiceForm({
               <h3 className="text-sm font-medium">Imputación</h3>
               {draftNotice}
               {internalNotice}
+              {arcaGap !== null && (
+                <ArcaGapChoice
+                  gap={arcaGap}
+                  currency={watchedMoneda === "DOL" ? "USD" : "ARS"}
+                  letter={watchedLetter || null}
+                  value={arcaGapTarget}
+                  onChange={chooseArcaGap}
+                />
+              )}
               <div className="grid gap-4 sm:grid-cols-2">
                 {channelField}
                 {fchVtoPagoField}
@@ -1336,7 +1415,12 @@ export function PurchaseInvoiceForm({
               {ncNdBlock}
               {notesField}
             </section>
-            <div className="sticky bottom-0 border-t bg-background px-4 py-3">
+            <div className="sticky bottom-0 space-y-2 border-t bg-background px-4 py-3">
+              {arcaGapPending && (
+                <p className="text-right text-xs text-muted-foreground">
+                  {ARCA_GAP_PENDING_MESSAGE}
+                </p>
+              )}
               {footer}
             </div>
           </div>

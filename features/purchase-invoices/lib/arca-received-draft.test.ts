@@ -6,7 +6,9 @@ import { TRIBUTE_SUGGESTION_NOTE } from "@/lib/purchases/tribute-split";
 import {
   arcaVoucherToDraft,
   inferVoucherIvaRate,
+  placeReceivedGap,
   receivedVoucherAmounts,
+  receivedVoucherGap,
   receivedVoucherItems,
 } from "./arca-received-draft";
 
@@ -280,5 +282,81 @@ describe("receivedVoucherItems without per-alícuota columns", () => {
   it("keeps a B voucher and an A without IVA header-only", () => {
     expect(receivedVoucherItems(voucher({ letter: "B" }))).toEqual([]);
     expect(receivedVoucherItems(voucher({ imp_iva: 0 }))).toEqual([]);
+  });
+});
+
+describe("receivedVoucherGap and placeReceivedGap", () => {
+  // The owner's 2014 Facturas A (ARCA → Mis Comprobantes).
+  const telefonica = voucher({
+    imp_neto_gravado: 2110.42,
+    imp_no_gravado: 63.31,
+    imp_op_exentas: 0,
+    imp_iva: 564.83,
+    imp_trib: 0,
+    imp_total: 2843.18,
+  });
+  const retegui = voucher({
+    imp_neto_gravado: 0,
+    imp_no_gravado: 0,
+    imp_op_exentas: 0,
+    imp_iva: 0,
+    imp_trib: 0,
+    imp_total: 57934.8,
+  });
+  const sum = (a: ReturnType<typeof receivedVoucherAmounts>) =>
+    Math.round(
+      (a.imp_neto +
+        a.imp_no_gravado +
+        a.imp_op_exentas +
+        a.imp_iva +
+        a.imp_trib) *
+        100,
+    ) / 100;
+
+  it("reads the gap above the parts, and none for a rounding cent", () => {
+    expect(receivedVoucherGap(telefonica)).toBe(104.62);
+    expect(receivedVoucherGap(retegui)).toBe(57934.8);
+    expect(receivedVoucherGap(voucher())).toBeNull();
+    expect(receivedVoucherGap(voucher({ imp_total: 1310.01 }))).toBeNull();
+  });
+
+  it("places it where the person says, and the parts then add up", () => {
+    for (const v of [telefonica, retegui]) {
+      const gap = receivedVoucherGap(v) ?? 0;
+      for (const target of ["otros_tributos", "no_gravado"] as const) {
+        const placed = placeReceivedGap(
+          receivedVoucherAmounts(v),
+          v.letter,
+          gap,
+          target,
+        );
+        expect(sum(placed)).toBe(v.imp_total);
+        expect(placed.imp_iva).toBe(v.imp_iva);
+      }
+    }
+    expect(
+      placeReceivedGap(
+        receivedVoucherAmounts(telefonica),
+        "A",
+        104.62,
+        "no_gravado",
+      ),
+    ).toMatchObject({ imp_no_gravado: 167.93, imp_trib: 0 });
+    // On a B the no gravado is inside the net.
+    expect(
+      placeReceivedGap(
+        receivedVoucherAmounts({ ...telefonica, letter: "B" }),
+        "B",
+        104.62,
+        "no_gravado",
+      ),
+    ).toMatchObject({ imp_neto: 2843.18, imp_no_gravado: 0 });
+  });
+
+  it("leaves the draft's amounts as ARCA lists them, with the gap apart", () => {
+    const draft = arcaVoucherToDraft(retegui);
+    expect(draft.arca_gap).toBe(57934.8);
+    expect(draft.imp_no_gravado).toBe(0);
+    expect(draft.imp_total).toBe(57934.8);
   });
 });
