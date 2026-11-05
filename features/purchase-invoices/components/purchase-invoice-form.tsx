@@ -13,6 +13,7 @@ import {
   useScope,
   useSideChannels,
 } from "@/components/providers/scope-provider";
+import { ChannelsReadError } from "@/components/channels-read-error";
 import { DialogFormFooter } from "@/components/dialog-form-footer";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -289,7 +290,7 @@ export function PurchaseInvoiceForm({
   onCancel?: () => void;
 }) {
   const router = useRouter();
-  const { channels } = useScope();
+  const { channels, channelsFailed } = useScope();
   // Edit keeps the invoice's own channel among the options even if it was retired.
   const pageIsFiscal = usePageIsFiscal();
   const channelOptions = useSideChannels(
@@ -783,7 +784,11 @@ export function PurchaseInvoiceForm({
     // was left with values (e.g. you changed channel after typing).
     const channelFiscal = channelIsFiscal(values.channel_id, channels);
     if (channelFiscal === null) {
-      toast.error("El canal elegido no existe. Elegí otro canal.");
+      toast.error(
+        channelsFailed
+          ? "No se pudieron cargar los canales. Reintentá."
+          : "El canal elegido no existe. Elegí otro canal.",
+      );
       return;
     }
     const isInternal = !channelFiscal;
@@ -955,6 +960,7 @@ export function PurchaseInvoiceForm({
                     </SelectContent>
                   </Select>
                 </FormControl>
+                <ChannelsReadError inline />
                 <FormMessage />
               </FormItem>
             )}

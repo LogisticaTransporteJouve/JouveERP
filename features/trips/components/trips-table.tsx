@@ -15,6 +15,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { userCan, type Access } from "@/lib/auth/permissions";
 
 import { useDeleteTrip, useTrips } from "../hooks/use-trips";
 import { TRIP_STATUS_LABELS, type Trip } from "../schema";
@@ -27,12 +28,18 @@ function formatMoney(n: number | null) {
 }
 
 export function TripsTable({
+  actorAccess,
   driverOptions,
   vehicleOptions,
 }: {
+  actorAccess: Access;
   driverOptions: { id: string; full_name: string }[];
   vehicleOptions: { id: string; patente: string }[];
 }) {
+  // The permission the create, update and delete actions check.
+  const canWrite = userCan(actorAccess, "trips:write");
+  // «Ver cargas» opens a page whose cargas read checks shipments:read.
+  const canSeeShipments = userCan(actorAccess, "shipments:read");
   const { data: items } = useTrips();
   const deleteMut = useDeleteTrip();
   const confirm = useConfirm();
@@ -68,7 +75,9 @@ export function TripsTable({
         accessorKey: "driver",
         header: "Chofer",
         cell: ({ row }) => (
-          <span className="text-sm">{row.original.driver?.full_name ?? "—"}</span>
+          <span className="text-sm">
+            {row.original.driver?.full_name ?? "—"}
+          </span>
         ),
         meta: { mobile: "secondary" },
       },
@@ -105,7 +114,10 @@ export function TripsTable({
       },
       {
         accessorKey: "revenue",
-        header: "Ingreso",
+        // The typed figure. Rentabilidad de flota counts the invoiced freight
+        // of the trip's cargas (v_trip_revenue), and this one only for a trip
+        // without cargas.
+        header: "Ingreso manual",
         cell: ({ row }) => (
           <span className="text-sm">{formatMoney(row.original.revenue)}</span>
         ),
@@ -116,41 +128,48 @@ export function TripsTable({
         header: "",
         enableSorting: false,
         meta: { headerClassName: "w-12", mobile: "primary" },
-        cell: ({ row }) => (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <MoreHorizontal className="size-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem asChild>
-                <Link href={`/trips/${row.original.id}`}>
-                  <Package className="size-4" />
-                  Ver cargas
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() =>
-                  setDialog({ mode: "edit", trip: row.original })
-                }
-              >
-                <Pencil className="size-4" />
-                Editar
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="text-destructive"
-                onClick={() => handleDelete(row.original)}
-              >
-                <Trash2 className="size-4" />
-                Borrar
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ),
+        cell: ({ row }) =>
+          (canSeeShipments || canWrite) && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" aria-label="Acciones">
+                  <MoreHorizontal className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {canSeeShipments && (
+                  <DropdownMenuItem asChild>
+                    <Link href={`/trips/${row.original.id}`}>
+                      <Package className="size-4" />
+                      Ver cargas
+                    </Link>
+                  </DropdownMenuItem>
+                )}
+                {canWrite && (
+                  <>
+                    <DropdownMenuItem
+                      onClick={() =>
+                        setDialog({ mode: "edit", trip: row.original })
+                      }
+                    >
+                      <Pencil className="size-4" />
+                      Editar
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="text-destructive"
+                      onClick={() => handleDelete(row.original)}
+                    >
+                      <Trash2 className="size-4" />
+                      Borrar
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ),
       },
     ];
-  }, [confirm, deleteMut]);
+  }, [canSeeShipments, canWrite, confirm, deleteMut]);
 
   return (
     <>
@@ -161,10 +180,12 @@ export function TripsTable({
             Viajes de la flota con chofer, vehículo y resultado.
           </p>
         </div>
-        <Button onClick={() => setDialog({ mode: "create" })}>
-          <Plus />
-          Nuevo viaje
-        </Button>
+        {canWrite && (
+          <Button onClick={() => setDialog({ mode: "create" })}>
+            <Plus />
+            Nuevo viaje
+          </Button>
+        )}
       </div>
 
       <DataTable
@@ -174,7 +195,7 @@ export function TripsTable({
         emptyMessage="Sin viajes. Agregá el primero."
       />
 
-      {dialog && (
+      {canWrite && dialog && (
         <TripDialog
           mode={dialog.mode}
           trip={dialog.mode === "edit" ? dialog.trip : undefined}

@@ -1,25 +1,37 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createWithClaim } from "./claim";
+import { type ClaimOutcome, createWithClaim } from "./claim";
 
-function setup(won = true) {
+function setup(outcome: ClaimOutcome = "won") {
   const release = vi.fn(async () => {});
   return {
-    claim: vi.fn(async () => won),
+    claim: vi.fn(async () => outcome),
     release,
     alreadyProcessed: "Ya procesado.",
+    claimFailed: "No se pudo tomar.",
   };
 }
 
 describe("createWithClaim", () => {
   it("does not create when another caller holds the claim", async () => {
-    const opts = setup(false);
+    const opts = setup("lost");
     const create = vi.fn();
     expect(await createWithClaim({ ...opts, create })).toEqual({
       ok: false,
       error: "Ya procesado.",
     });
     expect(create).not.toHaveBeenCalled();
+  });
+
+  it("a claim that failed to write is not «already processed»", async () => {
+    const opts = setup("failed");
+    const create = vi.fn();
+    expect(await createWithClaim({ ...opts, create })).toEqual({
+      ok: false,
+      error: "No se pudo tomar.",
+    });
+    expect(create).not.toHaveBeenCalled();
+    expect(opts.release).not.toHaveBeenCalled();
   });
 
   it("keeps the claim on success", async () => {

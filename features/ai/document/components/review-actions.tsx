@@ -6,6 +6,7 @@ import { PageSideProvider } from "@/components/providers/scope-provider";
 import { Button } from "@/components/ui/button";
 import { PurchaseInvoiceDraftDialog } from "@/features/purchase-invoices/components/purchase-invoice-draft-dialog";
 import type { Access } from "@/lib/auth/permissions";
+import { normalizeCuit } from "@/lib/validation/cuit";
 
 import type { ExtractionDetail } from "../actions";
 import {
@@ -63,15 +64,47 @@ function FooterHint({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** Why the scan has no client/supplier: the lookup failed on every attempt,
+ *  it did not run (the uploader may not read that table), no CUIT was read
+ *  as 11 digits to look up, or it found none. */
+type MissingMatchReason = "failed" | "unchecked" | "no_cuit" | "not_found";
+
+function missingMatchReason(extraction: ExtractionDetail): MissingMatchReason {
+  const matches = isRecord(extraction.matches) ? extraction.matches : {};
+  if (matches.lookup_failed === true) return "failed";
+  if (matches.counterparty_unchecked === true) return "unchecked";
+  const cuit = isRecord(extraction.payload)
+    ? extraction.payload.counterparty_cuit
+    : null;
+  return typeof cuit === "string" && normalizeCuit(cuit) !== null
+    ? "not_found"
+    : "no_cuit";
+}
+
 function MissingMatchHint({
   entity,
-  unchecked,
+  reason,
 }: {
   entity: "cliente" | "proveedor";
-  /** The lookup did not run (the uploader may not read that table). */
-  unchecked: boolean;
+  reason: MissingMatchReason;
 }) {
-  if (unchecked) {
+  if (reason === "no_cuit") {
+    return (
+      <FooterHint>
+        No se leyó el CUIT del {entity} en el documento, así que no se lo pudo
+        buscar. Cargá el comprobante a mano.
+      </FooterHint>
+    );
+  }
+  if (reason === "failed") {
+    return (
+      <FooterHint>
+        No se pudo verificar el {entity}: la búsqueda falló al procesar el
+        escaneo. Cargá el comprobante a mano o volvé a escanearlo.
+      </FooterHint>
+    );
+  }
+  if (reason === "unchecked") {
     return (
       <FooterHint>
         No se pudo verificar el {entity} (sin permiso): quien escaneó el
@@ -187,9 +220,7 @@ function ReviewActionsInner({
   const supplierId = matchString(extraction.matches, "supplier_id");
   const supplierName = matchString(extraction.matches, "supplier_name");
   const duplicate = duplicateCheckOf(extraction.matches);
-  const counterpartyUnchecked =
-    isRecord(extraction.matches) &&
-    extraction.matches.counterparty_unchecked === true;
+  const missingReason = missingMatchReason(extraction);
   const denied = reviewCreateDeniedReason(access, kind);
   if (denied) return <FooterHint>{denied}</FooterHint>;
 
@@ -221,7 +252,7 @@ function ReviewActionsInner({
       return (
         <MissingMatchHint
           entity={needsClient ? "cliente" : "proveedor"}
-          unchecked={counterpartyUnchecked}
+          reason={missingReason}
         />
       );
     }
@@ -246,9 +277,7 @@ function ReviewActionsInner({
 
   if (kind === "sales_invoice") {
     if (!clientId) {
-      return (
-        <MissingMatchHint entity="cliente" unchecked={counterpartyUnchecked} />
-      );
+      return <MissingMatchHint entity="cliente" reason={missingReason} />;
     }
     return (
       <DialogTrigger

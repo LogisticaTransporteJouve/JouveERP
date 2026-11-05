@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { resolveAccess } from "@/lib/auth/permissions";
+import { resolveAccess, type Role } from "@/lib/auth/permissions";
+import { FAKE_MAX_ROWS, pagedSupabase } from "@/tests/helpers/paged-supabase";
 import {
   recordingSupabase,
   type RecordedCall,
@@ -15,12 +16,15 @@ const row = (id: string, invoiceId: string | null) => ({
   invoice_id: invoiceId,
 });
 
-let rows: unknown[] = [];
+let rows: Record<string, unknown>[] = [];
 let voidRead: { data: unknown; error: unknown } = { data: [], error: null };
-let fake = recordingSupabase(respond);
+let role: Role = "owner";
+// The viewer's client reads the cargas, page by page; the service client
+// reads the void rule (operations cannot read invoices).
+let fake = pagedSupabase({ shipments: rows });
+let service = recordingSupabase(respond);
 
 function respond(call: RecordedCall) {
-  if (call.table === "shipments") return { data: rows, error: null };
   if (call.table === "billing_void_invoice_ids") return voidRead;
   return { data: null, error: null };
 }
@@ -28,11 +32,14 @@ function respond(call: RecordedCall) {
 vi.mock("@/lib/auth/context", () => ({
   requireUserContext: async () => ({
     userId: "u1",
-    access: resolveAccess(["owner"], []),
+    access: resolveAccess([role], []),
   }),
 }));
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => fake.client,
+}));
+vi.mock("@/lib/supabase/service", () => ({
+  getServiceClient: () => service.client,
 }));
 vi.mock("@/lib/actions/audit", () => ({ logAudit: vi.fn() }));
 vi.mock("@/features/invoices/actions/invoices-actions", () => ({
@@ -44,7 +51,9 @@ const { listShipmentsAction } = await import("./shipments-actions");
 beforeEach(() => {
   rows = [row("s1", "inv-live"), row("s2", "inv-credited"), row("s3", null)];
   voidRead = { data: ["inv-credited"], error: null };
-  fake = recordingSupabase(respond);
+  role = "owner";
+  fake = pagedSupabase({ shipments: rows });
+  service = recordingSupabase(respond);
 });
 
 describe("listShipmentsAction", () => {
@@ -57,12 +66,22 @@ describe("listShipmentsAction", () => {
       ["s2", true],
       ["s3", false],
     ]);
-    const probe = fake.calls.find(
+    const probe = service.calls.find(
       (c) => c.table === "billing_void_invoice_ids",
     );
     expect(probe?.payload).toEqual({
       p_invoice_ids: ["inv-live", "inv-credited"],
     });
+  });
+
+  it("gives operations, who cannot read invoices, the same answer", async () => {
+    role = "operations";
+    const res = await listShipmentsAction();
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.data.find((s) => s.id === "s2")?.invoice_void).toBe(true);
+    // The rule is not read under the viewer's RLS, which hides the invoice.
+    expect(fake.calls.every((c) => c.table === "shipments")).toBe(true);
   });
 
   it("fails instead of showing a void invoice as billing its carga", async () => {
@@ -72,5 +91,17 @@ describe("listShipmentsAction", () => {
       ok: false,
       error: "No se pudieron listar las cargas.",
     });
+  });
+
+  it("lists the old cargas past the PostgREST row cap", async () => {
+    rows = Array.from({ length: FAKE_MAX_ROWS + 250 }, (_, i) =>
+      row(`s${i}`, null),
+    );
+    fake = pagedSupabase({ shipments: rows });
+    const res = await listShipmentsAction();
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.data).toHaveLength(rows.length);
+    expect(res.data.at(-1)?.id).toBe(`s${rows.length - 1}`);
   });
 });

@@ -12,6 +12,7 @@ import {
   usePageIsFiscal,
   useSideChannels,
 } from "@/components/providers/scope-provider";
+import { ChannelsReadError } from "@/components/channels-read-error";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
@@ -504,6 +505,7 @@ export function PaymentOrderForm({
                     ))}
                   </SelectContent>
                 </Select>
+                <ChannelsReadError inline />
                 <FormMessage />
               </FormItem>
             )}

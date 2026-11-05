@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { ChannelsReadError } from "@/components/channels-read-error";
 import { useScope } from "@/components/providers/scope-provider";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -613,6 +614,7 @@ export function CreateLineTransactionDialog({
                     ))}
                   </SelectContent>
                 </Select>
+                <ChannelsReadError inline />
               </div>
               {isDebit && (
                 <div className="grid gap-3 sm:grid-cols-2">

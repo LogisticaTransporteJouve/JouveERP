@@ -8,6 +8,7 @@ import {
   useScope,
   useSideChannels,
 } from "@/components/providers/scope-provider";
+import { ChannelsReadError } from "@/components/channels-read-error";
 import { MoneyInput } from "@/components/money-input";
 import { Button } from "@/components/ui/button";
 import {
@@ -210,6 +211,7 @@ export function CreatePaymentDocDialog({
                   ))}
                 </SelectContent>
               </Select>
+              <ChannelsReadError inline />
             </div>
             <div className="space-y-1">
               <Label htmlFor="pd-numero">Número</Label>

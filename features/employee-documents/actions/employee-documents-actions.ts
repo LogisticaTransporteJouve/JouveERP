@@ -4,6 +4,7 @@ import { logAudit } from "@/lib/actions/audit";
 import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
+import { removeReplacedFile } from "@/lib/files/remove-unlinked";
 import { linkableFileError } from "@/lib/files/store";
 import type { Database } from "@/lib/db/database.types";
 import { logger } from "@/lib/logger";
@@ -195,6 +196,23 @@ export async function updateEmployeeDocumentAction(
   const supabase = await createClient();
   const fileError = await linkableFileError(supabase, patch.attachment_file_id);
   if (fileError) return { ok: false, error: fileError };
+  // The file being replaced, deleted once the update lands. A failed read
+  // leaves it to the orphan sweep.
+  let previousFileId: string | null = null;
+  if (patch.attachment_file_id !== undefined) {
+    const { data: current, error: currentErr } = await supabase
+      .from("employee_documents")
+      .select("attachment_file_id")
+      .eq("id", id)
+      .maybeSingle();
+    if (currentErr) {
+      logger.warn("employee_documents.attached_file.failed", {
+        id,
+        error: currentErr,
+      });
+    }
+    previousFileId = current?.attachment_file_id ?? null;
+  }
   const { error } = await supabase
     .from("employee_documents")
     .update(patch)
@@ -209,6 +227,13 @@ export async function updateEmployeeDocumentAction(
     return { ok: false, error: "No se pudo actualizar el documento." };
   }
   await logAudit("employee_document.updated", ctx.userId, patch, id);
+  await removeReplacedFile({
+    userId: ctx.userId,
+    auditEvent: "employee_document.file_removed",
+    documentId: id,
+    previousFileId,
+    nextFileId: patch.attachment_file_id ?? null,
+  });
   return { ok: true, data: undefined };
 }
 
@@ -221,10 +246,11 @@ export async function deleteEmployeeDocumentAction(
   }
 
   const supabase = await createClient();
-  const { error } = await supabase
+  const { data: deleted, error } = await supabase
     .from("employee_documents")
     .delete()
-    .eq("id", id);
+    .eq("id", id)
+    .select("attachment_file_id");
 
   if (error) {
     logger.error("employee_documents.delete.failed", {
@@ -235,5 +261,12 @@ export async function deleteEmployeeDocumentAction(
     return { ok: false, error: "No se pudo borrar el documento." };
   }
   await logAudit("employee_document.deleted", ctx.userId, {}, id);
+  await removeReplacedFile({
+    userId: ctx.userId,
+    auditEvent: "employee_document.file_removed",
+    documentId: id,
+    previousFileId: deleted?.[0]?.attachment_file_id ?? null,
+    nextFileId: null,
+  });
   return { ok: true, data: undefined };
 }

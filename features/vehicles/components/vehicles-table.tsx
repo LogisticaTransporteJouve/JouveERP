@@ -15,6 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
+import { userCan, type Access } from "@/lib/auth/permissions";
 
 import {
   useDeleteVehicle,
@@ -25,7 +26,9 @@ import { VEHICLE_TYPE_LABELS, type Vehicle } from "../schema";
 
 import { VehicleDialog } from "./vehicle-dialog";
 
-export function VehiclesTable() {
+export function VehiclesTable({ actorAccess }: { actorAccess: Access }) {
+  // The permission every vehicle write action checks («Activo» included).
+  const canWrite = userCan(actorAccess, "vehicles:write");
   const { data: items } = useVehicles();
   const deleteMut = useDeleteVehicle();
   const toggleMut = useSetVehicleActive();
@@ -101,6 +104,7 @@ export function VehiclesTable() {
         cell: ({ row }) => (
           <Switch
             checked={row.original.is_active}
+            disabled={!canWrite}
             onCheckedChange={(checked) =>
               toggleMut.mutate(
                 { id: row.original.id, is_active: checked },
@@ -117,35 +121,36 @@ export function VehiclesTable() {
         header: "",
         enableSorting: false,
         meta: { headerClassName: "w-12" },
-        cell: ({ row }) => (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <MoreHorizontal className="size-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onClick={() =>
-                  setDialog({ mode: "edit", vehicle: row.original })
-                }
-              >
-                <Pencil className="size-4" />
-                Editar
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="text-destructive"
-                onClick={() => handleDelete(row.original)}
-              >
-                <Trash2 className="size-4" />
-                Borrar
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ),
+        cell: ({ row }) =>
+          canWrite && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" aria-label="Acciones">
+                  <MoreHorizontal className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={() =>
+                    setDialog({ mode: "edit", vehicle: row.original })
+                  }
+                >
+                  <Pencil className="size-4" />
+                  Editar
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="text-destructive"
+                  onClick={() => handleDelete(row.original)}
+                >
+                  <Trash2 className="size-4" />
+                  Borrar
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ),
       },
     ];
-  }, [confirm, deleteMut, toggleMut]);
+  }, [canWrite, confirm, deleteMut, toggleMut]);
 
   return (
     <>
@@ -158,10 +163,12 @@ export function VehiclesTable() {
         </div>
         <div className="flex items-center gap-2">
           <ExportButton resource="vehicles" />
-          <Button onClick={() => setDialog({ mode: "create" })}>
-            <Plus />
-            Nuevo vehículo
-          </Button>
+          {canWrite && (
+            <Button onClick={() => setDialog({ mode: "create" })}>
+              <Plus />
+              Nuevo vehículo
+            </Button>
+          )}
         </div>
       </div>
 
@@ -172,7 +179,7 @@ export function VehiclesTable() {
         emptyMessage="Sin vehículos. Agregá el primero."
       />
 
-      {dialog && (
+      {canWrite && dialog && (
         <VehicleDialog
           mode={dialog.mode}
           vehicle={dialog.mode === "edit" ? dialog.vehicle : undefined}

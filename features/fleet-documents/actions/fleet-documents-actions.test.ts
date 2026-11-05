@@ -5,14 +5,37 @@ import { type Role, resolveAccess } from "@/lib/auth/permissions";
 const DOC_ID = "66666666-6666-4666-8666-666666666666";
 const FILE_ID = "44444444-4444-4444-8444-444444444444";
 const VEHICLE_ID = "77777777-7777-4777-8777-777777777777";
+const OLD_FILE_ID = "33333333-3333-4333-8333-333333333333";
 const stored = { fileId: FILE_ID, bucketPath: `${FILE_ID}/vtv.pdf` };
 
 let roles: Role[] = ["operations"];
 let updatedRows: { id: string }[] = [{ id: DOC_ID }];
 let fileError: string | null = null;
-const update = vi.fn((_patch: Record<string, unknown>) => ({
+let attachedFile: string | null = OLD_FILE_ID;
+let updateError: { message: string } | null = null;
+const update = vi.fn((_patch: Record<string, unknown>) => {
+  const result = { data: updatedRows, error: updateError };
+  return {
+    eq: () =>
+      Object.assign(Promise.resolve(result), {
+        select: async () => result,
+      }),
+  };
+});
+const remove = vi.fn(() => ({
   eq: () => ({
-    select: async () => ({ data: updatedRows, error: null }),
+    select: async () => ({
+      data: [{ attachment_file_id: attachedFile }],
+      error: null,
+    }),
+  }),
+}));
+const select = vi.fn(() => ({
+  eq: () => ({
+    maybeSingle: async () => ({
+      data: { attachment_file_id: attachedFile },
+      error: null,
+    }),
   }),
 }));
 const insert = vi.fn(() => ({
@@ -25,6 +48,7 @@ const storeUploadedFile = vi.fn(async () => ({
   data: stored,
 }));
 const discardStoredFile = vi.fn(async () => undefined);
+const removeReplacedFile = vi.fn(async () => undefined);
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/auth/context", () => ({
@@ -40,14 +64,19 @@ vi.mock("@/lib/files/store", () => ({
   linkableFileError: async (_client: unknown, id: string | null | undefined) =>
     id ? fileError : null,
 }));
+vi.mock("@/lib/files/remove-unlinked", () => ({ removeReplacedFile }));
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({
-    from: () => ({ update, insert }),
+    from: () => ({ update, insert, select, delete: remove }),
   }),
 }));
 
-const { createFleetDocumentAction, uploadFleetDocumentFileAction } =
-  await import("./fleet-documents-actions");
+const {
+  createFleetDocumentAction,
+  deleteFleetDocumentAction,
+  updateFleetDocumentAction,
+  uploadFleetDocumentFileAction,
+} = await import("./fleet-documents-actions");
 
 function formData(): FormData {
   const fd = new FormData();
@@ -61,6 +90,8 @@ beforeEach(() => {
   roles = ["operations"];
   updatedRows = [{ id: DOC_ID }];
   fileError = null;
+  attachedFile = OLD_FILE_ID;
+  updateError = null;
 });
 
 describe("uploadFleetDocumentFileAction", () => {
@@ -71,6 +102,23 @@ describe("uploadFleetDocumentFileAction", () => {
     });
     expect(update).toHaveBeenCalledWith({ attachment_file_id: FILE_ID });
     expect(discardStoredFile).not.toHaveBeenCalled();
+  });
+
+  it("removes the scan it replaces right away (audit w13-s4 F2)", async () => {
+    expect((await uploadFleetDocumentFileAction(formData())).ok).toBe(true);
+    expect(removeReplacedFile).toHaveBeenCalledWith({
+      userId: "u1",
+      auditEvent: "fleet_document.file_removed",
+      documentId: DOC_ID,
+      previousFileId: OLD_FILE_ID,
+      nextFileId: FILE_ID,
+    });
+  });
+
+  it("keeps the previous scan when the document is not updated", async () => {
+    updatedRows = [];
+    await uploadFleetDocumentFileAction(formData());
+    expect(removeReplacedFile).not.toHaveBeenCalled();
   });
 
   it("discards the stored file when the document is not updated", async () => {
@@ -105,5 +153,58 @@ describe("createFleetDocumentAction attachment", () => {
       error: "No encontramos el archivo adjunto.",
     });
     expect(insert).not.toHaveBeenCalled();
+  });
+});
+
+describe("fleet document scan removal (audit w13-s4 F2)", () => {
+  const edit = { id: DOC_ID, vehicle_id: VEHICLE_ID };
+
+  it("removes the scan an edit clears", async () => {
+    expect(
+      (await updateFleetDocumentAction({ ...edit, attachment_file_id: null }))
+        .ok,
+    ).toBe(true);
+    expect(removeReplacedFile).toHaveBeenCalledWith(
+      expect.objectContaining({
+        documentId: DOC_ID,
+        previousFileId: OLD_FILE_ID,
+        nextFileId: null,
+      }),
+    );
+  });
+
+  it("leaves the scan alone when an edit does not touch it", async () => {
+    await updateFleetDocumentAction({ ...edit, notes: "Renovada" });
+    expect(select).not.toHaveBeenCalled();
+    expect(removeReplacedFile).toHaveBeenCalledWith(
+      expect.objectContaining({ previousFileId: null }),
+    );
+  });
+
+  it("keeps the scan when the edit fails", async () => {
+    updateError = { message: "boom" };
+    expect(
+      (await updateFleetDocumentAction({ ...edit, attachment_file_id: null }))
+        .ok,
+    ).toBe(false);
+    expect(removeReplacedFile).not.toHaveBeenCalled();
+  });
+
+  it("removes the scan of a deleted document", async () => {
+    expect((await deleteFleetDocumentAction({ id: DOC_ID })).ok).toBe(true);
+    expect(removeReplacedFile).toHaveBeenCalledWith(
+      expect.objectContaining({
+        documentId: DOC_ID,
+        previousFileId: OLD_FILE_ID,
+        nextFileId: null,
+      }),
+    );
+  });
+
+  it("refuses a role without fleet_documents:write before touching files", async () => {
+    roles = ["finance"];
+    expect((await deleteFleetDocumentAction({ id: DOC_ID })).ok).toBe(false);
+    expect(remove).not.toHaveBeenCalled();
+    expect(removeReplacedFile).not.toHaveBeenCalled();
   });
 });

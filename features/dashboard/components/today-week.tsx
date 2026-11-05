@@ -175,7 +175,7 @@ function TripList({ rows }: { rows: TodayTrip[] }) {
       {rows.map((t) => (
         <li key={t.id}>
           <Link
-            href={`/trips/${t.id}`}
+            href={t.href}
             className="flex items-start gap-3 px-3 py-2 text-sm hover:bg-accent/50"
           >
             <span className="w-20 shrink-0 font-mono text-xs">

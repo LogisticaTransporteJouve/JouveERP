@@ -7,6 +7,7 @@ import { listTripsAction } from "@/features/trips/actions/trips-actions";
 import { listVehiclesAction } from "@/features/vehicles/actions/vehicles-actions";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
+import { canChangeAttachments } from "@/lib/files/attachment-targets";
 import { costVoucherAccess } from "@/lib/cost-vouchers";
 import { Hydrate } from "@/lib/query/hydrate";
 import { prefetchQueries } from "@/lib/query/prefetch";
@@ -47,16 +48,15 @@ export default async function FuelPageRoute() {
     <Hydrate state={dehydratedState}>
       <div className="space-y-6">
         <FuelTable
+          actorAccess={ctx.access}
           vehicleOptions={vehicleOptions}
           tripOptions={tripOptions}
           voucherAccess={costVoucherAccess(ctx.access)}
           fileAccess={
             userCan(ctx.access, "files:read")
               ? {
-                  write:
-                    userCan(ctx.access, "files:write") &&
-                    userCan(ctx.access, "fuel:write"),
-                  delete: userCan(ctx.access, "files:write"),
+                  write: canChangeAttachments(ctx.access, "fuel_load"),
+                  delete: canChangeAttachments(ctx.access, "fuel_load"),
                 }
               : null
           }

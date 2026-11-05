@@ -44,8 +44,11 @@ vi.mock("@/lib/supabase/paginate", () => ({
     page: (from: number, to: number) => Promise<{ data: Row[]; error: null }>,
   ) => page(0, 999),
 }));
+let channelsRead:
+  { ok: true; channels: { id: string; is_fiscal: boolean }[] } | { ok: false } =
+  { ok: true, channels: [] };
 vi.mock("@/lib/channels", () => ({
-  getInvoicingChannels: async () => [{ id: "jouve_fiscal", is_fiscal: true }],
+  readInvoicingChannels: async () => channelsRead,
 }));
 vi.mock("@/lib/fx", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/fx")>()),
@@ -77,6 +80,22 @@ beforeEach(() => {
     ],
   };
   rpcRows = {};
+  channelsRead = {
+    ok: true,
+    channels: [{ id: "jouve_fiscal", is_fiscal: true }],
+  };
+});
+
+describe("getCashFlowAction and the channels", () => {
+  it("fails the whole flow when the channel read fails", async () => {
+    rateRead = { ok: true, rate: null };
+    channelsRead = { ok: false };
+    const res = await getCashFlowAction({});
+    expect(res).toEqual({
+      ok: false,
+      error: "No se pudo calcular el flujo de caja.",
+    });
+  });
 });
 
 describe("getCashFlowAction and the USD rate", () => {

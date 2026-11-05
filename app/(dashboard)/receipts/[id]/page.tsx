@@ -22,6 +22,7 @@ import { getReceiptByIdAction } from "@/features/receipts/actions/receipts-actio
 import { formatReceiptNumber } from "@/features/receipts/schema";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
+import { canChangeAttachments } from "@/lib/files/attachment-targets";
 import { formatArgentineDate, formatMoneyWithCode } from "@/lib/format";
 import { formatInvoiceNumero } from "@/features/invoices/schema";
 
@@ -252,8 +253,8 @@ export default async function ReceiptDetailPage({
           <AttachmentsZone
             targetType="receipt"
             targetId={receipt.id}
-            canWrite={userCan(ctx.access, "files:write")}
-            canDelete={userCan(ctx.access, "files:write")}
+            canWrite={canChangeAttachments(ctx.access, "receipt")}
+            canDelete={canChangeAttachments(ctx.access, "receipt")}
           />
         </div>
       </div>

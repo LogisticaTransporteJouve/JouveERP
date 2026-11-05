@@ -4,6 +4,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { ChannelsReadError } from "@/components/channels-read-error";
 import { useScope } from "@/components/providers/scope-provider";
 import { MoneyInput } from "@/components/money-input";
 import { Button } from "@/components/ui/button";
@@ -169,6 +170,7 @@ export function ManualEntryDialog({
                 ))}
               </SelectContent>
             </Select>
+            <ChannelsReadError inline />
           </div>
           <div className="col-span-2 space-y-1 sm:col-span-1">
             <Label htmlFor="me-desc">Descripción</Label>
