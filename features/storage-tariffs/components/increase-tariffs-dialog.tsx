@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { todayInAR } from "@/lib/format";
 
 import { useIncreaseStorageTariffs } from "../hooks/use-storage-tariffs";
+import { isRaisedByIncrease } from "../lib/increase";
 import type { StorageTariff } from "../schema";
 
 /**
@@ -45,13 +46,7 @@ export function IncreaseTariffsDialog({
   }, [open]);
 
   const affected = useMemo(
-    () =>
-      tariffs.filter(
-        (t) =>
-          t.is_active &&
-          t.valid_from < validFrom &&
-          (t.valid_to === null || t.valid_to >= validFrom),
-      ),
+    () => tariffs.filter((t) => isRaisedByIncrease(t, validFrom)),
     [tariffs, validFrom],
   );
 
