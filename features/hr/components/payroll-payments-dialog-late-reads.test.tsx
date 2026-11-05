@@ -14,6 +14,7 @@ const h = vi.hoisted(() => ({
 }));
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("@/components/providers/scope-provider", () => ({
   useScope: () => ({
     channels: [

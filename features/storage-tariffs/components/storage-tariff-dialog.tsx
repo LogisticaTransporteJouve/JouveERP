@@ -2,12 +2,14 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
 import { MoneyInput } from "@/components/money-input";
+import { ReadError } from "@/components/read-error";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -98,10 +100,12 @@ export function StorageTariffDialog({
 }: {
   mode: "create" | "edit";
   tariff?: StorageTariff;
-  clientOptions: { id: string; legal_name: string }[];
+  /** null: the clients could not be read. */
+  clientOptions: { id: string; legal_name: string }[] | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const router = useRouter();
   const createMut = useCreateStorageTariff();
   const updateMut = useUpdateStorageTariff();
   const isSaving = createMut.isPending || updateMut.isPending;
@@ -189,13 +193,19 @@ export function StorageTariffDialog({
                     </FormControl>
                     <SelectContent>
                       <SelectItem value={NONE}>General (todos)</SelectItem>
-                      {clientOptions.map((c) => (
+                      {(clientOptions ?? []).map((c) => (
                         <SelectItem key={c.id} value={c.id}>
                           {c.legal_name}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  {clientOptions === null && (
+                    <ReadError
+                      message="No se pudieron cargar los clientes."
+                      onRetry={() => router.refresh()}
+                    />
+                  )}
                   <FormMessage />
                 </FormItem>
               )}

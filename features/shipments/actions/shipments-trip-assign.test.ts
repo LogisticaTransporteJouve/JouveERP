@@ -22,7 +22,7 @@ vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => fake.client,
 }));
 vi.mock("@/lib/channels", () => ({
-  getActiveInvoicingChannels: async () => [],
+  readInvoicingChannels: async () => ({ ok: true, channels: [] }),
 }));
 vi.mock("@/lib/actions/audit", () => ({ logAudit: vi.fn() }));
 

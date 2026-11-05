@@ -17,6 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
+import { userCan, type Access } from "@/lib/auth/permissions";
 
 import {
   useDeleteDriver,
@@ -29,10 +30,16 @@ import { DriverDialog } from "./driver-dialog";
 import { DriverLinkDialog, type LinkableUser } from "./driver-link-dialog";
 
 export function DriversTable({
+  actorAccess,
   linkableUsers,
 }: {
+  actorAccess: Access;
   linkableUsers?: LinkableUser[];
 }) {
+  // The permission every driver write action checks («Activo» included).
+  // Linking a login is separate: the page passes linkableUsers only with
+  // users:assign_role.
+  const canWrite = userCan(actorAccess, "drivers:write");
   const { data: items } = useDrivers();
   const deleteMut = useDeleteDriver();
   const toggleMut = useSetDriverActive();
@@ -117,6 +124,7 @@ export function DriversTable({
         cell: ({ row }) => (
           <Switch
             checked={row.original.is_active}
+            disabled={!canWrite}
             onCheckedChange={(v) =>
               toggleMut.mutate(
                 { id: row.original.id, is_active: v },
@@ -133,43 +141,48 @@ export function DriversTable({
         header: "",
         enableSorting: false,
         meta: { headerClassName: "w-12" },
-        cell: ({ row }) => (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <MoreHorizontal className="size-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onClick={() =>
-                  setDialog({ mode: "edit", driver: row.original })
-                }
-              >
-                <Pencil className="size-4" />
-                Editar
-              </DropdownMenuItem>
-              {canLink && (
-                <DropdownMenuItem onClick={() => setLinkDriver(row.original)}>
-                  <Link2 className="size-4" />
-                  {row.original.user_id
-                    ? "Cambiar usuario"
-                    : "Vincular usuario"}
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuItem
-                className="text-destructive"
-                onClick={() => handleDelete(row.original)}
-              >
-                <Trash2 className="size-4" />
-                Borrar
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ),
+        cell: ({ row }) =>
+          (canWrite || canLink) && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" aria-label="Acciones">
+                  <MoreHorizontal className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {canWrite && (
+                  <DropdownMenuItem
+                    onClick={() =>
+                      setDialog({ mode: "edit", driver: row.original })
+                    }
+                  >
+                    <Pencil className="size-4" />
+                    Editar
+                  </DropdownMenuItem>
+                )}
+                {canLink && (
+                  <DropdownMenuItem onClick={() => setLinkDriver(row.original)}>
+                    <Link2 className="size-4" />
+                    {row.original.user_id
+                      ? "Cambiar usuario"
+                      : "Vincular usuario"}
+                  </DropdownMenuItem>
+                )}
+                {canWrite && (
+                  <DropdownMenuItem
+                    className="text-destructive"
+                    onClick={() => handleDelete(row.original)}
+                  >
+                    <Trash2 className="size-4" />
+                    Borrar
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ),
       },
     ];
-  }, [confirm, deleteMut, toggleMut, canLink]);
+  }, [canWrite, confirm, deleteMut, toggleMut, canLink]);
 
   return (
     <>
@@ -183,10 +196,12 @@ export function DriversTable({
         </div>
         <div className="flex items-center gap-2">
           <ExportButton resource="drivers" />
-          <Button onClick={() => setDialog({ mode: "create" })}>
-            <Plus />
-            Nuevo chofer contratado
-          </Button>
+          {canWrite && (
+            <Button onClick={() => setDialog({ mode: "create" })}>
+              <Plus />
+              Nuevo chofer contratado
+            </Button>
+          )}
         </div>
       </div>
 
@@ -197,7 +212,7 @@ export function DriversTable({
         emptyMessage="Sin choferes. Agregá el primero."
       />
 
-      {dialog && (
+      {canWrite && dialog && (
         <DriverDialog
           mode={dialog.mode}
           driver={dialog.mode === "edit" ? dialog.driver : undefined}

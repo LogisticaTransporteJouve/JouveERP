@@ -37,6 +37,7 @@ export default async function MaintenancePageRoute() {
     <Hydrate state={dehydratedState}>
       <div className="space-y-6">
         <MaintenanceTable
+          actorAccess={ctx.access}
           vehicleOptions={vehicleOptions}
           voucherAccess={costVoucherAccess(ctx.access)}
         />

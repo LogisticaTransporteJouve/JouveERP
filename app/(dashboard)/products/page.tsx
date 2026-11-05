@@ -28,14 +28,18 @@ export default async function ProductsPageRoute() {
     listClientsAction(),
   ]);
 
+  // null = the read failed (the dialog says so); a user without clients:read
+  // gets no options, as before.
   const clientOptions = clientsRes.ok
     ? clientsRes.data.map((c) => ({ id: c.id, legal_name: c.legal_name }))
-    : [];
+    : userCan(ctx.access, "clients:read")
+      ? null
+      : [];
 
   return (
     <Hydrate state={dehydratedState}>
       <div className="space-y-6">
-        <ProductsTable clientOptions={clientOptions} />
+        <ProductsTable actorAccess={ctx.access} clientOptions={clientOptions} />
       </div>
     </Hydrate>
   );

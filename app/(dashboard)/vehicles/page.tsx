@@ -25,7 +25,7 @@ export default async function VehiclesPageRoute() {
   return (
     <Hydrate state={dehydratedState}>
       <div className="space-y-6">
-        <VehiclesTable />
+        <VehiclesTable actorAccess={ctx.access} />
       </div>
     </Hydrate>
   );

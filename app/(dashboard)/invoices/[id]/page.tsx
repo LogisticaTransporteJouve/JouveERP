@@ -49,6 +49,7 @@ import {
 } from "@/lib/pdf/invoice-figures";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan, userCanAll } from "@/lib/auth/permissions";
+import { canChangeAttachments } from "@/lib/files/attachment-targets";
 import {
   amountToInput,
   formatArgentineDateTime,
@@ -525,8 +526,8 @@ export default async function ComprobanteDetailPage({
             <AttachmentsZone
               targetType="invoice"
               targetId={c.id}
-              canWrite={userCan(ctx.access, "files:write")}
-              canDelete={userCan(ctx.access, "files:write")}
+              canWrite={canChangeAttachments(ctx.access, "invoice")}
+              canDelete={canChangeAttachments(ctx.access, "invoice")}
             />
           </div>
         </div>

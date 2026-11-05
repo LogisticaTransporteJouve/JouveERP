@@ -41,6 +41,7 @@ import { logger } from "@/lib/logger";
 import type { UsdRate } from "@/lib/fx";
 import { latestTributeSplits } from "@/lib/purchases/tribute-split";
 import {
+  type ClaimOutcome,
   createWithClaim as createWithClaimOn,
   type PartialCreateFailure,
 } from "@/lib/actions/claim";
@@ -328,10 +329,25 @@ export async function getPurchaseInvoiceDraftAction(
   }
 
   const supplierId = matchedId(ext.matches, "supplier_id");
-  const [supplier, expense] = await Promise.all([
-    supplierId ? loadDraftSupplier(supabase, supplierId) : null,
+  const [supplierRead, expense] = await Promise.all([
+    supplierId
+      ? loadDraftSupplier(supabase, supplierId)
+      : { ok: true as const, data: null },
     resolveExpenseSuggestion(supabase, ext.matches),
   ]);
+  // A failed read is not "no supplier" or "no suggestion": the draft would
+  // open without them and save to the compras account with no notice.
+  if (!supplierRead.ok || !expense.ok) {
+    logger.warn("ai_document.purchase_draft.read_failed", {
+      userId: ctx.userId,
+      extractionId: id.data,
+    });
+    return {
+      ok: false,
+      error: "No se pudo leer el proveedor o la cuenta sugerida. Reintentá.",
+    };
+  }
+  const supplier = supplierRead.data;
 
   const header = InvoiceExtractionSchema.safeParse(ext.payload);
   let usdRate: number | null = null;
@@ -354,8 +370,8 @@ export async function getPurchaseInvoiceDraftAction(
   const draft = buildPurchaseInvoiceDraft(ext.payload, {
     fallbackKind: ext.detected_type === "credit_debit_note" ? "nc" : "factura",
     supplier,
-    account: expense.account,
-    costCenterId: expense.costCenterId,
+    account: expense.data.account,
+    costCenterId: expense.data.costCenterId,
     usdRate,
     confidence: ext.confidence,
     duplicate: duplicateCheckOf(ext.matches),
@@ -378,23 +394,31 @@ export async function getPurchaseInvoiceDraftAction(
   };
 }
 
+type DraftRead<T> = { ok: true; data: T } | { ok: false };
+
 async function loadDraftSupplier(
   supabase: ServerSupabase,
   supplierId: string,
-): Promise<PurchaseInvoiceDraftSupplier | null> {
-  const { data } = await supabase
+): Promise<DraftRead<PurchaseInvoiceDraftSupplier | null>> {
+  const { data, error } = await supabase
     .from("suppliers")
     .select("id, legal_name, display_name, cuit, iva_condition")
     .eq("id", supplierId)
     .maybeSingle();
+  if (error) return { ok: false };
   // A scanned invoice is a fiscal document: only a fiscal supplier fits.
-  if (!data?.cuit || !isIvaCondition(data.iva_condition)) return null;
+  if (!data?.cuit || !isIvaCondition(data.iva_condition)) {
+    return { ok: true, data: null };
+  }
   return {
-    id: data.id,
-    legal_name: data.legal_name,
-    display_name: data.display_name,
-    cuit: data.cuit,
-    iva_condition: data.iva_condition,
+    ok: true,
+    data: {
+      id: data.id,
+      legal_name: data.legal_name,
+      display_name: data.display_name,
+      cuit: data.cuit,
+      iva_condition: data.iva_condition,
+    },
   };
 }
 
@@ -406,13 +430,16 @@ async function loadDraftSupplier(
 async function resolveExpenseSuggestion(
   supabase: ServerSupabase,
   matches: Json,
-): Promise<{
-  account: { id: string; label: string } | null;
-  costCenterId: string | null;
-}> {
+): Promise<
+  DraftRead<{
+    account: { id: string; label: string } | null;
+    costCenterId: string | null;
+  }>
+> {
   const expense =
     isRecord(matches) && isRecord(matches.expense) ? matches.expense : null;
-  if (!expense) return { account: null, costCenterId: null };
+  if (!expense)
+    return { ok: true, data: { account: null, costCenterId: null } };
   const accCode =
     typeof expense.accountCode === "string" ? expense.accountCode : null;
   const ccCode =
@@ -434,10 +461,11 @@ async function resolveExpenseSuggestion(
           .maybeSingle()
       : null,
   ]);
+  if (acc?.error || cc?.error) return { ok: false };
   const account = acc?.data
     ? { id: acc.data.id, label: `${acc.data.code} — ${acc.data.name}` }
     : null;
-  return { account, costCenterId: cc?.data?.id ?? null };
+  return { ok: true, data: { account, costCenterId: cc?.data?.id ?? null } };
 }
 
 const CreatePurchaseInvoiceFromDraftSchema = z.object({
@@ -600,11 +628,21 @@ export async function createChecksFromExtractionAction(
 
   // The check kind (fisico / echeq) is the cartera account's type, not a
   // separate choice — derive it authoritatively.
-  const { data: acc } = await supabase
+  const { data: acc, error: accError } = await supabase
     .from("accounts")
     .select("type")
     .eq("id", cartera_account_id)
     .maybeSingle();
+  if (accError) {
+    logger.error("ai.document.checks.account_read_failed", {
+      extractionId,
+      error: accError,
+    });
+    return {
+      ok: false,
+      error: "No se pudo leer la cuenta de cartera. Reintentá.",
+    };
+  }
   if (!acc || (acc.type !== "checks" && acc.type !== "echeq")) {
     return { ok: false, error: "La cuenta de cartera no es válida." };
   }
@@ -612,8 +650,12 @@ export async function createChecksFromExtractionAction(
 
   // Claim before inserting anything: a double click gets "ya fue procesada"
   // instead of inserting the checks twice.
-  if (!(await claimExtraction(supabase, extractionId))) {
-    return { ok: false, error: ALREADY_PROCESSED };
+  const claim = await claimExtraction(supabase, extractionId);
+  if (claim !== "won") {
+    return {
+      ok: false,
+      error: claim === "failed" ? CLAIM_FAILED : ALREADY_PROCESSED,
+    };
   }
 
   const errors: { index: number; error: string }[] = [];
@@ -753,16 +795,18 @@ function matchedId(
 }
 
 const ALREADY_PROCESSED = "La extracción ya fue procesada.";
+const CLAIM_FAILED = "No se pudo tomar el documento. Reintentá.";
 
 /**
  * Atomically claims a draft for creation: pending_review → confirmed, only if
- * it is still pending_review. Exactly one concurrent caller gets `true` (a
- * double click / second tab gets `false`), so the entity is created once.
+ * it is still pending_review. Exactly one concurrent caller gets "won" (a
+ * double click / second tab gets "lost"), so the entity is created once. A
+ * failed update is "failed": the draft is still pending and nothing was made.
  */
 async function claimExtraction(
   supabase: ServerSupabase,
   extractionId: string,
-): Promise<boolean> {
+): Promise<ClaimOutcome> {
   const { data, error } = await supabase
     .from("ai_document_extractions")
     .update({ status: "confirmed" })
@@ -772,9 +816,9 @@ async function claimExtraction(
     .maybeSingle();
   if (error) {
     logger.error("ai.document.claim.failed", { extractionId, error });
-    return false;
+    return "failed";
   }
-  return data !== null;
+  return data !== null ? "won" : "lost";
 }
 
 /** A claim older than this with nothing created was left by a crashed save. */
@@ -836,6 +880,7 @@ function createWithClaim<T>(
     release: () => releaseExtraction(supabase, extractionId),
     create,
     alreadyProcessed: ALREADY_PROCESSED,
+    claimFailed: CLAIM_FAILED,
   });
 }
 
@@ -1167,7 +1212,7 @@ export async function createSalesInvoiceFromExtractionAction(
     };
   }
 
-  const [{ data: channel }, { data: client }] = await Promise.all([
+  const [channelRead, clientRead] = await Promise.all([
     supabase
       .from("invoicing_channels")
       .select("id, is_fiscal")
@@ -1179,6 +1224,20 @@ export async function createSalesInvoiceFromExtractionAction(
       .eq("id", clientId)
       .maybeSingle(),
   ]);
+  // A failed read is not a missing channel or a client without CUIT.
+  if (channelRead.error || clientRead.error) {
+    logger.warn("ai_document.sales_invoice.read_failed", {
+      userId: ctx.userId,
+      channelError: channelRead.error?.message,
+      clientError: clientRead.error?.message,
+    });
+    return {
+      ok: false,
+      error: "No se pudo leer el canal o el cliente. Reintentá.",
+    };
+  }
+  const channel = channelRead.data;
+  const client = clientRead.data;
   if (!channel) return { ok: false, error: "Canal no existe." };
   if (!client?.cuit) {
     return { ok: false, error: "El cliente no tiene CUIT cargado." };
