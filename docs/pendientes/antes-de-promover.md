@@ -860,7 +860,66 @@ un rollback a un SHA anterior a `94f942b`.
 Migraciones de `main` que todavía no están en `production-latest`. Cada rama
 que agrega una migración suma su ítem al final de esta sección.
 
-Ninguna por ahora: el promote de `d71de85` (2026-11-05) aplicó todas.
+- [ ] **Aprobar `20261105200000` y `20261105200001`** (decisión del owner:
+      una venta vence 7 días después de su fecha; una tarea automática solo
+      se cierra sola). Van en ese orden, después de `20261105140000`.
+  - `20261105200000`: función nueva `invoice_effective_due_date(date, date)`
+    (`SECURITY INVOKER`, inmutable, revocada de `public` y `anon`, ejecutable
+    por `authenticated` y `service_role`). `v_aging_documents` suma la columna
+    `due_date` al final y cuenta `days_overdue` y `bucket` desde ella; con eso
+    cambian el aging, sus fotos, la mora y el resumen de la IA.
+    `late_interest_candidates` y `ai_client_sales_summary` se reemplazan con
+    la misma firma. No toca filas ni `fch_vto_pago`.
+  - `20261105200001`: `sync_automatic_tasks` pasa a plpgsql (misma firma y
+    permisos) y la cobranza lee `due_date`. Trigger nuevo
+    `tasks_guard_automatic_close` (`23514`, `jouve_guard`): una tarea
+    automática no pasa a hecha fuera de la sincronización. **Toca filas:**
+    las tareas automáticas cerradas a mano pasan a `auto_closed` (en
+    producción, la de INELEC, Factura A 0003-00022273) y la migración corre
+    la sincronización una vez: las 19 tareas de cobranza abiertas de
+    facturas del 2 al 4 de noviembre se cierran solas y vuelven el día 8 si
+    siguen impagas. Las tareas que cree esa corrida reciben responsables y
+    avisos en el cron siguiente de `tasks-daily`.
+  - Rollback: el código anterior lee las mismas columnas; su «Marcar como
+    hecha» sobre una tarea automática recibe el mensaje de la guarda en vez
+    de cerrarla.
+  - Consultas de control antes de aplicar (solo lectura, válidas sobre el
+    esquema de `production-latest`). Comprobantes abiertos con su
+    vencimiento de antes y el nuevo, y su tarea de cobranza (lo esperado: los
+    19 de noviembre con `vence_ahora` = fecha + 7 y su tarea abierta):
+
+    ```sql
+    select d.invoice_id, c.legal_name, d.kind, d.letter, d.punto_venta,
+           d.numero, d.fecha, d.fch_vto_pago, d.open_amount, d.moneda,
+           coalesce(d.fch_vto_pago, d.fecha) as vence_antes,
+           case when d.fch_vto_pago > d.fecha then d.fch_vto_pago
+                else d.fecha + 7 end as vence_ahora,
+           t.status as tarea, t.auto_closed, t.due_date as tarea_vence
+      from public.v_aging_documents d
+      join public.clients c on c.id = d.client_id
+      left join public.tasks t
+        on t.source_table = 'invoices' and t.source_id = d.invoice_id
+       and t.kind = 'collection'
+     where d.document_type = 'invoice'
+     order by d.fecha, d.punto_venta, d.numero;
+    ```
+
+    Tareas automáticas cerradas a mano (lo esperado: una, la de INELEC):
+
+    ```sql
+    select t.id, t.kind, t.title, t.completed_at, t.completed_by,
+           t.source_table, t.source_id
+      from public.tasks t
+     where t.origin = 'automatic'
+       and t.status = 'done'
+       and not t.auto_closed
+     order by t.completed_at;
+    ```
+
+    Después de aplicar, la segunda no devuelve nada y la primera muestra las
+    tareas de facturas todavía no vencidas como `done` con `auto_closed`.
+
+  - `docs/pendientes/2026-11-05-vencimiento-de-ventas-y-tareas.md`.
 
 ## Aplicadas en el promote de `d71de85` (2026-11-05)
 
