@@ -42,7 +42,10 @@ import {
   SupplierPicker,
   type PickedSupplier,
 } from "@/features/suppliers/components/supplier-picker";
-import { useSupplierByIdOptional } from "@/features/suppliers/hooks/use-suppliers";
+import {
+  useSupplierByIdOptional,
+  useSupplierPickerAccess,
+} from "@/features/suppliers/hooks/use-suppliers";
 import {
   amountToInput,
   COTIZACION_DECIMALS,
@@ -274,8 +277,12 @@ export function PaymentOrderForm({
   const editSupplier = useSupplierByIdOptional(editSupplierId);
   const editSupplierData = editSupplier.data;
   // Read but not found: there is nothing to show, as with a failed read.
+  // A user denied suppliers:read gets the picker's «sin permiso» instead: a
+  // «Reintentar» could never succeed.
+  const supplierReadDenied = useSupplierPickerAccess()?.canRead === false;
   const editSupplierFailed =
-    editSupplier.isError || (editSupplier.isSuccess && !editSupplierData);
+    !supplierReadDenied &&
+    (editSupplier.isError || (editSupplier.isSuccess && !editSupplierData));
   useEffect(() => {
     if (!editSupplierData) return;
     form.setValue("supplier", {

@@ -3,6 +3,7 @@
 import { FileText, Search, X } from "lucide-react";
 import { useState } from "react";
 
+import { ReadError } from "@/components/read-error";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -154,6 +155,8 @@ export function PurchaseInvoicePicker({
           isSearching={isSearching}
           onPick={pick}
           hasQuery={debouncedQuery.length > 0}
+          failed={searchQuery.isError}
+          onRetry={() => void searchQuery.refetch()}
         />
       </PopoverContent>
     </Popover>
@@ -165,17 +168,31 @@ function ResultsList({
   isSearching,
   onPick,
   hasQuery,
+  failed,
+  onRetry,
 }: {
   results: PurchaseInvoice[];
   isSearching: boolean;
   onPick: (inv: PurchaseInvoice) => void;
   hasQuery: boolean;
+  failed: boolean;
+  onRetry: () => void;
 }) {
   if (isSearching) {
     return (
       <div className="px-3 py-4 text-center text-sm text-muted-foreground">
         Buscando…
       </div>
+    );
+  }
+  // A failed search is not "no facturas for this supplier".
+  if (failed) {
+    return (
+      <ReadError
+        message="No se pudieron buscar las facturas."
+        onRetry={onRetry}
+        className="justify-center px-3 py-4"
+      />
     );
   }
   if (results.length === 0) {

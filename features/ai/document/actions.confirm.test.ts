@@ -14,6 +14,8 @@ const db: Record<string, Row[]> = {};
 const failingReads = new Set<string>();
 /** Tables whose `update … select … maybeSingle` fails, like a PostgREST error. */
 const failingUpdates = new Set<string>();
+/** Per table, how many plain (awaited, no `select`) updates fail next. */
+const failingPlainUpdates = new Map<string, number>();
 
 function query(table: string) {
   const filters: Array<(r: Row) => boolean> = [];
@@ -71,7 +73,19 @@ function query(table: string) {
         ? { data: null, error: { message: "timeout" } }
         : { data: run()[0] ?? null, error: null },
     single: async () => ({ data: run()[0] ?? null, error: null }),
-    then: (resolve: (v: { data: Row[] | null; error: null }) => unknown) => {
+    then: (
+      resolve: (v: {
+        data: Row[] | null;
+        error: { message: string } | null;
+      }) => unknown,
+    ) => {
+      const left = failingPlainUpdates.get(table) ?? 0;
+      if (patch && !returning && left > 0) {
+        failingPlainUpdates.set(table, left - 1);
+        return Promise.resolve(
+          resolve({ data: null, error: { message: "timeout" } }),
+        );
+      }
       const rows = run();
       return Promise.resolve(
         resolve({ data: returning ? rows : null, error: null }),
@@ -200,6 +214,7 @@ beforeEach(() => {
   denied = [];
   failingReads.clear();
   failingUpdates.clear();
+  failingPlainUpdates.clear();
   createReceiptAction.mockReset();
   createPaymentOrderAction.mockReset();
   getReceiptUsdRateAction.mockReset();
@@ -689,6 +704,29 @@ describe("getPurchaseInvoiceDraftAction", () => {
     expect(res.data.draft).toMatchObject({ kind: "nc", kind_read: true });
   });
 
+  it("a failed draft read says so, not «No se encontró la extracción»", async () => {
+    seedPurchase();
+    failingReads.add("ai_document_extractions");
+    const failed = {
+      ok: false,
+      error: "No se pudo leer el documento. Reintentá.",
+    };
+    expect(await getPurchaseInvoiceDraftAction(EXTRACTION_ID)).toEqual(failed);
+    expect(
+      await createChecksFromExtractionAction({
+        extractionId: EXTRACTION_ID,
+        cartera_account_id: ACCOUNT_ID,
+        cheques: [
+          { banco: "B", numero: "1", importe: 10, fecha: "2026-07-01" },
+        ],
+      }),
+    ).toEqual(failed);
+    expect(await createReceiptFromExtractionAction(receiptInput)).toEqual(
+      failed,
+    );
+    expect(createReceiptAction).not.toHaveBeenCalled();
+  });
+
   it("reports another document type as unsupported", async () => {
     seed("receipt", {});
     const res = await getPurchaseInvoiceDraftAction(EXTRACTION_ID);
@@ -1069,6 +1107,90 @@ describe("a draft the pipeline re-saved, or a claim left stale", () => {
       status: "confirmed",
       created_entity: { table: "checks", count: 1 },
     });
+  });
+
+  it("a stale claim of another kind is not reopened by the cheque action", async () => {
+    seed("sales_invoice", { client_id: "c1" });
+    db.accounts = [{ id: ACCOUNT_ID, type: "checks" }];
+    db.checks = [];
+    const row = extraction();
+    if (row) {
+      row.status = "confirmed";
+      row.updated_at = HOUR_AGO();
+    }
+    const res = await createChecksFromExtractionAction(chequeInput);
+    expect(res).toEqual({
+      ok: false,
+      error: "La extracción ya fue procesada.",
+    });
+    expect(extraction()?.status).toBe("confirmed");
+    expect(db.checks).toHaveLength(0);
+  });
+
+  it("a stale claim of another kind is not reopened by the purchase draft read", async () => {
+    seed("receipt", { client_id: "c1" });
+    const row = extraction();
+    if (row) {
+      row.status = "confirmed";
+      row.updated_at = HOUR_AGO();
+    }
+    const res = await getPurchaseInvoiceDraftAction(EXTRACTION_ID);
+    expect(res).toEqual({
+      ok: true,
+      data: { state: "closed", status: "confirmed" },
+    });
+    expect(extraction()?.status).toBe("confirmed");
+  });
+
+  it("a failed stale release says so, not «ya fue procesada»", async () => {
+    seed("check", {});
+    db.accounts = [{ id: ACCOUNT_ID, type: "checks" }];
+    db.checks = [];
+    const row = extraction();
+    if (row) {
+      row.status = "confirmed";
+      row.updated_at = HOUR_AGO();
+    }
+    failingUpdates.add("ai_document_extractions");
+    const reopen = "No se pudo reabrir el documento. Reintentá.";
+    expect(await createChecksFromExtractionAction(chequeInput)).toEqual({
+      ok: false,
+      error: reopen,
+    });
+    if (row) row.detected_type = "purchase_invoice";
+    expect(await getPurchaseInvoiceDraftAction(EXTRACTION_ID)).toEqual({
+      ok: false,
+      error: reopen,
+    });
+    expect(db.checks).toHaveLength(0);
+    expect(extraction()?.status).toBe("confirmed");
+  });
+
+  it("the cheque link write is retried once after a failure", async () => {
+    seed("check", {});
+    db.accounts = [{ id: ACCOUNT_ID, type: "checks" }];
+    db.checks = [];
+    failingPlainUpdates.set("ai_document_extractions", 1);
+    const res = await createChecksFromExtractionAction(chequeInput);
+    expect(res.ok && res.data.created).toBe(1);
+    expect(extraction()).toMatchObject({
+      status: "confirmed",
+      created_entity: { table: "checks", count: 1 },
+    });
+  });
+
+  it("a cheque link that fails twice keeps the claim, so nothing is re-created", async () => {
+    seed("check", {});
+    db.accounts = [{ id: ACCOUNT_ID, type: "checks" }];
+    db.checks = [];
+    failingPlainUpdates.set("ai_document_extractions", 2);
+    const res = await createChecksFromExtractionAction(chequeInput);
+    expect(res.ok && res.data.created).toBe(1);
+    expect(extraction()).toMatchObject({
+      status: "confirmed",
+      created_entity: null,
+    });
+    expect(failingPlainUpdates.get("ai_document_extractions")).toBe(0);
   });
 
   it("a recent cheque claim is left alone", async () => {

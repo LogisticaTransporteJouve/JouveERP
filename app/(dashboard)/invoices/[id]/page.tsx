@@ -75,7 +75,10 @@ export default async function ComprobanteDetailPage({
     getInvoiceDetailAction(id),
     getRemitoLinksAction(id),
   ]);
-  if (!res.ok) notFound();
+  // A failed read reaches the error boundary («Reintentar»): only a
+  // comprobante that is not there says «No encontramos lo que buscás».
+  if (!res.ok) throw new Error(res.error);
+  if (!res.data) notFound();
   const c = res.data;
   const canIssue = userCan(ctx.access, "invoices:issue");
   // An unreadable link must not read as "not billed": Facturar and the retry

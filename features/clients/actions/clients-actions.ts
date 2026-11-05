@@ -20,6 +20,7 @@ import {
   ClientUpdateSchema,
   isIvaCondition,
   type Client,
+  type PartyPickerAccess,
 } from "../schema";
 
 function narrowClient(row: {
@@ -79,6 +80,20 @@ export type SearchClientsPage = {
   clients: Client[];
   nextOffset: number | null;
 };
+
+export async function getClientPickerAccessAction(): Promise<
+  ActionResult<PartyPickerAccess>
+> {
+  const ctx = await requireUserContext();
+  const canRead = userCan(ctx.access, "clients:read");
+  return {
+    ok: true,
+    data: {
+      canRead,
+      canCreate: canRead && userCan(ctx.access, "clients:write"),
+    },
+  };
+}
 
 export async function searchClientsAction(
   input: SearchClientsInput = {},

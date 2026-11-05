@@ -3,6 +3,7 @@
 import { Check, ChevronsUpDown, X } from "lucide-react";
 import { useState } from "react";
 
+import { ReadError } from "@/components/read-error";
 import { Button } from "@/components/ui/button";
 import {
   Command,
@@ -40,11 +41,12 @@ export function ClientSearchCombobox({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const enabled = query.trim().length >= 2;
-  const { data, isFetching } = useClientsSearch(
+  const search = useClientsSearch(
     // Cheques belong to treasury, shared by both sides.
     { query, onlyActive: true, limit: 25, isFiscal: null },
     { enabled },
   );
+  const { data, isFetching } = search;
   const results = data?.clients ?? [];
 
   return (
@@ -99,6 +101,12 @@ export function ClientSearchCombobox({
               <p className="text-muted-foreground py-4 text-center text-xs">
                 Buscando…
               </p>
+            ) : search.isError ? (
+              <ReadError
+                message="No se pudieron buscar los clientes."
+                onRetry={() => void search.refetch()}
+                className="justify-center py-4"
+              />
             ) : results.length === 0 ? (
               <p className="text-muted-foreground py-4 text-center text-xs">
                 Sin resultados.

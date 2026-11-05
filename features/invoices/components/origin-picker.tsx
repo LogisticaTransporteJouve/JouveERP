@@ -3,6 +3,7 @@
 import { Loader2, Search, X } from "lucide-react";
 import { useState } from "react";
 
+import { ReadError } from "@/components/read-error";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -35,7 +36,8 @@ export function OriginPicker({
   const [open, setOpen] = useState(false);
   const [queryInput, setQueryInput] = useState("");
   const debounced = useDebouncedValue(queryInput.trim(), 250);
-  const { data: items = [], isFetching } = useOriginSearch(debounced, open);
+  const search = useOriginSearch(debounced, open);
+  const { data: items = [], isFetching } = search;
 
   if (value) {
     return (
@@ -95,6 +97,12 @@ export function OriginPicker({
               <Loader2 className="size-4 animate-spin" />
               Buscando…
             </div>
+          ) : search.isError ? (
+            <ReadError
+              message="No se pudieron buscar las facturas."
+              onRetry={() => void search.refetch()}
+              className="justify-center p-4"
+            />
           ) : items.length === 0 ? (
             <div className="p-4 text-center text-sm text-muted-foreground">
               {debounced.length === 0

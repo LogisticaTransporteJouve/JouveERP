@@ -139,7 +139,7 @@ describe("getInvoiceDetailAction", () => {
     };
     const res = await getInvoiceDetailAction(ID);
     expect(res.ok).toBe(true);
-    if (res.ok) expect(res.data.numero).toBeNull();
+    if (res.ok) expect(res.data?.numero).toBeNull();
   });
 });
 

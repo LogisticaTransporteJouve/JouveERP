@@ -78,10 +78,18 @@ export function useInvoiceListTotals(
   });
 }
 
+/** The detail, or an error when the comprobante is not there: these hooks
+ *  need one to show, unlike the page, which renders not-found. */
+async function fetchInvoiceDetail(id: string) {
+  const detail = await runAction(() => getInvoiceDetailAction(id));
+  if (!detail) throw new Error("No se encontró el comprobante.");
+  return detail;
+}
+
 export function useInvoiceDetail(id: string) {
   return useSuspenseQuery({
     queryKey: invoicesKeys.detail(id),
-    queryFn: () => runAction(() => getInvoiceDetailAction(id)),
+    queryFn: () => fetchInvoiceDetail(id),
   });
 }
 
@@ -190,8 +198,7 @@ export function useOriginSearch(query: string, enabled = true) {
 export function useInvoiceDetailOnDemand(id: string | null) {
   return useQuery({
     queryKey: id ? invoicesKeys.detail(id) : ["invoices", "detail", null],
-    queryFn: () =>
-      id ? runAction(() => getInvoiceDetailAction(id)) : Promise.reject(),
+    queryFn: () => (id ? fetchInvoiceDetail(id) : Promise.reject()),
     enabled: !!id,
   });
 }

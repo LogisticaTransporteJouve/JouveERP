@@ -42,7 +42,7 @@ export default async function ReceiptDetailPage({
 
   const { id } = await params;
   const res = await getReceiptByIdAction(id);
-  if (!res.ok) notFound();
+  if (!res.ok) throw new Error(res.error);
   if (!res.data) notFound();
 
   const { receipt, payment_lines, allocations, retentions } = res.data;

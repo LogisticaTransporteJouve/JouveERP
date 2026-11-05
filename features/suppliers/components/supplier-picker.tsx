@@ -2,6 +2,9 @@
 
 import { Building2, Plus, Search, X } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
+
+import { ReadError } from "@/components/read-error";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,7 +24,10 @@ import {
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 
 import { getSupplierByIdAction } from "../actions/suppliers-actions";
-import { useSuppliersSearch } from "../hooks/use-suppliers";
+import {
+  useSupplierPickerAccess,
+  useSuppliersSearch,
+} from "../hooks/use-suppliers";
 import { counterpartyIdentityLabel } from "@/features/clients/schema";
 
 import {
@@ -72,9 +78,13 @@ export function SupplierPicker({
 
   const debouncedQuery = useDebouncedValue(query.trim(), 200);
 
+  const access = useSupplierPickerAccess();
+  const readDenied = access?.canRead === false;
+  const canCreate = access?.canCreate === true;
+
   const searchQuery = useSuppliersSearch(
     { query: debouncedQuery, onlyActive: true, limit: RESULT_LIMIT, isFiscal },
-    { enabled: open },
+    { enabled: open && !readDenied },
   );
   const results = searchQuery.data?.suppliers ?? [];
   const isSearching = searchQuery.isFetching;
@@ -99,8 +109,13 @@ export function SupplierPicker({
 
   async function onCreateSuccess(id: string) {
     setShowCreate(false);
-    const res = await getSupplierByIdAction(id);
-    if (!res.ok || !res.data) return;
+    const res = await getSupplierByIdAction(id).catch(() => null);
+    if (!res?.ok || !res.data) {
+      toast.error(
+        "El proveedor se creó, pero no se pudo elegir: buscalo y elegilo.",
+      );
+      return;
+    }
     const s = res.data;
     onChange({
       id: s.id,
@@ -112,6 +127,13 @@ export function SupplierPicker({
     });
   }
 
+  if (readDenied && !value) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        No tenés permiso para ver proveedores.
+      </p>
+    );
+  }
   if (disabled && !value) {
     return <p className="text-sm text-muted-foreground">Cargando…</p>;
   }
@@ -171,18 +193,23 @@ export function SupplierPicker({
                 isSearching={isSearching}
                 onPick={pick}
                 hasQuery={debouncedQuery.length > 0}
+                failed={searchQuery.isError}
+                onRetry={() => void searchQuery.refetch()}
+                canCreate={canCreate}
               />
             </PopoverContent>
           </Popover>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setShowCreate(true)}
-            aria-label="Nuevo proveedor"
-          >
-            <Plus />
-            Nuevo
-          </Button>
+          {canCreate && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowCreate(true)}
+              aria-label="Nuevo proveedor"
+            >
+              <Plus />
+              Nuevo
+            </Button>
+          )}
         </div>
       )}
 
@@ -191,41 +218,46 @@ export function SupplierPicker({
           <p className="text-xs text-muted-foreground">
             El proveedor del comprobante todavía no está cargado.
           </p>
-          <Button
-            type="button"
-            className="h-auto w-full justify-start whitespace-normal py-2 text-left"
-            onClick={() => setShowCreate(true)}
-          >
-            <Plus className="shrink-0" />
-            <span className="min-w-0">
-              Crear proveedor «{suggestedNew.legal_name ?? "sin razón social"}»
-              {suggestedNew.cuit && (
-                <span className="font-mono"> · CUIT {suggestedNew.cuit}</span>
-              )}
-            </span>
-          </Button>
+          {canCreate && (
+            <Button
+              type="button"
+              className="h-auto w-full justify-start whitespace-normal py-2 text-left"
+              onClick={() => setShowCreate(true)}
+            >
+              <Plus className="shrink-0" />
+              <span className="min-w-0">
+                Crear proveedor «{suggestedNew.legal_name ?? "sin razón social"}
+                »
+                {suggestedNew.cuit && (
+                  <span className="font-mono"> · CUIT {suggestedNew.cuit}</span>
+                )}
+              </span>
+            </Button>
+          )}
         </div>
       )}
 
-      <Dialog open={showCreate} onOpenChange={setShowCreate}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Nuevo proveedor</DialogTitle>
-            <DialogDescription>
-              {isFiscal === false
-                ? "Proveedor de Otras compras: sin CUIT ni AFIP."
-                : "Ingresá el CUIT y verificá AFIP para autocompletar los datos."}
-            </DialogDescription>
-          </DialogHeader>
-          <SupplierForm
-            isFiscal={isFiscal ?? undefined}
-            mode="create"
-            initialValues={suggestedNew ?? undefined}
-            onSuccess={onCreateSuccess}
-            onCancel={() => setShowCreate(false)}
-          />
-        </DialogContent>
-      </Dialog>
+      {canCreate && (
+        <Dialog open={showCreate} onOpenChange={setShowCreate}>
+          <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Nuevo proveedor</DialogTitle>
+              <DialogDescription>
+                {isFiscal === false
+                  ? "Proveedor de Otras compras: sin CUIT ni AFIP."
+                  : "Ingresá el CUIT y verificá AFIP para autocompletar los datos."}
+              </DialogDescription>
+            </DialogHeader>
+            <SupplierForm
+              isFiscal={isFiscal ?? undefined}
+              mode="create"
+              initialValues={suggestedNew ?? undefined}
+              onSuccess={onCreateSuccess}
+              onCancel={() => setShowCreate(false)}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
     </>
   );
 }
@@ -235,11 +267,17 @@ function ResultsList({
   isSearching,
   onPick,
   hasQuery,
+  failed,
+  onRetry,
+  canCreate,
 }: {
   results: Supplier[];
   isSearching: boolean;
   onPick: (supplier: Supplier) => void;
   hasQuery: boolean;
+  failed: boolean;
+  onRetry: () => void;
+  canCreate: boolean;
 }) {
   if (isSearching) {
     return (
@@ -248,12 +286,27 @@ function ResultsList({
       </div>
     );
   }
+  // A failed search is not "no match": it would invite creating the party
+  // again.
+  if (failed) {
+    return (
+      <ReadError
+        message="No se pudieron buscar los proveedores."
+        onRetry={onRetry}
+        className="justify-center px-3 py-4"
+      />
+    );
+  }
   if (results.length === 0) {
     return (
       <div className="px-3 py-4 text-center text-sm text-muted-foreground">
         {hasQuery
-          ? "Sin resultados. Probá creando un nuevo proveedor."
-          : "Empezá a tipear o creá un nuevo proveedor."}
+          ? canCreate
+            ? "Sin resultados. Probá creando un nuevo proveedor."
+            : "Sin resultados."
+          : canCreate
+            ? "Empezá a tipear o creá un nuevo proveedor."
+            : "Empezá a tipear para buscar."}
       </div>
     );
   }

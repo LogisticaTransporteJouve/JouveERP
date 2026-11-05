@@ -26,6 +26,11 @@ export function ivaConditionLabel(value: string | null): string | null {
   return isIvaCondition(value) ? IVA_CONDITION_LABEL[value] : null;
 }
 
+/** What a client or supplier picker may offer the user: searching needs
+ *  the read permission, «Nuevo» the write one too (the created party is read
+ *  back to pick it). */
+export type PartyPickerAccess = { canRead: boolean; canCreate: boolean };
+
 /** "CUIT 30714637432 · Responsable Inscripto" for a fiscal client or
  *  supplier; an internal one has neither. */
 export function counterpartyIdentityLabel(party: {

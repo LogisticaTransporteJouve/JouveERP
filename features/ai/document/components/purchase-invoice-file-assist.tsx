@@ -152,11 +152,13 @@ function ScanToPurchaseInvoiceDraft({
       />
     );
   } else if (draftQuery.isError) {
+    // The file is uploaded: a failed read of its draft is retried, not
+    // uploaded again.
     body = (
       <Problem
         message={draftQuery.error.message}
-        action="Probar con otro archivo"
-        onAction={reset}
+        action="Reintentar"
+        onAction={() => void draftQuery.refetch()}
       />
     );
   } else if (!result || result.state === "processing") {

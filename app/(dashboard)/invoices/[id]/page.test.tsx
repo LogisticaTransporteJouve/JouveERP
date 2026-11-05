@@ -9,6 +9,7 @@ import type { ActionResult } from "@/lib/query/run-action";
 const h = vi.hoisted(() => ({
   access: null as Access | null,
   detail: null as Record<string, unknown> | null,
+  detailRes: null as ActionResult<null> | null,
   links: null as ActionResult<RemitoLinks> | null,
   pending: [] as {
     id: string;
@@ -29,7 +30,8 @@ vi.mock("@/lib/auth/context", () => ({
   requireUserContext: async () => ({ userId: "u1", access: h.access }),
 }));
 vi.mock("@/features/invoices/actions/invoices-actions", () => ({
-  getInvoiceDetailAction: async () => ({ ok: true, data: h.detail }),
+  getInvoiceDetailAction: async () =>
+    h.detailRes ?? { ok: true, data: h.detail },
 }));
 vi.mock("@/features/invoices/actions/bill-remito-actions", () => ({
   getRemitoLinksAction: async () => h.links,
@@ -153,8 +155,25 @@ const UNREADABLE = /No se pudo leer si el comprobante está vinculado/;
 
 beforeEach(() => {
   h.access = resolveAccess(["finance"]);
+  h.detailRes = null;
 });
 afterEach(cleanup);
+
+describe("invoice detail — read outcomes", () => {
+  it("a failed read reaches the error boundary, not «No encontramos lo que buscás»", async () => {
+    h.detailRes = { ok: false, error: "No se pudo cargar el comprobante." };
+    h.links = okLinks({});
+    await expect(renderPage()).rejects.toThrow(
+      "No se pudo cargar el comprobante.",
+    );
+  });
+
+  it("a comprobante that is not there is not found", async () => {
+    h.detailRes = { ok: true, data: null };
+    h.links = okLinks({});
+    await expect(renderPage()).rejects.toThrow("NEXT_NOT_FOUND");
+  });
+});
 
 describe("invoice detail — remito links", () => {
   it("an unreadable link hides Facturar and the retry, says so, and does not throw", async () => {
