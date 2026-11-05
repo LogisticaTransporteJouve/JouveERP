@@ -13,10 +13,12 @@ Decisiones: `docs/decisions/2026-11-05-archivos-y-escaneo-auditoria-w13.md`.
       encontró» o «sin movimientos». Este ítem estaba abierto en
       `2026-11-04-rrhh-archivos-y-escaneo-auditoria-w12.md`.
 - [ ] **Archivos sueltos que ya existen en producción.** Los escaneos de
-      flota reemplazados antes de este cambio ya los borró el barrido de las
-      03:00. Después de `20261105090100`, cualquier archivo suelto que quede
-      lo ven solo quien lo subió y owner/admin. La consulta de control está
-      en `antes-de-promover.md`.
+      flota reemplazados antes de este cambio los borra el barrido de las
+      03:00. También quedan sueltos, hasta ese barrido, los archivos de
+      documentos que se borran por otro camino: deshacer una importación o
+      borrar un vehículo, chofer o empleado. Después de `20261105090100`,
+      cualquier archivo suelto lo ven solo quien lo subió y owner/admin. La
+      consulta de control está en `antes-de-promover.md`.
 - [ ] **Quien escaneó ya no existe** (`created_by` en null): la revisión
       sigue diciendo «No se pudo verificar … (sin permiso): quien escaneó el
       documento no tiene acceso». No se sabe si tenía acceso. Hace falta un
