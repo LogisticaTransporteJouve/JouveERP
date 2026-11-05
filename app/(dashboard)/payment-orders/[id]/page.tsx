@@ -31,6 +31,7 @@ import {
 } from "@/features/purchase-invoices/schema";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
+import { canChangeAttachments } from "@/lib/files/attachment-targets";
 import { formatArgentineDate, formatMoneyWithCode } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -324,8 +325,8 @@ export default async function PaymentOrderDetailPage({
           <AttachmentsZone
             targetType="payment_order"
             targetId={paymentOrder.id}
-            canWrite={userCan(ctx.access, "files:write")}
-            canDelete={userCan(ctx.access, "files:write")}
+            canWrite={canChangeAttachments(ctx.access, "payment_order")}
+            canDelete={canChangeAttachments(ctx.access, "payment_order")}
           />
         </div>
       </div>

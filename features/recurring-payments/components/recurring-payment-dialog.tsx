@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { ChannelsReadError } from "@/components/channels-read-error";
 import { useScope } from "@/components/providers/scope-provider";
 import { MoneyInput } from "@/components/money-input";
 import { Button } from "@/components/ui/button";
@@ -310,6 +311,7 @@ export function RecurringPaymentDialog({
                       ))}
                     </SelectContent>
                   </Select>
+                  <ChannelsReadError inline />
                   <FormMessage />
                 </FormItem>
               )}

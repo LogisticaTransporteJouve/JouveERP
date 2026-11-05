@@ -4,7 +4,7 @@ import { logAudit } from "@/lib/actions/audit";
 import type { JsonValue } from "@/lib/actions/audit";
 import { CONCEPTO, IVA_RATE, MONEDA, voucherReceptor } from "@/lib/afip/codes";
 import { requireUserContext } from "@/lib/auth/context";
-import { getActiveInvoicingChannels } from "@/lib/channels";
+import { readInvoicingChannels } from "@/lib/channels";
 import { round2, todayInAR } from "@/lib/format";
 import { userCan } from "@/lib/auth/permissions";
 import { mapDbGuardError } from "@/lib/db/guard-errors";
@@ -12,8 +12,9 @@ import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { findSourceInvoiceSlot, invoiceIsVoid } from "@/lib/source-invoice-key";
-import { fetchInChunks } from "@/lib/supabase/paginate";
+import { fetchInChunks, paginateRange } from "@/lib/supabase/paginate";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
+import { getServiceClient } from "@/lib/supabase/service";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createSupabaseClient>>;
 
@@ -69,17 +70,20 @@ function narrow(
 
 /** The rows as Shipments, each marked when its invoice no longer bills it
  *  (billing_void_invoice_ids). Null when that read fails: a void invoice
- *  must not read as billing its carga. */
+ *  must not read as billing its carga. The rule is read with the service
+ *  client, so a viewer who cannot read invoices (operations) gets the same
+ *  answer guard_billed_shipment gives them; it only answers yes or no for
+ *  the invoices of the cargas the viewer already read. */
 async function narrowRows(
-  supabase: SupabaseServerClient,
   rows: ShipmentRow[],
   userId: string,
 ): Promise<Shipment[] | null> {
   const invoiceIds = rows.flatMap((row) =>
     row.invoice_id === null ? [] : [row.invoice_id],
   );
+  const service = getServiceClient();
   const voidRes = await fetchInChunks(invoiceIds, (ids) =>
-    supabase.rpc("billing_void_invoice_ids", { p_invoice_ids: ids }),
+    service.rpc("billing_void_invoice_ids", { p_invoice_ids: ids }),
   );
   if (voidRes.error) {
     logger.error("shipments.invoice_void.failed", {
@@ -155,23 +159,30 @@ export async function listShipmentsAction(): Promise<ActionResult<Shipment[]>> {
     return { ok: false, error: "No tenés permiso para ver cargas." };
   }
   const supabase = await createSupabaseClient();
-  const { data, error } = await supabase
-    .from("shipments")
-    .select(SELECT_COLUMNS)
-    .order("scheduled_date", { ascending: false, nullsFirst: false })
-    .order("created_at", { ascending: false });
+  const { data, error } = await paginateRange((from, to) =>
+    supabase
+      .from("shipments")
+      .select(SELECT_COLUMNS)
+      .order("scheduled_date", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false })
+      .order("id")
+      .range(from, to),
+  );
   if (error) {
     logger.error("shipments.list.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudieron listar las cargas." };
   }
-  const rows = await narrowRows(supabase, data ?? [], ctx.userId);
+  const rows = await narrowRows(data ?? [], ctx.userId);
   if (!rows) return { ok: false, error: "No se pudieron listar las cargas." };
   return { ok: true, data: rows };
 }
 
+/** Each list is null when its own read failed: the carga form needs only the
+ *  trips and «Facturar flete» only the channels, so each reports its own
+ *  failure instead of an empty select. */
 type ShipmentOptions = {
-  trips: { id: string; trip_date: string; status: string }[];
-  channels: { id: string; name: string; is_fiscal: boolean }[];
+  trips: { id: string; trip_date: string; status: string }[] | null;
+  channels: { id: string; name: string; is_fiscal: boolean }[] | null;
 };
 
 /** Select options for the shipment forms (recent trips, active channels).
@@ -190,24 +201,23 @@ export async function listShipmentOptionsAction(): Promise<
       .select("id, trip_date, status")
       .order("trip_date", { ascending: false })
       .limit(200),
-    getActiveInvoicingChannels(),
+    readInvoicingChannels(),
   ]);
   if (trips.error) {
-    logger.error("shipments.options.failed", {
+    logger.error("shipments.options.trips_failed", {
       userId: ctx.userId,
       error: trips.error,
     });
-    return { ok: false, error: "No se pudieron cargar las opciones." };
   }
   return {
     ok: true,
     data: {
-      trips: trips.data ?? [],
-      channels: channels.map((c) => ({
-        id: c.id,
-        name: c.name,
-        is_fiscal: c.is_fiscal,
-      })),
+      trips: trips.error ? null : (trips.data ?? []),
+      channels: channels.ok
+        ? channels.channels
+            .filter((c) => c.is_active)
+            .map((c) => ({ id: c.id, name: c.name, is_fiscal: c.is_fiscal }))
+        : null,
     },
   };
 }
@@ -482,7 +492,7 @@ export async function listShipmentsByTripAction(
     logger.error("shipments.by_trip.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudieron cargar las cargas del viaje." };
   }
-  const rows = await narrowRows(supabase, data ?? [], ctx.userId);
+  const rows = await narrowRows(data ?? [], ctx.userId);
   if (!rows) {
     return { ok: false, error: "No se pudieron cargar las cargas del viaje." };
   }
@@ -510,7 +520,7 @@ export async function listUnassignedShipmentsAction(): Promise<
     logger.error("shipments.unassigned.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudieron cargar las cargas sin viaje." };
   }
-  const rows = await narrowRows(supabase, data ?? [], ctx.userId);
+  const rows = await narrowRows(data ?? [], ctx.userId);
   if (!rows) {
     return { ok: false, error: "No se pudieron cargar las cargas sin viaje." };
   }

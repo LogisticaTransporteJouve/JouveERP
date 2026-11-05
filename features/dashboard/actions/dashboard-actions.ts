@@ -293,6 +293,7 @@ async function todayTrips(
   supabase: Awaited<ReturnType<typeof createSupabaseClient>>,
   userId: string,
   today: string,
+  canShipments: boolean,
 ): Promise<TodayTile<TodayTrip[]>> {
   const { data, error } = await supabase
     .from("trips")
@@ -319,6 +320,8 @@ async function todayTrips(
       }
       return {
         id: t.id,
+        // The trip page shows only its cargas, read under shipments:read.
+        href: canShipments ? `/trips/${t.id}` : "/trips",
         status: t.status,
         patente: vehicle?.patente ?? null,
         driver: driver?.full_name ?? null,
@@ -425,7 +428,14 @@ export async function getDashboardTodayAction(): Promise<
   const supabase = await createSupabaseClient();
   const today = todayInAR();
   const [trips, papers] = await Promise.all([
-    canTrips ? todayTrips(supabase, ctx.userId, today) : null,
+    canTrips
+      ? todayTrips(
+          supabase,
+          ctx.userId,
+          today,
+          userCan(ctx.access, "shipments:read"),
+        )
+      : null,
     sections.fleet || sections.hr
       ? todayPapers(supabase, ctx.userId, today, sections)
       : null,

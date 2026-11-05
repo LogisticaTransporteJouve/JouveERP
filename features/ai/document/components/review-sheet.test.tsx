@@ -54,3 +54,41 @@ describe("ReviewSheet: the extraction read failed", () => {
     expect(h.signedUrl).not.toHaveBeenCalled();
   });
 });
+
+describe("ReviewSheet: bank statement reconciliation (audit w13-s6 F1)", () => {
+  function renderWith(matches: Record<string, unknown>) {
+    h.detail.data = {
+      id: "x1",
+      file_id: null,
+      file: { original_filename: "extracto.pdf", mime_type: "application/pdf" },
+      detected_type: "bank_statement",
+      confidence: 0.9,
+      status: "pending_review",
+      payload: {},
+      matches,
+    };
+    h.detail.isError = false;
+    render(
+      <ReviewSheet
+        extractionId="x1"
+        access={resolveAccess(["finance"])}
+        onOpenChange={() => {}}
+      />,
+    );
+  }
+
+  it("says it was not calculated when the period had too many movements", () => {
+    renderWith({ reconciliation_unchecked: true });
+    expect(
+      screen.getByText(
+        /Conciliación no calculada: el período tiene demasiados/,
+      ),
+    ).toBeTruthy();
+  });
+
+  it("shows the summary when there is one", () => {
+    renderWith({ reconciliation: { matched: 2, statement_total: 3 } });
+    expect(screen.getByText(/Conciliación: 2\/3 conciliados/)).toBeTruthy();
+    expect(screen.queryByText(/Conciliación no calculada/)).toBeNull();
+  });
+});

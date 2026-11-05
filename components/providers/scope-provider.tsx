@@ -30,6 +30,9 @@ type ScopeContextValue = {
   /** The side the menu last switched to; it applies only on split pages. */
   fiscalFilter: ScopeSide;
   channels: InvoicingChannelSummary[];
+  /** The layout could not read the channels: `channels` is empty because of
+   *  the error, not because there are none. */
+  channelsFailed: boolean;
   /** The scope cannot change (a fiscal-only user is pinned to fiscal). */
   locked: boolean;
   /** `navigating`: a link is taking the user to another page, which renders
@@ -66,11 +69,13 @@ function readFromStorage(): ScopeSide {
 
 export function ScopeProvider({
   channels,
+  channelsFailed = false,
   initialFiscalFilter,
   locked = false,
   children,
 }: {
   channels: InvoicingChannelSummary[];
+  channelsFailed?: boolean;
   initialFiscalFilter?: ScopeSide;
   locked?: boolean;
   children: React.ReactNode;
@@ -117,8 +122,8 @@ export function ScopeProvider({
   );
 
   const value = useMemo<ScopeContextValue>(
-    () => ({ fiscalFilter, channels, locked, setFiscalFilter }),
-    [fiscalFilter, channels, locked, setFiscalFilter],
+    () => ({ fiscalFilter, channels, channelsFailed, locked, setFiscalFilter }),
+    [fiscalFilter, channels, channelsFailed, locked, setFiscalFilter],
   );
 
   return (

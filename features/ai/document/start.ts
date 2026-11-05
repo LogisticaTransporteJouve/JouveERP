@@ -63,11 +63,15 @@ export async function startExtraction(
   // Verify the caller can actually see this file (RLS client) before kicking
   // off a service-role download + vision calls — the file_id is user-supplied
   // and the pipeline bypasses RLS.
-  const { data: file } = await supabase
+  const { data: file, error: fileError } = await supabase
     .from("files")
     .select("id")
     .eq("id", input.fileId)
     .maybeSingle();
+  if (fileError) {
+    logger.error("ai.document.file_read.failed", { userId, error: fileError });
+    return { ok: false, error: "No se pudo leer el archivo. Reintentá." };
+  }
   if (!file) return { ok: false, error: "No encontramos el archivo." };
 
   const { data, error } = await supabase

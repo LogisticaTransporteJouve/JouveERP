@@ -15,6 +15,9 @@ vi.mock("@/features/maintenance/actions/maintenance-actions", () => ({
 vi.mock("@/features/fleet-documents/actions/fleet-documents-actions", () => ({
   listFleetDocumentsAction: vi.fn(),
 }));
+vi.mock("@/features/shipments/actions/shipments-summary-actions", () => ({
+  getShipmentsSummaryAction: vi.fn(),
+}));
 vi.mock("@/features/fleet-reports/actions/profitability-actions", () => ({
   getFleetProfitabilityAction: vi.fn(),
   listTripRevenueAction: vi.fn(),
@@ -27,13 +30,16 @@ import {
 } from "@/features/fleet-reports/actions/profitability-actions";
 import { listFuelLoadsAction } from "@/features/fuel/actions/fuel-actions";
 import { listMaintenanceAction } from "@/features/maintenance/actions/maintenance-actions";
+import { getShipmentsSummaryAction } from "@/features/shipments/actions/shipments-summary-actions";
 import { listTripsAction } from "@/features/trips/actions/trips-actions";
 import type { MaintenanceRecord } from "@/features/maintenance/schema";
+import type { ShipmentsSummaryRow } from "@/features/shipments/schema";
 import type { Trip, TripStatus } from "@/features/trips/schema";
 import { listVehiclesAction } from "@/features/vehicles/actions/vehicles-actions";
 import { resolveAccess } from "@/lib/auth/permissions";
 
 import {
+  getShipmentsSummary,
   runFleetDocuments,
   runFleetProfitability,
   runFuelLoads,
@@ -428,5 +434,59 @@ describe("runFleetProfitability", () => {
       "(+ 2 trip(s) without a vehicle, in the totals)",
     );
     expect(res.summary).toContain("1 service(s) sin costo cargado");
+  });
+});
+
+describe("getShipmentsSummary", () => {
+  const ctx = { userId: "u1", access: OPERATIONS };
+  const row = (patch: Partial<ShipmentsSummaryRow>): ShipmentsSummaryRow => ({
+    status: "delivered",
+    client_id: "c1",
+    client_name: "Cliente",
+    shipments: 0,
+    freight: 0,
+    invoiced: 0,
+    invoiced_freight: 0,
+    unpriced: 0,
+    ...patch,
+  });
+
+  it("leaves cancelled cargas out of the headline and says the freight is not final", async () => {
+    vi.mocked(getShipmentsSummaryAction).mockResolvedValue({
+      ok: true,
+      data: [
+        row({ shipments: 10, freight: 500_000, invoiced: 10 }),
+        row({ status: "pending", shipments: 3, freight: 0, unpriced: 3 }),
+        row({ status: "cancelled", shipments: 2, freight: 100_000 }),
+      ],
+    });
+    const res = await getShipmentsSummary.execute(ctx, {
+      from: "2026-10-01",
+      to: "2026-10-31",
+    });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.summary).toContain("13 cargas entre 2026-10-01 y 2026-10-31");
+    expect(res.summary).toContain("flete $500.000");
+    expect(res.summary).not.toContain("600.000");
+    expect(res.summary).toContain("(2 canceladas, fuera del total)");
+    expect(res.summary).toContain(
+      "3 cargas sin flete (por tarifa): el flete total no es definitivo.",
+    );
+  });
+
+  it("adds no notes when nothing is cancelled or unpriced", async () => {
+    vi.mocked(getShipmentsSummaryAction).mockResolvedValue({
+      ok: true,
+      data: [row({ shipments: 1, freight: 100, invoiced: 1 })],
+    });
+    const res = await getShipmentsSummary.execute(ctx, {
+      from: "2026-10-01",
+      to: "2026-10-31",
+    });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.summary).not.toContain("canceladas");
+    expect(res.summary).not.toContain("sin flete");
   });
 });

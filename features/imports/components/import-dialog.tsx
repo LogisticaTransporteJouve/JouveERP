@@ -4,6 +4,7 @@ import { FileUp, Info, Loader2 } from "lucide-react";
 import { Suspense, useState } from "react";
 import { toast } from "sonner";
 
+import { ChannelsReadError } from "@/components/channels-read-error";
 import { useScope } from "@/components/providers/scope-provider";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -334,6 +335,7 @@ export function ImportDialog({
                     ))}
                   </SelectContent>
                 </Select>
+                <ChannelsReadError inline />
               </div>
             )}
           </div>

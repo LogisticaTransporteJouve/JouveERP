@@ -7,8 +7,9 @@ import { resolveAccess } from "@/lib/auth/permissions";
 import type { Shipment } from "../schema";
 
 const h = vi.hoisted(() => ({
-  channels: [] as { id: string; name: string; is_fiscal: boolean }[],
+  channels: [] as { id: string; name: string; is_fiscal: boolean }[] | null,
   posChannel: null as string | null,
+  optionsFailed: false,
 }));
 
 const shipment: Shipment = {
@@ -48,7 +49,10 @@ vi.mock("@/components/providers/confirm-provider", () => ({
 vi.mock("../hooks/use-shipments", () => ({
   useShipments: () => ({ data: [shipment] }),
   useDeleteShipment: () => ({ mutate: vi.fn(), isPending: false }),
-  useShipmentOptions: () => ({ data: { trips: [], channels: h.channels } }),
+  useShipmentOptions: () =>
+    h.optionsFailed
+      ? { data: undefined, isError: true, refetch: vi.fn() }
+      : { data: { trips: [], channels: h.channels }, isError: false },
   useInvoiceFreight: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 vi.mock("@/features/invoices/components/pos-select", () => ({
@@ -72,6 +76,7 @@ afterEach(() => {
   cleanup();
   h.channels = [];
   h.posChannel = null;
+  h.optionsFailed = false;
 });
 
 function openRowMenu() {
@@ -143,6 +148,23 @@ describe("FreightInvoiceDialog: channel on the client's side", () => {
     fireEvent.click(screen.getByRole("combobox"));
     const names = screen.getAllByRole("option").map((o) => o.textContent);
     expect(names).toEqual(["Jouve interno", "Otro interno"]);
+  });
+
+  it("says the channels could not be read instead of an empty select", () => {
+    h.optionsFailed = true;
+    render(<FreightInvoiceDialog shipment={shipment} onClose={() => {}} />);
+    expect(screen.getByRole("alert").textContent).toContain(
+      "No se pudieron cargar los canales.",
+    );
+    expect(screen.getByRole("button", { name: /Reintentar/ })).toBeTruthy();
+  });
+
+  it("says the channels could not be read when only that read failed", () => {
+    h.channels = null;
+    render(<FreightInvoiceDialog shipment={shipment} onClose={() => {}} />);
+    expect(screen.getByRole("alert").textContent).toContain(
+      "No se pudieron cargar los canales.",
+    );
   });
 
   it("keeps the carga's own channel", () => {

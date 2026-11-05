@@ -35,7 +35,7 @@ export default async function WarehousesPageRoute() {
   return (
     <Hydrate state={dehydratedState}>
       <div className="space-y-6">
-        <WarehousesTable />
+        <WarehousesTable actorAccess={ctx.access} />
       </div>
     </Hydrate>
   );

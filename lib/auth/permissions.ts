@@ -426,6 +426,13 @@ export const TREASURY_PERMISSIONS = [
   "accounts:read",
 ] as const satisfies readonly Permission[];
 
+/** Composite gate of the fleet profitability report: a trip's revenue is
+ *  the freight of its cargas. */
+export const FLEET_PROFITABILITY_PERMISSIONS = [
+  "trips:read",
+  "shipments:read",
+] as const satisfies readonly Permission[];
+
 export const SUPPLIER_AGING_PERMISSIONS = [
   "suppliers:read",
   "purchase_invoices:read",
