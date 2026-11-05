@@ -27,6 +27,7 @@ const shipment: Shipment = {
   freight_amount: 1000,
   cod_amount: null,
   invoice_id: null,
+  invoice_void: false,
   notes: null,
   created_at: "2026-11-01T00:00:00Z",
   updated_at: "2026-11-01T00:00:00Z",
