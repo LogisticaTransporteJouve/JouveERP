@@ -4,7 +4,7 @@ import { requireUserContext } from "@/lib/auth/context";
 import { TREASURY_PERMISSIONS, userCanAll } from "@/lib/auth/permissions";
 import { round2, todayInAR } from "@/lib/format";
 import { readLatestUsdRate, toArs } from "@/lib/fx";
-import { getInvoicingChannels } from "@/lib/channels";
+import { readInvoicingChannels } from "@/lib/channels";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { channelIsFiscal } from "@/lib/scope";
@@ -131,7 +131,12 @@ export async function getCashFlowAction(input: {
   const supabase = await createClient();
   const events: CashFlowEvent[] = [];
   // Every channel, inactive included, so history keeps its classification.
-  const allChannels = await getInvoicingChannels();
+  // Without them every scope would read «otro» and the loan dedupe would drop
+  // recurring «Préstamo» payments.
+  const channelsRes = await readInvoicingChannels();
+  if (!channelsRes.ok)
+    return failed("channels", "invoicing_channels read failed");
+  const allChannels = channelsRes.channels;
   const scopeOfChannel = (channelId: string | null) =>
     cashScope(channelIsFiscal(channelId, allChannels));
 

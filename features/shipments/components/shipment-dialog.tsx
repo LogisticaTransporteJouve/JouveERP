@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 
 import { MoneyInput } from "@/components/money-input";
+import { ReadError } from "@/components/read-error";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -139,7 +140,12 @@ export function ShipmentDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const { data: options, isLoading: optionsLoading } = useShipmentOptions();
+  const {
+    data: options,
+    isLoading: optionsLoading,
+    isError: optionsFailed,
+    refetch: refetchOptions,
+  } = useShipmentOptions();
   const createMut = useCreateShipment();
   const updateMut = useUpdateShipment();
   const isSaving = createMut.isPending || updateMut.isPending;
@@ -355,6 +361,12 @@ export function ShipmentDialog({
                           ))}
                         </SelectContent>
                       </Select>
+                      {optionsFailed && !options && (
+                        <ReadError
+                          message="No se pudieron cargar los viajes."
+                          onRetry={() => void refetchOptions()}
+                        />
+                      )}
                       <FormMessage />
                     </FormItem>
                   )}
