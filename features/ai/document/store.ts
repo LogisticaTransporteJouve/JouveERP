@@ -309,8 +309,10 @@ export async function matchForKind(
 }
 
 /**
- * Writes the extraction outcome back to the draft row (service role). A draft
- * the user discarded while the job was running stays discarded.
+ * Writes the extraction outcome back to the draft row (service role), only
+ * over a draft the pipeline still owns: pending and not saved yet. A draft
+ * the user discarded or already created from keeps its status, also when a
+ * retried save runs after its first attempt committed.
  */
 export async function saveExtractionResult(
   extractionId: string,
@@ -333,7 +335,8 @@ export async function saveExtractionResult(
       status: result.status,
     })
     .eq("id", extractionId)
-    .neq("status", "discarded");
+    .eq("status", "pending_review")
+    .is("detected_type", null);
   if (error) throw error;
 }
 
@@ -354,24 +357,26 @@ export async function extractionRequester(
 }
 
 /** Whether the pipeline should still pay to read this extraction: the row
- *  exists and is not discarded or done. A scan whose event send threw deletes
- *  its row, yet the event may have been accepted. A failed read throws. */
+ *  exists, is pending and was not saved yet. A scan whose event send threw
+ *  deletes its row, yet the event may have been accepted. A failed read
+ *  throws. */
 export async function extractionAwaitsPipeline(
   extractionId: string,
 ): Promise<boolean> {
   const service = getServiceClient();
   const { data, error } = await service
     .from("ai_document_extractions")
-    .select("status")
+    .select("status, detected_type")
     .eq("id", extractionId)
     .maybeSingle();
   if (error) throw error;
-  return data?.status === "pending_review";
+  return data?.status === "pending_review" && data.detected_type === null;
 }
 
 /**
- * Marks an extraction failed (terminal). Leaves a discarded draft alone.
- * Best-effort, never throws.
+ * Marks an extraction failed (terminal), only while the pipeline still owns
+ * it (pending, not saved): a saved, confirmed or discarded draft is left
+ * alone. Best-effort, never throws.
  */
 export async function markExtractionFailed(
   extractionId: string,
@@ -381,7 +386,8 @@ export async function markExtractionFailed(
     .from("ai_document_extractions")
     .update({ status: "failed" })
     .eq("id", extractionId)
-    .neq("status", "discarded");
+    .eq("status", "pending_review")
+    .is("detected_type", null);
   if (error)
     logger.error("ai.document.mark_failed.failed", { extractionId, error });
 }
