@@ -1232,6 +1232,60 @@ que agrega una migración suma su ítem al final de esta sección.
     ```
 
   - `docs/pendientes/2026-11-05-vinculos-de-archivos-auditoria-w15.md`.
+- [ ] **Aprobar `20261105120100`** (auditoría w15, flota: ND acreditadas).
+      Va después de `20261104194000` y `20261105100001`, de las que
+      reemplaza funciones. No toca filas al aplicarse ni cambia políticas
+      RLS.
+  - Función nueva `billing_invoice_live_debits` (invoker, para
+    `authenticated` y `service_role`): lo que todavía facturan las ND de
+    flete de una factura, cada una neta de sus propias NC.
+  - `billing_invoice_is_void` (misma firma, invoker y permisos): una factura
+    fiscal queda anulada cuando sus NC suman su total más esas ND. Una
+    factura acreditada por el total con una ND de flete viva deja de leerse
+    anulada: su carga, liquidación o período de almacenaje siguen
+    facturados.
+  - `shipment_invoice_billed_ratio` (misma firma, definer y permisos): cada
+    ND cuenta neta de sus NC.
+  - Rollback: el código anterior llama a las mismas funciones con los
+    mismos argumentos y lee las respuestas nuevas.
+  - Consulta de control antes de aplicar (solo lectura, válida sobre el
+    esquema de producción): las facturas fiscales acreditadas por el total
+    con una ND de flete viva, que dejan de leerse anuladas, y lo que
+    retiene cada una.
+
+    ```sql
+    with adj as (
+      select i.id, i.imp_total,
+             coalesce((select sum(n.imp_total) from public.invoices n
+                        where n.invoice_origin_id = i.id
+                          and n.kind = 'nc' and n.status = 'emitted'), 0) as acreditado,
+             coalesce((select sum(greatest(0, d.imp_total - coalesce((
+                               select sum(n.imp_total) from public.invoices n
+                                where n.invoice_origin_id = d.id
+                                  and n.kind = 'nc' and n.status = 'emitted'), 0)))
+                         from public.invoices d
+                        where d.invoice_origin_id = i.id
+                          and d.kind = 'nd' and d.status = 'emitted'
+                          and not exists (
+                            select 1 from public.late_interest_charges lc
+                             where lc.nd_invoice_id = d.id
+                                or lc.id::text = d.idempotency_key)), 0) as nd_vivas
+        from public.invoices i
+        join public.invoicing_channels c on c.id = i.channel_id
+       where c.is_fiscal
+         and i.status not in ('failed', 'cancelled')
+    )
+    select a.id, a.imp_total, a.acreditado, a.nd_vivas,
+           (select count(*) from public.shipments s where s.invoice_id = a.id) as cargas,
+           (select count(*) from public.storage_billing_runs r where r.invoice_id = a.id) as almacenaje,
+           (select count(*) from public.freight_settlements f
+             where f.invoice_id = a.id and f.status <> 'cancelled') as liquidaciones
+      from adj a
+     where a.acreditado >= a.imp_total - 0.01
+       and a.acreditado < a.imp_total + a.nd_vivas - 0.01;
+    ```
+
+  - `docs/pendientes/2026-11-05-flota-nd-acreditadas-auditoria-w15.md`.
 
 ## Después de promover
 

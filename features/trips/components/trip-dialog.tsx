@@ -20,6 +20,7 @@ import {
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -340,10 +341,14 @@ export function TripDialog({
                 name="revenue"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Ingreso</FormLabel>
+                    <FormLabel>Ingreso manual</FormLabel>
                     <FormControl>
                       <MoneyInput {...field} />
                     </FormControl>
+                    <FormDescription className="text-xs">
+                      Si el viaje tiene cargas, Rentabilidad usa su flete
+                      facturado.
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
