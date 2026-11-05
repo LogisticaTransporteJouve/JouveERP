@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 
-import { listInvoicingChannelsAction } from "@/features/invoices/actions/invoices-actions";
 import { listLoansAction } from "@/features/loans/actions/loans-actions";
 import { LoansTable } from "@/features/loans/components/loans-table";
 import { loansKeys } from "@/features/loans/lib/loans-keys";
@@ -25,24 +24,18 @@ export default async function LoansRoute() {
   }
 
   const isFiscal = isFiscalFor(await readSharedScope());
-  const [dehydratedState, channelsRes] = await Promise.all([
-    prefetchQueries([
-      {
-        queryKey: loansKeys.list(isFiscal),
-        queryFn: () => runAction(() => listLoansAction({ isFiscal })),
-      },
-    ]),
-    listInvoicingChannelsAction(),
+  // «Nuevo préstamo» picks its channel from the layout's scope, which says a
+  // failed read under the select.
+  const dehydratedState = await prefetchQueries([
+    {
+      queryKey: loansKeys.list(isFiscal),
+      queryFn: () => runAction(() => listLoansAction({ isFiscal })),
+    },
   ]);
-
-  const channelOptions = channelsRes.ok ? channelsRes.data : [];
 
   return (
     <Hydrate state={dehydratedState}>
-      <LoansTable
-        channelOptions={channelOptions}
-        canWrite={userCan(ctx.access, "accounting:write")}
-      />
+      <LoansTable canWrite={userCan(ctx.access, "accounting:write")} />
     </Hydrate>
   );
 }
