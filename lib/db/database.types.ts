@@ -9980,6 +9980,7 @@ export type Database = {
           punto_venta: number
         }[]
       }
+      like_contains_pattern: { Args: { p_search: string }; Returns: string }
       link_freight_settlement_invoice: {
         Args: { p_invoice_id: string; p_settlement_id: string }
         Returns: undefined
