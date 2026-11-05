@@ -3,7 +3,9 @@ import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { adaptManualPage, MANUAL_DIR, manualFile } from "./serve";
+import { resolveAccess } from "@/lib/auth/permissions";
+
+import { adaptManualPage, MANUAL_DIR, manualAccess, manualFile } from "./serve";
 
 describe("manualFile", () => {
   it("serves the pages and their assets", () => {
@@ -80,5 +82,19 @@ describe("adaptManualPage", () => {
         `<script nonce="YWJj" src="assets/${script}">`,
       );
     }
+  });
+});
+
+describe("manualAccess", () => {
+  it("lets in any role that sees the internal side", () => {
+    expect(manualAccess(resolveAccess(["finance"]))).toBe("allowed");
+    expect(manualAccess(resolveAccess(["fiscal_reader", "finance"]))).toBe(
+      "allowed",
+    );
+  });
+
+  it("refuses a fiscal-only user and hides it from a user with no role", () => {
+    expect(manualAccess(resolveAccess(["fiscal_reader"]))).toBe("forbidden");
+    expect(manualAccess(resolveAccess([]))).toBe("none");
   });
 });

@@ -22,7 +22,7 @@ import { navItemForPath, navSectionForItem } from "./nav-items";
 // Sticky over the scrolling canvas, on the canvas's own surface and hairline
 // so it reads as part of the card.
 export function AppHeader({ actions }: { actions: React.ReactNode }) {
-  const { fiscalFilter } = useScope();
+  const { fiscalFilter, locked } = useScope();
   const pathname = usePathname();
   const item = navItemForPath(pathname, fiscalFilter);
   const section = item ? navSectionForItem(item) : undefined;
@@ -61,16 +61,19 @@ export function AppHeader({ actions }: { actions: React.ReactNode }) {
       <div className="ml-auto flex min-w-0 items-center gap-1.5 sm:gap-2">
         {/* The guide section of this screen (app/manual resolves the route);
             static HTML, so a plain link, in the guide's own reused tab. */}
-        <Button variant="ghost" size="icon" asChild>
-          <a
-            href={`/manual/para?ruta=${encodeURIComponent(pathname)}`}
-            target={MANUAL_WINDOW}
-            aria-label="Ayuda de esta pantalla"
-            title="Ayuda de esta pantalla"
-          >
-            <CircleHelp />
-          </a>
-        </Button>
+        {/* The guide refuses a fiscal-only user (lib/manual/serve.ts). */}
+        {!locked && (
+          <Button variant="ghost" size="icon" asChild>
+            <a
+              href={`/manual/para?ruta=${encodeURIComponent(pathname)}`}
+              target={MANUAL_WINDOW}
+              aria-label="Ayuda de esta pantalla"
+              title="Ayuda de esta pantalla"
+            >
+              <CircleHelp />
+            </a>
+          </Button>
+        )}
         {actions}
       </div>
     </header>

@@ -7,7 +7,12 @@ import { GUIDE_PAGES } from "@/features/guide/manual/content";
 import { guideHrefForPath } from "@/features/guide/manual/model";
 import { getCurrentUserContext } from "@/lib/auth/context";
 import { logger } from "@/lib/logger";
-import { adaptManualPage, MANUAL_DIR, manualFile } from "@/lib/manual/serve";
+import {
+  adaptManualPage,
+  MANUAL_DIR,
+  manualAccess,
+  manualFile,
+} from "@/lib/manual/serve";
 
 // The HTML user manual (docs/manual/) for any logged-in user. Read from disk
 // on each request (next.config.ts traces docs/manual/ into this function);
@@ -48,6 +53,14 @@ export async function GET(
     const login = new URL("/auth/login", request.url);
     login.searchParams.set("redirectTo", request.nextUrl.pathname);
     return NextResponse.redirect(login);
+  }
+
+  const allowed = manualAccess(ctx.access);
+  if (allowed !== "allowed") {
+    return new NextResponse(
+      allowed === "none" ? "No encontrado." : "No tenés acceso a la guía.",
+      { status: allowed === "none" ? 404 : 403 },
+    );
   }
 
   let body: string;
