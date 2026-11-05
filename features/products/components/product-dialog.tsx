@@ -9,6 +9,7 @@ import { z } from "zod";
 
 import { ReadError } from "@/components/read-error";
 import { Button } from "@/components/ui/button";
+import { Combobox } from "@/components/ui/combobox";
 import {
   Dialog,
   DialogContent,
@@ -26,13 +27,6 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
 import { useCreateProduct, useUpdateProduct } from "../hooks/use-products";
@@ -129,20 +123,19 @@ export function ProductDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Cliente</FormLabel>
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccionar cliente" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {(clientOptions ?? []).map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.legal_name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <FormControl>
+                    <Combobox
+                      options={(clientOptions ?? []).map((c) => ({
+                        value: c.id,
+                        label: c.legal_name,
+                      }))}
+                      value={field.value}
+                      onChange={field.onChange}
+                      placeholder="Elegí un cliente"
+                      searchPlaceholder="Buscar cliente…"
+                      emptyText="Sin clientes."
+                    />
+                  </FormControl>
                   {clientOptions === null && (
                     <ReadError
                       message="No se pudieron cargar los clientes."

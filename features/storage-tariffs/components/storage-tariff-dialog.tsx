@@ -11,6 +11,7 @@ import { z } from "zod";
 import { MoneyInput } from "@/components/money-input";
 import { ReadError } from "@/components/read-error";
 import { Button } from "@/components/ui/button";
+import { Combobox } from "@/components/ui/combobox";
 import {
   Dialog,
   DialogContent,
@@ -182,24 +183,22 @@ export function StorageTariffDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Cliente (opcional)</FormLabel>
-                  <Select
-                    value={field.value === "" ? NONE : field.value}
-                    onValueChange={(v) => field.onChange(v === NONE ? "" : v)}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="General (todos)" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value={NONE}>General (todos)</SelectItem>
-                      {(clientOptions ?? []).map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.legal_name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <FormControl>
+                    <Combobox
+                      options={[
+                        { value: NONE, label: "General (todos)" },
+                        ...(clientOptions ?? []).map((c) => ({
+                          value: c.id,
+                          label: c.legal_name,
+                        })),
+                      ]}
+                      value={field.value === "" ? NONE : field.value}
+                      onChange={(v) => field.onChange(v === NONE ? "" : v)}
+                      placeholder="General (todos)"
+                      searchPlaceholder="Buscar cliente…"
+                      emptyText="Sin clientes."
+                    />
+                  </FormControl>
                   {clientOptions === null && (
                     <ReadError
                       message="No se pudieron cargar los clientes."
