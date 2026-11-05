@@ -20,7 +20,9 @@ el despacho y en «Trazabilidad».
 
 El chofer (`trips:read` sin `shipments:read`) ya no ve «Rentabilidad» ni
 «Ver cargas», que lo llevaban a una pantalla con error. Si no tiene
-`trips:write` tampoco ve el menú de acciones de la fila.
+`trips:write` tampoco ve el menú de acciones de la fila. En el inicio,
+«Viajes de hoy» lo lleva a la lista de Viajes en vez de a la página del
+viaje.
 
 **Opciones de cargas.** `listShipmentOptionsAction` devuelve `trips` y
 `channels` por separado, cada uno `null` si su lectura falló. «Nueva carga» /
