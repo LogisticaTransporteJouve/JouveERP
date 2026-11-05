@@ -31,7 +31,8 @@ export function ProductsTable({
   clientOptions,
 }: {
   actorAccess: Access;
-  clientOptions: { id: string; legal_name: string }[];
+  /** null: the clients could not be read. */
+  clientOptions: { id: string; legal_name: string }[] | null;
 }) {
   // The permission every product write action checks («Activo» included).
   const canWrite = userCan(actorAccess, "products:write");

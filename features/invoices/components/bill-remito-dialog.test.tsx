@@ -88,9 +88,16 @@ function setPos(state: PosState) {
   h.pos = state;
 }
 
-function open(channels: InvoicingChannelSummary[] = [FISCAL, INTERNAL]) {
+function open(
+  channels: InvoicingChannelSummary[] = [FISCAL, INTERNAL],
+  channelsFailed = false,
+) {
   render(
-    <ScopeProvider channels={channels} initialFiscalFilter="internal">
+    <ScopeProvider
+      channels={channels}
+      channelsFailed={channelsFailed}
+      initialFiscalFilter="internal"
+    >
       <BillRemitoDialog
         remitoId="r1"
         remitoLabel="Remito X 9001-00000001"
@@ -246,6 +253,20 @@ describe("BillRemitoDialog — point of sale", () => {
     expect(
       screen.getByText("Configurá un único canal fiscal activo para facturar."),
     ).toBeTruthy();
+  });
+
+  it("a failed channel read says so, not «Configurá…», and blocks the submit", () => {
+    open([], true);
+    expect(screen.getByRole("alert").textContent).toContain(
+      "No se pudieron cargar los canales.",
+    );
+    expect(
+      screen.queryByText(
+        "Configurá un único canal fiscal activo para facturar.",
+      ),
+    ).toBeNull();
+    expect(submitButton().disabled).toBe(true);
+    expect(h.posCalls.at(-1)?.channelId).toBeNull();
   });
 
   it("refuses without a client", () => {

@@ -10,6 +10,7 @@ import {
   PG_UNIQUE_VIOLATION,
 } from "@/lib/db/pg-error-codes";
 import { logger } from "@/lib/logger";
+import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { getServiceClient } from "@/lib/supabase/service";
 
@@ -41,12 +42,17 @@ export async function listClientsAction(): Promise<ActionResult<Client[]>> {
   }
 
   const supabase = await createSupabaseClient();
-  const { data, error } = await supabase
-    .from("clients")
-    .select(
-      "id, cuit, legal_name, display_name, iva_condition, is_fiscal, email, phone, address, real_address, notes, is_active, created_by, created_at, updated_at",
-    )
-    .order("legal_name");
+  // Paged: PostgREST cuts a single read at 1000 rows without an error.
+  const { data, error } = await paginateRange((from, to) =>
+    supabase
+      .from("clients")
+      .select(
+        "id, cuit, legal_name, display_name, iva_condition, is_fiscal, email, phone, address, real_address, notes, is_active, created_by, created_at, updated_at",
+      )
+      .order("legal_name")
+      .order("id")
+      .range(from, to),
+  );
 
   if (error) {
     logger.error("clients.list.failed", { userId: ctx.userId, error });

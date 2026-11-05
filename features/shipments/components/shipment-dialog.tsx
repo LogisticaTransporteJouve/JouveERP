@@ -129,6 +129,20 @@ function toDefaults(shipment?: Shipment): FormValues {
   };
 }
 
+/** The options hold only the newest trips: a carga on an older one keeps it
+ *  listed, so the picker shows its trip instead of a blank. */
+function withOwnTrip(
+  trips: ReadonlyArray<{ id: string; trip_date: string }>,
+  shipment?: Shipment,
+): ReadonlyArray<{ id: string; trip_date: string }> {
+  const ownId = shipment?.trip_id;
+  if (!ownId || trips.some((t) => t.id === ownId)) return trips;
+  return [
+    ...trips,
+    { id: ownId, trip_date: shipment.trip?.trip_date ?? "Viaje actual" },
+  ];
+}
+
 export function ShipmentDialog({
   mode,
   shipment,
@@ -354,11 +368,13 @@ export function ShipmentDialog({
                         </FormControl>
                         <SelectContent>
                           <SelectItem value={NONE}>Sin asignar</SelectItem>
-                          {(options?.trips ?? []).map((t) => (
-                            <SelectItem key={t.id} value={t.id}>
-                              {t.trip_date}
-                            </SelectItem>
-                          ))}
+                          {withOwnTrip(options?.trips ?? [], shipment).map(
+                            (t) => (
+                              <SelectItem key={t.id} value={t.id}>
+                                {t.trip_date}
+                              </SelectItem>
+                            ),
+                          )}
                         </SelectContent>
                       </Select>
                       {((optionsFailed && !options) ||

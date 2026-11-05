@@ -5,6 +5,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 
+import { ChannelsReadError } from "@/components/channels-read-error";
 import {
   useDefaultChannel,
   useScope,
@@ -459,6 +460,7 @@ function PaymentsBody({
                         ))}
                       </SelectContent>
                     </Select>
+                    <ChannelsReadError inline />
                     <FormMessage />
                   </FormItem>
                 )}

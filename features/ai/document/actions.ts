@@ -41,6 +41,7 @@ import { logger } from "@/lib/logger";
 import type { UsdRate } from "@/lib/fx";
 import { latestTributeSplits } from "@/lib/purchases/tribute-split";
 import {
+  type ClaimOutcome,
   createWithClaim as createWithClaimOn,
   type PartialCreateFailure,
 } from "@/lib/actions/claim";
@@ -627,11 +628,21 @@ export async function createChecksFromExtractionAction(
 
   // The check kind (fisico / echeq) is the cartera account's type, not a
   // separate choice — derive it authoritatively.
-  const { data: acc } = await supabase
+  const { data: acc, error: accError } = await supabase
     .from("accounts")
     .select("type")
     .eq("id", cartera_account_id)
     .maybeSingle();
+  if (accError) {
+    logger.error("ai.document.checks.account_read_failed", {
+      extractionId,
+      error: accError,
+    });
+    return {
+      ok: false,
+      error: "No se pudo leer la cuenta de cartera. Reintentá.",
+    };
+  }
   if (!acc || (acc.type !== "checks" && acc.type !== "echeq")) {
     return { ok: false, error: "La cuenta de cartera no es válida." };
   }
@@ -639,8 +650,12 @@ export async function createChecksFromExtractionAction(
 
   // Claim before inserting anything: a double click gets "ya fue procesada"
   // instead of inserting the checks twice.
-  if (!(await claimExtraction(supabase, extractionId))) {
-    return { ok: false, error: ALREADY_PROCESSED };
+  const claim = await claimExtraction(supabase, extractionId);
+  if (claim !== "won") {
+    return {
+      ok: false,
+      error: claim === "failed" ? CLAIM_FAILED : ALREADY_PROCESSED,
+    };
   }
 
   const errors: { index: number; error: string }[] = [];
@@ -780,16 +795,18 @@ function matchedId(
 }
 
 const ALREADY_PROCESSED = "La extracción ya fue procesada.";
+const CLAIM_FAILED = "No se pudo tomar el documento. Reintentá.";
 
 /**
  * Atomically claims a draft for creation: pending_review → confirmed, only if
- * it is still pending_review. Exactly one concurrent caller gets `true` (a
- * double click / second tab gets `false`), so the entity is created once.
+ * it is still pending_review. Exactly one concurrent caller gets "won" (a
+ * double click / second tab gets "lost"), so the entity is created once. A
+ * failed update is "failed": the draft is still pending and nothing was made.
  */
 async function claimExtraction(
   supabase: ServerSupabase,
   extractionId: string,
-): Promise<boolean> {
+): Promise<ClaimOutcome> {
   const { data, error } = await supabase
     .from("ai_document_extractions")
     .update({ status: "confirmed" })
@@ -799,9 +816,9 @@ async function claimExtraction(
     .maybeSingle();
   if (error) {
     logger.error("ai.document.claim.failed", { extractionId, error });
-    return false;
+    return "failed";
   }
-  return data !== null;
+  return data !== null ? "won" : "lost";
 }
 
 /** A claim older than this with nothing created was left by a crashed save. */
@@ -863,6 +880,7 @@ function createWithClaim<T>(
     release: () => releaseExtraction(supabase, extractionId),
     create,
     alreadyProcessed: ALREADY_PROCESSED,
+    claimFailed: CLAIM_FAILED,
   });
 }
 

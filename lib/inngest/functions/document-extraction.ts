@@ -15,6 +15,7 @@ import {
 } from "@/features/ai/document/schemas";
 import {
   downloadFileBytes,
+  extractionAwaitsPipeline,
   extractionRequester,
   markExtractionFailed,
   matchForKind,
@@ -107,6 +108,9 @@ export const documentExtraction = inngest.createFunction(
     );
 
     const extracted = await step.run("classify-and-extract", async () => {
+      // Checked before the vision calls: a deleted or discarded draft has no
+      // one to read it.
+      if (!(await extractionAwaitsPipeline(extraction_id))) return null;
       const meter = usageMeter(requester);
       try {
         return await classifyAndExtract(file_id, declared_type, meter.sink);
@@ -114,6 +118,13 @@ export const documentExtraction = inngest.createFunction(
         await meter.flush();
       }
     });
+
+    if (!extracted) {
+      logger.warn("document_extraction.draft_gone", { extraction_id });
+      return { extraction_id, kind: null };
+    }
+
+    const lastAttempt = attempt + 1 >= (maxAttempts ?? RETRIES + 1);
 
     // The matches are the uploader's: each comparison runs only against data
     // they may read now (roles minus denies). Unknown uploader: none. A failed
@@ -128,7 +139,7 @@ export const documentExtraction = inngest.createFunction(
           (permission) => userCan(access, permission),
         );
       } catch (err) {
-        if (attempt + 1 < (maxAttempts ?? RETRIES + 1)) throw err;
+        if (!lastAttempt) throw err;
         logger.warn("document_extraction.match_unverified", {
           extraction_id,
           err: err instanceof Error ? err.message : String(err),
@@ -139,7 +150,8 @@ export const documentExtraction = inngest.createFunction(
 
     // Suggest the expense account (+ confirm cost center) for purchase invoices.
     // Suggestion-only: it rides on `matches.expense` for human review; nothing
-    // posts differently until the account is confirmed.
+    // posts differently until the account is confirmed. A catalog read still
+    // failing on the last attempt saves the draft without a suggestion.
     const expense =
       extracted.kind === "purchase_invoice"
         ? await step.run("classify-expense", async () => {
@@ -150,6 +162,13 @@ export const documentExtraction = inngest.createFunction(
                 matches,
                 meter.sink,
               );
+            } catch (err) {
+              if (!lastAttempt) throw err;
+              logger.warn("document_extraction.expense_unsuggested", {
+                extraction_id,
+                err: err instanceof Error ? err.message : String(err),
+              });
+              return null;
             } finally {
               await meter.flush();
             }
