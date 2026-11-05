@@ -8,6 +8,7 @@ import {
   cellText,
   cellValue,
   dateCell,
+  endOfDay,
   ExportInputError,
   exportScope,
   exportSheet,
@@ -272,5 +273,14 @@ describe("accountStatementTable", () => {
     expect(t.totalsRow?.at(-1) && cellText(t.totalsRow.at(-1)!)).toBe(
       "$250,00",
     );
+  });
+});
+
+describe("endOfDay", () => {
+  it("bounds the whole «Hasta» day, so a row created that afternoon is in", () => {
+    const bound = endOfDay("2026-11-05");
+    expect(bound).toBe("2026-11-05T23:59:59.999");
+    expect(Date.parse("2026-11-05T15:30:00") <= Date.parse(bound)).toBe(true);
+    expect(Date.parse("2026-11-06T00:00:00") <= Date.parse(bound)).toBe(false);
   });
 });

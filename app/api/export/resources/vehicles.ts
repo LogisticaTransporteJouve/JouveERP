@@ -5,7 +5,7 @@ import type { TableReportColumn } from "@/lib/pdf/table-report-template";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 
-import { type Exporter } from "../shared";
+import { endOfDay, type Exporter } from "../shared";
 
 // Portrait A4 ≈ 547pt of usable width.
 const COLUMNS: TableReportColumn[] = [
@@ -33,7 +33,7 @@ export const vehicles: Exporter = {
         .order("id", { ascending: true });
 
       if (range.from) query = query.gte("created_at", range.from);
-      if (range.to) query = query.lte("created_at", range.to);
+      if (range.to) query = query.lte("created_at", endOfDay(range.to));
       return query;
     };
     const { data, error } = await paginateRange((from, to) =>

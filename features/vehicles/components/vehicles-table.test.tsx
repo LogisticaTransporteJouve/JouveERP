@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { resolveAccess } from "@/lib/auth/permissions";
@@ -17,8 +17,9 @@ const vehicle = {
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/components/export-button", () => ({ ExportButton: () => null }));
+const confirmMock = vi.fn(async (_opts: { description?: string }) => false);
 vi.mock("@/components/providers/confirm-provider", () => ({
-  useConfirm: () => vi.fn(),
+  useConfirm: () => confirmMock,
 }));
 vi.mock("../hooks/use-vehicles", () => ({
   useVehicles: () => ({ data: [vehicle] }),
@@ -53,5 +54,21 @@ describe("VehiclesTable: write controls follow vehicles:write", () => {
       const toggle = screen.getByRole("switch", { name: "Activo" });
       expect(toggle.hasAttribute("disabled")).toBe(!can);
     },
+  );
+});
+
+// trips, fuel_loads, maintenance_records and fleet_documents reference
+// vehicles ON DELETE RESTRICT: a vehicle with any of them cannot be deleted.
+it("the delete confirmation says a vehicle with trips cannot be deleted", () => {
+  render(<VehiclesTable actorAccess={resolveAccess(["operations"])} />);
+  fireEvent.keyDown(screen.getByRole("button", { name: "Acciones" }), {
+    key: "Enter",
+  });
+  fireEvent.click(screen.getByRole("menuitem", { name: "Borrar" }));
+  expect(confirmMock).toHaveBeenCalledWith(
+    expect.objectContaining({
+      description:
+        "Si tiene viajes, cargas de combustible, mantenimientos o documentos no se puede borrar: desactivalo.",
+    }),
   );
 });

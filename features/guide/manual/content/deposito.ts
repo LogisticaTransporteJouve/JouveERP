@@ -926,7 +926,7 @@ export const warehousePage: GuidePage = {
             "Hacé clic en {{Guardar}}.",
           ],
           after: [
-            "La columna {{Área}} (y {{Depósito}}) muestran la nueva ubicación. El área decide qué precio por área del tarifario del cliente se cobra; la facturación usa el área que el pallet tiene al momento de facturar, para todo el período.",
+            "La columna {{Área}} (y {{Depósito}}) muestran la nueva ubicación. El área decide qué precio por área se cobra (el del tarifario del cliente o, si no tiene, una tarifa general de esa área); la facturación usa el área que el pallet tiene al momento de facturar, para todo el período.",
           ],
           errors: [
             {
@@ -1312,8 +1312,8 @@ export const warehousePage: GuidePage = {
           title: "Qué tarifa se aplica",
           body: [
             "Primero manda el tarifario del cliente (en el detalle del cliente), día por día: la tarifa del cliente para el área del pallet y, si no, la del cliente para todas las áreas.",
-            "Los días, cargas y descargas que el tarifario no cubre se valorizan con una sola tarifa de esta pantalla para todo el período que se factura: la del cliente si tiene, si no la general; entre ellas, la de inicio más reciente que se superponga con el período. Por eso, si un período cruza la fecha de un aumento, todo el período se cobra con la tarifa nueva: facturá hasta el día anterior al aumento y después el resto.",
-            "Ojo con las tarifas generales por área: hoy la facturación no mira el área de una tarifa de esta pantalla, así que una tarifa general con área se aplica a los pallets de todas las áreas, como una general más. Para cobrar distinto por área, cargá el precio por área en el tarifario de cada cliente.",
+            "Los días, cargas y descargas que el tarifario no cubre se valorizan con una sola tarifa de esta pantalla para todo el período que se factura: la del cliente si tiene; si no, la general del área del pallet; si no, la general para todas las áreas. Entre las de un mismo nivel, la de inicio más reciente que se superponga con el período. Por eso, si un período cruza la fecha de un aumento, todo el período se cobra con la tarifa nueva: facturá hasta el día anterior al aumento y después el resto.",
+            "Una tarifa general con área se cobra solo a los pallets de esa área; los pallets de otra área o sin área usan la general para todas las áreas. La vista previa y la factura aplican la misma regla.",
             "Una tarifa de cliente nunca lleva área: los precios por área de un cliente van en su tarifario, en el detalle del cliente.",
             "Una tarifa con el interruptor {{Activo}} apagado no se usa para facturar.",
           ],
@@ -1392,7 +1392,7 @@ export const warehousePage: GuidePage = {
               text: "Completá:",
               substeps: [
                 "{{Cliente (opcional)}}: un cliente, o {{General (todos)}} para la tarifa por defecto.",
-                "{{Área (opcional)}}: aparece solo en una tarifa general. {{Todas las áreas}}, o un área («Depósito · Área»). Hoy la facturación no distingue esa área (ver [[#tarifas-almacenaje]]): para precios por área usá el tarifario del cliente.",
+                "{{Área (opcional)}}: aparece solo en una tarifa general. {{Todas las áreas}}, o un área («Depósito · Área»). Con un área, la tarifa se cobra solo a los pallets de esa área (ver [[#tarifas-almacenaje]]).",
                 "{{Tarifa por pallet}}: obligatoria, mayor a 0.",
                 "{{Período}}: {{Mensual}} o {{Diario}}.",
                 "{{Carga (por pallet)}} y {{Descarga (por pallet)}}: vienen en 0; montos de 0 o más.",
@@ -1455,8 +1455,13 @@ export const warehousePage: GuidePage = {
           ],
           errors: [
             {
+              message:
+                "Esta tarifa pasó al tarifario del cliente: cambiala en el detalle del cliente › Tarifario.",
+              fix: "La fila dice {{En el tarifario del cliente (se edita ahí)}}: su precio y vigencia se cambian en el tarifario del cliente (en el detalle del cliente).",
+            },
+            {
               message: "No se pudo actualizar la tarifa.",
-              fix: "Si la fila dice {{En el tarifario del cliente (se edita ahí)}}, su precio y vigencia se cambian en el tarifario del cliente. Si no, volvé a intentar.",
+              fix: "Volvé a intentar.",
             },
             {
               message: "No tenés permiso para editar tarifas.",
@@ -1500,7 +1505,7 @@ export const warehousePage: GuidePage = {
           after: [
             "Por cada tarifa activa que empezó antes de esa fecha y sigue vigente en ella se crea una nueva, sin fin, con la tarifa, la carga y la descarga multiplicadas por el porcentaje (redondeadas a centavos) y una nota «Aumento 15% s/ $…». La anterior se cierra el día previo y queda como historial.",
             "Las tarifas que empiezan en esa fecha o después se saltean (editalas a mano); el aviso dice cuántas se actualizaron y cuántas se saltearon.",
-            "Las tarifas pasadas al tarifario del cliente no se aumentan acá (aunque la lista del diálogo las nombre): se aumentan en el tarifario.",
+            "Las tarifas pasadas al tarifario del cliente no se aumentan acá ni aparecen en la lista del diálogo: se aumentan en el tarifario.",
           ],
           errors: [
             {

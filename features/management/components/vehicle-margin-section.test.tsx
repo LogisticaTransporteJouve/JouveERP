@@ -25,7 +25,12 @@ const row = (over: Partial<VehicleMarginRow>): VehicleMarginRow => ({
 });
 
 const h = vi.hoisted(() => ({
-  read: { isPending: false, isError: false, data: undefined as unknown },
+  read: {
+    isPending: false,
+    isError: false,
+    data: undefined as unknown,
+    error: null as Error | null,
+  },
 }));
 
 vi.mock("../hooks/use-management", () => ({
@@ -84,4 +89,17 @@ describe("VehicleMarginSection", () => {
     expect(screen.queryByText("pendiente de facturar")).toBeNull();
     expect(screen.queryByText(/sin facturar/)).toBeNull();
   });
+});
+
+it("shows the action's error once, not prefixed with itself", () => {
+  h.read = {
+    isPending: false,
+    isError: true,
+    data: undefined,
+    error: new Error("No se pudo calcular el margen por camión."),
+  };
+  show();
+  expect(
+    screen.getByText("No se pudo calcular el margen por camión."),
+  ).toBeTruthy();
 });

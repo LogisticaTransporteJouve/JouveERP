@@ -73,26 +73,19 @@ export function DocumentExpirationsPage() {
         accessorKey: "days_until_expiry",
         header: "Días restantes",
         meta: { align: "right" },
+        // v_documents_expiring keeps only expires_at >= today: never negative.
         cell: ({ row }) => {
           const days = row.original.days_until_expiry;
-          const isExpired = days < 0;
-          const isCritical = !isExpired && days <= 7;
           return (
             <Badge
               variant="secondary"
               className={
-                isExpired
+                days <= 7
                   ? "bg-muted text-foreground dark:text-foreground"
-                  : isCritical
-                    ? "bg-muted text-foreground dark:text-foreground"
-                    : "bg-muted text-muted-foreground dark:text-muted-foreground"
+                  : "bg-muted text-muted-foreground dark:text-muted-foreground"
               }
             >
-              {isExpired
-                ? `Vencido hace ${-days}d`
-                : days === 0
-                  ? "Vence hoy"
-                  : `${days}d`}
+              {days === 0 ? "Vence hoy" : `${days}d`}
             </Badge>
           );
         },
@@ -124,9 +117,9 @@ export function DocumentExpirationsPage() {
           Vencimientos de documentos
         </h1>
         <p className="text-sm text-muted-foreground">
-          Papeles vencidos o por vencer en los próximos 30 días. La alerta
-          in-app se dispara automáticamente cada mañana a los roles
-          owner/admin/operations.
+          Documentos de empleados activos que vencen entre hoy y los próximos 30
+          días. Cada mañana se avisa dentro de la app a quienes tienen acceso a
+          Personal.
         </p>
       </div>
 
