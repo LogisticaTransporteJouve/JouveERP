@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import type { Database } from "@/lib/db/database.types";
+import { IsoDateSchema, UuidSchema } from "@/lib/validation/common";
 
 export const SupplierCategoryNameSchema = z
   .string()
@@ -22,6 +23,20 @@ export const SupplierCategoryUpdateSchema = z.object({
 export const SupplierCategoryDeleteSchema = z.object({
   id: z.string().uuid(),
 });
+
+export const SupplierCategoryPurchasesInputSchema = z
+  .object({
+    categoryId: UuidSchema,
+    from: IsoDateSchema,
+    to: IsoDateSchema,
+    /** Channel side: true fiscal, false internal, null both. */
+    isFiscal: z.boolean().nullable(),
+    limit: z.number().int().min(1).max(100).default(20),
+  })
+  .refine(
+    (v) => v.from <= v.to,
+    "La fecha desde es posterior a la fecha hasta.",
+  );
 
 export type SupplierCategoryCreateInput = z.infer<
   typeof SupplierCategoryCreateSchema
