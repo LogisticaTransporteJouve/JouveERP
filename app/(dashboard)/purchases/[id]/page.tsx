@@ -106,7 +106,7 @@ export default async function PurchaseInvoiceDetailPage({
   let payOpen: { outstanding: number } | null = null;
   let pendingFailed = false;
   if (
-    isPayable &&
+    showsBalance &&
     channelRow &&
     userCanAll(ctx.access, PAYMENT_ORDER_FORM_PERMISSIONS)
   ) {

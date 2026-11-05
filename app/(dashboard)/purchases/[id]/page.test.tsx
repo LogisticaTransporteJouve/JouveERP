@@ -164,6 +164,14 @@ describe("purchase detail — Pagar", () => {
       ),
     ).toBeTruthy();
   });
+
+  it("does not offer Pagar, nor blame a failed read, when payment_orders:read is denied", async () => {
+    h.access = resolveAccess(["finance"], ["payment_orders:read"]);
+    h.pendingFails = true;
+    await renderPage();
+    expect(screen.queryByText("stub-pagar")).toBeNull();
+    expect(screen.queryByText(/No se pudo leer lo pendiente/)).toBeNull();
+  });
 });
 
 describe("purchase detail — canal", () => {
