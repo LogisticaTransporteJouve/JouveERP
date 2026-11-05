@@ -29,14 +29,45 @@ describe("computeProfitability", () => {
         },
       ],
       fuel: [
-        { vehicle_id: "v1", trip_id: "t1", amount: 200, has_voucher: false },
-        { vehicle_id: "v1", trip_id: null, amount: 50, has_voucher: false }, // not tied to the trip
+        { vehicle_id: "v1", amount: 200, has_voucher: false },
+        { vehicle_id: "v1", amount: 50, has_voucher: false }, // not tied to the trip
       ],
+      tripFuel: [{ trip_id: "t1", amount: 200 }],
       maintenance: [],
       vehicleNames: names,
     });
     expect(r.trips[0]?.fuel_cost).toBe(200);
     expect(r.trips[0]?.net).toBe(700); // 1000 - 100 - 200
+  });
+
+  it("counts a trip's fuel whatever its date, the vehicle's only in the range", () => {
+    const r = computeProfitability({
+      trips: [
+        {
+          id: "t1",
+          trip_date: "2026-07-01",
+          vehicle_id: "v1",
+          origin: null,
+          destination: null,
+          revenue: 100,
+          revenue_source: "invoiced",
+          invoiced_revenue: 100,
+          uninvoiced_freight: 0,
+          uninvoiced_shipments: 0,
+          manual_revenue: null,
+          cost: 50,
+          vehicle: { patente: "AAA111" },
+          driver: null,
+        },
+      ],
+      // The trip's load was dated the night before, outside the range.
+      fuel: [],
+      tripFuel: [{ trip_id: "t1", amount: 60 }],
+      maintenance: [],
+      vehicleNames: names,
+    });
+    expect(r.trips[0]).toMatchObject({ fuel_cost: 60, net: -10 });
+    expect(r.vehicles[0]).toMatchObject({ fuel_cost: 0, net: 50 });
   });
 
   it("vehicle net uses ALL fuel + maintenance, not just trip-tied", () => {
@@ -60,9 +91,10 @@ describe("computeProfitability", () => {
         },
       ],
       fuel: [
-        { vehicle_id: "v1", trip_id: "t1", amount: 200, has_voucher: false },
-        { vehicle_id: "v1", trip_id: null, amount: 50, has_voucher: false },
+        { vehicle_id: "v1", amount: 200, has_voucher: false },
+        { vehicle_id: "v1", amount: 50, has_voucher: false },
       ],
+      tripFuel: [{ trip_id: "t1", amount: 200 }],
       maintenance: [{ vehicle_id: "v1", cost: 300, has_voucher: false }],
       vehicleNames: names,
     });
@@ -93,9 +125,8 @@ describe("computeProfitability", () => {
           driver: null,
         },
       ],
-      fuel: [
-        { vehicle_id: "v1", trip_id: null, amount: 100, has_voucher: false },
-      ],
+      fuel: [{ vehicle_id: "v1", amount: 100, has_voucher: false }],
+      tripFuel: [],
       maintenance: [{ vehicle_id: "v1", cost: 0, has_voucher: false }],
       vehicleNames: names,
     });
@@ -110,9 +141,10 @@ describe("computeProfitability", () => {
     const r = computeProfitability({
       trips: [],
       fuel: [
-        { vehicle_id: "v1", trip_id: null, amount: 100, has_voucher: false },
-        { vehicle_id: "v1", trip_id: null, amount: 40, has_voucher: true },
+        { vehicle_id: "v1", amount: 100, has_voucher: false },
+        { vehicle_id: "v1", amount: 40, has_voucher: true },
       ],
+      tripFuel: [],
       maintenance: [
         { vehicle_id: "v1", cost: 300, has_voucher: false },
         { vehicle_id: "v1", cost: null, has_voucher: false },
@@ -152,6 +184,7 @@ describe("computeProfitability", () => {
         trip("t3", null, 250),
       ],
       fuel: [],
+      tripFuel: [],
       maintenance: [],
       vehicleNames: names,
     });
@@ -200,6 +233,7 @@ describe("computeProfitability", () => {
         },
       ],
       fuel: [],
+      tripFuel: [],
       maintenance: [],
       vehicleNames: names,
     });
@@ -262,9 +296,8 @@ describe("computeProfitability", () => {
         },
       ],
       // The load of the trip without a vehicle has its own truck.
-      fuel: [
-        { vehicle_id: "v2", trip_id: "t2", amount: 30, has_voucher: true },
-      ],
+      fuel: [{ vehicle_id: "v2", amount: 30, has_voucher: true }],
+      tripFuel: [{ trip_id: "t2", amount: 30 }],
       maintenance: [{ vehicle_id: "v1", cost: 200, has_voucher: true }],
       vehicleNames: names,
     });
@@ -295,6 +328,7 @@ describe("computeProfitability", () => {
     const r = computeProfitability({
       trips: [],
       fuel: [],
+      tripFuel: [],
       maintenance: [],
       vehicleNames: names,
     });
@@ -323,6 +357,7 @@ describe("computeProfitability", () => {
         },
       ],
       fuel: [],
+      tripFuel: [],
       maintenance: [],
       vehicleNames: names,
     });
@@ -339,6 +374,7 @@ describe("computeProfitability", () => {
     const r = computeProfitability({
       trips: [],
       fuel: [],
+      tripFuel: [],
       maintenance: [
         { vehicle_id: "v1", cost: null, has_voucher: false },
         { vehicle_id: "v1", cost: 100, has_voucher: false },
