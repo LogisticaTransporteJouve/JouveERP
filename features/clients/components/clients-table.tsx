@@ -31,6 +31,7 @@ import { IVA_CONDITION_LABEL, type Client, type IvaCondition } from "../schema";
 import { DeleteClientDialog } from "./delete-client-dialog";
 import { EditClientDialog } from "./edit-client-dialog";
 import { NewClientDialog } from "./new-client-dialog";
+import { ReactivateClientButton } from "./reactivate-client-button";
 
 const IVA_BADGE_TONE: Record<IvaCondition, string> = {
   responsable_inscripto:
@@ -97,6 +98,9 @@ function useClientColumns(canWrite: boolean): ColumnDef<Client>[] {
         cell: ({ row }) => (
           <div className="flex items-center justify-end gap-1">
             {canWrite && <EditClientDialog client={row.original} />}
+            {canWrite && !row.original.is_active && (
+              <ReactivateClientButton client={row.original} />
+            )}
             {canWrite && <DeleteClientDialog client={row.original} />}
           </div>
         ),
