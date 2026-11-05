@@ -20,10 +20,16 @@ let runInvoices: unknown[] = [];
 let auditedInvoices: unknown[] = [];
 // The runs storage_billing_void_run_ids answers.
 let voidRunIds: string[] = [];
-let claim: { data: unknown; error: unknown } = { data: RUN_ID, error: null };
+// What claim_storage_billing_period_with_relinks answers.
+const claimed = (runId: string | null, relinked: string[] = []) => ({
+  data: [{ run_id: runId, relinked_run_ids: relinked }],
+  error: null,
+});
+let claim: { data: unknown; error: unknown } = claimed(RUN_ID);
 let pallets: unknown[] = [];
 let link: { data: unknown; error: unknown } = { data: null, error: null };
-let invoiceStatus = "emitting";
+// What billing_invoice_is_void answers when the link is refused.
+let invoiceVoid = false;
 let fake = recordingSupabase(respond);
 // paginateRange reads until an empty page; the fake ignores `.range()`, so
 // each paged table answers its rows once and then an empty page.
@@ -35,7 +41,10 @@ const page = (table: string, rows: unknown[]) => {
 };
 
 function respond(call: RecordedCall) {
-  if (call.table === "claim_storage_billing_period") return claim;
+  if (call.table === "claim_storage_billing_period_with_relinks") return claim;
+  if (call.table === "billing_invoice_is_void") {
+    return { data: invoiceVoid, error: null };
+  }
   if (
     call.table === "storage_billing_runs" &&
     call.op === "update" &&
@@ -56,9 +65,6 @@ function respond(call: RecordedCall) {
   }
   if (call.table === "invoices" && call.filters.some(([k]) => k === "in")) {
     return { data: runInvoices, error: null };
-  }
-  if (call.table === "invoices") {
-    return { data: { status: invoiceStatus }, error: null };
   }
   if (call.table === "clients") {
     return {
@@ -132,9 +138,9 @@ beforeEach(() => {
   auditedInvoices = [];
   voidRunIds = [];
   issue.mockResolvedValue({ ok: true, data: { id: "inv1" } });
-  claim = { data: RUN_ID, error: null };
+  claim = claimed(RUN_ID);
   link = { data: null, error: null };
-  invoiceStatus = "emitting";
+  invoiceVoid = false;
   pallets = [
     {
       id: "p1",
@@ -163,7 +169,7 @@ describe("invoiceStorageAction claim", () => {
     const res = await invoiceStorageAction(october);
     expect(res.ok).toBe(true);
     const claimCall = fake.calls.find(
-      (c) => c.table === "claim_storage_billing_period",
+      (c) => c.table === "claim_storage_billing_period_with_relinks",
     );
     expect(claimCall?.payload).toMatchObject({
       p_client_id: CLIENT_ID,
@@ -189,7 +195,7 @@ describe("invoiceStorageAction claim", () => {
   });
 
   it("issues nothing when the claim linked the period's earlier invoice", async () => {
-    claim = { data: null, error: null };
+    claim = claimed(null);
     const res = await invoiceStorageAction(october);
     expect(res.ok).toBe(false);
     if (!res.ok) {
@@ -211,7 +217,7 @@ describe("invoiceStorageAction claim", () => {
   };
 
   it("audits the invoice the claim relinked, marked relinked", async () => {
-    claim = { data: null, error: null };
+    claim = claimed(null, [RUN_ID, "run-old"]);
     linkedRuns = [
       relinked,
       // A run whose invoice has another key (linked normally by older code):
@@ -240,6 +246,7 @@ describe("invoiceStorageAction claim", () => {
   it("audits a relink of another period or channel made by a claim that bills a new one", async () => {
     // The claim relinked January on the fiscal channel and returned a run
     // for October.
+    claim = claimed(RUN_ID, ["run-january"]);
     linkedRuns = [
       {
         ...relinked,
@@ -272,7 +279,7 @@ describe("invoiceStorageAction claim", () => {
   });
 
   it("does not audit a relinked invoice twice", async () => {
-    claim = { data: null, error: null };
+    claim = claimed(null, [RUN_ID]);
     linkedRuns = [relinked];
     runInvoices = [{ id: "inv-orphan", idempotency_key: RUN_ID }];
     auditedInvoices = [{ target_resource_id: "inv-orphan" }];
@@ -280,12 +287,36 @@ describe("invoiceStorageAction claim", () => {
     expect(audit).not.toHaveBeenCalled();
   });
 
+  it("does not audit as relinked a run the claim did not relink", async () => {
+    // Another tab linked January on the normal path and has not written its
+    // event yet: this claim relinked nothing.
+    claim = claimed(RUN_ID, []);
+    linkedRuns = [{ ...relinked, id: "run-january", invoice_id: "inv-jan" }];
+    runInvoices = [{ id: "inv-jan", idempotency_key: "run-january" }];
+    const res = await invoiceStorageAction(october);
+    expect(res.ok).toBe(true);
+    expect(audit).toHaveBeenCalledTimes(1);
+    expect(audit).toHaveBeenCalledWith(
+      "storage.invoiced",
+      "u1",
+      expect.not.objectContaining({ relinked: true }),
+      "inv1",
+    );
+    expect(
+      runCalls().some(
+        (c) =>
+          c.op === "select" &&
+          c.filters.some(([kind, column]) => kind === "in" && column === "id"),
+      ),
+    ).toBe(false);
+  });
+
   it("frees the period when the link finds the invoice void", async () => {
     link = {
       data: null,
       error: { message: "falló", hint: "jouve_guard", code: "55006" },
     };
-    invoiceStatus = "failed";
+    invoiceVoid = true;
     const res = await invoiceStorageAction(october);
     expect(res.ok).toBe(false);
     expect(runWrites().at(-1)?.op).toBe("delete");
@@ -311,7 +342,9 @@ describe("invoiceStorageAction claim", () => {
     const res = await invoiceStorageAction(october);
     expect(res.ok).toBe(false);
     expect(
-      fake.calls.some((c) => c.table === "claim_storage_billing_period"),
+      fake.calls.some(
+        (c) => c.table === "claim_storage_billing_period_with_relinks",
+      ),
     ).toBe(false);
   });
 });

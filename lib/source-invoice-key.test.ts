@@ -15,12 +15,21 @@ const key = (attempt: number) =>
 
 function slotFor(
   rows: { id: string; status: string; idempotency_key: string }[] | null,
+  // What billing_invoice_is_void answers per invoice id ("error" fails).
+  voidRead: Record<string, boolean | "error"> = {},
 ) {
-  const fake = recordingSupabase(() =>
-    rows === null
+  const fake = recordingSupabase((call) => {
+    if (call.table === "billing_invoice_is_void") {
+      const id = (call.payload as { p_invoice_id: string }).p_invoice_id;
+      const answer = voidRead[id] ?? false;
+      return answer === "error"
+        ? { data: null, error: { message: "boom" } }
+        : { data: answer, error: null };
+    }
+    return rows === null
       ? { data: null, error: { message: "boom" } }
-      : { data: rows, error: null },
-  );
+      : { data: rows, error: null };
+  });
   // The fake answers the builder chain; its type is not the client's.
   return {
     fake,
@@ -76,6 +85,31 @@ describe("findSourceInvoiceSlot", () => {
       { id: "inv1", status: "cancelled", idempotency_key: key(1) },
     ]);
     expect(await run()).toEqual({ kind: "free", key: key(2) });
+  });
+
+  it("moves past a fiscal factura its NCs credit in full", async () => {
+    const { fake, run } = slotFor(
+      [
+        { id: "inv0", status: "emitted", idempotency_key: key(0) },
+        { id: "inv1", status: "draft", idempotency_key: key(1) },
+      ],
+      { inv0: true },
+    );
+    expect(await run()).toEqual({ kind: "live", invoiceId: "inv1" });
+    // Only the emitted one is asked about.
+    expect(
+      fake.calls
+        .filter((c) => c.table === "billing_invoice_is_void")
+        .map((c) => c.payload),
+    ).toEqual([{ p_invoice_id: "inv0" }]);
+  });
+
+  it("answers error, never a free key, when the credit read fails", async () => {
+    const { run } = slotFor(
+      [{ id: "inv0", status: "emitted", idempotency_key: key(0) }],
+      { inv0: "error" },
+    );
+    expect(await run()).toEqual({ kind: "error" });
   });
 
   it("refuses past the last attempt", async () => {

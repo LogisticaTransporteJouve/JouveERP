@@ -179,7 +179,7 @@ export function ShipmentsTable({
             <span className="text-sm">
               {formatMoney(row.original.freight_amount)}
             </span>
-            {row.original.invoice_id && (
+            {row.original.invoice_id && !row.original.invoice_void && (
               <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                 <CheckCircle2 className="size-3.5" />
                 Facturado
@@ -205,7 +205,7 @@ export function ShipmentsTable({
           const canInvoiceFreight = Boolean(
             shipment.freight_amount &&
             shipment.client_id &&
-            !shipment.invoice_id,
+            (!shipment.invoice_id || shipment.invoice_void),
           );
           return (
             <DropdownMenu>
