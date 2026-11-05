@@ -246,6 +246,10 @@ create policy "files_delete_uploader_or_admin"
   );
 ```
 
+Desde `20261104194101`, el INSERT («Files write requires uploader = self»)
+además exige un rol con `files:write`, el bucket `files` y una key que no
+nombre una fila de otro usuario (`files_storage_key_is_free`).
+
 ### 3.2 Tabla `file_attachments`
 
 Mismo predicate: leer es libre dentro de la app, atachar requiere que el
@@ -289,23 +293,35 @@ create policy "files_storage_select"
   );
 
 -- INSERT: el caller arma la key con un UUID que él generó. La fila en files
--- todavía no existe en el momento del INSERT (storage va primero). Lo que
--- chequeamos acá es que el path tenga el shape esperado.
+-- todavía no existe en el momento del INSERT (storage va primero). Se chequea
+-- el shape del path, que el caller tenga un rol con files:write y que ninguna
+-- fila de otro usuario nombre esa key (files_storage_key_is_free, SECURITY
+-- DEFINER: ve filas que la RLS del caller oculta). 20261104194101.
 create policy "files_storage_insert"
   on storage.objects for insert to authenticated
   with check (
     bucket_id = 'files'
     and name ~ '^[0-9a-f-]{36}(\.[a-z0-9]{1,8})?$'
+    and (select public.user_has_role(array['owner', 'admin', 'finance', 'operations', 'warehouse']))
+    and public.files_storage_key_is_free(name)
   );
 
--- DELETE: solo si la fila en files admite delete por RLS.
+-- DELETE: el mismo techo que borrar la fila ("Uploader or admin"): quien
+-- subió los bytes (owner_id) u owner/admin. Como el DELETE filtra por name,
+-- Postgres además exige la policy de SELECT. 20261104194101.
 create policy "files_storage_delete"
   on storage.objects for delete to authenticated
   using (
     bucket_id = 'files'
-    and exists (
-      select 1 from public.files f
-      where f.bucket = 'files' and f.bucket_path = storage.objects.name
+    and (
+      owner_id = (select auth.uid())::text
+      or (
+        (select public.user_has_role(array['owner', 'admin']))
+        and exists (
+          select 1 from public.files f
+          where f.bucket = 'files' and f.bucket_path = storage.objects.name
+        )
+      )
     )
   );
 ```

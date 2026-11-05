@@ -63,7 +63,24 @@ function FooterHint({ children }: { children: React.ReactNode }) {
   );
 }
 
-function MissingMatchHint({ entity }: { entity: "cliente" | "proveedor" }) {
+function MissingMatchHint({
+  entity,
+  unchecked,
+}: {
+  entity: "cliente" | "proveedor";
+  /** The lookup did not run (the uploader may not read that table). */
+  unchecked: boolean;
+}) {
+  if (unchecked) {
+    return (
+      <FooterHint>
+        No se pudo verificar el {entity} (sin permiso): quien escaneó el
+        documento no tiene acceso a{" "}
+        {entity === "cliente" ? "Clientes" : "Proveedores"}. Si podés verlos,
+        volvé a escanearlo vos.
+      </FooterHint>
+    );
+  }
   return (
     <FooterHint>
       No se encontró el {entity} por CUIT. Cargá el {entity} y volvé a escanear
@@ -170,6 +187,9 @@ function ReviewActionsInner({
   const supplierId = matchString(extraction.matches, "supplier_id");
   const supplierName = matchString(extraction.matches, "supplier_name");
   const duplicate = duplicateCheckOf(extraction.matches);
+  const counterpartyUnchecked =
+    isRecord(extraction.matches) &&
+    extraction.matches.counterparty_unchecked === true;
   const denied = reviewCreateDeniedReason(access, kind);
   if (denied) return <FooterHint>{denied}</FooterHint>;
 
@@ -199,7 +219,10 @@ function ReviewActionsInner({
     const needsClient = kind === "receipt";
     if (needsClient ? !clientId : !supplierId) {
       return (
-        <MissingMatchHint entity={needsClient ? "cliente" : "proveedor"} />
+        <MissingMatchHint
+          entity={needsClient ? "cliente" : "proveedor"}
+          unchecked={counterpartyUnchecked}
+        />
       );
     }
     return (
@@ -222,7 +245,11 @@ function ReviewActionsInner({
   }
 
   if (kind === "sales_invoice") {
-    if (!clientId) return <MissingMatchHint entity="cliente" />;
+    if (!clientId) {
+      return (
+        <MissingMatchHint entity="cliente" unchecked={counterpartyUnchecked} />
+      );
+    }
     return (
       <DialogTrigger
         label="Emitir factura de venta"

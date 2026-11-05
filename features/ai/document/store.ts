@@ -67,6 +67,10 @@ export type ExtractionMatches = {
   duplicate_of?: string;
   /** The duplicate lookup failed: whether it is already loaded is unknown. */
   duplicate_unknown?: true;
+  /** The uploader may not read the counterparty's table (or is unknown): the
+   *  CUIT lookup did not run, so a missing client/supplier means "not
+   *  checked", not "none". */
+  counterparty_unchecked?: true;
   /** Expense classification suggestion (purchase_invoice). Human-confirmed. */
   expense?: ExpenseClassifyResult;
   /** Bank-statement reconciliation summary (extracto). */
@@ -111,6 +115,9 @@ export async function matchDocument(input: {
     input.puntoVenta != null
   ) {
     matches.duplicate_unknown = true;
+  }
+  if (input.cuit && !input.counterparty) {
+    matches.counterparty_unchecked = true;
   }
 
   try {
@@ -305,7 +312,9 @@ export async function saveExtractionResult(
   if (error) throw error;
 }
 
-/** Who requested an extraction (for usage attribution). Null if unknown. */
+/** Who requested an extraction: its usage and the access its matches run
+ *  with. Null only for a missing row or uploader; a failed read throws, so
+ *  the step retries instead of deciding on "unknown uploader". */
 export async function extractionRequester(
   extractionId: string,
 ): Promise<string | null> {
@@ -315,10 +324,7 @@ export async function extractionRequester(
     .select("created_by")
     .eq("id", extractionId)
     .maybeSingle();
-  if (error) {
-    logger.warn("ai.document.requester.failed", { extractionId, error });
-    return null;
-  }
+  if (error) throw error;
   return data?.created_by ?? null;
 }
 

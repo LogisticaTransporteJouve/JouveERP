@@ -786,6 +786,41 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
       períodos que re-vinculó. `claim_storage_billing_period` pasa a
       envoltorio, con la misma firma, resultado y errores. Rollback: el
       código anterior llama al envoltorio.
+- [ ] **Aprobar `20261104194100` y `194101`** (auditoría w12, RRHH y
+      archivos). No tocan filas existentes ni objetos guardados.
+  - `194100`: `enforce_payroll_period_immutability` se reemplaza desde
+    `190100` y además corre `before insert` en `payroll_periods` (trigger
+    nuevo `payroll_periods_enforce_immutability_insert`).
+    `posts_employee_accounts` lo define solo la base: un usuario no lo cambia
+    ni inserta un período con `false` (`service_role` sí). Rollback: el código
+    anterior nunca escribe la columna.
+  - `194101`: cambian las políticas `files_storage_insert` y
+    `files_storage_delete` de `storage.objects` y la de INSERT de
+    `public.files`; función nueva `files_storage_key_is_free` (DEFINER, para
+    `authenticated`). La lectura (`files_storage_select`) no cambia, así que
+    los archivos guardados se siguen viendo y firmando igual. Borra un blob
+    quien lo subió (`owner_id`) u owner/admin; suben los roles con
+    `files:write`, y nunca a una key que nombra una fila de otro usuario.
+    Rollback: el código anterior sube con esos roles a keys nuevas y borra
+    como quien subió o como owner/admin.
+  - Consulta de control antes de aplicar (solo lectura): blobs que, con la
+    política nueva, solo owner/admin pueden borrar (sin `owner_id` o con un
+    `owner_id` distinto de quien registró la fila), y keys que nombran dos
+    filas.
+
+    ```sql
+    select f.id, f.bucket_path, f.uploaded_by, o.owner_id
+      from public.files f
+      join storage.objects o on o.bucket_id = f.bucket and o.name = f.bucket_path
+     where f.bucket = 'files'
+       and f.source <> 'chat_attachment'
+       and o.owner_id is distinct from f.uploaded_by::text;
+
+    select bucket, bucket_path, count(*)
+      from public.files
+     group by bucket, bucket_path
+    having count(*) > 1;
+    ```
 - [ ] **Aprobar `20261104194200` y `194201`** (auditoría w12, gestión). No
       tocan filas existentes ni cambian políticas RLS ni permisos. Conviene
       promoverlas junto con `190201`. Rollback de cada una:

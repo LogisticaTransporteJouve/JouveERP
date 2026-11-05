@@ -21,7 +21,8 @@ vi.mock("@/features/ai/reconciliation/gather", () => ({
   reconcileExtracto: (...args: unknown[]) => reconcileExtracto(...args),
 }));
 
-const { comprobanteKinds, matchForKind } = await import("./store");
+const { comprobanteKinds, extractionRequester, matchForKind } =
+  await import("./store");
 
 const all = () => true;
 
@@ -155,8 +156,31 @@ describe("scanned-document matches follow the uploader's access", () => {
       purchase,
       (p) => p === "purchase_invoices:read",
     );
-    expect(matches).toEqual({ duplicate_of: "pi-1" });
+    expect(matches).toEqual({
+      duplicate_of: "pi-1",
+      counterparty_unchecked: true,
+    });
   });
+
+  it.each([
+    ["receipt", "clients:read"],
+    ["payment_order", "suppliers:read"],
+  ] as const)(
+    "a %s scanned without %s marks the counterparty as not checked, not missing",
+    async (kind, permission) => {
+      const payload = { counterparty_cuit: "20-12345678-9" };
+      expect(await matchForKind(kind, payload, () => false)).toEqual({
+        counterparty_unchecked: true,
+      });
+      expect(fake.calls).toEqual([]);
+      const allowed = await matchForKind(
+        kind,
+        payload,
+        (p) => p === permission,
+      );
+      expect(allowed.counterparty_unchecked).toBeUndefined();
+    },
+  );
 
   it("without invoices:read a sales invoice is not looked up, and is not reported as new", async () => {
     const matches = await matchForKind(
@@ -182,6 +206,22 @@ describe("scanned-document matches follow the uploader's access", () => {
     expect(await matchForKind("bank_statement", statement, all)).toEqual({
       reconciliation: { matched: 1 },
     });
+  });
+});
+
+describe("extractionRequester", () => {
+  it("throws on a failed read, so the step retries instead of matching nothing", async () => {
+    answer = () => ({ data: null, error: { message: "timeout" } });
+    await expect(extractionRequester("x1")).rejects.toMatchObject({
+      message: "timeout",
+    });
+  });
+
+  it("returns null only for a row with no uploader", async () => {
+    answer = () => ({ data: { created_by: null }, error: null });
+    expect(await extractionRequester("x1")).toBeNull();
+    answer = () => ({ data: { created_by: "u1" }, error: null });
+    expect(await extractionRequester("x1")).toBe("u1");
   });
 });
 
