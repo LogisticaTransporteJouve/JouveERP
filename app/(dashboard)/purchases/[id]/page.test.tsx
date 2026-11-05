@@ -11,6 +11,10 @@ const h = vi.hoisted(() => ({
   itemsRes: null as unknown,
   allocCalls: 0,
   allocFails: false,
+  invoice: {} as Record<string, unknown>,
+  channel: null as unknown,
+  imputationsFail: false,
+  pendingFails: false,
 }));
 
 vi.mock("next/navigation", () => ({
@@ -29,9 +33,7 @@ vi.mock("@/lib/supabase/server", () => ({
     from: () => ({
       select: () => ({
         eq: () => ({
-          maybeSingle: async () => ({
-            data: { id: "jouve_fiscal", name: "Jouve", is_fiscal: true },
-          }),
+          maybeSingle: async () => h.channel,
         }),
       }),
     }),
@@ -65,6 +67,7 @@ vi.mock(
         fch_vto_pago: null,
         motivo_nc_nd: null,
         notes: null,
+        ...h.invoice,
       },
     }),
     getPurchaseInvoiceAllocationsAction: async () => {
@@ -78,23 +81,25 @@ vi.mock(
   }),
 );
 vi.mock("@/features/purchase-invoices/actions/impute-remitos-actions", () => ({
-  getPurchaseImputationsAction: async () => ({
-    ok: true,
-    data: { imputedTo: null, remitos: [] },
-  }),
+  getPurchaseImputationsAction: async () =>
+    h.imputationsFail
+      ? { ok: false, error: "No se pudieron leer las imputaciones." }
+      : { ok: true, data: { imputedTo: null, remitos: [] } },
 }));
 vi.mock("@/features/payment-orders/actions/payment-orders-actions", () => ({
-  listPendingInvoicesForSupplierAction: async () => ({
-    ok: true,
-    data: h.pending,
-  }),
+  listPendingInvoicesForSupplierAction: async () =>
+    h.pendingFails
+      ? { ok: false, error: "No se pudo leer lo pendiente." }
+      : { ok: true, data: h.pending },
 }));
 vi.mock("@/features/payment-orders/components/pay-dialog", () => ({
   PayDialog: () => <button type="button">stub-pagar</button>,
 }));
 vi.mock(
   "@/features/purchase-invoices/components/impute-remitos-dialog",
-  () => ({ ImputeRemitosDialog: () => null }),
+  () => ({
+    ImputeRemitosDialog: () => <button type="button">stub-imputar</button>,
+  }),
 );
 vi.mock("@/features/files/components/attachments-zone", () => ({
   AttachmentsZone: (props: { canWrite: boolean; canDelete: boolean }) => (
@@ -122,6 +127,13 @@ beforeEach(() => {
   h.itemsRes = { ok: true, data: [] };
   h.allocCalls = 0;
   h.allocFails = false;
+  h.invoice = {};
+  h.channel = {
+    data: { id: "jouve_fiscal", name: "Jouve", is_fiscal: true },
+    error: null,
+  };
+  h.imputationsFail = false;
+  h.pendingFails = false;
 });
 
 function rowValue(label: string): string | null {
@@ -140,6 +152,69 @@ describe("purchase detail — Pagar", () => {
     h.access = resolveAccess(["finance"], ["accounts:read"]);
     await renderPage();
     expect(screen.queryByText("stub-pagar")).toBeNull();
+  });
+
+  it("says the pending read failed instead of dropping Pagar without a word", async () => {
+    h.pendingFails = true;
+    await renderPage();
+    expect(screen.queryByText("stub-pagar")).toBeNull();
+    expect(
+      screen.getByText(
+        "No se pudo leer lo pendiente de pago: no se muestra «Pagar».",
+      ),
+    ).toBeTruthy();
+  });
+
+  it("does not offer Pagar, nor blame a failed read, when payment_orders:read is denied", async () => {
+    h.access = resolveAccess(["finance"], ["payment_orders:read"]);
+    h.pendingFails = true;
+    await renderPage();
+    expect(screen.queryByText("stub-pagar")).toBeNull();
+    expect(screen.queryByText(/No se pudo leer lo pendiente/)).toBeNull();
+  });
+});
+
+describe("purchase detail — canal", () => {
+  it("does not title the purchase from a guessed side when the channel read fails", async () => {
+    h.channel = { data: null, error: { message: "boom" } };
+    h.invoice = { channel_id: "jouve_internal", letter: null };
+    await renderPage();
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toContain(
+      "Comprobante de compra",
+    );
+    expect(
+      screen.getByText(
+        "No se pudo leer el canal de la compra: no se muestran «Pagar» ni «Imputar remitos».",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText("stub-pagar")).toBeNull();
+  });
+
+  it("titles an internal remito as such", async () => {
+    h.channel = {
+      data: { id: "jouve_internal", name: "Interno", is_fiscal: false },
+      error: null,
+    };
+    await renderPage();
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toContain(
+      "Remito interno",
+    );
+  });
+});
+
+describe("purchase detail — Imputar remitos", () => {
+  it("offers imputing remitos to a fiscal factura", async () => {
+    await renderPage();
+    expect(screen.getByText("stub-imputar")).toBeTruthy();
+  });
+
+  it("does not offer it against an unread imputation total", async () => {
+    h.imputationsFail = true;
+    await renderPage();
+    expect(screen.queryByText("stub-imputar")).toBeNull();
+    expect(
+      screen.getByText("No se pudieron leer los remitos imputados."),
+    ).toBeTruthy();
   });
 });
 
@@ -184,6 +259,27 @@ describe("purchase detail — Pagado y Saldo", () => {
     expect(
       screen.getByText("No se pudieron leer las órdenes de pago imputadas."),
     ).toBeTruthy();
+  });
+
+  it("leaves out «Pagado» and «Saldo» on a cancelled purchase", async () => {
+    h.invoice = { status: "cancelled" };
+    await renderPage();
+    expect(rowValue("Pagado")).toBeNull();
+    expect(rowValue("Saldo")).toBeNull();
+  });
+
+  it("leaves out «Pagado» and «Saldo» on a nota de crédito, which owes nothing", async () => {
+    h.invoice = { kind: "nc" };
+    await renderPage();
+    expect(rowValue("Pagado")).toBeNull();
+    expect(rowValue("Saldo")).toBeNull();
+    expect(screen.queryByText("No se pudieron leer los pagos.")).toBeNull();
+  });
+
+  it("keeps them on a nota de débito, which is paid like a factura", async () => {
+    h.invoice = { kind: "nd" };
+    await renderPage();
+    expect(rowValue("Saldo")).toContain("121,00");
   });
 
   it("leaves out «Pagado» and «Saldo» for a role that cannot read OPs", async () => {

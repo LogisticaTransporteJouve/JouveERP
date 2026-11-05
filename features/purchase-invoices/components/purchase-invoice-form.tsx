@@ -20,6 +20,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -77,6 +78,7 @@ import {
   followHeaderTotal,
   partsGapFix,
 } from "../lib/header-total";
+import { originCurrencyFields } from "../lib/origin-currency";
 import {
   type CostDefault,
   purchaseCostDefaults,
@@ -475,10 +477,25 @@ export function PurchaseInvoiceForm({
         numero: originInvoiceData.numero,
         imp_total: originInvoiceData.imp_total,
         fecha: originInvoiceData.fecha,
+        moneda: originInvoiceData.moneda,
+        cotizacion: Number(originInvoiceData.cotizacion),
       },
       { shouldDirty: false },
     );
   }, [originInvoiceData, watchedOriginId, form]);
+
+  // An NC/ND is in its origin's currency: picking the origin sets it (an ARCA
+  // voucher keeps its own, and the guard says if they differ).
+  function pickOrigin(origin: PickedPurchaseInvoice | null) {
+    form.setValue("origin_invoice", origin, { shouldDirty: true });
+    if (!origin || arcaLocked) return;
+    const next = originCurrencyFields(origin, {
+      moneda: form.getValues("moneda"),
+      cotizacion: form.getValues("cotizacion"),
+    });
+    form.setValue("moneda", next.moneda, { shouldDirty: true });
+    form.setValue("cotizacion", next.cotizacion, { shouldDirty: true });
+  }
 
   // If the supplier changes or the kind is no longer NC/ND, drop the origin.
   useEffect(() => {
@@ -1496,7 +1513,7 @@ export function PurchaseInvoiceForm({
                   <Select
                     value={field.value}
                     onValueChange={field.onChange}
-                    disabled={arcaLocked}
+                    disabled={arcaLocked || watchedOriginId !== null}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -1507,6 +1524,9 @@ export function PurchaseInvoiceForm({
                     </SelectContent>
                   </Select>
                 </FormControl>
+                {watchedOriginId !== null && !arcaLocked && (
+                  <FormDescription>La de la factura origen.</FormDescription>
+                )}
                 <FormMessage />
               </FormItem>
             )}
@@ -1590,7 +1610,7 @@ export function PurchaseInvoiceForm({
                   <FormControl>
                     <PurchaseInvoicePicker
                       value={field.value}
-                      onChange={field.onChange}
+                      onChange={pickOrigin}
                       supplierId={watchedSupplierId}
                       channelId={watchedChannelId || null}
                       excludeId={invoice?.id ?? null}

@@ -29,6 +29,8 @@ export interface PickedPurchaseInvoice {
   numero: number;
   imp_total: number;
   fecha: string;
+  moneda: string;
+  cotizacion: number;
 }
 
 const RESULT_LIMIT = 8;
@@ -79,6 +81,8 @@ export function PurchaseInvoicePicker({
       numero: inv.numero,
       imp_total: inv.imp_total,
       fecha: inv.fecha,
+      moneda: inv.moneda,
+      cotizacion: Number(inv.cotizacion),
     });
     setOpen(false);
     setQuery("");
