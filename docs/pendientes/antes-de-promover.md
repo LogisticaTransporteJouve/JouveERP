@@ -931,12 +931,12 @@ pueden nombrar tablas que producción todavía no tiene (`employee_account_movem
     `afip_observaciones`. Eso libera su remito interno, período de mora,
     cargas (se desvinculan), períodos de almacenaje (se borran) o
     liquidación (vuelve a confirmada). En producción afecta a los que
-    devuelva la consulta de abajo, en la primera corrida. Rollback: el
+    devuelva la consulta de abajo, 50 por corrida. Rollback: el
     código anterior no llama a la función y vuelve a saltear esos
     borradores. Los que ya pasaron a fallido quedan fallidos (no se
     revierte).
   - Consulta de control antes de promover (solo lectura, válida sobre el
-    esquema de producción): los borradores sin ítems que la primera corrida
+    esquema de producción): los borradores sin ítems que el reconciliador
     va a marcar fallidos y lo que cada uno retiene.
 
     ```sql
