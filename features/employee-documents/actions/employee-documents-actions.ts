@@ -7,6 +7,7 @@ import { userCan } from "@/lib/auth/permissions";
 import { removeReplacedFile } from "@/lib/files/remove-unlinked";
 import { linkableFileError } from "@/lib/files/store";
 import type { Database } from "@/lib/db/database.types";
+import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { logger } from "@/lib/logger";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
@@ -102,6 +103,8 @@ export async function listExpiringDocumentsAction(): Promise<
 // Writes
 // ---------------------------------------------------------------------------
 
+const NO_FILE_PERMISSION = "Sin permiso para adjuntar archivos.";
+
 export async function createEmployeeDocumentAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
@@ -117,6 +120,10 @@ export async function createEmployeeDocumentAction(
     };
   }
 
+  // Linking a file asks files:write, as uploading one does.
+  if (parsed.data.attachment_file_id && !userCan(ctx.access, "files:write")) {
+    return { ok: false, error: NO_FILE_PERMISSION };
+  }
   const supabase = await createClient();
   const fileError = await linkableFileError(
     supabase,
@@ -194,8 +201,6 @@ export async function updateEmployeeDocumentAction(
   if (Object.keys(patch).length === 1) return { ok: true, data: undefined };
 
   const supabase = await createClient();
-  const fileError = await linkableFileError(supabase, patch.attachment_file_id);
-  if (fileError) return { ok: false, error: fileError };
   // The file being replaced, deleted once the update lands. A failed read
   // leaves it to the orphan sweep.
   let previousFileId: string | null = null;
@@ -213,12 +218,28 @@ export async function updateEmployeeDocumentAction(
     }
     previousFileId = current?.attachment_file_id ?? null;
   }
+  // Only a file the document does not already have is linked: it asks
+  // files:write, as uploading one does, and must be linkable.
+  const nextFileId = patch.attachment_file_id ?? null;
+  if (nextFileId && nextFileId !== previousFileId) {
+    if (!userCan(ctx.access, "files:write")) {
+      return { ok: false, error: NO_FILE_PERMISSION };
+    }
+    const fileError = await linkableFileError(supabase, nextFileId);
+    if (fileError) return { ok: false, error: fileError };
+  }
   const { error } = await supabase
     .from("employee_documents")
     .update(patch)
     .eq("id", id);
 
   if (error) {
+    const guardError = mapDbGuardError(error, {
+      slug: "employee_documents.update.rejected",
+      userId: ctx.userId,
+      id,
+    });
+    if (guardError) return { ok: false, error: guardError };
     logger.error("employee_documents.update.failed", {
       userId: ctx.userId,
       id,
@@ -232,7 +253,7 @@ export async function updateEmployeeDocumentAction(
     auditEvent: "employee_document.file_removed",
     documentId: id,
     previousFileId,
-    nextFileId: patch.attachment_file_id ?? null,
+    nextFileId,
   });
   return { ok: true, data: undefined };
 }

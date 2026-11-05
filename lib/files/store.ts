@@ -1,5 +1,6 @@
 import "server-only";
 
+import { isLinkedFile } from "@/lib/files/references";
 import { buildStorageKey } from "@/lib/files/storage-path";
 import { logger } from "@/lib/logger";
 import type { createClient } from "@/lib/supabase/server";
@@ -88,10 +89,18 @@ export async function discardStoredFile(
   await supabase.storage.from(FILES_BUCKET).remove([stored.bucketPath]);
 }
 
+/** The guard's message in 20261105130100 (guard_link_file_visible). */
+const FILE_ALREADY_LINKED = "Ese archivo ya está vinculado a otro registro.";
+const FILE_READ_FAILED = "No se pudo leer el archivo adjunto. Reintentá.";
+
 /**
- * A document may only point at a file the caller can see (RLS client) and
- * that is not a private AI chat attachment, so an id guessed or copied from
- * elsewhere can't be pulled into another module.
+ * A fleet or employee document may only point at a file the caller can see
+ * (RLS client), that is not a private AI chat attachment, and that nothing
+ * else links yet (an attachment, a scan or another document): the fleet and
+ * HR ceilings on `files` would otherwise hide that file from the roles that
+ * read it through its other link. The database refuses the same
+ * (guard_link_file_visible). Call it only after the action's permission
+ * check: the link lookup uses the service role.
  */
 export async function linkableFileError(
   supabase: Client,
@@ -103,8 +112,14 @@ export async function linkableFileError(
     .select("id, source")
     .eq("id", fileId)
     .maybeSingle();
-  if (error || !data || data.source === "chat_attachment") {
+  if (error) {
+    logger.warn("files.linkable.read_failed", { fileId, error: error.message });
+    return FILE_READ_FAILED;
+  }
+  if (!data || data.source === "chat_attachment") {
     return "No encontramos el archivo adjunto.";
   }
-  return null;
+  const linked = await isLinkedFile(fileId);
+  if (linked === null) return FILE_READ_FAILED;
+  return linked ? FILE_ALREADY_LINKED : null;
 }
