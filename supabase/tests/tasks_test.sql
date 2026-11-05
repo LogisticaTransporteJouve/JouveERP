@@ -134,7 +134,7 @@ select is(
   'the sync keeps a due date a user moved'
 );
 
--- Only the sync closes an automatic task (20261105200001), also after a run
+-- Only the sync closes an automatic task (20261105231001), also after a run
 -- in the same transaction.
 select throws_ok(
   $$update public.tasks

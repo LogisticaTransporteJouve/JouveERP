@@ -4,7 +4,7 @@ SET LOCAL statement_timeout = '15min';
 -- Automatic tasks (owner decisions, docs/decisions/2026-11-05-vencimiento-de-ventas-a-7-dias.md):
 --
 --   1. sync_automatic_tasks: the collection branch reads
---      v_aging_documents.due_date (20261105200000: fch_vto_pago when later
+--      v_aging_documents.due_date (20261105231000: fch_vto_pago when later
 --      than fecha, else fecha + 7), so a factura opens its task on day 8, not
 --      day 1. An open collection task whose factura is not due yet leaves the
 --      list and closes itself (auto_closed); the sync reopens it, with the new

@@ -1,7 +1,7 @@
 # 2026-11-05 — Vencimiento de ventas a 7 días y tareas automáticas
 
 Decisión: `docs/decisions/2026-11-05-vencimiento-de-ventas-a-7-dias.md`.
-Migraciones: `20261105200000`, `20261105200001`.
+Migraciones: `20261105231000`, `20261105231001`.
 
 - [ ] **Guía: textos que dejaron de ser ciertos** (la guía es de otra sesión):
   - `features/guide/manual/content/ventas.ts`, aging: «Los días se cuentan

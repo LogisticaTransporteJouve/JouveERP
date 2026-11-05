@@ -20,7 +20,7 @@ SET LOCAL statement_timeout = '15min';
 --      read the view's due_date (same signature and columns).
 --   4. ai_client_sales_summary: overdue_ars reads the view's due_date instead
 --      of «fch_vto_pago, else fecha + 30».
---   sync_automatic_tasks follows in 20261105200001.
+--   sync_automatic_tasks follows in 20261105231001.
 --
 -- Stored fch_vto_pago values are not touched. Purchases keep their own rule.
 --

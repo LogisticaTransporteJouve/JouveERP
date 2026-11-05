@@ -860,17 +860,33 @@ un rollback a un SHA anterior a `94f942b`.
 Migraciones de `main` que todavía no están en `production-latest`. Cada rama
 que agrega una migración suma su ítem al final de esta sección.
 
-- [ ] **Aprobar `20261105200000` y `20261105200001`** (decisión del owner:
+- [ ] **Aprobar `20261105230000`** (categorías de proveedores sin slug). La
+      app deja de leer y escribir `supplier_categories.slug`; la columna
+      queda, con un valor por defecto generado (`c_` + 32 caracteres hex),
+      para que un rollback siga funcionando. No toca filas existentes ni
+      políticas RLS. Rollback: el código anterior lee y escribe el slug como
+      antes; una categoría creada con el código nuevo muestra el slug
+      generado.
+  - Consulta de control antes de aplicar (solo lectura): las categorías y
+    su slug actual, que se conserva.
+
+    ```sql
+    select id, name, slug, is_active
+      from public.supplier_categories
+     order by name;
+    ```
+
+- [ ] **Aprobar `20261105231000` y `20261105231001`** (decisión del owner:
       una venta vence 7 días después de su fecha; una tarea automática solo
       se cierra sola). Van en ese orden, después de `20261105140000`.
-  - `20261105200000`: función nueva `invoice_effective_due_date(date, date)`
+  - `20261105231000`: función nueva `invoice_effective_due_date(date, date)`
     (`SECURITY INVOKER`, inmutable, revocada de `public` y `anon`, ejecutable
     por `authenticated` y `service_role`). `v_aging_documents` suma la columna
     `due_date` al final y cuenta `days_overdue` y `bucket` desde ella; con eso
     cambian el aging, sus fotos, la mora y el resumen de la IA.
     `late_interest_candidates` y `ai_client_sales_summary` se reemplazan con
     la misma firma. No toca filas ni `fch_vto_pago`.
-  - `20261105200001`: `sync_automatic_tasks` pasa a plpgsql (misma firma y
+  - `20261105231001`: `sync_automatic_tasks` pasa a plpgsql (misma firma y
     permisos) y la cobranza lee `due_date`. Trigger nuevo
     `tasks_guard_automatic_close` (`23514`, `jouve_guard`): una tarea
     automática no pasa a hecha fuera de la sincronización. **Toca filas:**
@@ -920,22 +936,6 @@ que agrega una migración suma su ítem al final de esta sección.
     tareas de facturas todavía no vencidas como `done` con `auto_closed`.
 
   - `docs/pendientes/2026-11-05-vencimiento-de-ventas-y-tareas.md`.
-
-- [ ] **Aprobar `20261105230000`** (categorías de proveedores sin slug). La
-      app deja de leer y escribir `supplier_categories.slug`; la columna
-      queda, con un valor por defecto generado (`c_` + 32 caracteres hex),
-      para que un rollback siga funcionando. No toca filas existentes ni
-      políticas RLS. Rollback: el código anterior lee y escribe el slug como
-      antes; una categoría creada con el código nuevo muestra el slug
-      generado.
-  - Consulta de control antes de aplicar (solo lectura): las categorías y
-    su slug actual, que se conserva.
-
-    ```sql
-    select id, name, slug, is_active
-      from public.supplier_categories
-     order by name;
-    ```
 
 ## Aplicadas en el promote de `d71de85` (2026-11-05)
 

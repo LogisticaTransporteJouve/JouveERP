@@ -1,11 +1,11 @@
 # Decisiones — Vencimiento de las ventas y tareas automáticas
 
 Pendientes: `docs/pendientes/2026-11-05-vencimiento-de-ventas-y-tareas.md`.
-Migraciones: `20261105200000`, `20261105200001`.
+Migraciones: `20261105231000`, `20261105231001`.
 
 ## Una venta vence 7 días después de su fecha
 
-`20261105200000`. Todas las facturas de venta de producción vienen de ARCA, y
+`20261105231000`. Todas las facturas de venta de producción vienen de ARCA, y
 ARCA guarda `fch_vto_pago` vacío o igual a la fecha. Como la cobranza tomaba
 `fch_vto_pago` (o la fecha si no tenía), cada factura abierta quedaba vencida
 al día siguiente de emitirse: tarea «Cobranza vencida», aging vencido e
@@ -41,7 +41,7 @@ vencimiento = fch_vto_pago   si fch_vto_pago > fecha
 
 ## Una tarea automática solo se cierra sola
 
-`20261105200001`. «Marcar como hecha» sobre una «Cobranza vencida» la cerraba
+`20261105231001`. «Marcar como hecha» sobre una «Cobranza vencida» la cerraba
 aunque la factura siguiera impaga, y la sincronización no la volvía a abrir:
 la cobranza desaparecía de la lista sin cobrarse.
 

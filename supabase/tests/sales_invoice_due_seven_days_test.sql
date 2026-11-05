@@ -1,6 +1,6 @@
 -- A sales comprobante is due 7 days after its date unless it carries a later
--- due date (20261105200000), and only the sync closes an automatic task
--- (20261105200001): the rule itself, the aging, the late interest, the AI
+-- due date (20261105231000), and only the sync closes an automatic task
+-- (20261105231001): the rule itself, the aging, the late interest, the AI
 -- summary and the collection tasks. One transaction, rolled back.
 
 select set_config('request.jwt.claims', '{"role":"service_role"}', true);
@@ -227,7 +227,7 @@ select set_config('request.jwt.claims', '{"role":"service_role"}', true);
 
 -- 7. Hand-closed tasks from before go to the sync -----------------------------------------
 
--- As 20261105200001 left one closed by hand while its factura is unpaid.
+-- As 20261105231001 left one closed by hand while its factura is unpaid.
 alter table public.tasks disable trigger tasks_guard_automatic_close;
 update public.tasks
    set status = 'done', completed_at = now(), auto_closed = false,
