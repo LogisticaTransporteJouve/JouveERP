@@ -1,79 +1,62 @@
-# Manual JouveERP (sitio HTML estático)
+# Guía de JouveERP (HTML generado)
 
-Documentación de usuario final — no de desarrolladores — de todos los
-módulos del ERP. Pensado para que un operador o jefe de área pueda
-abrirlo en el navegador, navegarlo con la misma barra lateral que el
-sistema, y leer paso a paso cómo se hace cada operación.
+Guía para el usuario final: cada pantalla, cada tarea paso a paso con los textos exactos de los
+botones, quién puede hacerla, qué pasa después y qué hacer con cada error.
 
-## Cómo abrirlo
-
-**Desde la app:** en `/manual` (cualquier usuario con sesión iniciada). Lo
-sirve `app/manual/[[...path]]/route.ts`, que lee estos archivos tal cual
-(solo las páginas `.html` y `assets/*.css|js`), agrega el nonce de la CSP a
-los scripts y saca los links a Google Fonts (la CSP no los permite: usa la
-fuente del sistema). La guía del sidebar enlaza a la sección de cada
-pantalla (`features/guide/lib/route-guides.ts`); un test verifica que cada
-ancla citada exista.
-
-Fuera de la app es HTML estático: alcanza con abrir `index.html` en
-cualquier navegador.
+**No se edita a mano.** Los `.html` y `assets/search-index.js` se generan desde
+`features/guide/manual/content/` con:
 
 ```bash
-# desde la raíz del repo
-open docs/manual/index.html        # macOS
-xdg-open docs/manual/index.html    # Linux
-start docs/manual/index.html       # Windows
+pnpm manual:build
 ```
 
-Para servirlo (recomendado, para que carguen bien las fuentes y mermaid
-desde CDN sin warnings de CORS):
+CI falla si lo commiteado no coincide con lo generado, y `features/guide/manual/manual.test.ts` falla
+si la guía cita un botón, una ruta, un permiso o un mensaje de error que el código ya no tiene. La
+decisión completa está en [`docs/decisions/2026-11-05-guia-de-uso.md`](../decisions/2026-11-05-guia-de-uso.md).
 
-```bash
-npx --yes serve docs/manual -p 4173
-# o
-python3 -m http.server -d docs/manual 4173
+## Cómo se abre
+
+- **En la app:** «Guía de uso» en el pie de la barra lateral, o el botón **?** del encabezado de cada
+  pantalla (va directo a su sección). La sirve `app/manual/[[...path]]/route.ts` (solo usuarios con
+  sesión, con el nonce de la CSP).
+- **Fuera de la app:** son archivos estáticos: `xdg-open docs/manual/index.html`, o
+  `python3 -m http.server -d docs/manual 4173`.
+
+## Cómo se escribe
+
+Un capítulo es un `GuidePage` en `features/guide/manual/content/<capítulo>.ts`, registrado en
+`content/index.ts`. Cada sección documenta una o más rutas de `app/(dashboard)`; cada tarea:
+
+```ts
+{
+  id: "emitir-factura",
+  title: "Emitir una factura fiscal",
+  permission: "invoices:issue",
+  prerequisites: ["Un punto de venta habilitado en [[/admin/afip/puntos-de-venta]]."],
+  screens: [{ kind: "dialog", title: "Nuevo comprobante", fields: [...], footer: [...] }],
+  steps: ["En [[/invoices]], hacé clic en {{Nuevo comprobante}}.", "..."],
+  after: ["AFIP devuelve el CAE y ..."],
+  errors: [{ message: "No tenés permiso.", fix: "Pedile el permiso al owner." }],
+  related: ["anular-factura"],
+  keywords: ["facturar", "CAE"],
+}
 ```
 
-Y abrí <http://localhost:4173>.
+- `{{texto}}`: un texto de la UI, tal cual está en el código.
+- `[[/ruta]]` y `[[#id]]`: enlaces a la sección de una ruta o a otra tarea.
+- En una réplica de pantalla, los textos son de la UI salvo que empiecen con `~` (dato de ejemplo).
+- `marker: n` dibuja el número del paso `n` sobre ese control.
+- Un error con una parte variable se escribe con «…» en lugar de la variable.
 
-## Estructura
+Después de editar: `pnpm manual:build` y `pnpm vitest run features/guide`.
+
+## Archivos
 
 ```
 docs/manual/
-├── index.html              # Home + grilla de secciones
-├── getting-started.html    # Login, sidebar, scope, tema, roles
-├── sales.html              # Clientes · Comprobantes · Recibos · Aging
-├── purchases.html          # Proveedores · Categorías · Compras · OPs · Aging
-├── treasury.html           # Cuentas · Caja · Cheques recibidos · Cheques propios
-├── accounting.html         # Plan · Diario · Mayor · IVA · Balance · CC · Inflación · Impuestos
-├── hr.html                 # Empleados · Asistencia · Sueldos · Pagos · Vacaciones
-├── admin.html              # Usuarios · Padrón · POS · Preview PDF · Backups
-├── collaboration.html      # Chat · Notif · Adjuntos · Perfil
-├── README.md               # Este archivo
+├── index.html, <capítulo>.html   # generados
 └── assets/
-    ├── styles.css          # Paleta monocromática oklch (igual a globals.css)
-    └── manual.js           # Render del sidebar + bootstrap de mermaid
+    ├── styles.css                # a mano: tokens de app/globals.css (neutro + índigo Jouve)
+    ├── guide.js                  # a mano: búsqueda
+    └── search-index.js           # generado
 ```
-
-## Look & feel
-
-- Paleta monocromática oklch idéntica a `app/globals.css` (sin colores de
-  marca). Soporta tema claro/oscuro por `prefers-color-scheme`.
-- Tipografía **Geist** + **Geist Mono** desde Google Fonts.
-- Sidebar replicado del ERP — mismo orden, mismas etiquetas — para que el
-  usuario lo reconozca de inmediato.
-- Diagramas con **Mermaid** (vía CDN, `mermaid@10.9.1`) para flujos de
-  negocio: ciclo de emisión fiscal, cobro con cheque, mes de sueldos, etc.
-
-## Mantenimiento
-
-Cuando agregás un módulo nuevo al ERP:
-
-1. Sumá su entrada en `assets/manual.js` (constante `NAV`).
-2. Si pertenece a una sección existente, agregá una sub‑sección en el
-   HTML correspondiente (`sales.html`, `purchases.html`, etc.).
-3. Si abre una sección nueva, creá un HTML siguiendo el mismo template
-   (header `topbar`, `main`, `<h2 id="...">` con anchors).
-
-Las páginas son intencionalmente standalone (no requieren build): cada
-una incluye `assets/styles.css`, `assets/manual.js` y mermaid por CDN.

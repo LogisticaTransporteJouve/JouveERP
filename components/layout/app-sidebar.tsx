@@ -36,6 +36,7 @@ import {
   visibleSections,
   type NavItem,
 } from "./nav-items";
+import { NavHelp } from "./nav-help";
 import { NavTheme } from "./nav-theme";
 import { NavUser, type ProfileSummary } from "./nav-user";
 
@@ -182,6 +183,7 @@ export function AppSidebar({
         <SidebarGuide />
       </SidebarContent>
       <SidebarFooter>
+        <NavHelp className="p-0" />
         <NavTheme className="p-0" />
         <NavUser userEmail={userEmail} profile={profile} />
       </SidebarFooter>
