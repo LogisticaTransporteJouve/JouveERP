@@ -61,8 +61,9 @@ export type ExtractionMatches = {
    *  on rows stored before 2026-11-05, a single failed lookup). Whether it is
    *  already loaded is unknown. */
   duplicate_unknown?: true;
-  /** The uploader may not read the counterparty's table (or is unknown): the
-   *  CUIT lookup did not run, so a missing client/supplier means "not
+  /** The uploader may not read the counterparty's table (or is unknown), or
+   *  with `lookup_failed` the lookup failed on every attempt: the CUIT
+   *  lookup gave no answer, so a missing client/supplier means "not
    *  checked", not "none". */
   counterparty_unchecked?: true;
   /** Expense classification suggestion (purchase_invoice). Human-confirmed. */
