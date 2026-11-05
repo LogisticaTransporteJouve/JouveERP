@@ -9007,8 +9007,10 @@ export type Database = {
           client_name: string
           freight: number
           invoiced: number
+          invoiced_freight: number
           shipments: number
           status: string
+          unpriced: number
         }[]
       }
       ai_supplier_price_evolution: {
@@ -10597,6 +10599,10 @@ export type Database = {
         Returns: undefined
       }
       settle_billed_remito: { Args: { p_factura_id: string }; Returns: string }
+      shipment_invoice_billed_ratio: {
+        Args: { p_shipment_id: string }
+        Returns: number
+      }
       shipment_invoice_is_void: {
         Args: { p_shipment_id: string }
         Returns: boolean

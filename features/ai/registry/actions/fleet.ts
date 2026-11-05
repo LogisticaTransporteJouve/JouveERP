@@ -422,15 +422,26 @@ export const getShipmentsSummary = defineAiAction({
   sideEffect: "read",
   sources: ["ai_shipments_summary", "shipments"],
   description:
-    "Cargas (envíos) por estado y cliente en un rango de fechas: cantidad, flete total y cuántas ya están facturadas.",
+    "Cargas (envíos) por estado y cliente en un rango de fechas: cantidad, flete total sin las canceladas, cuántas ya están facturadas y su flete facturado (descontadas las NC y sumadas las ND de su factura), y cuántas no tienen flete todavía (por tarifa).",
   input: ShipmentsSummaryInputSchema,
   run: async (_ctx, input) => {
     const res = await getShipmentsSummaryAction(input);
     if (!res.ok) return errResult(res.error);
-    const count = res.data.reduce((s, r) => s + r.shipments, 0);
-    const freight = res.data.reduce((s, r) => s + r.freight, 0);
+    // Every other fleet figure leaves cancelled cargas out.
+    const live = res.data.filter((r) => r.status !== "cancelled");
+    const count = live.reduce((s, r) => s + r.shipments, 0);
+    const freight = live.reduce((s, r) => s + r.freight, 0);
+    const unpriced = live.reduce((s, r) => s + r.unpriced, 0);
+    const cancelled = res.data
+      .filter((r) => r.status === "cancelled")
+      .reduce((s, r) => s + r.shipments, 0);
     return okResult(
-      `${count} cargas entre ${input.from} y ${input.to} · flete ${money(freight)}.`,
+      `${count} cargas entre ${input.from} y ${input.to} · flete ${money(freight)}` +
+        (cancelled > 0 ? ` (${cancelled} canceladas, fuera del total)` : "") +
+        "." +
+        (unpriced > 0
+          ? ` ${unpriced} cargas sin flete (por tarifa): el flete total no es definitivo.`
+          : ""),
       { rows: res.data },
       { currency: "ARS", partial: reachedCap(res.data.length) },
     );
