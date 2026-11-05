@@ -320,14 +320,18 @@ export function ClientAccountTab({
               return (
                 <div className="flex items-center justify-end gap-1">
                   {isOpening ? (
-                    <OwnerOnly disabled={!canSetOpening}>
+                    <>
                       <div className="flex items-center gap-1">
                         <OpeningBalanceDialog
                           clientId={clientId}
                           prefill
                           trigger={
                             <IconButton
-                              label="Editar ajuste de saldo"
+                              label={
+                                canSetOpening
+                                  ? "Editar ajuste de saldo"
+                                  : `Editar ajuste de saldo. ${OWNER_ONLY_HINT}`
+                              }
                               variant="ghost"
                               disabled={!canSetOpening}
                             >
@@ -338,7 +342,11 @@ export function ClientAccountTab({
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <IconButton
-                              label="Borrar ajuste de saldo"
+                              label={
+                                canSetOpening
+                                  ? "Borrar ajuste de saldo"
+                                  : `Borrar ajuste de saldo. ${OWNER_ONLY_HINT}`
+                              }
                               variant="ghost"
                               disabled={
                                 !canSetOpening || clearOpeningMut.isPending
@@ -367,7 +375,7 @@ export function ClientAccountTab({
                           </AlertDialogContent>
                         </AlertDialog>
                       </div>
-                    </OwnerOnly>
+                    </>
                   ) : m.source_type === "invoice" && m.source_id ? (
                     <>
                       <IconButton
@@ -546,6 +554,8 @@ export function ClientAccountTab({
   );
 }
 
+const OWNER_ONLY_HINT = "Solo el owner puede tocar el ajuste de saldo.";
+
 /**
  * Wraps the children in a Tooltip when `disabled=true`. The children
  * (typically a Button) receive their normal props — the tooltip only
@@ -566,9 +576,7 @@ function OwnerOnly({
         <TooltipTrigger asChild>
           <span className="inline-block">{children}</span>
         </TooltipTrigger>
-        <TooltipContent>
-          Solo el owner puede tocar el ajuste de saldo.
-        </TooltipContent>
+        <TooltipContent>{OWNER_ONLY_HINT}</TooltipContent>
       </Tooltip>
     </TooltipProvider>
   );

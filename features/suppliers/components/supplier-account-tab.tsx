@@ -330,14 +330,18 @@ export function SupplierAccountTab({
               return (
                 <div className="flex items-center justify-end gap-1">
                   {isOpening ? (
-                    <OwnerOnly disabled={!canSetOpening}>
+                    <>
                       <div className="flex items-center gap-1">
                         <SupplierOpeningBalanceDialog
                           supplierId={supplierId}
                           prefill
                           trigger={
                             <IconButton
-                              label="Editar ajuste de saldo"
+                              label={
+                                canSetOpening
+                                  ? "Editar ajuste de saldo"
+                                  : `Editar ajuste de saldo. ${OWNER_ONLY_HINT}`
+                              }
                               variant="ghost"
                               disabled={!canSetOpening}
                             >
@@ -348,7 +352,11 @@ export function SupplierAccountTab({
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <IconButton
-                              label="Borrar ajuste de saldo"
+                              label={
+                                canSetOpening
+                                  ? "Borrar ajuste de saldo"
+                                  : `Borrar ajuste de saldo. ${OWNER_ONLY_HINT}`
+                              }
                               variant="ghost"
                               disabled={
                                 !canSetOpening || clearOpeningMut.isPending
@@ -377,7 +385,7 @@ export function SupplierAccountTab({
                           </AlertDialogContent>
                         </AlertDialog>
                       </div>
-                    </OwnerOnly>
+                    </>
                   ) : href ? (
                     <IconButton label="Ver detalle" asChild variant="ghost">
                       <Link href={href}>
@@ -528,6 +536,8 @@ export function SupplierAccountTab({
   );
 }
 
+const OWNER_ONLY_HINT = "Solo el owner puede tocar el ajuste de saldo.";
+
 function OwnerOnly({
   children,
   disabled,
@@ -542,9 +552,7 @@ function OwnerOnly({
         <TooltipTrigger asChild>
           <span className="inline-block">{children}</span>
         </TooltipTrigger>
-        <TooltipContent>
-          Solo el owner puede tocar el ajuste de saldo.
-        </TooltipContent>
+        <TooltipContent>{OWNER_ONLY_HINT}</TooltipContent>
       </Tooltip>
     </TooltipProvider>
   );
