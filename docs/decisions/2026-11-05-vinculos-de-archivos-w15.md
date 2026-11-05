@@ -20,16 +20,17 @@ documento de flota o de RRHH):
 2. **Su rol escribe ese registro**, con la tabla de
    `ATTACHMENT_WRITE_PERMISSION` (`lib/files/attachment-targets.ts`):
 
-   | Registro | Roles |
-   |---|---|
-   | compra, comprobante, recibo, orden de pago, cheque, cheque propio, movimiento, impuesto, cliente, proveedor | owner, admin, finance |
-   | carga de combustible | owner, admin, operations |
-   | escaneo (extracción, `ai:read`) | owner, admin, finance, operations |
-   | documento de flota | owner, admin, operations (sin cambios) |
-   | documento de RRHH | owner, admin, finance (sin cambios) |
+   | Registro                                                                                                    | Roles                                  |
+   | ----------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+   | compra, comprobante, recibo, orden de pago, cheque, cheque propio, movimiento, impuesto, cliente, proveedor | owner, admin, finance                  |
+   | carga de combustible                                                                                        | owner, admin, operations               |
+   | escaneo (extracción, `ai:read`)                                                                             | owner, admin, finance, operations      |
+   | documento de flota                                                                                          | owner, admin, operations (sin cambios) |
+   | documento de RRHH                                                                                           | owner, admin, finance (sin cambios)    |
 
    Los vínculos del chat los sigue escribiendo solo la ruta del chat, con el
    service role.
+
 3. **Ya ve el archivo:** la guarda `guard_link_file_visible` busca el
    archivo en `files` con la RLS de quien escribe. Un vínculo nunca da
    lectura de un archivo que el usuario no veía antes.
