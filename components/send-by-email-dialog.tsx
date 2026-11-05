@@ -101,11 +101,6 @@ export function SendByEmailDialog({
   const [recipient, setRecipient] = useState("");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
-  const [initial, setInitial] = useState<{
-    recipient: string;
-    subject: string;
-    body: string;
-  } | null>(null);
   const [lastSentAt, setLastSentAt] = useState<string | null>(null);
   const copy = KIND_COPY[kind];
 
@@ -122,16 +117,9 @@ export function SendByEmailDialog({
         setLoading(false);
         return;
       }
-      const initialRecipient = result.data.recipient ?? "";
-      const initialSubject = result.data.subject;
-      setRecipient(initialRecipient);
-      setSubject(initialSubject);
+      setRecipient(result.data.recipient ?? "");
+      setSubject(result.data.subject);
       setBody("");
-      setInitial({
-        recipient: initialRecipient,
-        subject: initialSubject,
-        body: "",
-      });
       setLastSentAt(result.data.last_sent_at);
       setLoading(false);
     })();
@@ -139,12 +127,6 @@ export function SendByEmailDialog({
       cancelled = true;
     };
   }, [open, kind, id]);
-
-  const dirty =
-    initial !== null &&
-    (recipient !== initial.recipient ||
-      subject !== initial.subject ||
-      body !== initial.body);
 
   const canSubmit =
     !loading &&
@@ -251,7 +233,7 @@ export function SendByEmailDialog({
               >
                 Cancelar
               </Button>
-              <Button type="submit" disabled={!canSubmit || !dirty}>
+              <Button type="submit" disabled={!canSubmit}>
                 {sending ? (
                   <>
                     <Loader2 className="size-4 animate-spin" />
