@@ -328,6 +328,53 @@ export async function getPurchaseInvoiceAllocationsAction(
   return { ok: true, data: out };
 }
 
+export type PurchaseInvoiceOpen = {
+  paid: number;
+  credited: number;
+  opening_applied: number;
+  open_amount: number;
+};
+
+/** What a purchase still owes, from v_purchase_invoice_open: issued OPs, NCs
+ *  against it and opening-balance applications, the figure «Pagar» and the OP
+ *  form use. Needs payment_orders:read, since it measures OPs. */
+export async function getPurchaseInvoiceOpenAction(
+  invoiceId: string,
+): Promise<ActionResult<PurchaseInvoiceOpen>> {
+  const ctx = await requireUserContext();
+  if (
+    !userCan(ctx.access, "purchase_invoices:read") ||
+    !userCan(ctx.access, "payment_orders:read")
+  ) {
+    return { ok: false, error: "No tenés permiso." };
+  }
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("v_purchase_invoice_open")
+    .select(
+      "amount_paid, amount_credited_by_nc, amount_opening_applied, open_amount",
+    )
+    .eq("purchase_invoice_id", invoiceId)
+    .maybeSingle();
+  if (error || !data) {
+    logger.error("purchase_invoices.open.failed", {
+      userId: ctx.userId,
+      invoiceId,
+      error,
+    });
+    return { ok: false, error: "No se pudieron leer los pagos." };
+  }
+  return {
+    ok: true,
+    data: {
+      paid: Number(data.amount_paid ?? 0),
+      credited: Number(data.amount_credited_by_nc ?? 0),
+      opening_applied: Number(data.amount_opening_applied ?? 0),
+      open_amount: Number(data.open_amount ?? 0),
+    },
+  };
+}
+
 const DuplicateLookupSchema = z.object({
   supplier_id: z.string().uuid(),
   kind: z.enum(PURCHASE_INVOICE_KINDS),
