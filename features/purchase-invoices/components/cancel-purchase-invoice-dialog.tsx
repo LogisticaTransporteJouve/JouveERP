@@ -64,7 +64,7 @@ export function CancelPurchaseInvoiceDialog({
 
         <p className="text-sm">
           La factura queda marcada como anulada y deja de contar para los
-          balances y aging. La acción se puede revertir editando la factura.
+          balances y aging. La anulación no se puede deshacer.
         </p>
 
         <DialogFooter className="gap-2 sm:gap-2">

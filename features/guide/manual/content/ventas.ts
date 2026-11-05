@@ -276,9 +276,9 @@ export const salesPage: GuidePage = {
         },
         {
           id: "eliminar-cliente",
-          title: "Eliminar o desactivar un cliente",
+          title: "Eliminar, desactivar o reactivar un cliente",
           summary:
-            "Un cliente con movimientos no se borra: se desactiva para que deje de aparecer en las listas.",
+            "Un cliente con movimientos no se borra: se desactiva para que deje de aparecer en las listas, y se puede reactivar después.",
           permission: "clients:write",
           screens: [
             {
@@ -305,7 +305,7 @@ export const salesPage: GuidePage = {
             },
           ],
           after: [
-            "Un cliente desactivado solo aparece en [[/clients]] destildando {{Solo activos}}, y no se le pueden emitir comprobantes. La pantalla no ofrece reactivarlo.",
+            "Un cliente desactivado solo aparece en [[/clients]] destildando {{Solo activos}}, y no se le pueden emitir comprobantes. Para volver a usarlo, hacé clic en {{Reactivar}} (el ícono de encendido) en su fila: aviso «Cliente reactivado.».",
           ],
           errors: [
             {
@@ -322,7 +322,12 @@ export const salesPage: GuidePage = {
               fix: "Pedíselo a alguien con rol Finanzas, Admin u Owner.",
             },
           ],
-          keywords: ["borrar cliente", "dar de baja", "inactivo"],
+          keywords: [
+            "borrar cliente",
+            "dar de baja",
+            "inactivo",
+            "reactivar cliente",
+          ],
         },
         {
           id: "exportar-clientes",
@@ -1091,7 +1096,7 @@ export const salesPage: GuidePage = {
           steps: [
             "En [[/invoices]], en la fila del comprobante emitido, hacé clic en el sobre ({{Enviar por email}}).",
             "Revisá {{Destinatario}} (viene el email del cliente o, si no tiene, el del último envío), {{Asunto}} y, si querés, un {{Mensaje (opcional)}}; vacío usa el texto por defecto. Si ya se envió antes, arriba dice cuándo fue el último envío.",
-            "Hacé clic en {{Enviar}}. El botón se habilita recién cuando cambiaste algún dato del formulario.",
+            "Hacé clic en {{Enviar}}. Se habilita con un destinatario y un asunto, aunque no cambies lo propuesto.",
           ],
           after: [
             "El cliente recibe el email con el PDF adjunto. Un remito interno sale a nombre de la división, no del emisor fiscal.",
@@ -2030,7 +2035,7 @@ export const salesPage: GuidePage = {
           permission: "receipts:read",
           steps: [
             "En [[/receipts]], en la fila del recibo: {{Ver PDF}} lo muestra, {{Descargar PDF}} lo baja. En el detalle, el botón {{PDF}}.",
-            "Para mandarlo, hacé clic en el sobre ({{Enviar por email}}; pide el permiso `email:send` y el recibo no tiene que estar anulado), revisá {{Destinatario}}, {{Asunto}} y {{Mensaje (opcional)}} y hacé clic en {{Enviar}} (se habilita al cambiar algún dato).",
+            "Para mandarlo, hacé clic en el sobre ({{Enviar por email}}; pide el permiso `email:send` y el recibo no tiene que estar anulado), revisá {{Destinatario}}, {{Asunto}} y {{Mensaje (opcional)}} y hacé clic en {{Enviar}}.",
           ],
           errors: [
             {

@@ -79,6 +79,15 @@ describe("NcNdForm cotización", () => {
   });
 });
 
+describe("NcNdForm fields", () => {
+  // The note has no column for internal notes; a field that is never sent
+  // would drop what the user types.
+  it("offers no «Observaciones» field", () => {
+    render(<NcNdForm origin={ORIGIN} kind="nc" />);
+    expect(screen.queryByText(/Observaciones/)).toBeNull();
+  });
+});
+
 describe("NcNdForm item amounts", () => {
   function input(label: string): HTMLInputElement {
     const el = screen.getByLabelText(label);
