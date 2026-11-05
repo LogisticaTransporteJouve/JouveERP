@@ -57,12 +57,14 @@ function shift(date: string, days: number): string {
  * takes that line's state in Conciliación: reconciled there, ignored, or
  * still pending. The rest is matched against the ARS cash movements of the
  * period (±5 days) not reconciled with an imported line. Returns a compact
- * summary for the review screen, or null if the payload has no movements or
- * a read failed (a partial answer would misstate it).
+ * summary for the review screen, null if the payload has no movements, or
+ * "too_many_rows" past MAX_ROWS (a partial answer would misstate it). A
+ * failed read throws, so the caller's step retries instead of storing "no
+ * summary".
  */
 export async function reconcileExtracto(
   payload: unknown,
-): Promise<ReconciliationSummary | null> {
+): Promise<ReconciliationSummary | "too_many_rows" | null> {
   if (!isRecord(payload) || !Array.isArray(payload.movements)) return null;
 
   const movements: StatementMovement[] = [];
@@ -132,11 +134,11 @@ export async function reconcileExtracto(
       MAX_ROWS,
     ),
   ]);
-  if (lineRes.error || txRes.error) {
-    logger.warn("ai.reconciliation.read_failed", {
-      error: lineRes.error ?? txRes.error,
-    });
-    return null;
+  const readError = lineRes.error ?? txRes.error;
+  if (readError) {
+    logger.warn("ai.reconciliation.read_failed", { error: readError });
+    if (readError.code === "row_cap") return "too_many_rows";
+    throw new Error(`reconcile-extracto: ${readError.message}`);
   }
 
   const lines: ImportedLine[] = lineRes.data.flatMap((l) =>
