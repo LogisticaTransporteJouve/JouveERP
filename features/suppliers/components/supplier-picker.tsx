@@ -8,6 +8,7 @@ import { ReadError } from "@/components/read-error";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import {
   Dialog,
   DialogContent,
@@ -149,15 +150,14 @@ export function SupplierPicker({
             </p>
           </div>
           {!disabled && (
-            <Button
+            <IconButton
+              label="Cambiar proveedor"
               type="button"
               variant="ghost"
-              size="icon"
-              aria-label="Cambiar proveedor"
               onClick={clear}
             >
               <X className="size-4" />
-            </Button>
+            </IconButton>
           )}
         </div>
       ) : (

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { ReadError } from "@/components/read-error";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import {
   Dialog,
   DialogContent,
@@ -66,15 +67,14 @@ export function DeleteClientDialog({ client }: { client: Client }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button
+        <IconButton
+          label="Eliminar"
           variant="ghost"
-          size="icon"
-          aria-label="Eliminar"
           className="text-destructive hover:text-destructive"
           disabled={isPending}
         >
           <Trash2 className="size-4" />
-        </Button>
+        </IconButton>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>

@@ -5,6 +5,7 @@ import { type ReactNode, useState } from "react";
 
 import { ReadError } from "@/components/read-error";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { isImage, isPdf } from "@/lib/files/preview";
 import { cn } from "@/lib/utils";
 
@@ -106,26 +107,24 @@ export function FilePreviewSurface({
           />
         </div>
         <Toolbar>
-          <Button
+          <IconButton
+            label="Alejar"
             variant="ghost"
-            size="icon"
             className="size-8"
-            title="Alejar"
             disabled={scale <= MIN_SCALE}
             onClick={() => setScale((s) => Math.max(MIN_SCALE, s - STEP))}
           >
             <ZoomOut className="size-4" />
-          </Button>
-          <Button
+          </IconButton>
+          <IconButton
+            label="Acercar"
             variant="ghost"
-            size="icon"
             className="size-8"
-            title="Acercar"
             disabled={scale >= MAX_SCALE}
             onClick={() => setScale((s) => Math.min(MAX_SCALE, s + STEP))}
           >
             <ZoomIn className="size-4" />
-          </Button>
+          </IconButton>
           {downloadButton}
         </Toolbar>
       </div>

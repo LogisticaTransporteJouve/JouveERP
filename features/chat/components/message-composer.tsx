@@ -4,7 +4,7 @@ import { CornerDownRight, Send, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
-import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { Textarea } from "@/components/ui/textarea";
 import { UserAvatar } from "@/components/user-avatar";
 import { getDisplayName } from "@/lib/avatars";
@@ -39,7 +39,9 @@ export function MessageComposer({
 }: Props) {
   const [body, setBody] = useState("");
   const [mentionedIds, setMentionedIds] = useState<Set<string>>(new Set());
-  const [mentionCursor, setMentionCursor] = useState<MentionCursor | null>(null);
+  const [mentionCursor, setMentionCursor] = useState<MentionCursor | null>(
+    null,
+  );
   const [mentionIndex, setMentionIndex] = useState(0);
   const send = useSendMessage();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -63,7 +65,11 @@ export function MessageComposer({
 
   const pickMention = (member: ChannelMember) => {
     if (!mentionCursor) return;
-    const { body: nextBody, cursorPos } = applyMention(body, mentionCursor, member);
+    const { body: nextBody, cursorPos } = applyMention(
+      body,
+      mentionCursor,
+      member,
+    );
     setBody(nextBody);
     setMentionedIds((prev) => new Set(prev).add(member.user_id));
     setMentionCursor(null);
@@ -123,16 +129,15 @@ export function MessageComposer({
               {replyTo.deleted_at ? "Mensaje eliminado" : replyTo.body}
             </p>
           </div>
-          <Button
+          <IconButton
+            label="Cancelar respuesta"
             type="button"
             variant="ghost"
-            size="icon"
             className="size-7 shrink-0"
             onClick={onClearReply}
-            aria-label="Cancelar reply"
           >
             <X className="size-3.5" />
-          </Button>
+          </IconButton>
         </div>
       ) : null}
 
@@ -145,9 +150,7 @@ export function MessageComposer({
                   type="button"
                   className={cn(
                     "flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm",
-                    idx === mentionIndex
-                      ? "bg-accent"
-                      : "hover:bg-accent/50",
+                    idx === mentionIndex ? "bg-accent" : "hover:bg-accent/50",
                   )}
                   onMouseEnter={() => setMentionIndex(idx)}
                   onMouseDown={(e) => {
@@ -208,7 +211,8 @@ export function MessageComposer({
                   e.preventDefault();
                   setMentionIndex(
                     (i) =>
-                      (i - 1 + mentionCandidates.length) % mentionCandidates.length,
+                      (i - 1 + mentionCandidates.length) %
+                      mentionCandidates.length,
                   );
                   return;
                 }
@@ -231,15 +235,14 @@ export function MessageComposer({
             }}
           />
         </div>
-        <Button
+        <IconButton
+          label="Enviar"
           type="button"
-          size="icon"
           onClick={submit}
           disabled={send.isPending || body.trim().length === 0}
-          aria-label="Enviar"
         >
           <Send className="size-4" />
-        </Button>
+        </IconButton>
       </div>
     </div>
   );

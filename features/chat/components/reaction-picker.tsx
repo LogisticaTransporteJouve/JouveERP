@@ -3,7 +3,7 @@
 import { SmilePlus } from "lucide-react";
 import { useState } from "react";
 
-import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import {
   Popover,
   PopoverContent,
@@ -23,16 +23,15 @@ export function ReactionPicker({ onPick, disabled }: Props) {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button
+        <IconButton
+          label="Reaccionar"
           type="button"
           variant="ghost"
-          size="icon"
           className="size-7"
           disabled={disabled}
-          aria-label="Reaccionar"
         >
           <SmilePlus className="size-3.5" />
-        </Button>
+        </IconButton>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-2" align="start">
         <div className="grid grid-cols-6 gap-1">

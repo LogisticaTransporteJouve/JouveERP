@@ -14,6 +14,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
@@ -109,14 +110,13 @@ export function AiHistory({
                   </button>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button
+                      <IconButton
+                        label="Borrar conversación"
                         variant="ghost"
-                        size="icon"
                         className="size-7 shrink-0 opacity-0 group-hover:opacity-100"
                       >
                         <Trash2 className="size-3.5" />
-                        <span className="sr-only">Borrar conversación</span>
-                      </Button>
+                      </IconButton>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>

@@ -5,6 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import {
   Dialog,
   DialogContent,
@@ -163,18 +164,18 @@ export function EmployeeGarnishmentsCard({
                 </div>
                 {canWrite && (
                   <div className="flex items-center gap-1">
-                    <Button
+                    <IconButton
+                      label="Editar embargo"
                       variant="ghost"
-                      size="sm"
-                      aria-label="Editar embargo"
+                      size="icon-sm"
                       onClick={() => openFor(g)}
                     >
                       <Pencil className="size-3.5" />
-                    </Button>
-                    <Button
+                    </IconButton>
+                    <IconButton
+                      label="Borrar embargo"
                       variant="ghost"
-                      size="sm"
-                      aria-label="Borrar embargo"
+                      size="icon-sm"
                       disabled={deleteMut.isPending}
                       onClick={() =>
                         deleteMut.mutate(g.id, {
@@ -184,7 +185,7 @@ export function EmployeeGarnishmentsCard({
                       }
                     >
                       <Trash2 className="size-3.5" />
-                    </Button>
+                    </IconButton>
                   </div>
                 )}
               </li>

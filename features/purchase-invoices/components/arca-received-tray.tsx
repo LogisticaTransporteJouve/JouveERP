@@ -9,6 +9,7 @@ import { FileDropzone } from "@/components/file-upload/file-dropzone";
 import { useConfirm } from "@/components/providers/confirm-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -167,15 +168,13 @@ function VoucherTable({ status }: { status: ReceivedVoucherStatus }) {
         cell: ({ row }) => {
           const v = row.original;
           const detail = (
-            <Button
-              size="icon"
+            <IconButton
+              label="Ver detalle"
               variant="ghost"
-              aria-label="Ver detalle"
-              title="Ver detalle"
               onClick={() => setViewing(v)}
             >
               <Eye className="size-4" />
-            </Button>
+            </IconButton>
           );
           if (v.status === "pending_review") {
             return (
@@ -185,10 +184,9 @@ function VoucherTable({ status }: { status: ReceivedVoucherStatus }) {
                   <Check className="size-4" />
                   Aceptar y cargar
                 </Button>
-                <Button
-                  size="icon"
+                <IconButton
+                  label="Descartar"
                   variant="ghost"
-                  aria-label="Descartar"
                   disabled={discard.isPending}
                   onClick={async () => {
                     const ok = await confirm({
@@ -206,7 +204,7 @@ function VoucherTable({ status }: { status: ReceivedVoucherStatus }) {
                   }}
                 >
                   <Trash2 className="size-4" />
-                </Button>
+                </IconButton>
               </div>
             );
           }

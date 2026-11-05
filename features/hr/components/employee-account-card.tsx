@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { useConfirm } from "@/components/providers/confirm-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import {
   Dialog,
   DialogContent,
@@ -382,19 +383,19 @@ function PlanRow({
               ))}
             </SelectContent>
           </Select>
-          <Button
+          <IconButton
+            label="Editar plan"
             variant="ghost"
-            size="sm"
-            aria-label="Editar plan"
+            size="icon-sm"
             onClick={onEdit}
           >
             <Pencil className="size-3.5" />
-          </Button>
+          </IconButton>
           {plan.paid === 0 && (
-            <Button
+            <IconButton
+              label="Borrar plan"
               variant="ghost"
-              size="sm"
-              aria-label="Borrar plan"
+              size="icon-sm"
               disabled={deleteMut.isPending}
               onClick={() =>
                 deleteMut.mutate(plan.id, {
@@ -404,7 +405,7 @@ function PlanRow({
               }
             >
               <Trash2 className="size-3.5" />
-            </Button>
+            </IconButton>
           )}
         </div>
       )}
@@ -453,37 +454,29 @@ function MovementRow({
       {canWrite && (
         <td className="px-1 py-2 text-right">
           {deletable && cashDenied && (
-            // A disabled button gets no pointer events: the span shows why.
-            <span title={HR_CASH_DENIED_REASON}>
-              <Button
-                variant="ghost"
-                size="sm"
-                aria-label={`Borrar el movimiento y su movimiento de caja: ${HR_CASH_DENIED_REASON}`}
-                disabled
-              >
-                <Trash2 className="size-3.5" />
-              </Button>
-            </span>
+            <IconButton
+              label={`Borrar el movimiento y su movimiento de caja: ${HR_CASH_DENIED_REASON}`}
+              variant="ghost"
+              size="icon-sm"
+              disabled
+            >
+              <Trash2 className="size-3.5" />
+            </IconButton>
           )}
           {deletable && !cashDenied && (
-            <Button
-              variant="ghost"
-              size="sm"
-              aria-label={
+            <IconButton
+              label={
                 source === "cash"
                   ? "Borrar el movimiento y su movimiento de caja"
                   : "Borrar movimiento"
               }
-              title={
-                source === "cash"
-                  ? "Borra también el movimiento de caja"
-                  : undefined
-              }
+              variant="ghost"
+              size="icon-sm"
               disabled={deleting}
               onClick={onDelete}
             >
               <Trash2 className="size-3.5" />
-            </Button>
+            </IconButton>
           )}
         </td>
       )}

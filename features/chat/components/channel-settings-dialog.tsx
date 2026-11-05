@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { useConfirm } from "@/components/providers/confirm-provider";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import {
   Dialog,
   DialogContent,
@@ -187,17 +188,16 @@ export function ChannelSettingsDialog({
                       </p>
                     </div>
                     {iAmAdmin && member.user_id !== currentUserId ? (
-                      <Button
+                      <IconButton
+                        label="Quitar"
                         type="button"
                         variant="ghost"
-                        size="icon"
                         className="size-7"
                         onClick={() => handleRemove(member.user_id)}
                         disabled={removeMember.isPending}
-                        aria-label="Quitar"
                       >
                         <Trash2 className="size-3.5" />
-                      </Button>
+                      </IconButton>
                     ) : null}
                   </li>
                 ))}

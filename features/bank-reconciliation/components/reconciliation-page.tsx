@@ -16,6 +16,7 @@ import { Suspense, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -441,13 +442,12 @@ function ReconciliationBody({
                     <TableCell className="text-right align-top">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button
-                            size="icon"
+                          <IconButton
+                            label="Acciones de la línea"
                             variant="ghost"
-                            aria-label="Acciones de la línea"
                           >
                             <MoreHorizontal className="size-4" />
-                          </Button>
+                          </IconButton>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           {line.status === "open" && (
@@ -571,15 +571,13 @@ function ReconciliationBody({
                   </TableCell>
                   {canWrite && (
                     <TableCell className="text-right">
-                      <Button
-                        size="icon"
+                      <IconButton
+                        label="Conciliar con varias líneas"
                         variant="ghost"
-                        aria-label="Conciliar con varias líneas"
-                        title="Conciliar con varias líneas"
                         onClick={() => setSplitMovement(m)}
                       >
                         <Link2 className="size-4" />
-                      </Button>
+                      </IconButton>
                     </TableCell>
                   )}
                 </TableRow>

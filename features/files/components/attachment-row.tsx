@@ -16,7 +16,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { MimeIcon } from "@/components/file-preview/mime-icon";
-import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { formatFileSize } from "@/lib/files/format-file-size";
 import { formatArDateShort } from "@/lib/format";
 
@@ -57,31 +57,29 @@ export function AttachmentRow({ row, onPreview, onDelete, canDelete }: Props) {
           {formatFileSize(row.fileSize)} · {formatArDateShort(row.attachedAt)}
         </p>
       </div>
-      <Button
+      <IconButton
+        label="Ver adjunto"
         type="button"
         variant="ghost"
-        size="icon"
         onClick={() => onPreview(row)}
-        aria-label="Ver adjunto"
       >
         <Eye className="size-4" />
-      </Button>
+      </IconButton>
       {canDelete ? (
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button
+            <IconButton
+              label="Borrar adjunto"
               type="button"
               variant="ghost"
-              size="icon"
               disabled={isDeleting}
-              aria-label="Borrar adjunto"
             >
               {isDeleting ? (
                 <Loader2 className="size-4 animate-spin" />
               ) : (
                 <Trash2 className="size-4 text-destructive" />
               )}
-            </Button>
+            </IconButton>
           </AlertDialogTrigger>
           <AlertDialogContent>
             <AlertDialogHeader>

@@ -26,6 +26,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
@@ -156,9 +157,9 @@ function WorkflowCard({
         />
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button variant="ghost" size="icon" aria-label="Borrar tarea">
+            <IconButton label="Borrar tarea" variant="ghost">
               <Trash2 className="size-4" />
-            </Button>
+            </IconButton>
           </AlertDialogTrigger>
           <AlertDialogContent>
             <AlertDialogHeader>

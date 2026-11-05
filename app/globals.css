@@ -115,6 +115,20 @@
   body {
     @apply bg-background text-foreground;
   }
+  /* Tailwind v4 dropped the pointer cursor on buttons; restore it for every
+   * clickable control at once. A cursor-* utility still overrides this. */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="menuitem"],
+  [role="menuitemcheckbox"],
+  [role="menuitemradio"],
+  [role="option"],
+  [role="tab"],
+  summary,
+  label[for],
+  select:not(:disabled) {
+    cursor: pointer;
+  }
 }
 
 /* Markdown rendering inside chat bubbles. Monocromo, sin colores de

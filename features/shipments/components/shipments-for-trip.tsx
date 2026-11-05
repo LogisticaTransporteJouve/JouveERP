@@ -5,6 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -141,16 +142,14 @@ function TripShipments({
               </TableCell>
               {canWrite && (
                 <TableCell>
-                  <Button
+                  <IconButton
+                    label="Quitar del viaje"
                     variant="ghost"
-                    size="icon"
-                    aria-label="Quitar del viaje"
-                    title="Quitar del viaje"
                     disabled={unassign.isPending}
                     onClick={() => remove(shipment.id)}
                   >
                     <X className="size-4" />
-                  </Button>
+                  </IconButton>
                 </TableCell>
               )}
             </TableRow>

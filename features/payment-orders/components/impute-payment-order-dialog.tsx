@@ -5,6 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import {
   Dialog,
   DialogContent,
@@ -103,14 +104,9 @@ export function ImputePaymentOrderDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label="Imputar saldo a cuenta"
-          title="Imputar saldo a cuenta"
-        >
+        <IconButton label="Imputar saldo a cuenta" variant="ghost">
           <ListChecks className="size-4" />
-        </Button>
+        </IconButton>
       </DialogTrigger>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
         <DialogHeader>

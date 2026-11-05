@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import {
   Tooltip,
@@ -325,28 +326,26 @@ export function ClientAccountTab({
                           clientId={clientId}
                           prefill
                           trigger={
-                            <Button
+                            <IconButton
+                              label="Editar ajuste de saldo"
                               variant="ghost"
-                              size="icon"
-                              aria-label="Editar ajuste de saldo"
                               disabled={!canSetOpening}
                             >
                               <Pencil className="size-4" />
-                            </Button>
+                            </IconButton>
                           }
                         />
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
-                            <Button
+                            <IconButton
+                              label="Borrar ajuste de saldo"
                               variant="ghost"
-                              size="icon"
-                              aria-label="Borrar ajuste de saldo"
                               disabled={
                                 !canSetOpening || clearOpeningMut.isPending
                               }
                             >
                               <Trash2 className="size-4" />
-                            </Button>
+                            </IconButton>
                           </AlertDialogTrigger>
                           <AlertDialogContent>
                             <AlertDialogHeader>
@@ -371,62 +370,46 @@ export function ClientAccountTab({
                     </OwnerOnly>
                   ) : m.source_type === "invoice" && m.source_id ? (
                     <>
-                      <Button
+                      <IconButton
+                        label="Ver comprobante"
                         asChild
                         variant="ghost"
-                        size="icon"
-                        aria-label="Ver comprobante"
                       >
                         <Link
                           href={`/invoices/${m.source_id}?from=client&clientId=${clientId}`}
                         >
                           <Eye className="size-4" />
                         </Link>
-                      </Button>
+                      </IconButton>
                       <PdfViewerDialog
                         id={m.source_id}
                         label={formatMovementNumber(m)}
                       />
-                      <Button
-                        asChild
-                        variant="ghost"
-                        size="icon"
-                        aria-label="Descargar PDF"
-                      >
+                      <IconButton label="Descargar PDF" asChild variant="ghost">
                         <Link href={`/api/invoices/${m.source_id}/pdf`}>
                           <Download className="size-4" />
                         </Link>
-                      </Button>
+                      </IconButton>
                     </>
                   ) : m.source_type === "receipt" && m.source_id ? (
                     <>
-                      <Button
-                        asChild
-                        variant="ghost"
-                        size="icon"
-                        aria-label="Ver recibo"
-                      >
+                      <IconButton label="Ver recibo" asChild variant="ghost">
                         <Link
                           href={`/receipts/${m.source_id}?from=client&clientId=${clientId}`}
                         >
                           <Eye className="size-4" />
                         </Link>
-                      </Button>
+                      </IconButton>
                       <PdfViewerDialog
                         id={m.source_id}
                         label={formatMovementNumber(m)}
                         kind="receipt"
                       />
-                      <Button
-                        asChild
-                        variant="ghost"
-                        size="icon"
-                        aria-label="Descargar PDF"
-                      >
+                      <IconButton label="Descargar PDF" asChild variant="ghost">
                         <Link href={`/api/receipts/${m.source_id}/pdf`}>
                           <Download className="size-4" />
                         </Link>
-                      </Button>
+                      </IconButton>
                     </>
                   ) : null}
                 </div>

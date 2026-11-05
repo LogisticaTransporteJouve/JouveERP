@@ -8,6 +8,7 @@ import { useConfirm } from "@/components/providers/confirm-provider";
 import { Badge } from "@/components/ui/badge";
 import { ExportButton } from "@/components/export-button";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import {
   DropdownMenu,
@@ -115,9 +116,9 @@ export function CostCentersTable({ actorAccess }: { actorAccess: Access }) {
           canWrite && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" aria-label="Acciones">
+                <IconButton label="Acciones" variant="ghost">
                   <MoreHorizontal className="size-4" />
-                </Button>
+                </IconButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem

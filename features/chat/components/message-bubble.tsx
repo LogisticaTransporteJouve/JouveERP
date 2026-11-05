@@ -12,6 +12,7 @@ import { toast } from "sonner";
 
 import { useConfirm } from "@/components/providers/confirm-provider";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -86,7 +87,8 @@ export function MessageBubble({
   const remove = async () => {
     const ok = await confirm({
       title: "Eliminar este mensaje",
-      description: "Se borra para todos los participantes. No se puede deshacer.",
+      description:
+        "Se borra para todos los participantes. No se puede deshacer.",
       confirmLabel: "Eliminar",
       tone: "destructive",
     });
@@ -134,10 +136,7 @@ export function MessageBubble({
       <div className={cn("min-w-0 flex-1", isMine && "text-right")}>
         {showAuthor ? (
           <div
-            className={cn(
-              "flex items-baseline gap-2",
-              isMine && "justify-end",
-            )}
+            className={cn("flex items-baseline gap-2", isMine && "justify-end")}
           >
             <span className="text-sm font-medium">
               {getDisplayName(
@@ -181,7 +180,11 @@ export function MessageBubble({
               }}
             />
             <div className="flex items-center gap-2">
-              <Button size="sm" onClick={saveEdit} disabled={editMutation.isPending}>
+              <Button
+                size="sm"
+                onClick={saveEdit}
+                disabled={editMutation.isPending}
+              >
                 Guardar
               </Button>
               <Button
@@ -200,7 +203,9 @@ export function MessageBubble({
           <div className="break-words">
             <MarkdownBody body={message.body} />
             {message.edited_at ? (
-              <span className="text-[10px] text-muted-foreground">(editado)</span>
+              <span className="text-[10px] text-muted-foreground">
+                (editado)
+              </span>
             ) : null}
           </div>
         )}
@@ -219,28 +224,26 @@ export function MessageBubble({
       {!isDeleted && !editing ? (
         <div className="invisible flex shrink-0 items-start gap-1 pt-0.5 group-hover:visible">
           <ReactionPicker onPick={react} disabled={reactMutation.isPending} />
-          <Button
+          <IconButton
+            label="Responder"
             type="button"
             variant="ghost"
-            size="icon"
             className="size-7"
-            aria-label="Responder"
             onClick={() => onReply(message)}
           >
             <Reply className="size-3.5" />
-          </Button>
+          </IconButton>
           {isMine ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button
+                <IconButton
+                  label="Más acciones"
                   type="button"
                   variant="ghost"
-                  size="icon"
                   className="size-7"
-                  aria-label="Más"
                 >
                   <MoreHorizontal className="size-3.5" />
-                </Button>
+                </IconButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={() => setEditing(true)}>
@@ -275,7 +278,7 @@ function ReplyContext({ message }: { message: Message }) {
         <p className="line-clamp-2 break-words">
           {message.reply_to_deleted
             ? "Mensaje eliminado"
-            : message.reply_to_body ?? "—"}
+            : (message.reply_to_body ?? "—")}
         </p>
       </div>
     </div>

@@ -31,7 +31,7 @@ import {
   useTable,
 } from "@tanstack/react-table";
 
-import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -297,8 +297,13 @@ export function DataTable<T extends RowData>({
                   {mobileMode && (
                     <TableCell className="py-1 pr-0 md:hidden">
                       {detailCells.length > 0 && (
-                        <button
-                          type="button"
+                        <IconButton
+                          label={
+                            isDetailOpen ? "Ocultar detalle" : "Ver detalle"
+                          }
+                          variant="ghost"
+                          size="icon-sm"
+                          className="text-muted-foreground hover:text-foreground"
                           onClick={(e) => {
                             e.stopPropagation();
                             setMobileExpanded((prev) => ({
@@ -307,10 +312,6 @@ export function DataTable<T extends RowData>({
                             }));
                           }}
                           aria-expanded={isDetailOpen}
-                          aria-label={
-                            isDetailOpen ? "Ocultar detalle" : "Ver detalle"
-                          }
-                          className="flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
                         >
                           <ChevronDown
                             className={cn(
@@ -318,7 +319,7 @@ export function DataTable<T extends RowData>({
                               isDetailOpen && "rotate-180",
                             )}
                           />
-                        </button>
+                        </IconButton>
                       )}
                     </TableCell>
                   )}
@@ -392,26 +393,24 @@ export function DataTable<T extends RowData>({
             Página {table.state.pagination.pageIndex + 1} de{" "}
             {table.getPageCount()}
           </span>
-          <Button
+          <IconButton
+            label="Anterior"
             variant="outline"
-            size="icon"
             className="size-8"
             onClick={() => table.previousPage()}
             disabled={!table.getCanPreviousPage()}
-            aria-label="Anterior"
           >
             <ChevronLeft className="size-4" />
-          </Button>
-          <Button
+          </IconButton>
+          <IconButton
+            label="Siguiente"
             variant="outline"
-            size="icon"
             className="size-8"
             onClick={() => table.nextPage()}
             disabled={!table.getCanNextPage()}
-            aria-label="Siguiente"
           >
             <ChevronRight className="size-4" />
-          </Button>
+          </IconButton>
         </div>
       </div>
     ) : null;

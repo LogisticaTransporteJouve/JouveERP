@@ -3,6 +3,7 @@
 import { Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { MoneyInput } from "@/components/money-input";
 import { Input } from "@/components/ui/input";
@@ -162,15 +163,14 @@ export function PaymentLinesEditor({
                       }
                     />
                   </div>
-                  <Button
+                  <IconButton
+                    label="Quitar línea"
                     type="button"
                     variant="ghost"
-                    size="icon"
                     onClick={() => remove(idx)}
-                    aria-label="Quitar línea"
                   >
                     <Trash2 className="size-4" />
-                  </Button>
+                  </IconButton>
                 </div>
 
                 {isCheck && (

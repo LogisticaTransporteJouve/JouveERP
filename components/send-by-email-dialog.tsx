@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import {
   Dialog,
   DialogContent,
@@ -158,9 +159,9 @@ export function SendByEmailDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {iconOnly ? (
-          <Button variant="ghost" size="icon" aria-label="Enviar por email">
+          <IconButton label="Enviar por email" variant="ghost">
             <Mail className="size-4" />
-          </Button>
+          </IconButton>
         ) : (
           <Button variant="outline" size="sm">
             <Mail className="size-4" />

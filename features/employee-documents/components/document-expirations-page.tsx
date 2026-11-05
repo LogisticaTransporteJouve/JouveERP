@@ -6,7 +6,7 @@ import { useMemo, useState } from "react";
 
 import { ReadError } from "@/components/read-error";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import { Input } from "@/components/ui/input";
 import {
@@ -96,14 +96,16 @@ export function DocumentExpirationsPage() {
         enableSorting: false,
         meta: { headerClassName: "w-12" },
         cell: ({ row }) => (
-          <Button size="icon" variant="ghost" className="h-8 w-8" asChild>
-            <Link
-              href={`/employees/${row.original.employee_id}`}
-              title="Ver empleado"
-            >
+          <IconButton
+            label="Ver empleado"
+            variant="ghost"
+            className="h-8 w-8"
+            asChild
+          >
+            <Link href={`/employees/${row.original.employee_id}`}>
               <ExternalLink className="size-4" />
             </Link>
-          </Button>
+          </IconButton>
         ),
       },
     ],

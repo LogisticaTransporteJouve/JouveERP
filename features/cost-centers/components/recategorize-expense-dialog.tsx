@@ -5,6 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import {
   Dialog,
   DialogContent,
@@ -176,15 +177,13 @@ export function RecategorizeExpenseButton({
   const [open, setOpen] = useState(false);
   return (
     <>
-      <Button
+      <IconButton
+        label="Recategorizar"
         variant="ghost"
-        size="icon"
-        aria-label="Recategorizar"
-        title="Recategorizar"
         onClick={() => setOpen(true)}
       >
         <Tags className="size-4" />
-      </Button>
+      </IconButton>
       <RecategorizeExpenseDialog
         expense={open ? expense : null}
         onOpenChange={setOpen}

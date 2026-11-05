@@ -7,7 +7,7 @@ import { toast } from "sonner";
 
 import { FilePreviewDialog } from "@/components/file-preview/file-preview-dialog";
 import { MimeIcon } from "@/components/file-preview/mime-icon";
-import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
@@ -127,26 +127,24 @@ function useHubColumns(
         meta: { align: "right", headerClassName: "w-24", mobile: "primary" },
         cell: ({ row }) => (
           <div className="flex justify-end gap-1">
-            <Button
+            <IconButton
+              label="Ver"
               variant="ghost"
-              size="icon"
               className="size-8"
-              title="Ver"
               onClick={() => onPreview(row.original)}
             >
               <Eye className="size-4" />
               <span className="sr-only">Ver {row.original.filename}</span>
-            </Button>
-            <Button
+            </IconButton>
+            <IconButton
+              label="Descargar"
               variant="ghost"
-              size="icon"
               className="size-8"
-              title="Descargar"
               onClick={() => onDownload(row.original)}
             >
               <Download className="size-4" />
               <span className="sr-only">Descargar {row.original.filename}</span>
-            </Button>
+            </IconButton>
           </div>
         ),
       },

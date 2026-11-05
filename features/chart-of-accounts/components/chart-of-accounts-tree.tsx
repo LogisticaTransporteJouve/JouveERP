@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { useConfirm } from "@/components/providers/confirm-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import {
   DataTable,
   type ColumnDef,
@@ -97,21 +98,22 @@ export function ChartOfAccountsTree({ actorAccess }: { actorAccess: Access }) {
               )}
               style={{ paddingLeft: `${row.depth * 20}px` }}
             >
-              <button
-                type="button"
+              <IconButton
+                label={row.getIsExpanded() ? "Colapsar" : "Expandir"}
+                variant="ghost"
+                size="icon-xs"
                 onClick={canExpand ? row.getToggleExpandedHandler() : undefined}
                 className={cn(
-                  "flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground",
+                  "size-5 rounded text-muted-foreground",
                   canExpand ? "hover:bg-muted" : "invisible",
                 )}
-                aria-label={row.getIsExpanded() ? "Colapsar" : "Expandir"}
               >
                 {row.getIsExpanded() ? (
                   <ChevronDown className="size-4" />
                 ) : (
                   <ChevronRight className="size-4" />
                 )}
-              </button>
+              </IconButton>
 
               {canExpand ? (
                 <Folder className="size-4 shrink-0 text-muted-foreground" />
@@ -158,14 +160,13 @@ export function ChartOfAccountsTree({ actorAccess }: { actorAccess: Access }) {
           return (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button
+                <IconButton
+                  label="Acciones"
                   variant="ghost"
-                  size="icon"
                   className="size-7 shrink-0"
-                  aria-label="Acciones"
                 >
                   <MoreHorizontal className="size-4" />
-                </Button>
+                </IconButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem

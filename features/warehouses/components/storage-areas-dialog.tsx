@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { useConfirm } from "@/components/providers/confirm-provider";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import {
   Dialog,
   DialogContent,
@@ -138,15 +139,14 @@ export function StorageAreasDialog({
                     }
                     aria-label={`${a.name} activa`}
                   />
-                  <Button
+                  <IconButton
+                    label={`Borrar ${a.name}`}
                     variant="ghost"
-                    size="icon"
                     disabled={deleteMut.isPending}
                     onClick={() => remove(a.id, a.name)}
-                    aria-label={`Borrar ${a.name}`}
                   >
                     <Trash2 className="size-4" />
-                  </Button>
+                  </IconButton>
                 </div>
               </li>
             ))}

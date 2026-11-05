@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import {
   Dialog,
   DialogContent,
@@ -172,16 +173,15 @@ function ExtrasBody({
                 $ {ARS.format(Number(extra.amount))}
               </span>
               {!disabled && (
-                <Button
-                  size="icon"
+                <IconButton
+                  label="Borrar"
                   variant="ghost"
                   className="size-7"
                   onClick={() => onRemove(extra.id)}
                   disabled={removeMut.isPending}
-                  aria-label="Borrar"
                 >
                   <Trash2 className="size-3.5 text-destructive" />
-                </Button>
+                </IconButton>
               )}
             </li>
           ))
@@ -233,14 +233,13 @@ function ExtrasBody({
                 </FormItem>
               )}
             />
-            <Button
+            <IconButton
+              label="Agregar"
               type="submit"
-              size="icon"
               disabled={addMut.isPending}
-              aria-label="Agregar"
             >
               <Plus className="size-4" />
-            </Button>
+            </IconButton>
           </form>
         </Form>
       )}

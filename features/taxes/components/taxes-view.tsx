@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import { useConfirm } from "@/components/providers/confirm-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import {
   DropdownMenu,
@@ -435,15 +436,13 @@ function TaxesContent({
           const doc = row.original;
           if (!canWrite) {
             return (
-              <Button
+              <IconButton
+                label="Ver adjuntos"
                 variant="ghost"
-                size="icon"
-                aria-label="Ver adjuntos"
-                title="Ver adjuntos"
                 onClick={() => onViewFiles(doc)}
               >
                 <Paperclip className="size-4" />
-              </Button>
+              </IconButton>
             );
           }
           if (doc.status === "anulado") return null;
@@ -452,9 +451,9 @@ function TaxesContent({
           return (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" aria-label="Acciones">
+                <IconButton label="Acciones" variant="ghost">
                   <MoreHorizontal className="size-4" />
-                </Button>
+                </IconButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={() => onEdit(doc)}>

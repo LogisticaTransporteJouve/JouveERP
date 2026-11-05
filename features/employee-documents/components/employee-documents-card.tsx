@@ -5,7 +5,7 @@ import { Pencil, Trash2 } from "lucide-react";
 import { useConfirm } from "@/components/providers/confirm-provider";
 import { ReadError } from "@/components/read-error";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -141,14 +141,17 @@ function DocumentsTable({
                       employeeId={employeeId}
                       document={d}
                       trigger={
-                        <Button size="icon" variant="ghost" className="h-8 w-8">
+                        <IconButton
+                          label="Editar"
+                          variant="ghost"
+                          className="h-8 w-8"
+                        >
                           <Pencil className="size-4" />
-                          <span className="sr-only">Editar</span>
-                        </Button>
+                        </IconButton>
                       }
                     />
-                    <Button
-                      size="icon"
+                    <IconButton
+                      label="Borrar"
                       variant="ghost"
                       className="h-8 w-8 text-foreground hover:text-foreground"
                       onClick={async () => {
@@ -164,8 +167,7 @@ function DocumentsTable({
                       }}
                     >
                       <Trash2 className="size-4" />
-                      <span className="sr-only">Borrar</span>
-                    </Button>
+                    </IconButton>
                   </div>
                 </TableCell>
               )}

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import type { Access } from "@/lib/auth/permissions";
 import { userCan } from "@/lib/auth/permissions";
 import { cn } from "@/lib/utils";
@@ -114,12 +114,20 @@ export function AttendanceGrid({
           </p>
         </div>
         <div className="flex items-center gap-1">
-          <Button variant="outline" size="icon" onClick={() => navigate(-1)}>
+          <IconButton
+            label="Mes anterior"
+            variant="outline"
+            onClick={() => navigate(-1)}
+          >
             <ChevronLeft className="size-4" />
-          </Button>
-          <Button variant="outline" size="icon" onClick={() => navigate(1)}>
+          </IconButton>
+          <IconButton
+            label="Mes siguiente"
+            variant="outline"
+            onClick={() => navigate(1)}
+          >
             <ChevronRight className="size-4" />
-          </Button>
+          </IconButton>
         </div>
       </div>
 

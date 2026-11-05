@@ -12,7 +12,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
-import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { APP_WINDOW, MANUAL_WINDOW } from "@/lib/manual/windows";
@@ -63,16 +63,14 @@ export function AppHeader({ actions }: { actions: React.ReactNode }) {
             static HTML, so a plain link, in the guide's own reused tab. */}
         {/* The guide refuses a fiscal-only user (lib/manual/serve.ts). */}
         {!locked && (
-          <Button variant="ghost" size="icon" asChild>
+          <IconButton label="Ayuda de esta pantalla" variant="ghost" asChild>
             <a
               href={`/manual/para?ruta=${encodeURIComponent(pathname)}`}
               target={MANUAL_WINDOW}
-              aria-label="Ayuda de esta pantalla"
-              title="Ayuda de esta pantalla"
             >
               <CircleHelp />
             </a>
-          </Button>
+          </IconButton>
         )}
         {actions}
       </div>

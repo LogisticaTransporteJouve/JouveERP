@@ -4,7 +4,7 @@ import { Pencil } from "lucide-react";
 import { Suspense, useState } from "react";
 import { toast } from "sonner";
 
-import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import {
   Dialog,
   DialogContent,
@@ -90,15 +90,14 @@ function RecurringList() {
                 )
               }
             />
-            <Button
+            <IconButton
+              label="Editar"
               type="button"
               variant="ghost"
-              size="icon"
-              aria-label="Editar"
               onClick={() => setEditing(r)}
             >
               <Pencil className="size-4" />
-            </Button>
+            </IconButton>
           </li>
         ))}
       </ul>

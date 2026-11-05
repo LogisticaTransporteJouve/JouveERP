@@ -6,6 +6,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import {
   Dialog,
   DialogContent,
@@ -339,16 +340,15 @@ export function NcNdForm({
                   </SelectContent>
                 </Select>
               </div>
-              <Button
+              <IconButton
+                label="Quitar ítem"
                 type="button"
                 variant="ghost"
-                size="icon"
                 onClick={() => removeItem(idx)}
                 disabled={items.length === 1}
-                aria-label="Quitar ítem"
               >
                 ×
-              </Button>
+              </IconButton>
             </div>
           ))}
         </div>

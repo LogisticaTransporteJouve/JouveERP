@@ -4,7 +4,7 @@ import { FileText, Loader2 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useState } from "react";
 
-import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import {
   Dialog,
   DialogContent,
@@ -50,9 +50,9 @@ export function PdfViewerDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label="Ver PDF">
+        <IconButton label="Ver PDF" variant="ghost">
           <FileText className="size-4" />
-        </Button>
+        </IconButton>
       </DialogTrigger>
       {/* "Floating" look: no border / background / padding on the dialog —
           the PDF page renders its own shadow against the dim overlay so

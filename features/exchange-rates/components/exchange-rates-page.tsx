@@ -10,6 +10,7 @@ import { MoneyInput } from "@/components/money-input";
 import { useConfirm } from "@/components/providers/confirm-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import {
   Dialog,
@@ -114,14 +115,13 @@ export function ExchangeRatesPage({ actorAccess }: { actorAccess: Access }) {
         meta: { headerClassName: "w-12" },
         cell: ({ row }) =>
           canWrite && (
-            <Button
+            <IconButton
+              label="Borrar"
               variant="ghost"
-              size="icon"
               onClick={() => handleDelete(row.original)}
-              aria-label="Borrar"
             >
               <Trash2 className="size-4 text-destructive" />
-            </Button>
+            </IconButton>
           ),
       },
     ];

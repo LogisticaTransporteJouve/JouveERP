@@ -5,6 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
@@ -177,26 +178,24 @@ function LinkTaxPaymentBody({
               <span className="text-muted-foreground">
                 Página {page + 1} de {pages}
               </span>
-              <Button
+              <IconButton
+                label="Página anterior"
                 type="button"
                 variant="outline"
-                size="icon"
-                aria-label="Página anterior"
                 disabled={page === 0 || candidates.isFetching}
                 onClick={() => setPage((p) => p - 1)}
               >
                 <ChevronLeft className="size-4" />
-              </Button>
-              <Button
+              </IconButton>
+              <IconButton
+                label="Página siguiente"
                 type="button"
                 variant="outline"
-                size="icon"
-                aria-label="Página siguiente"
                 disabled={page + 1 >= pages || candidates.isFetching}
                 onClick={() => setPage((p) => p + 1)}
               >
                 <ChevronRight className="size-4" />
-              </Button>
+              </IconButton>
             </div>
           )}
           {selected && differs && (

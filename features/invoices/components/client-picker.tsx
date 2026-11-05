@@ -8,6 +8,7 @@ import { ReadError } from "@/components/read-error";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import {
   Dialog,
   DialogContent,
@@ -142,15 +143,14 @@ export function ClientPicker({
             </p>
           </div>
           {!disabled && (
-            <Button
+            <IconButton
+              label="Cambiar cliente"
               type="button"
               variant="ghost"
-              size="icon"
-              aria-label="Cambiar cliente"
               onClick={clear}
             >
               <X className="size-4" />
-            </Button>
+            </IconButton>
           )}
         </div>
       ) : (

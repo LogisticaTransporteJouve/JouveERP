@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { ExportButton } from "@/components/export-button";
 import { useConfirm } from "@/components/providers/confirm-provider";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import {
   DropdownMenu,
@@ -146,9 +147,9 @@ export function DriversTable({
           (canWrite || canLink) && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" aria-label="Acciones">
+                <IconButton label="Acciones" variant="ghost">
                   <MoreHorizontal className="size-4" />
-                </Button>
+                </IconButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 {canWrite && (

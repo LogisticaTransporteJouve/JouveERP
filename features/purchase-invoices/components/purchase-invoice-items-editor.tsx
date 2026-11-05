@@ -5,6 +5,7 @@ import { useEffect } from "react";
 
 import { MoneyInput } from "@/components/money-input";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -266,16 +267,15 @@ export function PurchaseInvoiceItemsEditor({
                     {ARS.format(c.line_total)}
                   </td>
                   <td className="px-2 py-1 text-center">
-                    <Button
+                    <IconButton
+                      label="Eliminar ítem"
                       type="button"
                       variant="ghost"
-                      size="icon"
                       onClick={() => removeAt(idx)}
-                      aria-label="Eliminar ítem"
                       disabled={items.length === 1}
                     >
                       <Trash2 className="size-4" />
-                    </Button>
+                    </IconButton>
                   </td>
                 </tr>
               );

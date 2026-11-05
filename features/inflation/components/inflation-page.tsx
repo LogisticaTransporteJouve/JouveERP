@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { useConfirm } from "@/components/providers/confirm-provider";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import {
   Dialog,
@@ -163,14 +164,13 @@ export function InflationPage({ actorAccess }: { actorAccess: Access }) {
                   Generar asiento
                 </Button>
               )}
-              <Button
+              <IconButton
+                label="Borrar"
                 variant="ghost"
-                size="icon"
                 onClick={() => handleDelete(row.original)}
-                aria-label="Borrar"
               >
                 <Trash2 className="size-4 text-destructive" />
-              </Button>
+              </IconButton>
             </div>
           ),
       },

@@ -13,6 +13,7 @@ import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
@@ -236,14 +237,13 @@ function SalesPointsSection({ salesPoints }: { salesPoints: SalesPointRow[] }) {
         enableSorting: false,
         meta: { headerClassName: "w-32", align: "right" },
         cell: ({ row }) => (
-          <Button
+          <IconButton
+            label="Configurar"
             variant="ghost"
-            size="icon"
-            aria-label="Configurar"
             onClick={() => setEditing(row.original)}
           >
             <Settings className="size-4" />
-          </Button>
+          </IconButton>
         ),
       },
     ],

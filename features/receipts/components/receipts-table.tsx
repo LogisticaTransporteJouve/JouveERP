@@ -15,7 +15,7 @@ import { PeriodFilter } from "@/components/period-filter";
 import { useScopeIsFiscal } from "@/components/providers/scope-provider";
 import { SendByEmailDialog } from "@/components/send-by-email-dialog";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import {
   Select,
@@ -152,22 +152,17 @@ function buildReceiptColumns({
         const numero = formatReceiptNumber(r.punto_venta, r.numero);
         return (
           <div className="flex items-center justify-end gap-1">
-            <Button asChild variant="ghost" size="icon" aria-label="Ver recibo">
+            <IconButton label="Ver recibo" asChild variant="ghost">
               <Link href={`/receipts/${r.id}`}>
                 <Eye className="size-4" />
               </Link>
-            </Button>
+            </IconButton>
             <PdfViewerDialog id={r.id} label={numero} kind="receipt" />
-            <Button
-              asChild
-              variant="ghost"
-              size="icon"
-              aria-label="Descargar PDF"
-            >
+            <IconButton label="Descargar PDF" asChild variant="ghost">
               <Link href={`/api/receipts/${r.id}/pdf`}>
                 <Download className="size-4" />
               </Link>
-            </Button>
+            </IconButton>
             {canSendEmail && !isCanceled && (
               <SendByEmailDialog kind="receipt" id={r.id} />
             )}

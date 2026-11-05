@@ -14,7 +14,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { useConfirm } from "@/components/providers/confirm-provider";
-import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -59,7 +59,9 @@ export function ChannelHeader({ channelId, currentUserId, onBack }: Props) {
   const handleToggleMute = async () => {
     try {
       await toggleMute.mutateAsync(!isMuted);
-      toast.success(!isMuted ? "Notificaciones silenciadas." : "Notificaciones activadas.");
+      toast.success(
+        !isMuted ? "Notificaciones silenciadas." : "Notificaciones activadas.",
+      );
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Error.");
     }
@@ -68,7 +70,8 @@ export function ChannelHeader({ channelId, currentUserId, onBack }: Props) {
   const handleLeaveDm = async () => {
     const ok = await confirm({
       title: "Cerrar este chat",
-      description: "Vas a poder reabrirlo después escribiéndole de nuevo a esta persona.",
+      description:
+        "Vas a poder reabrirlo después escribiéndole de nuevo a esta persona.",
       confirmLabel: "Cerrar",
     });
     if (!ok) return;
@@ -115,20 +118,21 @@ export function ChannelHeader({ channelId, currentUserId, onBack }: Props) {
     <>
       <div className="flex h-14 shrink-0 items-center gap-3 border-b px-4 max-md:gap-2 max-md:px-3">
         {onBack ? (
-          <Button
+          <IconButton
+            label="Volver a la lista"
             type="button"
             variant="ghost"
-            size="icon"
             className="-ml-1 size-8 shrink-0 md:hidden"
-            aria-label="Volver a la lista"
             onClick={onBack}
           >
             <ChevronLeft className="size-5" />
-          </Button>
+          </IconButton>
         ) : null}
         {leading}
         <div className="min-w-0 flex-1">
-          <h2 className="truncate text-sm font-semibold">{data.display_name}</h2>
+          <h2 className="truncate text-sm font-semibold">
+            {data.display_name}
+          </h2>
           {subtitle ? (
             <p className="truncate text-xs text-muted-foreground">{subtitle}</p>
           ) : null}
@@ -137,15 +141,14 @@ export function ChannelHeader({ channelId, currentUserId, onBack }: Props) {
         {data.kind !== "self" ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button
+              <IconButton
+                label="Opciones del chat"
                 type="button"
                 variant="ghost"
-                size="icon"
                 className="size-8"
-                aria-label="Opciones del chat"
               >
                 <Settings className="size-4" />
-              </Button>
+              </IconButton>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={handleToggleMute}>

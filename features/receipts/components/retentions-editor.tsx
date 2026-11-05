@@ -4,6 +4,7 @@ import { Trash2 } from "lucide-react";
 
 import { MoneyInput } from "@/components/money-input";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -142,15 +143,14 @@ export function RetentionsEditor({
                       }
                     />
                   </div>
-                  <Button
+                  <IconButton
+                    label="Quitar retención"
                     type="button"
                     variant="ghost"
-                    size="icon"
                     onClick={() => remove(idx)}
-                    aria-label="Quitar retención"
                   >
                     <Trash2 className="size-4" />
-                  </Button>
+                  </IconButton>
                 </div>
 
                 <div className="grid items-end gap-2 sm:grid-cols-[140px_140px_140px_1fr]">

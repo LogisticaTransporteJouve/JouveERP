@@ -4,6 +4,7 @@ import { Loader2, Sparkles, Trash2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { type ColumnDef } from "@/components/ui/data-table";
 
 import type { PendingExtraction } from "../actions";
@@ -120,15 +121,14 @@ export function buildDocumentColumns(opts: {
           >
             Revisar
           </Button>
-          <Button
+          <IconButton
+            label="Descartar"
             variant="ghost"
-            size="icon"
             className="size-8"
             onClick={() => opts.onDiscard(row.original.id)}
           >
             <Trash2 className="size-4" />
-            <span className="sr-only">Descartar</span>
-          </Button>
+          </IconButton>
         </div>
       ),
     },

@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { ReadError } from "@/components/read-error";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import {
   Form,
   FormControl,
@@ -329,20 +330,19 @@ function LeavesSection({
                   </TableCell>
                   <TableCell className="text-right">
                     {canWrite && (
-                      <Button
-                        size="icon"
+                      <IconButton
+                        label="Borrar"
                         variant="ghost"
                         className="size-7"
                         onClick={() => onDelete(leave.id)}
                         disabled={deleteBusy}
-                        aria-label="Borrar"
                       >
                         {deleteBusy ? (
                           <Loader2 className="size-3.5 animate-spin" />
                         ) : (
                           <Trash2 className="size-3.5 text-destructive" />
                         )}
-                      </Button>
+                      </IconButton>
                     )}
                   </TableCell>
                 </TableRow>

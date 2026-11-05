@@ -4,7 +4,7 @@ import { FileText, Search, X } from "lucide-react";
 import { useState } from "react";
 
 import { ReadError } from "@/components/read-error";
-import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
 import {
   Popover,
@@ -105,16 +105,15 @@ export function PurchaseInvoicePicker({
             {value.fecha} · {ARS.format(value.imp_total)}
           </p>
         </div>
-        <Button
+        <IconButton
+          label="Quitar factura origen"
           type="button"
           variant="ghost"
-          size="icon"
-          aria-label="Quitar factura origen"
           onClick={clear}
           disabled={disabled}
         >
           <X className="size-4" />
-        </Button>
+        </IconButton>
       </div>
     );
   }

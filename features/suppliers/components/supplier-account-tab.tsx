@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import {
   Tooltip,
@@ -335,28 +336,26 @@ export function SupplierAccountTab({
                           supplierId={supplierId}
                           prefill
                           trigger={
-                            <Button
+                            <IconButton
+                              label="Editar ajuste de saldo"
                               variant="ghost"
-                              size="icon"
-                              aria-label="Editar ajuste de saldo"
                               disabled={!canSetOpening}
                             >
                               <Pencil className="size-4" />
-                            </Button>
+                            </IconButton>
                           }
                         />
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
-                            <Button
+                            <IconButton
+                              label="Borrar ajuste de saldo"
                               variant="ghost"
-                              size="icon"
-                              aria-label="Borrar ajuste de saldo"
                               disabled={
                                 !canSetOpening || clearOpeningMut.isPending
                               }
                             >
                               <Trash2 className="size-4" />
-                            </Button>
+                            </IconButton>
                           </AlertDialogTrigger>
                           <AlertDialogContent>
                             <AlertDialogHeader>
@@ -380,16 +379,11 @@ export function SupplierAccountTab({
                       </div>
                     </OwnerOnly>
                   ) : href ? (
-                    <Button
-                      asChild
-                      variant="ghost"
-                      size="icon"
-                      aria-label="Ver detalle"
-                    >
+                    <IconButton label="Ver detalle" asChild variant="ghost">
                       <Link href={href}>
                         <Eye className="size-4" />
                       </Link>
-                    </Button>
+                    </IconButton>
                   ) : null}
                 </div>
               );
