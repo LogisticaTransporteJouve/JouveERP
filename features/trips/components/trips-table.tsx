@@ -114,7 +114,10 @@ export function TripsTable({
       },
       {
         accessorKey: "revenue",
-        header: "Ingreso",
+        // The typed figure. Rentabilidad de flota counts the invoiced freight
+        // of the trip's cargas (v_trip_revenue), and this one only for a trip
+        // without cargas.
+        header: "Ingreso manual",
         cell: ({ row }) => (
           <span className="text-sm">{formatMoney(row.original.revenue)}</span>
         ),

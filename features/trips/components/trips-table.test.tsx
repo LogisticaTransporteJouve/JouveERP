@@ -88,3 +88,17 @@ describe("TripsTable: «Ver cargas» follows shipments:read", () => {
     expect(menuItem("Editar")).toBe(true);
   });
 });
+
+describe("TripsTable: the typed income says it is the manual one", () => {
+  it("labels the column «Ingreso manual», not the invoiced freight", () => {
+    render(
+      <TripsTable
+        actorAccess={resolveAccess(["operations"])}
+        driverOptions={[]}
+        vehicleOptions={[]}
+      />,
+    );
+    expect(screen.getAllByText("Ingreso manual").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Ingreso")).toBeNull();
+  });
+});
