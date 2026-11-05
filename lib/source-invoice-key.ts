@@ -13,7 +13,11 @@ import { logger } from "@/lib/logger";
 // claim finds the invoice the first one queued, instead of issuing a second.
 // The attempt moves on only when the previous invoice is void
 // (billing_invoice_is_void: failed, cancelled, or a fiscal factura its
-// emitted NCs credit in full), which is when the source is billable again.
+// emitted NCs credit in full), which is when the source is billable again,
+// or when it is a draft with no items: the header and the items are written
+// in two steps, so a kill or a failed rollback between them leaves a draft
+// that no run ever sends (issue-invoice-reconcile resends only drafts with
+// items), as the storage claim's relink already assumes.
 
 export type InvoiceSource = "freight_settlement" | "shipment_freight";
 
@@ -76,6 +80,25 @@ async function readIsVoid(
   return data === true;
 }
 
+/** The draft has items, so it is (or will be) sent. Null on a read error.
+ *  The source's claim keeps a second «Facturar» out while the first one
+ *  writes the items. */
+async function draftHasItems(
+  supabase: SupabaseClient<Database>,
+  invoiceId: string,
+): Promise<boolean | null> {
+  const { data, error } = await supabase
+    .from("invoice_items")
+    .select("invoice_id")
+    .eq("invoice_id", invoiceId)
+    .limit(1);
+  if (error || !data) {
+    logger.error("source_invoice.items_read_failed", { invoiceId, error });
+    return null;
+  }
+  return data.length > 0;
+}
+
 /** Where the source's next invoice stands, from the invoices already issued
  *  under its keys (whoever issued them). A read error is "error": the caller
  *  then issues nothing. */
@@ -104,6 +127,11 @@ export async function findSourceInvoiceSlot(
       const credited = await readIsVoid(supabase, row.id);
       if (credited === null) return { kind: "error" };
       if (credited) continue;
+    }
+    if (row.status === "draft") {
+      const hasItems = await draftHasItems(supabase, row.id);
+      if (hasItems === null) return { kind: "error" };
+      if (!hasItems) continue;
     }
     return { kind: "live", invoiceId: row.id };
   }

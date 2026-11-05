@@ -4,6 +4,7 @@ import { HandCoins } from "lucide-react";
 import { Suspense, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { ChannelsReadError } from "@/components/channels-read-error";
 import {
   useDefaultChannel,
   useScope,
@@ -282,6 +283,7 @@ function CashFormFields({
               ))}
             </SelectContent>
           </Select>
+          <ChannelsReadError inline />
         </div>
         <div className="space-y-2">
           <Label htmlFor="cash-date">Fecha</Label>

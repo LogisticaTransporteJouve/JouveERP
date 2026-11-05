@@ -42,11 +42,18 @@ function from(table: string) {
   const filters: Array<(r: Row) => boolean> = [];
   let patch: Row | null = null;
   let head = false;
+  let max = Infinity;
   const rows = () =>
-    (h.db[table] ?? []).filter((r) => filters.every((f) => f(r)));
+    (h.db[table] ?? []).filter((r) => filters.every((f) => f(r))).slice(0, max);
   const builder = {
-    select: (_cols?: string, opts?: { head?: boolean }) => {
+    select: (cols?: string, opts?: { head?: boolean }) => {
       head = opts?.head ?? false;
+      // An inner embed keeps only the rows that have one.
+      if (cols?.includes("invoice_items!inner")) {
+        filters.push((r) =>
+          (h.db.invoice_items ?? []).some((it) => it.invoice_id === r.id),
+        );
+      }
       return builder;
     },
     update: (values: Row) => {
@@ -79,7 +86,10 @@ function from(table: string) {
     gte: () => builder,
     lte: () => builder,
     order: () => builder,
-    limit: () => builder,
+    limit: (n: number, opts?: { referencedTable?: string }) => {
+      if (!opts?.referencedTable) max = n;
+      return builder;
+    },
     maybeSingle: async () => ({ data: rows()[0] ?? null, error: null }),
     then: (
       resolve: (v: {
@@ -132,6 +142,15 @@ vi.mock("@/lib/supabase/service", () => ({
     from,
     rpc: async (fn: string, args: Row) => {
       h.rpcCalls.push({ fn, args });
+      if (fn === "fail_itemless_invoice_drafts") {
+        const failed = (h.db.invoices ?? []).filter(
+          (r) =>
+            r.status === "draft" &&
+            !(h.db.invoice_items ?? []).some((it) => it.invoice_id === r.id),
+        );
+        for (const r of failed) r.status = "failed";
+        return { data: failed.map((r) => r.id), error: null };
+      }
       return h.rpcError
         ? { data: null, error: h.rpcError }
         : { data: 8, error: null };
@@ -746,6 +765,54 @@ describe("issue-invoice-reconcile", () => {
     };
     await reconcile();
     expect(h.db.invoices?.[0]?.status).toBe("emitting");
+  });
+
+  it("fails a draft left without items, which frees what it was billing", async () => {
+    h.db.invoices = [
+      draft({ idempotency_key: "k-draft" }),
+      draft({ id: "no-items", idempotency_key: "k-empty" }),
+    ];
+    h.db.invoice_items = [
+      { invoice_id: INVOICE_ID, iva_rate_id: 5, line_neto: 100, line_iva: 21 },
+    ];
+    await reconcile();
+    const failCall = h.rpcCalls.find(
+      (c) => c.fn === "fail_itemless_invoice_drafts",
+    );
+    // Past the resend wait (15 minutes), whatever its age.
+    const cutoff = Date.parse(String(failCall?.args.p_created_before));
+    expect(Date.now() - cutoff).toBeGreaterThanOrEqual(15 * 60_000);
+    expect(Date.now() - cutoff).toBeLessThan(16 * 60_000);
+    expect(h.db.invoices?.map((r) => r.status)).toEqual(["draft", "failed"]);
+  });
+
+  it("does not let drafts without items fill the resend batch", async () => {
+    h.db.invoices = [
+      ...Array.from({ length: 50 }, (_, i) =>
+        draft({ id: `no-items-${i}`, idempotency_key: `k-empty-${i}` }),
+      ),
+      draft({ idempotency_key: "k-draft" }),
+    ];
+    h.db.invoice_items = [
+      { invoice_id: INVOICE_ID, iva_rate_id: 5, line_neto: 100, line_iva: 21 },
+    ];
+    await reconcile();
+    expect(h.sent).toEqual([
+      {
+        id: "resend-unsent",
+        events: [
+          {
+            name: "invoice/issue.requested",
+            data: {
+              invoice_id: INVOICE_ID,
+              idempotency_key: "k-draft",
+              channel_id: "jouve_fiscal",
+              punto_venta: 9,
+            },
+          },
+        ],
+      },
+    ]);
   });
 
   it("sends a draft with items that never reached Inngest again, with its own key", async () => {

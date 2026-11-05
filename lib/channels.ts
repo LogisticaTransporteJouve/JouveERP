@@ -14,12 +14,15 @@ export type InvoicingChannelRow = {
 
 /**
  * Every invoicing channel the caller can see (RLS user client), ordered by
- * name. Wrapped in React `cache()` so the dashboard layout and the page of the
- * same request share one round trip — callers filter/sort in memory. A read
- * error degrades to an empty list, as the inline queries it replaces did.
+ * name, or `ok: false` when the read fails. Wrapped in React `cache()` so the
+ * dashboard layout and the page of the same request share one round trip —
+ * callers filter/sort in memory. A caller that computes from the list (cash
+ * flow) or offers nothing else to pick (Facturar flete) fails on the error.
  */
-export const getInvoicingChannels = cache(
-  async (): Promise<InvoicingChannelRow[]> => {
+export const readInvoicingChannels = cache(
+  async (): Promise<
+    { ok: true; channels: InvoicingChannelRow[] } | { ok: false }
+  > => {
     const supabase = await createClient();
     const { data, error } = await supabase
       .from("invoicing_channels")
@@ -28,11 +31,18 @@ export const getInvoicingChannels = cache(
       .order("id", { ascending: true });
     if (error) {
       logger.warn("invoicing_channels.read_failed", { error });
-      return [];
+      return { ok: false };
     }
-    return data ?? [];
+    return { ok: true, channels: data ?? [] };
   },
 );
+
+/** The channels for a picker or a label: a read error degrades to an empty
+ *  list, as the inline queries it replaced did. */
+export async function getInvoicingChannels(): Promise<InvoicingChannelRow[]> {
+  const res = await readInvoicingChannels();
+  return res.ok ? res.channels : [];
+}
 
 /** Active channels, ordered by name (the pickers' list). */
 export async function getActiveInvoicingChannels(): Promise<

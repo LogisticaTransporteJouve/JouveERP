@@ -10,6 +10,10 @@ import { isRole, type Permission, resolveAccess } from "@/lib/auth/permissions";
 // ---------------------------------------------------------------------------
 type Row = Record<string, unknown>;
 const db: Record<string, Row[]> = {};
+/** Tables whose single-row reads fail, like a PostgREST error. */
+const failingReads = new Set<string>();
+/** Tables whose `update … select … maybeSingle` fails, like a PostgREST error. */
+const failingUpdates = new Set<string>();
 
 function query(table: string) {
   const filters: Array<(r: Row) => boolean> = [];
@@ -62,7 +66,10 @@ function query(table: string) {
       filters.push((r) => typeof r[col] === "string" && String(r[col]) < v);
       return builder;
     },
-    maybeSingle: async () => ({ data: run()[0] ?? null, error: null }),
+    maybeSingle: async () =>
+      (patch ? failingUpdates : failingReads).has(table)
+        ? { data: null, error: { message: "timeout" } }
+        : { data: run()[0] ?? null, error: null },
     single: async () => ({ data: run()[0] ?? null, error: null }),
     then: (resolve: (v: { data: Row[] | null; error: null }) => unknown) => {
       const rows = run();
@@ -191,6 +198,8 @@ const receiptInput = {
 beforeEach(() => {
   roles = ["owner"];
   denied = [];
+  failingReads.clear();
+  failingUpdates.clear();
   createReceiptAction.mockReset();
   createPaymentOrderAction.mockReset();
   getReceiptUsdRateAction.mockReset();
@@ -300,6 +309,53 @@ describe("create-from-extraction is claim-then-create", () => {
       status: "confirmed",
       created_entity: { table: "checks", count: 1 },
     });
+  });
+
+  it("a failed claim says so, not «ya fue procesada», and leaves the draft pending", async () => {
+    seed("receipt", { client_id: "c1" });
+    failingUpdates.add("ai_document_extractions");
+    const res = await createReceiptFromExtractionAction(receiptInput);
+    expect(res).toEqual({
+      ok: false,
+      error: "No se pudo tomar el documento. Reintentá.",
+    });
+    expect(createReceiptAction).not.toHaveBeenCalled();
+    expect(extraction()).toMatchObject({ status: "pending_review" });
+  });
+
+  it("a failed claim on checks says so and inserts nothing", async () => {
+    seed("check", {});
+    db.accounts = [{ id: ACCOUNT_ID, type: "checks" }];
+    db.checks = [];
+    failingUpdates.add("ai_document_extractions");
+    const res = await createChecksFromExtractionAction({
+      extractionId: EXTRACTION_ID,
+      cartera_account_id: ACCOUNT_ID,
+      cheques: [{ banco: "B", numero: "1", importe: 10, fecha: "2026-07-01" }],
+    });
+    expect(res).toEqual({
+      ok: false,
+      error: "No se pudo tomar el documento. Reintentá.",
+    });
+    expect(db.checks).toHaveLength(0);
+  });
+
+  it("a failed cartera account read is not «no es válida»", async () => {
+    seed("check", {});
+    db.accounts = [{ id: ACCOUNT_ID, type: "checks" }];
+    db.checks = [];
+    failingReads.add("accounts");
+    const res = await createChecksFromExtractionAction({
+      extractionId: EXTRACTION_ID,
+      cartera_account_id: ACCOUNT_ID,
+      cheques: [{ banco: "B", numero: "1", importe: 10, fecha: "2026-07-01" }],
+    });
+    expect(res).toEqual({
+      ok: false,
+      error: "No se pudo leer la cuenta de cartera. Reintentá.",
+    });
+    expect(db.checks).toHaveLength(0);
+    expect(extraction()).toMatchObject({ status: "pending_review" });
   });
 
   it("refuses an already-confirmed draft without creating anything", async () => {
@@ -678,6 +734,23 @@ describe("getPurchaseInvoiceDraftAction", () => {
     });
   });
 
+  it.each([["suppliers"], ["chart_of_accounts"], ["cost_centers"]])(
+    "fails visibly when the %s read fails, instead of a draft without it (audit w14-s6 F3)",
+    async (table) => {
+      seed("purchase_invoice", {
+        supplier_id: SUPPLIER_ID,
+        expense: { accountCode: "5.1.01", costCenterCode: "CC1" },
+      });
+      const row = extraction();
+      if (row) row.payload = invoicePayload;
+      failingReads.add(table);
+      expect(await getPurchaseInvoiceDraftAction(EXTRACTION_ID)).toEqual({
+        ok: false,
+        error: "No se pudo leer el proveedor o la cuenta sugerida. Reintentá.",
+      });
+    },
+  );
+
   it("maps a scanned NC/ND to kind nc", async () => {
     seedPurchase("credit_debit_note");
     const res = await getPurchaseInvoiceDraftAction(EXTRACTION_ID);
@@ -808,6 +881,17 @@ describe("scanDocumentAction", () => {
     );
   });
 
+  it("a failed file read is not «No encontramos el archivo», and starts nothing", async () => {
+    db.files = [];
+    failingReads.add("files");
+    const res = await scanDocumentAction(scanForm());
+    expect(res).toEqual({
+      ok: false,
+      error: "No se pudo leer el archivo. Reintentá.",
+    });
+    expect(inngestSend).not.toHaveBeenCalled();
+  });
+
   it("rejects an unknown declared type", async () => {
     const res = await scanDocumentAction(scanForm("nope"));
     expect(res.ok).toBe(false);
@@ -878,6 +962,25 @@ describe("createSalesInvoiceFromExtractionAction", () => {
     expect(vi.mocked(issueFiscalInvoiceAction)).not.toHaveBeenCalled();
     expect(extraction()?.status).toBe("pending_review");
   });
+
+  it.each([["invoicing_channels"], ["clients"]])(
+    "a failed %s read says so, not «Canal no existe» or «sin CUIT» (audit w14-s6 F3)",
+    async (table) => {
+      seedUsdSale();
+      failingReads.add(table);
+      expect(
+        await createSalesInvoiceFromExtractionAction({
+          extractionId: EXTRACTION_ID,
+          channelId: "ch1",
+          puntoVenta: 3,
+        }),
+      ).toEqual({
+        ok: false,
+        error: "No se pudo leer el canal o el cliente. Reintentá.",
+      });
+      expect(vi.mocked(issueFiscalInvoiceAction)).not.toHaveBeenCalled();
+    },
+  );
 
   it("requests no CAE when the duplicate lookup of the scan failed", async () => {
     seed("sales_invoice", { client_id: CLIENT_ID, duplicate_unknown: true });

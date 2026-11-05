@@ -16,6 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
+import { userCan, type Access } from "@/lib/auth/permissions";
 
 import {
   useDeleteRecurringPayment,
@@ -37,7 +38,14 @@ function money(amount: number, currency: string): string {
   })}`;
 }
 
-export function RecurringPaymentsTable() {
+export function RecurringPaymentsTable({
+  actorAccess,
+}: {
+  actorAccess: Access;
+}) {
+  // The permission every recurring-payment write action checks («Activo»
+  // included).
+  const canWrite = userCan(actorAccess, "recurring_payments:write");
   const { data: items } = useRecurringPayments();
   const deleteMut = useDeleteRecurringPayment();
   const toggleMut = useSetRecurringPaymentActive();
@@ -121,6 +129,7 @@ export function RecurringPaymentsTable() {
         cell: ({ row }) => (
           <Switch
             checked={row.original.is_active}
+            disabled={!canWrite}
             onCheckedChange={() => handleToggle(row.original)}
             aria-label="Activo"
           />
@@ -132,35 +141,36 @@ export function RecurringPaymentsTable() {
         header: "",
         enableSorting: false,
         meta: { headerClassName: "w-12", mobile: "primary" },
-        cell: ({ row }) => (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <MoreHorizontal className="size-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onClick={() =>
-                  setDialog({ mode: "edit", payment: row.original })
-                }
-              >
-                <Pencil className="size-4" />
-                Editar
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="text-destructive"
-                onClick={() => handleDelete(row.original)}
-              >
-                <Trash2 className="size-4" />
-                Borrar
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ),
+        cell: ({ row }) =>
+          canWrite && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" aria-label="Acciones">
+                  <MoreHorizontal className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={() =>
+                    setDialog({ mode: "edit", payment: row.original })
+                  }
+                >
+                  <Pencil className="size-4" />
+                  Editar
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="text-destructive"
+                  onClick={() => handleDelete(row.original)}
+                >
+                  <Trash2 className="size-4" />
+                  Borrar
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ),
       },
     ];
-  }, [confirm, deleteMut, toggleMut]);
+  }, [canWrite, confirm, deleteMut, toggleMut]);
 
   return (
     <>
@@ -176,10 +186,12 @@ export function RecurringPaymentsTable() {
         </div>
         <div className="flex items-center gap-2">
           <ExportButton resource="recurring-payments" />
-          <Button onClick={() => setDialog({ mode: "create" })}>
-            <Plus />
-            Nuevo pago
-          </Button>
+          {canWrite && (
+            <Button onClick={() => setDialog({ mode: "create" })}>
+              <Plus />
+              Nuevo pago
+            </Button>
+          )}
         </div>
       </div>
 
@@ -190,7 +202,7 @@ export function RecurringPaymentsTable() {
         emptyMessage="Sin pagos recurrentes. Agregá el primero."
       />
 
-      {dialog && (
+      {canWrite && dialog && (
         <RecurringPaymentDialog
           mode={dialog.mode}
           payment={dialog.mode === "edit" ? dialog.payment : undefined}

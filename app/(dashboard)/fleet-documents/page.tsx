@@ -41,6 +41,7 @@ export default async function FleetDocumentsPageRoute() {
     <Hydrate state={dehydratedState}>
       <div className="space-y-6">
         <FleetDocumentsTable
+          actorAccess={ctx.access}
           vehicleOptions={vehicleOptions}
           driverOptions={driverOptions}
         />

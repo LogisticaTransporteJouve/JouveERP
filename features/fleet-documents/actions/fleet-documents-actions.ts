@@ -10,6 +10,7 @@ import {
   linkableFileError,
   storeUploadedFile,
 } from "@/lib/files/store";
+import { removeReplacedFile } from "@/lib/files/remove-unlinked";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
@@ -51,6 +52,28 @@ function narrow(row: FleetDocumentSelectRow): FleetDocument | null {
     kind: row.kind,
   };
 }
+
+type Client = Awaited<ReturnType<typeof createSupabaseClient>>;
+
+/** The document's file, read before a write replaces it. A failed read keeps
+ *  the old file for the orphan sweep. */
+async function attachedFileId(
+  supabase: Client,
+  documentId: string,
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("fleet_documents")
+    .select("attachment_file_id")
+    .eq("id", documentId)
+    .maybeSingle();
+  if (error) {
+    logger.warn("fleet_documents.attached_file.failed", { documentId, error });
+    return null;
+  }
+  return data?.attachment_file_id ?? null;
+}
+
+const FILE_REMOVED = "fleet_document.file_removed";
 
 const SELECT_COLUMNS =
   "id, vehicle_id, driver_id, kind, number, issued_at, expires_at, notes, attachment_file_id, created_at, updated_at, vehicle:vehicles(patente), driver:drivers(full_name)";
@@ -154,6 +177,10 @@ export async function updateFleetDocumentAction(
   const supabase = await createSupabaseClient();
   const fileError = await linkableFileError(supabase, rest.attachment_file_id);
   if (fileError) return { ok: false, error: fileError };
+  const previousFileId =
+    rest.attachment_file_id !== undefined
+      ? await attachedFileId(supabase, id)
+      : null;
   const { error } = await supabase
     .from("fleet_documents")
     .update({
@@ -184,6 +211,13 @@ export async function updateFleetDocumentAction(
     { fields: Object.keys(rest) as JsonValue[] },
     id,
   );
+  await removeReplacedFile({
+    userId: ctx.userId,
+    auditEvent: FILE_REMOVED,
+    documentId: id,
+    previousFileId,
+    nextFileId: rest.attachment_file_id ?? null,
+  });
   return { ok: true, data: undefined };
 }
 
@@ -195,10 +229,11 @@ export async function deleteFleetDocumentAction(input: {
     return { ok: false, error: "No tenés permiso para borrar documentación." };
   }
   const supabase = await createSupabaseClient();
-  const { error } = await supabase
+  const { data: deleted, error } = await supabase
     .from("fleet_documents")
     .delete()
-    .eq("id", input.id);
+    .eq("id", input.id)
+    .select("attachment_file_id");
   if (error) {
     logger.error("fleet_documents.delete.failed", {
       userId: ctx.userId,
@@ -207,14 +242,20 @@ export async function deleteFleetDocumentAction(input: {
     return { ok: false, error: "No se pudo borrar la documentación." };
   }
   await logAudit("fleet_document.deleted", ctx.userId, {}, input.id);
+  await removeReplacedFile({
+    userId: ctx.userId,
+    auditEvent: FILE_REMOVED,
+    documentId: input.id,
+    previousFileId: deleted?.[0]?.attachment_file_id ?? null,
+    nextFileId: null,
+  });
   return { ok: true, data: undefined };
 }
 
 /**
  * Uploads the scanned document and points the fleet document at it. The file
  * row goes first (storeUploadedFile); if the document cannot be updated (gone,
- * or hidden by RLS) the file is discarded. A replaced file is left unlinked
- * for the orphan sweep.
+ * or hidden by RLS) the file is discarded. The file it replaces is deleted.
  */
 export async function uploadFleetDocumentFileAction(
   formData: FormData,
@@ -240,6 +281,7 @@ export async function uploadFleetDocumentFileAction(
   );
   if (!stored.ok) return stored;
 
+  const previousFileId = await attachedFileId(supabase, documentId);
   const { data, error } = await supabase
     .from("fleet_documents")
     .update({ attachment_file_id: stored.data.fileId })
@@ -261,5 +303,12 @@ export async function uploadFleetDocumentFileAction(
     { file_id: stored.data.fileId },
     documentId,
   );
+  await removeReplacedFile({
+    userId: ctx.userId,
+    auditEvent: FILE_REMOVED,
+    documentId,
+    previousFileId,
+    nextFileId: stored.data.fileId,
+  });
   return { ok: true, data: { fileId: stored.data.fileId } };
 }

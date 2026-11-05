@@ -21,8 +21,13 @@ vi.mock("@/features/ai/reconciliation/gather", () => ({
   reconcileExtracto: (...args: unknown[]) => reconcileExtracto(...args),
 }));
 
-const { comprobanteKinds, extractionRequester, matchForKind } =
-  await import("./store");
+const {
+  comprobanteKinds,
+  extractionAwaitsPipeline,
+  extractionRequester,
+  matchForKind,
+  unverifiedMatches,
+} = await import("./store");
 
 const all = () => true;
 
@@ -77,18 +82,11 @@ describe("scanned-document duplicate check", () => {
     expect(lookup && filterValue(lookup, "eq", "letter")).toBe("B");
   });
 
-  it("flags the check as unknown when the lookup fails, instead of no duplicate", async () => {
+  it("throws when the lookup fails, so the step retries instead of storing no duplicate", async () => {
     answer = () => ({ data: null, error: { message: "timeout" } });
-    const matches = await matchForKind(
-      "sales_invoice",
-      {
-        number: 5,
-        sales_point: 1,
-      },
-      all,
-    );
-    expect(matches.duplicate_of).toBeUndefined();
-    expect(matches.duplicate_unknown).toBe(true);
+    await expect(
+      matchForKind("sales_invoice", { number: 5, sales_point: 1 }, all),
+    ).rejects.toMatchObject({ message: "timeout" });
   });
 
   it("reports the duplicate it finds", async () => {
@@ -209,6 +207,91 @@ describe("scanned-document matches follow the uploader's access", () => {
   });
 });
 
+describe("a failed lookup is not «not found» (audit w13-s6 F1)", () => {
+  it.each([
+    ["receipt", "clients"],
+    ["payment_order", "suppliers"],
+  ])(
+    "a %s's failed %s lookup throws, so the step retries",
+    async (kind, table) => {
+      answer = (call) =>
+        call.table === table
+          ? { data: null, error: { message: "timeout" } }
+          : { data: [], error: null };
+      await expect(
+        matchForKind(kind, { counterparty_cuit: "20-12345678-9" }, all),
+      ).rejects.toMatchObject({ message: "timeout" });
+    },
+  );
+
+  it("a bank statement whose reconciliation read fails throws too", async () => {
+    reconcileExtracto.mockRejectedValue(new Error("reconcile-extracto: boom"));
+    await expect(
+      matchForKind(
+        "bank_statement",
+        { movements: [{ date: "2026-11-01", credit: 10 }] },
+        all,
+      ),
+    ).rejects.toThrow("boom");
+  });
+
+  it("a statement over the row cap is stored as not reconciled, not as no movements", async () => {
+    reconcileExtracto.mockResolvedValue("too_many_rows");
+    expect(
+      await matchForKind(
+        "bank_statement",
+        { movements: [{ date: "2026-11-01", credit: 10 }] },
+        all,
+      ),
+    ).toEqual({ reconciliation_unchecked: true });
+  });
+});
+
+describe("the scanned CUIT in the lookup filter (audit w14-s6 F2)", () => {
+  it("looks the counterparty up by its 11 digits only", async () => {
+    await matchForKind(
+      "receipt",
+      { counterparty_cuit: " 20-12345678-9 " },
+      all,
+    );
+    const lookup = fake.calls.find((c) => c.table === "clients");
+    expect(lookup && filterValue(lookup, "eq", "cuit")).toBe("20123456789");
+  });
+
+  it("skips the lookup for a CUIT that is not 11 digits, quotes and commas included", async () => {
+    const matches = await matchForKind(
+      "purchase_invoice",
+      {
+        counterparty_cuit: '30-7123 ("RI", CABA)',
+        number: 5,
+        sales_point: 3,
+      },
+      all,
+    );
+    expect(fake.calls.find((c) => c.table === "suppliers")).toBeUndefined();
+    expect(matches.counterparty_unchecked).toBeUndefined();
+    expect(matches.supplier_id).toBeUndefined();
+  });
+});
+
+describe("unverifiedMatches (audit w14-s5 F2)", () => {
+  it("marks every comparison the kind runs as not verified", () => {
+    expect(unverifiedMatches("purchase_invoice")).toEqual({
+      lookup_failed: true,
+      counterparty_unchecked: true,
+      duplicate_unknown: true,
+    });
+    expect(unverifiedMatches("receipt")).toEqual({
+      lookup_failed: true,
+      counterparty_unchecked: true,
+    });
+    expect(unverifiedMatches("bank_statement")).toEqual({
+      lookup_failed: true,
+      reconciliation_unchecked: true,
+    });
+  });
+});
+
 describe("extractionRequester", () => {
   it("throws on a failed read, so the step retries instead of matching nothing", async () => {
     answer = () => ({ data: null, error: { message: "timeout" } });
@@ -222,6 +305,24 @@ describe("extractionRequester", () => {
     expect(await extractionRequester("x1")).toBeNull();
     answer = () => ({ data: { created_by: "u1" }, error: null });
     expect(await extractionRequester("x1")).toBe("u1");
+  });
+});
+
+describe("extractionAwaitsPipeline", () => {
+  it("is false for a deleted or discarded draft, true for a pending one", async () => {
+    answer = () => ({ data: null, error: null });
+    expect(await extractionAwaitsPipeline("x1")).toBe(false);
+    answer = () => ({ data: { status: "discarded" }, error: null });
+    expect(await extractionAwaitsPipeline("x1")).toBe(false);
+    answer = () => ({ data: { status: "pending_review" }, error: null });
+    expect(await extractionAwaitsPipeline("x1")).toBe(true);
+  });
+
+  it("throws on a failed read, so the step retries", async () => {
+    answer = () => ({ data: null, error: { message: "timeout" } });
+    await expect(extractionAwaitsPipeline("x1")).rejects.toMatchObject({
+      message: "timeout",
+    });
   });
 });
 

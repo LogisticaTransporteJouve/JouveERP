@@ -272,7 +272,8 @@ export const ROUTE_GUIDES: readonly RouteGuide[] = [
   {
     prefix: "/trips",
     title: "Viajes",
-    summary: "Cada viaje con su chofer, vehículo, cliente, km e ingreso.",
+    summary:
+      "Cada viaje con su chofer, vehículo, km, sus cargas y el ingreso manual si no tiene cargas facturadas.",
   },
   {
     prefix: "/cargas",
@@ -282,7 +283,8 @@ export const ROUTE_GUIDES: readonly RouteGuide[] = [
   {
     prefix: "/liquidaciones",
     title: "Liquidaciones",
-    summary: "Liquidación de fletes a clientes y a choferes.",
+    summary:
+      "Liquidación de los fletes de cada cliente; lo de los choferes está en Rendiciones.",
   },
   {
     prefix: "/rendiciones",
@@ -314,7 +316,8 @@ export const ROUTE_GUIDES: readonly RouteGuide[] = [
   {
     prefix: "/fleet-reports",
     title: "Rentabilidad",
-    summary: "Ingreso y costo por vehículo y por chofer.",
+    summary:
+      "Ingreso y costo por vehículo y por viaje; el ingreso sale del flete facturado de las cargas.",
   },
   {
     prefix: "/warehouses",

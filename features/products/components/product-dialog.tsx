@@ -1,11 +1,13 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { ReadError } from "@/components/read-error";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -65,10 +67,12 @@ export function ProductDialog({
 }: {
   mode: "create" | "edit";
   product?: Product;
-  clientOptions: { id: string; legal_name: string }[];
+  /** null: the clients could not be read. */
+  clientOptions: { id: string; legal_name: string }[] | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const router = useRouter();
   const createMut = useCreateProduct();
   const updateMut = useUpdateProduct();
   const isSaving = createMut.isPending || updateMut.isPending;
@@ -132,13 +136,19 @@ export function ProductDialog({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {clientOptions.map((c) => (
+                      {(clientOptions ?? []).map((c) => (
                         <SelectItem key={c.id} value={c.id}>
                           {c.legal_name}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  {clientOptions === null && (
+                    <ReadError
+                      message="No se pudieron cargar los clientes."
+                      onRetry={() => router.refresh()}
+                    />
+                  )}
                   <FormMessage />
                 </FormItem>
               )}

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { getTripAction } from "@/features/trips/actions/trips-actions";
 import { ShipmentsForTrip } from "@/features/shipments/components/shipments-for-trip";
 import { requireUserContext } from "@/lib/auth/context";
-import { userCan } from "@/lib/auth/permissions";
+import { userCan, userCanAll } from "@/lib/auth/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +16,9 @@ export default async function TripDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const ctx = await requireUserContext();
-  if (!userCan(ctx.access, "trips:read")) {
+  // The page is the trip's cargas, which listShipmentsByTripAction reads
+  // under shipments:read.
+  if (!userCanAll(ctx.access, ["trips:read", "shipments:read"])) {
     redirect("/dashboard");
   }
 
