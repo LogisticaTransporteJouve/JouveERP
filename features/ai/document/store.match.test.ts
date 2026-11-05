@@ -23,6 +23,7 @@ vi.mock("@/features/ai/reconciliation/gather", () => ({
 
 const {
   comprobanteKinds,
+  extractionAwaitsPipeline,
   extractionRequester,
   matchForKind,
   unverifiedMatches,
@@ -304,6 +305,24 @@ describe("extractionRequester", () => {
     expect(await extractionRequester("x1")).toBeNull();
     answer = () => ({ data: { created_by: "u1" }, error: null });
     expect(await extractionRequester("x1")).toBe("u1");
+  });
+});
+
+describe("extractionAwaitsPipeline", () => {
+  it("is false for a deleted or discarded draft, true for a pending one", async () => {
+    answer = () => ({ data: null, error: null });
+    expect(await extractionAwaitsPipeline("x1")).toBe(false);
+    answer = () => ({ data: { status: "discarded" }, error: null });
+    expect(await extractionAwaitsPipeline("x1")).toBe(false);
+    answer = () => ({ data: { status: "pending_review" }, error: null });
+    expect(await extractionAwaitsPipeline("x1")).toBe(true);
+  });
+
+  it("throws on a failed read, so the step retries", async () => {
+    answer = () => ({ data: null, error: { message: "timeout" } });
+    await expect(extractionAwaitsPipeline("x1")).rejects.toMatchObject({
+      message: "timeout",
+    });
   });
 });
 

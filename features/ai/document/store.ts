@@ -353,6 +353,22 @@ export async function extractionRequester(
   return data?.created_by ?? null;
 }
 
+/** Whether the pipeline should still pay to read this extraction: the row
+ *  exists and is not discarded or done. A scan whose event send threw deletes
+ *  its row, yet the event may have been accepted. A failed read throws. */
+export async function extractionAwaitsPipeline(
+  extractionId: string,
+): Promise<boolean> {
+  const service = getServiceClient();
+  const { data, error } = await service
+    .from("ai_document_extractions")
+    .select("status")
+    .eq("id", extractionId)
+    .maybeSingle();
+  if (error) throw error;
+  return data?.status === "pending_review";
+}
+
 /**
  * Marks an extraction failed (terminal). Leaves a discarded draft alone.
  * Best-effort, never throws.
