@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Asistente (IA) — Guía JouveERP</title>
+<link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+<a class="brand" href="index.html"><span class="logo">J</span><span>Guía de JouveERP</span></a>
+<div class="search"><input id="guide-search" type="search" placeholder="Buscar: emitir factura, cheque…" autocomplete="off" aria-label="Buscar en la guía" /><div id="guide-results" class="results" hidden></div></div>
+<nav><ul class="nav"><li><a href="conceptos.html">Conceptos generales</a></li><li><a href="plataforma.html">Plataforma</a></li><li class="active"><a href="asistente.html">Asistente (IA)</a><ul><li><a href="asistente.html#asistente">Asistente</a></li><li><a href="asistente.html#fijados-ia">Fijados de IA</a></li><li><a href="asistente.html#tareas-ia">Tareas IA</a></li><li><a href="asistente.html#documentos">Documentos</a></li></ul></li><li><a href="admin.html">Administración</a></li></ul></nav>
+</aside>
+<div class="content">
+<header class="topbar"><a href="index.html">Guía</a><span class="sep">›</span><strong>Asistente (IA)</strong><a class="back" href="/dashboard" target="jouve-app">Volver a JouveERP</a></header>
+<main>
+<h1>Asistente (IA)</h1>
+<p class="lead">El asistente responde preguntas sobre los datos del sistema con los permisos de tu usuario, arma propuestas que vos confirmás, corre tareas programadas y lee documentos escaneados para cargarlos.</p>
+<nav class="toc"><h4>En esta página</h4><ul><li><a href="#asistente">Asistente</a></li><li><a href="#fijados-ia">Fijados de IA</a></li><li><a href="#tareas-ia">Tareas IA</a></li><li><a href="#documentos">Documentos</a></li></ul></nav>
+<section class="section" id="asistente">
+<h2><a class="anchor" href="#asistente">Asistente</a></h2>
+<p class="where">En el menú: <strong>Asistente</strong> · <code>/ai</code></p><p class="where">Ven esta pantalla: Owner, Admin, Finanzas, Operaciones <span class="muted">(permiso <code class="perm">ai:chat</code>)</span></p><p class="open"><a href="/ai" target="jouve-app">Abrir esta pantalla en JouveERP ↗</a></p>
+<p>El chat con el asistente. Le preguntás en tus palabras («¿cómo viene la caja?», «¿quién me debe más?») y responde con los datos que tu usuario puede ver en la app, con tablas y gráficos cuando ayudan. También le podés preguntar cómo se hace algo en el sistema.</p><p>A la izquierda, el historial de conversaciones (<span class="ui" data-ui="Nuevo chat">Nuevo chat</span>, agrupadas en <span class="ui" data-ui="Hoy">Hoy</span>, <span class="ui" data-ui="Ayer">Ayer</span> y <span class="ui" data-ui="Anteriores">Anteriores</span>); en el celular se abre con el botón de la izquierda del título. Arriba a la derecha, <span class="ui" data-ui="Fijados">Fijados</span> y el consumo de IA del día. Sobre el chat, las alertas del analista (Insights).</p>
+
+<div class="concept"><h4>Qué puede y qué no puede hacer</h4><p>Cada consulta corre con tus permisos: nunca ve datos que vos no podrías ver en la app. Si algo no está entre sus consultas, te lo dice.</p><p>Nunca registra nada por su cuenta. Cuando le pedís cargar algo, arma una <strong>propuesta</strong> en una tarjeta y vos la confirmás, la modificás o la descartás (<a class="ref" href="asistente.html#confirmar-propuesta-ia">Confirmar, modificar o descartar una propuesta</a>).</p><p>Las cifras salen siempre de una consulta al sistema; si no tiene el dato, lo dice.</p></div><div class="concept"><h4>Qué puede proponer</h4><p><span class="ui" data-ui="Crear tarea">Crear tarea</span>, <span class="ui" data-ui="Programar tarea de IA">Programar tarea de IA</span>, <span class="ui" data-ui="Mandar a Documentos">Mandar a Documentos</span> (un archivo adjunto al chat), <span class="ui" data-ui="Registrar licencia">Registrar licencia</span>, <span class="ui" data-ui="Cargar asiento manual">Cargar asiento manual</span>, <span class="ui" data-ui="Cargar cotización USD">Cargar cotización USD</span>, <span class="ui" data-ui="Cargar tarifa del cliente">Cargar tarifa del cliente</span>, <span class="ui" data-ui="Conciliar extracto">Conciliar extracto</span>, <span class="ui" data-ui="Generar ND por mora">Generar ND por mora</span> y <span class="ui" data-ui="Recategorizar gasto">Recategorizar gasto</span>. Para confirmar cada una necesitás el mismo permiso que para hacerla a mano.</p></div><div class="concept"><h4>Límite diario</h4><p>El consumo de IA tiene un tope por día para todo el equipo (lo que usa uno descuenta del total). El medidor de arriba a la derecha muestra lo usado hoy; al llegar al tope, el cuadro de texto dice <span class="ui" data-ui="Límite diario alcanzado">Límite diario alcanzado</span> hasta el día siguiente.</p></div>
+<ul class="task-toc"><li><a href="#preguntar-al-asistente">Hacerle una pregunta al asistente</a></li><li><a href="#preguntar-como-hacer">Preguntarle cómo se hace algo en el sistema</a></li><li><a href="#adjuntar-archivo-al-asistente">Mandarle un archivo al asistente</a></li><li><a href="#responder-preguntas-ia">Responder las preguntas del asistente</a></li><li><a href="#confirmar-propuesta-ia">Confirmar, modificar o descartar una propuesta</a></li><li><a href="#fijar-resultado-ia">Fijar o exportar una tabla o un gráfico</a></li><li><a href="#borrar-conversacion-ia">Retomar o borrar una conversación</a></li><li><a href="#recalcular-insights">Recalcular las alertas del analista</a></li></ul>
+<article class="task" id="preguntar-al-asistente">
+<h3><a class="anchor" href="#preguntar-al-asistente">Hacerle una pregunta al asistente</a></h3>
+
+<dl class="meta"><dt>Quién puede</dt><dd>Owner, Admin, Finanzas, Operaciones <span class="muted">(permiso <code class="perm">ai:chat</code>)</span></dd></dl>
+<figure class="mock"><div class="m-frame m-page"><div class="m-head"><div><div class="m-title" data-ui="Asistente IA">Asistente IA</div></div><div class="m-actions"><span class="m-btn m-btn-ghost" data-ui="Fijados">Fijados</span></div></div><div class="m-toolbar"><div class="m-field"><span class="m-label" data-ui="Escribí tu pregunta o adjuntá un archivo…">Escribí tu pregunta o adjuntá un archivo…</span><span class="m-input">¿Quién me debe más?</span><span class="mk" aria-label="Paso 2">2</span></div></div></div></figure>
+<ol class="steps"><li>Abrí <a class="ref" href="asistente.html#asistente">Asistente</a> (el botón <span class="ui" data-ui="Asistente">Asistente</span> arriba de la barra lateral). Para una conversación nueva, hacé clic en <span class="ui" data-ui="Nuevo chat">Nuevo chat</span>.</li><li>Escribí la pregunta en <span class="ui" data-ui="Escribí tu pregunta o adjuntá un archivo…">Escribí tu pregunta o adjuntá un archivo…</span> y apretá Enter. En una conversación nueva también podés hacer clic en una sugerencia (<span class="ui" data-ui="¿Cómo viene la caja?">¿Cómo viene la caja?</span>, <span class="ui" data-ui="¿Quién me debe más?">¿Quién me debe más?</span>…).</li><li>Mientras trabaja, el asistente muestra «Pensando…» y las consultas que va haciendo. Después responde con texto, tablas o gráficos.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>La conversación queda guardada en el historial con un título, para retomarla después.</li></ul></div>
+<div class="block errors"><h4>Si aparece un error</h4><dl><dt>“Se alcanzó el límite diario de IA. Probá de nuevo mañana.”</dt><dd>Se usó todo el consumo de IA del día: volvé a preguntar mañana.</dd><dt>“Alcanzaste el límite de consultas de IA. Probá más tarde.”</dt><dd>Hiciste muchas consultas (hay un tope por hora y otro por día por usuario): esperá un rato.</dd><dt>“No se pudo enviar el mensaje. Probá de nuevo.”</dt><dd>Falló la conexión: volvé a enviar el mensaje.</dd><dt>“Sin permiso para usar el chat de IA.”</dt><dd>Tu usuario no tiene acceso al asistente: pedíselo al owner.</dd></dl></div>
+<p class="related">Relacionado: <a class="ref" href="asistente.html#preguntar-como-hacer">Preguntarle cómo se hace algo en el sistema</a> · <a class="ref" href="asistente.html#fijar-resultado-ia">Fijar o exportar una tabla o un gráfico</a></p>
+</article>
+<article class="task" id="preguntar-como-hacer">
+<h3><a class="anchor" href="#preguntar-como-hacer">Preguntarle cómo se hace algo en el sistema</a></h3>
+<p>El asistente busca en esta guía y responde con los pasos y el link a la sección.</p>
+<dl class="meta"><dt>Quién puede</dt><dd>Owner, Admin, Finanzas, Operaciones <span class="muted">(permiso <code class="perm">ai:chat</code>)</span></dd></dl>
+
+<ol class="steps"><li>En <a class="ref" href="asistente.html#asistente">Asistente</a>, preguntá en tus palabras, por ejemplo «¿cómo hago una nota de crédito?» o «¿dónde cargo un cheque rechazado?».</li><li>Seguí los pasos que responde: los nombres entre « » son los textos exactos de los botones. El link abre la sección de la guía.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>Si la tarea pide un permiso que tu usuario no tiene, te dice qué roles pueden hacerla. Si la guía no tiene la tarea, te lo dice en vez de inventar pasos.</li></ul></div>
+
+<p class="related">Relacionado: <a class="ref" href="conceptos.html#usar-la-guia">Cómo usar esta guía</a></p>
+</article>
+<article class="task" id="adjuntar-archivo-al-asistente">
+<h3><a class="anchor" href="#adjuntar-archivo-al-asistente">Mandarle un archivo al asistente</a></h3>
+<p>Un PDF, una foto o una planilla para que la lea, la resuma o la compare con los datos.</p>
+<dl class="meta"><dt>Quién puede</dt><dd>Owner, Admin, Finanzas, Operaciones <span class="muted">(permiso <code class="perm">ai:chat</code> + <code class="perm">files:write</code>)</span></dd></dl>
+
+<ol class="steps"><li>En <a class="ref" href="asistente.html#asistente">Asistente</a>, hacé clic en el clip (<span class="ui" data-ui="Adjuntar PDF, imagen o planilla">Adjuntar PDF, imagen o planilla</span>), o en la cámara (<span class="ui" data-ui="Sacar una foto">Sacar una foto</span>) desde el celular. También podés arrastrar el archivo al chat o pegarlo.</li><li>Esperá a que el archivo termine de subir (aparece sobre el cuadro de texto).</li><li>Escribí qué querés hacer con él y apretá Enter.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>El archivo queda en el mensaje (se puede abrir desde ahí) y en <a class="ref" href="plataforma.html#archivos">Plataforma › Archivos</a> como <span class="ui" data-ui="Chat con IA">Chat con IA</span>, visible para vos (y para owner y admin).</li><li>Si es un comprobante, el asistente puede proponerte <span class="ui" data-ui="Mandar a Documentos">Mandar a Documentos</span> para cargarlo (<a class="ref" href="asistente.html#documentos">Documentos</a>).</li><li>Acepta PDF (hasta 20 páginas), PNG, JPG, WebP, CSV y XLSX, de hasta 4 MB (imágenes hasta 3,7 MB) y hasta 5 archivos por mensaje.</li></ul></div>
+<div class="block errors"><h4>Si aparece un error</h4><dl><dt>“El archivo supera 4 MB, el máximo para el chat. Probá con una versión más liviana.”</dt><dd>Achicá el archivo o mandá solo las páginas que importan.</dd><dt>“La imagen supera 3,7 MB. Probá con una foto de menor resolución.”</dt><dd>Sacá la foto en menor resolución o recortala.</dd><dt>“El PDF tiene … páginas; el máximo para el chat es ….”</dt><dd>Separá el PDF y mandá solo las páginas necesarias.</dd><dt>“Podés adjuntar hasta … archivos por mensaje.”</dt><dd>Mandá el resto en otro mensaje.</dd><dt>“El contenido del archivo no coincide con su tipo.”</dt><dd>El archivo está dañado o tiene una extensión equivocada: exportalo de nuevo.</dd><dt>“Alcanzaste el límite de adjuntos por hora. Probá más tarde.”</dt><dd>Esperá un rato antes de subir más archivos.</dd></dl></div>
+<p class="related">Relacionado: <a class="ref" href="asistente.html#escanear-documento">Escanear un documento</a></p>
+</article>
+<article class="task" id="responder-preguntas-ia">
+<h3><a class="anchor" href="#responder-preguntas-ia">Responder las preguntas del asistente</a></h3>
+<p>Cuando le falta un dato o tiene que elegir entre varias opciones, el asistente pregunta con una tarjeta.</p>
+<dl class="meta"><dt>Quién puede</dt><dd>Owner, Admin, Finanzas, Operaciones <span class="muted">(permiso <code class="perm">ai:chat</code>)</span></dd></dl>
+
+<ol class="steps"><li>En la tarjeta <span class="ui" data-ui="Preguntas del asistente">Preguntas del asistente</span>, contestá cada pregunta: elegí una opción, marcá las que correspondan o escribí la respuesta. Si hay <span class="ui" data-ui="Otro…">Otro…</span>, podés escribir otra respuesta.</li><li>Hacé clic en <span class="ui" data-ui="Enviar respuestas">Enviar respuestas</span>. Si preferís no contestar, hacé clic en <span class="ui" data-ui="Omitir">Omitir</span>.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>El asistente sigue con tus respuestas. Mientras la tarjeta espera, el cuadro de texto queda bloqueado («Respondé las preguntas de arriba para seguir.»).</li></ul></div>
+
+
+</article>
+<article class="task" id="confirmar-propuesta-ia">
+<h3><a class="anchor" href="#confirmar-propuesta-ia">Confirmar, modificar o descartar una propuesta</a></h3>
+<p>Lo que el asistente quiere registrar aparece en una tarjeta con los datos; nada se guarda hasta que lo confirmás.</p>
+<dl class="meta"><dt>Quién puede</dt><dd>Owner, Admin, Finanzas, Operaciones <span class="muted">(permiso <code class="perm">ai:chat</code>)</span></dd><dt>Antes</dt><dd><ul><li>Además, el permiso de la operación (por ejemplo <code>tasks:write</code> para <span class="ui" data-ui="Crear tarea">Crear tarea</span>): el mismo que pide hacerla a mano.</li></ul></dd></dl>
+<figure class="mock"><div class="m-frame m-backdrop"><div class="m-dialog"><div class="m-dialog-title" data-ui="Crear tarea">Crear tarea<span class="m-close">×</span></div><div class="m-table"><table><thead><tr><th>Dato</th><th>Valor</th></tr></thead><tbody><tr><td>~Título</td><td>~Llamar a Transportes Sur</td></tr><tr><td>~Vence</td><td>~15/11/2026</td></tr></tbody></table></div><div class="m-footer"><span class="m-btn m-btn-ghost" data-ui="Descartar">Descartar<span class="mk" aria-label="Paso 3">3</span></span><span class="m-btn m-btn-outline" data-ui="Modificar">Modificar<span class="mk" aria-label="Paso 2">2</span></span><span class="m-btn m-btn-primary" data-ui="Crear tarea">Crear tarea<span class="mk" aria-label="Paso 1">1</span></span></div></div></div><figcaption>Tarjeta de propuesta en el chat</figcaption></figure>
+<ol class="steps"><li>Revisá los datos de la tarjeta y hacé clic en el botón principal (su texto dice qué hace: <span class="ui" data-ui="Crear tarea">Crear tarea</span>, <span class="ui" data-ui="Programar tarea">Programar tarea</span>, <span class="ui" data-ui="Mandar a Documentos">Mandar a Documentos</span>, <span class="ui" data-ui="Cargar asiento">Cargar asiento</span>, <span class="ui" data-ui="Emitir ND">Emitir ND</span>…).</li><li>Para corregir algo antes, hacé clic en <span class="ui" data-ui="Modificar">Modificar</span>: en <span class="ui" data-ui="Modificar propuesta">Modificar propuesta</span> cambiá los campos y hacé clic en <span class="ui" data-ui="Guardar cambios">Guardar cambios</span>. La tarjeta pasa a <span class="ui" data-ui="Editada · pendiente">Editada · pendiente</span>. También podés pedirle los cambios al asistente por chat.</li><li>Si no la querés, hacé clic en <span class="ui" data-ui="Descartar">Descartar</span>.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>Al confirmar, el sistema hace la operación con las mismas validaciones que el formulario manual, aparece «Listo, quedó registrado.» y la tarjeta queda <span class="ui" data-ui="Confirmada">Confirmada</span>. Si falla, queda <span class="ui" data-ui="No se pudo completar">No se pudo completar</span> con el motivo.</li><li>Una propuesta descartada queda <span class="ui" data-ui="Descartada">Descartada</span>; una que el asistente rehízo queda <span class="ui" data-ui="Reemplazada">Reemplazada</span> por la nueva.</li></ul></div>
+<div class="block errors"><h4>Si aparece un error</h4><dl><dt>“Esta propuesta ya no está pendiente.”</dt><dd>Ya se confirmó, descartó o reemplazó (quizás en otra pestaña): mirá su estado en la tarjeta.</dd><dt>“No tenés permiso para esta acción.”</dt><dd>Tu usuario no puede hacer esa operación: pedísela a alguien con el rol que corresponda.</dd><dt>“La propuesta tiene datos inválidos.”</dt><dd>Modificá la propuesta o pedile al asistente que la corrija.</dd></dl></div>
+
+</article>
+<article class="task" id="fijar-resultado-ia">
+<h3><a class="anchor" href="#fijar-resultado-ia">Fijar o exportar una tabla o un gráfico</a></h3>
+
+<dl class="meta"><dt>Quién puede</dt><dd>Owner, Admin, Finanzas, Operaciones <span class="muted">(permiso <code class="perm">ai:chat</code>)</span></dd></dl>
+
+<ol class="steps"><li>En una tabla o un gráfico de la respuesta, usá los botones de su encabezado:</li><li>Elegí qué hacer:<ul><li><span class="ui" data-ui="Fijar">Fijar</span>: lo guarda en <a class="ref" href="asistente.html#fijados-ia">Asistente › Fijados</a> para volver a verlo con los datos al día.</li><li><span class="ui" data-ui="CSV">CSV</span> o <span class="ui" data-ui="Excel">Excel</span>: descarga los datos.</li><li>En un gráfico, <span class="ui" data-ui="Tabla">Tabla</span> muestra los mismos datos como tabla (<span class="ui" data-ui="Gráfico">Gráfico</span> vuelve).</li></ul></li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>Al fijar aparece «Fijado. Lo ves en Fijados de IA.».</li></ul></div>
+<div class="block errors"><h4>Si aparece un error</h4><dl><dt>“No se pudo generar el Excel.”</dt><dd>Probá de nuevo o descargá el CSV.</dd></dl></div>
+<p class="related">Relacionado: <a class="ref" href="asistente.html#quitar-fijado-ia">Actualizar o quitar un fijado</a></p>
+</article>
+<article class="task" id="borrar-conversacion-ia">
+<h3><a class="anchor" href="#borrar-conversacion-ia">Retomar o borrar una conversación</a></h3>
+
+<dl class="meta"><dt>Quién puede</dt><dd>Owner, Admin, Finanzas, Operaciones <span class="muted">(permiso <code class="perm">ai:chat</code>)</span></dd></dl>
+
+<ol class="steps"><li>En el historial de <a class="ref" href="asistente.html#asistente">Asistente</a>, hacé clic en una conversación para retomarla.</li><li>Para borrarla, pasá el mouse sobre ella, hacé clic en el tacho (<span class="ui" data-ui="Borrar conversación">Borrar conversación</span>) y confirmá con <span class="ui" data-ui="Borrar">Borrar</span>.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>Se eliminan la conversación y todos sus mensajes; no se puede deshacer.</li></ul></div>
+
+
+</article>
+<article class="task" id="recalcular-insights">
+<h3><a class="anchor" href="#recalcular-insights">Recalcular las alertas del analista</a></h3>
+
+<dl class="meta"><dt>Quién puede</dt><dd>Owner, Admin <span class="muted">(permiso <code class="perm">ai:admin</code>)</span></dd></dl>
+
+<ol class="steps"><li>En <a class="ref" href="asistente.html#asistente">Asistente</a>, sobre el chat, en <span class="ui" data-ui="Insights">Insights</span>, hacé clic en <span class="ui" data-ui="Recalcular">Recalcular</span>.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>El analista revisa los datos de nuevo y aparece «… insights recalculados.». Las alertas también se ven en el dashboard (<a class="ref" href="plataforma.html#dashboard">Dashboard</a>).</li></ul></div>
+<div class="block errors"><h4>Si aparece un error</h4><dl><dt>“No tenés permiso para recalcular insights.”</dt><dd>Solo owner y admin recalculan las alertas.</dd></dl></div>
+<p class="related">Relacionado: <a class="ref" href="plataforma.html#ignorar-insight">Ignorar una alerta</a></p>
+</article>
+</section>
+<section class="section" id="fijados-ia">
+<h2><a class="anchor" href="#fijados-ia">Fijados de IA</a></h2>
+<p class="where">En el menú: <strong>Asistente › Fijados</strong> · <code>/ai/pinned</code></p><p class="where">Ven esta pantalla: Owner, Admin, Finanzas, Operaciones <span class="muted">(permiso <code class="perm">ai:chat</code>)</span></p><p class="open"><a href="/ai/pinned" target="jouve-app">Abrir esta pantalla en JouveERP ↗</a></p>
+<p>Los gráficos y tablas que fijaste desde el asistente. Se recalculan cada vez que los abrís, con los datos y los permisos de ese momento. Se abre desde <span class="ui" data-ui="Fijados">Fijados</span> en <a class="ref" href="asistente.html#asistente">Asistente</a>; <span class="ui" data-ui="Volver al asistente">Volver al asistente</span> vuelve al chat.</p><p>Si perdiste el permiso para ver los datos de uno, la tarjeta lo dice («Ya no tenés permiso para ver estos datos.») en vez de mostrarlos.</p>
+
+
+<ul class="task-toc"><li><a href="#quitar-fijado-ia">Actualizar o quitar un fijado</a></li></ul>
+<article class="task" id="quitar-fijado-ia">
+<h3><a class="anchor" href="#quitar-fijado-ia">Actualizar o quitar un fijado</a></h3>
+
+<dl class="meta"><dt>Quién puede</dt><dd>Owner, Admin, Finanzas, Operaciones <span class="muted">(permiso <code class="perm">ai:chat</code>)</span></dd></dl>
+
+<ol class="steps"><li>En <a class="ref" href="asistente.html#fijados-ia">Asistente › Fijados</a>, hacé clic en el botón de recarga (<span class="ui" data-ui="Recalcular">Recalcular</span>) de la tarjeta para traer los datos de nuevo.</li><li>Para sacarla, hacé clic en <span class="ui" data-ui="Quitar">Quitar</span>.</li></ol>
+
+<div class="block errors"><h4>Si aparece un error</h4><dl><dt>“No se pudo quitar.”</dt><dd>Probá de nuevo en unos segundos.</dd></dl></div>
+<p class="related">Relacionado: <a class="ref" href="asistente.html#fijar-resultado-ia">Fijar o exportar una tabla o un gráfico</a></p>
+</article>
+</section>
+<section class="section" id="tareas-ia">
+<h2><a class="anchor" href="#tareas-ia">Tareas IA</a></h2>
+<p class="where">En el menú: <strong>Inteligencia › Tareas IA</strong> · <code>/ai/tasks</code></p><p class="where">Ven esta pantalla: Owner, Admin, Finanzas, Operaciones <span class="muted">(permiso <code class="perm">ai:chat</code>)</span></p><p class="open"><a href="/ai/tasks" target="jouve-app">Abrir esta pantalla en JouveERP ↗</a></p>
+<p>Pedidos que el asistente corre solo, todos los días, semanas o meses, con tus permisos de solo lectura, y que recuerda lo que encontró la vez anterior (por ejemplo, «todos los lunes resumime las cobranzas vencidas»). Cada tarjeta muestra la frecuencia, la próxima corrida y el pedido; <span class="ui" data-ui="Corridas">Corridas</span> muestra el historial con su resultado.</p><p>Son tuyas: cada usuario ve solo las suyas. Se pueden crear acá o pedírselas al asistente en el chat (propuesta <span class="ui" data-ui="Programar tarea de IA">Programar tarea de IA</span>).</p>
+
+<div class="concept"><h4>Estado de cada corrida</h4><p><span class="ui" data-ui="En cola">En cola</span>, <span class="ui" data-ui="Corriendo">Corriendo</span>, <span class="ui" data-ui="Lista">Lista</span> (hacé clic para leer el resultado), <span class="ui" data-ui="Falló">Falló</span> (la próxima corrida lo vuelve a intentar) o <span class="ui" data-ui="Salteada">Salteada</span>, con el motivo: la tarea estaba pausada, se alcanzó el límite diario de IA, el usuario perdió el acceso al asistente, etc.</p><p>Cuando una corrida termina bien, te llega una notificación («tarea de IA lista») que abre esta pantalla.</p></div>
+<ul class="task-toc"><li><a href="#programar-tarea-ia">Programar una tarea de IA</a></li><li><a href="#pausar-tarea-ia">Pausar, reanudar o borrar una tarea de IA</a></li></ul>
+<article class="task" id="programar-tarea-ia">
+<h3><a class="anchor" href="#programar-tarea-ia">Programar una tarea de IA</a></h3>
+
+<dl class="meta"><dt>Quién puede</dt><dd>Owner, Admin, Finanzas, Operaciones <span class="muted">(permiso <code class="perm">ai:chat</code>)</span></dd></dl>
+<figure class="mock"><div class="m-frame m-backdrop"><div class="m-dialog"><div class="m-dialog-title" data-ui="Nueva tarea de IA">Nueva tarea de IA<span class="m-close">×</span></div><div class="m-sub">El asistente la corre solo, con tus permisos de lectura, y deja el resultado acá. Horario de Buenos Aires.</div><div class="m-form"><div class="m-field wide"><span class="m-label" data-ui="Nombre">Nombre</span><span class="m-input">Cobranzas vencidas</span><span class="mk" aria-label="Paso 2">2</span></div><div class="m-field wide"><span class="m-label" data-ui="Qué tiene que hacer">Qué tiene que hacer</span><span class="m-input m-textarea">Resumime las cobranzas vencidas por cliente y qué cambió desde la semana pasada.</span><span class="mk" aria-label="Paso 3">3</span></div><div class="m-field"><span class="m-label" data-ui="Frecuencia">Frecuencia</span><span class="m-input m-select">Todas las semanas<span class="m-chevron">⌄</span></span><span class="mk" aria-label="Paso 4">4</span></div><div class="m-field"><span class="m-label" data-ui="Hora">Hora</span><span class="m-input m-select">08:00<span class="m-chevron">⌄</span></span><span class="mk" aria-label="Paso 4">4</span></div><div class="m-field"><span class="m-label" data-ui="Día">Día</span><span class="m-input m-select">lunes<span class="m-chevron">⌄</span></span><span class="mk" aria-label="Paso 4">4</span></div></div><div class="m-footer"><span class="m-btn m-btn-outline" data-ui="Cancelar">Cancelar</span><span class="m-btn m-btn-primary" data-ui="Programar">Programar<span class="mk" aria-label="Paso 5">5</span></span></div></div></div></figure>
+<ol class="steps"><li>En <a class="ref" href="asistente.html#tareas-ia">Inteligencia › Tareas IA</a>, hacé clic en <span class="ui" data-ui="Nueva tarea">Nueva tarea</span>.</li><li>En <span class="ui" data-ui="Nombre">Nombre</span>, poné un nombre corto (hasta 120 caracteres).</li><li>En <span class="ui" data-ui="Qué tiene que hacer">Qué tiene que hacer</span>, escribí el pedido como se lo dirías al asistente (entre 10 y 2000 caracteres).</li><li>Elegí cuándo corre:<ul><li><span class="ui" data-ui="Frecuencia">Frecuencia</span>: <span class="ui" data-ui="Todos los días">Todos los días</span>, <span class="ui" data-ui="Todas las semanas">Todas las semanas</span> o <span class="ui" data-ui="Todos los meses">Todos los meses</span>.</li><li><span class="ui" data-ui="Hora">Hora</span>: en intervalos de 15 minutos, hora de Buenos Aires.</li><li><span class="ui" data-ui="Día">Día</span> (semanal): el día de la semana. <span class="ui" data-ui="Día del mes">Día del mes</span> (mensual): del 1 al 28.</li></ul></li><li>Hacé clic en <span class="ui" data-ui="Programar">Programar</span>.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>Aparece «Tarea programada.» y la tarjeta muestra la próxima corrida. El resultado de cada corrida queda en <span class="ui" data-ui="Corridas">Corridas</span>.</li></ul></div>
+<div class="block errors"><h4>Si aparece un error</h4><dl><dt>“Describí la tarea (mínimo 10 caracteres).”</dt><dd>Escribí un pedido más completo.</dd><dt>“Poné un nombre.”</dt><dd>Completá el nombre.</dd><dt>“Llegaste al máximo de … tareas activas. Pausá o borrá alguna.”</dt><dd>Pausá o borrá una tarea que ya no uses y volvé a programar.</dd></dl></div>
+<p class="related">Relacionado: <a class="ref" href="asistente.html#pausar-tarea-ia">Pausar, reanudar o borrar una tarea de IA</a></p>
+</article>
+<article class="task" id="pausar-tarea-ia">
+<h3><a class="anchor" href="#pausar-tarea-ia">Pausar, reanudar o borrar una tarea de IA</a></h3>
+
+<dl class="meta"><dt>Quién puede</dt><dd>Owner, Admin, Finanzas, Operaciones <span class="muted">(permiso <code class="perm">ai:chat</code>)</span></dd></dl>
+
+<ol class="steps"><li>En <a class="ref" href="asistente.html#tareas-ia">Inteligencia › Tareas IA</a>, usá el interruptor de la tarjeta para pausarla (<span class="ui" data-ui="Pausar tarea">Pausar tarea</span>) o reanudarla (<span class="ui" data-ui="Reanudar tarea">Reanudar tarea</span>).</li><li>Para borrarla, hacé clic en el tacho (<span class="ui" data-ui="Borrar tarea">Borrar tarea</span>) y confirmá con <span class="ui" data-ui="Borrar">Borrar</span>.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>Una tarea pausada no corre y su tarjeta dice «pausada». Al borrarla aparece «Tarea borrada.» y se borran también sus corridas y su memoria; no se puede deshacer.</li></ul></div>
+<div class="block errors"><h4>Si aparece un error</h4><dl><dt>“No se encontró la tarea.”</dt><dd>Ya se borró: recargá la página.</dd></dl></div>
+<p class="related">Relacionado: <a class="ref" href="asistente.html#programar-tarea-ia">Programar una tarea de IA</a></p>
+</article>
+</section>
+<section class="section" id="documentos">
+<h2><a class="anchor" href="#documentos">Documentos</a></h2>
+<p class="where">En el menú: <strong>Inteligencia › Documentos</strong> · <code>/documentos</code></p><p class="where">Ven esta pantalla: Owner, Admin, Finanzas, Operaciones <span class="muted">(permiso <code class="perm">ai:read</code>)</span></p><p class="open"><a href="/documentos" target="jouve-app">Abrir esta pantalla en JouveERP ↗</a></p>
+<p>Subís un comprobante escaneado o una foto y la IA detecta qué es, extrae los datos y, después de que los revisás, te deja crear el registro desde ahí: la factura de compra, el recibo, la orden de pago, los cheques o la factura de venta.</p><p>Las pestañas filtran por estado: <span class="ui" data-ui="Pendientes">Pendientes</span>, <span class="ui" data-ui="Confirmados">Confirmados</span>, <span class="ui" data-ui="Descartados">Descartados</span> y <span class="ui" data-ui="Fallidos">Fallidos</span>. La lista muestra <span class="ui" data-ui="Archivo">Archivo</span>, <span class="ui" data-ui="Tipo">Tipo</span>, <span class="ui" data-ui="Contraparte">Contraparte</span> (el cliente o proveedor encontrado por CUIT), <span class="ui" data-ui="Confianza">Confianza</span>, <span class="ui" data-ui="Estado">Estado</span> y <span class="ui" data-ui="Creado">Creado</span>.</p><p>Ves los documentos que escaneaste vos; owner y admin ven los de todos.</p>
+<figure class="mock"><div class="m-frame m-page"><div class="m-head"><div><div class="m-title" data-ui="Documentos">Documentos</div></div><div class="m-actions"></div></div><div class="m-tabs"><span class="m-tab active" data-ui="Pendientes">Pendientes</span><span class="m-tab" data-ui="Confirmados">Confirmados</span><span class="m-tab" data-ui="Descartados">Descartados</span><span class="m-tab" data-ui="Fallidos">Fallidos</span></div><div class="m-table"><table><thead><tr><th data-ui="Archivo">Archivo</th><th data-ui="Tipo">Tipo</th><th data-ui="Contraparte">Contraparte</th><th data-ui="Confianza">Confianza</th><th data-ui="Estado">Estado</th><th data-ui="Creado">Creado</th><th data-ui=""></th></tr></thead><tbody><tr><td>~factura-ypf.pdf</td><td>~Factura de compra</td><td>~YPF S.A.</td><td>~Alta</td><td>~Pendiente</td><td>~05/11/2026</td><td>~Revisar</td></tr><tr><td>~cheque.jpg</td><td>~Cheque</td><td>~—</td><td>~Media</td><td>~Pendiente</td><td>~05/11/2026</td><td>~Revisar</td></tr></tbody></table></div></div></figure>
+<div class="concept"><h4>Qué tipos reconoce</h4><p><span class="ui" data-ui="Factura de compra">Factura de compra</span>, <span class="ui" data-ui="Factura de venta">Factura de venta</span>, <span class="ui" data-ui="NC / ND">NC / ND</span>, <span class="ui" data-ui="Recibo">Recibo</span>, <span class="ui" data-ui="Orden de pago">Orden de pago</span>, <span class="ui" data-ui="Remito">Remito</span>, <span class="ui" data-ui="Cheque">Cheque</span> y <span class="ui" data-ui="Extracto bancario">Extracto bancario</span>; lo demás queda como <span class="ui" data-ui="Otro">Otro</span>.</p><p>La <span class="ui" data-ui="Confianza">Confianza</span> (<span class="ui" data-ui="Alta">Alta</span>, <span class="ui" data-ui="Media">Media</span>, <span class="ui" data-ui="Baja">Baja</span>) indica cuán segura está la IA de la lectura: con confianza baja, revisá cada dato con el archivo al lado.</p></div><div class="concept"><h4>Siempre del lado fiscal</h4><p>Un comprobante escaneado tiene CUIT y es fiscal: los formularios que se abren desde la revisión ofrecen solo el lado fiscal (ver <a class="ref" href="conceptos.html#canales-fiscal-interno">Los dos lados: fiscal e interno</a>).</p></div>
+<ul class="task-toc"><li><a href="#escanear-documento">Escanear un documento</a></li><li><a href="#revisar-documento">Revisar lo que leyó la IA</a></li><li><a href="#cargar-compra-desde-documento">Cargar una factura de compra (o NC/ND de compra) escaneada</a></li><li><a href="#crear-recibo-desde-documento">Crear un recibo o una orden de pago desde un documento</a></li><li><a href="#crear-cheques-desde-documento">Cargar cheques escaneados en cartera</a></li><li><a href="#emitir-factura-desde-documento">Emitir una factura de venta a partir de un documento</a></li><li><a href="#ver-carga-de-remito">Encontrar la carga de un remito escaneado</a></li><li><a href="#descartar-documento">Descartar un documento</a></li></ul>
+<article class="task" id="escanear-documento">
+<h3><a class="anchor" href="#escanear-documento">Escanear un documento</a></h3>
+
+<dl class="meta"><dt>Quién puede</dt><dd>Owner, Admin, Finanzas, Operaciones <span class="muted">(permiso <code class="perm">ai:read</code> + <code class="perm">files:write</code>)</span></dd></dl>
+
+<ol class="steps"><li>En <a class="ref" href="asistente.html#documentos">Inteligencia › Documentos</a>, arrastrá el archivo al recuadro <span class="ui" data-ui="Escaneá o subí una factura, recibo u orden de pago">Escaneá o subí una factura, recibo u orden de pago</span>, o hacé clic en <span class="ui" data-ui="Elegir archivo">Elegir archivo</span>. En el celular podés usar <span class="ui" data-ui="Tomar foto">Tomar foto</span>.</li><li>Esperá a que se lea: en la lista, la columna <span class="ui" data-ui="Tipo">Tipo</span> muestra «Leyendo…» hasta que termina.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>Aparece «Documento en proceso…». Cuando la IA termina, el documento queda en <span class="ui" data-ui="Pendientes">Pendientes</span> con su tipo, la contraparte encontrada por CUIT y la confianza. Si no se pudo leer, queda en <span class="ui" data-ui="Fallidos">Fallidos</span>.</li><li>El archivo queda guardado y se ve en <a class="ref" href="plataforma.html#archivos">Plataforma › Archivos</a> como <span class="ui" data-ui="Documento escaneado">Documento escaneado</span>.</li></ul></div>
+<div class="block errors"><h4>Si aparece un error</h4><dl><dt>“El archivo supera 10 MB.”</dt><dd>Escaneá en menor resolución y volvé a subirlo.</dd><dt>“Tipo no permitido (…).”</dt><dd>Subí un PDF o una imagen.</dd><dt>“Alcanzaste el límite de escaneos con IA. Probá más tarde.”</dt><dd>Hiciste muchos escaneos seguidos: esperá un rato.</dd><dt>“Se alcanzó el límite diario de IA. Probá de nuevo mañana.”</dt><dd>Se usó todo el consumo de IA del día: volvé a escanear mañana.</dd><dt>“No tenés permiso para escanear documentos.”</dt><dd>Pedile el escaneo a alguien con acceso a Documentos y permiso para subir archivos.</dd></dl></div>
+<p class="related">Relacionado: <a class="ref" href="asistente.html#revisar-documento">Revisar lo que leyó la IA</a> · <a class="ref" href="asistente.html#adjuntar-archivo-al-asistente">Mandarle un archivo al asistente</a></p>
+</article>
+<article class="task" id="revisar-documento">
+<h3><a class="anchor" href="#revisar-documento">Revisar lo que leyó la IA</a></h3>
+
+<dl class="meta"><dt>Quién puede</dt><dd>Owner, Admin, Finanzas, Operaciones <span class="muted">(permiso <code class="perm">ai:read</code>)</span></dd></dl>
+
+<ol class="steps"><li>En <a class="ref" href="asistente.html#documentos">Inteligencia › Documentos</a> (<span class="ui" data-ui="Pendientes">Pendientes</span>), hacé clic en <span class="ui" data-ui="Revisar">Revisar</span> en la fila del documento.</li><li>Se abre el panel con los datos extraídos y, en pantallas grandes, el archivo al lado para compararlos.</li><li>Fijate los avisos de arriba: el tipo, la confianza, la contraparte encontrada, <span class="ui" data-ui="Posible duplicado">Posible duplicado</span> si ya parece cargado, y la cuenta de gasto sugerida en las compras.</li><li>Abajo está la acción para crear el registro (ver las tareas siguientes).</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>Si el cliente o proveedor no se encontró por CUIT, la revisión lo avisa: cargalo y volvé a escanear el documento.</li><li>Si tu usuario no tiene el permiso para crear ese registro, la revisión muestra el motivo en lugar del botón.</li></ul></div>
+<div class="block errors"><h4>Si aparece un error</h4><dl><dt>“No se pudo cargar la extracción.”</dt><dd>Hacé clic en Reintentar o volvé a abrir la revisión.</dd></dl></div>
+
+</article>
+<article class="task" id="cargar-compra-desde-documento">
+<h3><a class="anchor" href="#cargar-compra-desde-documento">Cargar una factura de compra (o NC/ND de compra) escaneada</a></h3>
+
+<dl class="meta"><dt>Quién puede</dt><dd>Owner, Admin, Finanzas <span class="muted">(permiso <code class="perm">ai:read</code> + <code class="perm">purchase_invoices:write</code>)</span></dd><dt>Antes</dt><dd><ul><li>Un documento detectado como <span class="ui" data-ui="Factura de compra">Factura de compra</span> o <span class="ui" data-ui="NC / ND">NC / ND</span>, ya revisado (<a class="ref" href="asistente.html#revisar-documento">Revisar lo que leyó la IA</a>).</li></ul></dd></dl>
+
+<ol class="steps"><li>En la revisión, hacé clic en <span class="ui" data-ui="Revisar y cargar factura de compra">Revisar y cargar factura de compra</span> (o <span class="ui" data-ui="Revisar y cargar NC/ND de compra">Revisar y cargar NC/ND de compra</span>).</li><li>Se abre <span class="ui" data-ui="Cargar factura de compra">Cargar factura de compra</span> con los datos leídos y el archivo al lado. Revisá y corregí lo que haga falta, como en la carga manual de una compra.</li><li>Guardá la compra.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>La compra queda cargada con el archivo adjunto y el documento pasa a <span class="ui" data-ui="Confirmados">Confirmados</span>.</li></ul></div>
+<div class="block errors"><h4>Si aparece un error</h4><dl><dt>“No tenés permiso para cargar compras.”</dt><dd>La revisión muestra este aviso en lugar del botón: pedile la carga a alguien de Finanzas, Admin u Owner.</dd></dl></div>
+
+</article>
+<article class="task" id="crear-recibo-desde-documento">
+<h3><a class="anchor" href="#crear-recibo-desde-documento">Crear un recibo o una orden de pago desde un documento</a></h3>
+
+<dl class="meta"><dt>Quién puede</dt><dd>Owner, Admin, Finanzas <span class="muted">(permiso <code class="perm">receipts:write</code> o <code class="perm">payment_orders:write</code>)</span></dd><dt>Antes</dt><dd><ul><li>Un documento detectado como <span class="ui" data-ui="Recibo">Recibo</span> (con el cliente encontrado) o como <span class="ui" data-ui="Orden de pago">Orden de pago</span> (con el proveedor encontrado).</li><li>Además del acceso a Documentos (<code>ai:read</code>), necesitás <code>receipts:write</code> para el recibo o <code>payment_orders:write</code> para la orden de pago, y poder ver las cuentas.</li></ul></dd></dl>
+<figure class="mock"><div class="m-frame m-backdrop"><div class="m-dialog"><div class="m-dialog-title" data-ui="Crear recibo">Crear recibo<span class="m-close">×</span></div><div class="m-sub">Revisá los datos extraídos y elegí la cuenta donde entró la plata. La imputación a facturas es automática (FIFO).</div><div class="m-form"><div class="m-field"><span class="m-label" data-ui="Canal">Canal</span><span class="m-input m-select">Fiscal<span class="m-chevron">⌄</span></span></div><div class="m-field"><span class="m-label" data-ui="Número">Número</span><span class="m-input">0001-00001234</span></div><div class="m-field"><span class="m-label" data-ui="Fecha de cobro">Fecha de cobro</span><span class="m-input">05/11/2026</span></div><div class="m-field"><span class="m-label" data-ui="Importe">Importe</span><span class="m-input m-money">$ 150.000,00</span></div><div class="m-field"><span class="m-label" data-ui="Moneda">Moneda</span><span class="m-input m-select">ARS<span class="m-chevron">⌄</span></span></div><div class="m-field"><span class="m-label" data-ui="Cuenta de cobro">Cuenta de cobro</span><span class="m-input m-select">Banco Galicia<span class="m-chevron">⌄</span></span><span class="mk" aria-label="Paso 2">2</span></div></div><div class="m-footer"><span class="m-btn m-btn-outline" data-ui="Cancelar">Cancelar</span><span class="m-btn m-btn-primary" data-ui="Crear recibo">Crear recibo<span class="mk" aria-label="Paso 3">3</span></span></div></div></div></figure>
+<ol class="steps"><li>En la revisión, hacé clic en <span class="ui" data-ui="Crear recibo">Crear recibo</span> (o <span class="ui" data-ui="Crear orden de pago">Crear orden de pago</span>).</li><li>Revisá <span class="ui" data-ui="Canal">Canal</span>, <span class="ui" data-ui="Número">Número</span>, la fecha, <span class="ui" data-ui="Importe">Importe</span> y <span class="ui" data-ui="Moneda">Moneda</span>, y elegí la cuenta: <span class="ui" data-ui="Cuenta de cobro">Cuenta de cobro</span> para el recibo, <span class="ui" data-ui="Cuenta de pago">Cuenta de pago</span> para la orden de pago.</li><li>Hacé clic en <span class="ui" data-ui="Crear recibo">Crear recibo</span> (o <span class="ui" data-ui="Crear orden de pago">Crear orden de pago</span>).</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>Aparece «Recibo creado.» u «Orden de pago creada.». El movimiento entra (o sale) de la cuenta elegida y se imputa solo a los comprobantes pendientes, del más viejo al más nuevo. El documento pasa a <span class="ui" data-ui="Confirmados">Confirmados</span>.</li></ul></div>
+<div class="block errors"><h4>Si aparece un error</h4><dl><dt>“No se encontró el … por CUIT. Cargá el … y volvé a escanear para crear el documento automáticamente.”</dt><dd>La revisión muestra este aviso en lugar del botón: cargá el cliente o proveedor con ese CUIT y volvé a escanear el documento.</dd><dt>“La extracción ya fue procesada.”</dt><dd>Ya se creó el registro de este documento: buscalo en Recibos u Órdenes de pago.</dd></dl></div>
+
+</article>
+<article class="task" id="crear-cheques-desde-documento">
+<h3><a class="anchor" href="#crear-cheques-desde-documento">Cargar cheques escaneados en cartera</a></h3>
+
+<dl class="meta"><dt>Quién puede</dt><dd>Owner, Admin, Finanzas <span class="muted">(permiso <code class="perm">ai:read</code> + <code class="perm">cheques:write</code>)</span></dd><dt>Antes</dt><dd><ul><li>Un documento detectado como <span class="ui" data-ui="Cheque">Cheque</span>, y poder mover caja y ver las cuentas.</li></ul></dd></dl>
+
+<ol class="steps"><li>En la revisión, hacé clic en <span class="ui" data-ui="Crear cheques en cartera">Crear cheques en cartera</span> (muestra cuántos cheques leyó).</li><li>En <span class="ui" data-ui="Cuenta de cartera">Cuenta de cartera</span>, elegí la cuenta donde quedan los cheques. Si querés, completá <span class="ui" data-ui="Endosante (opcional)">Endosante (opcional)</span>: quién te los entregó.</li><li>Revisá cada cheque (<span class="ui" data-ui="Banco">Banco</span>, <span class="ui" data-ui="Serie">Serie</span>, <span class="ui" data-ui="Número">Número</span>, <span class="ui" data-ui="Librador">Librador</span>, <span class="ui" data-ui="CUIT librador">CUIT librador</span>, <span class="ui" data-ui="Importe">Importe</span>, <span class="ui" data-ui="Emisión">Emisión</span>, <span class="ui" data-ui="Pago / vto">Pago / vto</span>, <span class="ui" data-ui="Moneda">Moneda</span>) y corregí lo que haga falta.</li><li>Hacé clic en el botón <strong>Crear N cheques</strong>.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>Aparece «… cheque(s) creados en cartera.»: los cheques quedan en cartera en la cuenta elegida, con el archivo adjunto, y el documento pasa a <span class="ui" data-ui="Confirmados">Confirmados</span>.</li></ul></div>
+<div class="block errors"><h4>Si aparece un error</h4><dl><dt>“Elegí la cuenta de cartera.”</dt><dd>Elegí una cuenta en Cuenta de cartera.</dd><dt>“… cheque(s) no se pudieron crear (revisá los datos).”</dt><dd>Los demás se crearon. Revisá los datos (por ejemplo, un número repetido con el mismo banco y serie) y cargá los que faltan desde Cheques recibidos.</dd><dt>“No tenés permiso para cargar cheques.”</dt><dd>La revisión muestra este aviso en lugar del botón: pedile la carga a alguien con permiso sobre cheques.</dd></dl></div>
+
+</article>
+<article class="task" id="emitir-factura-desde-documento">
+<h3><a class="anchor" href="#emitir-factura-desde-documento">Emitir una factura de venta a partir de un documento</a></h3>
+<p>Emite un comprobante nuevo con los datos leídos (por ejemplo, de una factura armada fuera del sistema).</p>
+<dl class="meta"><dt>Quién puede</dt><dd>Owner, Admin, Finanzas <span class="muted">(permiso <code class="perm">ai:read</code> + <code class="perm">invoices:issue</code>)</span></dd><dt>Antes</dt><dd><ul><li>Un documento detectado como <span class="ui" data-ui="Factura de venta">Factura de venta</span> con el cliente encontrado por CUIT, y un punto de venta habilitado.</li></ul></dd></dl>
+<figure class="mock"><div class="m-frame m-backdrop"><div class="m-dialog"><div class="m-dialog-title" data-ui="Emitir factura de venta">Emitir factura de venta<span class="m-close">×</span></div><div class="m-sub">Se emite un comprobante nuevo por el flujo normal (AFIP en canales fiscales) con la numeración que corresponda — el número del escaneo no se reutiliza.</div><div class="m-form"><div class="m-field"><span class="m-label" data-ui="Canal">Canal</span><span class="m-input m-select"><span class="m-chevron">⌄</span></span><span class="mk" aria-label="Paso 2">2</span></div><div class="m-field"><span class="m-label" data-ui="Punto de venta">Punto de venta</span><span class="m-input m-select">00003<span class="m-chevron">⌄</span></span><span class="mk" aria-label="Paso 2">2</span></div></div><div class="m-footer"><span class="m-btn m-btn-outline" data-ui="Cancelar">Cancelar</span><span class="m-btn m-btn-primary" data-ui="Emitir factura">Emitir factura<span class="mk" aria-label="Paso 3">3</span></span></div></div></div></figure>
+<ol class="steps"><li>En la revisión, hacé clic en <span class="ui" data-ui="Emitir factura de venta">Emitir factura de venta</span>.</li><li>Revisá cliente, fecha, total e ítems, y elegí <span class="ui" data-ui="Canal">Canal</span> y <span class="ui" data-ui="Punto de venta">Punto de venta</span>.</li><li>Hacé clic en <span class="ui" data-ui="Emitir factura">Emitir factura</span>.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>Aparece «Factura enviada a emisión.»: se emite por el flujo normal de comprobantes (con CAE de AFIP en el canal fiscal) y el documento pasa a <span class="ui" data-ui="Confirmados">Confirmados</span>.</li><li>Si el comprobante ya estaba registrado en el sistema (o no se pudo verificar), el botón queda deshabilitado para no emitirlo dos veces.</li></ul></div>
+<div class="block errors"><h4>Si aparece un error</h4><dl><dt>“El cliente no tiene CUIT cargado.”</dt><dd>Completá el CUIT en la ficha del cliente.</dd><dt>“El cliente no tiene condición de IVA válida.”</dt><dd>Completá la condición de IVA en la ficha del cliente.</dd><dt>“No tenés permiso para emitir facturas.”</dt><dd>La revisión muestra este aviso en lugar del botón: pedile la emisión a alguien con permiso para emitir comprobantes.</dd></dl></div>
+
+</article>
+<article class="task" id="ver-carga-de-remito">
+<h3><a class="anchor" href="#ver-carga-de-remito">Encontrar la carga de un remito escaneado</a></h3>
+
+<dl class="meta"><dt>Quién puede</dt><dd>Owner, Admin, Finanzas, Operaciones <span class="muted">(permiso <code class="perm">ai:read</code>)</span></dd></dl>
+
+<ol class="steps"><li>Revisá un documento detectado como <span class="ui" data-ui="Remito">Remito</span>.</li><li>Abajo, en «Carga del remito …», aparecen las cargas que tienen ese número de remito; hacé clic en una para abrirla en Cargas. Si ninguna lo tiene, usá <span class="ui" data-ui="Ir a Cargas">Ir a Cargas</span>.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>El remito no crea nada: sirve para encontrar la carga. Los extractos bancarios tampoco crean nada desde acá: se concilian en Conciliación.</li></ul></div>
+
+
+</article>
+<article class="task" id="descartar-documento">
+<h3><a class="anchor" href="#descartar-documento">Descartar un documento</a></h3>
+
+<dl class="meta"><dt>Quién puede</dt><dd>Owner, Admin, Finanzas, Operaciones <span class="muted">(permiso <code class="perm">ai:read</code>)</span></dd></dl>
+
+<ol class="steps"><li>En <a class="ref" href="asistente.html#documentos">Inteligencia › Documentos</a>, en la fila del documento, hacé clic en el tacho (<span class="ui" data-ui="Descartar">Descartar</span>).</li><li>Confirmá con <span class="ui" data-ui="Descartar">Descartar</span>.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>El documento pasa a <span class="ui" data-ui="Descartados">Descartados</span>: no se crea nada y el archivo queda subido.</li></ul></div>
+<div class="block errors"><h4>Si aparece un error</h4><dl><dt>“La extracción no existe o ya fue procesada.”</dt><dd>Ya se confirmó o descartó: mirá las otras pestañas.</dd></dl></div>
+
+</article>
+</section>
+</main>
+</div>
+</div>
+<script src="assets/search-index.js"></script>
+<script src="assets/guide.js"></script>
+</body>
+</html>
