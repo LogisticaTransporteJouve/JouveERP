@@ -345,8 +345,13 @@ export const adminPage: GuidePage = {
               fix: "AFIP está caído o lento: reintentá más tarde.",
             },
             {
-              message: "Rate limit exceeded for …. Try again in …s.",
-              fix: "Llegaste a 60 consultas en la hora: esperá los segundos que indica «Reintentar en …».",
+              message: "Llegaste al límite de … consultas al padrón por hora.",
+              fix: "Se permiten 60 consultas por hora: esperá los segundos que indica «Reintentar en …».",
+            },
+            {
+              message:
+                "No se pudo verificar el límite de consultas al padrón. Probá de nuevo.",
+              fix: "Reintentá en un momento.",
             },
             {
               message: "No tenés permiso para consultar el padrón.",
@@ -400,6 +405,13 @@ export const adminPage: GuidePage = {
             rows: [
               ["~00003", "~Jouve fiscal", "~Jouve fiscal", "~Sí", "~Activo"],
               ["~00005", "~Sin asignar", "~—", "~No", "~Activo"],
+              [
+                "~09001",
+                "~Remitos internos",
+                "~Logística Jouve — Interno",
+                "~Sí",
+                "",
+              ],
             ],
           },
         },
@@ -502,7 +514,7 @@ export const adminPage: GuidePage = {
           steps: [
             "En [[/admin/afip/puntos-de-venta]], en la fila del punto de venta, hacé clic en el ícono de engranaje ({{Configurar}}).",
             "En {{Alias}}, escribí un nombre para reconocerlo (opcional, hasta 120 caracteres).",
-            "En {{Canal}}, elegí el canal fiscal o {{Sin asignar}}. Solo se listan los canales fiscales activos.",
+            "En {{Canal}}, elegí el canal o {{Sin asignar}}. Un punto de venta de AFIP lista los canales fiscales activos; el 09001 (Remitos internos), los internos. El canal actual se ve aunque esté inactivo.",
             "Tildá {{Habilitado para emitir desde JouveERP.}} para que aparezca en el formulario de comprobantes; destildalo para sacarlo.",
             "Hacé clic en {{Guardar}}. Se habilita solo si cambiaste algo.",
           ],

@@ -14,6 +14,8 @@ import {
 
 import {
   currentPeriod,
+  isKnownSource,
+  JOURNAL_SOURCE_TABLES,
   SOURCE_LABEL,
   type JournalFilters,
   type JournalSourceTable,
@@ -25,12 +27,15 @@ type Props = {
   channels: ReadonlyArray<{ id: string; name: string }>;
 };
 
-const SOURCE_OPTIONS: Array<{ value: JournalSourceTable | "all"; label: string }> = [
+const SOURCE_OPTIONS: Array<{
+  value: JournalSourceTable | "all";
+  label: string;
+}> = [
   { value: "all", label: "Todos los orígenes" },
-  { value: "transactions", label: SOURCE_LABEL.transactions },
-  { value: "invoices", label: SOURCE_LABEL.invoices },
-  { value: "receipts", label: SOURCE_LABEL.receipts },
-  { value: "payment_orders", label: SOURCE_LABEL.payment_orders },
+  ...JOURNAL_SOURCE_TABLES.map((value) => ({
+    value,
+    label: SOURCE_LABEL[value],
+  })),
 ];
 
 const NO_CHANNEL = "__all";
@@ -43,12 +48,16 @@ export function JournalFiltersBar({ filters, onChange, channels }: Props) {
   return (
     <div className="flex flex-wrap items-end gap-3">
       <div className="space-y-1">
-        <label className="text-xs text-muted-foreground">Período (YYYY-MM)</label>
+        <label className="text-xs text-muted-foreground">
+          Período (YYYY-MM)
+        </label>
         <div className="flex items-center gap-2">
           <Input
             type="month"
             value={period}
-            onChange={(e) => onChange({ ...filters, period: e.target.value || null })}
+            onChange={(e) =>
+              onChange({ ...filters, period: e.target.value || null })
+            }
             className="w-[160px]"
           />
           <Button
@@ -81,7 +90,7 @@ export function JournalFiltersBar({ filters, onChange, channels }: Props) {
           onValueChange={(v) =>
             onChange({
               ...filters,
-              sourceTable: (v === "all" ? "all" : (v as JournalSourceTable)),
+              sourceTable: isKnownSource(v) ? v : "all",
             })
           }
         >

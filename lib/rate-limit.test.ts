@@ -47,9 +47,7 @@ describe("enforceRateLimit", () => {
 
   it("denies when count exceeds the limit", async () => {
     rpcMock.mockResolvedValue({ data: args.max + 1, error: null });
-    await expect(enforceRateLimit(args)).rejects.toBeInstanceOf(
-      RateLimitError,
-    );
+    await expect(enforceRateLimit(args)).rejects.toBeInstanceOf(RateLimitError);
   });
 
   it("returns a positive retryAfterSeconds inside the window", async () => {
@@ -63,6 +61,7 @@ describe("enforceRateLimit", () => {
     } catch (err) {
       expect(err).toBeInstanceOf(RateLimitError);
       const e = err as RateLimitError;
+      expect(e.reason).toBe("exceeded");
       // Window started at 12:00, ends at 13:00 → ~1800s remaining at 12:30.
       expect(e.retryAfterSeconds).toBeGreaterThan(0);
       expect(e.retryAfterSeconds).toBeLessThanOrEqual(args.windowMs / 1000);
@@ -71,9 +70,10 @@ describe("enforceRateLimit", () => {
 
   it("fails closed when the RPC errors", async () => {
     rpcMock.mockResolvedValue({ data: null, error: { message: "boom" } });
-    await expect(enforceRateLimit(args)).rejects.toBeInstanceOf(
-      RateLimitError,
-    );
+    await expect(enforceRateLimit(args)).rejects.toMatchObject({
+      name: "RateLimitError",
+      reason: "unavailable",
+    });
   });
 
   it("aligns window_start to the windowMs grid", async () => {

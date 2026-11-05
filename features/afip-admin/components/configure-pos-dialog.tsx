@@ -24,6 +24,7 @@ import {
 
 import type { SalesPointRow } from "../actions/afip-admin-actions";
 import { useConfigurePos, useInvoicingChannels } from "../hooks/use-afip-admin";
+import { posChannelOptions } from "../schema";
 
 const NO_CHANNEL_VALUE = "__none__";
 
@@ -47,8 +48,9 @@ export function ConfigurePosDialog({
                 Punto de venta {String(point.numero).padStart(5, "0")}
               </DialogTitle>
               <DialogDescription>
-                Asociá el POS a un canal para que aparezca en el form de
-                emisión.
+                {point.last_synced_at === null
+                  ? "Punto de venta interno: numera remitos y recibos internos y no se sincroniza con AFIP."
+                  : "Asociá el POS a un canal para que aparezca en el form de emisión."}
               </DialogDescription>
             </DialogHeader>
             <Suspense
@@ -78,8 +80,7 @@ function ConfigurePosForm({
   point: SalesPointRow;
   onClose: () => void;
 }) {
-  const channelsQuery = useInvoicingChannels();
-  const channels = channelsQuery.data;
+  const channels = posChannelOptions(point, useInvoicingChannels().data);
   const configureMut = useConfigurePos();
 
   const [channelId, setChannelId] = useState<string>(

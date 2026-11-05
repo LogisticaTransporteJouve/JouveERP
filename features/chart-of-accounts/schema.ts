@@ -113,7 +113,7 @@ export const ChartAccountCreateSchema = z.object({
 
 export const ChartAccountUpdateSchema = z.object({
   id: z.string().uuid(),
-  name: z.string().trim().min(2).max(80).optional(),
+  name: z.string().trim().min(2, "Nombre requerido.").max(80).optional(),
   account_type: z.enum(COA_ACCOUNT_TYPES).optional(),
   eerr_category: nullableTrimmed,
   system_role: z.enum(COA_SYSTEM_ROLES).nullable().optional(),

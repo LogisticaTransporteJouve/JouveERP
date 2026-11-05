@@ -8,30 +8,55 @@ export type JournalEntryRow =
 export type JournalEntryLineRow =
   Database["public"]["Tables"]["journal_entry_lines"]["Row"];
 
-export type JournalSourceTable =
-  "transactions" | "invoices" | "receipts" | "payment_orders";
+/** Mirrors the `journal_entries_source_table_domain` CHECK constraint. */
+export const JOURNAL_SOURCE_TABLES = [
+  "transactions",
+  "invoices",
+  "purchase_invoices",
+  "receipts",
+  "payment_orders",
+  "checks",
+  "issued_checks",
+] as const;
+
+export type JournalSourceTable = (typeof JOURNAL_SOURCE_TABLES)[number];
 
 export const SOURCE_LABEL: Record<JournalSourceTable, string> = {
   transactions: "Movimiento de caja",
   invoices: "Comprobante emitido",
+  purchase_invoices: "Comprobante de compra",
   receipts: "Recibo",
   payment_orders: "Orden de pago",
+  checks: "Cheque recibido",
+  issued_checks: "Cheque propio",
 };
 
-export const SOURCE_HREF_PREFIX: Record<JournalSourceTable, string> = {
+/** Only origins with a detail page link out. */
+export const SOURCE_HREF_PREFIX: Partial<Record<JournalSourceTable, string>> = {
   transactions: "/transactions",
   invoices: "/invoices",
+  purchase_invoices: "/purchases",
   receipts: "/receipts",
   payment_orders: "/payment-orders",
 };
 
 export function isKnownSource(s: string | null): s is JournalSourceTable {
-  return (
-    s === "transactions" ||
-    s === "invoices" ||
-    s === "receipts" ||
-    s === "payment_orders"
-  );
+  return JOURNAL_SOURCE_TABLES.some((t) => t === s);
+}
+
+/** UI label for an entry's origin; never the raw table name. */
+export function journalSourceLabel(s: string | null): string {
+  if (s === null) return "Manual";
+  return isKnownSource(s) ? SOURCE_LABEL[s] : "Otro origen";
+}
+
+export function journalSourceHref(
+  s: string | null,
+  id: string | null,
+): string | null {
+  if (!isKnownSource(s) || !id) return null;
+  const prefix = SOURCE_HREF_PREFIX[s];
+  return prefix ? `${prefix}/${id}` : null;
 }
 
 export type JournalEntryWithLines = JournalEntryRow & {

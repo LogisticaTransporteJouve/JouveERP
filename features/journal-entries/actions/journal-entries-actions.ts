@@ -11,6 +11,7 @@ import { createClient } from "@/lib/supabase/server";
 import { PeriodSchema } from "@/lib/validation/common";
 
 import {
+  JOURNAL_SOURCE_TABLES,
   ManualJournalEntryCreateSchema,
   type JournalEntryWithLines,
   type JournalFilters,
@@ -25,7 +26,7 @@ type ActionResult<T = void> =
 const JournalFiltersInput = z.object({
   period: PeriodSchema.nullable().optional(),
   sourceTable: z
-    .enum(["transactions", "invoices", "receipts", "payment_orders", "all"])
+    .enum([...JOURNAL_SOURCE_TABLES, "all"])
     .nullable()
     .optional(),
   channelId: z.string().nullable().optional(),

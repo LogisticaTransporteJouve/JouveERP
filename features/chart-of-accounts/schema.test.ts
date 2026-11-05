@@ -7,6 +7,7 @@ import {
   COA_SYSTEM_ROLES,
   compareCodes,
   ChartAccountCreateSchema,
+  ChartAccountUpdateSchema,
   levelFromCode,
   parentCodeFromCode,
   suggestChildCode,
@@ -131,6 +132,17 @@ describe("ChartAccountCreateSchema", () => {
       is_active: true,
     });
     expect(result.success).toBe(false);
+  });
+});
+
+describe("ChartAccountUpdateSchema", () => {
+  it("rejects a one-character name with the Spanish message", () => {
+    const result = ChartAccountUpdateSchema.safeParse({
+      id: "00000000-0000-4000-8000-000000000001",
+      name: "X",
+    });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.message).toBe("Nombre requerido.");
   });
 });
 

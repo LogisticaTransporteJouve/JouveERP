@@ -13,10 +13,15 @@ import "server-only";
 import { logger } from "@/lib/logger";
 import { getServiceClient } from "@/lib/supabase/service";
 
+/** `exceeded`: over the limit. `unavailable`: the limit could not be checked
+ *  (fail-closed). The message is for logs; callers show their own copy. */
+export type RateLimitReason = "exceeded" | "unavailable";
+
 export class RateLimitError extends Error {
   constructor(
     message: string,
     public retryAfterSeconds: number,
+    public reason: RateLimitReason,
   ) {
     super(message);
     this.name = "RateLimitError";
@@ -60,6 +65,7 @@ export async function enforceRateLimit({
     throw new RateLimitError(
       `Rate limit check failed for ${key}.`,
       Math.ceil(windowMs / 1000),
+      "unavailable",
     );
   }
 
@@ -72,6 +78,7 @@ export async function enforceRateLimit({
     throw new RateLimitError(
       `Rate limit exceeded for ${key}. Try again in ${retryAfter}s.`,
       retryAfter,
+      "exceeded",
     );
   }
 }

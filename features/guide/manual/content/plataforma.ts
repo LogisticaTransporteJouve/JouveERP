@@ -408,6 +408,7 @@ export const platformPage: GuidePage = {
       intro: [
         "Los pendientes del equipo: los que crean ustedes, los que se repiten cada mes y los que el sistema saca de los documentos por pagar, cobrar o renovar.",
         "Arriba, dos filtros: de quién ({{Mías}} / {{Todas}}) y el estado ({{Abiertas}} / {{Vencidas}} / {{Hechas}}). La lista muestra {{Tarea}} (con su tipo debajo), {{Vence}} (con un aviso si ya venció), {{Responsables}} y, en las abiertas, el botón {{Hecha}}. Al hacer clic en una fila se abre su detalle.",
+        "{{Recurrentes}} y {{Nueva tarea}} aparecen solo con permiso para crear y editar tareas.",
       ],
       screens: [
         {

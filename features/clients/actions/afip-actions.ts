@@ -47,11 +47,17 @@ export async function verifyCuitAction(
     });
   } catch (err) {
     if (err instanceof RateLimitError) {
-      return {
-        ok: false,
-        error: err.message,
-        retryAfterSeconds: err.retryAfterSeconds,
-      };
+      return err.reason === "exceeded"
+        ? {
+            ok: false,
+            error: `Llegaste al límite de ${RATE_LIMIT_MAX} consultas al padrón por hora.`,
+            retryAfterSeconds: err.retryAfterSeconds,
+          }
+        : {
+            ok: false,
+            error:
+              "No se pudo verificar el límite de consultas al padrón. Probá de nuevo.",
+          };
     }
     throw err;
   }
