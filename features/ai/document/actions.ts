@@ -328,10 +328,25 @@ export async function getPurchaseInvoiceDraftAction(
   }
 
   const supplierId = matchedId(ext.matches, "supplier_id");
-  const [supplier, expense] = await Promise.all([
-    supplierId ? loadDraftSupplier(supabase, supplierId) : null,
+  const [supplierRead, expense] = await Promise.all([
+    supplierId
+      ? loadDraftSupplier(supabase, supplierId)
+      : { ok: true as const, data: null },
     resolveExpenseSuggestion(supabase, ext.matches),
   ]);
+  // A failed read is not "no supplier" or "no suggestion": the draft would
+  // open without them and save to the compras account with no notice.
+  if (!supplierRead.ok || !expense.ok) {
+    logger.warn("ai_document.purchase_draft.read_failed", {
+      userId: ctx.userId,
+      extractionId: id.data,
+    });
+    return {
+      ok: false,
+      error: "No se pudo leer el proveedor o la cuenta sugerida. Reintentá.",
+    };
+  }
+  const supplier = supplierRead.data;
 
   const header = InvoiceExtractionSchema.safeParse(ext.payload);
   let usdRate: number | null = null;
@@ -354,8 +369,8 @@ export async function getPurchaseInvoiceDraftAction(
   const draft = buildPurchaseInvoiceDraft(ext.payload, {
     fallbackKind: ext.detected_type === "credit_debit_note" ? "nc" : "factura",
     supplier,
-    account: expense.account,
-    costCenterId: expense.costCenterId,
+    account: expense.data.account,
+    costCenterId: expense.data.costCenterId,
     usdRate,
     confidence: ext.confidence,
     duplicate: duplicateCheckOf(ext.matches),
@@ -378,23 +393,31 @@ export async function getPurchaseInvoiceDraftAction(
   };
 }
 
+type DraftRead<T> = { ok: true; data: T } | { ok: false };
+
 async function loadDraftSupplier(
   supabase: ServerSupabase,
   supplierId: string,
-): Promise<PurchaseInvoiceDraftSupplier | null> {
-  const { data } = await supabase
+): Promise<DraftRead<PurchaseInvoiceDraftSupplier | null>> {
+  const { data, error } = await supabase
     .from("suppliers")
     .select("id, legal_name, display_name, cuit, iva_condition")
     .eq("id", supplierId)
     .maybeSingle();
+  if (error) return { ok: false };
   // A scanned invoice is a fiscal document: only a fiscal supplier fits.
-  if (!data?.cuit || !isIvaCondition(data.iva_condition)) return null;
+  if (!data?.cuit || !isIvaCondition(data.iva_condition)) {
+    return { ok: true, data: null };
+  }
   return {
-    id: data.id,
-    legal_name: data.legal_name,
-    display_name: data.display_name,
-    cuit: data.cuit,
-    iva_condition: data.iva_condition,
+    ok: true,
+    data: {
+      id: data.id,
+      legal_name: data.legal_name,
+      display_name: data.display_name,
+      cuit: data.cuit,
+      iva_condition: data.iva_condition,
+    },
   };
 }
 
@@ -406,13 +429,16 @@ async function loadDraftSupplier(
 async function resolveExpenseSuggestion(
   supabase: ServerSupabase,
   matches: Json,
-): Promise<{
-  account: { id: string; label: string } | null;
-  costCenterId: string | null;
-}> {
+): Promise<
+  DraftRead<{
+    account: { id: string; label: string } | null;
+    costCenterId: string | null;
+  }>
+> {
   const expense =
     isRecord(matches) && isRecord(matches.expense) ? matches.expense : null;
-  if (!expense) return { account: null, costCenterId: null };
+  if (!expense)
+    return { ok: true, data: { account: null, costCenterId: null } };
   const accCode =
     typeof expense.accountCode === "string" ? expense.accountCode : null;
   const ccCode =
@@ -434,10 +460,11 @@ async function resolveExpenseSuggestion(
           .maybeSingle()
       : null,
   ]);
+  if (acc?.error || cc?.error) return { ok: false };
   const account = acc?.data
     ? { id: acc.data.id, label: `${acc.data.code} — ${acc.data.name}` }
     : null;
-  return { account, costCenterId: cc?.data?.id ?? null };
+  return { ok: true, data: { account, costCenterId: cc?.data?.id ?? null } };
 }
 
 const CreatePurchaseInvoiceFromDraftSchema = z.object({
@@ -1167,7 +1194,7 @@ export async function createSalesInvoiceFromExtractionAction(
     };
   }
 
-  const [{ data: channel }, { data: client }] = await Promise.all([
+  const [channelRead, clientRead] = await Promise.all([
     supabase
       .from("invoicing_channels")
       .select("id, is_fiscal")
@@ -1179,6 +1206,20 @@ export async function createSalesInvoiceFromExtractionAction(
       .eq("id", clientId)
       .maybeSingle(),
   ]);
+  // A failed read is not a missing channel or a client without CUIT.
+  if (channelRead.error || clientRead.error) {
+    logger.warn("ai_document.sales_invoice.read_failed", {
+      userId: ctx.userId,
+      channelError: channelRead.error?.message,
+      clientError: clientRead.error?.message,
+    });
+    return {
+      ok: false,
+      error: "No se pudo leer el canal o el cliente. Reintentá.",
+    };
+  }
+  const channel = channelRead.data;
+  const client = clientRead.data;
   if (!channel) return { ok: false, error: "Canal no existe." };
   if (!client?.cuit) {
     return { ok: false, error: "El cliente no tiene CUIT cargado." };
