@@ -220,6 +220,30 @@ describe("ReviewActions offers only what the viewer can create", () => {
     },
   );
 
+  it("a CUIT the scan did not read as 11 digits counts as not read (audit w14-s6 F2)", () => {
+    renderReview(
+      extraction("receipt", {}, { counterparty_cuit: '30-7123 ("RI", CABA)' }),
+      { menu: "fiscal" },
+    );
+    expect(screen.getByText(/No se leyó el CUIT del cliente/)).toBeTruthy();
+    expect(screen.queryByText(/No se encontró/)).toBeNull();
+  });
+
+  it("a lookup that failed on every attempt says it could not verify, not «sin permiso» (audit w14-s5 F2)", () => {
+    renderReview(
+      extraction(
+        "receipt",
+        { lookup_failed: true, counterparty_unchecked: true },
+        { counterparty_cuit: "20-12345678-9" },
+      ),
+      { menu: "fiscal" },
+    );
+    expect(
+      screen.getByText(/No se pudo verificar el cliente: la búsqueda falló/),
+    ).toBeTruthy();
+    expect(screen.queryByText(/sin permiso/)).toBeNull();
+  });
+
   it("finance without accounts:read is told why it cannot create the receipt", () => {
     renderReview(extraction("receipt", { client_id: "c1" }), {
       menu: "fiscal",

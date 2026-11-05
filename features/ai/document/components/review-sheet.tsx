@@ -167,6 +167,8 @@ export function ReviewSheet({
   const recon = reconInfo(data?.matches);
   const reconUnchecked =
     isRecord(data?.matches) && data.matches.reconciliation_unchecked === true;
+  const lookupFailed =
+    isRecord(data?.matches) && data.matches.lookup_failed === true;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -286,8 +288,9 @@ export function ReviewSheet({
             {reconUnchecked && (
               <span className="text-muted-foreground flex items-center gap-1 text-xs">
                 <AlertTriangle className="size-3" />
-                Conciliación no calculada: el período tiene demasiados
-                movimientos
+                {lookupFailed
+                  ? "Conciliación no calculada: no se pudo leer Caja"
+                  : "Conciliación no calculada: el período tiene demasiados movimientos"}
               </span>
             )}
           </div>
