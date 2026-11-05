@@ -1129,6 +1129,7 @@ export const purchasesPage: GuidePage = {
             "En {{Tipo}}, elegí {{Nota de Crédito}} o {{Nota de Débito}}.",
             "Completá letra, punto de venta, número, fecha e importes como en una factura.",
             "En {{Factura origen}}, buscá la factura por número y elegila; en {{Motivo}}, explicá la razón (por ejemplo, «ajuste por devolución»).",
+            "Al elegir la factura de origen, la nota toma su {{Moneda}} y su cotización, y la {{Moneda}} queda bloqueada: una NC/ND va en la misma moneda que su factura. Si la nota viene de ARCA, conserva la suya.",
             "Dejá {{Cuenta de gasto}} en {{La del comprobante de origen}} y {{Centro de costo}} en {{El del comprobante de origen}} para que tome los de la factura, o elegí otros.",
             "Hacé clic en {{Cargar factura}}.",
           ],
@@ -1157,8 +1158,13 @@ export const purchasesPage: GuidePage = {
             },
             {
               message:
+                "La factura de origen está en otra moneda: una NC/ND va en la misma moneda que su factura",
+              fix: "Cargá la nota en la moneda de la factura de origen (pasa con notas traídas de ARCA, que conservan su moneda).",
+            },
+            {
+              message:
                 "La edición deja un comprobante con más pagado o acreditado que su total",
-              fix: "La nota de crédito supera lo que queda abierto de la factura: revisá el importe.",
+              fix: "La nota de crédito supera lo que queda abierto de la factura (al cargarla o al editarla): revisá el importe.",
             },
           ],
           related: ["cargar-factura-de-compra"],
@@ -1297,6 +1303,11 @@ export const purchasesPage: GuidePage = {
               message:
                 "Esta factura es origen de una NC/ND: no se le puede cambiar el canal ni el proveedor",
               fix: "Anulá primero la nota de crédito o débito.",
+            },
+            {
+              message:
+                "Esta factura es origen de una NC/ND: no se le puede cambiar la moneda",
+              fix: "Sus notas de crédito o débito están en esa moneda: anulalas antes de cambiarla, o dejá la moneda como está.",
             },
             {
               message:
