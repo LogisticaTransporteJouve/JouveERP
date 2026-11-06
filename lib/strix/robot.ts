@@ -19,6 +19,8 @@ const REPORTS = "https://api-reports-v2.prod.aws.flotas.strix.com.ar";
 const ORIGIN = "https://flotas.strix.com.ar";
 const REQUEST_TIMEOUT_MS = 30_000;
 const REPORT_TYPE = "kms_recorridos";
+/** How far back the earlier reports are listed: the page's longest «Días». */
+const REPORTS_LOOKBACK_MS = 90 * 24 * 60 * 60 * 1000;
 
 export type StrixErrorCode =
   /** Strix refused the username or the password: never retried as is. */
@@ -180,6 +182,7 @@ type Deps = {
    *  (STRIX_CLIENT_AUTH). */
   clientAuth?: string;
   sleep?: (ms: number) => Promise<void>;
+  now?: () => number;
   /** How often and how many times the report's status is asked. */
   pollEveryMs?: number;
   pollTimes?: number;
@@ -297,7 +300,10 @@ export async function signInToStrix(
 
   return {
     async vehicles() {
-      const r = await call(fetchImpl, `${REPORTS}/lista/?_from=${Date.now()}`, {
+      // `_from` is the list's lower bound (the page's «Días» filter), not a
+      // cache buster: «now» lists nothing.
+      const since = (deps.now ?? Date.now)() - REPORTS_LOOKBACK_MS;
+      const r = await call(fetchImpl, `${REPORTS}/lista/?_from=${since}`, {
         method: "GET",
         headers,
       });
