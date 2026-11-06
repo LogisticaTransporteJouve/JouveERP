@@ -1,5 +1,7 @@
 "use server";
 
+import { z } from "zod";
+
 import { logAudit } from "@/lib/actions/audit";
 import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
@@ -104,6 +106,8 @@ export async function listExpiringDocumentsAction(): Promise<
 // ---------------------------------------------------------------------------
 
 const NO_FILE_PERMISSION = "Sin permiso para adjuntar archivos.";
+/** No row matched: deleted meanwhile, or hidden by RLS. */
+const DOC_NOT_FOUND = "No se encontró el documento. Actualizá la página.";
 
 export async function createEmployeeDocumentAction(
   input: unknown,
@@ -147,16 +151,18 @@ export async function createEmployeeDocumentAction(
     .single();
 
   if (error || !data) {
+    const guardError = mapDbGuardError(error, {
+      slug: "employee_documents.create.rejected",
+      userId: ctx.userId,
+    });
+    if (guardError) return { ok: false, error: guardError };
     logger.error("employee_documents.create.failed", {
       userId: ctx.userId,
       employeeId: parsed.data.employee_id,
       kind: parsed.data.kind,
       error,
     });
-    return {
-      ok: false,
-      error: error?.message ?? "No se pudo crear el documento.",
-    };
+    return { ok: false, error: "No se pudo crear el documento." };
   }
   await logAudit(
     "employee_document.created",
@@ -228,10 +234,11 @@ export async function updateEmployeeDocumentAction(
     const fileError = await linkableFileError(supabase, nextFileId);
     if (fileError) return { ok: false, error: fileError };
   }
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from("employee_documents")
     .update(patch)
-    .eq("id", id);
+    .eq("id", id)
+    .select("id");
 
   if (error) {
     const guardError = mapDbGuardError(error, {
@@ -247,6 +254,7 @@ export async function updateEmployeeDocumentAction(
     });
     return { ok: false, error: "No se pudo actualizar el documento." };
   }
+  if ((updated ?? []).length === 0) return { ok: false, error: DOC_NOT_FOUND };
   await logAudit("employee_document.updated", ctx.userId, patch, id);
   await removeReplacedFile({
     userId: ctx.userId,
@@ -259,12 +267,15 @@ export async function updateEmployeeDocumentAction(
 }
 
 export async function deleteEmployeeDocumentAction(
-  id: string,
+  input: unknown,
 ): Promise<ActionResult> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "hr:write")) {
     return { ok: false, error: "Sin permiso para borrar documentos." };
   }
+  const parsedId = z.string().uuid().safeParse(input);
+  if (!parsedId.success) return { ok: false, error: "Documento inválido." };
+  const id = parsedId.data;
 
   const supabase = await createClient();
   const { data: deleted, error } = await supabase
@@ -281,6 +292,7 @@ export async function deleteEmployeeDocumentAction(
     });
     return { ok: false, error: "No se pudo borrar el documento." };
   }
+  if ((deleted ?? []).length === 0) return { ok: false, error: DOC_NOT_FOUND };
   await logAudit("employee_document.deleted", ctx.userId, {}, id);
   await removeReplacedFile({
     userId: ctx.userId,
