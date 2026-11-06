@@ -23,7 +23,6 @@ export const conceptsPage: GuidePage = {
           body: [
             "En el pie de la barra lateral, {{Guía de uso}} abre esta guía en otra pestaña.",
             "En el encabezado de cada pantalla, el botón **?** ({{Ayuda de esta pantalla}}) abre directamente la sección de la pantalla donde estás.",
-            "En la barra lateral, el bloque {{Guía}} resume la pantalla actual en dos o tres líneas y enlaza a su sección.",
           ],
         },
         {

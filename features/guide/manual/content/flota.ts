@@ -21,6 +21,7 @@ export const fleetPage: GuidePage = {
       intro: [
         "La lista de choferes de la flota: los propios (empleados) y los contratados. Muestra {{Nombre}}, {{Tipo}} ({{Empleado}} o {{Contratado}}), {{CUIT}}, {{Licencia}} con su categoría, {{Teléfono}} y el interruptor {{Activo}}. Los activos aparecen primero.",
         "Los viajes, las rendiciones y la documentación vencible se asignan a un chofer de esta lista. La documentación (licencia, ART, libreta sanitaria) no se carga acá sino en [[/fleet-documents]].",
+        "Un clic en el nombre del chofer (acá, en [[/trips]] o en la página de un vehículo) abre su página: sus viajes día por día con el vehículo y sus km (ver [[#flota-km-mensual]]).",
       ],
       screens: [
         {
@@ -347,6 +348,7 @@ export const fleetPage: GuidePage = {
       intro: [
         "Los camiones, acoplados, semis y demás vehículos de la flota, con {{Patente}}, {{Alias}}, {{Tipo}}, {{Marca/Modelo}}, {{Año}} y el interruptor {{Activo}}.",
         "Cada vehículo se usa en viajes, cargas de combustible, km recorridos, mantenimientos y documentación (VTV, seguro). Su {{Tarjeta de combustible}} sirve para reconocerlo al importar el resumen de YPF en Ruta o Axion Card.",
+        "Un clic en la patente abre la página del vehículo: sus datos y los km de cada día según Strix, con el chofer que lo manejó (ver [[#flota-km-mensual]]). Los km se traen para toda la flota desde [[/vehicle-km]], no desde cada vehículo.",
       ],
       screens: [
         {
@@ -1805,6 +1807,22 @@ export const fleetPage: GuidePage = {
         },
       ],
       tasks: [
+        {
+          id: "crear-tarifario-flete",
+          title: "Crear un tarifario y cargar sus precios",
+          permission: "freight_tariffs:write",
+          steps: [
+            "En [[/fleet-tariffs]], hacé clic en {{Nuevo tarifario}}.",
+            "Escribí el {{Nombre}} (por ejemplo «General», «Muebles» o el del cliente con tarifa propia), el {{Período}} y {{Vigente desde}}, y si querés {{Notas}}. Hacé clic en {{Crear}}.",
+            "Con el tarifario y el período elegidos, hacé clic en {{Editar precios}}.",
+            "Cargá cada línea con su {{Sección}}, {{Concepto}} y un precio en pesos o un porcentaje (por ejemplo «% x remito»); la {{Nota}} es libre. {{Agregar línea}} suma una fila y el tacho ({{Quitar línea}}) la saca. Hacé clic en {{Guardar}}.",
+          ],
+          after: [
+            "Aviso «Precios guardados.». El lápiz ({{Editar tarifario}}) cambia el nombre y las notas; {{Borrar período}} y {{Borrar tarifario}} piden confirmación.",
+          ],
+          related: ["aplicar-aumento-flete"],
+          keywords: ["tarifa de flete", "lista de precios flete"],
+        },
         {
           id: "aplicar-aumento-flete",
           title: "Aplicar un aumento a los tarifarios",
