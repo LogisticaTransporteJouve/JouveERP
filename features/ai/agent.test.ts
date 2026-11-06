@@ -7,6 +7,7 @@ import {
   CFO_BASE_PROMPT,
   stripReasoningParts,
   withTailCacheBreakpoint,
+  withTurnContext,
 } from "./agent";
 import { AI_CHAT_MODEL, AI_TITLE_MODEL, buildChatModel } from "./model";
 
@@ -150,5 +151,37 @@ describe("stripReasoningParts", () => {
     const out = stripReasoningParts(messages);
     expect(out[0]).toBe(messages[0]);
     expect(out[1]?.parts.map((p) => p.type)).toEqual(["step-start", "text"]);
+  });
+});
+
+describe("withTurnContext", () => {
+  const messages: ModelMessage[] = [
+    { role: "user", content: "antes" },
+    { role: "assistant", content: "ok" },
+    { role: "user", content: [{ type: "text", text: "¿IVA de octubre?" }] },
+  ];
+
+  it("puts the context in front of the current user message only", () => {
+    const out = withTurnContext(messages, "## Knowledge");
+    expect(out?.slice(0, 2)).toEqual(messages.slice(0, 2));
+    const last = out?.at(-1);
+    if (last?.role !== "user" || typeof last.content === "string") {
+      throw new Error("expected user parts");
+    }
+    expect(last.content).toHaveLength(2);
+    expect(last.content[0]).toMatchObject({
+      type: "text",
+      text: expect.stringMatching(
+        /^<contexto-del-turno>[\s\S]*## Knowledge[\s\S]*<\/contexto-del-turno>$/,
+      ),
+    });
+    expect(last.content[1]).toEqual({ type: "text", text: "¿IVA de octubre?" });
+  });
+
+  it("leaves the messages alone without context, and is null without a user message", () => {
+    expect(withTurnContext(messages, "")).toBe(messages);
+    expect(
+      withTurnContext([{ role: "assistant", content: "x" }], "ctx"),
+    ).toBeNull();
   });
 });

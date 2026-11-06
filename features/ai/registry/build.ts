@@ -42,20 +42,25 @@ export function visibleAiActions(
   return actions.filter((a) => canRunAiAction(access, a));
 }
 
-/** The chat tools for one user, generated from the registry, plus the
+/** The chat tools for one user and one turn, generated from the registry, plus the
  *  question card every chat user may get and, when the context carries an
  *  artifact sink and the user has a read query, the chart and table tools. */
 export function buildAiTools(
   ctx: AiActionContext,
   actions: readonly AiAction[] = AI_ACTIONS,
 ): ToolSet {
+  // One tool set serves one turn, so its reads share one cache.
+  const turn: AiActionContext = {
+    ...ctx,
+    readCache: ctx.readCache ?? new Map(),
+  };
   const tools: ToolSet = { [ASK_QUESTIONS_TOOL]: askQuestionsTool };
-  const visible = visibleAiActions(ctx.access, actions);
+  const visible = visibleAiActions(turn.access, actions);
   for (const action of visible) {
-    tools[action.name] = action.toTool(ctx);
+    tools[action.name] = action.toTool(turn);
   }
-  if (ctx.artifacts && visible.some((a) => a.sideEffect === "read")) {
-    Object.assign(tools, buildArtifactTools(ctx, ctx.artifacts, actions));
+  if (turn.artifacts && visible.some((a) => a.sideEffect === "read")) {
+    Object.assign(tools, buildArtifactTools(turn, turn.artifacts, actions));
   }
   return tools;
 }

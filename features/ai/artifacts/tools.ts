@@ -2,7 +2,7 @@ import { tool, type ToolSet } from "ai";
 import { z } from "zod";
 
 import type { AiAction, AiActionContext } from "../registry/define";
-import { errResult, type AiToolResult } from "../registry/result";
+import { errResult, modelOutput, type AiToolResult } from "../registry/result";
 
 import { runArtifact } from "./run";
 import type { AiArtifactSink } from "./sink";
@@ -130,6 +130,7 @@ export function buildArtifactTools(
         "one chart. Write the title and the x and series labels in Spanish for the " +
         "user. If it fails, the error lists the fields or lists you can use.",
       inputSchema: z.object({ ...sourceShape, chart: chartConfigSchema }),
+      toModelOutput: ({ output }) => modelOutput(output),
       execute: ({ action, input, chart }, { toolCallId }) =>
         render(
           ctx,
@@ -147,6 +148,7 @@ export function buildArtifactTools(
         "the dataset, when the result has several lists). Use it " +
         "when the user asks for a list or a table, or to export.",
       inputSchema: z.object({ ...sourceShape, table: tableConfigSchema }),
+      toModelOutput: ({ output }) => modelOutput(output),
       execute: ({ action, input, table }, { toolCallId }) =>
         render(
           ctx,
@@ -167,6 +169,7 @@ export function buildArtifactTools(
         "Use it when the user asks who is off in a month, or for a calendar of " +
         "vacations or leaves.",
       inputSchema: z.object({ ...sourceShape, calendar: calendarConfigSchema }),
+      toModelOutput: ({ output }) => modelOutput(output),
       execute: ({ action, input, calendar }, { toolCallId }) =>
         render(
           ctx,

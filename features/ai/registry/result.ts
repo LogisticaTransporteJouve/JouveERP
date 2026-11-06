@@ -1,3 +1,5 @@
+import type { JSONValue } from "ai";
+
 import {
   AGING_BUCKETS,
   type AgingReport,
@@ -188,4 +190,112 @@ export function totalsByCurrency(entries: readonly CurrencyEntry[]): string {
     parts.push(`${code} ${Math.round(n).toLocaleString("es-AR")}`);
   }
   return parts.join(" + ");
+}
+
+/** Rows of each list the model reads back from a read result; the full rows
+ *  stay in the tool output, which the UI and the artifact tools use. */
+export const MODEL_VIEW_ROWS = 25;
+
+/** Characters of a tool result the model reads back (≈ 3K tokens). Lists are
+ *  cut further, down to no rows, until the view fits. */
+export const MODEL_VIEW_MAX_CHARS = 10_000;
+
+const ROW_STEPS = [MODEL_VIEW_ROWS, 10, 5, 0] as const;
+
+/** A list the model view cut: where it is, how many rows it had and its
+ *  columns (so the model can still name them in a chart or table). */
+export type CutList = {
+  path: string;
+  rows: number;
+  shown: number;
+  columns?: string[];
+};
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function cutLists(
+  value: unknown,
+  limit: number,
+  path: string,
+  cut: CutList[],
+): unknown {
+  if (Array.isArray(value)) {
+    const kept = value.slice(0, limit);
+    if (value.length > limit) {
+      const first: unknown = value[0];
+      cut.push({
+        path: path || "(root)",
+        rows: value.length,
+        shown: kept.length,
+        ...(isPlainObject(first) ? { columns: Object.keys(first) } : {}),
+      });
+    }
+    return kept.map((v, i) => cutLists(v, limit, `${path}[${i}]`, cut));
+  }
+  if (isPlainObject(value)) {
+    return Object.fromEntries(
+      Object.entries(value).map(([k, v]) => [
+        k,
+        cutLists(v, limit, path ? `${path}.${k}` : k, cut),
+      ]),
+    );
+  }
+  return value;
+}
+
+/** «…[recortado: N caracteres]»: a long text cut for the model. */
+export function clipText(text: string, max: number): string {
+  return text.length <= max
+    ? text
+    : `${text.slice(0, max)}…[recortado: ${text.length - max} caracteres]`;
+}
+
+export const LISTS_CUT_NOTE =
+  "You only see the first rows of the lists in listsCut, never the rest. The user's tables and charts get every row: to show a list call renderTable / renderChart with the same query and input (the server runs it; never copy rows). For figures use the totals the result carries; to find one record narrow the query (filters, a search). Never sum or count the rows you see as if they were the whole list.";
+
+/**
+ * What the model reads of a tool result: everything but long lists as is,
+ * and each list longer than the row step cut to its first rows, stepping
+ * down until the view fits MODEL_VIEW_MAX_CHARS. When a list was cut,
+ * `aggregates` (the action's own, over the full data) ride along. Errors and
+ * results without `data` pass through. Only the model's copy is shaped: the
+ * tool output (UI, artifacts, the persisted message) keeps every row.
+ */
+export function modelView(
+  result: unknown,
+  aggregates?: (data: unknown) => Record<string, unknown> | null,
+): unknown {
+  if (!isPlainObject(result) || result.ok !== true || !("data" in result)) {
+    return result;
+  }
+  const extra = aggregates?.(result.data) ?? null;
+  let view: Record<string, unknown> = result;
+  for (const limit of ROW_STEPS) {
+    const cut: CutList[] = [];
+    const data = cutLists(result.data, limit, "", cut);
+    view =
+      cut.length === 0
+        ? result
+        : {
+            ...result,
+            data,
+            listsCut: cut,
+            listsCutNote: LISTS_CUT_NOTE,
+            ...(extra ? { aggregates: extra } : {}),
+          };
+    if (JSON.stringify(view).length <= MODEL_VIEW_MAX_CHARS) break;
+  }
+  return view;
+}
+
+/** A tool's `toModelOutput`: the model view as the JSON the SDK sends. Used
+ *  for the step that ran the tool and for every replay of it. */
+export function modelOutput(
+  result: unknown,
+  aggregates?: (data: unknown) => Record<string, unknown> | null,
+): { type: "json"; value: JSONValue } {
+  const text = JSON.stringify(modelView(result, aggregates));
+  return { type: "json", value: text === undefined ? null : JSON.parse(text) };
 }

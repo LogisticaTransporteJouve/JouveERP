@@ -13,7 +13,12 @@ import type {
   ProposalSummaryRow,
 } from "../lib/proposal-specs";
 
-import { errResult, type AiRunResult, type AiToolResult } from "./result";
+import {
+  errResult,
+  modelOutput,
+  type AiRunResult,
+  type AiToolResult,
+} from "./result";
 
 export const AI_DOMAINS = [
   "ventas",
@@ -66,6 +71,10 @@ export type AiActionContext = {
   proposals?: AiProposalStore;
   /** Present in a chat session; the artifact tools are offered only with it. */
   artifacts?: AiArtifactSink;
+  /** One turn's successful reads by action and input: an identical read in
+   *  the same turn (the model repeating itself, or a table built from the
+   *  query it just ran) gets the same result without running again. */
+  readCache?: Map<string, Promise<AiToolResult>>;
 };
 
 /** The tool call an execution answers (from the AI SDK). */
@@ -88,6 +97,10 @@ export type AiActionDefinition<S extends z.ZodType> = {
   /** Tables, views or RPCs the figures come from (result `meta.sources`). */
   sources: readonly string[];
   run: (ctx: AiActionContext, input: z.output<S>) => Promise<AiRunResult>;
+  /** Aggregates the model reads when its copy of the result had a list cut
+   *  (modelView), computed from the full `data`: e.g. the top counterparties
+   *  of a book whose rows it no longer sees. Read actions only. */
+  modelAggregates?: (data: unknown) => Record<string, unknown> | null;
 };
 
 /** A registered action with its input type erased, so heterogeneous actions
@@ -188,6 +201,22 @@ export function defineAiAction<S extends z.ZodType>(
     ctx: AiActionContext,
     input: unknown,
   ): Promise<AiToolResult> {
+    const cache = def.sideEffect === "read" ? ctx.readCache : undefined;
+    if (!cache) return executeOnce(ctx, input);
+    const key = `${def.name}:${stableJson(input)}`;
+    const hit = cache.get(key);
+    if (hit) return hit;
+    const pending = executeOnce(ctx, input);
+    cache.set(key, pending);
+    const res = await pending;
+    if (!res.ok) cache.delete(key);
+    return res;
+  }
+
+  async function executeOnce(
+    ctx: AiActionContext,
+    input: unknown,
+  ): Promise<AiToolResult> {
     if (!canRunAiAction(ctx.access, gate)) {
       return errResult("No tenés permiso para esta consulta.");
     }
@@ -245,6 +274,23 @@ export function defineAiAction<S extends z.ZodType>(
         description: def.description,
         inputSchema: def.input,
         execute: (input) => execute(ctx, input),
+        ...(def.sideEffect === "read"
+          ? {
+              toModelOutput: ({ output }: { output: unknown }) =>
+                modelOutput(output, def.modelAggregates),
+            }
+          : {}),
       }),
   };
+}
+
+/** JSON with object keys sorted, so equal inputs give equal cache keys. */
+export function stableJson(value: unknown): string {
+  return JSON.stringify(value ?? null, (_key, v: unknown) =>
+    typeof v === "object" && v !== null && !Array.isArray(v)
+      ? Object.fromEntries(
+          Object.entries(v).sort(([a], [b]) => a.localeCompare(b)),
+        )
+      : v,
+  );
 }
