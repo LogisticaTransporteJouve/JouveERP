@@ -14,17 +14,21 @@ export function InsightsPanel({
   canManage,
   canRecalculate = canManage,
   onAsk,
+  collapsible = true,
 }: {
   canManage: boolean;
   /** Recalculating lives in the AI assistant; the dashboard only shows cards. */
   canRecalculate?: boolean;
   onAsk: (question: string) => void;
+  /** False where a dialog already titles the panel and is closed instead. */
+  collapsible?: boolean;
 }) {
   const { data, isLoading, isError, error } = useInsights();
   const insights = data?.items ?? [];
   const total = data?.total ?? 0;
   const runAnalyst = useRunAnalyst();
-  const [open, setOpen] = useState(true);
+  const [expanded, setExpanded] = useState(true);
+  const open = expanded || !collapsible;
 
   function handleRun() {
     runAnalyst.mutate(undefined, {
@@ -40,17 +44,22 @@ export function InsightsPanel({
   return (
     <section className="space-y-2">
       <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          className="text-muted-foreground flex items-center gap-1 text-sm font-medium hover:text-foreground"
-        >
-          <Sparkles className="size-4" />
-          Insights{total > 0 ? ` (${total})` : ""}
-          <ChevronDown
-            className={cn("size-4 transition-transform", !open && "-rotate-90")}
-          />
-        </button>
+        {collapsible && (
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            className="text-muted-foreground flex items-center gap-1 text-sm font-medium hover:text-foreground"
+          >
+            <Sparkles className="size-4" />
+            Insights{total > 0 ? ` (${total})` : ""}
+            <ChevronDown
+              className={cn(
+                "size-4 transition-transform",
+                !open && "-rotate-90",
+              )}
+            />
+          </button>
+        )}
         {canRecalculate && (
           <Button
             variant="ghost"
