@@ -108,6 +108,35 @@ describe("parseReceivedResults", () => {
     });
   });
 
+  it("reads a voucher whose parts exceed its total by ARCA's rounding cent", () => {
+    // tipo 1 05005-02251695 (22/06/2015): the parts add up to 3794,17.
+    const out = parseReceivedResults({
+      estado: "ok",
+      datos: {
+        data: [
+          row({
+            ...base,
+            1: "1",
+            4: "132",
+            5: "132",
+            40: "2832.19",
+            42: "282.25",
+            44: "0",
+            46: "84.97",
+            48: "594.76",
+            50: "3794.16",
+          }),
+        ],
+      },
+    });
+    if (typeof out === "string") throw new Error(out);
+    expect(out.skippedByReason).toEqual({});
+    expect(out.vouchers[0]).toMatchObject({
+      imp_neto_gravado: 2832.19,
+      imp_total: 3794.16,
+    });
+  });
+
   it("names the amounts of a row whose parts exceed its total", () => {
     const out = parseReceivedResults({
       estado: "ok",
