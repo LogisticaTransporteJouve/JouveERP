@@ -25,6 +25,9 @@ export type StrixErrorCode =
   | "SIGN_IN_REJECTED"
   /** The sign-in answered in an unknown shape. */
   | "SIGN_IN_FAILED"
+  /** Strix does not know JouveERP's app (STRIX_CLIENT_AUTH missing or
+   *  stale): not the account's fault, so it never pauses the account. */
+  | "CLIENT_REJECTED"
   /** No earlier «Kmts recorridos» report names any vehicle. */
   | "NO_VEHICLES"
   /** The report could not be requested, failed or answered oddly. */
@@ -173,6 +176,9 @@ export type StrixRobot = {
 
 type Deps = {
   fetch?: FetchLike;
+  /** Strix's web app client, as the «Basic» credentials its own login sends
+   *  (STRIX_CLIENT_AUTH). */
+  clientAuth?: string;
   sleep?: (ms: number) => Promise<void>;
   /** How often and how many times the report's status is asked. */
   pollEveryMs?: number;
@@ -218,10 +224,20 @@ export async function signInToStrix(
   const pollEveryMs = deps.pollEveryMs ?? 3_000;
   const pollTimes = deps.pollTimes ?? 30;
 
+  // Strix's token endpoint authenticates the app as well as the user: the
+  // same client its web login sends.
+  const clientAuth = deps.clientAuth ?? process.env.STRIX_CLIENT_AUTH;
+  if (!clientAuth) {
+    throw new StrixError(
+      "CLIENT_REJECTED",
+      "Falta STRIX_CLIENT_AUTH para entrar a Strix.",
+    );
+  }
   const res = await call(fetchImpl, TOKEN_URL, {
     method: "POST",
     headers: {
       accept: "*/*",
+      authorization: `Basic ${clientAuth}`,
       "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
       origin: ORIGIN,
     },
@@ -232,13 +248,20 @@ export async function signInToStrix(
       client_device_id: crypto.randomUUID(),
     }).toString(),
   });
+  const body = await readJson(res);
   if (res.status === 400 || res.status === 401 || res.status === 403) {
+    // OAuth names which credential failed: the app's or the user's.
+    if (isRecord(body) && body.code === "invalid_client") {
+      throw new StrixError(
+        "CLIENT_REJECTED",
+        "Strix no reconoce la app de JouveERP.",
+      );
+    }
     throw new StrixError(
       "SIGN_IN_REJECTED",
       "Strix rechazó el usuario o la clave.",
     );
   }
-  const body = await readJson(res);
   const token =
     res.ok && isRecord(body) && typeof body.access_token === "string"
       ? body.access_token
