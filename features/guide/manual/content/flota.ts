@@ -1775,6 +1775,53 @@ export const fleetPage: GuidePage = {
       ],
     },
 
+    // ── Tarifas ──────────────────────────────────────────────────────────
+    {
+      id: "flota-tarifas",
+      title: "Tarifas de flete",
+      menuPath: "Flota › Tarifas",
+      routes: ["/fleet-tariffs"],
+      permission: "freight_tariffs:read",
+      intro: [
+        "Los precios de flete tal como se cotizan (general, consumidor final, muebles y los clientes con tarifa propia), por período, para seguir cada aumento. Son de referencia: ninguna carga ni liquidación toma estos precios.",
+        "Cada tarifario tiene sus períodos («Noviembre/Diciembre 26»). Al elegir uno se ven sus líneas por sección, con el precio del período anterior y la variación. El {{Historial}} lista los períodos con el aumento de cada uno.",
+        "Cargar precios y aplicar aumentos lo hacen el dueño, admin y finanzas; operaciones los consulta.",
+      ],
+      screens: [
+        {
+          kind: "page",
+          title: "Tarifas de flete",
+          actions: [
+            { label: "Aplicar aumento", variant: "outline" },
+            { label: "Nuevo tarifario", variant: "primary" },
+          ],
+          table: {
+            columns: ["Concepto", "Precio", "Anterior", "Variación", "Nota"],
+            rows: [
+              ["~1", "~$35.330", "~$32.118", "~+10%", ""],
+              ["~Bultos", "—", "—", "—", "~Tarifa + $ 62.600"],
+            ],
+          },
+        },
+      ],
+      tasks: [
+        {
+          id: "aplicar-aumento-flete",
+          title: "Aplicar un aumento a los tarifarios",
+          permission: "freight_tariffs:write",
+          steps: [
+            "En {{Tarifas de flete}}, hacé clic en {{Aplicar aumento}}.",
+            "Poné el {{Aumento %}}, el {{Período nuevo}} y desde cuándo vale, y elegí el {{Redondeo}} (a $1, $10 o $100).",
+            "Marcá los tarifarios que aumentan (vienen todos marcados) y hacé clic en {{Aplicar}}.",
+          ],
+          after: [
+            "Cada tarifario elegido tiene un período nuevo con sus precios aumentados; los porcentajes y las notas no cambian, y el período anterior queda para comparar.",
+          ],
+          keywords: ["aumento de tarifas", "actualizar precios de flete"],
+        },
+      ],
+    },
+
     // ── Rendiciones ──────────────────────────────────────────────────────
     {
       id: "flota-rendiciones",

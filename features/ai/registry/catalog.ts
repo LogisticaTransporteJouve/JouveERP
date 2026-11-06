@@ -11,6 +11,7 @@ import {
 import {
   getClientAccount,
   getClientTariffs,
+  getFreightTariffs,
   getSupplierAccount,
 } from "./actions/account-statements";
 import { getBackups, getImportRuns, getUsers } from "./actions/admin";
@@ -357,6 +358,7 @@ export const AI_ACTIONS: readonly AiAction[] = [
   proposeStorageInvoice,
   getClientTariffs,
   proposeClientTariff,
+  getFreightTariffs,
   // AFIP
   getAfipStatus,
   // General

@@ -30,6 +30,7 @@ export const PERMISSION_GROUPS: Record<Resource, string> = {
   vehicles: "Vehículos",
   trips: "Viajes",
   shipments: "Envíos",
+  freight_tariffs: "Tarifas de flete",
   fuel: "Combustible",
   maintenance: "Mantenimiento",
   fleet_documents: "Documentos de flota",

@@ -94,6 +94,10 @@ export const PERMISSIONS = [
   "trips:write",
   "shipments:read",
   "shipments:write",
+  // Flota › Tarifas: the flete tariffs kept as a reference for the increases
+  // (no carga reads them). Write = load prices and apply an increase.
+  "freight_tariffs:read",
+  "freight_tariffs:write",
   "fuel:read",
   "fuel:write",
   "maintenance:read",
@@ -221,6 +225,8 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "ai:read",
     "storage_billing:read",
     "storage_billing:issue",
+    "freight_tariffs:read",
+    "freight_tariffs:write",
     "tasks:read",
     "tasks:write",
     "taxes:read",
@@ -240,6 +246,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "trips:write",
     "shipments:read",
     "shipments:write",
+    "freight_tariffs:read",
     "fuel:read",
     "fuel:write",
     "maintenance:read",

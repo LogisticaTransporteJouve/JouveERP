@@ -103,6 +103,12 @@ const PARITY: Row[] = [
     gate: all("storage_billing:read"),
   },
   {
+    tool: "getFreightTariffs",
+    file: "features/freight-tariffs/actions/freight-tariffs-actions.ts",
+    fn: "listFreightTariffsAction",
+    gate: all("freight_tariffs:read"),
+  },
+  {
     tool: "getInvoiceDetail",
     file: "features/invoices/actions/invoices-actions.ts",
     fn: "getInvoiceDetailAction",
