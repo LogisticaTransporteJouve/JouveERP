@@ -155,6 +155,9 @@ const FIELDS = [
 ] as const;
 type Field = (typeof FIELDS)[number];
 
+/** AFIP's 0% alícuota (id 3). */
+const ZERO_RATE = ivaRateIdForPercent(0);
+
 const TRIBUTE_FIELDS = [
   "perc_iva",
   "perc_nacionales",
@@ -459,13 +462,22 @@ function parseRow(
   ) {
     return "amount_over_total";
   }
-  if (ivaBreakdown.length > 0) {
-    const sumNeto = round2(ivaBreakdown.reduce((a, l) => a + l.neto, 0));
-    const sumIva = round2(ivaBreakdown.reduce((a, l) => a + l.iva, 0));
-    if (
-      !near(sumNeto, netoIncludesUntaxed ? netoGravado : neto) ||
-      !near(sumIva, iva)
-    )
+  // Such a voucher reports its exento and no gravado in the per-rate detail
+  // too, as a 0% line: that line is the untaxed part, not a gravado one.
+  const rateLines = netoIncludesUntaxed
+    ? ivaBreakdown.filter(
+        (l) =>
+          !(
+            l.iva_rate_id === ZERO_RATE &&
+            l.iva === 0 &&
+            near(l.neto, round2(noGravado + exentas))
+          ),
+      )
+    : ivaBreakdown;
+  if (rateLines.length > 0) {
+    const sumNeto = round2(rateLines.reduce((a, l) => a + l.neto, 0));
+    const sumIva = round2(rateLines.reduce((a, l) => a + l.iva, 0));
+    if (!near(sumNeto, netoGravado) || !near(sumIva, iva))
       return "breakdown_mismatch";
   }
   const tribParts = Object.values(tribBreakdown);
@@ -501,7 +513,7 @@ function parseRow(
     imp_trib: trib,
     imp_total: total,
     trib_breakdown: tribBreakdown,
-    iva_breakdown: ivaBreakdown,
+    iva_breakdown: rateLines,
   };
 }
 

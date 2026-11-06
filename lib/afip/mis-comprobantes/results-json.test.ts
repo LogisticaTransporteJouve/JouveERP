@@ -259,6 +259,43 @@ describe("parseReceivedResults", () => {
     ]);
   });
 
+  // PEISA ND A 00053-00000225 (2016) as «Traer de ARCA» gets it: the exento
+  // is in «Neto Gravado Total», in «Op. Exentas» and as a 0% line.
+  it("reads an exento repeated as a 0% line and in the neto as gravado + exento", () => {
+    const out = parseReceivedResults({
+      estado: "ok",
+      datos: {
+        data: [
+          row({
+            ...base,
+            1: "2",
+            4: "225",
+            5: "225",
+            18: "52122.9",
+            32: "42",
+            34: "200",
+            40: "52322.9",
+            42: "0",
+            44: "52122.9",
+            48: "42",
+            50: "52364.9",
+          }),
+        ],
+      },
+    });
+    if (typeof out === "string") throw new Error(out);
+    expect(out.vouchers).toHaveLength(1);
+    expect(out.vouchers[0]).toMatchObject({
+      kind: "nd",
+      letter: "A",
+      imp_neto_gravado: 200,
+      imp_op_exentas: 52122.9,
+      imp_iva: 42,
+      imp_total: 52364.9,
+      iva_breakdown: [{ iva_rate_id: 5, neto: 200, iva: 42 }],
+    });
+  });
+
   it("refuses an answer it does not recognise", () => {
     expect(parseReceivedResults({ estado: "error", datos: null })).toMatch(
       /formato que no se reconoce/,
