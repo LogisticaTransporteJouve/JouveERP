@@ -6,7 +6,7 @@ import {
   CHECK_CASH_DENIED_REASON,
   CHECK_CASH_PERMISSIONS,
 } from "@/features/checks/lib/check-cash";
-import { ChequeCreateSchema } from "@/features/checks/schema";
+import { ManualChequeCreateSchema } from "@/features/checks/schema";
 import { isIvaCondition } from "@/features/clients/schema";
 import { getUsdRateForDateAction } from "@/features/exchange-rates/actions/exchange-rates-actions";
 import { issueFiscalInvoiceAction } from "@/features/invoices/actions/invoices-actions";
@@ -34,6 +34,7 @@ import {
 } from "@/lib/afip/codes";
 import { logAudit } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
+import { createManualCheck } from "@/lib/commands/create-manual-check";
 import { userCan, userCanAll, type Access } from "@/lib/auth/permissions";
 import type { Json } from "@/lib/db/database.types";
 import { buildStorageKey } from "@/lib/files/storage-path";
@@ -592,6 +593,7 @@ const ChequeRowSchema = z.object({
 const CreateChecksFromExtractionSchema = z.object({
   extractionId: z.string().uuid(),
   cartera_account_id: z.string().uuid("Cuenta de cartera requerida."),
+  channel_id: z.string().min(1, "Canal requerido."),
   source_client_id: z.string().uuid().nullable().optional(),
   cheques: z.array(ChequeRowSchema).min(1).max(100),
 });
@@ -599,8 +601,8 @@ const CreateChecksFromExtractionSchema = z.object({
 /**
  * Create one or several checks (en cartera) from a cheque extraction. Each row
  * (already human-edited in the review) is mapped to the manual-check schema and
- * inserted independently, so a bad row reports its error without dropping the
- * rest. Marks the extraction confirmed when at least one check is created.
+ * written by `createManualCheck`, as «Nuevo cheque» does, so a bad row reports
+ * its error without dropping the rest. Marks the extraction confirmed when at least one check is created.
  */
 export async function createChecksFromExtractionAction(
   input: unknown,
@@ -624,8 +626,13 @@ export async function createChecksFromExtractionAction(
       error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
     };
   }
-  const { extractionId, cartera_account_id, source_client_id, cheques } =
-    parsed.data;
+  const {
+    extractionId,
+    cartera_account_id,
+    channel_id,
+    source_client_id,
+    cheques,
+  } = parsed.data;
 
   const supabase = await createSupabaseClient();
   const { data: ext, error } = await supabase
@@ -704,11 +711,12 @@ export async function createChecksFromExtractionAction(
       amount: row.importe ?? 0,
       currency: row.moneda === "USD" ? "USD" : "ARS",
       cartera_account_id,
+      channel_id,
       source_kind: "manual",
       source_client_id: source_client_id ?? null,
       notes: row.serie ? `Serie ${row.serie}` : null,
     };
-    const v = ChequeCreateSchema.safeParse(candidate);
+    const v = ManualChequeCreateSchema.safeParse(candidate);
     if (!v.success) {
       errors.push({
         index: i,
@@ -716,35 +724,14 @@ export async function createChecksFromExtractionAction(
       });
       continue;
     }
-    const { data: inserted, error: insErr } = await supabase
-      .from("checks")
-      .insert({
-        kind: v.data.kind,
-        check_number: v.data.check_number,
-        bank_name: v.data.bank_name,
-        drawer_name: v.data.drawer_name,
-        drawer_cuit: v.data.drawer_cuit ?? null,
-        issue_date: v.data.issue_date,
-        due_date: v.data.due_date,
-        amount: v.data.amount,
-        currency: v.data.currency,
-        cartera_account_id: v.data.cartera_account_id,
-        status: "en_cartera",
-        source_kind: v.data.source_kind,
-        source_client_id: v.data.source_client_id ?? null,
-        notes: v.data.notes ?? null,
-        created_by: ctx.userId,
-      })
-      .select("id")
-      .single();
-    if (insErr || !inserted) {
-      errors.push({
-        index: i,
-        error: "No se pudo guardar (¿número repetido?).",
-      });
+    // The same write as «Nuevo cheque»: check, cartera inflow and its
+    // 'received' anchor in one transaction.
+    const inserted = await createManualCheck(ctx.userId, v.data);
+    if (!inserted.ok) {
+      errors.push({ index: i, error: inserted.error });
       continue;
     }
-    createdIds.push(inserted.id);
+    createdIds.push(inserted.data.id);
   }
 
   const created = createdIds.length;

@@ -688,12 +688,12 @@ export const assistantPage: GuidePage = {
           ],
           steps: [
             "En la revisión, hacé clic en {{Crear cheques en cartera}} (muestra cuántos cheques leyó).",
-            "En {{Cuenta de cartera}}, elegí la cuenta donde quedan los cheques. Si querés, completá {{Endosante (opcional)}}: quién te los entregó.",
+            "En {{Canal}}, elegí el canal de los cheques (viene el de la vista). En {{Cuenta de cartera}}, elegí la cuenta donde quedan. Si querés, completá {{Endosante (opcional)}}: quién te los entregó.",
             "Revisá cada cheque ({{Banco}}, {{Serie}}, {{Número}}, {{Librador}}, {{CUIT librador}}, {{Importe}}, {{Emisión}}, {{Pago / vto}}, {{Moneda}}) y corregí lo que haga falta.",
             "Hacé clic en el botón **Crear N cheques**.",
           ],
           after: [
-            "Aparece «… cheque(s) creados en cartera.»: los cheques quedan en cartera en la cuenta elegida, con el archivo adjunto, y el documento pasa a {{Confirmados}}.",
+            "Aparece «… cheque(s) creados en cartera.»: los cheques quedan en cartera en la cuenta elegida, con su canal, su ingreso en la cuenta y el archivo adjunto, igual que con {{Nuevo cheque}}, y el documento pasa a {{Confirmados}}.",
           ],
           errors: [
             {
@@ -701,8 +701,12 @@ export const assistantPage: GuidePage = {
               fix: "Elegí una cuenta en Cuenta de cartera.",
             },
             {
-              message: "… cheque(s) no se pudieron crear (revisá los datos).",
-              fix: "Los demás se crearon. Revisá los datos (por ejemplo, un número repetido con el mismo banco y serie) y cargá los que faltan desde Cheques recibidos.",
+              message: "Elegí el canal.",
+              fix: "Elegí un canal en Canal.",
+            },
+            {
+              message: "… cheque(s) no se pudieron crear (cheque …: …)",
+              fix: "Los demás se crearon. El mensaje dice qué pasó con el primero que falló (por ejemplo, «Ya existe un cheque … para …» si el número ya está cargado con ese banco). Corregilo y cargá los que faltan desde Cheques recibidos.",
             },
             {
               message: "No tenés permiso para cargar cheques.",

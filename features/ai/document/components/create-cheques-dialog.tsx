@@ -3,7 +3,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { ChannelsReadError } from "@/components/channels-read-error";
 import { MoneyInput } from "@/components/money-input";
+import {
+  useDefaultChannel,
+  useScope,
+  useSideChannels,
+} from "@/components/providers/scope-provider";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -77,10 +83,14 @@ export function CreateChequesDialog({
     () => accounts.filter((a) => a.is_active && a.type === "checks"),
     [accounts],
   );
+  const { channels } = useScope();
+  const activeChannels = useSideChannels(channels.filter((c) => c.is_active));
+  const defaultChannel = useDefaultChannel();
   const createMut = useCreateChecksFromExtraction();
 
   const [rows, setRows] = useState<Row[]>([]);
   const [carteraId, setCarteraId] = useState("");
+  const [channelId, setChannelId] = useState("");
   const [endosante, setEndosante] = useState<{
     id: string;
     name: string;
@@ -90,8 +100,10 @@ export function CreateChequesDialog({
     if (open) {
       setRows(toRows(payload));
       setCarteraId("");
+      setChannelId(defaultChannel ?? "");
       setEndosante(null);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset on open only
   }, [open, payload]);
 
   // A single physical cartera → auto-select it (no picker needed).
@@ -117,10 +129,15 @@ export function CreateChequesDialog({
       toast.error("Elegí la cuenta de cartera.");
       return;
     }
+    if (!channelId) {
+      toast.error("Elegí el canal.");
+      return;
+    }
     createMut.mutate(
       {
         extractionId,
         cartera_account_id: carteraId,
+        channel_id: channelId,
         source_client_id: endosante?.id ?? null,
         cheques: rows.map((r) => ({
           banco: r.banco || null,
@@ -140,8 +157,11 @@ export function CreateChequesDialog({
             toast.success(`${data.created} cheque(s) creados en cartera.`);
           }
           if (data.errors.length > 0) {
+            const first = data.errors[0];
             toast.error(
-              `${data.errors.length} cheque(s) no se pudieron crear (revisá los datos).`,
+              first
+                ? `${data.errors.length} cheque(s) no se pudieron crear (cheque ${first.index + 1}: ${first.error})`
+                : `${data.errors.length} cheque(s) no se pudieron crear.`,
             );
           }
           if (data.created > 0) onCreated();
@@ -157,12 +177,28 @@ export function CreateChequesDialog({
         <DialogHeader>
           <DialogTitle>Crear cheques en cartera</DialogTitle>
           <DialogDescription>
-            Revisá y corregí cada cheque, elegí la cuenta de cartera y creá los{" "}
-            {rows.length}.
+            Revisá y corregí cada cheque, elegí el canal y la cuenta de cartera
+            y creá los {rows.length}.
           </DialogDescription>
         </DialogHeader>
 
         <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <Label htmlFor="chq-canal">Canal</Label>
+            <Select value={channelId} onValueChange={setChannelId}>
+              <SelectTrigger id="chq-canal">
+                <SelectValue placeholder="Canal" />
+              </SelectTrigger>
+              <SelectContent>
+                {activeChannels.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <ChannelsReadError inline />
+          </div>
           {carteraOptions.length > 1 && (
             <div className="space-y-1">
               <Label htmlFor="chq-cartera">Cuenta de cartera</Label>
@@ -298,7 +334,12 @@ export function CreateChequesDialog({
           <Button
             type="button"
             onClick={onSubmit}
-            disabled={createMut.isPending || rows.length === 0 || !carteraId}
+            disabled={
+              createMut.isPending ||
+              rows.length === 0 ||
+              !carteraId ||
+              !channelId
+            }
           >
             Crear {rows.length} cheque{rows.length === 1 ? "" : "s"}
           </Button>

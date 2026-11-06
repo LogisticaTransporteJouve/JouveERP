@@ -112,9 +112,31 @@ vi.mock("@/lib/auth/context", () => ({
     access: resolveAccess(roles.filter(isRole), denied),
   }),
 }));
+/** create_manual_check: the check and its 'received' anchor in one call. */
+const rpcCalls: { name: string; args: Row }[] = [];
+async function rpc(name: string, args: Row) {
+  rpcCalls.push({ name, args });
+  if (name !== "create_manual_check") {
+    return { data: null, error: { message: `unexpected rpc ${name}` } };
+  }
+  const id = crypto.randomUUID();
+  (db.checks ??= []).push({
+    id,
+    kind: args.p_kind,
+    check_number: args.p_check_number,
+    bank_name: args.p_bank_name,
+    channel_id: args.p_channel_id,
+    cartera_account_id: args.p_cartera_account_id,
+    source_kind: "manual",
+  });
+  (db.check_movements ??= []).push({ check_id: id, event: "received" });
+  return { data: id, error: null };
+}
+
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({
     from: query,
+    rpc,
     storage: {
       from: () => ({
         upload: async () => ({ error: null }),
@@ -222,6 +244,8 @@ beforeEach(() => {
   createPurchaseInvoiceAction.mockReset();
   logAudit.mockReset();
   inngestSend.mockReset();
+  rpcCalls.length = 0;
+  db.check_movements = [];
 });
 
 describe("create-from-extraction is claim-then-create", () => {
@@ -303,6 +327,7 @@ describe("create-from-extraction is claim-then-create", () => {
     const input = {
       extractionId: EXTRACTION_ID,
       cartera_account_id: ACCOUNT_ID,
+      channel_id: "jouve_internal",
       cheques: [
         {
           banco: "Banco Nación",
@@ -346,6 +371,7 @@ describe("create-from-extraction is claim-then-create", () => {
     const res = await createChecksFromExtractionAction({
       extractionId: EXTRACTION_ID,
       cartera_account_id: ACCOUNT_ID,
+      channel_id: "jouve_internal",
       cheques: [{ banco: "B", numero: "1", importe: 10, fecha: "2026-07-01" }],
     });
     expect(res).toEqual({
@@ -363,6 +389,7 @@ describe("create-from-extraction is claim-then-create", () => {
     const res = await createChecksFromExtractionAction({
       extractionId: EXTRACTION_ID,
       cartera_account_id: ACCOUNT_ID,
+      channel_id: "jouve_internal",
       cheques: [{ banco: "B", numero: "1", importe: 10, fecha: "2026-07-01" }],
     });
     expect(res).toEqual({
@@ -716,6 +743,7 @@ describe("getPurchaseInvoiceDraftAction", () => {
       await createChecksFromExtractionAction({
         extractionId: EXTRACTION_ID,
         cartera_account_id: ACCOUNT_ID,
+        channel_id: "jouve_internal",
         cheques: [
           { banco: "B", numero: "1", importe: 10, fecha: "2026-07-01" },
         ],
@@ -858,6 +886,7 @@ describe("attach on create", () => {
     await createChecksFromExtractionAction({
       extractionId: EXTRACTION_ID,
       cartera_account_id: ACCOUNT_ID,
+      channel_id: "jouve_internal",
       cheques: [
         { ...cheque, numero: "1" },
         { ...cheque, numero: "2" },
@@ -867,6 +896,59 @@ describe("attach on create", () => {
     expect(checkIds).toHaveLength(2);
     expect(attachments().map((a) => a.check_id)).toEqual(checkIds);
     expect(attachments().every((a) => a.kind === "foto_cheque")).toBe(true);
+  });
+
+  it("writes each scanned check as «Nuevo cheque» does: channel and 'received' anchor", async () => {
+    seed("check", {});
+    db.accounts = [{ id: ACCOUNT_ID, type: "checks" }];
+    db.checks = [];
+    const res = await createChecksFromExtractionAction({
+      extractionId: EXTRACTION_ID,
+      cartera_account_id: ACCOUNT_ID,
+      channel_id: "jouve_fiscal",
+      cheques: [
+        {
+          banco: "Banco Nación",
+          numero: "77",
+          librador: "ACME SA",
+          importe: 1000,
+          fecha: "2026-07-01",
+        },
+      ],
+    });
+    expect(res.ok && res.data.created).toBe(1);
+    expect(rpcCalls.map((c) => c.name)).toEqual(["create_manual_check"]);
+    expect(rpcCalls[0]?.args).toMatchObject({
+      p_kind: "fisico",
+      p_check_number: "77",
+      p_channel_id: "jouve_fiscal",
+    });
+    expect(db.checks).toEqual([
+      expect.objectContaining({ channel_id: "jouve_fiscal" }),
+    ]);
+    expect(db.check_movements).toEqual([
+      { check_id: db.checks?.[0]?.id, event: "received" },
+    ]);
+    expect(logAudit).toHaveBeenCalledWith(
+      "check.created",
+      "u1",
+      expect.objectContaining({ check_number: "77" }),
+      db.checks?.[0]?.id,
+    );
+  });
+
+  it("refuses scanned checks with no channel, creating nothing", async () => {
+    seed("check", {});
+    db.accounts = [{ id: ACCOUNT_ID, type: "checks" }];
+    db.checks = [];
+    const res = await createChecksFromExtractionAction({
+      extractionId: EXTRACTION_ID,
+      cartera_account_id: ACCOUNT_ID,
+      cheques: [{ banco: "B", numero: "1", importe: 10, fecha: "2026-07-01" }],
+    });
+    expect(res.ok).toBe(false);
+    expect(rpcCalls).toEqual([]);
+    expect(extraction()?.status).toBe("pending_review");
   });
 });
 
@@ -880,6 +962,7 @@ describe("createChecksFromExtractionAction · cash gate", () => {
     const res = await createChecksFromExtractionAction({
       extractionId: EXTRACTION_ID,
       cartera_account_id: ACCOUNT_ID,
+      channel_id: "jouve_internal",
       cheques: [
         {
           numero: "1",
@@ -1043,6 +1126,7 @@ describe("a draft the pipeline re-saved, or a claim left stale", () => {
   const chequeInput = {
     extractionId: EXTRACTION_ID,
     cartera_account_id: ACCOUNT_ID,
+    channel_id: "jouve_internal",
     cheques: [
       {
         banco: "B",
