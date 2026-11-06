@@ -398,6 +398,28 @@ function rowRef(
   return parts.join(" · ").slice(0, 120) || "fila sin datos";
 }
 
+/** The amounts of a row whose parts exceed its total, as ARCA lists them,
+ *  for a person to see which one is off. */
+function amountsRef(
+  row: readonly string[],
+  cols: Partial<Record<Field, number>>,
+): string {
+  const cell = (f: Field) =>
+    cols[f] === undefined ? "" : (row[cols[f]!] ?? "").trim();
+  const parts: [Field, string][] = [
+    ["neto_gravado", "neto"],
+    ["no_gravado", "no grav."],
+    ["exentas", "exento"],
+    ["iva", "IVA"],
+    ["otros_tributos", "otros trib."],
+    ["total", "total"],
+  ];
+  return parts
+    .filter(([f]) => cell(f) !== "")
+    .map(([f, label]) => `${label} ${cell(f).slice(0, 20)}`)
+    .join(", ");
+}
+
 /** Reads a parsed table: header row by alias, or the old 30-column TSV by
  *  position. A row that does not read cleanly is counted, never read as 0. */
 export function parseReceivedTable(
@@ -433,7 +455,14 @@ export function parseReceivedTable(
     if (typeof result === "string") {
       skippedByReason[result] = (skippedByReason[result] ?? 0) + 1;
       if (skipped.length < SKIPPED_ROWS_NAMED) {
-        skipped.push({ reason: result, ref: rowRef(row, cols) });
+        const amounts =
+          result === "amount_over_total" ? amountsRef(row, cols) : "";
+        skipped.push({
+          reason: result,
+          ref: amounts
+            ? `${rowRef(row, cols)} · ${amounts}`.slice(0, 300)
+            : rowRef(row, cols),
+        });
       }
     } else {
       vouchers.push(result);

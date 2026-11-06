@@ -42,6 +42,20 @@ const COLUMNS: readonly (readonly [index: number, header: string])[] = [
 ];
 
 const ROW_CELLS = 52;
+/** From «Tipo Cambio» on, every column is a number. */
+const FIRST_NUMBER_CELL = 16;
+
+/** A cell as the reader takes it. ARCA writes numbers with a dot for the
+ *  decimals and no grouping ("12.345" is twelve and a bit); the reader also
+ *  takes the es-AR grouped form, where "12.345" is twelve thousand. A plain
+ *  decimal is handed over with a comma, so it reads one way only. */
+function cellText(value: string | number | null, index: number): string {
+  if (value === null) return "";
+  const text = String(value).trim();
+  return index >= FIRST_NUMBER_CELL && /^-?\d+(\.\d+)?$/.test(text)
+    ? text.replace(".", ",")
+    : text;
+}
 const MAX_ROWS = 5000;
 
 const ResultsSchema = z.object({
@@ -70,9 +84,7 @@ export function parseReceivedResults(
       ...data
         .slice(0, MAX_ROWS)
         .map((row) =>
-          COLUMNS.map(([index]) =>
-            row[index] === null ? "" : String(row[index]),
-          ),
+          COLUMNS.map(([index]) => cellText(row[index] ?? null, index)),
         ),
     ],
   };
