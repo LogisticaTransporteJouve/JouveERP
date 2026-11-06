@@ -85,29 +85,37 @@ interface ClientInfo {
   is_fiscal: boolean;
 }
 
+/** The loaders below return "error" on a DB failure (logged here), so the
+ *  action answers `{ ok: false }` instead of throwing. */
 async function loadChannel(
   supabase: ReturnType<typeof getServiceClient>,
   channelId: string,
-): Promise<ChannelInfo | null> {
+): Promise<ChannelInfo | null | "error"> {
   const { data, error } = await supabase
     .from("invoicing_channels")
     .select("id, is_fiscal, is_active")
     .eq("id", channelId)
     .maybeSingle();
-  if (error) throw new Error(`load-channel: ${error.message}`);
+  if (error) {
+    logger.error("issue_invoice.load_channel_failed", { channelId, error });
+    return "error";
+  }
   return data;
 }
 
 async function loadClient(
   supabase: ReturnType<typeof getServiceClient>,
   clientId: string,
-): Promise<ClientInfo | null> {
+): Promise<ClientInfo | null | "error"> {
   const { data, error } = await supabase
     .from("clients")
     .select("id, is_active, iva_condition, is_fiscal")
     .eq("id", clientId)
     .maybeSingle();
-  if (error) throw new Error(`load-client: ${error.message}`);
+  if (error) {
+    logger.error("issue_invoice.load_client_failed", { clientId, error });
+    return "error";
+  }
   if (!data) return null;
   return {
     id: data.id,
@@ -123,13 +131,16 @@ async function loadEnabledPos(
   supabase: ReturnType<typeof getServiceClient>,
   numero: number,
   channelId: string,
-): Promise<{ numero: number; channel_id: string | null } | null> {
+): Promise<{ numero: number; channel_id: string | null } | null | "error"> {
   const { data, error } = await supabase
     .from("sales_points")
     .select("numero, channel_id, is_enabled")
     .eq("numero", numero)
     .maybeSingle();
-  if (error) throw new Error(`load-pos: ${error.message}`);
+  if (error) {
+    logger.error("issue_invoice.load_pos_failed", { numero, error });
+    return "error";
+  }
   if (!data) return null;
   if (!data.is_enabled) return null;
   if (data.channel_id !== channelId) return null;
@@ -238,6 +249,9 @@ export async function issueFiscalInvoiceAction(
     loadChannel(supabase, data.channel_id),
     loadClient(supabase, data.client_id),
   ]);
+  if (channel === "error" || client === "error") {
+    return { ok: false, error: "No se pudo crear el comprobante." };
+  }
   if (!channel) return { ok: false, error: "Canal no existe." };
   if (!channel.is_active)
     return { ok: false, error: "El canal está inactivo." };
@@ -255,6 +269,9 @@ export async function issueFiscalInvoiceAction(
   }
 
   const pos = await loadEnabledPos(supabase, data.punto_venta, data.channel_id);
+  if (pos === "error") {
+    return { ok: false, error: "No se pudo crear el comprobante." };
+  }
   if (!pos) {
     return {
       ok: false,
@@ -544,13 +561,25 @@ export async function issueFiscalInvoiceAction(
 
   const itemsRes = await supabase.from("invoice_items").insert(itemRows);
   if (itemsRes.error) {
-    // Roll back the draft so a retry doesn't see a half-written row.
-    await supabase.from("invoices").delete().eq("id", invoice_id);
+    // Roll back the draft so a retry doesn't see a half-written row. The draft
+    // was never enqueued, so no run can emit it; a failed delete leaves an
+    // item-less draft, logged here for cleanup.
+    const rollback = await supabase
+      .from("invoices")
+      .delete()
+      .eq("id", invoice_id);
     logger.warn("issue_invoice.insert_items_failed", {
       userId: ctx.userId,
       invoice_id,
       err: itemsRes.error.message,
     });
+    if (rollback.error) {
+      logger.error("issue_invoice.rollback_draft_failed", {
+        userId: ctx.userId,
+        invoice_id,
+        error: rollback.error,
+      });
+    }
     return {
       ok: false,
       error: "No se pudieron guardar los ítems del comprobante.",
