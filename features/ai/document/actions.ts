@@ -38,6 +38,7 @@ import { createManualCheck } from "@/lib/commands/create-manual-check";
 import { userCan, userCanAll, type Access } from "@/lib/auth/permissions";
 import type { Json } from "@/lib/db/database.types";
 import { buildStorageKey } from "@/lib/files/storage-path";
+import { discardStoredFile, writeFileBlobAndRow } from "@/lib/files/store";
 import { logger } from "@/lib/logger";
 import type { UsdRate } from "@/lib/fx";
 import { latestTributeSplits } from "@/lib/purchases/tribute-split";
@@ -76,7 +77,6 @@ function actorOf(ctx: { userId: string; access: Access }): Actor {
   return { userId: ctx.userId, canAttach: userCan(ctx.access, "files:write") };
 }
 
-const BUCKET = "files";
 const MAX_BYTES = 10 * 1024 * 1024;
 
 const ExtractInputSchema = z.object({
@@ -145,41 +145,32 @@ export async function scanDocumentAction(
   const supabase = await createSupabaseClient();
   const fileId = crypto.randomUUID();
   const bucketPath = buildStorageKey(fileId, file.name);
-
-  const { error: storageErr } = await supabase.storage
-    .from(BUCKET)
-    .upload(bucketPath, file, { cacheControl: "3600", upsert: false });
-  if (storageErr) {
-    logger.warn("ai.document.upload.storage_failed", {
-      userId: ctx.userId,
-      error: storageErr.message,
-    });
+  const written = await writeFileBlobAndRow(supabase, {
+    fileId,
+    bucketPath,
+    body: file,
+    userId: ctx.userId,
+    filename: file.name,
+    mimeType: file.type,
+    size: file.size,
+    source: "document_scan",
+    logPrefix: "ai.document.upload",
+  });
+  if (written === "storage_failed") {
     return { ok: false, error: "No se pudo subir el archivo." };
   }
-
-  const { error: registryErr } = await supabase.from("files").insert({
-    id: fileId,
-    uploaded_by: ctx.userId,
-    original_filename: file.name,
-    mime_type: file.type,
-    file_size: file.size,
-    bucket: BUCKET,
-    bucket_path: bucketPath,
-    source: "document_scan",
-  });
-  if (registryErr) {
-    await supabase.storage.from(BUCKET).remove([bucketPath]);
-    logger.warn("ai.document.upload.registry_failed", {
-      userId: ctx.userId,
-      error: registryErr.message,
-    });
+  if (written === "registry_failed") {
     return { ok: false, error: "No se pudo registrar el archivo." };
   }
 
-  return startExtraction(ctx.userId, {
+  const started = await startExtraction(ctx.userId, {
     fileId,
     declaredType: declared.data,
   });
+  // Nothing reads a scan whose extraction never started: drop it now
+  // instead of leaving it to the orphan sweep.
+  if (!started.ok) await discardStoredFile(supabase, { fileId, bucketPath });
+  return started;
 }
 
 /**

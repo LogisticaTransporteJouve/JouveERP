@@ -21,9 +21,15 @@ function query(table: string) {
   const filters: Array<(r: Row) => boolean> = [];
   let patch: Row | null = null;
   let insertRow: Row | null = null;
+  let deleting = false;
   let returning = false;
   const run = (): Row[] => {
     const rows = (db[table] ??= []);
+    if (deleting) {
+      const gone = rows.filter((r) => filters.every((f) => f(r)));
+      db[table] = rows.filter((r) => !gone.includes(r));
+      return gone;
+    }
     if (insertRow) {
       const row = { id: crypto.randomUUID(), ...insertRow };
       rows.push(row);
@@ -35,7 +41,11 @@ function query(table: string) {
   };
   const builder = {
     select: () => {
-      if (patch || insertRow) returning = true;
+      if (patch || insertRow || deleting) returning = true;
+      return builder;
+    },
+    delete: () => {
+      deleting = true;
       return builder;
     },
     update: (values: Row) => {
@@ -112,6 +122,8 @@ vi.mock("@/lib/auth/context", () => ({
     access: resolveAccess(roles.filter(isRole), denied),
   }),
 }));
+const removedBlobs: string[] = [];
+
 /** create_manual_check: the check and its 'received' anchor in one call. */
 const rpcCalls: { name: string; args: Row }[] = [];
 async function rpc(name: string, args: Row) {
@@ -141,6 +153,19 @@ vi.mock("@/lib/supabase/server", () => ({
       from: () => ({
         upload: async () => ({ error: null }),
         remove: async () => ({ error: null }),
+      }),
+    },
+  }),
+}));
+// The service role only removes the bytes of a discarded upload.
+vi.mock("@/lib/supabase/service", () => ({
+  getServiceClient: () => ({
+    storage: {
+      from: () => ({
+        remove: async (paths: string[]) => {
+          removedBlobs.push(...paths);
+          return { error: null };
+        },
       }),
     },
   }),
@@ -245,6 +270,7 @@ beforeEach(() => {
   logAudit.mockReset();
   inngestSend.mockReset();
   rpcCalls.length = 0;
+  removedBlobs.length = 0;
   db.check_movements = [];
 });
 
@@ -1011,6 +1037,17 @@ describe("scanDocumentAction", () => {
       error: "No se pudo leer el archivo. Reintentá.",
     });
     expect(inngestSend).not.toHaveBeenCalled();
+    // The upload whose extraction never started is not left behind.
+    expect(db.files).toEqual([]);
+    expect(removedBlobs).toHaveLength(1);
+  });
+
+  it("keeps the uploaded scan once its extraction started", async () => {
+    db.files = [];
+    const res = await scanDocumentAction(scanForm());
+    expect(res.ok).toBe(true);
+    expect(db.files).toHaveLength(1);
+    expect(removedBlobs).toEqual([]);
   });
 
   it("rejects an unknown declared type", async () => {

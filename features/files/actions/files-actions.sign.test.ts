@@ -27,7 +27,6 @@ vi.mock("server-only", () => ({}));
 vi.mock("@/lib/auth/context", () => ({ requireUserContext: async () => ctx }));
 vi.mock("@/lib/files/references", () => ({
   isDocumentScanFile: async () => isScan,
-  isFileStillReferenced: async () => true,
 }));
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({

@@ -71,23 +71,45 @@ function rlsFrom(table: string) {
   return builder;
 }
 
-function serviceFrom(table: string) {
-  const builder = {
-    select: () => builder,
-    eq: async (_col: string, fileId: unknown) => ({
-      count:
-        table === "file_attachments"
-          ? attachments.filter((a) => a.file_id === fileId).length
-          : table === "ai_document_extractions"
-            ? extractionRefs
-            : table === "employee_documents"
-              ? employeeDocRefs
-              : 0,
-      error: null,
-    }),
-  };
-  return builder;
+/** Whether anything still links the file, as find_orphan_files decides. */
+function fileIsLinked(fileId: unknown): boolean {
+  return (
+    attachments.some((a) => a.file_id === fileId) ||
+    extractionRefs > 0 ||
+    employeeDocRefs > 0
+  );
 }
+
+let deleteOrphanError: { message: string } | null = null;
+let storageRemoveError: { message: string } | null = null;
+
+// Service role: delete_orphan_files deletes the row only while nothing links
+// the file, then the bytes go.
+const serviceClient = {
+  rpc: async (name: string, args: { p_ids: string[] }) => {
+    if (name !== "delete_orphan_files") throw new Error(name);
+    if (deleteOrphanError) return { data: null, error: deleteOrphanError };
+    const gone = args.p_ids.filter((id) => !fileIsLinked(id));
+    deletedFiles.push(...gone);
+    return {
+      data: gone.map((id) => ({
+        id,
+        bucket: "files",
+        bucket_path: `p/${id}`,
+      })),
+      error: null,
+    };
+  },
+  storage: {
+    from: () => ({
+      remove: async (paths: string[]) => {
+        if (storageRemoveError) return { error: storageRemoveError };
+        removedBlobs.push(...paths);
+        return { error: null };
+      },
+    }),
+  },
+};
 
 const logAudit = vi.fn(async () => undefined);
 
@@ -112,7 +134,7 @@ vi.mock("@/lib/supabase/server", () => ({
   }),
 }));
 vi.mock("@/lib/supabase/service", () => ({
-  getServiceClient: () => ({ from: serviceFrom }),
+  getServiceClient: () => serviceClient,
 }));
 
 const { detachFileAction } = await import("./files-actions");
@@ -125,10 +147,29 @@ beforeEach(() => {
   employeeDocRefs = 0;
   removedBlobs.length = 0;
   deletedFiles.length = 0;
+  deleteOrphanError = null;
+  storageRemoveError = null;
 });
 
 describe("detachFileAction", () => {
   it("deletes the blob and file once nothing references it", async () => {
+    const res = await detachFileAction(ATTACHMENT_ID);
+    expect(res).toEqual({ ok: true, data: { deletedBlob: true } });
+    expect(deletedFiles).toEqual([FILE_ID]);
+    expect(removedBlobs).toEqual([`p/${FILE_ID}`]);
+  });
+
+  it("does not claim the file was deleted when its delete fails", async () => {
+    deleteOrphanError = { message: "timeout" };
+    const res = await detachFileAction(ATTACHMENT_ID);
+    // The detach itself happened; the file is left to the orphan sweep.
+    expect(res).toEqual({ ok: true, data: { deletedBlob: false } });
+    expect(attachments).toHaveLength(0);
+    expect(removedBlobs).toEqual([]);
+  });
+
+  it("deletes the row before the bytes, so a failed byte removal leaves no dangling row", async () => {
+    storageRemoveError = { message: "storage down" };
     const res = await detachFileAction(ATTACHMENT_ID);
     expect(res).toEqual({ ok: true, data: { deletedBlob: true } });
     expect(deletedFiles).toEqual([FILE_ID]);
