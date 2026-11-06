@@ -1143,7 +1143,7 @@ export const fleetPage: GuidePage = {
           steps: [
             "En [[/cargas]], en la fila de la carga, abrí el menú ⋯ y elegí {{Facturar flete}}. El diálogo muestra el cliente y el flete.",
             "En {{Canal}}, elegí el canal: solo se ofrecen los del lado del cliente (Ventas o Otras ventas). Si la carga ya tiene canal, viene fijo.",
-            "En {{Punto de venta}}, elegí el punto de venta del canal.",
+            "El {{Punto de venta}} viene elegido: es el único habilitado del canal.",
             "Hacé clic en {{Facturar}}.",
           ],
           after: [
@@ -1155,7 +1155,7 @@ export const fleetPage: GuidePage = {
             { message: "Elegí un canal.", fix: "Elegí el canal en {{Canal}}." },
             {
               message: "Elegí un punto de venta.",
-              fix: "Elegí el punto de venta.",
+              fix: "El canal no tiene un punto de venta habilitado: pedile a un owner o admin que habilite uno en [[/admin/afip/puntos-de-venta]].",
             },
             {
               message: "La carga ya tiene una factura o se está facturando.",
@@ -1590,7 +1590,7 @@ export const fleetPage: GuidePage = {
           ],
           steps: [
             "En [[/liquidaciones]], en la fila de la liquidación, abrí el menú ⋯ y elegí {{Facturar}}. El diálogo muestra el {{Documento}}, el cliente y el {{Neto}}.",
-            "Elegí {{Canal}} (solo los fiscales) y {{Punto de venta}}.",
+            "Elegí el {{Canal}} (solo los fiscales; si hay uno solo, viene elegido). El {{Punto de venta}} viene elegido: es el único habilitado del canal.",
             "Hacé clic en {{Facturar}}.",
           ],
           after: [
@@ -1652,7 +1652,7 @@ export const fleetPage: GuidePage = {
           ],
           steps: [
             "En [[/liquidaciones]], en la fila de la liquidación, abrí el menú ⋯ y elegí {{Emitir remito interno}}.",
-            "Elegí {{Canal}} (solo los internos) y {{Punto de venta}}.",
+            "Elegí el {{Canal}} (solo los internos; si hay uno solo, viene elegido). El {{Punto de venta}} viene elegido: es el único habilitado del canal.",
             "Hacé clic en {{Emitir remito interno}}.",
           ],
           after: [
@@ -1663,7 +1663,7 @@ export const fleetPage: GuidePage = {
             { message: "Elegí un canal.", fix: "Elegí el canal." },
             {
               message: "Elegí un punto de venta.",
-              fix: "Elegí el punto de venta.",
+              fix: "El canal no tiene un punto de venta habilitado: pedile a un owner o admin que habilite uno en [[/admin/afip/puntos-de-venta]].",
             },
             {
               message: "La liquidación ya se facturó o se está facturando.",

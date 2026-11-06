@@ -6,10 +6,7 @@ import { INVOICE_EFFECT_KEYS } from "@/features/invoices/lib/invoice-effect-keys
 import { invalidateKeys } from "@/lib/query/invalidate";
 import { runAction } from "@/lib/query/run-action";
 
-import {
-  listEnabledPosAction,
-  listInvoicingChannelsAction,
-} from "@/features/invoices/actions/invoices-actions";
+import { listInvoicingChannelsAction } from "@/features/invoices/actions/invoices-actions";
 
 import {
   getStorageBillingAction,
@@ -38,14 +35,6 @@ export function useInvoicingChannels() {
   return useQuery({
     queryKey: storageBillingKeys.channels(),
     queryFn: () => runAction(() => listInvoicingChannelsAction()),
-  });
-}
-
-export function useEnabledPos(channelId: string) {
-  return useQuery({
-    queryKey: storageBillingKeys.pos(channelId),
-    queryFn: () => runAction(() => listEnabledPosAction(channelId)),
-    enabled: Boolean(channelId),
   });
 }
 

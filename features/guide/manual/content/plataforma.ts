@@ -17,6 +17,7 @@ export const platformPage: GuidePage = {
       permission: null,
       intro: [
         "El sistema se abre en `/auth/login` y, una vez que entraste, en el dashboard. A la izquierda está la barra lateral con los módulos; arriba, el encabezado con la ruta de la pantalla, el botón **?** de ayuda y la campanita de notificaciones.",
+        "Los botones que son solo un ícono muestran su nombre al pasar el mouse (o al llegar con el teclado). Ese es el nombre que usa esta guía: por ejemplo, el engranaje de un punto de venta es {{Configurar}}.",
       ],
       concepts: [
         {
@@ -148,6 +149,35 @@ export const platformPage: GuidePage = {
             "Cada acceso de la barra aparece solo si tu usuario tiene el permiso de ese módulo.",
           ],
           keywords: ["celular", "móvil", "teléfono", "menú"],
+        },
+        {
+          id: "instalar-como-app",
+          title: "Instalar el sistema como app",
+          summary:
+            "Un acceso en la pantalla de inicio o en el escritorio que abre el sistema como una app aparte, sin la barra del navegador.",
+          permission: null,
+          steps: [
+            {
+              text: "Abrí el sistema en el navegador e instalalo:",
+              substeps: [
+                "En Chrome o Edge (computadora o Android): en el menú del navegador (⋮ o ⋯), elegí la opción de instalar la app o de agregarla a la pantalla de inicio. En la computadora también aparece un ícono de instalar al final de la barra de direcciones.",
+                "En el iPhone, con Safari: tocá Compartir y elegí Agregar a inicio.",
+              ],
+            },
+            "Aceptá la instalación.",
+          ],
+          after: [
+            "Aparece el ícono de Jouve (en el celular, con el nombre «Jouve»). Al abrirlo, el sistema se abre en el dashboard a pantalla completa, sin la barra de direcciones; si no tenés sesión, primero te pide entrar.",
+            "Es el mismo sistema: lo que hacés en la app se ve en el navegador y al revés.",
+          ],
+          related: ["usar-en-el-celular", "activar-push"],
+          keywords: [
+            "instalar",
+            "app",
+            "pantalla de inicio",
+            "acceso directo",
+            "PWA",
+          ],
         },
       ],
     },

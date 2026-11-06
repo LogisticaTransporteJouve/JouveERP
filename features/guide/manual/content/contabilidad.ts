@@ -18,7 +18,7 @@ export const accountingPage: GuidePage = {
       permission: "accounting:read",
       intro: [
         "Lo que hay que revisar antes de mandarle un mes al contador, y todos los archivos que necesita, en una sola pantalla. Al entrar muestra el mes anterior (el que se acaba de cerrar); con {{Período}} elegís otro.",
-        "Arriba, el estado del mes: una lista de controles, cada uno con un ícono de en orden, revisar o sin datos (si no se pudo leer, nunca se muestra como cero). Abajo, {{Descargas}}: los libros IVA, el libro diario, el libro mayor y el balance de sumas y saldos del período.",
+        "Arriba, el estado del mes: una lista de controles, cada uno con un ícono de en orden, revisar o sin datos (si no se pudo leer, nunca se muestra como cero). Abajo, «Descargas de» y el mes: los libros IVA, el libro diario, el libro mayor y el balance de sumas y saldos. Al lado del título hay otro selector de mes, para no tener que subir: cambia el mismo mes que {{Período}}, el de toda la pantalla. Como dice la pantalla, «Cada archivo trae solo ese mes».",
         "Todos los controles miran solo los canales fiscales: lo que ven los libros y AFIP.",
       ],
       screens: [
@@ -98,6 +98,14 @@ export const accountingPage: GuidePage = {
               kind: "page",
               caption: "Paquete del mes › Descargas",
               title: "Paquete del mes",
+              toolbar: [
+                {
+                  label: "Mes de las descargas",
+                  kind: "picker",
+                  value: "oct 2026",
+                  marker: 1,
+                },
+              ],
               actions: [
                 { label: "Exportar PDF", variant: "outline", marker: 2 },
                 { label: "Exportar Excel", variant: "outline", marker: 2 },
@@ -108,7 +116,7 @@ export const accountingPage: GuidePage = {
             },
           ],
           steps: [
-            "En [[/accounting/package]], elegí el mes en {{Período}}.",
+            "En [[/accounting/package]], elegí el mes en el selector al lado del título «Descargas de …» (o en {{Período}}, arriba: es el mismo mes). Cada archivo trae solo ese mes.",
             "En las filas {{Libro IVA Ventas}} y {{Libro IVA Compras}}, {{Exportar PDF}} abre el libro en otra pestaña y {{Exportar Excel}} descarga la planilla.",
             "{{TXT AFIP}} descarga los dos archivos del Libro IVA Digital de ese libro (comprobantes y alícuotas) para importar en ARCA. Ver [[#exportar-txt-libro-iva]].",
             "En {{Libro diario}}, {{Libro mayor}} y {{Balance de sumas y saldos}}, {{PDF}} abre el libro en otra pestaña y {{Excel}} lo descarga.",
