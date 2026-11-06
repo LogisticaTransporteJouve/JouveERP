@@ -598,9 +598,8 @@ export const platformPage: GuidePage = {
           ],
           errors: [
             {
-              message:
-                "Se guardó la tarea pero no sus responsables. Reintentá.",
-              fix: "Volvé a abrir {{Editar}}, elegí los responsables y guardá.",
+              message: "No se pudo guardar la tarea recurrente.",
+              fix: "No se guardó ningún cambio: volvé a hacer clic en {{Guardar}}.",
             },
             {
               message: "La tarea recurrente no existe.",

@@ -39,6 +39,10 @@ export class RevisionKeyMismatchError extends AiProposalStoreError {
   }
 }
 
+/** Hints create_ai_confirmation_revision raises its refusals with. */
+const REVISION_KEY_MISMATCH = "ai_revision_key_mismatch";
+const REVISION_CONCURRENT = "ai_revision_concurrent";
+
 function toJson(value: unknown): Json {
   return JSON.parse(JSON.stringify(value ?? null));
 }
@@ -54,9 +58,10 @@ export function parseConfirmationRows(rows: unknown[]): AiConfirmation[] {
 }
 
 /**
- * Stores the next revision of a proposal. The revision it replaces is
- * superseded first, by id and only while it is still pending: if a confirm,
- * a decline or another revision got there first, nothing is inserted
+ * Stores the next revision of a proposal and supersedes the one it replaces,
+ * in one transaction (create_ai_confirmation_revision). The replaced
+ * revision is superseded only while it is still pending: if a confirm, a
+ * decline or another revision got there first, nothing is written
  * (ConcurrentRevisionError), so an edit can never reopen a proposal that was
  * already executed. `replaces` is the revision the user edited; without it
  * (the model's re-proposal) it is the key's latest revision, if pending.
@@ -69,56 +74,32 @@ export async function createConfirmationRevision(
   origin: "assistant" | "user",
   replaces?: string,
 ): Promise<{ id: string; revision: number }> {
-  const service = getServiceClient();
-  const { data: latest, error: latestError } = await service
-    .from("ai_chat_confirmations")
-    .select("id, action, revision, status")
-    .eq("user_id", userId)
-    .eq("session_id", sessionId)
-    .eq("revision_key", input.revisionKey)
-    .order("revision", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (latestError) throw latestError;
-  if (latest && latest.action !== input.action) {
+  const { data, error } = await getServiceClient().rpc(
+    "create_ai_confirmation_revision",
+    {
+      p_user_id: userId,
+      p_session_id: sessionId,
+      p_tool_call_id: input.toolCallId,
+      p_action: input.action,
+      p_revision_key: input.revisionKey,
+      p_origin: origin,
+      p_draft: toJson(input.draft),
+      p_labels: toJson(input.labels),
+      p_summary: toJson(input.summary),
+      p_replaces: replaces,
+    },
+  );
+  if (error?.hint === REVISION_KEY_MISMATCH)
     throw new RevisionKeyMismatchError();
+  if (
+    error?.hint === REVISION_CONCURRENT ||
+    error?.code === PG_UNIQUE_VIOLATION
+  ) {
+    throw new ConcurrentRevisionError();
   }
-  if (replaces && latest?.id !== replaces) throw new ConcurrentRevisionError();
-
-  const supersede =
-    replaces ?? (latest?.status === "pending" ? latest.id : null);
-  if (supersede) {
-    const { data: superseded, error: supersedeError } = await service
-      .from("ai_chat_confirmations")
-      .update({ status: "superseded", decided_at: new Date().toISOString() })
-      .eq("user_id", userId)
-      .eq("id", supersede)
-      .eq("action", input.action)
-      .eq("status", "pending")
-      .select("id");
-    if (supersedeError) throw supersedeError;
-    if (!superseded?.length) throw new ConcurrentRevisionError();
-  }
-
-  const { data, error } = await service
-    .from("ai_chat_confirmations")
-    .insert({
-      user_id: userId,
-      session_id: sessionId,
-      tool_call_id: input.toolCallId,
-      action: input.action,
-      revision_key: input.revisionKey,
-      revision: (latest?.revision ?? 0) + 1,
-      origin,
-      draft: toJson(input.draft),
-      labels: toJson(input.labels),
-      summary: toJson(input.summary),
-    })
-    .select("id, revision")
-    .single();
-  if (error?.code === PG_UNIQUE_VIOLATION) throw new ConcurrentRevisionError();
-  if (error || !data) throw error ?? new Error("insert_failed");
-  return data;
+  const stored = data?.[0];
+  if (error || !stored) throw error ?? new Error("insert_failed");
+  return stored;
 }
 
 /** The proposal store a chat turn hands its tools: bound to the caller and

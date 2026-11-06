@@ -78,6 +78,22 @@ describe("createTransactionAction", () => {
     await createTransactionAction(input);
     expect(inserted()).toHaveLength(1);
   });
+
+  it("keeps the database's text out of the message", async () => {
+    fake = recordingSupabase((call) =>
+      call.table === "transactions" && call.op === "insert"
+        ? {
+            data: null,
+            error: { message: 'relation "x" violates', code: "XX000" },
+          }
+        : respond(call),
+    );
+    const res = await createTransactionAction(input);
+    expect(res).toEqual({
+      ok: false,
+      error: "No se pudo registrar el movimiento.",
+    });
+  });
 });
 
 describe("listTransactionsAction", () => {

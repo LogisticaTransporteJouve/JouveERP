@@ -61,7 +61,11 @@ export async function uploadChatAttachmentAction(
         error: "Alcanzaste el límite de adjuntos por hora. Probá más tarde.",
       };
     }
-    throw err;
+    logger.error("ai.attachments.rate_limit_failed", {
+      userId: ctx.userId,
+      error: err,
+    });
+    return { ok: false, error: "No se pudo subir el archivo." };
   }
 
   const filename = file.name.slice(0, 255) || "adjunto";
@@ -162,6 +166,16 @@ export async function discardChatAttachmentAction(
   if (!userCan(ctx.access, "ai:chat")) return { ok: false, error: NO_CHAT };
   const parsed = UuidSchema.safeParse(fileId);
   if (!parsed.success) return { ok: false, error: "ID inválido." };
-  await deleteDraftAttachment(ctx.userId, parsed.data);
+  try {
+    // False when it was already gone or is no longer a draft: nothing to undo.
+    await deleteDraftAttachment(ctx.userId, parsed.data);
+  } catch (error) {
+    logger.error("ai.attachments.discard_failed", {
+      userId: ctx.userId,
+      fileId: parsed.data,
+      error,
+    });
+    return { ok: false, error: "No se pudo quitar el archivo." };
+  }
   return { ok: true, data: undefined };
 }

@@ -14,16 +14,18 @@ let updateAnswer: { data: unknown; error: unknown } = {
   data: null,
   error: null,
 };
-let current: unknown[] = [];
+let increaseAnswer: { data: unknown; error: unknown } = {
+  data: null,
+  error: null,
+};
 let fake = recordingSupabase(respond);
 
 function respond(call: RecordedCall) {
+  if (call.op === "rpc" && call.table === "increase_storage_tariffs") {
+    return increaseAnswer;
+  }
   if (call.table !== "storage_tariffs") return { data: null, error: null };
   if (call.op === "update") return updateAnswer;
-  if (call.op === "select") return { data: current, error: null };
-  if (call.op === "insert") {
-    return { data: [{ id: "new1" }], error: null };
-  }
   return { data: null, error: null };
 }
 
@@ -36,14 +38,16 @@ vi.mock("@/lib/auth/context", () => ({
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => fake.client,
 }));
-vi.mock("@/lib/actions/audit", () => ({ logAudit: vi.fn() }));
+const logAudit = vi.fn();
+vi.mock("@/lib/actions/audit", () => ({ logAudit }));
 
 const { increaseStorageTariffsAction, updateStorageTariffAction } =
   await import("./storage-tariffs-actions");
 
 beforeEach(() => {
-  updateAnswer = { data: null, error: null };
-  current = [];
+  vi.clearAllMocks();
+  updateAnswer = { data: [{ id: TARIFF_ID }], error: null };
+  increaseAnswer = { data: null, error: null };
   fake = recordingSupabase(respond);
 });
 
@@ -71,33 +75,60 @@ describe("updateStorageTariffAction", () => {
       error: "No se pudo actualizar la tarifa.",
     });
   });
+
+  it("refuses an edit of a tariff that is not there, without auditing", async () => {
+    updateAnswer = { data: [], error: null };
+    const res = await updateStorageTariffAction({
+      id: TARIFF_ID,
+      rate_per_pallet: 5000,
+    });
+    expect(res).toEqual({ ok: false, error: "No se encontró la tarifa." });
+    expect(logAudit).not.toHaveBeenCalled();
+  });
 });
 
+// Which tariffs are raised, the new rows and the close of the old ones run in
+// increase_storage_tariffs (supabase/tests/increase_storage_tariffs_test.sql).
 describe("increaseStorageTariffsAction", () => {
-  it("raises only what started before the date and counts the rest as skipped", async () => {
-    const row = {
-      client_id: null,
-      area_id: null,
-      rate_per_pallet: 1000,
-      handling_in: 0,
-      handling_out: 0,
-      period: "monthly",
-      valid_to: null,
-      is_active: true,
-      migrated_to_client_tariffs_at: null,
-    };
-    current = [
-      { ...row, id: "old", valid_from: "2026-01-01" },
-      { ...row, id: "future", valid_from: "2026-12-01" },
-    ];
+  it("raises and closes in one call and reports its counts", async () => {
+    increaseAnswer = { data: [{ updated: 1, skipped: 1 }], error: null };
     const res = await increaseStorageTariffsAction({
       percent: 10,
       valid_from: "2026-11-01",
     });
     expect(res).toEqual({ ok: true, data: { updated: 1, skipped: 1 } });
-    const insert = fake.calls.find((c) => c.op === "insert");
-    expect(insert?.payload).toEqual([
-      expect.objectContaining({ rate_per_pallet: 1100 }),
+    expect(fake.calls).toEqual([
+      expect.objectContaining({
+        op: "rpc",
+        table: "increase_storage_tariffs",
+        payload: { p_percent: 10, p_valid_from: "2026-11-01" },
+      }),
     ]);
+    expect(logAudit).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows the guard's message when nothing is in force before the date", async () => {
+    const message =
+      "No hay tarifas vigentes anteriores a esa fecha para aumentar.";
+    increaseAnswer = {
+      data: null,
+      error: { message, hint: "jouve_guard", code: "P0002" },
+    };
+    const res = await increaseStorageTariffsAction({
+      percent: 10,
+      valid_from: "2026-11-01",
+    });
+    expect(res).toEqual({ ok: false, error: message });
+    expect(logAudit).not.toHaveBeenCalled();
+  });
+
+  it("reports a failed increase instead of ok, and audits nothing", async () => {
+    increaseAnswer = { data: null, error: { message: "boom", code: "XX000" } };
+    const res = await increaseStorageTariffsAction({
+      percent: 10,
+      valid_from: "2026-11-01",
+    });
+    expect(res).toEqual({ ok: false, error: "No se pudo aplicar el aumento." });
+    expect(logAudit).not.toHaveBeenCalled();
   });
 });

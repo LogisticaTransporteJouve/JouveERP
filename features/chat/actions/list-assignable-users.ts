@@ -5,6 +5,7 @@ import { resolveAvatarUrl } from "@/lib/avatar-url";
 import type { ActionResult } from "@/lib/query/run-action";
 import { createClient } from "@/lib/supabase/server";
 
+import { chatActionError } from "../lib/action-error";
 import type { AssignableUser } from "../types";
 
 export async function listAssignableUsersAction(): Promise<
@@ -14,7 +15,16 @@ export async function listAssignableUsersAction(): Promise<
   const supabase = await createClient();
 
   const { data, error } = await supabase.rpc("list_chat_assignable_users");
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    return {
+      ok: false,
+      error: chatActionError(
+        "chat.assignable_users.failed",
+        error,
+        "No se pudieron cargar las personas.",
+      ),
+    };
+  }
 
   const users: AssignableUser[] = (data ?? []).map((row) => ({
     user_id: row.user_id,
