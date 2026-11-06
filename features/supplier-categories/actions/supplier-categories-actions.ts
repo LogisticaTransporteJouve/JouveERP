@@ -342,9 +342,8 @@ export async function deleteSupplierCategoryAction(
 
   const supabase = await createClient();
 
-  // Pre-check: are there suppliers assigned? If so, we block with a clear
-  // message. The FK has ON DELETE SET NULL, so the delete wouldn't break
-  // references but we'd silently lose the supplier's category.
+  // The count gives the message with how many suppliers use it; the FK
+  // (ON DELETE RESTRICT) refuses a supplier assigned after the count.
   const { count, error: countError } = await supabase
     .from("suppliers")
     .select("id", { count: "exact", head: true })
