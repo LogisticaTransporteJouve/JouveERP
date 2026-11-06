@@ -305,7 +305,9 @@ export function buildComprasTxt(
 
   for (const doc of docs) {
     const label = `${doc.punto_venta}-${doc.numero} ${doc.supplier_legal_name} (${doc.fecha})`;
-    const cbteTipo = COMPRAS_CBTE_TIPO[doc.kind]?.[doc.letter ?? ""];
+    // A recibo or liquidación loaded as a factura reports its own code.
+    const cbteTipo =
+      doc.cbte_tipo_afip ?? COMPRAS_CBTE_TIPO[doc.kind]?.[doc.letter ?? ""];
     if (!cbteTipo) {
       warnings.push(`Compra ${label}: sin letra A/B/C — excluida.`);
       continue;

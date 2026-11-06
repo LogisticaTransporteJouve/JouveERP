@@ -84,6 +84,9 @@ export function itemsParam(items: PurchaseInvoiceItemInput[]) {
 export async function createPurchaseInvoice(
   actorId: string,
   d: z.output<typeof PurchaseInvoiceCreateSchema>,
+  /** The voucher's AFIP code when it is a recibo or liquidación loaded as a
+   *  factura (set by the ARCA tray's accept, never by the form). */
+  opts: { cbteTipoAfip?: number | null } = {},
 ): Promise<ActionResult<{ id: string }>> {
   const supabase = await createClient();
 
@@ -138,6 +141,7 @@ export async function createPurchaseInvoice(
         cae_vto_proveedor: d.cae_vto_proveedor ?? null,
         invoice_origin_id: d.invoice_origin_id ?? null,
         motivo_nc_nd: d.motivo_nc_nd ?? null,
+        ...(opts.cbteTipoAfip ? { cbte_tipo_afip: opts.cbteTipoAfip } : {}),
         notes: d.notes ?? null,
         created_by: actorId,
       },

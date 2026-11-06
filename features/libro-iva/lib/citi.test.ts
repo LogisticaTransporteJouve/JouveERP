@@ -62,6 +62,7 @@ function compraDoc(
     supplier_legal_name: "Proveedor SRL",
     supplier_cuit: "30-98765432-1",
     ci: "RI",
+    cbte_tipo_afip: null,
     cae_proveedor: null,
     cae_vto_proveedor: null,
     imp_trib: 50,
@@ -232,6 +233,19 @@ describe("buildVentasTxt", () => {
 });
 
 describe("buildComprasTxt", () => {
+  it("reports a bank's Liquidación A with its own code, not as a Factura A", () => {
+    const factura = buildComprasTxt([compraDoc()], "2026-06");
+    const liquidacion = buildComprasTxt(
+      [compraDoc({ cbte_tipo_afip: 63 })],
+      "2026-06",
+    );
+    const tipo = (r: typeof factura) =>
+      r.files[0]!.content.split("\r\n")[0]!.slice(8, 11);
+    expect(tipo(factura)).toBe("001");
+    expect(tipo(liquidacion)).toBe("063");
+    expect(liquidacion.warnings).toEqual([]);
+  });
+
   it("declares exento, no gravado and each tribute in its own field", () => {
     const breakdown = {
       no_gravado: 10,

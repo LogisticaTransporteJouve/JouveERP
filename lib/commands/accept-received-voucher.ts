@@ -21,6 +21,7 @@ import {
   type ReceivedVoucher,
 } from "@/features/purchase-invoices/schema";
 import { logAudit } from "@/lib/actions/audit";
+import { PURCHASE_FACTURA_LIKE_TIPOS } from "@/lib/afip/codes";
 import { createWithClaim } from "@/lib/actions/claim";
 import { formatMoney } from "@/lib/format";
 import { logger } from "@/lib/logger";
@@ -290,7 +291,13 @@ export async function acceptReceivedVoucher(
         .is("purchase_invoice_id", null);
       if (error) fail(error.code);
     },
-    create: () => createPurchaseInvoice(actorId, withLines.data),
+    create: () =>
+      createPurchaseInvoice(actorId, withLines.data, {
+        // A recibo or liquidación keeps its own code for the Libro IVA TXT.
+        cbteTipoAfip: PURCHASE_FACTURA_LIKE_TIPOS.has(voucher.cbte_tipo)
+          ? voucher.cbte_tipo
+          : null,
+      }),
     alreadyProcessed: BEING_LOADED,
     claimFailed: "No se pudo cargar el comprobante.",
   });
