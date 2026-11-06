@@ -269,7 +269,7 @@ function GarnishmentDialog({
             en borrador; las cerradas no cambian.
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="garnishment-mode">Tipo</Label>
             <Select

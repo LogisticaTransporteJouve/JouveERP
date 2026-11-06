@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/form";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Textarea } from "@/components/ui/textarea";
+import { PageHeader } from "@/components/ui/page-header";
 import { userCan, type Access } from "@/lib/auth/permissions";
 import { formatArgentineDate, parseArAmount } from "@/lib/format";
 
@@ -129,26 +130,22 @@ export function ExchangeRatesPage({ actorAccess }: { actorAccess: Access }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-end justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Cotización USD
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Referencia oficial BCRA (ARS por 1 USD). El cron diario trae la del
-            BCRA; podés cargar una manual como override.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <ExportButton resource="exchange-rates" />
-          {canWrite && (
-            <Button onClick={() => setDialogOpen(true)}>
-              <Plus />
-              Cargar cotización
-            </Button>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        className="items-end"
+        title="Cotización USD"
+        description="Referencia oficial BCRA (ARS por 1 USD). El cron diario trae la del BCRA; podés cargar una manual como override."
+        actions={
+          <>
+            <ExportButton resource="exchange-rates" />
+            {canWrite && (
+              <Button onClick={() => setDialogOpen(true)}>
+                <Plus />
+                Cargar cotización
+              </Button>
+            )}
+          </>
+        }
+      />
 
       <DataTable
         columns={columns}

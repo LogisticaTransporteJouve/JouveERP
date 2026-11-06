@@ -18,6 +18,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
+import { PageHeader } from "@/components/ui/page-header";
 import { userCan, type Access } from "@/lib/auth/permissions";
 
 import {
@@ -194,24 +195,21 @@ export function DriversTable({
 
   return (
     <>
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Choferes</h1>
-          <p className="text-muted-foreground text-sm">
-            Los choferes propios se dan de alta en Personal → Empleados
-            (posición “Chofer / Acompañante”). Acá se cargan los contratados.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <ExportButton resource="drivers" />
-          {canWrite && (
-            <Button onClick={() => setDialog({ mode: "create" })}>
-              <Plus />
-              Nuevo chofer contratado
-            </Button>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        title="Choferes"
+        description="Los choferes propios se dan de alta en Personal → Empleados (posición “Chofer / Acompañante”). Acá se cargan los contratados."
+        actions={
+          <>
+            <ExportButton resource="drivers" />
+            {canWrite && (
+              <Button onClick={() => setDialog({ mode: "create" })}>
+                <Plus />
+                Nuevo chofer contratado
+              </Button>
+            )}
+          </>
+        }
+      />
 
       <DataTable
         columns={columns}

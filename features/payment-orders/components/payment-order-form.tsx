@@ -488,7 +488,7 @@ export function PaymentOrderForm({
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
-        <div className="grid gap-3 sm:grid-cols-[1fr_140px_140px_100px]">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_140px_140px_100px]">
           <FormField
             control={form.control}
             name="channelId"
@@ -660,7 +660,7 @@ export function PaymentOrderForm({
           />
         )}
 
-        <div className="grid gap-3 rounded-md border bg-muted/30 p-3 text-sm sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 rounded-md border bg-muted/30 p-3 text-sm sm:grid-cols-3">
           <div>
             <div className="text-xs text-muted-foreground">Total a pagar</div>
             <div className="font-mono font-semibold">

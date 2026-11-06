@@ -437,7 +437,7 @@ export function ReceiptForm({
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
         {/* Header: channel + numero + date + currency */}
-        <div className="grid gap-3 sm:grid-cols-[1fr_140px_140px_100px]">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_140px_140px_100px]">
           <FormField
             control={form.control}
             name="channelId"
@@ -623,7 +623,7 @@ export function ReceiptForm({
         )}
 
         {/* Totals strip */}
-        <div className="grid gap-3 rounded-md border bg-muted/30 p-3 text-sm sm:grid-cols-5">
+        <div className="grid grid-cols-1 gap-3 rounded-md border bg-muted/30 p-3 text-sm sm:grid-cols-5">
           <div>
             <div className="text-xs text-muted-foreground">Pago real</div>
             <div className="font-mono">

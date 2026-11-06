@@ -158,6 +158,25 @@ describe("parseReceivedResults", () => {
     });
     if (typeof out === "string") throw new Error(out);
     expect(out.skippedByReason).toEqual({ amount_over_total: 1 });
+    // Its identity reads, so it is kept for the tray with what ARCA listed.
+    expect(out.unreadable).toEqual([
+      expect.objectContaining({
+        issuer_cuit: "30711111118",
+        cbte_tipo: 1,
+        letter: "A",
+        punto_venta: 3,
+        numero: 131,
+        fecha: "2026-11-01",
+        unreadable_reason: "amount_over_total",
+        raw_amounts: {
+          neto: "100",
+          no_gravado: "-20",
+          exentas: "0",
+          iva: "21",
+          total: "101",
+        },
+      }),
+    ]);
     expect(out.skipped[0]!.ref).toMatch(
       /00003-00000131 .*neto 100, no grav\. -20, exento 0, IVA 21, total 101$/,
     );

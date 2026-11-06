@@ -760,11 +760,13 @@ export type Database = {
           origin: string
           punto_venta: number
           purchase_invoice_id: string | null
+          raw_amounts: Json | null
           reviewed_at: string | null
           reviewed_by: string | null
           run_id: string | null
           status: string
           trib_breakdown: Json
+          unreadable_reason: string | null
           updated_at: string
         }
         Insert: {
@@ -792,11 +794,13 @@ export type Database = {
           origin: string
           punto_venta: number
           purchase_invoice_id?: string | null
+          raw_amounts?: Json | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           run_id?: string | null
           status?: string
           trib_breakdown?: Json
+          unreadable_reason?: string | null
           updated_at?: string
         }
         Update: {
@@ -824,11 +828,13 @@ export type Database = {
           origin?: string
           punto_venta?: number
           purchase_invoice_id?: string | null
+          raw_amounts?: Json | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           run_id?: string | null
           status?: string
           trib_breakdown?: Json
+          unreadable_reason?: string | null
           updated_at?: string
         }
         Relationships: [

@@ -1,8 +1,16 @@
 "use client";
 
-import { AlertTriangle, Check, Eye, RotateCcw, Trash2 } from "lucide-react";
+import {
+  AlertTriangle,
+  Check,
+  Eye,
+  PencilLine,
+  RefreshCw,
+  RotateCcw,
+  Trash2,
+} from "lucide-react";
 import Link from "next/link";
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { FileDropzone } from "@/components/file-upload/file-dropzone";
@@ -19,19 +27,23 @@ import {
   useDiscardReceivedVoucher,
   useReceivedVoucherCounts,
   useReceivedVouchers,
+  useRequestArcaSync,
   useRestoreReceivedVoucher,
   useSubmitReceivedVoucher,
   useUploadReceivedExport,
 } from "../hooks/use-arca-received";
 import {
   arcaVoucherToDraft,
+  rawAmountsText,
   receivedGapText,
   receivedVoucherGap,
+  unreadableVoucherToDraft,
 } from "../lib/arca-received-draft";
 import type { PurchaseInvoiceDraft } from "../lib/purchase-invoice-draft";
 import {
   RECEIVED_VOUCHER_STATUSES,
   RECEIVED_VOUCHER_TAB_LABEL,
+  UNREADABLE_REASON_LABEL,
   formatInvoiceNumber,
   type ReceivedVoucher,
   type ReceivedVoucherStatus,
@@ -46,6 +58,7 @@ const EMPTY: Record<ReceivedVoucherStatus, string> = {
   confirmed: "Todavía no se cargó ningún comprobante desde ARCA.",
   discarded: "No hay comprobantes descartados.",
   unsupported: "No hay comprobantes de tipos que no se cargan desde acá.",
+  unreadable: "No hay comprobantes que no se hayan podido leer.",
 };
 
 function voucherNumber(v: ReceivedVoucher): string {
@@ -74,13 +87,22 @@ function AcceptDialog({
   onClose: () => void;
 }) {
   const submitCreate = useSubmitReceivedVoucher(voucher.id);
+  // ARCA's amounts did not read: the person types them from the invoice.
   const draft = useMemo<PurchaseInvoiceDraft>(
-    () => ({
-      origin: "arca",
-      data: arcaVoucherToDraft(voucher),
-      source: null,
-      submitCreate,
-    }),
+    () =>
+      voucher.status === "unreadable"
+        ? {
+            origin: "document",
+            data: unreadableVoucherToDraft(voucher),
+            source: null,
+            submitCreate,
+          }
+        : {
+            origin: "arca",
+            data: arcaVoucherToDraft(voucher),
+            source: null,
+            submitCreate,
+          },
     [voucher, submitCreate],
   );
   return (
@@ -101,8 +123,36 @@ function VoucherTable({ status }: { status: ReceivedVoucherStatus }) {
   const discard = useDiscardReceivedVoucher();
   const restore = useRestoreReceivedVoucher();
   const confirm = useConfirm();
+  const retry = useRequestArcaSync();
   const [accepting, setAccepting] = useState<ReceivedVoucher | null>(null);
   const [viewing, setViewing] = useState<ReceivedVoucher | null>(null);
+
+  const discardButton = useCallback(
+    (v: ReceivedVoucher) => (
+      <IconButton
+        label="Descartar"
+        variant="ghost"
+        disabled={discard.isPending}
+        onClick={async () => {
+          const ok = await confirm({
+            title: "Descartar comprobante",
+            description:
+              "No se carga como compra. Lo podés recuperar desde Descartadas.",
+            confirmLabel: "Descartar",
+            tone: "destructive",
+          });
+          if (!ok) return;
+          discard.mutate(
+            { voucherId: v.id },
+            { onError: (err) => toast.error(err.message) },
+          );
+        }}
+      >
+        <Trash2 className="size-4" />
+      </IconButton>
+    ),
+    [confirm, discard],
+  );
 
   const columns = useMemo<ColumnDef<ReceivedVoucher>[]>(
     () => [
@@ -146,10 +196,18 @@ function VoucherTable({ status }: { status: ReceivedVoucherStatus }) {
         meta: { mobile: "secondary" },
         cell: ({ row }) => {
           const v = row.original;
-          const gap = v.kind ? receivedVoucherGap(v) : null;
+          const gap =
+            v.kind && !v.unreadable_reason ? receivedVoucherGap(v) : null;
           return (
             <div className="space-y-1">
               <span className="font-mono text-sm">{voucherNumber(v)}</span>
+              {v.unreadable_reason && (
+                <p className="flex items-start gap-1 text-xs text-muted-foreground">
+                  <AlertTriangle className="mt-0.5 size-3 shrink-0" />
+                  {UNREADABLE_REASON_LABEL[v.unreadable_reason] ??
+                    "No se pudieron leer los importes"}
+                </p>
+              )}
               {gap !== null && (
                 <p className="flex items-start gap-1 text-xs text-muted-foreground">
                   <AlertTriangle className="mt-0.5 size-3 shrink-0" />
@@ -165,14 +223,20 @@ function VoucherTable({ status }: { status: ReceivedVoucherStatus }) {
         header: "Total",
         enableSorting: false,
         meta: { mobile: "primary", align: "right" },
-        cell: ({ row }) => (
-          <span className="font-mono tabular-nums">
-            {formatMoney(
-              row.original.imp_total,
-              row.original.moneda === "DOL" ? "USD" : "ARS",
-            )}
-          </span>
-        ),
+        cell: ({ row }) =>
+          row.original.unreadable_reason ? (
+            // Nothing read is trusted: what ARCA listed, as text.
+            <span className="block max-w-[16rem] text-right text-xs text-muted-foreground">
+              {rawAmountsText(row.original.raw_amounts) || "—"}
+            </span>
+          ) : (
+            <span className="font-mono tabular-nums">
+              {formatMoney(
+                row.original.imp_total,
+                row.original.moneda === "DOL" ? "USD" : "ARS",
+              )}
+            </span>
+          ),
       },
       {
         id: "actions",
@@ -198,27 +262,38 @@ function VoucherTable({ status }: { status: ReceivedVoucherStatus }) {
                   <Check className="size-4" />
                   Aceptar y cargar
                 </Button>
+                {discardButton(v)}
+              </div>
+            );
+          }
+          if (v.status === "unreadable") {
+            return (
+              <div className="flex justify-end gap-1">
+                <Button size="sm" onClick={() => setAccepting(v)}>
+                  <PencilLine className="size-4" />
+                  Cargar a mano
+                </Button>
                 <IconButton
-                  label="Descartar"
+                  label="Volver a intentar"
                   variant="ghost"
-                  disabled={discard.isPending}
-                  onClick={async () => {
-                    const ok = await confirm({
-                      title: "Descartar comprobante",
-                      description:
-                        "No se carga como compra. Lo podés volver a pendientes desde Descartadas.",
-                      confirmLabel: "Descartar",
-                      tone: "destructive",
-                    });
-                    if (!ok) return;
-                    discard.mutate(
-                      { voucherId: v.id },
-                      { onError: (err) => toast.error(err.message) },
+                  disabled={retry.isPending}
+                  onClick={() => {
+                    const month = v.fecha.slice(0, 7);
+                    retry.mutate(
+                      { fromMonth: month, toMonth: month },
+                      {
+                        onSuccess: () =>
+                          toast.success(
+                            "Se lo pido de nuevo a ARCA. Si ahora se puede leer, pasa a Pendientes.",
+                          ),
+                        onError: (err) => toast.error(err.message),
+                      },
                     );
                   }}
                 >
-                  <Trash2 className="size-4" />
+                  <RefreshCw className="size-4" />
                 </IconButton>
+                {discardButton(v)}
               </div>
             );
           }
@@ -261,7 +336,7 @@ function VoucherTable({ status }: { status: ReceivedVoucherStatus }) {
         },
       },
     ],
-    [confirm, discard, restore],
+    [discardButton, restore, retry],
   );
 
   return (
@@ -328,10 +403,14 @@ export function ArcaReceivedTray() {
   const upload = useUploadReceivedExport();
   const counts = useReceivedVoucherCounts();
   const pending = counts.data?.pending ?? 0;
+  const unreadable = counts.data?.unreadable ?? 0;
 
   return (
     <div className="space-y-6">
-      <ArcaSyncCard />
+      <ArcaSyncCard
+        unreadable={unreadable}
+        onShowUnreadable={() => setStatus("unreadable")}
+      />
 
       <FileDropzone
         onFile={(file) =>
@@ -360,6 +439,7 @@ export function ArcaReceivedTray() {
               <TabsTrigger key={s} value={s}>
                 {RECEIVED_VOUCHER_TAB_LABEL[s]}
                 {s === "pending_review" && pending > 0 ? ` (${pending})` : ""}
+                {s === "unreadable" && unreadable > 0 ? ` (${unreadable})` : ""}
               </TabsTrigger>
             ))}
           </TabsList>

@@ -131,7 +131,7 @@ export function WorkflowDialog({
               onChange={(e) => set("prompt", e.target.value)}
             />
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-1">
               <Label htmlFor="wf-cadence">Frecuencia</Label>
               <Select

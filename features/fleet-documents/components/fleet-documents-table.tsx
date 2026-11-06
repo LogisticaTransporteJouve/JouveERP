@@ -16,6 +16,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { PageHeader } from "@/components/ui/page-header";
 import { fetchSignedUrl } from "@/features/files/hooks/use-attachments";
 import { userCan, type Access } from "@/lib/auth/permissions";
 import { cn } from "@/lib/utils";
@@ -188,26 +189,21 @@ export function FleetDocumentsTable({
 
   return (
     <>
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Documentación de flota
-          </h1>
-          <p className="text-muted-foreground text-sm">
-            Documentación vencible de vehículos y choferes (VTV, seguro,
-            licencia, ART, etc.).
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <ExportButton resource="fleet-documents" />
-          {canWrite && (
-            <Button onClick={() => setDialog({ mode: "create" })}>
-              <Plus />
-              Nuevo documento
-            </Button>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        title="Documentación de flota"
+        description="Documentación vencible de vehículos y choferes (VTV, seguro, licencia, ART, etc.)."
+        actions={
+          <>
+            <ExportButton resource="fleet-documents" />
+            {canWrite && (
+              <Button onClick={() => setDialog({ mode: "create" })}>
+                <Plus />
+                Nuevo documento
+              </Button>
+            )}
+          </>
+        }
+      />
 
       <DataTable
         columns={columns}

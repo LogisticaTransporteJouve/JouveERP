@@ -10,11 +10,13 @@ import {
   TRIBUTE_SUGGESTION_NOTE,
 } from "@/lib/purchases/tribute-split";
 
-import type {
-  ArcaGapTarget,
-  PURCHASE_TRIBUTE_FIELDS,
-  PurchaseIvaRateId,
-  ReceivedVoucher,
+import {
+  RAW_AMOUNT_LABEL,
+  type ArcaGapTarget,
+  type PURCHASE_TRIBUTE_FIELDS,
+  type PurchaseIvaRateId,
+  type RawAmountKey,
+  type ReceivedVoucher,
 } from "../schema";
 import type { PurchaseInvoiceDraftData } from "./purchase-invoice-draft";
 
@@ -332,3 +334,52 @@ export function arcaVoucherToDraft(
     warnings,
   };
 }
+
+/** A purchase prefilled from a voucher whose amounts did not read: its
+ *  identity from ARCA, the amounts for the person to type from the invoice
+ *  (what ARCA listed is shown as a note). */
+export function unreadableVoucherToDraft(
+  voucher: ReceivedVoucher,
+): PurchaseInvoiceDraftData {
+  const kind = voucher.kind ?? "factura";
+  const listed = rawAmountsText(voucher.raw_amounts);
+  return {
+    supplier: voucher.supplier,
+    unmatchedSupplier: voucher.supplier
+      ? null
+      : { legal_name: voucher.issuer_name, cuit: voucher.issuer_cuit },
+    kind,
+    kind_read: true,
+    letter: voucher.letter,
+    punto_venta: voucher.punto_venta,
+    numero: voucher.numero,
+    fecha: voucher.fecha,
+    fch_vto_pago: voucher.fecha,
+    cae_proveedor: voucher.cae,
+    cae_vto_proveedor: null,
+    imp_neto: null,
+    imp_iva: null,
+    imp_trib: null,
+    imp_total: null,
+    moneda: voucher.moneda,
+    cotizacion: voucher.moneda === "DOL" ? null : 1,
+    motivo_nc_nd: kind === "factura" ? null : "Según ARCA → Mis Comprobantes",
+    items: [],
+    account: null,
+    cost_center_id: null,
+    warnings: [
+      `ARCA no se pudo leer${listed ? ` (lista ${listed})` : ""}: cargá los importes de la factura.`,
+      ...(kind !== "factura" ? ["NC/ND: elegí la factura de origen."] : []),
+    ],
+  };
+}
+
+/** What ARCA listed for an unreadable voucher, as one line. */
+export function rawAmountsText(raw: ReceivedVoucher["raw_amounts"]): string {
+  if (!raw) return "";
+  return RAW_AMOUNT_KEYS.filter((k) => raw[k] !== undefined)
+    .map((k) => `${RAW_AMOUNT_LABEL[k].toLowerCase()} ${raw[k]}`)
+    .join(", ");
+}
+
+const RAW_AMOUNT_KEYS = Object.keys(RAW_AMOUNT_LABEL) as RawAmountKey[];

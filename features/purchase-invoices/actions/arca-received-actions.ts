@@ -4,7 +4,10 @@ import { z } from "zod";
 
 import { logAudit } from "@/lib/actions/audit";
 import { parseReceivedExport } from "@/lib/afip/mis-comprobantes/parse";
-import { ingestReceivedVouchers } from "@/lib/afip/received-vouchers";
+import {
+  ingestReceivedVouchers,
+  ingestUnreadableVouchers,
+} from "@/lib/afip/received-vouchers";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import {
@@ -83,12 +86,17 @@ export async function uploadReceivedExportAction(
     return { ok: false, error: parsed };
   }
 
-  const counts = await ingestReceivedVouchers(
-    getServiceClient(),
-    parsed.vouchers,
-    { origin: "upload" },
-  );
-  if (!counts) {
+  const supabase = getServiceClient();
+  const counts = await ingestReceivedVouchers(supabase, parsed.vouchers, {
+    origin: "upload",
+  });
+  // The rows that did not read stay in the tray to be loaded by hand.
+  const kept =
+    counts &&
+    (await ingestUnreadableVouchers(supabase, parsed.unreadable, {
+      origin: "upload",
+    }));
+  if (!counts || kept === null) {
     return {
       ok: false,
       error:
@@ -201,16 +209,23 @@ export async function listReceivedVouchersAction(
 }
 
 export async function getReceivedVoucherCountsAction(): Promise<
-  ActionResult<{ pending: number }>
+  ActionResult<{ pending: number; unreadable: number }>
 > {
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "purchase_invoices:write")) {
     return { ok: false, error: DENIED };
   }
-  const { count, error } = await getServiceClient()
-    .from("arca_received_vouchers")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "pending_review");
+  const supabase = getServiceClient();
+  const count = (status: ReceivedVoucherStatus) =>
+    supabase
+      .from("arca_received_vouchers")
+      .select("id", { count: "exact", head: true })
+      .eq("status", status);
+  const [pending, unreadable] = await Promise.all([
+    count("pending_review"),
+    count("unreadable"),
+  ]);
+  const error = pending.error ?? unreadable.error;
   if (error) {
     logger.error("arca_received.counts.failed", {
       userId: ctx.userId,
@@ -218,7 +233,10 @@ export async function getReceivedVoucherCountsAction(): Promise<
     });
     return { ok: false, error: "No se pudo contar los pendientes." };
   }
-  return { ok: true, data: { pending: count ?? 0 } };
+  return {
+    ok: true,
+    data: { pending: pending.count ?? 0, unreadable: unreadable.count ?? 0 },
+  };
 }
 
 /** One tray voucher, with its supplier's latest tribute split when ARCA gives
@@ -327,9 +345,23 @@ async function moveVoucher(
     "reason" in parsed.data && typeof parsed.data.reason === "string"
       ? parsed.data.reason
       : null;
-  const from: ReceivedVoucherStatus =
-    op === "discard" ? "pending_review" : "discarded";
   const supabase = getServiceClient();
+  // A voucher whose amounts did not read goes back to its own tab.
+  let restoreTo: ReceivedVoucherStatus = "pending_review";
+  if (op === "restore") {
+    const current = await readVoucher(supabase, voucherId);
+    if (current === "failed") {
+      logger.error("arca_received.restore.failed", {
+        userId: ctx.userId,
+        voucherId,
+        code: "read",
+      });
+      return { ok: false, error: "No se pudo actualizar el comprobante." };
+    }
+    if (current?.unreadable_reason) restoreTo = "unreadable";
+  }
+  const from: ReceivedVoucherStatus[] =
+    op === "discard" ? ["pending_review", "unreadable"] : ["discarded"];
   let query = supabase
     .from("arca_received_vouchers")
     .update(
@@ -341,14 +373,14 @@ async function moveVoucher(
             reviewed_at: new Date().toISOString(),
           }
         : {
-            status: "pending_review",
+            status: restoreTo,
             discard_reason: null,
             reviewed_by: null,
             reviewed_at: null,
           },
     )
     .eq("id", voucherId)
-    .eq("status", from)
+    .in("status", from)
     .is("purchase_invoice_id", null);
   // Someone accepting it right now holds a fresh claim.
   if (op === "discard") {
@@ -372,7 +404,8 @@ async function moveVoucher(
       error:
         op === "discard" &&
         current !== "failed" &&
-        current?.status === "pending_review"
+        (current?.status === "pending_review" ||
+          current?.status === "unreadable")
           ? BEING_LOADED
           : ALREADY_PROCESSED,
     };

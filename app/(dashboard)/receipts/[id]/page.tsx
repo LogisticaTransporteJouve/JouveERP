@@ -104,7 +104,7 @@ export default async function ReceiptDetailPage({
         </Button>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="rounded-lg border bg-card p-4 lg:col-span-2">
           <h2 className="text-sm font-medium">Medios de pago</h2>
           {payment_lines.length === 0 ? (

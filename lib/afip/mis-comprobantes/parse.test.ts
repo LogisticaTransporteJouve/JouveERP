@@ -44,6 +44,7 @@ describe("parseReceivedExport", () => {
           iva_breakdown: [],
         },
       ],
+      unreadable: [],
       skippedByReason: {},
       skipped: [],
     });
