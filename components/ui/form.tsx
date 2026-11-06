@@ -80,7 +80,10 @@ function FormItem({ className, ...props }: React.ComponentProps<"div">) {
     <FormItemContext.Provider value={{ id }}>
       <div
         data-slot="form-item"
-        className={cn("grid gap-2", className)}
+        // content-start: in a form grid a shorter field (no description or
+        // error) stretches to its row's height; its label must stay on top
+        // instead of sliding down with the stretched rows.
+        className={cn("grid content-start gap-2", className)}
         {...props}
       />
     </FormItemContext.Provider>
