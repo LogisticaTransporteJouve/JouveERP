@@ -1848,7 +1848,7 @@ export const fleetPage: GuidePage = {
       routes: ["/rendiciones"],
       permission: "receipts:read",
       intro: [
-        "La cobranza contra entrega: lo que cada chofer cobró al entregar y lo que entregó después. Arriba, {{Pendientes por chofer}} muestra por chofer las {{Cargas por rendir}}, el monto {{A rendir}} y los {{Borradores}} abiertos. Abajo, la lista de {{Rendiciones}} con {{Número}}, {{Chofer}}, {{Fecha}}, {{Estado}}, {{Entregado}} y {{Diferencia}} (y a cargo de quién quedó). {{Cargar más}} trae las anteriores.",
+        "La cobranza contra entrega: lo que cada chofer cobró al entregar y lo que entregó después. Arriba, {{Pendientes por chofer}} muestra por chofer las {{Cargas por rendir}}, el monto {{A rendir}} y los {{Borradores}} abiertos. Abajo, la lista de {{Rendiciones}} con {{Número}}, {{Chofer}}, {{Fecha}}, {{Estado}}, {{Entregado}} y {{Diferencia}} (y a cargo de quién quedó). Al bajar hasta el final se cargan solas las anteriores.",
         "Una carga está por rendir cuando tiene {{Cobranza contra entrega}}, está {{Entregada}} y no está en otra rendición viva. Sale con el chofer del viaje de la carga; las cargas sin viaje o con un viaje sin chofer aparecen como «Sin chofer» y no se pueden rendir hasta asignarles el viaje.",
       ],
       screens: [

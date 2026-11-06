@@ -136,7 +136,7 @@ export const TOOL_LABELS: Record<string, string> = {
   getPurchaseInvoiceDetail: "Detalle de la factura de compra",
   getPaymentOrderDetail: "Detalle de la orden de pago",
   getArcaReceivedVouchers: "Comprobantes recibidos en ARCA",
-  getArcaPurchaseReconciliation: "Conciliación de ARCA con compras",
+  getArcaPurchaseReconciliation: "Conciliación de compras con ARCA",
   getCashFlow: "Flujo de caja",
   getBankReconciliation: "Conciliación bancaria",
   getUpcomingDueDates: "Próximos vencimientos",

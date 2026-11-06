@@ -455,7 +455,7 @@ export const accountingPage: GuidePage = {
       intro: [
         "Los asientos contables, del más nuevo al más viejo. Casi todos se generan solos desde comprobantes, compras, recibos, órdenes de pago y movimientos de caja; los manuales se cargan acá.",
         "Cada fila muestra fecha, período de devengamiento, descripción, origen, canal y el total del Debe. Al hacer clic se despliegan las líneas: {{Código}}, {{Cuenta}}, {{Descripción}}, {{Debe}} y {{Haber}}, con los {{Totales}} y, si el asiento viene de un comprobante emitido, un comprobante de compra, un recibo, una orden de pago o un movimiento de caja, un enlace **Ver …** que abre ese documento (un movimiento de caja se abre en [[/transactions]] mostrando solo ese movimiento).",
-        "Arriba, el contador de asientos cargados; al final, {{Cargar más}} trae los siguientes 50.",
+        "Arriba, el contador de asientos cargados; al llegar al final de la lista se cargan solos los siguientes 50.",
       ],
       screens: [
         {
@@ -523,7 +523,7 @@ export const accountingPage: GuidePage = {
               ],
             },
             "Hacé clic en un asiento para ver sus líneas. Si viene de un comprobante emitido, un comprobante de compra, un recibo, una orden de pago o un movimiento de caja, el enlace **Ver …** lo abre.",
-            "Si hay más asientos de los que se ven, hacé clic en {{Cargar más}} al final de la lista.",
+            "Si hay más asientos de los que se ven, bajá hasta el final de la lista: se cargan solos.",
           ],
           after: [
             "Si un asiento no balancea, al desplegarlo aparece «Asiento desbalanceado» con la diferencia.",

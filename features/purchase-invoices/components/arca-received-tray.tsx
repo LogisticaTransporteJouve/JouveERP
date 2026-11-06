@@ -1,5 +1,6 @@
 "use client";
 
+import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
 import {
   AlertTriangle,
   Check,
@@ -128,6 +129,14 @@ function AcceptDialog({
 function VoucherTable({ status }: { status: ReceivedVoucherStatus }) {
   const { vouchers, hasNextPage, fetchNextPage, isFetchingNextPage } =
     useReceivedVouchers(status);
+  // Loads the next page when the end of the list scrolls into view, like
+  // every other list.
+  const loadMoreRef = useIntersectionObserver<HTMLDivElement>(
+    () => {
+      if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
+    },
+    { rootMargin: "200px", enabled: hasNextPage && !isFetchingNextPage },
+  );
   const discard = useDiscardReceivedVoucher();
   const restore = useRestoreReceivedVoucher();
   const confirm = useConfirm();
@@ -375,15 +384,11 @@ function VoucherTable({ status }: { status: ReceivedVoucherStatus }) {
         emptyMessage={EMPTY[status]}
       />
       {hasNextPage && (
-        <div className="flex justify-center">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={isFetchingNextPage}
-            onClick={() => fetchNextPage()}
-          >
-            {isFetchingNextPage ? "Cargando…" : "Cargar más"}
-          </Button>
+        <div
+          ref={loadMoreRef}
+          className="py-4 text-center text-xs text-muted-foreground"
+        >
+          Cargando más…
         </div>
       )}
       {viewing && (
