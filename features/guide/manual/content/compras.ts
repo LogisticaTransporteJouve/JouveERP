@@ -1,5 +1,4 @@
 import { PAYMENT_ORDER_FORM_PERMISSIONS } from "@/features/payment-orders/lib/payment-order-form";
-import { ARCA_BULK_ACCEPT_PERMISSIONS } from "@/features/purchase-invoices/lib/arca-bulk-accept";
 
 import type { GuidePage } from "../types";
 
@@ -28,7 +27,7 @@ export const purchasesPage: GuidePage = {
           title: "Qué cambia según el bloque que abriste",
           body: [
             "Al abrir un ítem del bloque **Compras**, el sistema pasa al lado fiscal y la pantalla muestra solo proveedores, facturas, órdenes de pago y deudas de canales fiscales. Al abrir uno de **Otras compras**, pasa al lado interno y muestra solo lo de canales internos.",
-            "En **Otras compras** el ítem de las facturas se llama {{Remitos de compra}}: del lado interno no hay facturas sino remitos internos, que no llevan letra ni CAE y no van al Libro IVA Compras.",
+            "El ítem de las facturas se llama {{Comprobantes}} en **Compras** y {{Remitos de compra}} en **Otras compras**: del lado interno no hay facturas sino remitos internos, que no llevan letra ni CAE y no van al Libro IVA Compras.",
             "{{Categorías}} es la misma lista en los dos bloques: las categorías de proveedores no tienen lado.",
             "Un usuario que solo puede ver lo fiscal (el contador externo) no ve el bloque **Otras compras**.",
           ],
@@ -118,7 +117,8 @@ export const purchasesPage: GuidePage = {
         {
           title: "La cuenta corriente del proveedor",
           body: [
-            "La pestaña {{Cuenta corriente}} lista, de lo más nuevo a lo más viejo, las facturas, notas de crédito y débito, órdenes de pago, cheques rechazados y el ajuste de saldo del proveedor. Columnas: {{Fecha}}, {{Tipo}}, {{Documento}} (con el número enlazado al comprobante; una factura muestra {{Pagada}} o {{Parcial}}), {{Canal}}, {{Debe}} (lo que le debemos, con lo {{Pendiente:}} si está pagada en parte), {{Haber}} (pagos y créditos) y {{Acciones}}.",
+            "La pestaña {{Cuenta corriente}} lista, de lo más nuevo a lo más viejo, las facturas, notas de crédito y débito, órdenes de pago, cheques rechazados y el ajuste de saldo del proveedor. Columnas: {{Fecha}}, {{Tipo}}, {{Documento}} (con el número enlazado al comprobante; una factura muestra {{Pagada}} o {{Parcial}}), {{Canal}}, {{Debe}} (lo que le debemos, con lo {{Pendiente:}} si está pagada en parte), {{Haber}} (pagos y créditos), {{Saldo}} y {{Acciones}}.",
+            "{{Saldo}} es el saldo acumulado después de cada movimiento, por moneda. En {{Compras}} y en {{Otras compras}} acumula solo los movimientos de ese lado: sin ajuste de saldo, desde el primer movimiento; con un ajuste de saldo en 0, antes del ajuste dice «—», en el ajuste es 0 y desde ahí acumula. Si el ajuste es distinto de 0, la columna no aparece en Compras ni en Otras compras, porque ese saldo no dice cuánto le toca a cada lado.",
             "El recuadro de arriba muestra el **Saldo pendiente total** del lado del proveedor: lo que falta pagar de facturas, notas de débito y cheques rechazados, menos lo pagado a cuenta sin imputar y las notas de crédito sin factura de origen. Debajo dice {{Les debemos}}, {{Saldo a favor}} o {{Saldo cero}}. Si hay movimientos en dólares, muestra un saldo en pesos y otro en dólares (nunca se suman).",
             "El saldo es siempre el de toda la cuenta: el filtro de fechas solo acota la tabla.",
           ],
@@ -220,7 +220,7 @@ export const purchasesPage: GuidePage = {
             {
               text: "Opcional: en **Al cargar una compra de este proveedor, completar con:**, cargá lo que se va a proponer en cada factura nueva de este proveedor (se puede cambiar en cada factura).",
               substeps: [
-                "{{Canal}}: el canal que se elige solo al cargarle una compra.",
+                "{{Canal}}: el canal que se elige solo al cargarle una compra. Si el lado del proveedor tiene un solo canal (hoy, Compras tiene solo el fiscal de Jouve), el campo no aparece: la compra ya arranca en ese canal.",
                 "{{Plazo de pago (días)}}: de 1 a 365. El vencimiento de pago de la factura se propone como fecha de la factura más esos días.",
                 "{{Cuenta de gasto}}: la cuenta contable a la que va el neto (si no elegís, va a Compras).",
                 "{{Centro de costo}}: el centro al que se imputa el gasto.",
@@ -401,6 +401,7 @@ export const purchasesPage: GuidePage = {
                   "Canal",
                   "Debe",
                   "Haber",
+                  "Saldo",
                   "Acciones",
                 ],
                 rows: [
@@ -411,6 +412,7 @@ export const purchasesPage: GuidePage = {
                     "~Jouve fiscal",
                     "~—",
                     "~$500.000,00",
+                    "~$300.000,00",
                     "~👁",
                   ],
                   [
@@ -420,6 +422,7 @@ export const purchasesPage: GuidePage = {
                     "~Jouve fiscal",
                     "~$800.000,00",
                     "~—",
+                    "~$800.000,00",
                     "~👁",
                   ],
                 ],
@@ -777,7 +780,7 @@ export const purchasesPage: GuidePage = {
       routes: ["/purchases", "/purchases/[id]"],
       permission: "purchase_invoices:read",
       intro: [
-        "Del lado fiscal, la pantalla se llama {{Facturas de compra}}: facturas, notas de crédito y notas de débito que te mandan los proveedores de Compras, con su IVA, percepciones, cuenta de gasto y centro de costo. Del lado interno se llama {{Remitos internos de compra}}: compras a proveedores de Otras compras sin factura, que no van al Libro IVA.",
+        "Del lado fiscal, la pantalla se llama {{Comprobantes}} (como en Ventas): facturas, notas de crédito y notas de débito que te mandan los proveedores de Compras, con su IVA, percepciones, cuenta de gasto y centro de costo. Del lado interno se llama {{Remitos internos de compra}}: compras a proveedores de Otras compras sin factura, que no van al Libro IVA.",
         "Columnas: {{Comprobante}} (tipo y número), {{Proveedor}}, {{Tipo}} ({{Fiscal}} o {{Interno}}), {{Fecha}}, {{Total}}, {{Estado}} ({{Recibida}} o {{Anulada}}) y {{Acciones}}. Arriba podés buscar por proveedor, CUIT o número, filtrar por fechas y por estado ({{Cualquier estado}}).",
         "Del lado fiscal, quien puede cargar compras ve además el botón {{Recibidos de ARCA}}, con la cantidad de comprobantes pendientes: ver [[/purchases/arca]].",
         "El detalle de una compra muestra el proveedor (con CAE, vencimiento del CAE y vencimiento de pago), los {{Totales}} ({{Neto}}, no gravado, exento, {{IVA}}, {{Otros tributos}} y su reparto, {{Total}}, {{Pagado}}, {{Acreditado}} y {{Saldo}}), los {{Ítems}} (o {{Sin detalle (cargada solo por totales)}}), el motivo si es NC/ND, las {{Órdenes de pago imputadas}}, los {{Remitos internos imputados}}, las notas y los adjuntos.",
@@ -786,7 +789,7 @@ export const purchasesPage: GuidePage = {
         {
           kind: "page",
           caption: "Compras › Comprobantes",
-          title: "Facturas de compra",
+          title: "Comprobantes",
           subtitle:
             "Facturas, notas de crédito y débito recibidas de proveedores de Compras.",
           actions: [
@@ -886,6 +889,8 @@ export const purchasesPage: GuidePage = {
           screens: [
             {
               kind: "dialog",
+              caption:
+                "En la computadora el diálogo ocupa casi todo el ancho: arriba los datos del comprobante en dos columnas, la tabla de {{Cargar con detalle por ítem}} a todo el ancho y debajo los importes a la izquierda y la imputación a la derecha. Con el archivo al lado, el formulario pasa a una columna.",
               title: "Cargar factura de compra",
               description:
                 "Cargá los datos de la factura que te envió el proveedor o completalos desde el PDF o una foto. Para nota de crédito o débito elegí el tipo correspondiente.",
@@ -1486,7 +1491,7 @@ export const purchasesPage: GuidePage = {
           ],
           steps: [
             "En [[/purchases]], en la fila de la compra, hacé clic en {{Anular}} (el ícono de prohibido).",
-            "Hacé clic en {{Anular}} para confirmar.",
+            "El cuadro explica qué pasa: la factura sale del saldo del proveedor, de la deuda y del Libro IVA Compras, y su asiento se revierte; no se puede deshacer. También recuerda cuándo no se puede anular (con órdenes de pago imputadas, notas de crédito o débito cargadas o saldada por el ajuste de saldo): en esos casos corresponde una nota de crédito ([[#cargar-nota-de-credito-o-debito-de-compra]]). Hacé clic en {{Anular}} para confirmar.",
           ],
           after: [
             "Aviso «Factura anulada.». La compra pasa a {{Anulada}}, deja de contar en la cuenta corriente y el aging y, si es fiscal, su asiento se revierte con un asiento inverso.",
@@ -1706,7 +1711,7 @@ export const purchasesPage: GuidePage = {
         {
           title: "Cómo llegan los comprobantes",
           body: [
-            "Todos los días el sistema trae solo los comprobantes de los últimos 60 días, si hay un usuario de ARCA cargado (lo carga un owner o admin en [[/admin/afip/puntos-de-venta]]).",
+            "Todos los días el sistema trae solo los comprobantes de los últimos 60 días, si hay un usuario de ARCA cargado (lo carga un owner o admin en [[/admin/accesos]], ver [[#configurar-usuario-arca]]).",
             "Lo que ya está en la bandeja nunca se duplica. Si cargaste una compra a mano y coincide con un comprobante pendiente, el comprobante pasa solo a {{Cargadas}}.",
           ],
         },
@@ -1779,12 +1784,12 @@ export const purchasesPage: GuidePage = {
             {
               message:
                 "Falta cargar el usuario de ARCA: lo carga un owner o admin en Admin → AFIP → Puntos de venta.",
-              fix: "Pedile a un owner o admin que lo cargue.",
+              fix: "Pedile a un owner o admin que lo cargue en [[/admin/accesos]] (el menú se llama Admin › Accesos, aunque el mensaje nombre Puntos de venta).",
             },
             {
               message:
                 "JouveERP dejó de entrar a ARCA con la clave guardada: un owner o admin tiene que volver a cargarla en Admin → AFIP → Puntos de venta.",
-              fix: "Pedile a un owner o admin que actualice la clave.",
+              fix: "Pedile a un owner o admin que actualice la clave en [[/admin/accesos]].",
             },
             {
               message: "No se pudo pedir a ARCA. Probá de nuevo en un rato.",
@@ -1967,54 +1972,6 @@ export const purchasesPage: GuidePage = {
           ],
         },
         {
-          id: "aceptar-todos-los-pendientes-de-arca",
-          title: "Aceptar todos los pendientes de ARCA de una vez",
-          summary:
-            "Solo el owner: da de alta los proveedores que faltan, carga cada pendiente como compra y cancela todo lo anterior al 31/10/2026 con un saldo de apertura en 0.",
-          permission: [...ARCA_BULK_ACCEPT_PERMISSIONS],
-          screens: [
-            {
-              kind: "dialog",
-              title: "Aceptar todos los pendientes",
-              description:
-                "Carga los … comprobantes pendientes de una vez. Corre en segundo plano y tarda un rato largo: podés cerrar esta pantalla.",
-              footer: [
-                { label: "Cancelar", variant: "outline" },
-                { label: "Aceptar todos", variant: "primary", marker: 2 },
-              ],
-            },
-          ],
-          steps: [
-            "En [[/purchases/arca]], en la pestaña {{Pendientes}}, en el recuadro {{Aceptar todos los pendientes}}, hacé clic en {{Aceptar todos los pendientes}}.",
-            "Leé qué hace y hacé clic en {{Aceptar todos}}.",
-          ],
-          after: [
-            "Corre en segundo plano y el recuadro muestra en qué va: «Dando de alta los proveedores que faltan…», «Cargando los comprobantes como compras… N de M.» y «Fijando los saldos de apertura al 31/10/2026…». Mientras corre, el botón dice {{Cargando…}}.",
-            "**Proveedores**: cada CUIT sin proveedor se da de alta del lado fiscal con la razón social, la condición de IVA y el domicilio fiscal del padrón de AFIP. Si el padrón no responde, toma el nombre que informa ARCA y la condición según la letra: A o B, responsable inscripto; C, monotributo. Sin canal, cuenta ni centro de costo por defecto.",
-            "**Comprobantes**: se cargan igual que con {{Aceptar y cargar}} ([[#aceptar-comprobante-de-arca]]), primero las facturas y después las notas de débito y de crédito. El canal es el del proveedor, o el único canal fiscal activo; la cuenta y el centro de costo, los del proveedor (si no tiene, la compra va a la cuenta de compras). Si los importes de ARCA no suman el total, la diferencia va a no gravado (al neto en B y C). En dólares, toma la cotización de ARCA o la del día cargada en [[/accounting/exchange-rates]]. Cada NC o ND se vincula con una factura del mismo proveedor, letra y moneda, de fecha igual o anterior: la de igual total, o si no la última; una NC solo con una factura a la que le quede saldo para toda la nota.",
-            "**Saldos de apertura**: a cada proveedor con compras cargadas hasta el 31/10/2026 se le fija el saldo de apertura en 0 a esa fecha, como en [[#ajustar-saldo-proveedor]]: todo lo anterior queda cancelado y lo de noviembre en adelante queda como deuda abierta. Si el proveedor ya tenía un saldo de apertura, se reemplaza. Las compras en dólares no se cancelan (este saldo de apertura es en pesos; si el proveedor ya tenía un saldo en dólares, se vuelve a aplicar): el resultado dice cuántas quedaron abiertas. Para cancelarlas, ajustá el saldo en dólares del proveedor ([[#ajustar-saldo-proveedor]]).",
-            "Al terminar, el recuadro resume proveedores creados, comprobantes cargados, los que quedaron en {{Pendientes}} por motivo (NC/ND sin factura de origen, en dólares sin cotización, otros tributos sin reparto, con error) y los saldos de apertura fijados; {{Ver errores}} lista cada uno. Lo que quedó en {{Pendientes}} se acepta uno por uno.",
-            "Si se corta, lo cargado hasta ahí queda: se puede volver a correr y sigue con lo que quedó pendiente.",
-          ],
-          errors: [
-            {
-              message: "Ya hay una carga de todos los pendientes en curso.",
-              fix: "Esperá a que termine la que está corriendo.",
-            },
-            {
-              message: "No se pudo pedir la carga. Probá de nuevo en un rato.",
-              fix: "Reintentá más tarde.",
-            },
-          ],
-          related: ["aceptar-comprobante-de-arca", "ajustar-saldo-proveedor"],
-          keywords: [
-            "aceptar todos",
-            "carga masiva ARCA",
-            "importar todas las facturas",
-            "saldo de apertura",
-          ],
-        },
-        {
           id: "descartar-comprobante-de-arca",
           title: "Descartar un comprobante de ARCA o volverlo a pendientes",
           permission: "purchase_invoices:write",
@@ -2044,7 +2001,8 @@ export const purchasesPage: GuidePage = {
     {
       id: "conciliacion-compras-arca",
       title: "Conciliación con ARCA (compras)",
-      menuPath: "Compras › Compras › Recibidos de ARCA › Conciliación con ARCA",
+      menuPath:
+        "Compras › Comprobantes › Recibidos de ARCA › Conciliación con ARCA",
       routes: ["/purchases/arca/reconciliation"],
       permission: "purchase_invoices:write",
       intro: [
