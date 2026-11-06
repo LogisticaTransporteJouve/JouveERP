@@ -25,6 +25,6 @@ export const config = {
   matcher: [
     // Match every path except Next assets, image optimizer, public icons,
     // and any file with a static extension.
-    "/((?!_next/static|_next/image|favicon.ico|icon\\.jpeg|apple-icon\\.jpeg|jouve-logo\\.jpeg|.*\\.(?:svg|png|jpg|jpeg|webp|gif|ico|css|js|map|txt)).*)",
+    "/((?!_next/static|_next/image|favicon.ico|manifest\\.webmanifest|icon\\.jpeg|apple-icon\\.jpeg|jouve-logo\\.jpeg|.*\\.(?:svg|png|jpg|jpeg|webp|gif|ico|css|js|map|txt)).*)",
   ],
 };

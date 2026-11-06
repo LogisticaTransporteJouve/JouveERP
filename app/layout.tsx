@@ -22,12 +22,16 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Logística y Transporte Jouve",
   description: "ERP de Logística y Transporte Jouve",
+  // Added to the iPhone home screen it opens full screen, like the manifest
+  // does on Android (app/manifest.ts).
+  appleWebApp: { capable: true, title: "Jouve", statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
+  themeColor: "#35358a",
 };
 
 export default async function RootLayout({
