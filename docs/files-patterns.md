@@ -1248,7 +1248,7 @@ y `getSignedFileUrlAction` repite el chequeo. `uploadFleetDocumentFileAction`
 sube el archivo (`storeUploadedFile`, el mismo paso que `uploadFileAction`) y
 apunta el documento a él; si el documento no se actualiza, descarta el
 archivo. `find_orphan_files`, `delete_chat_draft_file` e
-`isFileStillReferenced` cuentan este vínculo.
+`isLinkedFile` cuentan este vínculo.
 
 Cuando un documento de flota o de RRHH deja de apuntar a su archivo (se
 reemplaza, se quita o se borra el documento), la acción lo borra en el

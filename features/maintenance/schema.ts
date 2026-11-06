@@ -121,6 +121,8 @@ export const MaintenanceCreateSchema = z
 
 export type MaintenanceCreateInput = z.infer<typeof MaintenanceCreateSchema>;
 
+export const MaintenanceDeleteSchema = z.object({ id: z.string().uuid() });
+
 export const MaintenanceUpdateSchema = z.object({
   id: z.string().uuid(),
   vehicle_id: z.string().uuid("Vehículo requerido.").optional(),

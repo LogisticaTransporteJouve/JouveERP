@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { Json } from "@/lib/db/database.types";
+import { writeFileBlobAndRow } from "@/lib/files/store";
 import { logger } from "@/lib/logger";
 import { getServiceClient } from "@/lib/supabase/service";
 
@@ -15,8 +16,6 @@ import type { ChatAttachment } from "./schema";
 // Chat attachment persistence. Every function runs with the service client
 // and is called only after the caller's gate (`ai:chat`) with the user id the
 // session resolved; ownership is checked here, never taken from the client.
-
-const BUCKET = "files";
 
 function one<T>(value: T | T[] | null | undefined): T | null {
   if (Array.isArray(value)) return value[0] ?? null;
@@ -205,41 +204,19 @@ export async function storeDraftAttachment(input: {
   bytes: Uint8Array;
   metadata: { [key: string]: Json };
 }): Promise<boolean> {
-  const service = getServiceClient();
-  const { error: storageError } = await service.storage
-    .from(BUCKET)
-    .upload(input.bucketPath, input.bytes, {
-      contentType: input.mimeType,
-      cacheControl: "3600",
-      upsert: false,
-    });
-  if (storageError) {
-    logger.warn("ai.attachments.upload_failed", {
-      userId: input.userId,
-      error: storageError.message,
-    });
-    return false;
-  }
-  const { error } = await service.from("files").insert({
-    id: input.fileId,
-    uploaded_by: input.userId,
-    original_filename: input.filename,
-    mime_type: input.mimeType,
-    file_size: input.bytes.byteLength,
-    bucket: BUCKET,
-    bucket_path: input.bucketPath,
+  const written = await writeFileBlobAndRow(getServiceClient(), {
+    fileId: input.fileId,
+    bucketPath: input.bucketPath,
+    body: input.bytes,
+    userId: input.userId,
+    filename: input.filename,
+    mimeType: input.mimeType,
+    size: input.bytes.byteLength,
     source: CHAT_ATTACHMENT_SOURCE,
     metadata: input.metadata,
+    logPrefix: "ai.attachments.upload",
   });
-  if (error) {
-    await service.storage.from(BUCKET).remove([input.bucketPath]);
-    logger.warn("ai.attachments.register_failed", {
-      userId: input.userId,
-      error: error.message,
-    });
-    return false;
-  }
-  return true;
+  return written === "ok";
 }
 
 /**

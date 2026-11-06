@@ -20,7 +20,7 @@ import {
   userCan,
 } from "@/lib/auth/permissions";
 import type { Database } from "@/lib/db/database.types";
-import { mapDbGuardError } from "@/lib/db/guard-errors";
+import { dbErrorMessage, mapDbGuardError } from "@/lib/db/guard-errors";
 import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { fiscalVoucherIssue } from "@/lib/afip/rules";
 import { getLastAuthorizedNumber } from "@/lib/afip/wsfev1";
@@ -85,29 +85,37 @@ interface ClientInfo {
   is_fiscal: boolean;
 }
 
+/** The loaders below return "error" on a DB failure (logged here), so the
+ *  action answers `{ ok: false }` instead of throwing. */
 async function loadChannel(
   supabase: ReturnType<typeof getServiceClient>,
   channelId: string,
-): Promise<ChannelInfo | null> {
+): Promise<ChannelInfo | null | "error"> {
   const { data, error } = await supabase
     .from("invoicing_channels")
     .select("id, is_fiscal, is_active")
     .eq("id", channelId)
     .maybeSingle();
-  if (error) throw new Error(`load-channel: ${error.message}`);
+  if (error) {
+    logger.error("issue_invoice.load_channel_failed", { channelId, error });
+    return "error";
+  }
   return data;
 }
 
 async function loadClient(
   supabase: ReturnType<typeof getServiceClient>,
   clientId: string,
-): Promise<ClientInfo | null> {
+): Promise<ClientInfo | null | "error"> {
   const { data, error } = await supabase
     .from("clients")
     .select("id, is_active, iva_condition, is_fiscal")
     .eq("id", clientId)
     .maybeSingle();
-  if (error) throw new Error(`load-client: ${error.message}`);
+  if (error) {
+    logger.error("issue_invoice.load_client_failed", { clientId, error });
+    return "error";
+  }
   if (!data) return null;
   return {
     id: data.id,
@@ -123,13 +131,16 @@ async function loadEnabledPos(
   supabase: ReturnType<typeof getServiceClient>,
   numero: number,
   channelId: string,
-): Promise<{ numero: number; channel_id: string | null } | null> {
+): Promise<{ numero: number; channel_id: string | null } | null | "error"> {
   const { data, error } = await supabase
     .from("sales_points")
     .select("numero, channel_id, is_enabled")
     .eq("numero", numero)
     .maybeSingle();
-  if (error) throw new Error(`load-pos: ${error.message}`);
+  if (error) {
+    logger.error("issue_invoice.load_pos_failed", { numero, error });
+    return "error";
+  }
   if (!data) return null;
   if (!data.is_enabled) return null;
   if (data.channel_id !== channelId) return null;
@@ -238,6 +249,9 @@ export async function issueFiscalInvoiceAction(
     loadChannel(supabase, data.channel_id),
     loadClient(supabase, data.client_id),
   ]);
+  if (channel === "error" || client === "error") {
+    return { ok: false, error: "No se pudo crear el comprobante." };
+  }
   if (!channel) return { ok: false, error: "Canal no existe." };
   if (!channel.is_active)
     return { ok: false, error: "El canal está inactivo." };
@@ -255,6 +269,9 @@ export async function issueFiscalInvoiceAction(
   }
 
   const pos = await loadEnabledPos(supabase, data.punto_venta, data.channel_id);
+  if (pos === "error") {
+    return { ok: false, error: "No se pudo crear el comprobante." };
+  }
   if (!pos) {
     return {
       ok: false,
@@ -544,13 +561,25 @@ export async function issueFiscalInvoiceAction(
 
   const itemsRes = await supabase.from("invoice_items").insert(itemRows);
   if (itemsRes.error) {
-    // Roll back the draft so a retry doesn't see a half-written row.
-    await supabase.from("invoices").delete().eq("id", invoice_id);
+    // Roll back the draft so a retry doesn't see a half-written row. The draft
+    // was never enqueued, so no run can emit it; a failed delete leaves an
+    // item-less draft, logged here for cleanup.
+    const rollback = await supabase
+      .from("invoices")
+      .delete()
+      .eq("id", invoice_id);
     logger.warn("issue_invoice.insert_items_failed", {
       userId: ctx.userId,
       invoice_id,
       err: itemsRes.error.message,
     });
+    if (rollback.error) {
+      logger.error("issue_invoice.rollback_draft_failed", {
+        userId: ctx.userId,
+        invoice_id,
+        error: rollback.error,
+      });
+    }
     return {
       ok: false,
       error: "No se pudieron guardar los ítems del comprobante.",
@@ -618,7 +647,16 @@ export async function getInvoiceStatusAction(
     .eq("id", id)
     .maybeSingle();
 
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    return {
+      ok: false,
+      error: dbErrorMessage(
+        error,
+        { slug: "invoices.status.read_failed", userId: ctx.userId, id: id },
+        "No se pudo leer el comprobante.",
+      ),
+    };
+  }
   if (!data || (isFiscalOnly(ctx.access) && !data.channel?.is_fiscal)) {
     return { ok: false, error: `Comprobante ${id} no encontrado.` };
   }
@@ -748,7 +786,16 @@ export async function listInvoicesAction(
   }
 
   const { data, error } = await query;
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    return {
+      ok: false,
+      error: dbErrorMessage(
+        error,
+        { slug: "invoices.list.failed", userId: ctx.userId },
+        "No se pudieron cargar los comprobantes.",
+      ),
+    };
+  }
 
   const rows = (data ?? []) as Array<{
     id: string;
@@ -1094,7 +1141,16 @@ export async function listInvoicingChannelsAction(): Promise<
     .select("id, name, is_fiscal, is_active")
     .eq("is_active", true)
     .order("name");
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    return {
+      ok: false,
+      error: dbErrorMessage(
+        error,
+        { slug: "invoices.channels.read_failed", userId: ctx.userId },
+        "No se pudieron cargar los canales.",
+      ),
+    };
+  }
   return {
     ok: true,
     data: (data ?? []).map((c) => ({
@@ -1125,7 +1181,16 @@ export async function listEnabledPosAction(
     .eq("channel_id", channelId)
     .eq("is_enabled", true)
     .order("numero");
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    return {
+      ok: false,
+      error: dbErrorMessage(
+        error,
+        { slug: "invoices.pos.read_failed", userId: ctx.userId },
+        "No se pudieron cargar los puntos de venta.",
+      ),
+    };
+  }
   return {
     ok: true,
     data: (data ?? []).map((p) => ({
@@ -1154,10 +1219,12 @@ export async function regeneratePdfAction(
     const result = await generateAndPersistInvoicePdfHash(id);
     return { ok: true, data: { pdf_hash: result.pdfHash } };
   } catch (err) {
-    return {
-      ok: false,
-      error: err instanceof Error ? err.message : "Error generando PDF.",
-    };
+    logger.error("invoices.regenerate_pdf.failed", {
+      userId: ctx.userId,
+      id,
+      err: err instanceof Error ? err.message : String(err),
+    });
+    return { ok: false, error: "No se pudo generar el PDF." };
   }
 }
 

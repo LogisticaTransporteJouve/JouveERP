@@ -29,6 +29,19 @@ export type ActionResult<T> =
 
 type PuntoDeVentaRow = Database["public"]["Tables"]["sales_points"]["Row"];
 
+/** A database error is logged and the user gets fixed Spanish text. */
+function dbFailed(
+  slug: string,
+  userId: string,
+  error: unknown,
+  message: string,
+): { ok: false; error: string } {
+  logger.error(slug, { userId, error });
+  return { ok: false, error: message };
+}
+
+const POS_READ_FAILED = "No se pudieron leer los puntos de venta. Reintentá.";
+
 export interface SalesPointRow {
   numero: number;
   channel_id: string | null;
@@ -91,7 +104,12 @@ export async function loadAfipAdminAction(): Promise<
   ]);
 
   if (dbRes.error) {
-    return { ok: false, error: dbRes.error.message };
+    return dbFailed(
+      "afip.panel.read_failed",
+      ctx.userId,
+      dbRes.error,
+      POS_READ_FAILED,
+    );
   }
 
   return {
@@ -133,7 +151,12 @@ export async function syncAfipPosAction(): Promise<ActionResult<SyncResult>> {
     .from("sales_points")
     .select("numero, channel:invoicing_channels(is_fiscal)");
   if (existing.error) {
-    return { ok: false, error: existing.error.message };
+    return dbFailed(
+      "afip.pos_sync.read_failed",
+      ctx.userId,
+      existing.error,
+      POS_READ_FAILED,
+    );
   }
   const existingSet = new Set((existing.data ?? []).map((row) => row.numero));
   // A POS on an internal channel is not an AFIP point of sale: syncing it would
@@ -169,7 +192,12 @@ export async function syncAfipPosAction(): Promise<ActionResult<SyncResult>> {
     .from("sales_points")
     .upsert(upsertRows, { onConflict: "numero", ignoreDuplicates: false });
   if (upsertRes.error) {
-    return { ok: false, error: upsertRes.error.message };
+    return dbFailed(
+      "afip.pos_sync.upsert_failed",
+      ctx.userId,
+      upsertRes.error,
+      "No se pudieron guardar los puntos de venta de AFIP. Reintentá.",
+    );
   }
   const listRes = await supabase
     .from("sales_points")
@@ -178,7 +206,12 @@ export async function syncAfipPosAction(): Promise<ActionResult<SyncResult>> {
     )
     .order("numero");
   if (listRes.error) {
-    return { ok: false, error: listRes.error.message };
+    return dbFailed(
+      "afip.pos_sync.list_failed",
+      ctx.userId,
+      listRes.error,
+      POS_READ_FAILED,
+    );
   }
 
   await logAudit("afip.pos_synced", ctx.userId, { total: raw.length });
@@ -226,7 +259,12 @@ export async function configurePosAction(
     .eq("numero", numero)
     .maybeSingle();
   if (current.error) {
-    return { ok: false, error: current.error.message };
+    return dbFailed(
+      "afip.pos_configure.read_failed",
+      ctx.userId,
+      current.error,
+      POS_READ_FAILED,
+    );
   }
   if (!current.data) {
     return {
@@ -244,7 +282,12 @@ export async function configurePosAction(
       .eq("id", channel_id)
       .maybeSingle();
     if (channel.error) {
-      return { ok: false, error: channel.error.message };
+      return dbFailed(
+        "afip.pos_configure.channel_read_failed",
+        ctx.userId,
+        channel.error,
+        "No se pudo leer el canal. Reintentá.",
+      );
     }
     if (!channel.data?.is_active) {
       return { ok: false, error: "El canal no existe o está inactivo." };
@@ -263,7 +306,12 @@ export async function configurePosAction(
       .limit(1)
       .maybeSingle();
     if (other.error) {
-      return { ok: false, error: other.error.message };
+      return dbFailed(
+        "afip.pos_configure.read_failed",
+        ctx.userId,
+        other.error,
+        POS_READ_FAILED,
+      );
     }
     if (other.data) {
       return {
@@ -287,7 +335,13 @@ export async function configurePosAction(
       userId: ctx.userId,
       id: String(numero),
     });
-    return { ok: false, error: guardError ?? update.error.message };
+    if (guardError) return { ok: false, error: guardError };
+    return dbFailed(
+      "afip.pos_configure.failed",
+      ctx.userId,
+      update.error,
+      "No se pudo guardar el POS. Reintentá.",
+    );
   }
   if (!update.data) {
     return {
@@ -320,7 +374,12 @@ export async function listInvoicingChannelsAction(): Promise<
     .select("id, name, is_fiscal, is_active")
     .order("name");
   if (res.error) {
-    return { ok: false, error: res.error.message };
+    return dbFailed(
+      "afip.channels.read_failed",
+      ctx.userId,
+      res.error,
+      "No se pudieron leer los canales. Reintentá.",
+    );
   }
   return {
     ok: true,
@@ -537,7 +596,14 @@ export async function getArcaSyncProgressAction(): Promise<
     .select("id", { count: "exact", head: true })
     .like("idempotency_key", "arca-sync-%")
     .gte("created_at", status.running.startedAt);
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    return dbFailed(
+      "afip.arca_sync.progress_failed",
+      ctx.userId,
+      error,
+      "No se pudo leer el avance de la sincronización. Reintentá.",
+    );
+  }
   return {
     ok: true,
     data: {

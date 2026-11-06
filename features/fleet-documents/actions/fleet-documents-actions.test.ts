@@ -14,6 +14,7 @@ let updatedRows: { id: string }[] = [{ id: DOC_ID }];
 let fileError: string | null = null;
 let attachedFile: string | null = OLD_FILE_ID;
 let updateError: { message: string } | null = null;
+let deletedRows: { attachment_file_id: string | null }[] | null = null;
 const update = vi.fn((_patch: Record<string, unknown>) => {
   const result = { data: updatedRows, error: updateError };
   return {
@@ -26,7 +27,7 @@ const update = vi.fn((_patch: Record<string, unknown>) => {
 const remove = vi.fn(() => ({
   eq: () => ({
     select: async () => ({
-      data: [{ attachment_file_id: attachedFile }],
+      data: deletedRows ?? [{ attachment_file_id: attachedFile }],
       error: null,
     }),
   }),
@@ -66,7 +67,8 @@ vi.mock("@/lib/auth/context", () => ({
     access: resolveAccess(roles, denied),
   }),
 }));
-vi.mock("@/lib/actions/audit", () => ({ logAudit: async () => undefined }));
+const logAudit = vi.fn(async () => undefined);
+vi.mock("@/lib/actions/audit", () => ({ logAudit }));
 vi.mock("@/lib/files/store", () => ({
   storeUploadedFile,
   discardStoredFile,
@@ -102,6 +104,52 @@ beforeEach(() => {
   attachedFile = OLD_FILE_ID;
   updateError = null;
   insertError = null;
+  deletedRows = null;
+});
+
+describe("a fleet document that is gone (no row matched)", () => {
+  const notFound = {
+    ok: false,
+    error: "No se encontró la documentación. Actualizá la página.",
+  };
+
+  it("an update says so and audits nothing", async () => {
+    updatedRows = [];
+    expect(
+      await updateFleetDocumentAction({
+        id: DOC_ID,
+        vehicle_id: VEHICLE_ID,
+        notes: "Renovada",
+      }),
+    ).toEqual(notFound);
+    expect(logAudit).not.toHaveBeenCalled();
+    expect(removeReplacedFile).not.toHaveBeenCalled();
+  });
+
+  it("a delete says so and audits nothing", async () => {
+    deletedRows = [];
+    expect(await deleteFleetDocumentAction({ id: DOC_ID })).toEqual(notFound);
+    expect(logAudit).not.toHaveBeenCalled();
+  });
+
+  it("a delete refuses an id that is not a uuid", async () => {
+    expect(await deleteFleetDocumentAction({ id: "nope" })).toEqual({
+      ok: false,
+      error: "Documento inválido.",
+    });
+    expect(remove).not.toHaveBeenCalled();
+  });
+
+  it("a new expiry date clears the alert cooldown", async () => {
+    await updateFleetDocumentAction({
+      id: DOC_ID,
+      vehicle_id: VEHICLE_ID,
+      expires_at: "2030-01-01",
+    });
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({ expires_at: "2030-01-01", notified_at: null }),
+    );
+  });
 });
 
 describe("uploadFleetDocumentFileAction", () => {

@@ -1,11 +1,11 @@
 "use server";
 
 import { logAudit } from "@/lib/actions/audit";
+import { createManualCheck } from "@/lib/commands/create-manual-check";
 import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan, userCanAll } from "@/lib/auth/permissions";
 import { mapDbGuardError } from "@/lib/db/guard-errors";
-import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { logger } from "@/lib/logger";
 import { applyFiscalFilter } from "@/lib/supabase/fiscal-filter";
 import {
@@ -266,68 +266,7 @@ export async function createCheckAction(
     return { ok: false, error: "La cuenta de cartera no es válida." };
   }
 
-  const { data: row, error } = await supabase
-    .from("checks")
-    .insert({
-      kind: data.kind,
-      check_number: data.check_number,
-      bank_name: data.bank_name,
-      drawer_name: data.drawer_name,
-      drawer_cuit: data.drawer_cuit ?? null,
-      issue_date: data.issue_date,
-      due_date: data.due_date,
-      amount: data.amount,
-      currency: data.currency,
-      cartera_account_id: data.cartera_account_id,
-      channel_id: data.channel_id,
-      source_kind: data.source_kind,
-      source_client_id: data.source_client_id ?? null,
-      notes: data.notes ?? null,
-      created_by: ctx.userId,
-    })
-    .select("id")
-    .single();
-
-  if (error) {
-    if (error.code === PG_UNIQUE_VIOLATION) {
-      return {
-        ok: false,
-        error: `Ya existe un check ${data.check_number} para ${data.bank_name}.`,
-      };
-    }
-    logger.error("cheques.create.failed", {
-      userId: ctx.userId,
-      bank_name: data.bank_name,
-      check_number: data.check_number,
-      error,
-    });
-    return {
-      ok: false,
-      error: error.message ?? "No se pudo registrar el check.",
-    };
-  }
-
-  // Insert the initial 'received' movement so the timeline has an anchor.
-  await supabase.from("check_movements").insert({
-    check_id: row.id,
-    event: "received",
-    event_date: data.issue_date,
-    notes: null,
-    created_by: ctx.userId,
-  });
-
-  await logAudit(
-    "check.created",
-    ctx.userId,
-    {
-      kind: data.kind,
-      bank_name: data.bank_name,
-      check_number: data.check_number,
-      amount: data.amount,
-    },
-    row.id,
-  );
-  return { ok: true, data: { id: row.id } };
+  return createManualCheck(ctx.userId, data);
 }
 
 export async function depositCheckAction(
@@ -360,15 +299,18 @@ export async function depositCheckAction(
   });
 
   if (error) {
+    const guard = mapDbGuardError(error, {
+      slug: "cheques.deposit.rejected",
+      userId: ctx.userId,
+      id: data.check_id,
+    });
+    if (guard) return { ok: false, error: guard };
     logger.error("cheques.deposit.failed", {
       userId: ctx.userId,
       check_id: data.check_id,
       error,
     });
-    return {
-      ok: false,
-      error: error.message ?? "No se pudo depositar el check.",
-    };
+    return { ok: false, error: "No se pudo depositar el cheque." };
   }
 
   await logAudit(
@@ -407,15 +349,18 @@ export async function creditCheckAction(
     p_notes: data.notes ?? "",
   });
   if (error) {
+    const guard = mapDbGuardError(error, {
+      slug: "cheques.credit.rejected",
+      userId: ctx.userId,
+      id: data.check_id,
+    });
+    if (guard) return { ok: false, error: guard };
     logger.error("cheques.credit.failed", {
       userId: ctx.userId,
       check_id: data.check_id,
       error,
     });
-    return {
-      ok: false,
-      error: error.message ?? "No se pudo acreditar el check.",
-    };
+    return { ok: false, error: "No se pudo acreditar el cheque." };
   }
 
   await logAudit("check.credited", ctx.userId, {}, data.check_id);
@@ -494,15 +439,18 @@ export async function rejectCheckAction(
     p_notes: data.notes ?? "",
   });
   if (error) {
+    const guard = mapDbGuardError(error, {
+      slug: "cheques.reject.rejected",
+      userId: ctx.userId,
+      id: data.check_id,
+    });
+    if (guard) return { ok: false, error: guard };
     logger.error("cheques.reject.failed", {
       userId: ctx.userId,
       check_id: data.check_id,
       error,
     });
-    return {
-      ok: false,
-      error: error.message ?? "No se pudo rechazar el check.",
-    };
+    return { ok: false, error: "No se pudo rechazar el cheque." };
   }
 
   await logAudit("check.rejected", ctx.userId, {}, data.check_id);

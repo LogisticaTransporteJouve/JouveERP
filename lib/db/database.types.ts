@@ -3563,6 +3563,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          import_key: string | null
           liters: number
           load_date: string
           notes: string | null
@@ -3580,6 +3581,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          import_key?: string | null
           liters: number
           load_date: string
           notes?: string | null
@@ -3597,6 +3599,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          import_key?: string | null
           liters?: number
           load_date?: string
           notes?: string | null
@@ -9171,6 +9174,19 @@ export type Database = {
         }
         Returns: undefined
       }
+      apply_final_settlement: {
+        Args: {
+          p_employee_id: string
+          p_extra_prefix: string
+          p_month: number
+          p_sac_amount: number
+          p_sac_description: string
+          p_sueldo_neto: number
+          p_vacaciones_monto: number
+          p_year: number
+        }
+        Returns: string
+      }
       apply_salary_raise: {
         Args: {
           p_effective_month: string
@@ -9269,6 +9285,17 @@ export type Database = {
         Returns: undefined
       }
       capture_aging_snapshot: { Args: never; Returns: string }
+      change_shipment_status: {
+        Args: {
+          p_comment?: string
+          p_delivery_date?: string
+          p_failure_reason?: string
+          p_id: string
+          p_scheduled_date?: string
+          p_status: string
+        }
+        Returns: string
+      }
       checks_channel_mismatches: {
         Args: never
         Returns: {
@@ -9445,6 +9472,24 @@ export type Database = {
           remito_pos: number
         }[]
       }
+      create_ai_confirmation_revision: {
+        Args: {
+          p_action: string
+          p_draft: Json
+          p_labels: Json
+          p_origin: string
+          p_replaces?: string
+          p_revision_key: string
+          p_session_id: string
+          p_summary: Json
+          p_tool_call_id: string
+          p_user_id: string
+        }
+        Returns: {
+          id: string
+          revision: number
+        }[]
+      }
       create_bank_statement_line_tax_payment: {
         Args: {
           p_allow_difference?: boolean
@@ -9469,6 +9514,17 @@ export type Database = {
         Args: { p_description: string; p_member_ids: string[]; p_name: string }
         Returns: string
       }
+      create_employee: {
+        Args: {
+          p_current_days?: number
+          p_driver: Json
+          p_driver_position: string
+          p_employee: Json
+          p_previous_days?: number
+          p_today: string
+        }
+        Returns: string
+      }
       create_journal_entry: {
         Args: {
           p_accrual_period: string
@@ -9485,6 +9541,24 @@ export type Database = {
       }
       create_loan: {
         Args: { p_installments: Json; p_loan: Json }
+        Returns: string
+      }
+      create_manual_check: {
+        Args: {
+          p_amount: number
+          p_bank_name: string
+          p_cartera_account_id: string
+          p_channel_id: string
+          p_check_number: string
+          p_currency: string
+          p_drawer_cuit?: string
+          p_drawer_name: string
+          p_due_date: string
+          p_issue_date: string
+          p_kind: string
+          p_notes?: string
+          p_source_client_id?: string
+        }
         Returns: string
       }
       create_manual_journal_entry: {
@@ -9512,6 +9586,10 @@ export type Database = {
         }
         Returns: string
       }
+      create_purchase_invoice: {
+        Args: { p_header: Json; p_items?: Json }
+        Returns: string
+      }
       create_receipt: {
         Args: {
           p_allocations: Json
@@ -9526,6 +9604,26 @@ export type Database = {
           p_recibo_date: string
           p_retentions: Json
           p_total_amount: number
+        }
+        Returns: string
+      }
+      create_recurring_task: {
+        Args: {
+          p_actor: string
+          p_assignee_ids: string[]
+          p_day_of_month: number
+          p_description?: string
+          p_title: string
+        }
+        Returns: string
+      }
+      create_task: {
+        Args: {
+          p_actor: string
+          p_assignee_ids: string[]
+          p_description?: string
+          p_due_date?: string
+          p_title: string
         }
         Returns: string
       }
@@ -9599,6 +9697,7 @@ export type Database = {
         Args: { p_id: string; p_period: string; p_source: string }
         Returns: undefined
       }
+      employee_editable_fields: { Args: never; Returns: string[] }
       employee_plans_refresh_entries: {
         Args: { p_employee_id: string }
         Returns: undefined
@@ -9809,6 +9908,13 @@ export type Database = {
           p_user_id: string
         }
         Returns: string[]
+      }
+      increase_storage_tariffs: {
+        Args: { p_percent: number; p_valid_from: string }
+        Returns: {
+          skipped: number
+          updated: number
+        }[]
       }
       invoice_effective_due_date: {
         Args: { p_fch_vto_pago: string; p_fecha: string }
@@ -10201,6 +10307,7 @@ export type Database = {
         Args: { p: Database["public"]["Tables"]["purchase_invoices"]["Row"] }
         Returns: number
       }
+      purchase_invoice_editable_fields: { Args: never; Returns: string[] }
       purchase_invoices_fiscal_without_letter: {
         Args: never
         Returns: {
@@ -10341,6 +10448,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      reopen_accounting_period: { Args: { p_period: string }; Returns: Json }
       replace_purchase_invoice_items: {
         Args: { p_invoice_id: string; p_items: Json }
         Returns: undefined
@@ -10590,6 +10698,24 @@ export type Database = {
         }
         Returns: string
       }
+      send_chat_message: {
+        Args: {
+          p_body: string
+          p_channel_id: string
+          p_mention_ids: string[]
+          p_reply_to_id?: string
+        }
+        Returns: {
+          body: string
+          channel_id: string
+          created_at: string
+          deleted_at: string
+          edited_at: string
+          id: string
+          reply_to_message_id: string
+          sender_id: string
+        }[]
+      }
       set_arca_web_credentials: {
         Args: { p_cuit: string; p_password?: string; p_user_id: string }
         Returns: undefined
@@ -10597,6 +10723,13 @@ export type Database = {
       set_bank_statement_line_ignored: {
         Args: { p_line_id: string; p_reason: string; p_user_id: string }
         Returns: undefined
+      }
+      set_task_assignees: {
+        Args: { p_actor: string; p_assignee_ids: string[]; p_task_id: string }
+        Returns: {
+          added: string[]
+          removed: string[]
+        }[]
       }
       set_user_access: {
         Args: {
@@ -10610,6 +10743,15 @@ export type Database = {
           p_user_id: string
         }
         Returns: undefined
+      }
+      set_vacation_opening: {
+        Args: {
+          p_current_days?: number
+          p_employee_id: string
+          p_previous_days?: number
+          p_today: string
+        }
+        Returns: number
       }
       settle_billed_remito: { Args: { p_factura_id: string }; Returns: string }
       shipment_invoice_billed_ratio: {
@@ -10716,6 +10858,10 @@ export type Database = {
           task_id: string
         }[]
       }
+      sync_employee_driver: {
+        Args: { p_driver: Json; p_employee_id: string; p_is_driver: boolean }
+        Returns: undefined
+      }
       sync_purchase_employee_charge: {
         Args: { p_invoice_id: string }
         Returns: undefined
@@ -10731,6 +10877,10 @@ export type Database = {
       tax_document_label: {
         Args: { p_jurisdiction: string; p_kind: string; p_title: string }
         Returns: string
+      }
+      terminate_employee: {
+        Args: { p_id: string; p_reason?: string; p_termination_date: string }
+        Returns: boolean
       }
       transaction_is_loose: {
         Args: { p_tx: Database["public"]["Tables"]["transactions"]["Row"] }
@@ -10779,6 +10929,15 @@ export type Database = {
         Args: { p_channel: string; p_description: string; p_name: string }
         Returns: undefined
       }
+      update_employee: {
+        Args: {
+          p_driver: Json
+          p_driver_position: string
+          p_id: string
+          p_patch: Json
+        }
+        Returns: Json
+      }
       update_payment_order: {
         Args: {
           p_allocations: Json
@@ -10790,6 +10949,10 @@ export type Database = {
           p_total_amount: number
         }
         Returns: undefined
+      }
+      update_purchase_invoice: {
+        Args: { p_id: string; p_items?: Json; p_patch: Json }
+        Returns: string
       }
       update_receipt: {
         Args: {
@@ -10803,6 +10966,10 @@ export type Database = {
           p_total_amount: number
         }
         Returns: undefined
+      }
+      update_recurring_task: {
+        Args: { p_assignee_ids?: string[]; p_id: string; p_patch: Json }
+        Returns: boolean
       }
       upsert_my_notification_setting: {
         Args: { p_enabled: boolean; p_type: string }

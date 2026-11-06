@@ -14,7 +14,9 @@ const h = vi.hoisted(() => {
   const deletes: string[] = [];
   // invoice_open_amount of each comprobante; a missing id reads as NULL.
   const openAmount: Record<string, number> = {};
-  return { db, inserts, deletes, openAmount };
+  // Tables whose reads fail with a DB error.
+  const failing = new Set<string>();
+  return { db, inserts, deletes, openAmount, failing };
 });
 
 function from(table: string) {
@@ -44,9 +46,11 @@ function from(table: string) {
     order: () => builder,
     limit: () => builder,
     maybeSingle: async () =>
-      insertValues
-        ? { data: { id: "new-invoice" }, error: null }
-        : { data: rows()[0] ?? null, error: null },
+      h.failing.has(table)
+        ? { data: null, error: { message: `${table} read failed` } }
+        : insertValues
+          ? { data: { id: "new-invoice" }, error: null }
+          : { data: rows()[0] ?? null, error: null },
     then: (resolve: (v: { data: null; error: null }) => unknown) =>
       Promise.resolve(resolve({ data: null, error: null })),
   };
@@ -121,6 +125,7 @@ function noteInput(): CreateComprobanteInput {
 beforeEach(() => {
   h.inserts.length = 0;
   h.deletes.length = 0;
+  h.failing.clear();
   h.db.invoicing_channels = [
     { id: "jouve_fiscal", is_fiscal: true, is_active: true },
   ];
@@ -428,4 +433,23 @@ describe("issueFiscalInvoiceAction across sides", () => {
     });
     expect(h.inserts).toHaveLength(0);
   });
+});
+
+describe("issueFiscalInvoiceAction when a lookup fails", () => {
+  it.each(["invoicing_channels", "clients", "sales_points"])(
+    "returns a refusal, without writing, when reading %s fails",
+    async (table) => {
+      h.failing.add(table);
+      const res = await issueFiscalInvoiceAction({
+        ...noteInput(),
+        kind: "factura",
+        invoice_origin_id: null,
+      });
+      expect(res).toEqual({
+        ok: false,
+        error: "No se pudo crear el comprobante.",
+      });
+      expect(h.inserts).toEqual([]);
+    },
+  );
 });

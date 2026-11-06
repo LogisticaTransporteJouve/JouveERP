@@ -11,9 +11,9 @@ import { getServiceClient } from "@/lib/supabase/service";
  * inside the delete with no age margin, so a file still linked anywhere is
  * kept. Service role: call it only after the action's permission check.
  * Best effort: a failure is logged and left to the sweep. True when the file
- * was deleted.
+ * row was deleted (its bytes too, unless that removal failed and was logged).
  */
-async function removeUnlinkedFile(fileId: string): Promise<boolean> {
+export async function removeUnlinkedFile(fileId: string): Promise<boolean> {
   const service = getServiceClient();
   const { data, error } = await service.rpc("delete_orphan_files", {
     p_ids: [fileId],

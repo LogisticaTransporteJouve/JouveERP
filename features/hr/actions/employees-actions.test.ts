@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { resolveAccess } from "@/lib/auth/permissions";
 
-let storedNotes: string | null = null;
-const update = vi.fn();
+const rpc = vi.fn();
+const logAudit = vi.fn();
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/auth/context", () => ({
@@ -13,75 +13,115 @@ vi.mock("@/lib/auth/context", () => ({
   }),
 }));
 vi.mock("@/lib/supabase/server", () => ({
-  createClient: async () => ({
-    from: () => ({
-      select: () => ({
-        eq: () => ({
-          maybeSingle: async () => ({
-            data: { notes: storedNotes },
-            error: null,
-          }),
-        }),
-      }),
-      update: (patch: unknown) => {
-        update(patch);
-        return { eq: async () => ({ error: null }) };
-      },
-    }),
-  }),
+  createClient: async () => ({ rpc }),
 }));
-vi.mock("@/lib/actions/audit", () => ({ logAudit: vi.fn() }));
-vi.mock("../lib/employee-driver", () => ({
-  deactivateEmployeeDriver: async () => ({ ok: true }),
-  readEmployeeDriver: vi.fn(),
-  syncEmployeeDriver: vi.fn(),
+vi.mock("@/lib/actions/audit", () => ({
+  logAudit: (...args: unknown[]) => logAudit(...args),
 }));
-vi.mock("../lib/vacation-opening", () => ({ applyVacationOpening: vi.fn() }));
+vi.mock("@/lib/logger", () => ({
+  logger: { warn: vi.fn(), error: vi.fn(), info: vi.fn() },
+}));
+vi.mock("../lib/employee-driver", () => ({ readEmployeeDriver: vi.fn() }));
 
-const { terminateEmployeeAction } = await import("./employees-actions");
+const { terminateEmployeeAction, updateEmployeeAction } =
+  await import("./employees-actions");
 
 const EMP = "00000000-0000-4000-8000-000000000001";
 
 beforeEach(() => {
-  storedNotes = null;
-  update.mockClear();
+  rpc.mockReset();
+  logAudit.mockClear();
 });
 
-describe("terminateEmployeeAction: notes", () => {
-  it("appends the reason to the notes the employee already had", async () => {
-    storedNotes = "Ingresó por recomendación.";
+describe("terminateEmployeeAction", () => {
+  it("terminates in one call that appends the reason to the notes", async () => {
+    rpc.mockResolvedValue({ data: true, error: null });
     const res = await terminateEmployeeAction({
       id: EMP,
       termination_date: "2026-11-05",
       notes: "Renuncia.",
     });
     expect(res.ok).toBe(true);
-    expect(update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        is_active: false,
-        notes: "Ingresó por recomendación.\n\nRenuncia.",
-      }),
-    );
-  });
-
-  it("writes the reason alone when there were no notes", async () => {
-    await terminateEmployeeAction({
-      id: EMP,
-      termination_date: "2026-11-05",
-      notes: "Renuncia.",
+    expect(rpc).toHaveBeenCalledWith("terminate_employee", {
+      p_id: EMP,
+      p_termination_date: "2026-11-05",
+      p_reason: "Renuncia.",
     });
-    expect(update).toHaveBeenCalledWith(
-      expect.objectContaining({ notes: "Renuncia." }),
+    expect(logAudit).toHaveBeenCalledWith(
+      "employee.terminated",
+      "u1",
+      { termination_date: "2026-11-05" },
+      EMP,
     );
   });
 
-  it("keeps the notes untouched without a reason", async () => {
-    storedNotes = "Ingresó por recomendación.";
+  it("sends no reason when there is none", async () => {
+    rpc.mockResolvedValue({ data: true, error: null });
     await terminateEmployeeAction({
       id: EMP,
       termination_date: "2026-11-05",
       notes: null,
     });
-    expect(update.mock.calls[0]?.[0]).not.toHaveProperty("notes");
+    expect(rpc.mock.calls[0]?.[1]).toMatchObject({ p_reason: undefined });
+  });
+
+  it("refuses, without auditing, an employee that is not there", async () => {
+    rpc.mockResolvedValue({ data: false, error: null });
+    const res = await terminateEmployeeAction({
+      id: EMP,
+      termination_date: "2026-11-05",
+      notes: null,
+    });
+    expect(res).toEqual({ ok: false, error: "El empleado no existe." });
+    expect(logAudit).not.toHaveBeenCalled();
+  });
+
+  it("does not show the database's own text", async () => {
+    rpc.mockResolvedValue({
+      data: null,
+      error: { message: "new row violates check constraint", code: "23514" },
+    });
+    const res = await terminateEmployeeAction({
+      id: EMP,
+      termination_date: "2026-11-05",
+      notes: null,
+    });
+    expect(res).toEqual({
+      ok: false,
+      error: "No se pudo dar de baja al empleado.",
+    });
+  });
+});
+
+describe("updateEmployeeAction", () => {
+  it("refuses, without auditing, an employee that is not there", async () => {
+    rpc.mockResolvedValue({ data: null, error: null });
+    const res = await updateEmployeeAction({ id: EMP, notes: "Turno noche" });
+    expect(res).toEqual({ ok: false, error: "El empleado no existe." });
+    expect(logAudit).not.toHaveBeenCalled();
+  });
+
+  it("audits a salary change against the value before the edit", async () => {
+    rpc.mockResolvedValue({
+      data: { legal_name: "Ana", base_salary: 100 },
+      error: null,
+    });
+    const res = await updateEmployeeAction({ id: EMP, base_salary: 150 });
+    expect(res.ok).toBe(true);
+    expect(rpc).toHaveBeenCalledWith(
+      "update_employee",
+      expect.objectContaining({
+        p_id: EMP,
+        p_patch: { base_salary: 150 },
+        p_driver_position: "Chofer / Acompañante",
+        p_driver: {},
+      }),
+    );
+    expect(logAudit).toHaveBeenCalledWith(
+      "employee.salary_changed",
+      "u1",
+      { legal_name: "Ana", from: 100, to: 150 },
+      EMP,
+    );
   });
 });

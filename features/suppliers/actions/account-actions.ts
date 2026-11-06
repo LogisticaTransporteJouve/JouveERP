@@ -18,6 +18,7 @@ import {
 } from "@/lib/auth/permissions";
 import { round2 } from "@/lib/format";
 import { fetchLatestUsdRate, paymentCurrencyOf } from "@/lib/fx";
+import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { logger } from "@/lib/logger";
 import {
   readEmbeddedStatus,
@@ -127,15 +128,19 @@ export async function setSupplierOpeningBalanceAction(input: {
     p_notes: input.notes ?? undefined,
   });
   if (error) {
+    // A negative opening balance is refused with the guard's message.
+    const guardError = mapDbGuardError(error, {
+      slug: "suppliers.opening.apply_rejected",
+      userId: ctx.userId,
+      id: input.supplier_id,
+    });
+    if (guardError) return { ok: false, error: guardError };
     logger.error("suppliers.opening.apply_failed", {
       userId: ctx.userId,
       supplierId: input.supplier_id,
       error,
     });
-    return {
-      ok: false,
-      error: error.message ?? "No se pudo aplicar el saldo de apertura.",
-    };
+    return { ok: false, error: "No se pudo aplicar el saldo de apertura." };
   }
   await logAudit(
     "supplier.opening_balance.applied",

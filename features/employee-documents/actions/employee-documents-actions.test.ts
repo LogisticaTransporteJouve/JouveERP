@@ -22,8 +22,15 @@ vi.mock("@/lib/auth/context", () => ({
   }),
 }));
 const removeReplacedFile = vi.fn(async () => undefined);
+/** Rows the update / delete match: none when the document is gone. */
+let matched = true;
 const update = vi.fn((_patch: Record<string, unknown>) => ({
-  eq: async () => ({ error: null }),
+  eq: () => ({
+    select: async () => ({
+      data: matched ? [{ id: DOC_ID }] : [],
+      error: null,
+    }),
+  }),
 }));
 const filesRead = vi.fn();
 const docRow = { attachment_file_id: OLD_FILE_ID };
@@ -34,11 +41,14 @@ const docs = {
   }),
   update,
   delete: () => ({
-    eq: () => ({ select: async () => ({ data: [docRow], error: null }) }),
+    eq: () => ({
+      select: async () => ({ data: matched ? [docRow] : [], error: null }),
+    }),
   }),
 };
 
-vi.mock("@/lib/actions/audit", () => ({ logAudit: async () => undefined }));
+const logAudit = vi.fn(async () => undefined);
+vi.mock("@/lib/actions/audit", () => ({ logAudit }));
 vi.mock("@/lib/files/remove-unlinked", () => ({ removeReplacedFile }));
 vi.mock("@/lib/files/references", () => ({
   isLinkedFile: async () => linked,
@@ -83,6 +93,36 @@ beforeEach(() => {
   fileReadError = null;
   linked = false;
   denied = [];
+  matched = true;
+});
+
+describe("a document that is gone (no row matched)", () => {
+  const notFound = {
+    ok: false,
+    error: "No se encontró el documento. Actualizá la página.",
+  };
+
+  it("an update says so and audits nothing", async () => {
+    matched = false;
+    expect(
+      await updateEmployeeDocumentAction({ id: DOC_ID, notes: "x" }),
+    ).toEqual(notFound);
+    expect(logAudit).not.toHaveBeenCalled();
+    expect(removeReplacedFile).not.toHaveBeenCalled();
+  });
+
+  it("a delete says so and audits nothing", async () => {
+    matched = false;
+    expect(await deleteEmployeeDocumentAction(DOC_ID)).toEqual(notFound);
+    expect(logAudit).not.toHaveBeenCalled();
+  });
+
+  it("a delete refuses an id that is not a uuid", async () => {
+    expect(await deleteEmployeeDocumentAction("nope")).toEqual({
+      ok: false,
+      error: "Documento inválido.",
+    });
+  });
 });
 
 describe("createEmployeeDocumentAction attachment", () => {

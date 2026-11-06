@@ -2,6 +2,7 @@ import "server-only";
 
 import type { CreateLeaveInput } from "@/features/hr/vacation-schema";
 import { logAudit } from "@/lib/actions/audit";
+import { dbErrorMessage } from "@/lib/db/guard-errors";
 import type { ActionResult } from "@/lib/query/run-action";
 import { createClient } from "@/lib/supabase/server";
 
@@ -29,7 +30,14 @@ export async function createLeave(
     .single();
 
   if (error || !data) {
-    return { ok: false, error: error?.message ?? "No se pudo crear." };
+    return {
+      ok: false,
+      error: dbErrorMessage(
+        error,
+        { slug: "leaves.create.failed", userId: actorId },
+        "No se pudo crear la licencia.",
+      ),
+    };
   }
   await logAudit(
     "leave.created",

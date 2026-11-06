@@ -8,6 +8,7 @@ import type { ActionResult } from "@/lib/query/run-action";
 import { createClient } from "@/lib/supabase/server";
 import { UuidSchema } from "@/lib/validation/common";
 
+import { chatActionError } from "../lib/action-error";
 import type { SearchResult } from "../types";
 
 const SearchInput = z.object({
@@ -24,7 +25,10 @@ export async function searchChatMessagesAction(input: {
   await requireUserContext();
   const parsed = SearchInput.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? "Input inválido." };
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Input inválido.",
+    };
   }
   input = parsed.data;
   const trimmed = input.query.trim();
@@ -36,7 +40,16 @@ export async function searchChatMessagesAction(input: {
     p_limit: input.limit ?? 30,
     p_channel: input.channelId ?? undefined,
   });
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    return {
+      ok: false,
+      error: chatActionError(
+        "chat.search.failed",
+        error,
+        "No se pudo buscar en los mensajes.",
+      ),
+    };
+  }
 
   const results: SearchResult[] = (data ?? []).map((row) => ({
     id: row.id,

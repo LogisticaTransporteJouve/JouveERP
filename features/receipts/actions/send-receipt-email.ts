@@ -11,6 +11,7 @@ import {
   formatArDateShort,
   formatNumber2,
 } from "@/lib/format";
+import { dbErrorMessage } from "@/lib/db/guard-errors";
 import { logger } from "@/lib/logger";
 import {
   buildReceiptTemplateData,
@@ -66,7 +67,16 @@ export async function sendReceiptByEmailAction(
     .select("id, status")
     .eq("id", input.receipt_id)
     .maybeSingle();
-  if (rErr) return { ok: false, error: rErr.message };
+  if (rErr) {
+    return {
+      ok: false,
+      error: dbErrorMessage(
+        rErr,
+        { slug: "receipts.email.read_failed", userId: ctx.userId },
+        "No se pudo leer el recibo.",
+      ),
+    };
+  }
   if (!receipt) return { ok: false, error: "Recibo no encontrado." };
   if (receipt.status !== "issued") {
     return {
@@ -147,7 +157,16 @@ export async function getReceiptEmailDefaultsAction(receiptId: string): Promise<
     )
     .eq("id", receiptId)
     .maybeSingle();
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    return {
+      ok: false,
+      error: dbErrorMessage(
+        error,
+        { slug: "receipts.email_status.read_failed", userId: ctx.userId },
+        "No se pudo leer el recibo.",
+      ),
+    };
+  }
   if (!receipt) return { ok: false, error: "Recibo no encontrado." };
 
   const client = (receipt as unknown as ClientLegalJoin).client;

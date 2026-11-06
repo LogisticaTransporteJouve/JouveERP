@@ -1,11 +1,15 @@
 import "server-only";
 
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+import type { Database, Json } from "@/lib/db/database.types";
 import { isLinkedFile } from "@/lib/files/references";
 import { buildStorageKey } from "@/lib/files/storage-path";
 import { logger } from "@/lib/logger";
-import type { createClient } from "@/lib/supabase/server";
+import { getServiceClient } from "@/lib/supabase/service";
 
-type Client = Awaited<ReturnType<typeof createClient>>;
+/** The caller's RLS client or the service role, as each writer needs. */
+type Client = SupabaseClient<Database>;
 
 export const FILES_BUCKET = "files";
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -46,47 +50,126 @@ export async function storeUploadedFile(
 
   const fileId = crypto.randomUUID();
   const bucketPath = buildStorageKey(fileId, file.name);
-
-  const { error: storageErr } = await supabase.storage
-    .from(FILES_BUCKET)
-    .upload(bucketPath, file, { cacheControl: "3600", upsert: false });
-  if (storageErr) {
-    logger.warn("files.upload.storage_failed", {
-      userId,
-      error: storageErr.message,
-    });
+  const written = await writeFileBlobAndRow(supabase, {
+    fileId,
+    bucketPath,
+    body: file,
+    userId,
+    filename: file.name,
+    mimeType: file.type,
+    size: file.size,
+    source: "manual_upload",
+    logPrefix: "files.upload",
+  });
+  if (written === "storage_failed") {
     return { ok: false, error: "No se pudo subir el archivo." };
   }
-
-  const { error: registryErr } = await supabase.from("files").insert({
-    id: fileId,
-    uploaded_by: userId,
-    original_filename: file.name,
-    mime_type: file.type,
-    file_size: file.size,
-    bucket: FILES_BUCKET,
-    bucket_path: bucketPath,
-    source: "manual_upload",
-  });
-  if (registryErr) {
-    await supabase.storage.from(FILES_BUCKET).remove([bucketPath]);
-    logger.warn("files.upload.registry_failed", {
-      userId,
-      error: registryErr.message,
-    });
+  if (written === "registry_failed") {
     return { ok: false, error: "No se pudo registrar el archivo." };
   }
-
   return { ok: true, data: { fileId, bucketPath } };
 }
 
-/** Undoes storeUploadedFile when linking the file failed. */
+/**
+ * Writes a file's bytes and then its `files` row; if the row fails the bytes
+ * are removed, so a failure leaves neither. The one place every upload path
+ * (attachments, document scans, chat drafts) registers a file. The caller has
+ * already validated the file and passed its gate.
+ *
+ * The bytes are removed with the service role: a storage delete under the
+ * caller's session also needs `files_storage_select`, which asks for the very
+ * row that failed, so it would find nothing and leave the bytes behind.
+ */
+export async function writeFileBlobAndRow(
+  supabase: Client,
+  input: {
+    fileId: string;
+    bucketPath: string;
+    body: File | Uint8Array;
+    userId: string;
+    filename: string;
+    mimeType: string;
+    size: number;
+    source: string;
+    metadata?: { [key: string]: Json };
+    /** Telemetry slug prefix, e.g. "files.upload". */
+    logPrefix: string;
+  },
+): Promise<"ok" | "storage_failed" | "registry_failed"> {
+  const { error: storageErr } = await supabase.storage
+    .from(FILES_BUCKET)
+    .upload(input.bucketPath, input.body, {
+      contentType: input.mimeType,
+      cacheControl: "3600",
+      upsert: false,
+    });
+  if (storageErr) {
+    logger.warn(`${input.logPrefix}.storage_failed`, {
+      userId: input.userId,
+      error: storageErr.message,
+    });
+    return "storage_failed";
+  }
+
+  const { error: registryErr } = await supabase.from("files").insert({
+    id: input.fileId,
+    uploaded_by: input.userId,
+    original_filename: input.filename,
+    mime_type: input.mimeType,
+    file_size: input.size,
+    bucket: FILES_BUCKET,
+    bucket_path: input.bucketPath,
+    source: input.source,
+    ...(input.metadata ? { metadata: input.metadata } : {}),
+  });
+  if (registryErr) {
+    const { error: removeErr } = await getServiceClient()
+      .storage.from(FILES_BUCKET)
+      .remove([input.bucketPath]);
+    logger.warn(`${input.logPrefix}.registry_failed`, {
+      userId: input.userId,
+      error: registryErr.message,
+      // Bytes with no row: nothing signs them, but they stay in the bucket.
+      blobRemoveError: removeErr?.message ?? null,
+    });
+    return "registry_failed";
+  }
+  return "ok";
+}
+
+/**
+ * Undoes storeUploadedFile / writeFileBlobAndRow when linking the file
+ * failed: the row first, with the caller's client (it can delete only its own
+ * upload), then the bytes only once the row is gone (bytes removed under a
+ * surviving row would leave a file nobody can open). The bytes go with the
+ * service role: with the row deleted, the caller's storage delete no longer
+ * sees them. A failure is logged and left to the orphan sweep.
+ */
 export async function discardStoredFile(
   supabase: Client,
   stored: StoredFile,
 ): Promise<void> {
-  await supabase.from("files").delete().eq("id", stored.fileId);
-  await supabase.storage.from(FILES_BUCKET).remove([stored.bucketPath]);
+  const { data, error } = await supabase
+    .from("files")
+    .delete()
+    .eq("id", stored.fileId)
+    .select("id");
+  if (error || (data ?? []).length === 0) {
+    logger.warn("files.discard.row_failed", {
+      fileId: stored.fileId,
+      error: error?.message ?? "no row deleted",
+    });
+    return;
+  }
+  const { error: removeErr } = await getServiceClient()
+    .storage.from(FILES_BUCKET)
+    .remove([stored.bucketPath]);
+  if (removeErr) {
+    logger.warn("files.discard.storage_failed", {
+      fileId: stored.fileId,
+      error: removeErr.message,
+    });
+  }
 }
 
 /** The guard's message in 20261105130100 (guard_link_file_visible). */

@@ -402,7 +402,10 @@ month)` y `listAttendanceEmployeesAction` (`hr:read`);
 `upsertAttendanceRecordAction` (`hr:write`, fuerza `source='manual'`, onConflict
 `employee_id,date`) y `deleteAttendanceRecordAction` (`hr:write`, **solo borra
 filas `source='manual'`** — las `leave_sync`/`holiday_sync` se gestionan desde su
-tabla origen).
+tabla origen). El trigger `attendance_records_synced_row_guard`
+(`…20261106112001`) rechaza el UPDATE de una fila no manual: el upsert sobre un
+día de licencia devuelve el mensaje del guard en vez de pisarla y pasarla a
+`manual` (que dejaba la fila huérfana al borrar la licencia).
 
 **Reglas:**
 - 7 valores de enum; solo 5 son seteables desde UI (`MANUAL_KINDS`); `leave` y

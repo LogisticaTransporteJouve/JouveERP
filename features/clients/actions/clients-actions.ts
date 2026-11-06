@@ -255,6 +255,9 @@ export async function createClientAction(
   return { ok: true, data: { id: data.id } };
 }
 
+/** No row matched: deleted meanwhile, or hidden by RLS. */
+const CLIENT_NOT_FOUND = "No se encontró el cliente. Actualizá la página.";
+
 export async function updateClientAction(
   input: unknown,
 ): Promise<ActionResult> {
@@ -272,7 +275,7 @@ export async function updateClientAction(
   const { id, ...rest } = parsed.data;
 
   const supabase = await createSupabaseClient();
-  const { error } = await supabase
+  const { data: changed, error } = await supabase
     .from("clients")
     .update({
       ...(rest.cuit !== undefined && { cuit: rest.cuit }),
@@ -291,7 +294,8 @@ export async function updateClientAction(
       }),
       ...(rest.notes !== undefined && { notes: rest.notes ?? null }),
     })
-    .eq("id", id);
+    .eq("id", id)
+    .select("id");
 
   if (error) {
     if (error.code === PG_UNIQUE_VIOLATION) {
@@ -299,6 +303,9 @@ export async function updateClientAction(
     }
     logger.error("clients.update.failed", { userId: ctx.userId, id, error });
     return { ok: false, error: "No se pudo actualizar el cliente." };
+  }
+  if ((changed ?? []).length === 0) {
+    return { ok: false, error: CLIENT_NOT_FOUND };
   }
 
   await logAudit(
@@ -408,7 +415,11 @@ export async function deleteClientAction(id: string): Promise<ActionResult> {
   // RLS deliberately blocks DELETE on clients (see migration C.1). Use the
   // service-role client now that we've validated permissions and refs.
   const service = getServiceClient();
-  const { error } = await service.from("clients").delete().eq("id", id);
+  const { data: changed, error } = await service
+    .from("clients")
+    .delete()
+    .eq("id", id)
+    .select("id");
 
   if (error) {
     if (error.code === PG_FOREIGN_KEY_VIOLATION) {
@@ -420,6 +431,9 @@ export async function deleteClientAction(id: string): Promise<ActionResult> {
     }
     logger.error("clients.delete.failed", { userId: ctx.userId, id, error });
     return { ok: false, error: "No se pudo eliminar el cliente." };
+  }
+  if ((changed ?? []).length === 0) {
+    return { ok: false, error: CLIENT_NOT_FOUND };
   }
 
   await logAudit("client.deleted", ctx.userId, {}, id);
@@ -440,10 +454,11 @@ export async function setClientActiveAction(
   }
 
   const supabase = await createSupabaseClient();
-  const { error } = await supabase
+  const { data: changed, error } = await supabase
     .from("clients")
     .update({ is_active: parsed.data.is_active })
-    .eq("id", parsed.data.id);
+    .eq("id", parsed.data.id)
+    .select("id");
 
   if (error) {
     logger.error("clients.toggle_active.failed", {
@@ -453,6 +468,9 @@ export async function setClientActiveAction(
       error,
     });
     return { ok: false, error: "No se pudo cambiar el estado del cliente." };
+  }
+  if ((changed ?? []).length === 0) {
+    return { ok: false, error: CLIENT_NOT_FOUND };
   }
 
   await logAudit(

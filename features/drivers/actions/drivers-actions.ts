@@ -1,5 +1,7 @@
 "use server";
 
+import { z } from "zod";
+
 import { logAudit } from "@/lib/actions/audit";
 import type { JsonValue } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
@@ -21,6 +23,8 @@ import {
   DriverUpdateSchema,
   type Driver,
 } from "../schema";
+
+const IdSchema = z.object({ id: z.string().uuid() });
 
 const SELECT_COLUMNS =
   "id, employee_id, user_id, full_name, cuit, license_number, license_category, phone, is_active, notes, created_at, updated_at";
@@ -69,7 +73,6 @@ export async function createDriverAction(
     .from("drivers")
     .insert({
       full_name: parsed.data.full_name,
-      employee_id: parsed.data.employee_id ?? null,
       cuit: parsed.data.cuit ?? null,
       license_number: parsed.data.license_number ?? null,
       license_category: parsed.data.license_category ?? null,
@@ -93,6 +96,54 @@ export async function createDriverAction(
   return { ok: true, data: { id: data.id } };
 }
 
+/** No row matched: deleted meanwhile, or hidden by RLS. */
+const DRIVER_NOT_FOUND = "No se encontró el chofer. Actualizá la página.";
+const DRIVER_CHANGED =
+  "El chofer cambió mientras lo editabas. Actualizá la página.";
+/** syncEmployeeDriver owns these on an own driver (one with employee_id). */
+const EMPLOYEE_OWNED_FIELDS =
+  "Chofer propio: el nombre, el CUIT y si está activo se cambian en su legajo (Personal → Empleados).";
+
+type SupabaseServer = Awaited<ReturnType<typeof createSupabaseClient>>;
+
+async function readDriverOwnership(
+  supabase: SupabaseServer,
+  id: string,
+): Promise<
+  | {
+      employee_id: string | null;
+      full_name: string;
+      cuit: string | null;
+      is_active: boolean;
+    }
+  | null
+  | "error"
+> {
+  const { data, error } = await supabase
+    .from("drivers")
+    .select("employee_id, full_name, cuit, is_active")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) {
+    logger.error("drivers.read.failed", { id, error });
+    return "error";
+  }
+  return data;
+}
+
+/** Why a write limited to contracted drivers matched no row. */
+async function whyNoDriverRow(
+  supabase: SupabaseServer,
+  id: string,
+): Promise<string> {
+  const current = await readDriverOwnership(supabase, id);
+  if (current === "error") return "No se pudo leer el chofer. Reintentá.";
+  if (!current) return DRIVER_NOT_FOUND;
+  return current.employee_id
+    ? "Chofer propio: se activa, desactiva o da de baja desde su legajo (Personal → Empleados)."
+    : DRIVER_CHANGED;
+}
+
 export async function updateDriverAction(
   input: unknown,
 ): Promise<ActionResult> {
@@ -110,11 +161,30 @@ export async function updateDriverAction(
   const { id, ...rest } = parsed.data;
 
   const supabase = await createSupabaseClient();
-  const { error } = await supabase
+  const current = await readDriverOwnership(supabase, id);
+  if (current === "error") {
+    return { ok: false, error: "No se pudo leer el chofer. Reintentá." };
+  }
+  if (!current) return { ok: false, error: DRIVER_NOT_FOUND };
+  // An own driver's name, CUIT and state come from its employee
+  // (syncEmployeeDriver writes them on every save of the legajo): a different
+  // value here would be overwritten there, so it is refused. The form sends
+  // them back unchanged (read-only), which passes.
+  if (
+    current.employee_id &&
+    ((rest.full_name !== undefined && rest.full_name !== current.full_name) ||
+      (rest.cuit !== undefined && rest.cuit !== current.cuit) ||
+      (rest.is_active !== undefined && rest.is_active !== current.is_active))
+  ) {
+    return { ok: false, error: EMPLOYEE_OWNED_FIELDS };
+  }
+
+  // Guarded on the link read above: a driver linked or unlinked meanwhile
+  // matches no row.
+  const guarded = supabase
     .from("drivers")
     .update({
       ...(rest.full_name !== undefined && { full_name: rest.full_name }),
-      ...(rest.employee_id !== undefined && { employee_id: rest.employee_id }),
       ...(rest.cuit !== undefined && { cuit: rest.cuit }),
       ...(rest.license_number !== undefined && {
         license_number: rest.license_number,
@@ -127,9 +197,17 @@ export async function updateDriverAction(
       ...(rest.notes !== undefined && { notes: rest.notes }),
     })
     .eq("id", id);
+  const { data: changed, error } = await (
+    current.employee_id
+      ? guarded.eq("employee_id", current.employee_id)
+      : guarded.is("employee_id", null)
+  ).select("id");
   if (error) {
     logger.error("drivers.update.failed", { userId: ctx.userId, id, error });
     return { ok: false, error: "No se pudo actualizar el chofer." };
+  }
+  if ((changed ?? []).length === 0) {
+    return { ok: false, error: DRIVER_CHANGED };
   }
 
   await logAudit(
@@ -152,13 +230,19 @@ export async function setDriverActiveAction(
   if (!parsed.success) return { ok: false, error: "Datos inválidos." };
 
   const supabase = await createSupabaseClient();
-  const { error } = await supabase
+  // Only a contracted driver: an own driver's state follows its employee.
+  const { data: changed, error } = await supabase
     .from("drivers")
     .update({ is_active: parsed.data.is_active })
-    .eq("id", parsed.data.id);
+    .eq("id", parsed.data.id)
+    .is("employee_id", null)
+    .select("id");
   if (error) {
     logger.error("drivers.toggle.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo cambiar el estado." };
+  }
+  if ((changed ?? []).length === 0) {
+    return { ok: false, error: await whyNoDriverRow(supabase, parsed.data.id) };
   }
 
   await logAudit(
@@ -170,15 +254,24 @@ export async function setDriverActiveAction(
   return { ok: true, data: undefined };
 }
 
-export async function deleteDriverAction(input: {
-  id: string;
-}): Promise<ActionResult> {
+export async function deleteDriverAction(
+  input: unknown,
+): Promise<ActionResult> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "drivers:write")) {
     return { ok: false, error: "No tenés permiso para borrar choferes." };
   }
+  const parsed = IdSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Chofer inválido." };
+  const { id } = parsed.data;
   const supabase = await createSupabaseClient();
-  const { error } = await supabase.from("drivers").delete().eq("id", input.id);
+  // Only a contracted driver: an own driver is retired from its legajo.
+  const { data: changed, error } = await supabase
+    .from("drivers")
+    .delete()
+    .eq("id", id)
+    .is("employee_id", null)
+    .select("id");
   if (error) {
     if (error.code === PG_FOREIGN_KEY_VIOLATION) {
       return {
@@ -190,7 +283,10 @@ export async function deleteDriverAction(input: {
     logger.error("drivers.delete.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo borrar el chofer." };
   }
-  await logAudit("driver.deleted", ctx.userId, {}, input.id);
+  if ((changed ?? []).length === 0) {
+    return { ok: false, error: await whyNoDriverRow(supabase, id) };
+  }
+  await logAudit("driver.deleted", ctx.userId, {}, id);
   return { ok: true, data: undefined };
 }
 
@@ -210,10 +306,11 @@ export async function linkDriverUserAction(
   if (!parsed.success) return { ok: false, error: "Datos inválidos." };
 
   const supabase = await createSupabaseClient();
-  const { error } = await supabase
+  const { data: changed, error } = await supabase
     .from("drivers")
     .update({ user_id: parsed.data.userId })
-    .eq("id", parsed.data.driverId);
+    .eq("id", parsed.data.driverId)
+    .select("id");
   if (error) {
     if (error.code === PG_UNIQUE_VIOLATION) {
       return {
@@ -227,6 +324,9 @@ export async function linkDriverUserAction(
       error,
     });
     return { ok: false, error: "No se pudo vincular el usuario." };
+  }
+  if ((changed ?? []).length === 0) {
+    return { ok: false, error: DRIVER_NOT_FOUND };
   }
 
   await logAudit(

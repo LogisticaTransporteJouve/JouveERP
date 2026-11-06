@@ -955,6 +955,17 @@ que agrega una migración suma su ítem al final de esta sección.
 
   - `docs/pendientes/2026-11-05-vencimiento-de-ventas-y-tareas.md`.
 
+- [ ] **Aprobar `20261106112826` y `20261106112827`**
+      (escrituras de cheques y combustible).
+  - `20261106112826`: función nueva `create_manual_check` (`SECURITY
+INVOKER`, revocada de `public` y `anon`, ejecutable por `authenticated` y
+    `service_role`): inserta el cheque y su movimiento «recibido» en una
+    transacción. No toca filas ni políticas. Rollback: el código anterior
+    inserta las dos filas por su cuenta y no la llama.
+  - `20261106112827`: columna nueva `fuel_loads.import_key` (texto, nullable,
+    sin default) con índice único. Todas las filas quedan en NULL; un NULL
+    nunca choca. Rollback: el código anterior no escribe la columna.
+
 ## Aplicadas en el promote de `d71de85` (2026-11-05)
 
 Promovidas con el workflow completo (migraciones, sync de Inngest, deploy y

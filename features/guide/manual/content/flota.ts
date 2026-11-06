@@ -157,6 +157,11 @@ export const fleetPage: GuidePage = {
               message: "No se pudo actualizar el chofer.",
               fix: "Volvé a intentar.",
             },
+            {
+              message:
+                "El chofer cambió mientras lo editabas. Actualizá la página.",
+              fix: "Otra persona lo vinculó o desvinculó de un empleado: recargá y volvé a editarlo.",
+            },
           ],
           related: ["crear-chofer-contratado", "activar-desactivar-chofer"],
           keywords: ["modificar chofer", "licencia", "teléfono chofer"],
@@ -168,7 +173,7 @@ export const fleetPage: GuidePage = {
             "Desactivar es la forma de dar de baja un chofer que ya tiene viajes o documentos.",
           permission: "drivers:write",
           steps: [
-            "En [[/drivers]], en la fila del chofer, usá el interruptor {{Activo}}.",
+            "En [[/drivers]], en la fila del chofer, usá el interruptor {{Activo}}. Solo en los contratados: el de un chofer propio queda deshabilitado, porque sigue a su legajo (se desactiva solo cuando el empleado deja la posición o se da de baja).",
           ],
           after: [
             "Un chofer inactivo deja de ofrecerse en viajes y documentos nuevos y sus documentos ya no generan tareas de vencimiento; su historia queda intacta.",
@@ -248,7 +253,7 @@ export const fleetPage: GuidePage = {
           title: "Borrar un chofer",
           permission: "drivers:write",
           steps: [
-            "En [[/drivers]], en la fila del chofer, abrí el menú ⋯ y elegí {{Borrar}}.",
+            "En [[/drivers]], en la fila del chofer, abrí el menú ⋯ y elegí {{Borrar}} (solo en los contratados: un chofer propio se da de baja desde su legajo).",
             "Confirmá con {{Borrar}}.",
           ],
           after: [

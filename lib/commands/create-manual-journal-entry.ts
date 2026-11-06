@@ -49,7 +49,7 @@ export async function createManualJournalEntry(
     });
     return {
       ok: false,
-      error: error?.message ?? "No se pudo crear el asiento.",
+      error: "No se pudo crear el asiento.",
     };
   }
 

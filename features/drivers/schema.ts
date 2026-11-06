@@ -20,12 +20,6 @@ export const DriverLinkUserSchema = z.object({
   userId: z.string().uuid().nullable(),
 });
 
-const optionalUuid = z
-  .union([z.literal(""), z.string().uuid()])
-  .transform((v) => (v === "" ? null : v))
-  .nullable()
-  .optional();
-
 const optionalText = (max: number) =>
   z
     .string()
@@ -35,9 +29,10 @@ const optionalText = (max: number) =>
     .nullable()
     .optional();
 
+// No employee_id: an own driver is created and linked only by HR
+// (syncEmployeeDriver), never from the drivers screen.
 export const DriverCreateSchema = z.object({
   full_name: z.string().trim().min(1, "Nombre requerido.").max(120),
-  employee_id: optionalUuid,
   cuit: optionalText(20),
   license_number: optionalText(40),
   license_category: optionalText(20),
@@ -53,7 +48,6 @@ export type DriverCreateInput = z.infer<typeof DriverCreateSchema>;
 export const DriverUpdateSchema = z.object({
   id: z.string().uuid(),
   full_name: z.string().trim().min(1).max(120).optional(),
-  employee_id: optionalUuid,
   cuit: optionalText(20),
   license_number: optionalText(40),
   license_category: optionalText(20),
