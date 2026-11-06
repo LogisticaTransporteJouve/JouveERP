@@ -179,7 +179,10 @@ export async function previewFuelImportAction(
 
 /** Inserts the confirmed rows. A row that matches a load already in the
  *  system (or an earlier row of the batch) is skipped unless the user kept it
- *  on purpose, so a second click does not load the statement twice. */
+ *  on purpose. Each row carries `import_key` (the dialog's key plus the row's
+ *  identity in the batch) and the insert skips a key already there, so the
+ *  same import sent twice, even concurrently, adds its rows once; `skipped`
+ *  counts both. */
 export async function confirmFuelImportAction(
   input: unknown,
 ): Promise<ActionResult<{ inserted: number; skipped: number }>> {
@@ -194,7 +197,7 @@ export async function confirmFuelImportAction(
       error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
     };
   }
-  const { provider, rows } = parsed.data;
+  const { provider, import_key: importKey, rows } = parsed.data;
   const service = getServiceClient();
 
   const known = await fetchInChunks(
@@ -228,11 +231,17 @@ export async function confirmFuelImportAction(
 
   const source = FUEL_IMPORT_PROVIDER_LABELS[provider];
   const inserts = [];
+  // The nth identical row of this batch: stable when the batch is resent,
+  // whatever rows the TS check below skips.
+  const seenInBatch = new Map<string, number>();
   for (const r of rows) {
     const key = fuelLoadKey(r);
+    const nth = (seenInBatch.get(key) ?? 0) + 1;
+    seenInBatch.set(key, nth);
     if (existing.has(key) && !r.allow_duplicate) continue;
     existing.add(key);
     inserts.push({
+      import_key: `${importKey}:${key}#${nth}`,
       vehicle_id: r.vehicle_id,
       load_date: r.load_date,
       liters: r.liters,
@@ -246,23 +255,33 @@ export async function confirmFuelImportAction(
       created_by: ctx.userId,
     });
   }
-  const skipped = rows.length - inserts.length;
   if (inserts.length === 0) {
-    return { ok: true, data: { inserted: 0, skipped } };
+    return { ok: true, data: { inserted: 0, skipped: rows.length } };
   }
 
-  const { error } = await service.from("fuel_loads").insert(inserts);
+  // ON CONFLICT (import_key) DO NOTHING: a row this import already added is
+  // skipped by the database, not only by the read above.
+  const { data: added, error } = await service
+    .from("fuel_loads")
+    .upsert(inserts, { onConflict: "import_key", ignoreDuplicates: true })
+    .select("id");
   if (error) {
     logger.error("fuel.import.insert_failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudieron importar las cargas." };
   }
+  const inserted = (added ?? []).length;
+  const skipped = rows.length - inserted;
+  if (inserted === 0) {
+    return { ok: true, data: { inserted: 0, skipped } };
+  }
 
   await logAudit("fuel_load.imported", ctx.userId, {
     provider,
-    inserted: inserts.length,
+    import_key: importKey,
+    inserted,
     skipped,
     from: range?.[0] ?? null,
     to: range?.[1] ?? null,
   });
-  return { ok: true, data: { inserted: inserts.length, skipped } };
+  return { ok: true, data: { inserted, skipped } };
 }

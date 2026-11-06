@@ -130,28 +130,46 @@ describe("FuelImportConfirmSchema", () => {
     product: "Diesel",
     allow_duplicate: false,
   };
+  const import_key = "9b2f3c1e-0d4a-4f5b-8c6d-7e8f9a0b1c2d";
 
   it("accepts confirmed rows", () => {
     expect(
+      FuelImportConfirmSchema.safeParse({
+        provider: "axion_card",
+        import_key,
+        rows: [row],
+      }).success,
+    ).toBe(true);
+  });
+
+  it("requires the import key that makes a resend idempotent", () => {
+    expect(
       FuelImportConfirmSchema.safeParse({ provider: "axion_card", rows: [row] })
         .success,
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it("rejects an empty import, zero liters and an unknown provider", () => {
     expect(
-      FuelImportConfirmSchema.safeParse({ provider: "axion_card", rows: [] })
-        .success,
+      FuelImportConfirmSchema.safeParse({
+        provider: "axion_card",
+        import_key,
+        rows: [],
+      }).success,
     ).toBe(false);
     expect(
       FuelImportConfirmSchema.safeParse({
         provider: "axion_card",
+        import_key,
         rows: [{ ...row, liters: 0 }],
       }).success,
     ).toBe(false);
     expect(
-      FuelImportConfirmSchema.safeParse({ provider: "shell", rows: [row] })
-        .success,
+      FuelImportConfirmSchema.safeParse({
+        provider: "shell",
+        import_key,
+        rows: [row],
+      }).success,
     ).toBe(false);
   });
 });

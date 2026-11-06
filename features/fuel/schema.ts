@@ -115,6 +115,9 @@ export const FuelImportPreviewSchema = z.object({
 
 export const FuelImportConfirmSchema = z.object({
   provider: z.enum(FUEL_IMPORT_PROVIDERS),
+  /** One per statement read in the dialog: the same import sent twice
+   *  (double click, retry) adds its rows once (fuel_loads.import_key). */
+  import_key: z.string().uuid(),
   rows: z
     .array(
       z.object({

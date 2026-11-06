@@ -3563,6 +3563,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          import_key: string | null
           liters: number
           load_date: string
           notes: string | null
@@ -3580,6 +3581,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          import_key?: string | null
           liters: number
           load_date: string
           notes?: string | null
@@ -3597,6 +3599,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          import_key?: string | null
           liters?: number
           load_date?: string
           notes?: string | null
