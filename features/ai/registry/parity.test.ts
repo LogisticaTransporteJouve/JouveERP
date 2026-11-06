@@ -157,6 +157,12 @@ const PARITY: Row[] = [
     gate: all("purchase_invoices:write"),
   },
   {
+    tool: "getArcaPurchaseReconciliation",
+    file: "features/purchase-invoices/actions/arca-reconciliation-actions.ts",
+    fn: "getArcaReconciliationMonthsAction",
+    gate: all("purchase_invoices:write"),
+  },
+  {
     tool: "proposeRecategorizeExpense",
     file: "features/cost-centers/actions/recategorize-actions.ts",
     fn: "recategorizeExpenseAction",

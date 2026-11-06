@@ -118,6 +118,7 @@ import {
 } from "./actions/payroll";
 import { proposePayrollPayment } from "./actions/payroll-proposals";
 import {
+  getArcaPurchaseReconciliation,
   getArcaReceivedVouchers,
   getPaymentOrders,
   getPurchaseInvoices,
@@ -240,6 +241,7 @@ export const AI_ACTIONS: readonly AiAction[] = [
   getPurchaseInvoiceDetail,
   getPaymentOrderDetail,
   getArcaReceivedVouchers,
+  getArcaPurchaseReconciliation,
   searchSuppliers,
   getSupplierAccount,
   getSupplierPurchasesSummary,

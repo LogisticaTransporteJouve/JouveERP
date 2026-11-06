@@ -106,6 +106,12 @@ export const ROUTE_GUIDES: readonly RouteGuide[] = [
       "Agrupan a los proveedores para los reportes y el rubro por defecto.",
   },
   {
+    prefix: "/purchases/arca/reconciliation",
+    title: "Conciliación con ARCA",
+    summary:
+      "Lo que ARCA lista como recibido contra las compras fiscales, por año y por mes, con los comprobantes que faltan de cada lado o difieren en el total.",
+  },
+  {
     prefix: "/purchases/arca",
     title: "Recibidos de ARCA",
     summary:
