@@ -215,10 +215,9 @@ export async function getSupplierReferencesAction(
     return { ok: false, error: "No tenés permiso para ver proveedores." };
   }
 
-  // Every table that references suppliers. RESTRICT rows would block the delete
-  // at the DB anyway (surface a clear message instead of a raw FK error);
-  // CASCADE rows (opening balances, allocations, attachments) would be silently
-  // wiped, so they must be counted here to protect financial history.
+  // Every table that references suppliers. Their FKs are ON DELETE RESTRICT,
+  // so the delete fails at the DB anyway (also for a row added after this
+  // count); the count gives the dialog what is linked.
   const dependents: Array<{ table: string; column: string }> = [
     { table: "purchase_invoices", column: "supplier_id" },
     { table: "payment_orders", column: "supplier_id" },

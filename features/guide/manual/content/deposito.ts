@@ -801,7 +801,7 @@ export const warehousePage: GuidePage = {
             "Hacé clic en {{Crear}}.",
           ],
           after: [
-            "Se crean todos los pallets, en estado {{En depósito}}, con códigos `PREFIJO-0001`, `PREFIJO-0002`… que continúan la numeración que ya existe para ese prefijo (si ya hay hasta `PAL-0012`, empieza en `PAL-0013`).",
+            "Se crean todos los pallets, en estado {{En depósito}}, con códigos `PREFIJO-0001`, `PREFIJO-0002`… que continúan la numeración que ya existe para ese prefijo (si ya hay hasta `PAL-0012`, empieza en `PAL-0013`). Si otro usuario carga pallets con el mismo prefijo al mismo tiempo, una carga espera a la otra y sigue su numeración: los códigos no se repiten.",
             "El aviso dice cuántos se crearon, por ejemplo «10 pallets creados.».",
           ],
           errors: [
@@ -822,16 +822,8 @@ export const warehousePage: GuidePage = {
               fix: "Sacá espacios y símbolos del prefijo.",
             },
             {
-              message: "Se generó un código repetido, volvé a intentar.",
-              fix: "Otro usuario cargó pallets con el mismo prefijo al mismo tiempo: hacé clic en {{Crear}} de nuevo.",
-            },
-            {
               message: "El área no es del depósito de los pallets.",
               fix: "Elegí un área del depósito seleccionado.",
-            },
-            {
-              message: "No se pudieron generar los códigos.",
-              fix: "Volvé a intentar.",
             },
             {
               message: "No tenés permiso para crear pallets.",
@@ -893,6 +885,11 @@ export const warehousePage: GuidePage = {
             {
               message: "El pallet no existe.",
               fix: "Otro usuario lo borró: actualizá la pantalla.",
+            },
+            {
+              message:
+                "El pallet cambió mientras lo editabas: volvé a abrirlo.",
+              fix: "Sin `stock_movements:write`, otro usuario movió el pallet (depósito, estado, cantidad o fechas) mientras tenías abierto el diálogo: cerralo, abrilo de nuevo y repetí el cambio.",
             },
             {
               message: "No tenés permiso para editar pallets.",

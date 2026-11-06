@@ -17,6 +17,7 @@ import { decodeText, readUploadedTable } from "@/lib/tables/read-upload";
 import { MAX_UPLOAD_TABLE_BYTES } from "@/lib/tables/limits";
 
 import { isAccountType, isCheckAccount } from "@/features/accounts/schema";
+import { DRIVER_POSITION } from "@/features/hr/schema";
 
 import { fieldAliases, fieldKeys } from "../lib/fields";
 import {
@@ -638,6 +639,7 @@ export async function commitImportAction(
     p_invalid_rows: prepared.counts.invalid,
     p_rows: payloads,
     p_user_id: ctx.userId,
+    p_driver_position: DRIVER_POSITION,
   });
   if (error || !runId) {
     const guard = mapDbGuardError(error, {
