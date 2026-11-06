@@ -35,10 +35,11 @@ export function AppHeader({ actions }: { actions: React.ReactNode }) {
 
   return (
     <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-2 border-b bg-background px-4 md:rounded-t-xl">
-      <SidebarTrigger className="-ml-1" />
+      {/* On a phone the bottom bar's «Más» opens the sidebar. */}
+      <SidebarTrigger className="-ml-1 hidden md:inline-flex" />
       <Separator
         orientation="vertical"
-        className="mr-2 data-[orientation=vertical]:h-4"
+        className="mr-2 hidden data-[orientation=vertical]:h-4 md:block"
       />
       {item && (
         <Breadcrumb className="min-w-0">

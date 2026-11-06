@@ -33,7 +33,7 @@ export const platformPage: GuidePage = {
         {
           title: "El encabezado",
           body: [
-            "Muestra la sección y la pantalla donde estás (en el celular, solo la pantalla). El botón del extremo izquierdo esconde o muestra la barra lateral.",
+            "Muestra la sección y la pantalla donde estás (en el celular, solo la pantalla). En la computadora, el botón del extremo izquierdo esconde o muestra la barra lateral; en el celular, la barra lateral se abre con {{Más}}, abajo.",
             "A la derecha, el botón **?** ({{Ayuda de esta pantalla}}) abre la sección de esta guía que explica la pantalla, y la campanita abre tus notificaciones (ver [[#notificaciones]]).",
           ],
         },
