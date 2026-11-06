@@ -5,6 +5,8 @@ export const ARTIFACT_LIMITS = {
   chartPoints: 60,
   hbarPoints: 30,
   series: 3,
+  /** Label fields a chart point carries for its tooltip. */
+  detail: 3,
   /** A stacked bar shows the parts of a whole, so it takes more series. */
   stackedSeries: 6,
   tableRows: 300,
@@ -173,6 +175,15 @@ export const resolvedChartSchema = z
     sort: z.enum(["none", "asc", "desc"]),
     limit: z.number().int().min(1).max(ARTIFACT_LIMITS.chartPoints).optional(),
     valueFormat: z.enum(VALUE_FORMATS),
+    /** The field whose value labels each point on the axis (a document's
+     *  date), when it is not `x` itself. */
+    tick: fieldName.optional(),
+    /** The label fields each point carries for its tooltip. */
+    detail: z
+      .array(z.strictObject({ field: fieldName, label }))
+      .min(1)
+      .max(ARTIFACT_LIMITS.detail)
+      .optional(),
   })
   .superRefine(seriesFitType);
 export type ResolvedChart = z.infer<typeof resolvedChartSchema>;
@@ -198,6 +209,13 @@ const chartArtifactSchema = z.strictObject({
       z.strictObject({
         x: z.string(),
         values: z.array(z.number().nullable()),
+        /** The axis label, from the chart's `tick` field. */
+        tick: z.string().optional(),
+        /** One value per `chart.detail` field. */
+        detail: z
+          .array(z.string().nullable())
+          .max(ARTIFACT_LIMITS.detail)
+          .optional(),
       }),
     )
     .max(ARTIFACT_LIMITS.chartPoints),

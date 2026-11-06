@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { buildChartArtifact, buildTableArtifact } from "./build";
+import {
+  buildChartArtifact,
+  buildTableArtifact,
+  documentFields,
+} from "./build";
 
 const source = { action: "getExpenseByCategory", input: { period: "2026-05" } };
 const meta = {
@@ -266,5 +270,58 @@ describe("chart formats", () => {
       { source, rows: [{ name: "x".repeat(200), total: 1 }], meta },
     );
     expect(res.ok && res.value.points[0]?.x).toHaveLength(80);
+  });
+});
+
+describe("documentFields", () => {
+  const docs = [
+    {
+      numero: "22271",
+      comprobante: "A0003-00022271",
+      supplier_legal_name: "Acme SA",
+      fecha: "2026-11-03",
+      neto: 100,
+    },
+    {
+      numero: "22276",
+      comprobante: "A0003-00022276",
+      supplier_legal_name: "Beta SRL",
+      fecha: "2026-11-03",
+      neto: 50,
+    },
+  ];
+  const fields = Object.keys(docs[0] ?? {});
+
+  it("labels per-document columns by date and carries the document, party and date", () => {
+    expect(documentFields(docs, fields, "numero", "bar")).toEqual({
+      tick: "fecha",
+      detail: [
+        { field: "comprobante", label: "Comprobante" },
+        { field: "supplier_legal_name", label: "Proveedor" },
+        { field: "fecha", label: "Fecha" },
+      ],
+    });
+  });
+
+  it("leaves out the field already on the axis", () => {
+    expect(documentFields(docs, fields, "comprobante", "line").detail).toEqual([
+      { field: "supplier_legal_name", label: "Proveedor" },
+      { field: "fecha", label: "Fecha" },
+    ]);
+  });
+
+  it("a ranking keeps its labels on the axis but still gets the tooltip", () => {
+    const res = documentFields(docs, fields, "comprobante", "hbar");
+    expect(res.tick).toBeUndefined();
+    expect(res.detail).toHaveLength(2);
+  });
+
+  it("rows without a document date, or charted by the date itself, get nothing", () => {
+    expect(
+      documentFields(rows, Object.keys(rows[0] ?? {}), "category", "bar"),
+    ).toEqual({ detail: [] });
+    expect(documentFields(docs, fields, "fecha", "line")).toEqual({
+      detail: [],
+    });
   });
 });

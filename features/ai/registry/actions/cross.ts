@@ -51,7 +51,12 @@ import { errResult, money, okResult, type AiRunResult } from "../result";
 import { readScope } from "../scope";
 
 import { maintenanceWithoutCostNote, pendingFreightNote } from "./fleet";
-import { INTERNAL_NOTE, PNL_CAP_NOTE, monthsBetween } from "./management";
+import {
+  INTERNAL_MODEL_NOTE,
+  INTERNAL_NOTE,
+  PNL_CAP_NOTE,
+  monthsBetween,
+} from "./management";
 
 // Cross-domain reads (roadmap 6.1). Each composes read actions of the
 // features it crosses; every part goes through that action's own gate and
@@ -301,18 +306,18 @@ export const getClientMargin = defineAiAction({
     ];
     if (!byClient) {
       notes.push(
-        "Costos directos omitidos: hacen falta los permisos de viajes y cargas (direct_cost_ars en null).",
+        "Costos directos omitidos: hacen falta los permisos de viajes y cargas.",
       );
     }
     const notFinal = rows.filter((r) => (r.uninvoiced_shipments ?? 0) > 0);
     if (notFinal.length > 0) {
       notes.push(
-        `${notFinal.length} cliente(s) con cargas sin facturar en sus viajes (uninvoiced_shipments): su margen no es definitivo, no es una pérdida.`,
+        `${notFinal.length} cliente(s) con cargas sin facturar en sus viajes: su margen no es definitivo, no es una pérdida.`,
       );
     }
     if (pendingForeign !== 0) {
       notes.push(
-        `Hay comprobantes en moneda extranjera sin cotización (${pendingForeign}) que no se sumaron (pending_foreign).`,
+        `Hay comprobantes en moneda extranjera sin cotización que no se sumaron (${pendingForeign.toLocaleString("es-AR")} en su moneda).`,
       );
     }
     if (!complete) {
@@ -342,7 +347,13 @@ export const getClientMargin = defineAiAction({
         },
         page: page.page,
       },
-      { currency: "ARS", partial: !complete, note: notes.join(" ") },
+      {
+        currency: "ARS",
+        partial: !complete,
+        note: notes.join(" "),
+        modelNote:
+          "direct_cost_ars is null without the trips and shipments permissions; uninvoiced_shipments > 0 marks a margin that is not final; totals.pending_foreign is the foreign-currency amount left out for lack of a rate.",
+      },
     );
   },
 });
@@ -430,7 +441,7 @@ export const getClientPaymentBehavior = defineAiAction({
     ).length;
     const page = pageOf(rows, input);
     const notes = [
-      `Vencido en pesos: comprobantes pasados de su vencimiento (${SALES_INVOICE_DUE_DAYS} días después de su fecha, salvo que traigan un vencimiento posterior). La deuda es la de hoy, no la del rango. Dólares aparte; open_ars_equivalent al último oficial (null si no hay cotización).`,
+      `Vencido en pesos: comprobantes pasados de su vencimiento (${SALES_INVOICE_DUE_DAYS} días después de su fecha, salvo que traigan un vencimiento posterior). La deuda es la de hoy, no la del rango. Los dólares van aparte, con su equivalente en pesos al último oficial cuando hay cotización.`,
     ];
     if (!salesComplete) {
       notes.push(
@@ -447,6 +458,8 @@ export const getClientPaymentBehavior = defineAiAction({
         currency: "ARS",
         partial: !salesComplete,
         note: notes.join(" "),
+        modelNote:
+          "open_ars_equivalent is the USD debt at the latest official rate, null when there is no rate.",
         ...(rate
           ? {
               exchangeRate: {
@@ -729,7 +742,7 @@ export const getVehicleEconomics = defineAiAction({
     const noOdometer = rows.filter((r) => r.odometer_km === null).length;
     if (withKm && noOdometer > 0) {
       notes.push(
-        `${noOdometer} vehículos sin km de Strix: por km se usan los km de viajes (km_source).`,
+        `${noOdometer} vehículos sin km de Strix: por km se usan los km de viajes.`,
       );
     }
     if (!complete) {
@@ -764,7 +777,13 @@ export const getVehicleEconomics = defineAiAction({
         unattributed_cost_ars: unattributedCost,
         page: page.page,
       },
-      { currency: "ARS", partial: !complete, note: notes.join(" ") },
+      {
+        currency: "ARS",
+        partial: !complete,
+        note: notes.join(" "),
+        modelNote:
+          "km_source says whether a vehicle's per-km figures use Strix km or trip km.",
+      },
     );
   },
 });
@@ -885,7 +904,7 @@ export const getDriverActivity = defineAiAction({
       const unlinked = rows.filter((r) => !r.employee_linked).length;
       if (unlinked > 0) {
         notes.push(
-          `${unlinked} choferes sin empleado vinculado: sin extras ni adelantos (null).`,
+          `${unlinked} choferes sin empleado vinculado: sin extras ni adelantos.`,
         );
       }
       notes.push(
@@ -939,7 +958,13 @@ export const getDriverActivity = defineAiAction({
           : null,
         page: page.page,
       },
-      { currency: "ARS", partial: !complete, note: notes.join(" ") },
+      {
+        currency: "ARS",
+        partial: !complete,
+        note: notes.join(" "),
+        modelNote:
+          "A driver with employee_linked false has null extras and advances.",
+      },
     );
   },
 });
@@ -1241,7 +1266,12 @@ export const getTopCosts = defineAiAction({
     return okResult(
       `Costos ${input.fromPeriod}→${input.toPeriod} por ${input.groupBy === "category" ? "rubro" : "centro de costo"} (uso interno, ${input.basis === "cash" ? "percibido" : "devengado"}): total ${money(total)} en ${groups.length} grupos · ${head || "sin costos"}.`,
       { rows, byMonth, seriesFields, total_cost_ars: total },
-      { currency: "ARS", partial: capped, note: notes.join(" ") },
+      {
+        currency: "ARS",
+        partial: capped,
+        note: notes.join(" "),
+        modelNote: INTERNAL_MODEL_NOTE,
+      },
     );
   },
 });
