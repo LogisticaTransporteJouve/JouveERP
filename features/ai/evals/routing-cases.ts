@@ -87,6 +87,30 @@ export const ROUTING_CASES: RoutingCase[] = [
     dispatch: { fn: "getVacationOverviewAction", args: {} },
   },
   {
+    id: "vacations-one-employee",
+    question: "¿Cuántas vacaciones le quedan a Gómez Ana?",
+    roles: ["admin"],
+    expect: { tool: "getVacationOverview", input: { employee: "Gómez Ana" } },
+    dispatch: {
+      fn: "getVacationOverviewAction",
+      args: { employee: "Gómez Ana" },
+    },
+  },
+  {
+    id: "leaves-calendar-december",
+    question:
+      "haceme una tabla como si fuera un calendario para saber quién se toma vacaciones en diciembre",
+    roles: ["admin"],
+    expect: {
+      tool: "getLeavesByRange",
+      input: { from: "2026-12-01", to: "2026-12-31", kind: "vacaciones" },
+    },
+    dispatch: {
+      fn: "listLeavesByRangeAction",
+      args: { from: "2026-12-01", to: "2026-12-31", kind: "vacaciones" },
+    },
+  },
+  {
     id: "suppliers-year",
     question: "¿Cuánto le compramos a cada proveedor en 2025?",
     roles: ["finance"],

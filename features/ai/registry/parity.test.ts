@@ -202,6 +202,12 @@ const PARITY: Row[] = [
     token: '"hr:write"',
   },
   {
+    tool: "getLeavesByRange",
+    file: "features/hr/actions/vacations-actions.ts",
+    fn: "listLeavesByRangeAction",
+    gate: all("hr:read"),
+  },
+  {
     tool: "proposeAttendance",
     file: "features/hr/actions/attendance-actions.ts",
     fn: "upsertAttendanceRecordAction",

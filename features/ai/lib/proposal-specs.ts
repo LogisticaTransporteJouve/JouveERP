@@ -68,6 +68,7 @@ import {
   LEAVE_KIND_LABEL,
   LEAVE_KINDS,
 } from "@/features/hr/vacation-schema";
+import { leaveDays, leaveWarnings } from "@/features/hr/lib/leaves";
 import {
   computeLineAmounts,
   computeTotals,
@@ -163,6 +164,10 @@ import {
  */
 
 export type ProposalSummaryRow = { label: string; value: string };
+
+/** The label of a summary row that warns without blocking: the card shows
+ *  it as a notice under the summary. */
+export const PROPOSAL_WARNING_LABEL = "Atención";
 
 /** Display names the server resolved for ids in the draft (an employee's
  *  name, an account's code and name), stored with each revision. */
@@ -264,9 +269,47 @@ function defineProposalSpec<D extends z.ZodType>(
   };
 }
 
-function inclusiveDays(start: string, end: string): number {
-  const ms = Date.parse(`${end}T00:00:00Z`) - Date.parse(`${start}T00:00:00Z`);
-  return Math.round(ms / 86_400_000) + 1;
+/** Keys of the labels a leave draft carries for its warnings, read by the
+ *  server when it drafts the proposal and kept across the user's edits. */
+export const LEAVE_LABELS = {
+  /** Pending vacation days, or "none" when no balance is loaded. */
+  pending: "leave_pending_days",
+  /** Holiday dates around the start, comma-separated. */
+  holidays: "leave_holidays",
+  /** "1" when the balance or the holidays could not be read. */
+  unread: "leave_context_unread",
+} as const;
+
+/** The pending days a leave draft's label holds: a number, null for "no
+ *  balance loaded", undefined when absent or unreadable. */
+function pendingFromLabel(
+  value: string | undefined,
+): number | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === "none") return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+/** The vacation warnings of a leave draft (LCT art. 151 start day and the
+ *  pending balance), from what the server read when it drafted it. */
+function leaveWarningRows(
+  d: z.output<typeof CreateLeaveSchema>,
+  labels: ProposalLabels,
+): ProposalSummaryRow[] {
+  if (d.kind !== "vacaciones") return [];
+  const warnings = leaveWarnings(d, {
+    holidays: new Set(
+      (labels[LEAVE_LABELS.holidays] ?? "").split(",").filter(Boolean),
+    ),
+    pending: pendingFromLabel(labels[LEAVE_LABELS.pending]),
+  });
+  if (labels[LEAVE_LABELS.unread] === "1") {
+    warnings.push(
+      "No se pudieron leer el saldo de vacaciones o los feriados para revisar la licencia.",
+    );
+  }
+  return warnings.map((value) => ({ label: PROPOSAL_WARNING_LABEL, value }));
 }
 
 export const leaveProposalSpec = defineProposalSpec({
@@ -295,9 +338,10 @@ export const leaveProposalSpec = defineProposalSpec({
     { label: "Hasta", value: formatArgentineDate(d.end_date) },
     {
       label: "Días corridos",
-      value: String(inclusiveDays(d.start_date, d.end_date)),
+      value: String(leaveDays(d.start_date, d.end_date)),
     },
     ...(d.notes ? [{ label: "Notas", value: d.notes }] : []),
+    ...leaveWarningRows(d, labels),
   ],
 });
 
@@ -354,7 +398,7 @@ function rateJumpRow(
 ): ProposalSummaryRow | null {
   if (labels[RATE_REF_UNREAD]) {
     return {
-      label: "Atención",
+      label: PROPOSAL_WARNING_LABEL,
       value:
         "No se pudo leer la cotización guardada para compararla. Revisá el número antes de guardar.",
     };
@@ -370,7 +414,7 @@ function rateJumpRow(
     },
     rate,
   );
-  return warning ? { label: "Atención", value: warning } : null;
+  return warning ? { label: PROPOSAL_WARNING_LABEL, value: warning } : null;
 }
 
 export const exchangeRateProposalSpec = defineProposalSpec({
@@ -982,7 +1026,7 @@ export const vehicleKmProposalSpec = defineProposalSpec({
             ...(d.km < previousKm
               ? [
                   {
-                    label: "Atención",
+                    label: PROPOSAL_WARNING_LABEL,
                     value:
                       "El km es menor que el de la lectura anterior. Revisá el número antes de guardar.",
                   },
@@ -998,7 +1042,7 @@ export const vehicleKmProposalSpec = defineProposalSpec({
       ...(labels[VEHICLE_KM_LABELS.unread]
         ? [
             {
-              label: "Atención",
+              label: PROPOSAL_WARNING_LABEL,
               value:
                 "No se pudo leer la lectura anterior para compararla. Revisá el número antes de guardar.",
             },
@@ -1043,7 +1087,7 @@ export const freightSettlementProposalSpec = defineProposalSpec({
       ...(unpriced > 0
         ? [
             {
-              label: "Atención",
+              label: PROPOSAL_WARNING_LABEL,
               value: `${unpriced} ${unpriced === 1 ? "carga entregada queda" : "cargas entregadas quedan"} afuera: no tienen flete ni tarifa de flete vigente.`,
             },
           ]
@@ -1083,7 +1127,7 @@ export const freightSettlementConfirmProposalSpec = defineProposalSpec({
       ...(saved
         ? [
             {
-              label: "Atención",
+              label: PROPOSAL_WARNING_LABEL,
               value: `El borrador decía ${saved}: un flete o una tarifa cambió y se confirma al precio vigente.`,
             },
           ]
@@ -1219,7 +1263,7 @@ export const driverSettlementProposalSpec = defineProposalSpec({
       ...(drafts > 0
         ? [
             {
-              label: "Atención",
+              label: PROPOSAL_WARNING_LABEL,
               value: `El chofer ya tiene ${drafts === 1 ? "una rendición" : `${drafts} rendiciones`} en borrador.`,
             },
           ]
@@ -1952,7 +1996,7 @@ function purchaseRows(
         ]
       : []),
     ...(d.notes ? [{ label: "Notas", value: d.notes }] : []),
-    ...(warning ? [{ label: "Atención", value: warning }] : []),
+    ...(warning ? [{ label: PROPOSAL_WARNING_LABEL, value: warning }] : []),
   ];
 }
 

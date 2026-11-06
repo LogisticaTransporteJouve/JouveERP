@@ -10,6 +10,8 @@ const createLeave = vi.fn();
 const createManualJournalEntry = vi.fn();
 const upsertManualExchangeRate = vi.fn();
 const getUsdReferenceRateAction = vi.fn();
+const listVacationBalancesAction = vi.fn();
+const listHolidayDatesAction = vi.fn();
 
 vi.mock("@/features/hr/actions/employees-actions", () => ({
   searchEmployeesAction,
@@ -21,6 +23,14 @@ vi.mock(
   }),
 );
 vi.mock("@/lib/commands/create-leave", () => ({ createLeave }));
+vi.mock("@/features/hr/actions/vacations-actions", () => ({
+  listVacationBalancesAction,
+  listHolidayDatesAction,
+}));
+vi.mock("@/lib/format", async (orig) => ({
+  ...(await orig<typeof import("@/lib/format")>()),
+  todayInAR: () => "2026-11-06",
+}));
 vi.mock("@/lib/commands/create-manual-journal-entry", () => ({
   createManualJournalEntry,
 }));
@@ -60,6 +70,11 @@ function employee(id: string, legal_name: string) {
 beforeEach(() => {
   vi.clearAllMocks();
   getUsdReferenceRateAction.mockResolvedValue({ ok: true, data: null });
+  listVacationBalancesAction.mockResolvedValue({
+    ok: true,
+    data: [{ period_year: 2026, remaining_days: 14, status: "active" }],
+  });
+  listHolidayDatesAction.mockResolvedValue({ ok: true, data: [] });
 });
 
 const leaveInput = {
@@ -112,10 +127,77 @@ describe("propose actions", () => {
       expect.objectContaining({
         toolCallId: "call-1",
         action: "proposeLeave",
-        labels: { [EMP]: "Ana Pérez" },
+        labels: {
+          [EMP]: "Ana Pérez",
+          leave_pending_days: "14",
+          leave_holidays: "",
+        },
       }),
     );
+    // A Monday start within the balance: no warning row.
+    expect(
+      s.createRevision.mock.calls[0]?.[0]?.summary.map(
+        (r: { label: string }) => r.label,
+      ),
+    ).not.toContain("Atención");
     expect(createLeave).not.toHaveBeenCalled();
+  });
+
+  it("warns on the card, without refusing, when a vacation starts off Monday and exceeds the balance", async () => {
+    searchEmployeesAction.mockResolvedValue({
+      ok: true,
+      data: { employees: [employee(EMP, "Ana Pérez")], nextOffset: null },
+    });
+    listVacationBalancesAction.mockResolvedValue({
+      ok: true,
+      data: [{ period_year: 2026, remaining_days: 3, status: "active" }],
+    });
+    // Monday 2026-11-23 is a holiday: Tuesday would be fine, Wednesday is not.
+    listHolidayDatesAction.mockResolvedValue({
+      ok: true,
+      data: ["2026-11-23"],
+    });
+    const s = store();
+    const res = await proposeLeave.execute(
+      ctx(["finance"], s),
+      { ...leaveInput, start_date: "2026-11-25", end_date: "2026-11-29" },
+      call,
+    );
+    expect(res).toMatchObject({ ok: true });
+    const stored = s.createRevision.mock.calls[0]?.[0];
+    const summary: { label: string; value: string }[] = stored?.summary ?? [];
+    expect(
+      summary.filter((r) => r.label === "Atención").map((r) => r.value),
+    ).toEqual([
+      expect.stringContaining("sería el martes 24 nov 2026"),
+      "La licencia es de 5 días y le quedan 3 días de vacaciones pendientes.",
+    ]);
+
+    // The labels survive the user's edit: the Tuesday after the holiday
+    // clears the start-day warning.
+    const revised = proposeLeave.proposal?.spec.validate(
+      { ...stored?.draft, start_date: "2026-11-24" },
+      stored?.labels ?? {},
+    );
+    expect(
+      revised?.ok &&
+        revised.summary.filter((r) => r.label === "Atención").length,
+    ).toBe(1);
+  });
+
+  it("says so on the card when the balance could not be read", async () => {
+    searchEmployeesAction.mockResolvedValue({
+      ok: true,
+      data: { employees: [employee(EMP, "Ana Pérez")], nextOffset: null },
+    });
+    listVacationBalancesAction.mockResolvedValue({ ok: false, error: "x" });
+    const s = store();
+    await proposeLeave.execute(ctx(["finance"], s), leaveInput, call);
+    expect(s.createRevision.mock.calls[0]?.[0]?.summary).toContainEqual({
+      label: "Atención",
+      value:
+        "No se pudieron leer el saldo de vacaciones o los feriados para revisar la licencia.",
+    });
   });
 
   it("passes the model's revisionKey through, to supersede an earlier draft", async () => {

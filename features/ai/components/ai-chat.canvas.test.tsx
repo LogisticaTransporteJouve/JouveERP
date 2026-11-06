@@ -11,6 +11,7 @@ import type { UIMessage } from "ai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { buildTableArtifact } from "../artifacts/build";
+import { buildCalendarArtifact } from "../artifacts/calendar";
 import type { Artifact } from "../artifacts/spec";
 
 // The chat stream: each render reads the transcript the test set last.
@@ -76,9 +77,43 @@ function table(title: string): Artifact {
   return res.value;
 }
 
-function building(id: string): UIMessage["parts"][number] {
+function calendar(title: string): Artifact {
+  const res = buildCalendarArtifact(
+    { title },
+    {
+      source: {
+        action: "getLeavesByRange",
+        input: { from: "2026-12-01", to: "2026-12-31" },
+      },
+      rows: [
+        {
+          employee: "Gómez Ana",
+          kind: "vacaciones",
+          kind_label: "Vacaciones",
+          start_date: "2026-12-01",
+          end_date: "2026-12-05",
+        },
+        {
+          employee: "Pérez Luis",
+          kind: "enfermedad",
+          kind_label: "Enfermedad",
+          start_date: "2026-12-10",
+          end_date: "2026-12-10",
+        },
+      ],
+      meta: { sources: ["x"], asOf: "2026-11-01T12:00:00Z", partial: false },
+    },
+  );
+  if (!res.ok) throw new Error(res.error);
+  return res.value;
+}
+
+function building(
+  id: string,
+  tool = "renderTable",
+): UIMessage["parts"][number] {
   return {
-    type: "tool-renderTable",
+    type: `tool-${tool}`,
     toolCallId: id,
     state: "input-available",
     input: {},
@@ -167,6 +202,57 @@ describe("AiChat artifact canvas", () => {
     expect(
       within(canvas()!).getByRole("heading", { name: "Caja" }),
     ).toBeTruthy();
+  });
+
+  it("opens a calendar with a skeleton, then its grid, with export and close but no pin", () => {
+    const view = chat();
+    transcript = [turn("m1", [building("t1", "renderCalendar")])];
+    view.rerender();
+    expect(
+      within(canvas()!).getByRole("status", { name: "Armando calendario…" }),
+    ).toBeTruthy();
+
+    transcript = [
+      turn("m1", [
+        building("t1", "renderCalendar"),
+        { type: "data-artifact", id: "t1", data: calendar("Licencias") },
+      ]),
+    ];
+    view.rerender();
+    const panel = within(canvas()!);
+    expect(panel.getByRole("heading", { name: "Licencias" })).toBeTruthy();
+    expect(panel.getByRole("rowheader", { name: "Gómez Ana" })).toBeTruthy();
+    expect(panel.getByRole("button", { name: /Exportar/ })).toBeTruthy();
+    expect(panel.queryByRole("button", { name: /Fijar/ })).toBeNull();
+    expect(screen.getByRole("button", { pressed: true }).textContent).toMatch(
+      /Calendario · 2 empleados/,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Cerrar" }));
+    expect(canvas()).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /Licencias/ }));
+    expect(
+      within(canvas()!).getByRole("heading", { name: "Licencias" }),
+    ).toBeTruthy();
+  });
+
+  it("says the calendar failed when its call ends without one", () => {
+    const view = chat();
+    transcript = [turn("m1", [building("t1", "renderCalendar")])];
+    view.rerender();
+    transcript = [
+      turn("m1", [
+        {
+          type: "tool-renderCalendar",
+          toolCallId: "t1",
+          state: "output-error",
+          input: {},
+          errorText: "boom",
+        },
+      ]),
+    ];
+    view.rerender();
+    expect(canvas()!.textContent).toMatch(/No se pudo armar el calendario/);
   });
 
   it("on a narrow screen leaves a saved conversation on the chat, and «Volver al chat» returns to it", () => {

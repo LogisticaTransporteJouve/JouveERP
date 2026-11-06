@@ -4,6 +4,7 @@ import type { Access } from "@/lib/auth/permissions";
 
 import {
   buildArtifactTools,
+  RENDER_CALENDAR_TOOL,
   RENDER_CHART_TOOL,
   RENDER_TABLE_TOOL,
 } from "../artifacts/tools";
@@ -85,7 +86,7 @@ export function buildCapabilitiesSummary(
   }
   if (options.artifacts && visible.some((a) => a.sideEffect === "read")) {
     sections.push(
-      `Gráficos y tablas:\n- ${RENDER_CHART_TOOL}: mostrá un gráfico armado por el servidor con el resultado de una de tus consultas; usalo cuando una comparación o una evolución se entiende mejor vista.\n- ${RENDER_TABLE_TOOL}: mostrá una tabla exportable a CSV con el resultado de una de tus consultas, cuando piden un listado o exportar.`,
+      `Gráficos y tablas:\n- ${RENDER_CHART_TOOL}: mostrá un gráfico armado por el servidor con el resultado de una de tus consultas; usalo cuando una comparación o una evolución se entiende mejor vista.\n- ${RENDER_TABLE_TOOL}: mostrá una tabla exportable a CSV con el resultado de una de tus consultas, cuando piden un listado o exportar.\n- ${RENDER_CALENDAR_TOOL}: mostrá un mes como calendario (una fila por empleado, una columna por día, cada día con la letra del tipo de licencia) armado con getLeavesByRange, cuando preguntan quién se toma vacaciones o licencia en un mes.`,
     );
   }
   return sections.length > 0

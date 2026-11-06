@@ -4,10 +4,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { runAction } from "@/lib/query/run-action";
 
+import { holidayWindow } from "../lib/leaves";
+
 import {
   createLeaveAction,
   deleteLeaveAction,
   listEmployeeLeavesAction,
+  listHolidayDatesAction,
   listVacationBalancesAction,
   listVacationOverviewAction,
   setVacationOpeningAction,
@@ -19,6 +22,7 @@ const vacationKeys = {
     ["vacations", "balances", employeeId] as const,
   all: ["vacations"] as const,
   overview: () => ["vacations", "overview"] as const,
+  holidays: (year: number) => ["vacations", "holidays", year] as const,
 };
 
 export function useEmployeeLeaves(employeeId: string) {
@@ -32,6 +36,19 @@ export function useVacationBalances(employeeId: string) {
   return useQuery({
     queryKey: vacationKeys.balances(employeeId),
     queryFn: () => runAction(() => listVacationBalancesAction(employeeId)),
+  });
+}
+
+/** Holiday dates around `year`, for the vacation start-date warning. */
+export function useHolidayDates(year: number) {
+  return useQuery({
+    queryKey: vacationKeys.holidays(year),
+    queryFn: () => {
+      const { from, to } = holidayWindow(year);
+      return runAction(() => listHolidayDatesAction(from, to));
+    },
+    enabled: Number.isInteger(year) && year > 2000,
+    staleTime: 60 * 60 * 1000,
   });
 }
 

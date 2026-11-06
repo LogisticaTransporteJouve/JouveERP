@@ -3,6 +3,7 @@
 import {
   ArrowLeft,
   BarChart3,
+  CalendarDays,
   ChevronDown,
   Download,
   FileSpreadsheet,
@@ -38,9 +39,21 @@ import {
 const KIND_LABEL: Record<ArtifactKind, string> = {
   chart: "Gráfico",
   table: "Tabla",
+  calendar: "Calendario",
 };
 
-const KIND_ICON = { chart: BarChart3, table: Table2 } as const;
+/** Each kind with its article, for «No se pudo armar …». */
+const KIND_NOUN: Record<ArtifactKind, string> = {
+  chart: "el gráfico",
+  table: "la tabla",
+  calendar: "el calendario",
+};
+
+const KIND_ICON = {
+  chart: BarChart3,
+  table: Table2,
+  calendar: CalendarDays,
+} as const;
 
 /**
  * The right side of the assistant: the one artifact the chat has open, with
@@ -78,7 +91,10 @@ export function ArtifactCanvas({
         <div className="ml-auto flex items-center gap-1">
           {entry.status === "ready" && (
             <>
-              <PinArtifactButton key={entry.id} artifact={entry.artifact} />
+              {/* A pin rebuilds charts and tables only. */}
+              {entry.artifact.kind !== "calendar" && (
+                <PinArtifactButton key={entry.id} artifact={entry.artifact} />
+              )}
               <ExportMenu artifact={entry.artifact} />
             </>
           )}
@@ -118,8 +134,8 @@ function CanvasBody({ entry }: { entry: ArtifactEntry }) {
   if (entry.status === "error") {
     return (
       <CanvasMessage>
-        No se pudo armar {entry.kind === "chart" ? "el gráfico" : "la tabla"}.
-        Pedíselo de nuevo al asistente.
+        No se pudo armar {KIND_NOUN[entry.kind]}. Pedíselo de nuevo al
+        asistente.
       </CanvasMessage>
     );
   }
@@ -142,7 +158,7 @@ function ReadyArtifact({ artifact }: { artifact: Artifact }) {
           />
         )}
       </div>
-      {/* The canvas scrolls; the table needs no box of its own. */}
+      {/* The canvas scrolls; the table or calendar needs no box of its own. */}
       <ArtifactBody artifact={artifact} asTable={asTable} tableMaxHeight="" />
     </div>
   );
@@ -229,7 +245,9 @@ export function ArtifactChip({
   const count =
     artifact.kind === "chart"
       ? `${artifact.points.length.toLocaleString("es-AR")} puntos`
-      : `${artifact.rows.length.toLocaleString("es-AR")} filas`;
+      : artifact.kind === "calendar"
+        ? `${artifact.rows.length.toLocaleString("es-AR")} ${artifact.rows.length === 1 ? "empleado" : "empleados"}`
+        : `${artifact.rows.length.toLocaleString("es-AR")} filas`;
   return (
     <button
       type="button"

@@ -84,6 +84,26 @@ describe("artifactEntries", () => {
     expect(ready.get("t1")).toMatchObject({ status: "ready", kind: "chart" });
   });
 
+  it("follows a calendar call like a chart or a table", () => {
+    const building = artifactEntries([
+      msg("m1", [call("t1", "input-streaming", "renderCalendar")]),
+    ]);
+    expect(building.get("t1")).toEqual({
+      id: "t1",
+      status: "building",
+      kind: "calendar",
+    });
+
+    const failed = artifactEntries([
+      msg("m1", [call("t1", "output-error", "renderCalendar")]),
+    ]);
+    expect(failed.get("t1")).toEqual({
+      id: "t1",
+      status: "error",
+      kind: "calendar",
+    });
+  });
+
   it("marks a finished call with no artifact, and an unreadable part, as failed", () => {
     const entries = artifactEntries([
       msg("m1", [

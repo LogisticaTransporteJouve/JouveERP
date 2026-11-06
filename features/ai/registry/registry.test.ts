@@ -31,6 +31,7 @@ const PAYROLL_TOOLS = [
   "getDriverExtras",
   "getVacationOverview",
   "getLeavesSummary",
+  "getLeavesByRange",
   "getAttendanceSummary",
   "getPayrollPeriods",
   "getPayrollPeriodDetail",

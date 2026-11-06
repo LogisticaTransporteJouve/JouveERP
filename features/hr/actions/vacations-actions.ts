@@ -10,15 +10,26 @@ import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { logger } from "@/lib/logger";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
+import {
+  leaveDays,
+  leaveDaysInRange,
+  pendingVacationDays,
+} from "../lib/leaves";
 import { currentVacationPeriodYear } from "../lib/vacation-periods";
 
 import {
   CreateLeaveSchema,
   DeleteLeaveSchema,
+  HolidayRangeSchema,
   isLeaveKind,
   isVacationBalanceStatus,
+  LEAVE_KIND_LABEL,
+  LEAVES_BY_RANGE_CAP,
+  LeavesByRangeInputSchema,
   SetVacationOpeningSchema,
   type EmployeeLeave,
+  type LeaveInRange,
+  type LeavesByRange,
   type VacationBalance,
   type VacationOverviewRow,
 } from "../vacation-schema";
@@ -64,6 +75,98 @@ export async function listEmployeeLeavesAction(
       .map(narrowLeave)
       .filter((row): row is EmployeeLeave => row !== null),
   };
+}
+
+/** Every leave that overlaps [from, to] (optionally one employee or one
+ *  kind), with the days that fall inside the range. Gated on hr:read like the
+ *  employee's leaves. */
+export async function listLeavesByRangeAction(
+  input: unknown,
+): Promise<ActionResult<LeavesByRange>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.access, "hr:read")) {
+    return { ok: false, error: "Sin permiso para ver licencias." };
+  }
+  const parsed = LeavesByRangeInputSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
+    };
+  }
+  const { from, to, employeeId, kind } = parsed.data;
+
+  const supabase = await createSupabaseClient();
+  let query = supabase
+    .from("employee_leaves")
+    .select(
+      "id, employee_id, start_date, end_date, kind, employees(legal_name)",
+    )
+    .lte("start_date", to)
+    .gte("end_date", from);
+  if (employeeId) query = query.eq("employee_id", employeeId);
+  if (kind) query = query.eq("kind", kind);
+  const { data, error } = await query
+    .order("start_date")
+    .order("id")
+    .limit(LEAVES_BY_RANGE_CAP + 1);
+
+  if (error) {
+    logger.error("leaves.range.failed", { userId: ctx.userId, error });
+    return { ok: false, error: "No se pudieron cargar las licencias." };
+  }
+  const rows = (data ?? []).flatMap((row): LeaveInRange[] => {
+    if (!isLeaveKind(row.kind)) {
+      logger.error("leaves.unknown_kind", { value: row.kind });
+      return [];
+    }
+    return [
+      {
+        id: row.id,
+        employee_id: row.employee_id,
+        employee: row.employees?.legal_name ?? "(sin nombre)",
+        kind: row.kind,
+        kind_label: LEAVE_KIND_LABEL[row.kind],
+        start_date: row.start_date,
+        end_date: row.end_date,
+        days: leaveDays(row.start_date, row.end_date),
+        days_in_range: leaveDaysInRange(row, from, to),
+      },
+    ];
+  });
+  return {
+    ok: true,
+    data: {
+      rows: rows.slice(0, LEAVES_BY_RANGE_CAP),
+      partial: (data ?? []).length > LEAVES_BY_RANGE_CAP,
+    },
+  };
+}
+
+/** Holiday dates in [from, to], for the vacation start-date warning. */
+export async function listHolidayDatesAction(
+  from: string,
+  to: string,
+): Promise<ActionResult<string[]>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.access, "hr:read")) {
+    return { ok: false, error: "Sin permiso." };
+  }
+  const range = HolidayRangeSchema.safeParse({ from, to });
+  if (!range.success) return { ok: false, error: "Fechas inválidas." };
+
+  const supabase = await createSupabaseClient();
+  const { data, error } = await supabase
+    .from("holidays")
+    .select("date")
+    .gte("date", range.data.from)
+    .lte("date", range.data.to)
+    .order("date");
+  if (error) {
+    logger.error("holidays.list.failed", { userId: ctx.userId, error });
+    return { ok: false, error: "No se pudieron cargar los feriados." };
+  }
+  return { ok: true, data: (data ?? []).map((h) => h.date) };
 }
 
 export async function createLeaveAction(
@@ -282,7 +385,6 @@ export async function listVacationOverviewAction(): Promise<
       (sum, b) => sum + Math.max(b.remaining_days ?? 0, 0),
       0,
     );
-    const currentRemaining = current?.remaining_days ?? 0;
     return {
       employee_id: e.id,
       legal_name: e.legal_name,
@@ -294,7 +396,7 @@ export async function listVacationOverviewAction(): Promise<
       carryover_days: current?.carryover_days ?? 0,
       previous_days: previousDays,
       used_days: current?.used_days ?? 0,
-      remaining_days: currentRemaining + previousDays,
+      remaining_days: pendingVacationDays(own, periodYear) ?? 0,
       expires_at: current?.expires_at ?? null,
     };
   });

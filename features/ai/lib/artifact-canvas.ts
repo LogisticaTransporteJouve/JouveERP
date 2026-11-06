@@ -2,6 +2,7 @@ import { getToolName, isToolUIPart, type UIMessage } from "ai";
 
 import {
   ARTIFACT_PART,
+  RENDER_CALENDAR_TOOL,
   RENDER_CHART_TOOL,
   RENDER_TABLE_TOOL,
   artifactSchema,
@@ -12,7 +13,7 @@ import { artifactPartId } from "./chat-segments";
 
 export type ArtifactKind = Artifact["kind"];
 
-/** One chart or table of the conversation, as the canvas shows it: still
+/** One chart, table or month calendar of the conversation, as the canvas shows it: still
  *  being built (its tool call is running), ready, or failed (the tool call
  *  failed, or what it sent does not parse). */
 export type ArtifactEntry =
@@ -23,6 +24,7 @@ export type ArtifactEntry =
 function toolKind(name: string): ArtifactKind | null {
   if (name === RENDER_CHART_TOOL) return "chart";
   if (name === RENDER_TABLE_TOOL) return "table";
+  if (name === RENDER_CALENDAR_TOOL) return "calendar";
   return null;
 }
 

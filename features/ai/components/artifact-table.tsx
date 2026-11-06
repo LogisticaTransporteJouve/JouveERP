@@ -3,13 +3,18 @@
 import { cn } from "@/lib/utils";
 
 import { formatCell } from "../artifacts/format";
-import type { Artifact, ArtifactCell, TableColumn } from "../artifacts/spec";
+import type {
+  ArtifactCell,
+  ChartArtifact,
+  TableArtifact,
+  TableColumn,
+} from "../artifacts/spec";
 
 type Grid = { columns: TableColumn[]; rows: ArtifactCell[][] };
 
 /** The rows of any artifact as a grid (a chart's points become its table
  *  view, so the figures never depend on reading the marks). */
-function gridOf(artifact: Artifact): Grid {
+function gridOf(artifact: ChartArtifact | TableArtifact): Grid {
   if (artifact.kind === "table") {
     return { columns: artifact.columns, rows: artifact.rows };
   }
@@ -36,7 +41,7 @@ export function ArtifactTable({
   artifact,
   maxHeight = "max-h-80",
 }: {
-  artifact: Artifact;
+  artifact: ChartArtifact | TableArtifact;
   maxHeight?: string;
 }) {
   const { columns, rows } = gridOf(artifact);

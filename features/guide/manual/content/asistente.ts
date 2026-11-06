@@ -16,9 +16,9 @@ export const assistantPage: GuidePage = {
       routes: ["/ai"],
       permission: "ai:chat",
       intro: [
-        "El chat con el asistente. Le preguntás en tus palabras («¿cómo viene la caja?», «¿quién me debe más?») y responde con los datos que tu usuario puede ver en la app, con tablas y gráficos cuando ayudan. También le podés preguntar cómo se hace algo en el sistema.",
+        "El chat con el asistente. Le preguntás en tus palabras («¿cómo viene la caja?», «¿quién me debe más?») y responde con los datos que tu usuario puede ver en la app, con tablas, gráficos y calendarios cuando ayudan. También le podés preguntar cómo se hace algo en el sistema.",
         "Arriba a la izquierda, {{Historial}} abre las conversaciones ({{Nuevo chat}}, agrupadas en {{Hoy}}, {{Ayer}} y {{Anteriores}}) y el lápiz ({{Nuevo chat}}) empieza una. Arriba a la derecha, {{Insights}} (las alertas del analista), {{Fijados}} y el consumo de IA del día.",
-        "El chat ocupa todo el ancho hasta que el asistente arma una tabla o un gráfico: se abre a la derecha del chat, en un panel propio, y en el mensaje queda una tarjeta con su título para volver a abrirlo. Se ve uno por vez; el más nuevo reemplaza al anterior. En pantallas angostas (celular, tablet) el panel tapa el chat y {{Volver al chat}} lo cierra.",
+        "El chat ocupa todo el ancho hasta que el asistente arma una tabla, un gráfico o un calendario: se abre a la derecha del chat, en un panel propio, y en el mensaje queda una tarjeta con su título para volver a abrirlo. Se ve uno por vez; el más nuevo reemplaza al anterior. En pantallas angostas (celular, tablet) el panel tapa el chat y {{Volver al chat}} lo cierra.",
       ],
       concepts: [
         {
@@ -38,7 +38,7 @@ export const assistantPage: GuidePage = {
             "Tesorería: {{Registrar cobro}} (con sus retenciones), {{Enviar recibo por email}}, {{Crear orden de pago}} (desde una cuenta, con cheques en cartera o con cheques propios), {{Registrar movimiento de caja}}, {{Registrar transferencia entre cuentas}}, {{Cargar cheque recibido}}, {{Depositar cheque}} y {{Emitir cheque propio}}. Rendiciones: {{Armar rendición de chofer}} (si no le dijiste cuánto entregó o en qué cuenta, te pregunta), {{Confirmar rendición de chofer}} y {{Resolver diferencia de rendición}} (te pregunta si queda a cargo del chofer o del cliente).",
             "Depósito: {{Facturar almacenaje}} de un cliente y período, con los importes que calcula Facturación de almacenaje; si cambian antes de aceptar, no se emite.",
             "Compras e impuestos: {{Cargar factura de compra}}, {{Cargar comprobante de ARCA}} (si los importes de ARCA no suman el total, te pregunta a dónde va la diferencia), {{Dar de alta proveedor}}, {{Editar proveedor}}, {{Cargar impuesto}} y {{Pagar impuesto}}.",
-            "Personal: {{Dar de alta un empleado}}, {{Editar empleado}}, {{Pagar sueldos}}, {{Movimiento de caja del empleado}} (adelanto o pago), {{Movimiento en la cuenta del empleado}}, {{Cargar asistencia}} y {{Pagar cuota de préstamo}}.",
+            "Personal: {{Dar de alta un empleado}}, {{Editar empleado}}, {{Pagar sueldos}}, {{Movimiento de caja del empleado}} (adelanto o pago), {{Movimiento en la cuenta del empleado}}, {{Cargar asistencia}} y {{Pagar cuota de préstamo}}. En {{Registrar licencia}} de vacaciones, la tarjeta avisa (sin impedir confirmar) si no empieza un lunes (o el día hábil siguiente si el lunes es feriado, LCT art. 151) o si los días superan los pendientes del empleado.",
             "Para confirmar cada una necesitás el mismo permiso que para hacerla a mano.",
           ],
         },
@@ -76,11 +76,11 @@ export const assistantPage: GuidePage = {
           steps: [
             "Abrí [[/ai]] (el botón {{Asistente}} arriba de la barra lateral). Para una conversación nueva, hacé clic en el lápiz ({{Nuevo chat}}) o en {{Historial}} › {{Nuevo chat}}.",
             "Escribí la pregunta en {{Escribí tu pregunta o adjuntá un archivo…}} y apretá Enter. En una conversación nueva también podés hacer clic en una sugerencia ({{¿Cómo viene la caja?}}, {{¿Quién me debe más?}}…).",
-            "Mientras trabaja, el asistente muestra «Pensando…» y las consultas que va haciendo. Después responde con texto; si arma una tabla o un gráfico, se abre a la derecha del chat (mientras lo arma, el panel muestra un esqueleto gris).",
+            "Mientras trabaja, el asistente muestra «Pensando…» y las consultas que va haciendo. Después responde con texto; si arma una tabla, un gráfico o un calendario, se abre a la derecha del chat (mientras lo arma, el panel muestra un esqueleto gris).",
           ],
           after: [
             "La conversación queda guardada en el historial con un título, para retomarla después.",
-            "Cada tabla o gráfico deja en su mensaje una tarjeta con el título y la cantidad de filas o puntos: hacé clic en ella para volver a verlo en el panel.",
+            "Cada tabla, gráfico o calendario deja en su mensaje una tarjeta con el título y la cantidad de filas, puntos o empleados: hacé clic en ella para volver a verlo en el panel.",
           ],
           errors: [
             {
@@ -261,16 +261,17 @@ export const assistantPage: GuidePage = {
           title: "Fijar o exportar una tabla o un gráfico",
           permission: "ai:chat",
           steps: [
-            "Abrí la tabla o el gráfico en el panel de la derecha (si lo cerraste, hacé clic en su tarjeta en el mensaje).",
+            "Abrí la tabla, el gráfico o el calendario en el panel de la derecha (si lo cerraste, hacé clic en su tarjeta en el mensaje).",
             {
               text: "Usá los botones del encabezado del panel:",
               substeps: [
-                "{{Fijar}}: lo guarda en [[/ai/pinned]] para volver a verlo con los datos al día.",
+                "{{Fijar}}: lo guarda en [[/ai/pinned]] para volver a verlo con los datos al día (no aparece en un calendario).",
                 "{{Exportar}} › {{CSV}} o {{Excel}}: descarga los datos.",
                 "En un gráfico, {{Tabla}} (al lado del título) muestra los mismos datos como tabla ({{Gráfico}} vuelve).",
                 "{{Cerrar}} (la cruz) oculta el panel y el chat vuelve a ocupar todo el ancho; en pantallas angostas es {{Volver al chat}}.",
               ],
             },
+            "Si le pedís quién se toma vacaciones o licencia en un mes («haceme un calendario de las vacaciones de diciembre»), arma un calendario y lo abre en el panel, como una tabla: una fila por empleado, una columna por día y cada día marcado con la letra del tipo (V vacaciones, E enfermedad, F franco…), con la referencia abajo y los fines de semana sombreados. Su tarjeta en el mensaje dice «Calendario · N empleados». Se exporta con {{Exportar}} y se cierra igual que una tabla; no se puede fijar.",
           ],
           after: ["Al fijar aparece «Fijado. Lo ves en Fijados de IA.»."],
           errors: [
@@ -280,14 +281,22 @@ export const assistantPage: GuidePage = {
             },
           ],
           related: ["quitar-fijado-ia"],
-          keywords: ["fijar", "exportar", "excel", "csv", "gráfico", "tabla"],
+          keywords: [
+            "fijar",
+            "exportar",
+            "excel",
+            "csv",
+            "gráfico",
+            "tabla",
+            "calendario",
+          ],
         },
         {
           id: "borrar-conversacion-ia",
           title: "Retomar o borrar una conversación",
           permission: "ai:chat",
           steps: [
-            "En [[/ai]], hacé clic en {{Historial}} (arriba a la izquierda) y elegí la conversación para retomarla. Si tenía tablas o gráficos, se abre con el último a la derecha.",
+            "En [[/ai]], hacé clic en {{Historial}} (arriba a la izquierda) y elegí la conversación para retomarla. Si tenía tablas, gráficos o calendarios, se abre con el último a la derecha.",
             "Para borrarla, en {{Historial}} pasá el mouse sobre ella, hacé clic en el tacho ({{Borrar conversación}}) y confirmá con {{Borrar}}.",
           ],
           after: [

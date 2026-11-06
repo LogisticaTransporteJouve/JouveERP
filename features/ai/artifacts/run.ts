@@ -10,9 +10,10 @@ import {
   buildTableArtifact,
   type BuildResult,
 } from "./build";
+import { buildCalendarArtifact } from "./calendar";
 import { LEGACY_FIELDS_NOTE, upgradeLegacyFields } from "./legacy-fields";
 import { datasetsOf, resolveRows } from "./rows";
-import type { Artifact, ArtifactMeta, PinRequest } from "./spec";
+import type { Artifact, ArtifactMeta, ArtifactRequest } from "./spec";
 
 /** The read actions an artifact may be built from, for this access. The
  *  artifact tools themselves never appear here (they are not registry
@@ -38,7 +39,7 @@ export type ArtifactRun =
  */
 export async function runArtifact(
   ctx: AiActionContext,
-  request: PinRequest,
+  request: ArtifactRequest,
   actions?: readonly AiAction[],
 ): Promise<ArtifactRun> {
   const action = artifactSourceActions(ctx.access, actions).find(
@@ -76,7 +77,7 @@ export async function runArtifact(
     };
   }
   const input: {
-    source: PinRequest["source"];
+    source: ArtifactRequest["source"];
     rows: typeof rows;
     meta: ArtifactMeta;
   } = {
@@ -90,6 +91,11 @@ export async function runArtifact(
       ...(res.meta.note ? { note: res.meta.note } : {}),
     },
   };
+  if (request.kind === "calendar") {
+    const built = buildCalendarArtifact(request.config, input);
+    if (!built.ok) return { ok: false, error: built.error, denied: false };
+    return { ok: true, artifact: built.value, input: parsedInput.data };
+  }
   const present = new Set(rows.flatMap((r) => Object.keys(r)));
   const { request: current, upgraded } = upgradeLegacyFields(request, present);
   if (upgraded) {

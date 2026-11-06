@@ -2103,6 +2103,7 @@ export const hrPage: GuidePage = {
           steps: [
             "En la ficha del empleado, en {{Vacaciones y licencias}}, bajá hasta {{Nueva licencia}}.",
             "Elegí {{Desde}} y {{Hasta}} (días corridos, incluye fines de semana) y el {{Tipo}}: {{Vacaciones}}, {{Enfermedad}}, {{Franco}}, {{Maternidad}}, {{Paternidad}} u {{Otro}}. Opcional: {{Notas}}.",
+            "Si es de tipo {{Vacaciones}}, revisá los avisos que aparecen arriba de {{Registrar}}: si no empieza un lunes (o el día hábil siguiente cuando el lunes es feriado, LCT art. 151) o si los días superan los pendientes del empleado. Son avisos: se puede registrar igual.",
             "Hacé clic en {{Registrar}}.",
           ],
           after: [

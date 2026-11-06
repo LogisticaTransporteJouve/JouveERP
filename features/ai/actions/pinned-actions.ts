@@ -52,10 +52,14 @@ export async function pinAiArtifactAction(
     { userId: ctx.userId, access: ctx.access },
     parsed.data,
   );
-  if (!run.ok) {
+  // A pin request is a chart or a table, so is what it builds.
+  if (!run.ok || run.artifact.kind === "calendar") {
     return {
       ok: false,
-      error: run.denied ? NO_SOURCE : "No se pudo recalcular para fijarlo.",
+      error:
+        !run.ok && run.denied
+          ? NO_SOURCE
+          : "No se pudo recalcular para fijarlo.",
     };
   }
   const resolved = pinRequestOf(run.artifact);
