@@ -7,6 +7,11 @@ import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import {
+  FormColumn,
+  FormColumns,
+  WIDE_FORM_DIALOG,
+} from "@/components/form-columns";
 import { ChannelsReadError } from "@/components/channels-read-error";
 import { useDefaultChannel } from "@/components/providers/scope-provider";
 import { Button } from "@/components/ui/button";
@@ -243,7 +248,7 @@ export function BulkPayrollPaymentDialog({
           Pago masivo
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className={WIDE_FORM_DIALOG}>
         <DialogHeader>
           <DialogTitle>Pago masivo de sueldos</DialogTitle>
           <DialogDescription>
@@ -262,221 +267,233 @@ export function BulkPayrollPaymentDialog({
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <FormField
-                control={form.control}
-                name="method"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Método</FormLabel>
-                    <Select
-                      value={field.value}
-                      onValueChange={(v) => {
-                        if (!isPayrollPaymentMethod(v)) return;
-                        field.onChange(v);
-                        applySuggestions(v);
-                      }}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {PAYROLL_PAYMENT_METHODS.map((m) => (
-                          <SelectItem key={m} value={m}>
-                            {PAYROLL_PAYMENT_METHOD_LABEL[m]}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="paid_at"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Fecha</FormLabel>
-                    <FormControl>
-                      <DatePicker
-                        value={field.value || ""}
-                        onChange={field.onChange}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <div className="rounded-md border">
-              <div className="flex items-center justify-between gap-2 border-b px-3 py-2">
-                <Label className="flex items-center gap-2 text-sm font-medium">
-                  <Checkbox
-                    checked={
-                      selectedCount === entries.length && entries.length > 0
-                    }
-                    onCheckedChange={(v) => toggleAll(Boolean(v))}
+            <FormColumns>
+              <FormColumn>
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField
+                    control={form.control}
+                    name="method"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Método</FormLabel>
+                        <Select
+                          value={field.value}
+                          onValueChange={(v) => {
+                            if (!isPayrollPaymentMethod(v)) return;
+                            field.onChange(v);
+                            applySuggestions(v);
+                          }}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {PAYROLL_PAYMENT_METHODS.map((m) => (
+                              <SelectItem key={m} value={m}>
+                                {PAYROLL_PAYMENT_METHOD_LABEL[m]}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                  Empleados ({selectedCount}/{entries.length})
-                </Label>
-                <span className="text-xs text-muted-foreground">
-                  Saldo · {PAYROLL_PAYMENT_METHOD_LABEL[method]}
-                </span>
-              </div>
-              <div className="max-h-64 overflow-y-auto">
-                {entries.map((e) => {
-                  const isSelected = selected.has(e.id);
-                  const amount = parseAmount(amounts[e.id]);
-                  const over =
-                    isSelected &&
-                    amount !== null &&
-                    exceedsBalance(amount, e.saldo);
-                  return (
-                    <div
-                      key={e.id}
-                      className="flex items-center justify-between gap-2 px-3 py-1.5 text-sm"
-                    >
-                      <Label className="flex min-w-0 flex-1 items-center gap-2 font-normal">
-                        <Checkbox
-                          checked={isSelected}
-                          onCheckedChange={(v) =>
-                            toggleEmployee(e.id, Boolean(v))
-                          }
-                        />
-                        <span className="truncate">
-                          {e.employee_legal_name}
-                        </span>
-                      </Label>
-                      <span className="hidden font-mono text-xs text-muted-foreground sm:inline">
-                        {formatMoney(e.saldo)}
-                      </span>
-                      <MoneyInput
-                        aria-label={`Monto para ${e.employee_legal_name}`}
-                        className="h-8 w-32 text-right font-mono"
-                        value={amounts[e.id] ?? ""}
-                        disabled={!isSelected}
-                        aria-invalid={isSelected && (amount === null || over)}
-                        onChange={(value) =>
-                          setAmounts((prev) => ({ ...prev, [e.id]: value }))
+                  <FormField
+                    control={form.control}
+                    name="paid_at"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Fecha</FormLabel>
+                        <FormControl>
+                          <DatePicker
+                            value={field.value || ""}
+                            onChange={field.onChange}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="rounded-md border">
+                  <div className="flex items-center justify-between gap-2 border-b px-3 py-2">
+                    <Label className="flex items-center gap-2 text-sm font-medium">
+                      <Checkbox
+                        checked={
+                          selectedCount === entries.length && entries.length > 0
                         }
+                        onCheckedChange={(v) => toggleAll(Boolean(v))}
                       />
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <FormField
-                control={form.control}
-                name="account_id"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Cuenta en pesos</FormLabel>
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Cuenta" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {payableAccounts.map((a) => (
-                          <SelectItem key={a.id} value={a.id}>
-                            {a.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="channel_id"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Canal</FormLabel>
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {channels.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>
-                            {c.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <ChannelsReadError inline />
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <FormField
-              control={form.control}
-              name="notes"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Notas (opcional)</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      rows={2}
-                      placeholder="Ej. transferencias del día 5"
-                      {...field}
-                      value={field.value ?? ""}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">
-                  {selectedCount} empleado{selectedCount !== 1 ? "s" : ""}
-                  {invalidCount > 0
-                    ? ` · ${invalidCount} sin monto válido`
-                    : ""}
-                </span>
-                <span className="font-mono font-medium">
-                  Total: {formatMoney(totalAmount)}
-                </span>
-              </div>
-            </div>
-
-            {overpaidCount > 0 && (
-              <div className="space-y-1 rounded-md border px-3 py-2 text-sm">
-                <p>
-                  {overpaidCount} empleado(s) quedarían con saldo negativo con
-                  el monto cargado.
-                </p>
-                <Label className="flex items-center gap-2 font-normal">
-                  <Checkbox
-                    checked={allowOverpay}
-                    onCheckedChange={(v) => setAllowOverpay(v === true)}
+                      Empleados ({selectedCount}/{entries.length})
+                    </Label>
+                    <span className="text-xs text-muted-foreground">
+                      Saldo · {PAYROLL_PAYMENT_METHOD_LABEL[method]}
+                    </span>
+                  </div>
+                  <div className="max-h-64 overflow-y-auto">
+                    {entries.map((e) => {
+                      const isSelected = selected.has(e.id);
+                      const amount = parseAmount(amounts[e.id]);
+                      const over =
+                        isSelected &&
+                        amount !== null &&
+                        exceedsBalance(amount, e.saldo);
+                      return (
+                        <div
+                          key={e.id}
+                          className="flex items-center justify-between gap-2 px-3 py-1.5 text-sm"
+                        >
+                          <Label className="flex min-w-0 flex-1 items-center gap-2 font-normal">
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={(v) =>
+                                toggleEmployee(e.id, Boolean(v))
+                              }
+                            />
+                            <span className="truncate">
+                              {e.employee_legal_name}
+                            </span>
+                          </Label>
+                          <span className="hidden font-mono text-xs text-muted-foreground sm:inline">
+                            {formatMoney(e.saldo)}
+                          </span>
+                          <MoneyInput
+                            aria-label={`Monto para ${e.employee_legal_name}`}
+                            className="h-8 w-32 text-right font-mono"
+                            value={amounts[e.id] ?? ""}
+                            disabled={!isSelected}
+                            aria-invalid={
+                              isSelected && (amount === null || over)
+                            }
+                            onChange={(value) =>
+                              setAmounts((prev) => ({ ...prev, [e.id]: value }))
+                            }
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </FormColumn>
+              <FormColumn>
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField
+                    control={form.control}
+                    name="account_id"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Cuenta en pesos</FormLabel>
+                        <Select
+                          value={field.value}
+                          onValueChange={field.onChange}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Cuenta" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {payableAccounts.map((a) => (
+                              <SelectItem key={a.id} value={a.id}>
+                                {a.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                  Pagar más que el saldo
-                </Label>
-              </div>
-            )}
+                  <FormField
+                    control={form.control}
+                    name="channel_id"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Canal</FormLabel>
+                        <Select
+                          value={field.value}
+                          onValueChange={field.onChange}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {channels.map((c) => (
+                              <SelectItem key={c.id} value={c.id}>
+                                {c.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <ChannelsReadError inline />
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
 
-            {payableAccounts.length === 0 && (
-              <p className="text-sm text-muted-foreground">
-                No hay cuentas activas en pesos para pagar sueldos.
-              </p>
-            )}
+                <FormField
+                  control={form.control}
+                  name="notes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Notas (opcional)</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          rows={2}
+                          placeholder="Ej. transferencias del día 5"
+                          {...field}
+                          value={field.value ?? ""}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
+                <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">
+                      {selectedCount} empleado{selectedCount !== 1 ? "s" : ""}
+                      {invalidCount > 0
+                        ? ` · ${invalidCount} sin monto válido`
+                        : ""}
+                    </span>
+                    <span className="font-mono font-medium">
+                      Total: {formatMoney(totalAmount)}
+                    </span>
+                  </div>
+                </div>
+
+                {overpaidCount > 0 && (
+                  <div className="space-y-1 rounded-md border px-3 py-2 text-sm">
+                    <p>
+                      {overpaidCount} empleado(s) quedarían con saldo negativo
+                      con el monto cargado.
+                    </p>
+                    <Label className="flex items-center gap-2 font-normal">
+                      <Checkbox
+                        checked={allowOverpay}
+                        onCheckedChange={(v) => setAllowOverpay(v === true)}
+                      />
+                      Pagar más que el saldo
+                    </Label>
+                  </div>
+                )}
+
+                {payableAccounts.length === 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    No hay cuentas activas en pesos para pagar sueldos.
+                  </p>
+                )}
+              </FormColumn>
+            </FormColumns>
             <DialogFooter className="flex-row justify-end gap-2 sm:gap-2">
               <Button
                 type="button"

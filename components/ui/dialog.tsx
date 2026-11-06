@@ -95,6 +95,13 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
   );
 }
 
+/** A dialog taller than the screen scrolls inside DialogContent; its footer
+ *  sticks to the bottom so Cancel/submit stay visible. The shadow covers the
+ *  dialog's bottom padding so scrolled fields don't show under the footer.
+ *  Forms that render their own submit row inside a dialog reuse it. */
+const DIALOG_STICKY_FOOTER =
+  "sticky bottom-0 z-10 bg-background shadow-[0_1.5rem_0_0_var(--background)]";
+
 function DialogFooter({
   className,
   showCloseButton = false,
@@ -108,6 +115,7 @@ function DialogFooter({
       data-slot="dialog-footer"
       className={cn(
         "flex flex-col-reverse gap-2 sm:flex-row sm:justify-end",
+        DIALOG_STICKY_FOOTER,
         className,
       )}
       {...props}
@@ -154,6 +162,7 @@ export {
   DialogContent,
   DialogDescription,
   DialogFooter,
+  DIALOG_STICKY_FOOTER,
   DialogHeader,
   DialogOverlay,
   DialogPortal,

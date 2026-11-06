@@ -35,7 +35,7 @@ export function EditEmployeeDialog({
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+      <DialogContent className="sm:max-w-5xl">
         <DialogHeader>
           <DialogTitle>Editar empleado</DialogTitle>
           <DialogDescription>{employee.legal_name}</DialogDescription>

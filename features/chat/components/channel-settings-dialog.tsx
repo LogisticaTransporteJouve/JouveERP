@@ -5,6 +5,11 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import {
+  FormColumn,
+  FormColumns,
+  WIDE_FORM_DIALOG,
+} from "@/components/form-columns";
 import { useConfirm } from "@/components/providers/confirm-provider";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
@@ -122,7 +127,7 @@ export function ChannelSettingsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className={iAmAdmin ? WIDE_FORM_DIALOG : "sm:max-w-md"}>
         <DialogHeader>
           <DialogTitle>Configurar grupo</DialogTitle>
           <DialogDescription>
@@ -133,84 +138,91 @@ export function ChannelSettingsDialog({
         </DialogHeader>
 
         <div className="space-y-5">
-          <div className="space-y-2">
-            <Label htmlFor="channel-name">Nombre</Label>
-            <Input
-              id="channel-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              maxLength={60}
-              disabled={!iAmAdmin}
-            />
-          </div>
+          <FormColumns>
+            <FormColumn>
+              <div className="space-y-2">
+                <Label htmlFor="channel-name">Nombre</Label>
+                <Input
+                  id="channel-name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  maxLength={60}
+                  disabled={!iAmAdmin}
+                />
+              </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="channel-description">Descripción</Label>
-            <Textarea
-              id="channel-description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={2}
-              maxLength={280}
-              disabled={!iAmAdmin}
-            />
-          </div>
+              <div className="space-y-2">
+                <Label htmlFor="channel-description">Descripción</Label>
+                <Textarea
+                  id="channel-description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={2}
+                  maxLength={280}
+                  disabled={!iAmAdmin}
+                />
+              </div>
 
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>Miembros ({header.members.length})</Label>
-            </div>
-            <ScrollArea className="max-h-48 rounded-md border">
-              <ul className="divide-y">
-                {header.members.map((member) => (
-                  <li
-                    key={member.user_id}
-                    className="flex items-center gap-2 px-3 py-2"
-                  >
-                    <UserAvatar
-                      firstName={member.first_name}
-                      lastName={member.last_name}
-                      email={member.email}
-                      avatarUrl={member.avatar_url}
-                      color={member.avatar_color}
-                      size="sm"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">
-                        {getDisplayName(
-                          member.first_name,
-                          member.last_name,
-                          member.email,
-                        )}
-                      </p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {member.role === "admin" ? "Admin" : "Miembro"}
-                      </p>
-                    </div>
-                    {iAmAdmin && member.user_id !== currentUserId ? (
-                      <IconButton
-                        label="Quitar"
-                        type="button"
-                        variant="ghost"
-                        className="size-7"
-                        onClick={() => handleRemove(member.user_id)}
-                        disabled={removeMember.isPending}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label>Miembros ({header.members.length})</Label>
+                </div>
+                <ScrollArea className="max-h-48 rounded-md border">
+                  <ul className="divide-y">
+                    {header.members.map((member) => (
+                      <li
+                        key={member.user_id}
+                        className="flex items-center gap-2 px-3 py-2"
                       >
-                        <Trash2 className="size-3.5" />
-                      </IconButton>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-            </ScrollArea>
-          </div>
-
-          {iAmAdmin ? (
-            <AddMembersSection
-              channelId={channelId}
-              existingMemberIds={new Set(header.members.map((m) => m.user_id))}
-            />
-          ) : null}
+                        <UserAvatar
+                          firstName={member.first_name}
+                          lastName={member.last_name}
+                          email={member.email}
+                          avatarUrl={member.avatar_url}
+                          color={member.avatar_color}
+                          size="sm"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium">
+                            {getDisplayName(
+                              member.first_name,
+                              member.last_name,
+                              member.email,
+                            )}
+                          </p>
+                          <p className="truncate text-xs text-muted-foreground">
+                            {member.role === "admin" ? "Admin" : "Miembro"}
+                          </p>
+                        </div>
+                        {iAmAdmin && member.user_id !== currentUserId ? (
+                          <IconButton
+                            label="Quitar"
+                            type="button"
+                            variant="ghost"
+                            className="size-7"
+                            onClick={() => handleRemove(member.user_id)}
+                            disabled={removeMember.isPending}
+                          >
+                            <Trash2 className="size-3.5" />
+                          </IconButton>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                </ScrollArea>
+              </div>
+            </FormColumn>
+            <FormColumn>
+              {iAmAdmin ? (
+                <AddMembersSection
+                  channelId={channelId}
+                  existingMemberIds={
+                    new Set(header.members.map((m) => m.user_id))
+                  }
+                />
+              ) : null}
+            </FormColumn>
+          </FormColumns>
         </div>
 
         <DialogFooter className="gap-2 sm:justify-between">

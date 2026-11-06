@@ -6,6 +6,8 @@ import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { cn } from "@/lib/utils";
+import { DIALOG_STICKY_FOOTER } from "@/components/ui/dialog";
 import {
   useDefaultChannel,
   usePageIsFiscal,
@@ -675,7 +677,12 @@ export function ReceiptForm({
           )}
         />
 
-        <div className="flex items-center justify-end gap-2">
+        <div
+          className={cn(
+            "flex items-center justify-end gap-2",
+            DIALOG_STICKY_FOOTER,
+          )}
+        >
           <Button
             type="button"
             variant="ghost"

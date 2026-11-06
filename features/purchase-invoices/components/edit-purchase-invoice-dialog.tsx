@@ -34,7 +34,7 @@ export function EditPurchaseInvoiceDialog({
           <Pencil className="size-4" />
         </IconButton>
       </DialogTrigger>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
+      <DialogContent className="sm:max-w-[min(90vw,90rem)]">
         <DialogHeader>
           <DialogTitle>
             {PURCHASE_INVOICE_KIND_LABEL[invoice.kind]}{" "}

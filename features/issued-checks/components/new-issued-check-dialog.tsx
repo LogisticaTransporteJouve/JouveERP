@@ -34,7 +34,7 @@ export function NewIssuedCheckDialog({
           Cargar cheque
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+      <DialogContent className="sm:max-w-4xl">
         <DialogHeader>
           <DialogTitle>Nuevo cheque propio</DialogTitle>
           <DialogDescription>

@@ -5,6 +5,9 @@ import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { cn } from "@/lib/utils";
+import { FormColumn, FormColumns } from "@/components/form-columns";
+import { DIALOG_STICKY_FOOTER } from "@/components/ui/dialog";
 import { MoneyInput } from "@/components/money-input";
 import { useDefaultChannel } from "@/components/providers/scope-provider";
 import { Button } from "@/components/ui/button";
@@ -236,111 +239,145 @@ export function TransactionForm({
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
-        {/* Kind picker */}
-        <div className="grid grid-cols-3 gap-2">
-          <KindButton
-            active={kind === "income"}
-            onClick={() => form.setValue("kind", "income")}
-            label="Ingreso"
-          />
-          <KindButton
-            active={kind === "expense"}
-            onClick={() => form.setValue("kind", "expense")}
-            label="Egreso"
-          />
-          <KindButton
-            active={kind === "transfer"}
-            onClick={() => form.setValue("kind", "transfer")}
-            label="Transferencia"
-          />
-        </div>
+        <FormColumns>
+          <FormColumn>
+            {/* Kind picker */}
+            <div className="grid grid-cols-3 gap-2">
+              <KindButton
+                active={kind === "income"}
+                onClick={() => form.setValue("kind", "income")}
+                label="Ingreso"
+              />
+              <KindButton
+                active={kind === "expense"}
+                onClick={() => form.setValue("kind", "expense")}
+                label="Egreso"
+              />
+              <KindButton
+                active={kind === "transfer"}
+                onClick={() => form.setValue("kind", "transfer")}
+                label="Transferencia"
+              />
+            </div>
 
-        {/* A client's payment or a supplier's is a receipt / OP: it settles
+            {/* A client's payment or a supplier's is a receipt / OP: it settles
             their documents instead of posting to ajustes de caja / gastos. */}
-        {kind === "income" && canCollect && (
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
-            <span>
-              ¿Es un cobro de un cliente? Registralo como recibo: cancela sus
-              comprobantes o queda a cuenta.
-            </span>
-            <CollectDialog
-              canEditRetentions={canEditRetentions}
-              trigger={
-                <Button type="button" variant="outline" size="sm">
-                  Cobrar a cliente
-                </Button>
-              }
-            />
-          </div>
-        )}
-        {kind === "expense" && canPay && (
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
-            <span>
-              ¿Es un pago a un proveedor? Registralo como orden de pago: cancela
-              sus facturas o queda a cuenta.
-            </span>
-            <PayDialog
-              trigger={
-                <Button type="button" variant="outline" size="sm">
-                  Pagar a proveedor
-                </Button>
-              }
-            />
-          </div>
-        )}
+            {kind === "income" && canCollect && (
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
+                <span>
+                  ¿Es un cobro de un cliente? Registralo como recibo: cancela
+                  sus comprobantes o queda a cuenta.
+                </span>
+                <CollectDialog
+                  canEditRetentions={canEditRetentions}
+                  trigger={
+                    <Button type="button" variant="outline" size="sm">
+                      Cobrar a cliente
+                    </Button>
+                  }
+                />
+              </div>
+            )}
+            {kind === "expense" && canPay && (
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
+                <span>
+                  ¿Es un pago a un proveedor? Registralo como orden de pago:
+                  cancela sus facturas o queda a cuenta.
+                </span>
+                <PayDialog
+                  trigger={
+                    <Button type="button" variant="outline" size="sm">
+                      Pagar a proveedor
+                    </Button>
+                  }
+                />
+              </div>
+            )}
 
-        {/* Account(s) */}
-        {kind === "transfer" ? (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <FormField
-              control={form.control}
-              name="account_from_id"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-xs">Cuenta origen</FormLabel>
-                  <Select
-                    value={field.value ?? ""}
-                    onValueChange={(v) => pickAccount(field.onChange, v)}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Elegir cuenta" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent position="popper">
-                      {activeAccounts.map((a) => (
-                        <SelectItem key={a.id} value={a.id}>
-                          {a.name}{" "}
-                          <span className="text-xs text-muted-foreground">
-                            · {a.currency}
-                          </span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="account_to_id"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-xs">Cuenta destino</FormLabel>
-                  <Select
-                    value={field.value ?? ""}
-                    onValueChange={field.onChange}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Elegir cuenta" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent position="popper">
-                      {activeAccounts
-                        .filter((a) => a.id !== accountFromId)
-                        .map((a) => (
+            {/* Account(s) */}
+            {kind === "transfer" ? (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <FormField
+                  control={form.control}
+                  name="account_from_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs">Cuenta origen</FormLabel>
+                      <Select
+                        value={field.value ?? ""}
+                        onValueChange={(v) => pickAccount(field.onChange, v)}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Elegir cuenta" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent position="popper">
+                          {activeAccounts.map((a) => (
+                            <SelectItem key={a.id} value={a.id}>
+                              {a.name}{" "}
+                              <span className="text-xs text-muted-foreground">
+                                · {a.currency}
+                              </span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="account_to_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs">Cuenta destino</FormLabel>
+                      <Select
+                        value={field.value ?? ""}
+                        onValueChange={field.onChange}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Elegir cuenta" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent position="popper">
+                          {activeAccounts
+                            .filter((a) => a.id !== accountFromId)
+                            .map((a) => (
+                              <SelectItem key={a.id} value={a.id}>
+                                {a.name}{" "}
+                                <span className="text-xs text-muted-foreground">
+                                  · {a.currency}
+                                </span>
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            ) : (
+              <FormField
+                control={form.control}
+                name="account_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs">Cuenta</FormLabel>
+                    <Select
+                      value={field.value ?? ""}
+                      onValueChange={(v) => pickAccount(field.onChange, v)}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Elegir cuenta" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent position="popper">
+                        {activeAccounts.map((a) => (
                           <SelectItem key={a.id} value={a.id}>
                             {a.name}{" "}
                             <span className="text-xs text-muted-foreground">
@@ -348,219 +385,197 @@ export function TransactionForm({
                             </span>
                           </SelectItem>
                         ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-        ) : (
-          <FormField
-            control={form.control}
-            name="account_id"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-xs">Cuenta</FormLabel>
-                <Select
-                  value={field.value ?? ""}
-                  onValueChange={(v) => pickAccount(field.onChange, v)}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Elegir cuenta" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent position="popper">
-                    {activeAccounts.map((a) => (
-                      <SelectItem key={a.id} value={a.id}>
-                        {a.name}{" "}
-                        <span className="text-xs text-muted-foreground">
-                          · {a.currency}
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             )}
-          />
-        )}
 
-        {/* Channel + amount + currency */}
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_140px_100px]">
-          <FormField
-            control={form.control}
-            name="channel_id"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-xs">Canal</FormLabel>
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent position="popper">
-                    {channels.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="amount"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-xs">Monto</FormLabel>
-                <FormControl>
-                  <MoneyInput {...field} placeholder="0,00" />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="currency"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-xs">Moneda</FormLabel>
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent position="popper">
-                    {TRANSACTION_CURRENCIES.map((c) => (
-                      <SelectItem key={c} value={c}>
-                        {c}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+            {/* Channel + amount + currency */}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_140px_100px]">
+              <FormField
+                control={form.control}
+                name="channel_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs">Canal</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent position="popper">
+                        {channels.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="amount"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs">Monto</FormLabel>
+                    <FormControl>
+                      <MoneyInput {...field} placeholder="0,00" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="currency"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs">Moneda</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent position="popper">
+                        {TRANSACTION_CURRENCIES.map((c) => (
+                          <SelectItem key={c} value={c}>
+                            {c}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+          </FormColumn>
+          <FormColumn>
+            {/* Dates */}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="transaction_date"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs">Fecha</FormLabel>
+                    <FormControl>
+                      <DatePicker
+                        value={field.value}
+                        onChange={(v) => {
+                          field.onChange(v);
+                          form.setValue(
+                            "accrual_month",
+                            defaultAccrualMonth(v),
+                          );
+                        }}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="accrual_month"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs">
+                      Mes devengado{" "}
+                      <span className="text-muted-foreground">(día 1)</span>
+                    </FormLabel>
+                    <FormControl>
+                      <MonthPicker
+                        value={field.value.slice(0, 7)}
+                        onChange={(value) => field.onChange(`${value}-01`)}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
 
-        {/* Dates */}
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <FormField
-            control={form.control}
-            name="transaction_date"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-xs">Fecha</FormLabel>
-                <FormControl>
-                  <DatePicker
-                    value={field.value}
-                    onChange={(v) => {
-                      field.onChange(v);
-                      form.setValue("accrual_month", defaultAccrualMonth(v));
-                    }}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="accrual_month"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-xs">
-                  Mes devengado{" "}
-                  <span className="text-muted-foreground">(día 1)</span>
-                </FormLabel>
-                <FormControl>
-                  <MonthPicker
-                    value={field.value.slice(0, 7)}
-                    onChange={(value) => field.onChange(`${value}-01`)}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        {kind === "expense" && (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <FormField
-              control={form.control}
-              name="expense_account_id"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-xs">Cuenta de gasto</FormLabel>
-                  <FormControl>
-                    <CostTagSelect
-                      kind="expenseAccount"
-                      value={field.value}
-                      onChange={field.onChange}
-                      noneLabel="Sin cuenta (Gastos)"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="cost_center_id"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-xs">Centro de costo</FormLabel>
-                  <FormControl>
-                    <CostTagSelect
-                      kind="costCenter"
-                      value={field.value}
-                      onChange={field.onChange}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-        )}
-
-        {/* Description */}
-        <FormField
-          control={form.control}
-          name="description"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="text-xs">Descripción</FormLabel>
-              <FormControl>
-                <Textarea
-                  {...field}
-                  rows={2}
-                  placeholder={
-                    kind === "transfer"
-                      ? "Ej. Pase de Caja a Banco Galicia"
-                      : kind === "income"
-                        ? "Ej. Cobro factura a cliente X"
-                        : "Ej. Pago combustible flota"
-                  }
+            {kind === "expense" && (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <FormField
+                  control={form.control}
+                  name="expense_account_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs">Cuenta de gasto</FormLabel>
+                      <FormControl>
+                        <CostTagSelect
+                          kind="expenseAccount"
+                          value={field.value}
+                          onChange={field.onChange}
+                          noneLabel="Sin cuenta (Gastos)"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+                <FormField
+                  control={form.control}
+                  name="cost_center_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs">Centro de costo</FormLabel>
+                      <FormControl>
+                        <CostTagSelect
+                          kind="costCenter"
+                          value={field.value}
+                          onChange={field.onChange}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            )}
 
-        <div className="flex items-center justify-end gap-2">
+            {/* Description */}
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-xs">Descripción</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      {...field}
+                      rows={2}
+                      placeholder={
+                        kind === "transfer"
+                          ? "Ej. Pase de Caja a Banco Galicia"
+                          : kind === "income"
+                            ? "Ej. Cobro factura a cliente X"
+                            : "Ej. Pago combustible flota"
+                      }
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </FormColumn>
+        </FormColumns>
+        <div
+          className={cn(
+            "flex items-center justify-end gap-2",
+            DIALOG_STICKY_FOOTER,
+          )}
+        >
           <Button
             type="button"
             variant="ghost"
