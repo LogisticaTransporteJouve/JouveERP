@@ -9269,6 +9269,17 @@ export type Database = {
         Returns: undefined
       }
       capture_aging_snapshot: { Args: never; Returns: string }
+      change_shipment_status: {
+        Args: {
+          p_comment?: string
+          p_delivery_date?: string
+          p_failure_reason?: string
+          p_id: string
+          p_scheduled_date?: string
+          p_status: string
+        }
+        Returns: string
+      }
       checks_channel_mismatches: {
         Args: never
         Returns: {
