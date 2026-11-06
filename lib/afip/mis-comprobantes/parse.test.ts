@@ -89,7 +89,7 @@ describe("parseReceivedExport", () => {
         '"31/02/2026";"1";"3";"1";"1";"";"80";"30711111118";"P";"1";"$";"100";"0";"0";"0";"21";"121"',
         '"10/09/2026";"1";"3";"2";"2";"";"80";"3071111";"P";"1";"$";"100";"0";"0";"0";"21";"121"',
         '"10/09/2026";"1";"3";"3";"3";"";"80";"30711111118";"P";"1";"$";"abc";"0";"0";"0";"21";"121"',
-        '"10/09/2026";"1";"3";"4";"4";"";"80";"30711111118";"P";"1";"$";"100";"0";"0";"0";"21";"125"',
+        '"10/09/2026";"1";"3";"4";"4";"";"80";"30711111118";"P";"1";"$";"100";"0";"0";"0";"21";"115"',
         '"10/09/2026";"1";"0";"5";"5";"";"80";"30711111118";"P";"1";"$";"100";"0";"0";"0";"21";"121"',
       ),
     );
@@ -99,9 +99,42 @@ describe("parseReceivedExport", () => {
       bad_date: 1,
       bad_cuit: 1,
       bad_amount: 1,
-      amount_mismatch: 1,
+      amount_over_total: 1,
       bad_number: 1,
     });
+  });
+
+  // The owner's ARCA export (2014, Facturas A): totals above their parts,
+  // read as ARCA lists them; the person accepting says where the gap goes.
+  it("keeps a voucher whose total is above its parts, as ARCA lists it", () => {
+    const out = parseReceivedExport(
+      "recibidos.csv",
+      csv(
+        '"15/03/2014";"1 - Factura A";"2093";"3198905";"3198905";"";"80";"30639453738";"Telefónica Móviles Argentina SA";"1";"$";"895,00";"98,45";"0,00";"0,00";"241,65";"1.281,30"',
+        '"15/04/2014";"1 - Factura A";"2093";"3338653";"3338653";"";"80";"30639453738";"Telefónica Móviles Argentina SA";"1";"$";"2110,42";"63,31";"0";"0";"564,83";"2.843,18"',
+        '"02/05/2014";"1 - Factura A";"2";"1";"1";"";"80";"20111111112";"Retegui";"1";"$";"0,00";"0,00";"0,00";"0,00";"0,00";"57.934,80"',
+        '"02/06/2014";"1 - Factura A";"2";"2";"2";"";"80";"20111111112";"Retegui";"1";"$";"0,00";"0,00";"0,00";"0,00";"0,00";"42.350,00"',
+      ),
+    );
+    if (typeof out === "string") throw new Error(out);
+    expect(out.skippedByReason).toEqual({});
+    expect(
+      out.vouchers.map((v) => [
+        v.punto_venta,
+        v.numero,
+        v.imp_neto_gravado,
+        v.imp_no_gravado,
+        v.imp_op_exentas,
+        v.imp_trib,
+        v.imp_iva,
+        v.imp_total,
+      ]),
+    ).toEqual([
+      [2093, 3198905, 895, 98.45, 0, 0, 241.65, 1281.3],
+      [2093, 3338653, 2110.42, 63.31, 0, 0, 564.83, 2843.18],
+      [2, 1, 0, 0, 0, 0, 0, 57934.8],
+      [2, 2, 0, 0, 0, 0, 0, 42350],
+    ]);
   });
 
   it("reads a windows-1252 file", () => {
@@ -323,7 +356,7 @@ describe("parseReceivedTable", () => {
     });
   });
 
-  it("still skips an A that lists only the total", () => {
+  it("keeps an A that lists only the total and skips a detail that contradicts its subtotal", () => {
     const out = parseReceivedTable({
       truncated: false,
       rows: [
@@ -333,23 +366,43 @@ describe("parseReceivedTable", () => {
           "Punto de Venta",
           "Número Desde",
           "Nro. Doc. Emisor",
+          "Neto Grav. IVA 21%",
+          "IVA 21%",
           "Neto Gravado Total",
+          "Total IVA",
           "Imp. Total",
         ],
-        ["01/11/2026", "1", "3", "1", "30711111118", "0", "100"],
+        ["01/11/2026", "1", "3", "1", "30711111118", "", "", "0", "0", "100"],
+        // The 21 % line says 90 of net, the subtotal 100.
+        [
+          "01/11/2026",
+          "1",
+          "3",
+          "2",
+          "30711111118",
+          "90",
+          "21",
+          "100",
+          "21",
+          "121",
+        ],
       ],
     });
-    expect(out).toEqual({
-      vouchers: [],
-      skippedByReason: { amount_mismatch: 1 },
-      // Named as ARCA lists it, so a person can find it.
-      skipped: [
-        {
-          reason: "amount_mismatch",
-          ref: "tipo 1 · 00003-00000001 · CUIT 30711111118 · 01/11/2026",
-        },
-      ],
+    if (typeof out === "string") throw new Error(out);
+    expect(out.vouchers).toHaveLength(1);
+    expect(out.vouchers[0]).toMatchObject({
+      numero: 1,
+      imp_neto_gravado: 0,
+      imp_total: 100,
     });
+    expect(out.skippedByReason).toEqual({ breakdown_mismatch: 1 });
+    // Named as ARCA lists it, so a person can find it.
+    expect(out.skipped).toEqual([
+      {
+        reason: "breakdown_mismatch",
+        ref: "tipo 1 · 00003-00000002 · CUIT 30711111118 · 01/11/2026",
+      },
+    ]);
   });
 
   it("refuses more than 5000 vouchers", () => {

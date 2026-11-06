@@ -74,7 +74,8 @@ export type SkipReason =
   | "bad_number"
   | "bad_cuit"
   | "bad_amount"
-  | "amount_mismatch";
+  | "amount_over_total"
+  | "breakdown_mismatch";
 
 /** A row that was not read, named as ARCA lists it so a person can find it
  *  (tipo, punto de venta-número, CUIT emisor; whatever the row has). */
@@ -328,20 +329,25 @@ function parseRow(
     (kl?.letter === "B" || kl?.letter === "C") &&
     neto + noGravado + exentas + iva + trib === 0;
   const netoGravado = onlyTotal ? total : neto;
-  if (!near(round2(netoGravado + noGravado + exentas + iva + trib), total)) {
-    return "amount_mismatch";
+  // A total above its parts is kept as ARCA lists it (percepciones it did not
+  // itemize, or a voucher with only its total): the person accepting it says
+  // where the difference goes. Parts above the total, or a per-rate or
+  // per-tribute detail that contradicts its own subtotal, leave no figure to
+  // trust, so the row is not read.
+  if (round2(netoGravado + noGravado + exentas + iva + trib) - total > 0.01) {
+    return "amount_over_total";
   }
   if (ivaBreakdown.length > 0) {
     const sumNeto = round2(ivaBreakdown.reduce((a, l) => a + l.neto, 0));
     const sumIva = round2(ivaBreakdown.reduce((a, l) => a + l.iva, 0));
-    if (!near(sumNeto, neto) || !near(sumIva, iva)) return "amount_mismatch";
+    if (!near(sumNeto, neto) || !near(sumIva, iva)) return "breakdown_mismatch";
   }
   const tribParts = Object.values(tribBreakdown);
   if (
     tribParts.length > 0 &&
     !near(round2(tribParts.reduce((a, v) => a + v, 0)), trib)
   ) {
-    return "amount_mismatch";
+    return "breakdown_mismatch";
   }
 
   const cotizacionRaw = cell("tipo_cambio");

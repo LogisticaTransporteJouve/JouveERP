@@ -1,3 +1,4 @@
+import { AlertTriangle } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { formatArgentineDate, formatMoney } from "@/lib/format";
@@ -37,6 +38,7 @@ export function ArcaVoucherSummary({
   cae,
   caeVto,
   amounts,
+  gap,
   linesNote,
 }: {
   supplier: ReactNode;
@@ -56,6 +58,8 @@ export function ArcaVoucherSummary({
     imp_trib: string;
     imp_total: string;
   };
+  /** What the total carries above the parts, when ARCA does not detail it. */
+  gap: number | null;
   linesNote: ReactNode;
 }) {
   const currency = moneda === "DOL" ? "USD" : "ARS";
@@ -122,7 +126,21 @@ export function ArcaVoucherSummary({
               {money(amounts.imp_total)}
             </dd>
           </div>
+          {gap !== null && (
+            <Row label="Diferencia sin detallar">
+              <span className="font-mono tabular-nums">
+                {formatMoney(gap, currency)}
+              </span>
+            </Row>
+          )}
         </dl>
+        {gap !== null && (
+          <p className="flex items-start gap-2 text-xs text-muted-foreground">
+            <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+            Los importes de ARCA no suman el total: elegí en Imputación a dónde
+            va la diferencia.
+          </p>
+        )}
       </div>
       {linesNote}
     </div>

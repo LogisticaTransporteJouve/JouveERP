@@ -4,13 +4,14 @@ import {
   IVA_RATE_PERCENT,
   ivaIsComputable,
 } from "@/lib/afip/codes";
-import { round2 } from "@/lib/format";
+import { formatMoney, round2 } from "@/lib/format";
 import {
   suggestTributeSplit,
   TRIBUTE_SUGGESTION_NOTE,
 } from "@/lib/purchases/tribute-split";
 
 import type {
+  ArcaGapTarget,
   PURCHASE_TRIBUTE_FIELDS,
   PurchaseIvaRateId,
   ReceivedVoucher,
@@ -71,6 +72,55 @@ export function receivedVoucherAmounts(
     }
   }
   return { ...parts, imp_trib: voucher.imp_trib, imp_total: voucher.imp_total };
+}
+
+/** How much ARCA's total carries above the voucher's parts beyond the
+ *  rounding cent (percepciones it did not itemize, or a voucher listed with
+ *  only its total), or null. The person accepting it says where it goes. */
+export function receivedVoucherGap(
+  voucher: Parameters<typeof receivedVoucherAmounts>[0],
+): number | null {
+  const a = receivedVoucherAmounts(voucher);
+  const gap = round2(
+    a.imp_total -
+      (a.imp_neto +
+        a.imp_no_gravado +
+        a.imp_op_exentas +
+        a.imp_iva +
+        a.imp_trib),
+  );
+  return gap > ROUNDING_CENT ? gap : null;
+}
+
+/** The amounts with the gap where the person put it: otros tributos, or no
+ *  gravado (the net on a B or C, where everything is net). The IVA and the
+ *  total stay ARCA's. */
+export function placeReceivedGap(
+  amounts: ReceivedAmounts,
+  letter: string | null,
+  gap: number,
+  target: ArcaGapTarget,
+): ReceivedAmounts {
+  if (target === "otros_tributos") {
+    return { ...amounts, imp_trib: round2(amounts.imp_trib + gap) };
+  }
+  return ivaIsComputable(letter)
+    ? { ...amounts, imp_no_gravado: round2(amounts.imp_no_gravado + gap) }
+    : { ...amounts, imp_neto: round2(amounts.imp_neto + gap) };
+}
+
+/** The tray's flag for a voucher with a gap. */
+export function receivedGapText(gap: number, moneda: "PES" | "DOL"): string {
+  return `Los importes de ARCA no suman el total (diferencia ${formatMoney(gap, moneda === "DOL" ? "USD" : "ARS")})`;
+}
+
+/** The choice as the accept dialog names it. */
+export function arcaGapTargetLabel(
+  target: ArcaGapTarget,
+  letter: string | null,
+): string {
+  if (target === "otros_tributos") return "Otros tributos (percepciones)";
+  return ivaIsComputable(letter) ? "No gravado" : "Neto";
 }
 
 /** ARCA's per-tribute columns, keyed as the purchase stores them. */
@@ -266,6 +316,7 @@ export function arcaVoucherToDraft(
     imp_total: amounts.imp_total,
     imp_no_gravado: amounts.imp_no_gravado,
     imp_op_exentas: amounts.imp_op_exentas,
+    arca_gap: receivedVoucherGap(voucher),
     tributes,
     moneda: voucher.moneda,
     cotizacion: voucher.moneda === "DOL" ? voucher.cotizacion : 1,

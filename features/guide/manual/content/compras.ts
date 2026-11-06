@@ -1700,6 +1700,14 @@ export const purchasesPage: GuidePage = {
             "Lo que ya está en la bandeja nunca se duplica. Si cargaste una compra a mano y coincide con un comprobante pendiente, el comprobante pasa solo a {{Cargadas}}.",
           ],
         },
+        {
+          title: "Cuando los importes de ARCA no suman el total",
+          body: [
+            "A veces ARCA informa un total mayor que neto + no gravado + exento + IVA + otros tributos: suelen ser percepciones que no detalló, o un comprobante con solo el total. Ese comprobante entra igual a la bandeja tal como lo informó ARCA, y en la columna {{Comprobante}} dice «Los importes de ARCA no suman el total (diferencia $ …)».",
+            "Al aceptarlo elegís a dónde va la diferencia: ver [[#aceptar-comprobante-de-arca]]. Nada se completa solo.",
+            "No se leen (el aviso los cuenta como «no se pudieron leer» y nombra los primeros) las filas con un importe ilegible, con importes que suman más que el total, o con un detalle por alícuota o de otros tributos que no coincide con su propio subtotal.",
+          ],
+        },
       ],
       tasks: [
         {
@@ -1887,6 +1895,7 @@ export const purchasesPage: GuidePage = {
               substeps: [
                 "{{Canal}} y {{Vencimiento de pago}}: el vencimiento arranca en la fecha del comprobante, o con el plazo de pago del proveedor si lo tiene.",
                 "{{Cuenta de gasto}}, {{Centro de costo}} y {{A cargo de empleado}}.",
+                "Si los importes de ARCA no suman el total, el recuadro **Comprobante** muestra la {{Diferencia sin detallar}} y en **Imputación** aparece **Diferencia de $ …: va a**. Elegí {{Otros tributos (percepciones)}} (después la repartís entre los tributos, como cualquier percepción) o {{No gravado}} (en facturas B y C dice {{Neto}}, porque ahí todo va al neto). El IVA y el total quedan como los informó ARCA. Hasta que elijas, {{Aceptar comprobante}} queda deshabilitado y abajo dice «Elegí a dónde va la diferencia para aceptar el comprobante.».",
                 "Si ARCA informa solo el total de otros tributos, repartilo en **Otros tributos: cómo se reparten**.",
                 "Si es en dólares, revisá la {{Cotización}}; si es una nota de crédito o débito, elegí la {{Factura origen}}.",
                 "{{Notas}}, si querés.",
@@ -1899,6 +1908,15 @@ export const purchasesPage: GuidePage = {
             "Si mientras tanto alguien la había cargado a mano con los mismos datos, no se duplica: aviso «Ya estaba cargado: quedó vinculado.».",
           ],
           errors: [
+            {
+              message:
+                "Los importes de ARCA no suman el total: elegí a dónde va la diferencia de … (…).",
+              fix: "Elegí en **Diferencia de $ …: va a** dónde se carga y volvé a aceptar.",
+            },
+            {
+              message: "Falta repartir ….",
+              fix: "Si la diferencia va a otros tributos, repartila entera en **Otros tributos: cómo se reparten**.",
+            },
             {
               message:
                 "Ya hay una compra con este número y otro total (…): revisala antes de aceptar.",
@@ -1933,6 +1951,8 @@ export const purchasesPage: GuidePage = {
             "aceptar ARCA",
             "mis comprobantes recibidos",
             "importar facturas de AFIP",
+            "importes no suman el total",
+            "diferencia ARCA",
           ],
         },
         {

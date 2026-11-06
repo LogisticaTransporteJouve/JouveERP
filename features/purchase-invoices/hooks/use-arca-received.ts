@@ -28,7 +28,11 @@ import {
   arcaReceivedKeys,
   purchaseInvoicesKeys,
 } from "../lib/purchase-invoices-keys";
-import type { ReceivedVoucher, ReceivedVoucherStatus } from "../schema";
+import type {
+  ArcaGapTarget,
+  ReceivedVoucher,
+  ReceivedVoucherStatus,
+} from "../schema";
 
 const FIRST_PAGE: { fecha: string; id: string } | null = null;
 
@@ -96,9 +100,16 @@ export function useRestoreReceivedVoucher() {
  *  calls it, and refreshes purchases (the tray nests under them). */
 export function useSubmitReceivedVoucher(voucherId: string) {
   const qc = useQueryClient();
-  return (invoice: PurchaseInvoiceCreateRawInput) =>
+  return (
+    invoice: PurchaseInvoiceCreateRawInput,
+    options?: { arcaGapTarget?: ArcaGapTarget },
+  ) =>
     runAction(() =>
-      createPurchaseInvoiceFromReceivedAction({ voucherId, invoice }),
+      createPurchaseInvoiceFromReceivedAction({
+        voucherId,
+        invoice,
+        gapTarget: options?.arcaGapTarget ?? null,
+      }),
     ).finally(() =>
       qc.invalidateQueries({ queryKey: purchaseInvoicesKeys.all }),
     );

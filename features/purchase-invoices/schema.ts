@@ -569,6 +569,12 @@ export const ReceivedVoucherListSchema = z.object({
     .default(null),
 });
 
+/** Where the person accepting a voucher puts the amount ARCA's total carries
+ *  above its parts. IVA is not offered: it would claim crédito fiscal ARCA
+ *  does not list and unlink the purchase (the link compares the IVA on A). */
+export const ARCA_GAP_TARGETS = ["otros_tributos", "no_gravado"] as const;
+export type ArcaGapTarget = (typeof ARCA_GAP_TARGETS)[number];
+
 export const ReceivedVoucherIdSchema = z.object({
   voucherId: z.string().uuid(),
 });

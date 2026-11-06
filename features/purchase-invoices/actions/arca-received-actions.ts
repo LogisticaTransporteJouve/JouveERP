@@ -17,10 +17,14 @@ import { getServiceClient } from "@/lib/supabase/service";
 import { MAX_UPLOAD_TABLE_BYTES } from "@/lib/tables/limits";
 
 import {
+  arcaGapTargetLabel,
+  placeReceivedGap,
   receivedVoucherAmounts,
+  receivedVoucherGap,
   receivedVoucherItems,
 } from "../lib/arca-received-draft";
 import {
+  ARCA_GAP_TARGETS,
   PURCHASE_IVA_RATE_IDS,
   PURCHASE_TRIBUTE_FIELDS,
   PurchaseInvoiceCreateSchema,
@@ -29,6 +33,7 @@ import {
   ReceivedVoucherIdSchema,
   ReceivedVoucherListSchema,
   isPurchaseInvoiceStatus,
+  type ArcaGapTarget,
   type ReceivedVoucher,
   type ReceivedVoucherStatus,
 } from "../schema";
@@ -359,12 +364,25 @@ export async function getReceivedVoucherCountsAction(): Promise<
 
 const near = (a: number, b: number) => Math.abs(a - b) <= 0.01;
 
+function arcaGapChoiceMessage(gap: number, voucher: ReceivedVoucher): string {
+  const amount = formatMoney(gap, voucher.moneda === "DOL" ? "USD" : "ARS");
+  const choices = ARCA_GAP_TARGETS.map((t) =>
+    arcaGapTargetLabel(t, voucher.letter).toLowerCase(),
+  ).join(" o ");
+  return `Los importes de ARCA no suman el total: elegí a dónde va la diferencia de ${amount} (${choices}).`;
+}
+
+const GapTargetSchema = z.enum(ARCA_GAP_TARGETS).nullable().default(null);
+
 /** Why the purchase sent does not match the voucher, or null when it does.
- *  Only the sum of the four tributes is checked: the split is the user's. */
+ *  Only the sum of the four tributes is checked: the split is the user's.
+ *  The gap is the voucher's, recomputed here: only where it goes comes from
+ *  the person. */
 async function mismatch(
   supabase: Service,
   voucher: ReceivedVoucher,
   invoice: z.infer<typeof PurchaseInvoiceCreateSchema>,
+  gapTarget: ArcaGapTarget | null,
 ): Promise<string | null> {
   const { data: supplier, error } = await supabase
     .from("suppliers")
@@ -399,7 +417,15 @@ async function mismatch(
   if (!channel?.is_fiscal)
     return "Un comprobante de ARCA va a un canal fiscal.";
 
-  const want = receivedVoucherAmounts(voucher);
+  const gap = receivedVoucherGap(voucher);
+  if (gap !== null && gapTarget === null) {
+    return arcaGapChoiceMessage(gap, voucher);
+  }
+  const arca = receivedVoucherAmounts(voucher);
+  const want =
+    gap !== null && gapTarget !== null
+      ? placeReceivedGap(arca, voucher.letter, gap, gapTarget)
+      : arca;
   const tributes = PURCHASE_TRIBUTE_FIELDS.reduce((a, f) => a + invoice[f], 0);
   const same =
     near(invoice.imp_neto, want.imp_neto) &&
@@ -415,14 +441,19 @@ async function mismatch(
 export async function createPurchaseInvoiceFromReceivedAction(input: {
   voucherId: unknown;
   invoice: unknown;
+  /** Where ARCA's total above its parts goes; only that, never the amount. */
+  gapTarget?: unknown;
 }): Promise<ActionResult<{ id: string; linkedExisting: boolean }>> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "purchase_invoices:write")) {
     return { ok: false, error: DENIED };
   }
   const id = ReceivedVoucherIdSchema.safeParse({ voucherId: input.voucherId });
+  const gapTarget = GapTargetSchema.safeParse(input.gapTarget);
   const invoice = PurchaseInvoiceCreateSchema.safeParse(input.invoice);
-  if (!id.success) return { ok: false, error: "Datos inválidos." };
+  if (!id.success || !gapTarget.success) {
+    return { ok: false, error: "Datos inválidos." };
+  }
   if (!invoice.success) {
     return {
       ok: false,
@@ -452,7 +483,7 @@ export async function createPurchaseInvoiceFromReceivedAction(input: {
   if (!voucher || voucher.status !== "pending_review") {
     return { ok: false, error: ALREADY_PROCESSED };
   }
-  const wrong = await mismatch(supabase, voucher, invoice.data);
+  const wrong = await mismatch(supabase, voucher, invoice.data, gapTarget.data);
   if (wrong) return { ok: false, error: wrong };
 
   // Loaded by hand meanwhile: link it instead of creating a second one.

@@ -28,7 +28,11 @@ const SKIP_REASON_TEXT: Record<string, string> = {
   bad_number: "número ilegible",
   bad_cuit: "CUIT ilegible",
   bad_amount: "importe ilegible",
+  // Only in the results of older runs, which skipped a total off its parts.
   amount_mismatch: "los importes no suman el total",
+  amount_over_total: "los importes suman más que el total",
+  breakdown_mismatch:
+    "el detalle por alícuota o de otros tributos no coincide con su subtotal",
 };
 
 /** Why a row of ARCA's list was not read, in words. */

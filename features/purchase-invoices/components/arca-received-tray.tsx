@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Eye, RotateCcw, Trash2 } from "lucide-react";
+import { AlertTriangle, Check, Eye, RotateCcw, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { Suspense, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -23,7 +23,11 @@ import {
   useSubmitReceivedVoucher,
   useUploadReceivedExport,
 } from "../hooks/use-arca-received";
-import { arcaVoucherToDraft } from "../lib/arca-received-draft";
+import {
+  arcaVoucherToDraft,
+  receivedGapText,
+  receivedVoucherGap,
+} from "../lib/arca-received-draft";
 import type { PurchaseInvoiceDraft } from "../lib/purchase-invoice-draft";
 import {
   RECEIVED_VOUCHER_STATUSES,
@@ -140,11 +144,21 @@ function VoucherTable({ status }: { status: ReceivedVoucherStatus }) {
         header: "Comprobante",
         enableSorting: false,
         meta: { mobile: "secondary" },
-        cell: ({ row }) => (
-          <span className="font-mono text-sm">
-            {voucherNumber(row.original)}
-          </span>
-        ),
+        cell: ({ row }) => {
+          const v = row.original;
+          const gap = v.kind ? receivedVoucherGap(v) : null;
+          return (
+            <div className="space-y-1">
+              <span className="font-mono text-sm">{voucherNumber(v)}</span>
+              {gap !== null && (
+                <p className="flex items-start gap-1 text-xs text-muted-foreground">
+                  <AlertTriangle className="mt-0.5 size-3 shrink-0" />
+                  {receivedGapText(gap, v.moneda)}
+                </p>
+              )}
+            </div>
+          );
+        },
       },
       {
         id: "total",

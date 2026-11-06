@@ -10,6 +10,11 @@ import {
 import { ivaRatePercent } from "@/lib/afip/codes";
 import { formatArgentineDate, formatMoney } from "@/lib/format";
 
+import {
+  arcaGapTargetLabel,
+  receivedGapText,
+  receivedVoucherGap,
+} from "../lib/arca-received-draft";
 import type { ReceivedVoucher } from "../schema";
 
 const TRIBUTES = [
@@ -60,6 +65,7 @@ export function ArcaVoucherDetailDialog({
     return value ? [{ label, value }] : [];
   });
   const bOrC = v.letter === "B" || v.letter === "C";
+  const gap = receivedVoucherGap(v);
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -104,9 +110,17 @@ export function ArcaVoucherDetailDialog({
             <Line key={t.label} label={`· ${t.label}`} value={money(t.value)} />
           ))}
           <Line label="Total" value={money(v.imp_total)} strong />
+          {gap !== null && (
+            <Line label="Diferencia sin detallar" value={money(gap)} />
+          )}
         </dl>
 
         <div className="space-y-1 text-xs text-muted-foreground">
+          {gap !== null && (
+            <p>
+              {`${receivedGapText(gap, v.moneda)}. Al aceptar elegís si va a otros tributos o a ${arcaGapTargetLabel("no_gravado", v.letter).toLowerCase()}.`}
+            </p>
+          )}
           {bOrC && (
             <p>
               En facturas {v.letter} el IVA no se discrimina: va todo en el
