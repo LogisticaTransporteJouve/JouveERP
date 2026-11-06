@@ -9570,6 +9570,22 @@ export type Database = {
         }
         Returns: string
       }
+      create_pallets_bulk: {
+        Args: {
+          p_area_id?: string
+          p_client_id: string
+          p_code_prefix: string
+          p_count: number
+          p_entry_date: string
+          p_lot_expiry?: string
+          p_lot_number?: string
+          p_notes?: string
+          p_product_id?: string
+          p_quantity?: number
+          p_warehouse_id: string
+        }
+        Returns: number
+      }
       create_payment_order: {
         Args: {
           p_allocations: Json
