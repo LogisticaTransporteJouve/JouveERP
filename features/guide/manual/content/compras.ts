@@ -1688,6 +1688,7 @@ export const purchasesPage: GuidePage = {
             "{{Descartadas}}: las que se decidió no cargar; {{Volver a pendientes}} las recupera.",
             "{{No se pudieron leer}}: comprobantes que ARCA lista pero cuyos importes no se pueden leer (ver «Cuando los importes de ARCA no suman el total»).",
             "{{No soportados}}: facturas de crédito MiPyME (FCE) y tipo M, que todavía se cargan a mano.",
+            "Los recibos A, B y C y las liquidaciones A y B (por ejemplo, la liquidación mensual de comisiones y gastos de un banco) entran a {{Pendientes}} como una factura de su letra: se aceptan igual que una factura, y la compra guarda su código de ARCA para que el TXT del Libro IVA Digital los informe como lo que son.",
           ],
         },
         {

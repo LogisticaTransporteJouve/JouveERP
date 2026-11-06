@@ -121,6 +121,7 @@ const service = {
   },
 };
 
+const createOpts = vi.fn((_opts: unknown) => undefined);
 const createPurchase = vi.fn(async (_input: unknown) => ({
   ok: true as const,
   data: { id: "pi-new" },
@@ -135,8 +136,10 @@ vi.mock("@/lib/auth/context", () => ({
 vi.mock("@/lib/supabase/service", () => ({ getServiceClient: () => service }));
 vi.mock("@/lib/actions/audit", () => ({ logAudit: vi.fn() }));
 vi.mock("@/lib/commands/create-purchase-invoice", () => ({
-  createPurchaseInvoice: (_actorId: string, input: unknown) =>
-    createPurchase(input),
+  createPurchaseInvoice: (_actorId: string, input: unknown, opts?: unknown) => {
+    createOpts(opts);
+    return createPurchase(input);
+  },
 }));
 
 const {
@@ -174,6 +177,27 @@ beforeEach(() => {
   updateValues.length = 0;
   rpcCalls.length = 0;
   createPurchase.mockClear();
+  createOpts.mockClear();
+});
+
+describe("a bank's Liquidación A (tipo 63)", () => {
+  it("loads as a factura A and keeps its own code", async () => {
+    voucherRow = row({ cbte_tipo: 63 });
+    const res = await createPurchaseInvoiceFromReceivedAction({
+      voucherId: VOUCHER_ID,
+      invoice,
+    });
+    expect(res.ok).toBe(true);
+    expect(createOpts).toHaveBeenCalledWith({ cbteTipoAfip: 63 });
+  });
+
+  it("a plain factura carries no code of its own", async () => {
+    await createPurchaseInvoiceFromReceivedAction({
+      voucherId: VOUCHER_ID,
+      invoice,
+    });
+    expect(createOpts).toHaveBeenCalledWith({ cbteTipoAfip: null });
+  });
 });
 
 describe("a voucher whose amounts did not read", () => {

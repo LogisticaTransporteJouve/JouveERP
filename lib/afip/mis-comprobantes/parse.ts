@@ -11,7 +11,7 @@ import { parseStatementNumber, round2 } from "@/lib/format";
 
 import {
   ivaRateIdForPercent,
-  kindLetterForCbteTipo,
+  purchaseKindLetterForCbteTipo,
   type InvoiceKind,
   type InvoiceLetter,
   type IvaRateId,
@@ -355,7 +355,7 @@ function unreadableRow(
     const v = cell(field);
     if (v !== "") raw[key] = v.slice(0, 40);
   }
-  const kl = kindLetterForCbteTipo(identity.cbteTipo);
+  const kl = purchaseKindLetterForCbteTipo(identity.cbteTipo);
   return {
     issuer_cuit: identity.cuit,
     issuer_name: cell("denominacion").slice(0, 300) || identity.cuit,
@@ -429,7 +429,7 @@ function parseRow(
       ivaBreakdown.push({ iva_rate_id: rate, neto: n, iva: v });
   }
 
-  const kl = kindLetterForCbteTipo(cbteTipo);
+  const kl = purchaseKindLetterForCbteTipo(cbteTipo);
   // ARCA lists a B or C with only its total: it is all net, as the purchase
   // stores B and C.
   const onlyTotal =

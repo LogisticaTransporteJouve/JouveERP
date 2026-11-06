@@ -91,7 +91,7 @@ export async function fetchLibroIvaComprasRows(
     (ids) =>
       supabase
         .from("purchase_invoices")
-        .select("id, supplier:suppliers(iva_condition)")
+        .select("id, cbte_tipo_afip, supplier:suppliers(iva_condition)")
         .in("id", ids),
   );
   if (conditions.error) return conditions;
@@ -101,10 +101,14 @@ export async function fetchLibroIvaComprasRows(
       ivaConditionCode(null, c.supplier?.iva_condition ?? null),
     ]),
   );
+  const cbteTipo = new Map(
+    conditions.data.map((c) => [c.id, c.cbte_tipo_afip]),
+  );
   return {
     data: drained.data.map((r) => ({
       ...r,
       ci: ci.get(r.purchase_invoice_id) ?? null,
+      cbte_tipo_afip: cbteTipo.get(r.purchase_invoice_id) ?? null,
     })),
     error: null,
   };

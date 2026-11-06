@@ -21,6 +21,7 @@ import { IconButton } from "@/components/ui/icon-button";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { facturaLikeTipoLabel } from "@/lib/afip/codes";
 import { formatArgentineDate, formatMoney } from "@/lib/format";
 
 import {
@@ -62,6 +63,11 @@ const EMPTY: Record<ReceivedVoucherStatus, string> = {
 };
 
 function voucherNumber(v: ReceivedVoucher): string {
+  // A recibo or liquidación loads as a factura but keeps its own name.
+  const own = facturaLikeTipoLabel(v.cbte_tipo);
+  if (own) {
+    return `${own} ${formatInvoiceNumber({ letter: "", punto_venta: v.punto_venta, numero: v.numero })}`;
+  }
   return v.kind
     ? formatInvoiceNumber({
         kind: v.kind,
