@@ -63,7 +63,7 @@ export function AiWorkspace({
   const sessions = useAiSessions();
   const usage = useAiUsageToday();
   const insights = useInsights();
-  const atCap = usage.data ? usage.data.totalTokens >= usage.data.cap : false;
+  const atCap = usage.data ? usage.data.costUsd >= usage.data.capUsd : false;
   const isLive = activeSessionId === liveNewId;
   const messages = useAiSessionMessages(
     activeSessionId,
@@ -151,10 +151,7 @@ export function AiWorkspace({
               says so anyway. */}
           {usage.data && (
             <div className="hidden sm:block">
-              <AiUsageMeter
-                totalTokens={usage.data.totalTokens}
-                cap={usage.data.cap}
-              />
+              <AiUsageMeter {...usage.data} />
             </div>
           )}
         </div>

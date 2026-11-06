@@ -629,7 +629,7 @@ asimétricas, deshabilita estos jobs hasta configurar el secreto vigente.
     reintenta en vez de marcarlo deshabilitado. El dueño sale de la fila, nunca del evento. El uso va
     a `ai_usage` como `workflow_run` una sola vez, después del compare-and-set que guardó el resultado.
 - **Tope para jobs de fondo:** las tareas y el resumen semanal frenan al
-  `AI_BACKGROUND_CAP_FRACTION` (70%) del tope diario de tokens (`checkAiDailyCap({ background:
+  `AI_BACKGROUND_CAP_FRACTION` (70%) del tope diario de gasto (`checkAiDailyCap({ background:
 true })`), así el chat siempre conserva margen.
 - **Memoria:** la corrida guarda un `RESUMEN:` corto (última línea de la respuesta). La siguiente
   recibe `previous_run_id`, el resumen y el comienzo de la respuesta anterior, más un índice de hasta

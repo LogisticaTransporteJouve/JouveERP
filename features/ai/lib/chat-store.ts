@@ -22,11 +22,14 @@ import { wrapUntrusted } from "./prompt-text";
 const MAX_TITLE_LEN = 60;
 
 /**
- * Daily token ceiling (uncached input + output, global, every AI call — chat,
- * titles, Document Intelligence, tool repair) before AI entry points block.
- * Prompt-cache reads are excluded by ai_usage_today() (they cost ~0.1×).
+ * Daily spend ceiling in USD (global, every AI call — chat, titles, Document
+ * Intelligence, tool repair — summed from ai_usage.cost_usd) before AI entry
+ * points block. The app shows it in pesos at the official dollar. It replaced
+ * a 500K-token cap: a chat turn billed ~US$2.9 per million of the tokens that
+ * cap counted (cache writes at $2.50, output at $10, cache reads apart), so
+ * 500K tokens ≈ US$1.45, rounded to US$1.50.
  */
-export const AI_DAILY_TOKEN_CAP = 500_000;
+export const AI_DAILY_COST_CAP_USD = 1.5;
 
 /** Serialize a value (e.g. a UIMessage) to a jsonb-safe payload. */
 function toJson(value: unknown): Json {
@@ -347,20 +350,28 @@ export type DailyCapStatus = "ok" | "exceeded" | "unavailable";
  */
 export const AI_BACKGROUND_CAP_FRACTION = 0.7;
 
+/** True once today's spend reached the cap (or its background share). */
+export function isOverDailyCap(
+  today: AiUsageToday,
+  options: { background?: boolean } = {},
+): boolean {
+  const cap = options.background
+    ? AI_DAILY_COST_CAP_USD * AI_BACKGROUND_CAP_FRACTION
+    : AI_DAILY_COST_CAP_USD;
+  return today.costUsd >= cap;
+}
+
 /**
- * Global daily token cap check, fail-closed: an RPC error reports
+ * Global daily spend cap check, fail-closed: an RPC error reports
  * `unavailable` and callers must block. `background` checks against
  * AI_BACKGROUND_CAP_FRACTION of the cap.
  */
 export async function checkAiDailyCap(
   options: { background?: boolean } = {},
 ): Promise<DailyCapStatus> {
-  const cap = options.background
-    ? AI_DAILY_TOKEN_CAP * AI_BACKGROUND_CAP_FRACTION
-    : AI_DAILY_TOKEN_CAP;
   try {
     const today = await getAiUsageToday();
-    return today.totalTokens >= cap ? "exceeded" : "ok";
+    return isOverDailyCap(today, options) ? "exceeded" : "ok";
   } catch {
     return "unavailable";
   }

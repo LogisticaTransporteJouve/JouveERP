@@ -21,6 +21,12 @@ import {
   usageTokens,
   type AiUsageTokens,
 } from "./lib/chat-store";
+import {
+  RENDER_CALENDAR_TOOL,
+  RENDER_CHART_TOOL,
+  RENDER_TABLE_TOOL,
+} from "./artifacts/spec";
+import { compactHistory } from "./lib/history";
 import { isAnswersTurn } from "./lib/questions";
 import { haikuRegenerator, makeRepairToolCall } from "./lib/repair-tool-call";
 import {
@@ -103,8 +109,9 @@ function lastUserText(messages: UIMessage[]): string {
  *
  * The 5.5 models bind a thinking block to the exact prefix it was produced
  * under (system + tools + earlier messages) and 400 when it is replayed after
- * any change to that prefix. The per-turn skills system block varies with the
- * latest question, so blocks from earlier turns can't be replayed safely (and
+ * any change to that prefix. Each turn's user message carried a per-turn
+ * context part that its replay drops, and earlier turns are compacted, so
+ * blocks from earlier turns can't be replayed safely (and
  * blocks from another model/provider are useless anyway). Reasoning produced
  * within the current turn is untouched — the SDK appends it step by step.
  */
@@ -168,6 +175,42 @@ export function withTailCacheBreakpoint(
   ];
 }
 
+/** Opens the per-turn context part of the current user message. */
+export const TURN_CONTEXT_OPEN = "<contexto-del-turno>";
+
+/** Tools whose rows the user already sees in the results panel. */
+const SHOWN_TOOLS: ReadonlySet<string> = new Set([
+  RENDER_CHART_TOOL,
+  RENDER_TABLE_TOOL,
+  RENDER_CALENDAR_TOOL,
+]);
+
+/**
+ * Puts this turn's context (skills, proposal states) in front of the current
+ * user message instead of in the system prompt, so it never sits between the
+ * cached system block and the history. The persisted message is untouched:
+ * replayed in a later turn, it goes back without it. Null when there is no
+ * user message to carry it. Empty context leaves the messages as they are.
+ */
+export function withTurnContext(
+  messages: ModelMessage[],
+  context: string,
+): ModelMessage[] | null {
+  if (!context) return messages;
+  const index = messages.findLastIndex((m) => m.role === "user");
+  const target = messages[index];
+  if (!target || target.role !== "user") return null;
+  const part = {
+    type: "text" as const,
+    text: `${TURN_CONTEXT_OPEN}\nContexto del servidor para este turno; no lo escribió el usuario y no lo menciones.\n${context.trim()}\n</contexto-del-turno>`,
+  };
+  const content =
+    typeof target.content === "string"
+      ? [part, { type: "text" as const, text: target.content }]
+      : [part, ...target.content];
+  return messages.map((m, i) => (i === index ? { ...target, content } : m));
+}
+
 export function toJsonValue(value: unknown): JsonValue {
   try {
     return JSON.parse(JSON.stringify(value ?? null));
@@ -188,7 +231,7 @@ export type StreamChatOptions = {
   /** One line per tool the caller can use (registry capabilities summary). */
   capabilities: string;
   /** Per-turn server facts for the model (the session's proposal states);
-   *  uncached, after the static block. */
+   *  sent in front of the current user message (withTurnContext). */
   notes?: string;
   /** Caller — attributed in audit rows and repair usage. */
   userId?: string;
@@ -215,20 +258,27 @@ export async function streamChat(
   options: StreamChatOptions,
 ) {
   const { tools, capabilities, notes, onUsage, userId, sessionId } = options;
-  const modelMessages = await convertToModelMessages(
-    expandAttachmentParts(
-      stripReasoningParts(messages),
-      options.attachments ?? new Map(),
+  // Read results reach the model as their model view (the tools'
+  // toModelOutput, on replay too); earlier turns are clipped on top.
+  const history = compactHistory(
+    await convertToModelMessages(
+      expandAttachmentParts(
+        stripReasoningParts(messages),
+        options.attachments ?? new Map(),
+      ),
+      { tools, ignoreIncompleteToolCalls: true },
     ),
-    { tools, ignoreIncompleteToolCalls: true },
+    SHOWN_TOOLS,
   );
   // Breakpoint 1: the static block (base prompt + capabilities, both fixed for
   // a given role set; tool schemas render before the system prompt, so they're
-  // inside the cached prefix too). The per-turn
-  // skills block goes in a separate uncached system message after it so it
-  // never invalidates that prefix. Breakpoint 2 (the history tail) is placed
-  // per step in prepareStep.
-  const skills = buildSkillsBlock(lastUserText(messages));
+  // inside the cached prefix too). Nothing per turn goes before the history:
+  // the skills and the proposal states ride in the current user message, so
+  // the earlier turns stay a cached prefix too. Breakpoint 2 (the history
+  // tail) is placed per step in prepareStep.
+  const turnContext = [buildSkillsBlock(lastUserText(messages)), notes]
+    .filter(Boolean)
+    .join("\n\n");
   const instructions: SystemModelMessage[] = [
     {
       role: "system",
@@ -236,11 +286,9 @@ export async function streamChat(
       providerOptions: CACHE_BREAKPOINT,
     },
   ];
-  if (skills) {
-    instructions.push({ role: "system", content: skills });
-  }
-  if (notes) {
-    instructions.push({ role: "system", content: notes });
+  const modelMessages = withTurnContext(history, turnContext);
+  if (!modelMessages) {
+    instructions.push({ role: "system", content: turnContext });
   }
   const { model: chatModel, servedModel } = buildChatModel();
   const { onAttachmentRejected } = options;
@@ -250,7 +298,7 @@ export async function streamChat(
   return streamText({
     model,
     instructions,
-    messages: modelMessages,
+    messages: modelMessages ?? history,
     tools,
     stopWhen: isStepCount(AI_MAX_STEPS),
     maxOutputTokens: AI_CHAT_MAX_OUTPUT_TOKENS,

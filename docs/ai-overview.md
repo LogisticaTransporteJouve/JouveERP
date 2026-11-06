@@ -258,7 +258,7 @@ copy**, nunca color (decisión #13).
 ### Layout (desktop)
 
 ```
-┌─ Inteligencia ──────────────────────────── [120K/500K hoy ▮▮▯] [+ Nuevo] ┐
+┌─ Inteligencia ──────────────────── [$ 804 de $ 2.318 hoy ▮▮▯] [+ Nuevo] ┐
 ├───────────────┬──────────────────────────────────────────────────────────┤
 │ Historial     │  Insights (grid de cards, colapsable)                      │
 │ ───────────   │  ┌─ Cash-flow ──┐ ┌─ Cobranzas ─┐ ┌─ … ─┐                  │
@@ -282,8 +282,11 @@ copy**, nunca color (decisión #13).
 - **Arriba derecha — Insights**: grid de cards (§5), colapsable. "Preguntar sobre
   esto" abre chat pre-sembrado con el contexto del insight.
 - **Centro — Conversación**: mensajes + tool cards + artifacts inline.
-- **Header — medidor de tokens**: chip "consumido hoy: 120K / 500K" + barra. Al
-  tope: input deshabilitado + aviso "Límite diario alcanzado, vuelve mañana".
+- **Header — medidor de gasto**: «$ 804 de $ 2.318 hoy» + barra: el gasto del
+  día (`ai_usage.cost_usd`) y el tope (`AI_DAILY_COST_CAP_USD`) en pesos al
+  dólar oficial cargado (sin cotización, en US$); el tooltip da el gasto en
+  US$, su equivalente y la fecha del dólar. Nunca tokens. Al tope: input
+  deshabilitado + aviso "Límite diario alcanzado, vuelve mañana".
 
 ### Componentes (portar de ai-patterns §13)
 
@@ -665,8 +668,8 @@ gatean el *acceso a la superficie*, no los datos.
   notas, etc.) envuelto en delimitadores y declarado como no confiable al modelo
   (`ai-patterns.md` §24). Params de ID validados como UUID vía Zod.
 - **Rate limiting** vía el `enforceRateLimit()` existente (`lib/rate-limit.ts`,
-  Postgres-backed, fail-closed): ej. 30 turnos/hora/usuario, un tope diario de
-  tokens.
+  Postgres-backed, fail-closed): ej. 30 turnos/hora/usuario, y un tope diario de
+  gasto.
 - **Tracking de costo** por turno → `ai_usage` + `logger.info("ai.turn",…)`
   estructurado.
 - **Loop acotado** (`stepCountIs`) y **fallback de proveedor** para resiliencia.
@@ -681,7 +684,25 @@ gatean el *acceso a la superficie*, no los datos.
 Prompt caching: lectura cacheada ~0.1× input (−90%), escritura 1.25× (TTL 5
 min). Dos breakpoints: el system prompt (tools + prompt base) y el último
 mensaje de cada paso del loop (`withTailCacheBreakpoint`), así el historial
-también se relee desde caché. `estimateCostUsd` cobra lecturas/escrituras de
+también se relee desde caché. Antes del historial no va nada que cambie por
+turno: las skills y el estado de las propuestas viajan delante del último
+mensaje del usuario (`withTurnContext`), así los turnos anteriores siguen
+siendo un prefijo cacheado.
+
+Dieta de tokens: el modelo nunca lee las filas completas de una consulta. Cada
+herramienta de lectura le devuelve su vista (`modelView` en
+`registry/result.ts`, vía `toModelOutput`): resumen, `meta`, totales y cada
+lista cortada a sus primeras filas (25, o menos hasta entrar en ~10K
+caracteres) con `listsCut` (filas totales y columnas); una acción puede sumar
+sus agregados (`modelAggregates`, ej. los libros IVA). Las filas completas
+quedan en el resultado de la herramienta (UI, tablas y gráficos del panel, que
+corren la consulta de nuevo por nombre e input). Los turnos anteriores se
+recortan (`compactHistory`: resultados ≤6.000 caracteres, inputs ≤2.000, con
+«…[recortado: N caracteres]», y sin las filas de tablas y gráficos ya
+mostrados). Una lectura idéntica dentro del mismo turno no vuelve a correr
+(`readCache`). La medición sin red está en
+`features/ai/evals/token-budget.test.ts` (`AI_TOKEN_REPORT=1` imprime la tabla
+por parte). `estimateCostUsd` cobra lecturas/escrituras de
 caché a su tarifa. Todo consumo (chat, títulos, Document Intelligence,
 reparación) se registra en `ai_usage` con `kind` y cuenta para el tope diario.
 
@@ -698,16 +719,17 @@ Estimaciones (supuestos, ajustables):
 - Sensibilidad: 2 users × 10 turnos/día → **~$40–60/mes**; 10 users × 40 → el
   chat escala a ~$600/mes (ahí el tope corta).
 
-### Tope diario + medidor de tokens
+### Tope diario + medidor de gasto
 
-- **Tope: 500K tokens/día/org** (config, ajustable; ≈ techo ~$90/mes de chat).
-  Al alcanzarlo el chat devuelve 429 hasta el reset (medianoche ART).
-- Enforce vía `enforceRateLimit()` sobre un bucket diario de tokens
-  (`ai:tokens:daily`), Postgres-backed, fail-closed (`lib/rate-limit.ts`).
-- **Medidor visible:** cada turno escribe tokens/costo en `ai_usage`; la página
-  de IA muestra el consumo del día contra el tope ("consumido hoy: 120K / 500K"),
-  leído por RPC agregada `ai_usage_today()`. `ai:admin` ve el desglose completo
-  (por usuario, modelo, costo).
+- **Tope: US$1,50/día/org** (`AI_DAILY_COST_CAP_USD` en
+  `features/ai/lib/chat-store.ts`; reemplazó al tope de 500K tokens, ≈ lo mismo
+  a la tarifa de Sonnet 5.5). Cuenta el `cost_usd` de cada fila de `ai_usage`
+  del día. Al alcanzarlo el chat devuelve 429 hasta el reset; las tareas de
+  fondo frenan al 70%. Fail-closed: si la RPC falla, se bloquea.
+- **Medidor visible:** la página de IA muestra el gasto del día contra el tope
+  en pesos al dólar oficial cargado («$ 804 de $ 2.318 hoy»), leído por la RPC
+  agregada `ai_usage_today()`. `ai:admin` ve el desglose completo (por usuario,
+  modelo, costo).
 
 ---
 

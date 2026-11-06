@@ -171,6 +171,61 @@ function libroIvaTotals(t: {
   };
 }
 
+const TOP_COUNTERPARTIES = 10;
+
+/**
+ * What the model reads next to a libro IVA whose rows it no longer sees all
+ * of: documents per kind and the top counterparties by total. Each document
+ * counts once (imp_total repeats on its rate rows) and an NC subtracts.
+ */
+export function libroIvaAggregates(idKey: string, nameKey: string) {
+  return (data: unknown): Record<string, unknown> | null => {
+    const rows =
+      typeof data === "object" && data !== null && "rows" in data
+        ? data.rows
+        : null;
+    if (!Array.isArray(rows)) return null;
+    const docs = new Map<
+      string,
+      { name: string; kind: string; total: number }
+    >();
+    for (const row of rows) {
+      if (typeof row !== "object" || row === null) continue;
+      const id = Reflect.get(row, idKey);
+      if (typeof id !== "string" || docs.has(id)) continue;
+      const kind = String(Reflect.get(row, "kind") ?? "");
+      const total = Number(Reflect.get(row, "imp_total") ?? 0);
+      docs.set(id, {
+        name: String(Reflect.get(row, nameKey) ?? ""),
+        kind,
+        total: kind === "nc" ? -total : total,
+      });
+    }
+    const byKind: Record<string, number> = {};
+    const byName = new Map<string, { documents: number; imp_total: number }>();
+    for (const d of docs.values()) {
+      byKind[d.kind] = (byKind[d.kind] ?? 0) + 1;
+      const acc = byName.get(d.name) ?? { documents: 0, imp_total: 0 };
+      acc.documents += 1;
+      acc.imp_total += d.total;
+      byName.set(d.name, acc);
+    }
+    const top = [...byName]
+      .map(([name, v]) => ({
+        name,
+        documents: v.documents,
+        imp_total: round2(v.imp_total),
+      }))
+      .sort((a, b) => b.imp_total - a.imp_total)
+      .slice(0, TOP_COUNTERPARTIES);
+    return {
+      documents_by_kind: byKind,
+      counterparties: byName.size,
+      top_counterparties_by_total: top,
+    };
+  };
+}
+
 export async function runLibroIvaVentas(input: {
   period: string;
 }): Promise<AiRunResult> {
@@ -226,6 +281,7 @@ export const getLibroIvaVentas = defineAiAction({
     period: z.string().describe("Period YYYY-MM, e.g. '2026-05'."),
   }),
   run: (_ctx, input) => runLibroIvaVentas(input),
+  modelAggregates: libroIvaAggregates("invoice_id", "client_legal_name"),
 });
 
 export async function runLibroIvaCompras(input: {
@@ -280,6 +336,10 @@ export const getLibroIvaCompras = defineAiAction({
     period: z.string().describe("Period YYYY-MM, e.g. '2026-05'."),
   }),
   run: (_ctx, input) => runLibroIvaCompras(input),
+  modelAggregates: libroIvaAggregates(
+    "purchase_invoice_id",
+    "supplier_legal_name",
+  ),
 });
 
 export async function runChartOfAccounts(input: {
