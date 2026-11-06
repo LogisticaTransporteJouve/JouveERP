@@ -133,6 +133,16 @@ export type ArcaReceivedSyncRequested = z.infer<
   typeof ArcaReceivedSyncRequestedSchema
 >;
 
+export const STRIX_KM_SYNC_REQUESTED = "fleet/strix-km-sync.requested" as const;
+
+export const StrixKmSyncRequestedSchema = z.object({
+  requested_by: z.string().uuid(),
+  from: IsoDate,
+  to: IsoDate,
+});
+
+export type StrixKmSyncRequested = z.infer<typeof StrixKmSyncRequestedSchema>;
+
 /** The original event's `data` inside an `onFailure` payload
  *  (`event.data.event.data`), or undefined when it is not there. */
 export function failedEventData(data: unknown): unknown {

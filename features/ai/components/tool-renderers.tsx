@@ -109,7 +109,6 @@ const TOOL_LABELS: Record<string, string> = {
   proposeShipmentStatus: "Propuesta de cambio de estado",
   proposeFuelLoad: "Propuesta de combustible",
   proposeMaintenance: "Propuesta de mantenimiento",
-  proposeVehicleKm: "Propuesta de km",
   proposeFreightSettlement: "Propuesta de liquidación de fletes",
   proposeFreightSettlementConfirm: "Propuesta de confirmar liquidación",
   proposeStorageInvoice: "Propuesta de factura de almacenaje",

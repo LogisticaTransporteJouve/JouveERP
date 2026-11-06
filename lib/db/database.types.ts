@@ -6834,6 +6834,54 @@ export type Database = {
           },
         ]
       }
+      strix_account: {
+        Row: {
+          consecutive_failures: number
+          id: boolean
+          last_error_code: string | null
+          last_success_at: string | null
+          secret_id: string | null
+          status: string
+          sync_finished_at: string | null
+          sync_requested_at: string | null
+          sync_result: Json | null
+          sync_started_at: string | null
+          updated_at: string
+          updated_by: string | null
+          username: string
+        }
+        Insert: {
+          consecutive_failures?: number
+          id?: boolean
+          last_error_code?: string | null
+          last_success_at?: string | null
+          secret_id?: string | null
+          status?: string
+          sync_finished_at?: string | null
+          sync_requested_at?: string | null
+          sync_result?: Json | null
+          sync_started_at?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          username: string
+        }
+        Update: {
+          consecutive_failures?: number
+          id?: boolean
+          last_error_code?: string | null
+          last_success_at?: string | null
+          secret_id?: string | null
+          status?: string
+          sync_finished_at?: string | null
+          sync_requested_at?: string | null
+          sync_result?: Json | null
+          sync_started_at?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          username?: string
+        }
+        Relationships: []
+      }
       supplier_categories: {
         Row: {
           created_at: string
@@ -7724,6 +7772,35 @@ export type Database = {
             columns: ["role_id"]
             isOneToOne: false
             referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vehicle_km_daily: {
+        Row: {
+          day: string
+          km: number
+          synced_at: string
+          vehicle_id: string
+        }
+        Insert: {
+          day: string
+          km: number
+          synced_at?: string
+          vehicle_id: string
+        }
+        Update: {
+          day?: string
+          km?: number
+          synced_at?: string
+          vehicle_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicle_km_daily_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
             referencedColumns: ["id"]
           },
         ]
@@ -9956,6 +10033,7 @@ export type Database = {
       }
       get_my_unread_notification_count: { Args: never; Returns: number }
       get_or_create_self_channel: { Args: never; Returns: string }
+      get_strix_password: { Args: never; Returns: string }
       get_vehicle_margin: {
         Args: { p_from: string; p_to: string }
         Returns: {
@@ -10507,6 +10585,10 @@ export type Database = {
         }
         Returns: string
       }
+      record_strix_attempt: {
+        Args: { p_error_code: string; p_ok: boolean; p_version: string }
+        Returns: boolean
+      }
       refresh_search_index: { Args: never; Returns: undefined }
       refresh_search_index_if_dirty: { Args: never; Returns: boolean }
       regenerate_ai_insights: {
@@ -10814,6 +10896,10 @@ export type Database = {
       }
       set_bank_statement_line_ignored: {
         Args: { p_line_id: string; p_reason: string; p_user_id: string }
+        Returns: undefined
+      }
+      set_strix_credentials: {
+        Args: { p_password?: string; p_user_id: string; p_username: string }
         Returns: undefined
       }
       set_task_assignees: {

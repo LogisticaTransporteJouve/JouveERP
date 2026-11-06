@@ -33,7 +33,7 @@ export const PERMISSION_GROUPS: Record<Resource, string> = {
   fuel: "Combustible",
   maintenance: "Mantenimiento",
   fleet_documents: "Documentos de flota",
-  fleet_km: "Km mensual",
+  fleet_km: "Km recorridos",
   warehouses: "Depósitos",
   pallets: "Pallets",
   products: "Productos",

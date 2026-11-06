@@ -7,11 +7,9 @@ const listDriversAction = vi.fn();
 const searchClientsAction = vi.fn();
 const listShipmentsAction = vi.fn();
 const findShipmentRemitoConflictAction = vi.fn();
-const getVehicleKmMonthAction = vi.fn();
 const createTrip = vi.fn();
 const changeShipmentStatus = vi.fn();
 const createFuelLoad = vi.fn();
-const saveVehicleKmReading = vi.fn();
 const listFreightSettlementCandidatesAction = vi.fn();
 const getFreightSettlementAction = vi.fn();
 const saveFreightSettlement = vi.fn();
@@ -31,9 +29,6 @@ vi.mock("@/features/clients/actions/clients-actions", () => ({
 vi.mock("@/features/shipments/actions/shipments-actions", () => ({
   listShipmentsAction,
   findShipmentRemitoConflictAction,
-}));
-vi.mock("@/features/vehicle-km/actions/vehicle-km-actions", () => ({
-  getVehicleKmMonthAction,
 }));
 vi.mock(
   "@/features/freight-settlements/actions/freight-settlements-actions",
@@ -61,9 +56,6 @@ vi.mock("@/lib/commands/create-fuel-load", () => ({ createFuelLoad }));
 vi.mock("@/lib/commands/create-maintenance", () => ({
   createMaintenance: vi.fn(),
 }));
-vi.mock("@/lib/commands/save-vehicle-km-reading", () => ({
-  saveVehicleKmReading,
-}));
 
 const {
   proposeFreightSettlement,
@@ -73,7 +65,6 @@ const {
   proposeShipment,
   proposeShipmentStatus,
   proposeTrip,
-  proposeVehicleKm,
 } = await import("./fleet-proposals");
 
 const ctx = { userId: "u1", access: resolveAccess(["operations"]) };
@@ -296,100 +287,6 @@ describe("proposeMaintenance", () => {
       description: "Cambio de aceite y filtros",
       cost: 180_000,
     });
-  });
-});
-
-describe("proposeVehicleKm", () => {
-  const month = (reading: number | null) => ({
-    ok: true,
-    data: {
-      period: "2026-10",
-      missing: 0,
-      rows: [
-        {
-          vehicle_id: TRUCK,
-          patente: "AB123CD",
-          alias: null,
-          vehicle_type: "camion",
-          is_active: true,
-          reading:
-            reading === null
-              ? null
-              : {
-                  id: "r",
-                  vehicle_id: TRUCK,
-                  period: "2026-10",
-                  km: reading,
-                  read_on: "2026-10-30",
-                  notes: null,
-                },
-          previous: {
-            id: "p",
-            vehicle_id: TRUCK,
-            period: "2026-09",
-            km: 120_000,
-            read_on: "2026-09-30",
-            notes: null,
-          },
-          driven: null,
-        },
-      ],
-    },
-  });
-
-  it("warns when the km is below the previous reading", async () => {
-    getVehicleKmMonthAction.mockResolvedValue(month(null));
-    const prepared = await proposeVehicleKm.proposal?.prepareDraft(ctx, {
-      vehicle: "AB123CD",
-      km: 119_000,
-      read_on: "2026-10-31",
-    });
-    expect(prepared?.kind).toBe("draft");
-    if (prepared?.kind !== "draft") return;
-    expect(prepared.draft).toMatchObject({ period: "2026-10", km: 119_000 });
-    expect(prepared.summary.map((r) => r.label)).toContain("Atención");
-  });
-
-  it("says it replaces the month's loaded reading", async () => {
-    getVehicleKmMonthAction.mockResolvedValue(month(125_000));
-    const prepared = await proposeVehicleKm.proposal?.prepareDraft(ctx, {
-      vehicle: "AB123CD",
-      km: 126_000,
-      read_on: "2026-10-31",
-    });
-    if (prepared?.kind !== "draft") throw new Error("expected a draft");
-    expect(prepared.summary.map((r) => r.label)).toEqual(
-      expect.arrayContaining(["Recorridos", "Reemplaza"]),
-    );
-  });
-
-  it("refuses a vehicle the month grid does not list (a trailer)", async () => {
-    getVehicleKmMonthAction.mockResolvedValue({
-      ok: true,
-      data: { period: "2026-10", missing: 0, rows: [] },
-    });
-    const prepared = await proposeVehicleKm.proposal?.prepareDraft(ctx, {
-      vehicle: "AB123CD",
-      km: 1000,
-      read_on: "2026-10-31",
-    });
-    expect(prepared?.kind).toBe("error");
-  });
-
-  it("writes with the service client, as the Km mensual action", async () => {
-    saveVehicleKmReading.mockResolvedValue({ ok: true, data: { id: "k1" } });
-    await proposeVehicleKm.proposal?.executeDraft(ctx, {
-      vehicle_id: TRUCK,
-      period: "2026-10",
-      km: 126_000,
-      read_on: "2026-10-31",
-      notes: null,
-    });
-    expect(saveVehicleKmReading).toHaveBeenCalledWith(
-      serviceDb,
-      "u1",
-      expect.objectContaining({ km: 126_000 }),
-    );
   });
 });
 

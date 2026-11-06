@@ -346,7 +346,7 @@ export const fleetPage: GuidePage = {
       permission: "vehicles:read",
       intro: [
         "Los camiones, acoplados, semis y demás vehículos de la flota, con {{Patente}}, {{Alias}}, {{Tipo}}, {{Marca/Modelo}}, {{Año}} y el interruptor {{Activo}}.",
-        "Cada vehículo se usa en viajes, cargas de combustible, km mensual, mantenimientos y documentación (VTV, seguro). Su {{Tarjeta de combustible}} sirve para reconocerlo al importar el resumen de YPF en Ruta o Axion Card.",
+        "Cada vehículo se usa en viajes, cargas de combustible, km recorridos, mantenimientos y documentación (VTV, seguro). Su {{Tarjeta de combustible}} sirve para reconocerlo al importar el resumen de YPF en Ruta o Axion Card.",
       ],
       screens: [
         {
@@ -415,7 +415,7 @@ export const fleetPage: GuidePage = {
               text: "Completá los datos:",
               substeps: [
                 "{{Patente}}: obligatoria y única en la flota.",
-                "{{Tipo}}: {{Camión}}, {{Acoplado}}, {{Semi}}, {{Utilitario}}, {{Furgón}}, {{Auto}} u {{Otro}}. Los acoplados y semis no llevan km mensual.",
+                "{{Tipo}}: {{Camión}}, {{Acoplado}}, {{Semi}}, {{Utilitario}}, {{Furgón}}, {{Auto}} u {{Otro}}. Los acoplados y semis no llevan km.",
                 "{{Alias}}, {{Marca}}, {{Modelo}}, {{Año}} (entre 1950 y 2100), {{Capacidad (kg)}} y {{Flota}}: opcionales.",
                 "{{Tarjeta de combustible}}: el número de la tarjeta YPF en Ruta o Axion Card, de 4 a 30 dígitos o letras (se guarda sin espacios ni guiones). No puede repetirse entre vehículos.",
               ],
@@ -2455,62 +2455,82 @@ export const fleetPage: GuidePage = {
       ],
     },
 
-    // ── Km mensual ───────────────────────────────────────────────────────
+    // ── Km recorridos ────────────────────────────────────────────────────
     {
       id: "flota-km-mensual",
-      title: "Km mensual",
-      menuPath: "Flota › Km mensual",
+      title: "Km recorridos",
+      menuPath: "Flota › Km recorridos",
       routes: ["/vehicle-km"],
       permission: "fleet_km:read",
       intro: [
-        "La lectura del odómetro de cada vehículo, una vez por mes. Arriba se elige el mes (por defecto, el actual; no se puede ir a un mes futuro) y se ve cuántos vehículos faltan. La tabla muestra {{Vehículo}}, {{Lectura anterior}} (con su mes), {{Km del mes}} (con la fecha de lectura) y {{Recorrido}}.",
-        "Llevan km los vehículos activos que no son acoplado ni semi. Tareas lo recuerda: el día 1 se abre la tarea del mes en [[/tasks]], que vence el día 5; la revisión diaria de tareas (a la mañana) la cierra cuando están todos los km.",
-        "Cuando le preguntás al [[/ai]] cuántos km hizo un vehículo, responde con estas lecturas: la del último mes del rango menos la del mes anterior al primero (por ejemplo, para octubre, la de octubre menos la de septiembre). Si falta alguna de las dos, aclara que no hay km medidos y da los km cargados en los viajes solo como referencia. Hace falta poder ver esta pantalla.",
+        "Los km de cada vehículo según Strix Flotas (el GPS de los camiones), día por día. Arriba se eligen las fechas (por defecto, este mes) y la tabla muestra, para ese rango, {{Vehículo}}, {{Km recorridos}}, {{Días con km}} y {{Último día}}, con el total abajo.",
+        "Los km se traen solos todos los días a la mañana (la última semana, para completar el día anterior). Cada patente de Strix se reconoce por la patente del vehículo: si Strix tiene una que no está cargada en [[/vehicles]], sus km no se guardan y la línea de estado la nombra. Llevan km los vehículos activos que no son acoplado ni semi.",
+        "Hacé clic en una patente para ver sus km de cada día; también desde [[/vehicles]].",
       ],
       screens: [
         {
           kind: "page",
-          title: "Km mensual",
-          toolbar: [{ label: "~noviembre de 2026", kind: "input" }],
+          title: "Km recorridos",
+          toolbar: [{ label: "Este mes", kind: "input" }],
+          actions: [
+            { label: "Usuario de Strix", variant: "outline" },
+            { label: "Traer de Strix", variant: "primary" },
+          ],
           table: {
-            columns: [
-              "Vehículo",
-              "Lectura anterior",
-              "Km del mes",
-              "Recorrido",
-            ],
+            columns: ["Vehículo", "Km recorridos", "Días con km", "Último día"],
             rows: [
-              [
-                "~AB123CD Chasis 1",
-                "~412.300 (oct 2026)",
-                "~421.850 05/11/2026",
-                "~9.550",
-              ],
-              ["~AC789GH", "~198.000 (oct 2026)", "~Cargar", "~—"],
+              ["~AF679VY", "~4.580", "~22", "~05/11/2026"],
+              ["~AH260UH", "~3.120", "~18", "~05/11/2026"],
             ],
-            rowMenu: true,
           },
         },
       ],
       tasks: [
         {
           id: "cargar-km-mensual",
-          title: "Cargar el km del mes de un vehículo",
+          title: "Traer los km de Strix de otras fechas",
           permission: "fleet_km:write",
+          steps: [
+            "En [[/vehicle-km]], elegí las fechas arriba.",
+            "Hacé clic en {{Traer de Strix}}. La línea de estado muestra «Trayendo km de Strix…» mientras corre.",
+          ],
+          after: [
+            "Cuando termina, la tabla se actualiza y la línea de estado dice cuántos vehículos trajo, qué meses no se pudieron leer y qué patentes de Strix no están cargadas. Traer de nuevo un día lo reemplaza.",
+          ],
+          errors: [
+            {
+              message:
+                "Falta cargar el usuario de Strix: lo carga un owner o admin con «Usuario de Strix».",
+              fix: "Pedíselo a un owner o admin.",
+            },
+            {
+              message:
+                "JouveERP dejó de entrar a Strix con la clave guardada: un owner o admin tiene que volver a cargarla.",
+              fix: "Pedile a un owner o admin que cargue la clave en {{Usuario de Strix}}.",
+            },
+            {
+              message: "No tenés permiso para traer km.",
+              fix: "Pedíselo a alguien con el rol Operaciones, Admin u Owner.",
+            },
+          ],
+          related: ["editar-km-mensual"],
+          keywords: ["kilometraje", "km camión", "gps", "strix"],
+        },
+        {
+          id: "editar-km-mensual",
+          title: "Cargar el usuario de Strix",
+          permission: "fleet_km:admin",
           screens: [
             {
               kind: "dialog",
-              title: "~Km de AB123CD · noviembre de 2026",
-              description: "~Lectura anterior: 412.300 km (octubre de 2026).",
+              title: "Usuario de Strix",
               fields: [
-                { label: "Km del odómetro", value: "421850", marker: 2 },
                 {
-                  label: "Fecha de lectura",
-                  kind: "date",
-                  value: "05/11/2026",
+                  label: "Usuario (email)",
+                  value: "logistica@empresa.com",
                   marker: 2,
                 },
-                { label: "Notas", kind: "textarea", wide: true },
+                { label: "Clave", value: "••••••", marker: 2 },
               ],
               footer: [
                 { label: "Cancelar", variant: "outline" },
@@ -2519,58 +2539,21 @@ export const fleetPage: GuidePage = {
             },
           ],
           steps: [
-            "En [[/vehicle-km]], elegí el mes y hacé clic en {{Cargar}} en la fila del vehículo.",
-            "Escribí {{Km del odómetro}} (hasta un decimal) y la {{Fecha de lectura}} (hoy por defecto, no futura). Si es menos que la lectura anterior, aparece un aviso: revisalo y, si se cambió el odómetro, anotalo en {{Notas}}.",
+            "En [[/vehicle-km]], hacé clic en {{Usuario de Strix}}.",
+            "Escribí el {{Usuario (email)}} y la {{Clave}} con que se entra a Strix Flotas. Para cambiar solo el usuario, dejá la clave vacía.",
             "Hacé clic en {{Guardar}}.",
           ],
           after: [
-            "La fila muestra el km y el {{Recorrido}} contra la lectura anterior; si bajó, se marca «(bajó)». Cuando todos los vehículos tienen su km, la tarea del mes se cierra sola en la revisión de la mañana siguiente.",
+            "La clave se guarda cifrada y no se vuelve a mostrar. Si Strix la rechaza (o falla dos veces seguidas), JouveERP deja de intentar hasta que se vuelva a cargar.",
           ],
           errors: [
             {
-              message: "Ingresá los km (hasta un decimal).",
-              fix: "Escribí solo números, con un decimal como máximo.",
+              message: "Falta la clave.",
+              fix: "La primera vez hay que escribir la clave.",
             },
             {
-              message: "No se puede cargar el km de un mes futuro.",
-              fix: "Elegí el mes actual o uno anterior.",
-            },
-            {
-              message: "La fecha de lectura no puede ser futura.",
-              fix: "Poné la fecha en que leíste el odómetro.",
-            },
-            {
-              message: "No tenés permiso para cargar km.",
-              fix: "Pedíselo a alguien con el rol Operaciones, Admin u Owner.",
-            },
-          ],
-          related: ["editar-km-mensual"],
-          keywords: [
-            "kilometraje",
-            "odómetro",
-            "km camión",
-            "cuentakilómetros",
-          ],
-        },
-        {
-          id: "editar-km-mensual",
-          title: "Corregir o borrar el km de un mes",
-          permission: "fleet_km:write",
-          steps: [
-            "En [[/vehicle-km]], elegí el mes; en la fila del vehículo, abrí el menú ⋯.",
-            "Elegí {{Editar}} para corregir la lectura y guardá, o {{Borrar}} y confirmá con {{Borrar}} para eliminarla.",
-          ],
-          after: [
-            "Al borrar, el vehículo vuelve a figurar como faltante en ese mes.",
-          ],
-          errors: [
-            {
-              message: "La lectura ya no existe.",
-              fix: "Actualizá la pantalla.",
-            },
-            {
-              message: "No tenés permiso para borrar km.",
-              fix: "Pedíselo a alguien con el rol Operaciones, Admin u Owner.",
+              message: "No tenés permiso para configurar Strix.",
+              fix: "Lo hace un owner o admin.",
             },
           ],
           related: ["cargar-km-mensual"],

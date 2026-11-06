@@ -380,7 +380,7 @@ export const NAV_SECTIONS: readonly NavSection[] = [
       },
       {
         href: "/vehicle-km",
-        label: "Km mensual",
+        label: "Km recorridos",
         icon: Gauge,
         permission: "fleet_km:read",
       },

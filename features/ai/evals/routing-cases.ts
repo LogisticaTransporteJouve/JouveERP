@@ -430,15 +430,6 @@ export const ROUTING_CASES: RoutingCase[] = [
       cost: 180_000,
     },
   },
-  {
-    id: "propose-vehicle-km",
-    question: "El AB123CD cerró octubre con 125.300 km.",
-    roles: ["operations"],
-    expect: {
-      tool: "proposeVehicleKm",
-      input: { vehicle: truck.patente, km: 125_300, period: "2026-10" },
-    },
-  },
   // The draft reads the client's cargas first; the offline stub refuses.
   {
     id: "propose-freight-settlement",
@@ -1067,7 +1058,6 @@ export const DENIED_CASES: DeniedCase[] = [
       "proposeShipment",
       "proposeShipmentStatus",
       "proposeMaintenance",
-      "proposeVehicleKm",
     ],
   },
   {

@@ -122,7 +122,7 @@ describe("getVehicleUsage", () => {
         expect.objectContaining({ driver: "Gómez", trips: 1, km: 0 }),
       ],
     });
-    expect(res.summary).toContain("1.500 km recorridos (odómetro)");
+    expect(res.summary).toContain("1.500 km recorridos (Strix)");
     expect(res.summary).toContain("500 km cargados");
   });
 

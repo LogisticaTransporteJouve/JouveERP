@@ -19,7 +19,6 @@ const { createTrip } = await import("./create-trip");
 const { createShipment } = await import("./create-shipment");
 const { changeShipmentStatus } = await import("./change-shipment-status");
 const { createFuelLoad } = await import("./create-fuel-load");
-const { saveVehicleKmReading } = await import("./save-vehicle-km-reading");
 const { saveFreightSettlement } = await import("./save-freight-settlement");
 
 type Result = { data: unknown; error: unknown };
@@ -166,41 +165,6 @@ describe("createFuelLoad", () => {
       error: "No tenés permiso para vincular facturas de compra.",
     });
     expect(calls).toHaveLength(0);
-  });
-});
-
-describe("saveVehicleKmReading", () => {
-  it("refuses a future month", async () => {
-    const { db, calls } = fakeDb({ data: { id: "k1" }, error: null });
-    const res = await saveVehicleKmReading(db, "u1", {
-      vehicle_id: VEHICLE,
-      period: "2999-01",
-      km: 1000,
-      read_on: "2026-11-05",
-      notes: null,
-    });
-    expect(res).toEqual({
-      ok: false,
-      error: "No se puede cargar el km de un mes futuro.",
-    });
-    expect(calls).toHaveLength(0);
-  });
-
-  it("upserts the month's reading and audits it", async () => {
-    const { db, calls } = fakeDb({ data: { id: "k1" }, error: null });
-    const res = await saveVehicleKmReading(db, "u1", {
-      vehicle_id: VEHICLE,
-      period: "2026-10",
-      km: 120_500,
-      read_on: "2026-10-31",
-      notes: null,
-    });
-    expect(res).toEqual({ ok: true, data: { id: "k1" } });
-    expect(calls[0]).toMatchObject({
-      op: "upsert",
-      table: "vehicle_km_readings",
-      payload: { loaded_by: "u1", km: 120_500 },
-    });
   });
 });
 

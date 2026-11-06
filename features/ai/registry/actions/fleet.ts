@@ -13,7 +13,7 @@ import { listMaintenanceAction } from "@/features/maintenance/actions/maintenanc
 import { getShipmentsSummaryAction } from "@/features/shipments/actions/shipments-summary-actions";
 import { ShipmentsSummaryInputSchema } from "@/features/shipments/schema";
 import { listTripsAction } from "@/features/trips/actions/trips-actions";
-import { getVehicleKmMonthAction } from "@/features/vehicle-km/actions/vehicle-km-actions";
+import { getVehicleKmRangeAction } from "@/features/vehicle-km/actions/vehicle-km-actions";
 import { listVehiclesAction } from "@/features/vehicles/actions/vehicles-actions";
 import { type Access, userCan } from "@/lib/auth/permissions";
 import { todayInAR } from "@/lib/format";
@@ -396,27 +396,32 @@ export const getVehicleKm = defineAiAction({
   domain: "flota",
   permission: "fleet_km:read",
   sideEffect: "read",
-  sources: ["vehicle_km_readings", "vehicles"],
+  sources: ["vehicle_km_daily", "vehicles"],
   description:
-    "Monthly odometer readings for one month (YYYY-MM, default the current " +
-    "one): each active motor vehicle with that month's km, the previous " +
-    "reading and the km driven between them (negative = the odometer went " +
-    "down), plus how many vehicles still lack the reading.",
+    "Km driven per vehicle in a date range (default: the current month), " +
+    "from Strix (the trucks' GPS), summed day by day: each active motor " +
+    "vehicle with its km, the days with km and its last day with km.",
   input: z.object({
-    period: z
+    from: z
       .string()
+      .regex(DATE_RE)
       .nullish()
-      .describe("Month YYYY-MM (default: the current month)."),
+      .describe("First day YYYY-MM-DD (default: the 1st of this month)."),
+    to: z
+      .string()
+      .regex(DATE_RE)
+      .nullish()
+      .describe("Last day YYYY-MM-DD (default: today)."),
   }),
   run: async (_ctx, input) => {
-    const period = input.period ?? todayInAR().slice(0, 7);
-    const res = await getVehicleKmMonthAction({ period });
+    const today = todayInAR();
+    const from = input.from ?? `${today.slice(0, 7)}-01`;
+    const to = input.to ?? today;
+    const res = await getVehicleKmRangeAction({ from, to });
     if (!res.ok) return errResult(res.error);
-    const driven = res.data.rows.reduce((s, r) => s + (r.driven ?? 0), 0);
     return okResult(
-      `Km ${period}: ${res.data.rows.length} vehicles, ` +
-        `${res.data.missing} without a reading · ` +
-        `${driven.toLocaleString("es-AR")} km driven (vehicles with both readings).`,
+      `Km ${from} → ${to} (Strix): ${res.data.rows.length} vehicles, ` +
+        `${res.data.total.toLocaleString("es-AR")} km in total.`,
       res.data,
     );
   },

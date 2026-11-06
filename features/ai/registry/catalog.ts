@@ -83,7 +83,6 @@ import {
   proposeShipment,
   proposeShipmentStatus,
   proposeTrip,
-  proposeVehicleKm,
 } from "./actions/fleet-proposals";
 import { getAttachments, searchFiles } from "./actions/general";
 import { proposeStorageInvoice } from "./actions/storage-proposals";
@@ -347,7 +346,6 @@ export const AI_ACTIONS: readonly AiAction[] = [
   proposeShipmentStatus,
   proposeFuelLoad,
   proposeMaintenance,
-  proposeVehicleKm,
   // Depósito
   getPalletsSummary,
   getPallets,

@@ -73,10 +73,6 @@ const ALLOWED = new Map<string, { count: number; why: string }>([
     { count: 1, why: "day of month" },
   ],
   [
-    "features/vehicle-km/components/km-reading-dialog.tsx",
-    { count: 2, why: "odometer km" },
-  ],
-  [
     "features/vehicles/components/vehicle-dialog.tsx",
     { count: 2, why: "year and capacity kg" },
   ],

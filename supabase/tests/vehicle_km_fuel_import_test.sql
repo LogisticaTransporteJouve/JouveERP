@@ -1,13 +1,12 @@
--- Km mensual y combustible (20261103020000): the monthly km reminder task
--- (opens while an active motor vehicle lacks the month's reading, ignores
--- trailers, closes once every one has it), the km readings' uniqueness and
+-- Km mensual y combustible (20261103020000): no monthly km reminder task since
+-- 20261106191306 (an old one closes on the next sync), the km readings' uniqueness and
 -- RLS by role, the km task's fleet ceiling, vehicles.fuel_card, and a fuel
 -- load's ticket as a file attachment listed in the files hub. One
 -- transaction, rolled back.
 
 begin;
 
-select plan(17);
+select plan(16);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-00000000ca01', 'ops@km.test'),
@@ -22,14 +21,9 @@ create temporary table t_period as
   select to_char((select today from t_day), 'YYYY-MM') as period,
          md5('vehicle_km:' || to_char((select today from t_day), 'YYYY-MM'))::uuid as source_id;
 
--- 1. The km reminder -----------------------------------------------------------------
-
--- Only this test's vehicles count: any other active motor vehicle gets its
--- reading up front.
-insert into public.vehicle_km_readings (vehicle_id, period, km, read_on)
-select v.id, (select period from t_period), 0, (select today from t_day)
-  from public.vehicles v
- where v.is_active;
+-- 1. No km reminder any more ----------------------------------------------------------
+-- Since 20261106191306 (km from Strix) nobody types km: the sync opens no
+-- monthly «Cargar km» task and closes one an older version left open.
 
 insert into public.vehicles (id, patente, vehicle_type) values
   ('00000000-0000-0000-0000-00000000cb01', 'KM001AA', 'camion'),
@@ -41,75 +35,65 @@ create temporary table t_sync1 as
 select is(
   (select count(*)::int from t_sync1 s
     join public.tasks t on t.id = s.task_id
-   where t.source_table = 'vehicle_km_readings'
-     and t.source_id = (select source_id from t_period)
+   where t.kind = 'vehicle_km'
      and s.change = 'created'),
-  1,
-  'a truck without this month''s reading opens the month''s km task'
+  0,
+  'a truck without this month''s reading opens no km task'
 );
 
-select results_eq(
-  $$select kind, origin, status, due_date, title like 'Cargar km de % ' || extract(year from (select today from t_day))::text
-      from public.tasks
-     where source_id = (select source_id from t_period)$$,
-  $$values ('vehicle_km'::text, 'automatic'::text, 'open'::text,
-            make_date(extract(year from (select today from t_day))::int,
-                      extract(month from (select today from t_day))::int, 5),
-            true)$$,
-  'the km task names the month and is due on day 5'
-);
+-- The task an older version opened for this month.
+insert into public.tasks (title, due_date, origin, kind, source_table, source_id)
+values ('Cargar km', make_date(extract(year from (select today from t_day))::int,
+                               extract(month from (select today from t_day))::int, 5),
+        'automatic', 'vehicle_km', 'vehicle_km_readings',
+        (select source_id from t_period));
 
 create temporary table t_sync2 as
   select * from public.sync_automatic_tasks((select today from t_day));
 
-select is(
-  (select count(*)::int from t_sync2
-    where task_id = (select id from public.tasks
-                      where source_id = (select source_id from t_period))),
-  0,
-  'a second run with nothing loaded touches nothing'
+select results_eq(
+  $$select s.change from t_sync2 s
+     where s.task_id = (select id from public.tasks
+                         where source_id = (select source_id from t_period))$$,
+  $$values ('closed'::text)$$,
+  'the next sync reports the old km task closed'
 );
-
--- The truck's reading is loaded; the trailer never needs one.
-insert into public.vehicle_km_readings (vehicle_id, period, km, read_on, loaded_by) values
-  ('00000000-0000-0000-0000-00000000cb01', (select period from t_period), 120500,
-   (select today from t_day), '00000000-0000-0000-0000-00000000ca01');
-
-create temporary table t_sync3 as
-  select * from public.sync_automatic_tasks((select today from t_day));
 
 select results_eq(
   $$select status, auto_closed from public.tasks
      where source_id = (select source_id from t_period)$$,
   $$values ('done'::text, true)$$,
-  'every motor vehicle loaded closes the km task'
+  'the old km task is closed by the sync'
 );
 
--- A new truck reopens what the sync closed.
+create temporary table t_sync3 as
+  select * from public.sync_automatic_tasks((select today from t_day));
+
+select is(
+  (select count(*)::int from t_sync3
+    where task_id = (select id from public.tasks
+                      where source_id = (select source_id from t_period))),
+  0,
+  'a second run leaves the closed km task alone'
+);
+
+-- A new truck without a reading does not reopen it.
 insert into public.vehicles (id, patente, vehicle_type) values
   ('00000000-0000-0000-0000-00000000cb03', 'KM003AA', 'utilitario');
 
 create temporary table t_sync4 as
   select * from public.sync_automatic_tasks((select today from t_day));
 
-select results_eq(
-  $$select status, auto_closed from public.tasks
-     where source_id = (select source_id from t_period)$$,
-  $$values ('open'::text, false)$$,
-  'a vehicle added without a reading reopens the km task'
-);
-
-update public.vehicles set is_active = false
- where id = '00000000-0000-0000-0000-00000000cb03';
-
-create temporary table t_sync5 as
-  select * from public.sync_automatic_tasks((select today from t_day));
-
 select is(
   (select status from public.tasks where source_id = (select source_id from t_period)),
   'done',
-  'an inactive vehicle does not keep the km task open'
+  'a vehicle added without a reading does not reopen the km task'
 );
+
+-- The readings section below loads one for the truck.
+insert into public.vehicle_km_readings (vehicle_id, period, km, read_on, loaded_by) values
+  ('00000000-0000-0000-0000-00000000cb01', (select period from t_period), 120500,
+   (select today from t_day), '00000000-0000-0000-0000-00000000ca01');
 
 -- 2. Readings ------------------------------------------------------------------------
 
