@@ -3,6 +3,11 @@
 import { logAudit } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan, userCanAll } from "@/lib/auth/permissions";
+import {
+  confirmDriverSettlement,
+  postDriverSettlementDifference,
+  saveDriverSettlement,
+} from "@/lib/commands/driver-settlements";
 import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { round2 } from "@/lib/format";
 import { logger } from "@/lib/logger";
@@ -34,7 +39,10 @@ import {
   type DriverSettlementsPage,
   type SettlementAccount,
 } from "../schema";
-import { CHARGE_DRIVER_PERMISSIONS } from "../lib/charge-driver";
+import {
+  CHARGE_DRIVER_DENIED,
+  CHARGE_DRIVER_PERMISSIONS,
+} from "../lib/charge-driver";
 
 const READ_DENIED = "No tenés permiso para ver rendiciones.";
 const WRITE_DENIED = "No tenés permiso para registrar rendiciones.";
@@ -460,60 +468,7 @@ export async function saveDriverSettlementAction(
   }
   const parsed = DriverSettlementSaveSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) };
-  const d = parsed.data;
-
-  const supabase = getServiceClient();
-  const { data, error } = await supabase.rpc("save_driver_settlement", {
-    p_driver_id: d.driver_id,
-    p_settlement_date: d.settlement_date,
-    p_notes: d.notes ?? "",
-    p_items: d.items.map((item) => ({
-      shipment_id: item.shipment_id,
-      note: item.note ?? null,
-      lines: item.lines.map((l) => ({
-        account_id: l.account_id,
-        amount: l.amount,
-        reference: l.reference ?? null,
-        check_number: l.check_number ?? null,
-        bank_name: l.bank_name ?? null,
-        drawer_name: l.drawer_name ?? null,
-        drawer_cuit: l.drawer_cuit ?? null,
-        check_issue_date: l.check_issue_date ?? null,
-        check_due_date: l.check_due_date ?? null,
-      })),
-    })),
-    p_user_id: ctx.userId,
-    ...(d.id ? { p_settlement_id: d.id } : {}),
-  });
-  if (error || !data) {
-    const guardError = mapDbGuardError(error, {
-      slug: "driver_settlements.save.rejected",
-      userId: ctx.userId,
-      id: d.id ?? null,
-    });
-    if (guardError) return { ok: false, error: guardError };
-    logger.error("driver_settlements.save.failed", {
-      userId: ctx.userId,
-      error,
-    });
-    return { ok: false, error: "No se pudo guardar la rendición." };
-  }
-
-  const received = round2(
-    d.items.reduce((s, i) => s + i.lines.reduce((t, l) => t + l.amount, 0), 0),
-  );
-  await logAudit(
-    d.id ? "driver_settlement.updated" : "driver_settlement.created",
-    ctx.userId,
-    {
-      driver_id: d.driver_id,
-      settlement_date: d.settlement_date,
-      cargas: d.items.length,
-      received,
-    },
-    data,
-  );
-  return { ok: true, data: { id: data } };
+  return saveDriverSettlement(ctx.userId, parsed.data);
 }
 
 /** Posts the rendición as receipts (one per client and channel). Confirming
@@ -527,34 +482,7 @@ export async function confirmDriverSettlementAction(input: {
   }
   const parsed = DriverSettlementIdSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Rendición inválida." };
-
-  const supabase = getServiceClient();
-  const { data, error } = await supabase.rpc("confirm_driver_settlement", {
-    p_settlement_id: parsed.data.id,
-    p_user_id: ctx.userId,
-  });
-  if (error || !data) {
-    const guardError = mapDbGuardError(error, {
-      slug: "driver_settlements.confirm.rejected",
-      userId: ctx.userId,
-      id: parsed.data.id,
-    });
-    if (guardError) return { ok: false, error: guardError };
-    logger.error("driver_settlements.confirm.failed", {
-      userId: ctx.userId,
-      id: parsed.data.id,
-      error,
-    });
-    return { ok: false, error: "No se pudo confirmar la rendición." };
-  }
-
-  await logAudit(
-    "driver_settlement.confirmed",
-    ctx.userId,
-    { receipt_ids: data },
-    parsed.data.id,
-  );
-  return { ok: true, data: { receiptIds: data } };
+  return confirmDriverSettlement(ctx.userId, parsed.data.id);
 }
 
 /** Cancels the rendición and puts its cargas back as pending. A confirmed
@@ -597,9 +525,6 @@ export async function cancelDriverSettlementAction(input: {
   return { ok: true, data: undefined };
 }
 
-const DIFFERENCE_DENIED =
-  "No tenés permiso para asentar en la cuenta corriente del chofer y mover la caja.";
-
 /** "Resolver diferencia": who bears the rendición's difference.
  *  - `driver`: a shortfall settles the client with a receipt and goes to
  *    the driver's employee account as an advance paid out of the cash
@@ -615,40 +540,13 @@ export async function postDriverSettlementDifferenceAction(
   }
   const parsed = DriverSettlementDifferenceSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Rendición inválida." };
-  const { id, charged_to } = parsed.data;
   if (
-    charged_to === "driver" &&
+    parsed.data.charged_to === "driver" &&
     !userCanAll(ctx.access, CHARGE_DRIVER_PERMISSIONS)
   ) {
-    return { ok: false, error: DIFFERENCE_DENIED };
+    return { ok: false, error: CHARGE_DRIVER_DENIED };
   }
-
-  const { data, error } = await getServiceClient().rpc(
-    "post_driver_settlement_difference",
-    { p_settlement_id: id, p_user_id: ctx.userId, p_charged_to: charged_to },
-  );
-  if (error || (charged_to === "driver" && !data)) {
-    const guardError = mapDbGuardError(error, {
-      slug: "driver_settlements.difference.rejected",
-      userId: ctx.userId,
-      id,
-    });
-    if (guardError) return { ok: false, error: guardError };
-    logger.error("driver_settlements.difference.failed", {
-      userId: ctx.userId,
-      id,
-      error,
-    });
-    return { ok: false, error: "No se pudo asentar la diferencia." };
-  }
-
-  await logAudit(
-    "driver_settlement.difference_posted",
-    ctx.userId,
-    { charged_to, movement_id: data ?? null },
-    id,
-  );
-  return { ok: true, data: { movementId: data ?? null } };
+  return postDriverSettlementDifference(ctx.userId, parsed.data);
 }
 
 /** Takes the resolved difference back: cancels the receipts that settled

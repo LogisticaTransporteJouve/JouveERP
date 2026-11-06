@@ -36,9 +36,12 @@ import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { getServiceClient } from "@/lib/supabase/service";
 
-type ComprobanteInsert = Database["public"]["Tables"]["invoices"]["Insert"];
-type ComprobanteItemInsert =
-  Database["public"]["Tables"]["invoice_items"]["Insert"];
+type ComprobanteDraft = Database["public"]["Tables"]["invoices"]["Insert"];
+/** An item of create_invoice_draft, which sets its invoice_id. */
+type ComprobanteItemDraft = Omit<
+  Database["public"]["Tables"]["invoice_items"]["Insert"],
+  "invoice_id"
+>;
 
 export interface IssueInvoiceResult {
   id: string;
@@ -190,8 +193,8 @@ export type ExpectedReceptor = Pick<
 /**
  * Issues a comprobante (factura, NC or ND; fiscal through AFIP, internal as a
  * remito interno): validates channel, client, punto de venta, origin and AFIP
- * rules, inserts the draft and its items, queues the issue-invoice run and
- * audits `invoice.issue_requested`. A repeated `idempotency_key` returns the
+ * rules, inserts the draft and its items in one transaction, queues the
+ * issue-invoice run and audits `invoice.issue_requested`. A repeated `idempotency_key` returns the
  * draft the first call created.
  *
  * The caller has already checked `invoices:issue` (plus
@@ -477,10 +480,11 @@ export async function issueComprobante(
 
   const idempotency_key = data.idempotency_key ?? randomUUID();
 
-  // Insert draft + items. The DB trigger validates the fiscal-fields
-  // constraint (letter + cbte_tipo_afip required when channel.is_fiscal),
-  // the unique index validates non-duplicate idempotency_key.
-  const draft: ComprobanteInsert = {
+  // The draft and its items in one transaction (create_invoice_draft): a
+  // refused item leaves no header-only draft. The DB trigger validates the
+  // fiscal-fields constraint (letter + cbte_tipo_afip required when
+  // channel.is_fiscal), the unique index a non-duplicate idempotency_key.
+  const draft: ComprobanteDraft = {
     channel_id: data.channel_id,
     client_id: data.client_id,
     kind: data.kind,
@@ -513,12 +517,20 @@ export async function issueComprobante(
     idempotency_key,
     created_by: actorId,
   };
+  const itemRows: ComprobanteItemDraft[] = data.items.map((item, index) => ({
+    sort_order: index,
+    description: item.description,
+    quantity: item.quantity,
+    unit_price: item.unit_price,
+    iva_rate_id: item.iva_rate_id,
+    revenue_kind: item.revenue_kind ?? "service",
+    ...computeLineAmounts(item, channel.is_fiscal),
+  }));
 
-  const inserted = await supabase
-    .from("invoices")
-    .insert(draft)
-    .select("id")
-    .maybeSingle();
+  const inserted = await supabase.rpc("create_invoice_draft", {
+    p_invoice: draft,
+    p_items: itemRows,
+  });
   // Two concurrent submits with one key: the second loses the unique index.
   if (inserted.error?.code === PG_UNIQUE_VIOLATION && data.idempotency_key) {
     const existing = await findIssuedByKey(
@@ -542,45 +554,7 @@ export async function issueComprobante(
     });
     return { ok: false, error: "No se pudo crear el comprobante." };
   }
-  const invoice_id = inserted.data.id;
-
-  const itemRows: ComprobanteItemInsert[] = data.items.map((item, index) => ({
-    invoice_id,
-    sort_order: index,
-    description: item.description,
-    quantity: item.quantity,
-    unit_price: item.unit_price,
-    iva_rate_id: item.iva_rate_id,
-    revenue_kind: item.revenue_kind ?? "service",
-    ...computeLineAmounts(item, channel.is_fiscal),
-  }));
-
-  const itemsRes = await supabase.from("invoice_items").insert(itemRows);
-  if (itemsRes.error) {
-    // Roll back the draft so a retry doesn't see a half-written row. The draft
-    // was never enqueued, so no run can emit it; a failed delete leaves an
-    // item-less draft, logged here for cleanup.
-    const rollback = await supabase
-      .from("invoices")
-      .delete()
-      .eq("id", invoice_id);
-    logger.warn("issue_invoice.insert_items_failed", {
-      userId: actorId,
-      invoice_id,
-      err: itemsRes.error.message,
-    });
-    if (rollback.error) {
-      logger.error("issue_invoice.rollback_draft_failed", {
-        userId: actorId,
-        invoice_id,
-        error: rollback.error,
-      });
-    }
-    return {
-      ok: false,
-      error: "No se pudieron guardar los ítems del comprobante.",
-    };
-  }
+  const invoice_id = inserted.data;
 
   // A failed send is not rolled back: Inngest may have accepted the event, and
   // deleting the draft would leave its CAE without a row. The draft stays and

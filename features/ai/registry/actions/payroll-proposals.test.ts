@@ -133,6 +133,62 @@ describe("proposePayrollPayment", () => {
     expect(getPayrollPeriodAction).toHaveBeenCalledWith(2026, 10, "monthly");
   });
 
+  it("asks which channel when the side has two active, and takes the one picked", async () => {
+    readInvoicingChannels.mockResolvedValue({
+      ok: true,
+      channels: [
+        {
+          id: "jouve_fiscal",
+          name: "Fiscal",
+          is_fiscal: true,
+          is_active: true,
+        },
+        {
+          id: "jouve_internal",
+          name: "Interno",
+          is_fiscal: false,
+          is_active: true,
+        },
+        {
+          id: "jouve_internal_2",
+          name: "Interno 2",
+          is_fiscal: false,
+          is_active: true,
+        },
+      ],
+    });
+    const asked = await proposePayrollPayment.proposal?.prepareDraft(
+      ctx,
+      input,
+    );
+    expect(asked).toEqual({
+      kind: "issues",
+      issues: [
+        {
+          field: "channel",
+          message: "Hay más de un canal activo: ¿por cuál va?",
+        },
+      ],
+      candidates: [
+        {
+          field: "channel",
+          options: [
+            { value: "Interno", label: "Interno · interno" },
+            { value: "Interno 2", label: "Interno 2 · interno" },
+          ],
+        },
+      ],
+    });
+    const picked = await proposePayrollPayment.proposal?.prepareDraft(ctx, {
+      ...input,
+      channel: "Interno 2",
+    });
+    expect(picked).toMatchObject({
+      kind: "draft",
+      draft: { channel_id: "jouve_internal_2" },
+    });
+  });
+
   it("asks when a named employee has nothing due", async () => {
     const res = await proposePayrollPayment.proposal?.prepareDraft(ctx, {
       ...input,

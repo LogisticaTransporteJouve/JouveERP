@@ -16,7 +16,7 @@ import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { getServiceClient } from "@/lib/supabase/service";
 
-import { canMoveStock, movesStock } from "../lib/moves-stock";
+import { canMoveStock, movesStock, type StockFields } from "../lib/moves-stock";
 import {
   PalletBlockSchema,
   PalletUnblockSchema,
@@ -223,67 +223,35 @@ export async function createPalletsBulkAction(
       error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
     };
   }
-  const { count, code_prefix } = parsed.data;
   const supabase = await createSupabaseClient();
 
-  // Continue the numeric sequence for this prefix so codes are unique + ordered.
-  const { data: existing, error: seqError } = await supabase
-    .from("pallets")
-    .select("code")
-    .like("code", `${code_prefix}-%`);
-  if (seqError) {
-    logger.error("pallets.bulk_create.seq_failed", {
-      userId: ctx.userId,
-      error: seqError,
-    });
-    return { ok: false, error: "No se pudieron generar los códigos." };
-  }
-  const seqRe = new RegExp(`^${code_prefix}-(\\d+)$`);
-  let maxSeq = 0;
-  for (const row of existing ?? []) {
-    const match = seqRe.exec(row.code);
-    if (match) maxSeq = Math.max(maxSeq, Number(match[1]));
-  }
-  const start = maxSeq + 1;
-  const pad = Math.max(4, String(start + count - 1).length);
-  const codes = Array.from(
-    { length: count },
-    (_, i) => `${code_prefix}-${String(start + i).padStart(pad, "0")}`,
-  );
-
-  const rows = codes.map((code) => ({
-    warehouse_id: parsed.data.warehouse_id,
-    client_id: parsed.data.client_id,
-    product_id: parsed.data.product_id ?? null,
-    code,
-    quantity: parsed.data.quantity ?? null,
-    status: "en_deposito",
-    entry_date: parsed.data.entry_date,
-    notes: parsed.data.notes ?? null,
-    area_id: parsed.data.area_id ?? null,
-    lot_number: parsed.data.lot_number ?? null,
-    lot_expiry: parsed.data.lot_expiry ?? null,
-    created_by: ctx.userId,
-  }));
-
-  const { data, error } = await supabase
-    .from("pallets")
-    .insert(rows)
-    .select("id");
+  // create_pallets_bulk numbers the codes after the prefix's highest one and
+  // inserts them, one load per prefix at a time.
+  const { data: created, error } = await supabase.rpc("create_pallets_bulk", {
+    p_code_prefix: parsed.data.code_prefix,
+    p_count: parsed.data.count,
+    p_warehouse_id: parsed.data.warehouse_id,
+    p_client_id: parsed.data.client_id,
+    p_product_id: parsed.data.product_id ?? undefined,
+    p_quantity: parsed.data.quantity ?? undefined,
+    p_entry_date: parsed.data.entry_date,
+    p_notes: parsed.data.notes ?? undefined,
+    p_area_id: parsed.data.area_id ?? undefined,
+    p_lot_number: parsed.data.lot_number ?? undefined,
+    p_lot_expiry: parsed.data.lot_expiry ?? undefined,
+  });
   if (error) {
-    if (error.code === PG_UNIQUE_VIOLATION) {
-      return {
-        ok: false,
-        error: "Se generó un código repetido, volvé a intentar.",
-      };
-    }
+    const guard = mapDbGuardError(error, {
+      slug: "pallets.bulk_create.rejected",
+      userId: ctx.userId,
+    });
+    if (guard) return { ok: false, error: guard };
     if (error.code === PG_FOREIGN_KEY_VIOLATION) {
       return { ok: false, error: "El área no es del depósito de los pallets." };
     }
     logger.error("pallets.bulk_create.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudieron crear los pallets." };
   }
-  const created = data?.length ?? codes.length;
   await logAudit("pallet.bulk_created", ctx.userId, { count: created });
   return { ok: true, data: { created } };
 }
@@ -369,6 +337,9 @@ export async function updatePalletAction(
   const supabase = await createSupabaseClient();
   // Without stock_movements:write only the fields that move no stock may
   // change (the dialog sends every field, so compare with the stored row).
+  // The update then only applies while the stock fields still hold what was
+  // compared: a concurrent change in between leaves it with no row.
+  let unchangedStock: StockFields | null = null;
   if (!userCan(ctx.access, "stock_movements:write")) {
     const stored = await supabase
       .from("pallets")
@@ -389,8 +360,9 @@ export async function updatePalletAction(
     if (movesStock(stored.data, rest)) {
       return { ok: false, error: NO_STOCK_MOVEMENTS };
     }
+    unchangedStock = stored.data;
   }
-  const { data: changed, error } = await supabase
+  let update = supabase
     .from("pallets")
     .update({
       ...(rest.warehouse_id !== undefined && {
@@ -408,8 +380,22 @@ export async function updatePalletAction(
       ...(rest.lot_number !== undefined && { lot_number: rest.lot_number }),
       ...(rest.lot_expiry !== undefined && { lot_expiry: rest.lot_expiry }),
     })
-    .eq("id", id)
-    .select("id");
+    .eq("id", id);
+  if (unchangedStock) {
+    update = update
+      .eq("warehouse_id", unchangedStock.warehouse_id)
+      .eq("status", unchangedStock.status)
+      .eq("entry_date", unchangedStock.entry_date);
+    update =
+      unchangedStock.quantity === null
+        ? update.is("quantity", null)
+        : update.eq("quantity", unchangedStock.quantity);
+    update =
+      unchangedStock.exit_date === null
+        ? update.is("exit_date", null)
+        : update.eq("exit_date", unchangedStock.exit_date);
+  }
+  const { data: changed, error } = await update.select("id");
   if (error) {
     const known = palletWriteError(
       error,
@@ -422,7 +408,12 @@ export async function updatePalletAction(
     return { ok: false, error: "No se pudo actualizar el pallet." };
   }
   if (!changed || changed.length === 0) {
-    return { ok: false, error: "No se encontró el pallet." };
+    return {
+      ok: false,
+      error: unchangedStock
+        ? "El pallet cambió mientras lo editabas: volvé a abrirlo."
+        : "No se encontró el pallet.",
+    };
   }
 
   await logAudit(

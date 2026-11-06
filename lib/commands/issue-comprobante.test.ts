@@ -12,10 +12,9 @@ const CLIENT = "00000000-0000-4000-8000-0000000000c1";
 let client: Record<string, unknown>;
 
 function respond(call: RecordedCall) {
-  if (call.op === "insert" && call.table === "invoices") {
-    return { data: { id: "new-invoice" }, error: null };
+  if (call.op === "rpc" && call.table === "create_invoice_draft") {
+    return { data: "new-invoice", error: null };
   }
-  if (call.op === "insert") return { data: null, error: null };
   switch (call.table) {
     case "invoicing_channels":
       return {
@@ -110,7 +109,9 @@ describe("issueComprobante with the identity a proposal showed", () => {
       error:
         "El CUIT o la condición de IVA del cliente cambiaron desde la propuesta. Volvé a generarla.",
     });
-    expect(fake.calls.some((c) => c.op === "insert")).toBe(false);
+    expect(fake.calls.some((c) => c.table === "create_invoice_draft")).toBe(
+      false,
+    );
     expect(send).not.toHaveBeenCalled();
   });
 

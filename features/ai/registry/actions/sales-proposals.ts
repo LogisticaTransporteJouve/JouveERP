@@ -10,11 +10,7 @@ import {
   type Client,
 } from "@/features/clients/schema";
 import { isoDate } from "@/features/exchange-rates/schema";
-import {
-  getInvoiceDetailAction,
-  listEnabledPosAction,
-  listInvoicingChannelsAction,
-} from "@/features/invoices/actions/invoices-actions";
+import { getInvoiceDetailAction } from "@/features/invoices/actions/invoices-actions";
 import { getInvoiceEmailDefaultsAction } from "@/features/invoices/actions/send-invoice-email";
 import {
   type ComprobanteItemInput,
@@ -51,7 +47,8 @@ import {
 import type { AiPrepareResult } from "../propose";
 import { defineAiProposal } from "../propose";
 
-import { MAX_CANDIDATES, norm, resolveClient } from "./resolve-client";
+import { resolveIssuePoint } from "./issue-refs";
+import { resolveClient } from "./resolve-client";
 
 // Ventas: clients, comprobantes and their emails, proposed on a card and
 // written on accept through the same lib/commands function the feature's
@@ -361,62 +358,9 @@ export const proposeInvoice = defineAiProposal({
     if (!found.ok) return found.result;
     const client = found.client;
 
-    const channels = await listInvoicingChannelsAction();
-    if (!channels.ok) return { kind: "error", error: channels.error };
-    const sideChannels = channels.data.filter(
-      (c) => c.is_fiscal === client.is_fiscal,
-    );
-    const wanted = input.channel ? norm(input.channel) : null;
-    const matching = wanted
-      ? sideChannels.filter(
-          (c) => c.id === input.channel || norm(c.name) === wanted,
-        )
-      : sideChannels;
-    if (matching.length === 0) {
-      return {
-        kind: "error",
-        error: client.is_fiscal
-          ? "No hay un canal de Ventas activo para emitir."
-          : "No hay un canal de Otras ventas activo para emitir.",
-      };
-    }
-    if (matching.length > 1) {
-      return issue(
-        "channel",
-        "Hay más de un canal: ¿por cuál emito?",
-        matching
-          .slice(0, MAX_CANDIDATES)
-          .map((c) => ({ value: c.id, label: c.name })),
-      );
-    }
-    const channel = matching[0]!;
-
-    const pos = await listEnabledPosAction(channel.id);
-    if (!pos.ok) return { kind: "error", error: pos.error };
-    const posPick =
-      input.punto_venta !== undefined
-        ? pos.data.find((p) => p.numero === input.punto_venta)
-        : pos.data.length === 1
-          ? pos.data[0]
-          : undefined;
-    if (!posPick) {
-      if (pos.data.length === 0) {
-        return {
-          kind: "error",
-          error: `No hay puntos de venta habilitados para ${channel.name}.`,
-        };
-      }
-      return issue(
-        "punto_venta",
-        input.punto_venta !== undefined
-          ? `El punto de venta ${input.punto_venta} no está habilitado para ${channel.name}.`
-          : "Hay más de un punto de venta: ¿cuál uso?",
-        pos.data.slice(0, MAX_CANDIDATES).map((p) => ({
-          value: String(p.numero),
-          label: p.nickname ? `${p.numero} · ${p.nickname}` : String(p.numero),
-        })),
-      );
-    }
+    const point = await resolveIssuePoint(client, input);
+    if (!point.ok) return point.result;
+    const { channel, puntoVenta } = point.value;
 
     const isFiscal = channel.is_fiscal;
     if (isFiscal && !client.iva_condition) {
@@ -442,7 +386,7 @@ export const proposeInvoice = defineAiProposal({
           isFiscal && client.iva_condition
             ? letterFor(client.iva_condition)
             : null,
-        punto_venta: posPick.numero,
+        punto_venta: puntoVenta,
         fecha,
         fch_serv_desde: fecha,
         fch_serv_hasta: fecha,

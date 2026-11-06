@@ -13,7 +13,9 @@ const changeShipmentStatus = vi.fn();
 const createFuelLoad = vi.fn();
 const saveVehicleKmReading = vi.fn();
 const listFreightSettlementCandidatesAction = vi.fn();
+const getFreightSettlementAction = vi.fn();
 const saveFreightSettlement = vi.fn();
+const confirmFreightSettlement = vi.fn();
 const userDb = { kind: "user-client" };
 const serviceDb = { kind: "service-client" };
 
@@ -35,10 +37,16 @@ vi.mock("@/features/vehicle-km/actions/vehicle-km-actions", () => ({
 }));
 vi.mock(
   "@/features/freight-settlements/actions/freight-settlements-actions",
-  () => ({ listFreightSettlementCandidatesAction }),
+  () => ({
+    getFreightSettlementAction,
+    listFreightSettlementCandidatesAction,
+  }),
 );
 vi.mock("@/lib/commands/save-freight-settlement", () => ({
   saveFreightSettlement,
+}));
+vi.mock("@/lib/commands/confirm-freight-settlement", () => ({
+  confirmFreightSettlement,
 }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: async () => userDb }));
 vi.mock("@/lib/supabase/service", () => ({
@@ -59,6 +67,7 @@ vi.mock("@/lib/commands/save-vehicle-km-reading", () => ({
 
 const {
   proposeFreightSettlement,
+  proposeFreightSettlementConfirm,
   proposeFuelLoad,
   proposeMaintenance,
   proposeShipment,
@@ -440,5 +449,114 @@ describe("proposeFreightSettlement", () => {
     );
     expect(prepared?.kind).toBe("error");
     expect(saveFreightSettlement).not.toHaveBeenCalled();
+  });
+});
+
+describe("proposeFreightSettlementConfirm", () => {
+  const finance = { userId: "u1", access: resolveAccess(["finance"]) };
+  const SETTLEMENT = "00000000-0000-4000-8000-0000000000e1";
+  const A = "00000000-0000-4000-8000-0000000000b1";
+  const B = "00000000-0000-4000-8000-0000000000b2";
+  const detail = (over: Record<string, unknown> = {}) => ({
+    ok: true,
+    data: {
+      id: SETTLEMENT,
+      client_id: CLIENT,
+      client_name: "Acme SA",
+      client_is_fiscal: true,
+      period_start: "2026-10-01",
+      period_end: "2026-10-31",
+      status: "draft",
+      total: 250_000,
+      items: [
+        { shipment_id: A, remito_number: "R-1" },
+        { shipment_id: B, remito_number: "R-2" },
+      ],
+      ...over,
+    },
+  });
+  const priced = (a: number | null, b: number | null) => ({
+    ok: true,
+    data: [
+      { shipment_id: A, amount: a },
+      { shipment_id: B, amount: b },
+    ],
+  });
+
+  it("shows the total the confirm will price and passes it to the command", async () => {
+    getFreightSettlementAction.mockResolvedValue(detail());
+    // A tariff changed since the draft was saved: B is priced at 160.000 now.
+    listFreightSettlementCandidatesAction.mockResolvedValue(
+      priced(100_000, 160_000),
+    );
+    const prepared =
+      await proposeFreightSettlementConfirm.proposal?.prepareDraft(finance, {
+        settlement_id: SETTLEMENT,
+      });
+    if (prepared?.kind !== "draft") throw new Error("no draft");
+    expect(prepared.draft).toEqual({
+      id: SETTLEMENT,
+      expected_total: 260_000,
+    });
+    expect(listFreightSettlementCandidatesAction).toHaveBeenCalledWith(
+      expect.objectContaining({ settlement_id: SETTLEMENT }),
+    );
+    expect(prepared.summary).toContainEqual({
+      label: "Total",
+      value: "$ 260.000,00",
+    });
+    expect(prepared.summary.map((r) => r.label)).toContain("Atención");
+
+    confirmFreightSettlement.mockResolvedValue({
+      ok: true,
+      data: { channel: "fiscal", number: "R9002-00000007" },
+    });
+    const res = await proposeFreightSettlementConfirm.proposal?.executeDraft(
+      finance,
+      prepared.draft,
+    );
+    expect(confirmFreightSettlement).toHaveBeenCalledWith(
+      "u1",
+      SETTLEMENT,
+      260_000,
+    );
+    expect(res).toEqual({
+      ok: true,
+      data: { id: SETTLEMENT, note: "Remito R9002-00000007" },
+    });
+  });
+
+  it("refuses a carga with no price, an internal or a confirmed liquidación", async () => {
+    getFreightSettlementAction.mockResolvedValue(detail());
+    listFreightSettlementCandidatesAction.mockResolvedValue(
+      priced(100_000, null),
+    );
+    const unpriced =
+      await proposeFreightSettlementConfirm.proposal?.prepareDraft(finance, {
+        settlement_id: SETTLEMENT,
+      });
+    expect(unpriced).toMatchObject({ kind: "error" });
+
+    getFreightSettlementAction.mockResolvedValue(
+      detail({ client_is_fiscal: false }),
+    );
+    const internal =
+      await proposeFreightSettlementConfirm.proposal?.prepareDraft(finance, {
+        settlement_id: SETTLEMENT,
+      });
+    expect(internal).toMatchObject({ kind: "error" });
+
+    getFreightSettlementAction.mockResolvedValue(
+      detail({ status: "confirmed" }),
+    );
+    const confirmed =
+      await proposeFreightSettlementConfirm.proposal?.prepareDraft(finance, {
+        settlement_id: SETTLEMENT,
+      });
+    expect(confirmed).toMatchObject({
+      kind: "error",
+      error: "La liquidación ya está confirmada.",
+    });
+    expect(confirmFreightSettlement).not.toHaveBeenCalled();
   });
 });

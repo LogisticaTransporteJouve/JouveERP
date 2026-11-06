@@ -10,10 +10,10 @@ Ver [la decisión](../decisions/2026-11-04-cargas-y-liquidaciones-vinculo-de-fac
 - [x] **Una NC interna no libera una liquidación** (`20261104194000`).
 - [x] **Solo los períodos que re-vinculó la reserva llevan `storage.invoiced`
       con `relinked`** (`20261104194001`).
-- [ ] No verificado contra una base real: las dos migraciones y los pgTAP
+- [x] No verificado contra una base real: las dos migraciones y los pgTAP
       `carga_billing_link_w12`, `freight_settlements` (mensaje nuevo),
       `billing_links_w11`, `billing_claims` y los de margen de flota que
-      insertan cargas facturadas.
+      insertan cargas facturadas. — hecho: las migraciones están en producción (`production-latest`, `bbe08b38`) y su pgTAP corre verde en el job `database` de CI (`main` en `e239ee7`).
 - [ ] Hasta su próxima «Facturar flete», una carga con su factura fiscal
       acreditada por el total sigue apuntando a esa factura. Mientras tanto:
   - no entra en una liquidación (`guard_freight_settlement_item` y la lista

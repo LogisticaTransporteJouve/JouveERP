@@ -1,11 +1,12 @@
+import { z } from "zod";
+
 import { listAccountsAction } from "@/features/accounts/actions/accounts-actions";
 import type { Account } from "@/features/accounts/schema";
 import { searchEmployeesAction } from "@/features/hr/actions/employees-actions";
 import type { Employee } from "@/features/hr/schema";
-import type { ScopeSide } from "@/lib/scope";
 
 import { MAX_CANDIDATES, norm } from "./resolve-client";
-import { activeChannels, channelFor, type Resolved } from "./treasury-refs";
+import { activeChannels, type Resolved } from "./treasury-refs";
 
 // How a proposal's `prepare` turns what the user said (an employee, a
 // treasury account, "fiscal" / "interno") into the ids the form's schema
@@ -94,16 +95,57 @@ export async function resolveTreasuryAccount(
   );
 }
 
-/** The active invoicing channel of a side (fiscal / interno). */
+/** What a payroll or employee-account proposal takes as its channel: a side,
+ *  or the channel's name once the proposal asked which one. */
+export const HrChannelInput = z
+  .string()
+  .trim()
+  .min(1)
+  .max(80)
+  .describe(
+    "'fiscal' (en blanco) or 'internal' (interno); when the proposal asked " +
+      "which channel, the name the user picked.",
+  );
+
+/** The active invoicing channel the user said: its name, else the only
+ *  active one of a side ("fiscal" / "internal" / "interno"). Several on the
+ *  side, or a name that matches none, become a question with the channels. */
 export async function resolveChannel(
-  side: ScopeSide,
+  said: string,
 ): Promise<Resolved<{ id: string; name: string }>> {
   const channels = await activeChannels();
   if (!channels.ok) return channels;
-  const channel = channelFor(channels.value, side);
-  if (!channel.ok) return channel;
-  return {
-    ok: true,
-    value: { id: channel.value.id, name: channel.value.name },
-  };
+  const q = norm(said);
+  const named = channels.value.filter(
+    (c) => norm(c.id) === q || norm(c.name) === q,
+  );
+  const fiscal =
+    q === "fiscal" ? true : q === "internal" || q === "interno" ? false : null;
+  const pool =
+    named.length > 0 || fiscal === null
+      ? named
+      : channels.value.filter((c) => c.is_fiscal === fiscal);
+  const [only] = pool;
+  if (only && pool.length === 1) {
+    return { ok: true, value: { id: only.id, name: only.name } };
+  }
+  if (pool.length === 0 && fiscal !== null) {
+    return {
+      ok: false,
+      result: {
+        kind: "error",
+        error: `No hay un canal ${fiscal ? "fiscal" : "interno"} activo.`,
+      },
+    };
+  }
+  return ask(
+    "channel",
+    pool.length === 0
+      ? `No hay un canal activo que coincida con "${said}".`
+      : "Hay más de un canal activo: ¿por cuál va?",
+    (pool.length ? pool : channels.value).map((c) => ({
+      value: c.name,
+      label: `${c.name} · ${c.is_fiscal ? "fiscal" : "interno"}`,
+    })),
+  );
 }

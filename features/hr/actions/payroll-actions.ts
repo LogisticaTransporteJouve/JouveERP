@@ -254,12 +254,14 @@ export async function seedPayrollPeriodAction(
   }
 
   const supabase = await createSupabaseClient();
-  const { data, error } = await supabase.rpc("seed_payroll_period", {
-    p_year: parsed.data.year,
-    p_month: parsed.data.month,
-  });
+  const { data, error } = await supabase
+    .rpc("create_payroll_period", {
+      p_year: parsed.data.year,
+      p_month: parsed.data.month,
+    })
+    .maybeSingle();
 
-  if (error) {
+  if (error || !data) {
     return {
       ok: false,
       error: dbErrorMessage(
@@ -269,13 +271,16 @@ export async function seedPayrollPeriodAction(
       ),
     };
   }
-  await logAudit(
-    "payroll.period_created",
-    ctx.userId,
-    { year: parsed.data.year, month: parsed.data.month },
-    data ?? undefined,
-  );
-  return { ok: true, data: { period_id: data ?? "" } };
+  // An existing planilla is opened as is: only a new one is audited.
+  if (data.created) {
+    await logAudit(
+      "payroll.period_created",
+      ctx.userId,
+      { year: parsed.data.year, month: parsed.data.month },
+      data.period_id,
+    );
+  }
+  return { ok: true, data: { period_id: data.period_id } };
 }
 
 export async function seedSacPeriodAction(
@@ -292,10 +297,12 @@ export async function seedSacPeriodAction(
   }
 
   const supabase = await createSupabaseClient();
-  const { data, error } = await supabase.rpc("seed_sac_period", {
-    p_year: parsed.data.year,
-    p_half: parsed.data.half,
-  });
+  const { data, error } = await supabase
+    .rpc("create_sac_period", {
+      p_year: parsed.data.year,
+      p_half: parsed.data.half,
+    })
+    .maybeSingle();
 
   if (error || !data) {
     return {
@@ -307,13 +314,15 @@ export async function seedSacPeriodAction(
       ),
     };
   }
-  await logAudit(
-    "payroll.sac_period_created",
-    ctx.userId,
-    { year: parsed.data.year, half: parsed.data.half },
-    data,
-  );
-  return { ok: true, data: { period_id: data } };
+  if (data.created) {
+    await logAudit(
+      "payroll.sac_period_created",
+      ctx.userId,
+      { year: parsed.data.year, half: parsed.data.half },
+      data.period_id,
+    );
+  }
+  return { ok: true, data: { period_id: data.period_id } };
 }
 
 export async function addMissingPayrollEntriesAction(

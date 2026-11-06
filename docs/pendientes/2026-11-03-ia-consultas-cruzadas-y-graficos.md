@@ -14,17 +14,17 @@
       desde el resultado de gestión.
 - [x] **Gráficos:** barras apiladas, formato km, `dataset` para elegir la
       lista; `getManagementPnL` con `byMonth`.
-- [ ] Aprobar la migración `20261103150000_ai_cross_queries` junto con el
+- [x] Aprobar la migración `20261103150000_ai_cross_queries` junto con el
       deploy: sin ella fallan `getClientMargin`, `getVehicleEconomics` y
-      `getDriverActivity`.
+      `getDriverActivity`. — hecho: aplicada en producción (está en `production-latest`, `bbe08b38`).
 - [x] **Costos de camión sin vínculo:** `getVehicleEconomics` suma el
       costo del centro de costo del camión (`get_vehicle_margin`,
       `20261104050000`); falta vincular cada camión con su centro (dato, ver
       "Margen por camión").
 - [x] `ai_fleet_margin` cuenta viajes cancelados (su costo y su ingreso
       manual); las RPC nuevas de actividad los excluyen. Alinear.
-- [ ] Rendiciones por chofer (diferencias de cobranza contra entrega) en
-      `getDriverActivity`.
+- [x] Rendiciones por chofer (diferencias de cobranza contra entrega) en
+      `getDriverActivity`. — hecho: `getDriverActivity` trae las rendiciones pendientes y las confirmadas con su diferencia (`features/ai/registry/actions/cross.ts:785-813`).
 - [x] "Días de pago" va a `getClientPaymentBehavior`: `getClientSalesSummary` ya no
       ofrece días promedio de cobro en su descripción y deriva esas preguntas; casos de
       routing nuevos (días de pago, quién tarda más, facturado por cliente).

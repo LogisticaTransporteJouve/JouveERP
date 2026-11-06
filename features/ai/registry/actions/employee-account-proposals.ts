@@ -23,6 +23,7 @@ import {
 import { defineAiProposal, type AiPrepareResult } from "../propose";
 
 import {
+  HrChannelInput,
   resolveChannel,
   resolveEmployee,
   resolveTreasuryAccount,
@@ -133,7 +134,7 @@ export const proposeEmployeeAccountCash = defineAiProposal({
       .min(1)
       .max(120)
       .describe("Cash or bank account, as the user said it."),
-    channel: z.enum(CHANNEL_SIDES),
+    channel: HrChannelInput,
     date: isoDate.optional().describe("Default today."),
     description: z.string().trim().max(200).optional(),
     installment_amount: money

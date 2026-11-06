@@ -23,7 +23,7 @@
 - [ ] `journal_missing_entries` no lista los asientos de cheques propios: un
       cheque propio en USD cobrado sin cotización ese día queda sin asiento
       y sin aviso en el paquete mensual.
-- [ ] pgTAP verde en CI (stack fresco: `payment_order_rejected_endorsed_checks`,
+- [x] pgTAP verde en CI (stack fresco: `payment_order_rejected_endorsed_checks`,
       `loan_liability`, `issued_checks_manual_cashing`,
       `late_interest_emitted_nc`); sin verificar contra datos de producción:
-      las migraciones.
+      las migraciones. — hecho: las migraciones están en producción (`production-latest`, `bbe08b38`) y su pgTAP corre verde en el job `database` de CI (`main` en `e239ee7`).

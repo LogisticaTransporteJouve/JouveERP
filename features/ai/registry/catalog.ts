@@ -71,7 +71,13 @@ import {
   getVehicleUsage,
 } from "./actions/fleet-detail";
 import {
+  proposeDriverSettlement,
+  proposeDriverSettlementConfirm,
+  proposeDriverSettlementDifference,
+} from "./actions/driver-settlement-proposals";
+import {
   proposeFreightSettlement,
+  proposeFreightSettlementConfirm,
   proposeFuelLoad,
   proposeMaintenance,
   proposeShipment,
@@ -80,6 +86,7 @@ import {
   proposeVehicleKm,
 } from "./actions/fleet-proposals";
 import { getAttachments, searchFiles } from "./actions/general";
+import { proposeStorageInvoice } from "./actions/storage-proposals";
 import { searchGuide } from "./actions/guide";
 import {
   proposeAttendance,
@@ -224,6 +231,7 @@ export const AI_ACTIONS: readonly AiAction[] = [
   proposeReceiptEmail,
   getFreightSettlements,
   proposeFreightSettlement,
+  proposeFreightSettlementConfirm,
   // Compras / cuentas por pagar
   getSupplierAging,
   getPurchaseInvoices,
@@ -259,6 +267,9 @@ export const AI_ACTIONS: readonly AiAction[] = [
   proposeManualCheck,
   proposeCheckDeposit,
   proposeIssuedCheck,
+  proposeDriverSettlement,
+  proposeDriverSettlementConfirm,
+  proposeDriverSettlementDifference,
   // Contabilidad
   getTrialBalance,
   getLedger,
@@ -343,6 +354,7 @@ export const AI_ACTIONS: readonly AiAction[] = [
   getStorageTariffs,
   getStorageBilling,
   getStorageBillingRuns,
+  proposeStorageInvoice,
   getClientTariffs,
   proposeClientTariff,
   // AFIP

@@ -14,10 +14,10 @@ Ver [la decisión](../decisions/2026-11-04-tesoreria-vinculos-de-facturacion-aud
 - [x] **El re-vínculo de otro período o canal deja su `storage.invoiced`**.
 - [x] **«Facturar almacenaje» ofrece solo los canales del lado del
       cliente** y preselecciona el único.
-- [ ] No verificado contra una base real: las tres migraciones y los pgTAP
+- [x] No verificado contra una base real: las tres migraciones y los pgTAP
       `billing_links_w11`, `treasury_loan_storage_w10` (mensaje nuevo),
       `management_cash_checks` (desactiva `checks_guard_import_run` para su
-      cheque importado a mano) y los demás que escriben estas tablas.
+      cheque importado a mano) y los demás que escriben estas tablas. — hecho: las migraciones están en producción (`production-latest`, `bbe08b38`) y su pgTAP corre verde en el job `database` de CI (`main` en `e239ee7`).
 - [ ] `storage_billing_void_run_ids` devuelve hasta `max_rows` (1000) filas
       sin paginar. Si se pasara, un período con NC total figuraría facturado
       en el diálogo; la reserva igual lo libera. Hoy no llega ni cerca: la

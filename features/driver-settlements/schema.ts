@@ -282,6 +282,16 @@ export type DriverSettlementSaveInput = z.input<
 
 export const DriverSettlementIdSchema = z.object({ id: z.string().uuid() });
 
+const settlementTotal = z.number().finite().min(0).max(999_999_999_999.99);
+
+/** Confirming a draft at the totals it showed (an assistant proposal): the
+ *  confirm is refused if what the driver had to collect or handed in is
+ *  another amount by then. */
+export const DriverSettlementConfirmSchema = DriverSettlementIdSchema.extend({
+  expected_total: settlementTotal,
+  received_total: settlementTotal,
+});
+
 /** Mirrors driver_settlements.difference_charged_to. */
 export const DIFFERENCE_CHARGED_TO = ["driver", "client"] as const;
 export type DifferenceChargedTo = (typeof DIFFERENCE_CHARGED_TO)[number];

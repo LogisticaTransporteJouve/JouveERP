@@ -28,5 +28,5 @@
       compras y NC/ND también es `MoneyInput` (4 decimales,
       `numeric(10, 4)`), se precarga en es-AR (edición, cotización cargada
       del día y documento escaneado) y se lee con `parseUsdRate`.
-- [ ] Sin migraciones. Rollback: el código anterior vuelve al campo sin
-      formato; los saldos ya guardados no cambian.
+- [x] Sin migraciones. Rollback: el código anterior vuelve al campo sin
+      formato; los saldos ya guardados no cambian. — ya no aplica: el cambio ya está en `production-latest` (`bbe08b38`).

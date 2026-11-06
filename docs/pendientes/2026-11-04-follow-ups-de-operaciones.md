@@ -20,17 +20,17 @@
       del cliente; las tarifas de cliente de `storage_tariffs` que facturan
       igual pasan al tarifario.
 - [x] **IA:** `getFreightSettlements` y `getDriverSettlements` (lectura).
-- [ ] Aprobar las migraciones `20261104080000`–`20261104080500` junto con el
+- [x] Aprobar las migraciones `20261104080000`–`20261104080500` junto con el
       deploy (después de `20261104030000`): sin ellas fallan el listado de
       rendiciones (columna `driver_settlement_id`), `/aging/mora`
       (`balance_days`), las ventas de cheques (`status`), las tarifas de
       almacenaje (`area_id`, `migrated_to_client_tariffs_at`), el historial de
-      bloqueos y el envío de liquidaciones por email.
+      bloqueos y el envío de liquidaciones por email. — hecho: aplicadas en producción (están en `production-latest`, `bbe08b38`).
 - [ ] pgTAP verde en CI (stack fresco: `driver_settlement_differences`,
       `check_sale_followups`, `late_interest_proration`, `deposit_followups`,
       `storage_tariffs_to_client_tariffs`); sin verificar contra datos de
       producción ni en el navegador: las migraciones y las pantallas.
-- [ ] Rollback: el código anterior factura una tarifa general por área como
+- [x] Rollback: el código anterior factura una tarifa general por área como
       general de todas las áreas (no cargarlas hasta que el deploy quede
       firme) y cobra la mora sobre el saldo de hoy. No edita las tarifas
-      migradas ni cierra bien con "Aumentar %": ver "Límites de rollback".
+      migradas ni cierra bien con "Aumentar %": ver "Límites de rollback". — ya no aplica: las migraciones están en `production-latest` (`bbe08b38`): un rollback vuelve a un SHA que ya tiene ese código.

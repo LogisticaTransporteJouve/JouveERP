@@ -7,13 +7,13 @@ que ya tiene el texto corregido.
 
 ## Encabezados de migraciones mergeadas (w12 S7 F2)
 
-- [ ] **`20261104190201_purchase_nc_nd_follow_factura_edit`** (líneas 25-26).
+- [x] **`20261104190201_purchase_nc_nd_follow_factura_edit`** (líneas 25-26).
       Dice "older code writes the same columns; the NC/ND follow". No es así:
       `updatePurchaseInvoiceAction` de `production-latest` no manda
       `account_id` ni `cost_center_id`, y el trigger es `after update of
-      account_id, cost_center_id`. Con el código anterior el trigger no corre
-      y ninguna NC/ND se mueve. El rollback no cambia nada.
-- [ ] **`20261104190300_shipment_invoice_link_guard`** (líneas 33-36). Dice
+    account_id, cost_center_id`. Con el código anterior el trigger no corre
+      y ninguna NC/ND se mueve. El rollback no cambia nada. — ya no aplica: `production-latest` (`bbe08b38`) ya tiene esa migración y su código: un rollback no vuelve al código que describe la nota.
+- [x] **`20261104190300_shipment_invoice_link_guard`** (líneas 33-36). Dice
       que el próximo «Facturar flete» emite «under the next key». El
       `issueFreightInvoice` de `production-latest` no manda clave de
       idempotencia, así que `issueFiscalInvoiceAction` usa una al azar
@@ -22,11 +22,11 @@ que ya tiene el texto corregido.
       reserva de 15 minutos sí es correcta. El mismo texto («emite con la
       clave siguiente») está en el párrafo de rollback de
       [`2026-11-04-tesoreria-vinculos-de-facturacion-auditoria-w11.md`](../decisions/2026-11-04-tesoreria-vinculos-de-facturacion-auditoria-w11.md):
-      vale para `main`, no para `production-latest`.
-- [ ] **`20261104190302_check_import_run_guard`** (líneas 31-32). Dice "older
+      vale para `main`, no para `production-latest`. — ya no aplica: `production-latest` (`bbe08b38`) ya tiene esa migración y su código: un rollback no vuelve al código que describe la nota.
+- [x] **`20261104190302_check_import_run_guard`** (líneas 31-32). Dice "older
       code writes the column only through commit_import_run".
       `production-latest` no tiene importador (`commit_import_run` nace en
-      `20261103110000`) y nunca escribe `checks.import_run_id`.
+      `20261103110000`) y nunca escribe `checks.import_run_id`. — ya no aplica: `production-latest` (`bbe08b38`) ya tiene esa migración y su código: un rollback no vuelve al código que describe la nota.
 - `20261104190200`: el ítem de `antes-de-promover.md` decía que el código
   anterior lee las filas por nombre. `production-latest` no llama a
   `get_vehicle_margin`. Corregido ahí; el encabezado de la migración no lo

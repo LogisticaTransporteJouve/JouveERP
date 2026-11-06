@@ -21,5 +21,5 @@
       existente", y la IA no la cuenta como vencida ni por vencer.
 - [ ] Liquidación final de alguien sin sueldo base y sin planilla del mes
       anterior: sugiere $0 de sueldo, como antes; se tipea a mano.
-- [ ] Sin migraciones. Rollback: el código anterior vuelve a los inputs sin
-      formato y a leer la línea del mes de baja; no hay datos que deshacer.
+- [x] Sin migraciones. Rollback: el código anterior vuelve a los inputs sin
+      formato y a leer la línea del mes de baja; no hay datos que deshacer. — ya no aplica: el cambio ya está en `production-latest` (`bbe08b38`).

@@ -16,7 +16,7 @@ Ver [la decisión](../decisions/2026-11-04-tesoreria-y-prestamos-escritos-por-su
 - [x] **Un movimiento en una cartera o ligado a un documento lo escribe su
       documento** (`20261104150003`).
 - [x] **«Nuevo cheque propio»** muestra el motivo de la guarda.
-- [ ] No verificado contra una base real: las cuatro migraciones y sus
+- [x] No verificado contra una base real: las cuatro migraciones y sus
       pgTAP. Son `treasury_loan_guards_w8` y los fixtures adaptados de
       `allocations_same_channel`, `channel_config`, `checks_channel`,
       `db_integrity_authz`, `fx_difference`, `journal_document_entry`,
@@ -24,7 +24,7 @@ Ver [la decisión](../decisions/2026-11-04-tesoreria-y-prestamos-escritos-por-su
       `otras_ventas_sides`, `receipt_retentions` y
       `rejected_check_receivable`. El test de integración
       `tests/integration/money-guards.test.ts` (con `RUN_INTEGRATION=1`)
-      ahora crea su recibo con `create_receipt`.
+      ahora crea su recibo con `create_receipt`. — hecho: las migraciones están en producción (`production-latest`, `bbe08b38`) y su pgTAP corre verde en el job `database` de CI (`main` en `e239ee7`).
 - [ ] Fuera de alcance, igual que en w7: las asignaciones de recibos y OP
       siguen abiertas a escritura directa bajo RLS.
 - [ ] Fuera de alcance: el ajuste de saldo inicial de una cuenta

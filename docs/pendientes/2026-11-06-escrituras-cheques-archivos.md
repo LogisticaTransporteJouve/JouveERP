@@ -3,9 +3,9 @@
 Migraciones: `20261106112826` (cheque cargado a mano en una sola función) y
 `20261106112827` (clave de importación de combustible).
 
-- [ ] **pgTAP sin correr en la sesión** (no había stack local):
+- [x] **pgTAP sin correr en la sesión** (no había stack local):
       `supabase/tests/create_manual_check_test.sql` corre en el job
-      `database` de CI.
+      `database` de CI. — hecho: corre verde en el job `database` de CI (`main` en `e239ee7`).
 - [ ] **Un POS habilitado por canal: la regla no es real.** El canal
       interno tiene dos habilitados desde siempre: el 1 (recibos y órdenes de
       pago) y el 9001 (remitos internos, `20261101190000`). Por eso no se

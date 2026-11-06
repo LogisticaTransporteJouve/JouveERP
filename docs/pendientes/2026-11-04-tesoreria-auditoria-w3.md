@@ -25,5 +25,5 @@
 - [ ] Un cheque propio USD de una OP que rebota vuelve en Caja en dólares;
       Gestión en percibido valúa la OP a su cotización y el ingreso a la del
       día del rechazo, así que queda la diferencia entre las dos.
-- [ ] No verificado contra una base real: la migración y su pgTAP
-      (`issued_check_rejection`, `supplier_rejected_checks`).
+- [x] No verificado contra una base real: la migración y su pgTAP
+      (`issued_check_rejection`, `supplier_rejected_checks`). — hecho: las migraciones están en producción (`production-latest`, `bbe08b38`) y su pgTAP corre verde en el job `database` de CI (`main` en `e239ee7`).

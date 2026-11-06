@@ -11,12 +11,12 @@
       las pestañas del importador. No generan asientos, pagos, cuenta
       corriente, extras de chofer ni facturas, y no entran en Gestión, libros
       fiscales, reportes ni IA.
-- [ ] Aprobar la migración `20261103110000_import_runs` junto con el deploy
+- [x] Aprobar la migración `20261103110000_import_runs` junto con el deploy
       (después de las de 4.4–4.6): sin ella falla la página del importador.
       Rollback: el código anterior ignora `import_run_id` y las tablas
-      nuevas; lo importado queda como un alta normal.
-- [ ] pgTAP verde en CI (stack fresco: `import_runs_test.sql`); sin verificar contra datos de
-      producción.
+      nuevas; lo importado queda como un alta normal. — hecho: aplicada en producción (está en `production-latest`, `bbe08b38`).
+- [x] pgTAP verde en CI (stack fresco: `import_runs_test.sql`); sin verificar contra datos de
+      producción. — hecho: las migraciones están en producción (`production-latest`, `bbe08b38`) y su pgTAP corre verde en el job `database` de CI (`main` en `e239ee7`).
 - [x] Importar tarifas, préstamos, cheques en cartera, saldos iniciales de
       clientes y extractos (5.3, 5.4): ver la sección siguiente.
 - [ ] Mostrar los históricos donde ayuden (ficha del empleado, del vehículo

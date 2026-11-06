@@ -16,16 +16,16 @@
       quedan vendidos, el neto entra en la cuenta y los intereses y comisiones
       van a Intereses pagados. Un vendido rechazado sale de la cuenta de la
       venta (o la elegida) y queda como deuda del firmante.
-- [ ] Aprobar las migraciones `20261103100000_storage_areas_lots_blocks`,
+- [x] Aprobar las migraciones `20261103100000_storage_areas_lots_blocks`,
       `20261103100100_late_interest` y `20261103100200_check_sales` junto con
       el deploy (después de las de 4.1–4.5): sin ellas fallan el listado de
       pallets (columnas nuevas), el tarifario, la facturación de almacenaje
-      (`area_id`), `/aging/mora` y la venta de cheques.
-- [ ] Rollback: el código anterior factura mal a un cliente con tarifas por
+      (`area_id`), `/aging/mora` y la venta de cheques. — hecho: aplicadas en producción (están en `production-latest`, `bbe08b38`).
+- [x] Rollback: el código anterior factura mal a un cliente con tarifas por
       área (las toma como si fueran de todas las áreas y se superponen), no
       lista los cheques vendidos (los descarta con un log) y no puede
       rechazar uno vendido. No cargar tarifas por área hasta que el deploy
-      quede firme.
+      quede firme. — ya no aplica: la migración está en `production-latest` (`bbe08b38`): un rollback vuelve a un SHA que ya tiene ese código.
 - [ ] Mora: tasa por comprobante o por condición de venta. Un comprobante
       que ya se pagó entero no aparece (sin saldo abierto): la mora de los
       días hasta ese pago no se puede cobrar desde `/aging/mora`.

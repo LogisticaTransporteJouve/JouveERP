@@ -19,5 +19,5 @@
       `accounting:write`, como el detalle.
 - [x] Conciliación no ofrece pagar una DDJJ de IVA que solo deja saldo a
       favor (`taxDocumentNeedsPayment`).
-- [ ] No verificado contra una base real: las migraciones y sus pgTAP
-      (`issued_check_pinned_to_order`, `management_rejected_check_op_shares`).
+- [x] No verificado contra una base real: las migraciones y sus pgTAP
+      (`issued_check_pinned_to_order`, `management_rejected_check_op_shares`). — hecho: las migraciones están en producción (`production-latest`, `bbe08b38`) y su pgTAP corre verde en el job `database` de CI (`main` en `e239ee7`).

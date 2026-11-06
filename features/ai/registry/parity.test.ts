@@ -504,6 +504,38 @@ const PROPOSAL_PARITY: Row[] = [
     fn: "payTaxDocumentAction",
     gate: all("taxes:write", "transactions:write"),
   },
+  {
+    tool: "proposeFreightSettlementConfirm",
+    file: "features/freight-settlements/actions/freight-settlements-actions.ts",
+    fn: "confirmFreightSettlementAction",
+    gate: all("invoices:issue"),
+  },
+  {
+    tool: "proposeStorageInvoice",
+    file: "features/storage-billing/actions/billing-actions.ts",
+    fn: "invoiceStorageAction",
+    gate: all("storage_billing:issue", "invoices:issue"),
+  },
+  {
+    tool: "proposeDriverSettlement",
+    file: "features/driver-settlements/actions/driver-settlements-actions.ts",
+    fn: "saveDriverSettlementAction",
+    gate: all("receipts:write"),
+  },
+  {
+    tool: "proposeDriverSettlementConfirm",
+    file: "features/driver-settlements/actions/driver-settlements-actions.ts",
+    fn: "confirmDriverSettlementAction",
+    gate: all("receipts:write"),
+  },
+  // Charging the driver also needs CHARGE_DRIVER_PERMISSIONS, which the
+  // proposal checks on the record (prepare and accept), as the action does.
+  {
+    tool: "proposeDriverSettlementDifference",
+    file: "features/driver-settlements/actions/driver-settlements-actions.ts",
+    fn: "postDriverSettlementDifferenceAction",
+    gate: all("receipts:write"),
+  },
 ];
 
 describe("proposal permission covers the page action's gate", () => {
