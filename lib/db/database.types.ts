@@ -10655,6 +10655,67 @@ export type Database = {
         Args: { p_limit?: number; p_period?: string }
         Returns: Json
       }
+      purchase_arca_reconciliation_detail: {
+        Args: { p_from: string; p_limit: number; p_to: string }
+        Returns: {
+          arca_moneda: string
+          arca_total: number
+          cbte_tipo: number
+          erp_moneda: string
+          erp_total: number
+          fecha: string
+          issue: string
+          issue_count: number
+          issuer_cuit: string
+          issuer_name: string
+          kind: string
+          letter: string
+          numero: number
+          punto_venta: number
+          purchase_invoice_id: string
+          voucher_id: string
+          voucher_status: string
+        }[]
+      }
+      purchase_arca_reconciliation_months: {
+        Args: never
+        Returns: {
+          amount_mismatch: number
+          arca_count: number
+          arca_iva: number
+          arca_neto: number
+          arca_only: number
+          arca_total: number
+          arca_trib: number
+          arca_uncomparable: number
+          erp_count: number
+          erp_iva: number
+          erp_neto: number
+          erp_only: number
+          erp_total: number
+          erp_trib: number
+          month: string
+        }[]
+      }
+      purchase_arca_reconciliation_rows: {
+        Args: never
+        Returns: {
+          arca_comparable: boolean
+          arca_fecha: string
+          arca_iva: number
+          arca_neto: number
+          arca_total: number
+          arca_trib: number
+          erp_fecha: string
+          erp_iva: number
+          erp_neto: number
+          erp_total: number
+          erp_trib: number
+          purchase_invoice_id: string
+          totals_differ: boolean
+          voucher_id: string
+        }[]
+      }
       purchase_employee_charge_figure: {
         Args: { p: Database["public"]["Tables"]["purchase_invoices"]["Row"] }
         Returns: number

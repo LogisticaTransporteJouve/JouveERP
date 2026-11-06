@@ -2040,6 +2040,65 @@ export const purchasesPage: GuidePage = {
       ],
     },
 
+    // ── Conciliación con ARCA (compras) ───────────────────────────────────
+    {
+      id: "conciliacion-compras-arca",
+      title: "Conciliación con ARCA (compras)",
+      menuPath: "Compras › Compras › Recibidos de ARCA › Conciliación con ARCA",
+      routes: ["/purchases/arca/reconciliation"],
+      permission: "purchase_invoices:write",
+      intro: [
+        "Compara lo que ARCA lista como recibido (la bandeja de [[/purchases/arca]]) con las compras fiscales del ERP. Se llega con el botón {{Conciliación con ARCA}} de [[/purchases/arca]].",
+        "En ventas, ARCA numera cada tipo de comprobante sin saltos y alcanza con buscar huecos. En compras cada proveedor numera los suyos, así que se comparan uno por uno: mismo proveedor (CUIT), tipo, letra, punto de venta y número. Una compra cargada sin letra coincide con el comprobante de cualquier letra.",
+      ],
+      concepts: [
+        {
+          title: "La tabla por período",
+          body: [
+            "Una fila por año, con la flecha para abrir sus meses. Cada período muestra tres renglones: {{ARCA}}, {{ERP}} y {{Diferencia}} (ARCA menos ERP), con {{Cantidad}}, {{Neto gravado}}, {{IVA}}, {{Otros tributos}} y {{Total}}. Cuando los dos lados coinciden, la diferencia dice «—».",
+            "Los importes están en pesos: los comprobantes en dólares se pasan a pesos con la cotización de cada uno. Las notas de crédito restan.",
+            "Del lado de ARCA no cuentan los comprobantes descartados en la bandeja; del lado del ERP, las compras anuladas ni las de otras compras (canal interno). Un comprobante de ARCA cuyos importes no se pudieron leer, o de un tipo que no se carga solo, suma en {{Cantidad}} pero no en los importes; el detalle del período lo avisa.",
+            "Cada lado cuenta por su propia fecha: si la compra se cargó con otra fecha que la de ARCA, la diferencia de un mes se compensa en el otro.",
+          ],
+        },
+        {
+          title: "Los comprobantes del período",
+          body: [
+            "Al hacer clic en un año o un mes, abajo aparecen sus comprobantes en tres listas:",
+            "{{En ARCA y no en el ERP}}: ARCA los lista y no hay compra fiscal con ese proveedor, tipo, letra, punto de venta y número. {{Ver en la bandeja}} abre [[/purchases/arca]] en la pestaña donde está el comprobante, para aceptarlo o descartarlo.",
+            "{{En el ERP y no en ARCA}}: compras fiscales que ARCA no lista como recibidas (o cuyo comprobante se descartó en la bandeja). Puede ser un número mal tipeado, una factura que el proveedor no informó, o un mes que todavía no se trajo de ARCA. {{Ver compra}} abre la compra.",
+            "{{Con importes distintos}}: están en los dos lados pero el total difiere en más de $ 0,01 (en la moneda del comprobante). {{Ver compra}} abre la compra para corregirla.",
+            "Cada lista muestra hasta 200 comprobantes, los más recientes; si hay más lo dice al pie y conviene elegir un mes.",
+          ],
+        },
+      ],
+      tasks: [
+        {
+          id: "conciliar-compras-con-arca",
+          title: "Ver qué compras faltan o difieren con ARCA",
+          permission: "purchase_invoices:write",
+          prerequisites: [
+            "Los comprobantes del período traídos de ARCA a la bandeja: ver [[#traer-recibidos-de-arca]].",
+          ],
+          steps: [
+            "En [[/purchases/arca]], hacé clic en {{Conciliación con ARCA}}.",
+            "En la tabla, buscá un período cuya {{Diferencia}} no diga «—» y hacé clic en el año o, con la flecha, abrí los meses y hacé clic en el mes.",
+            "Revisá las tres listas de abajo y abrí cada comprobante con {{Ver en la bandeja}} o {{Ver compra}}.",
+          ],
+          after: [
+            "Lo que aceptes o corrijas cambia la conciliación: al volver a la página, la tabla y las listas ya lo reflejan.",
+          ],
+          related: ["recibidos-de-arca", "aceptar-comprobante-de-arca"],
+          keywords: [
+            "conciliar compras",
+            "compras vs arca",
+            "faltan compras",
+            "mis comprobantes recibidos",
+          ],
+        },
+      ],
+    },
+
     // ── Órdenes de pago ───────────────────────────────────────────────────
     {
       id: "ordenes-de-pago",

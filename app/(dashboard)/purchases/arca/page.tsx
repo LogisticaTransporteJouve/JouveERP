@@ -1,3 +1,5 @@
+import { Scale } from "lucide-react";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { PageSideProvider } from "@/components/providers/scope-provider";
@@ -9,6 +11,8 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
+import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
 import {
   getReceivedVoucherCountsAction,
   listReceivedVouchersAction,
@@ -16,6 +20,7 @@ import {
 import { ArcaReceivedTray } from "@/features/purchase-invoices/components/arca-received-tray";
 import { ARCA_BULK_ACCEPT_PERMISSIONS } from "@/features/purchase-invoices/lib/arca-bulk-accept";
 import { arcaReceivedKeys } from "@/features/purchase-invoices/lib/purchase-invoices-keys";
+import { isReceivedVoucherStatus } from "@/features/purchase-invoices/schema";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan, userCanAll } from "@/lib/auth/permissions";
 import { Hydrate } from "@/lib/query/hydrate";
@@ -26,16 +31,23 @@ export const dynamic = "force-dynamic";
 
 const FIRST_PAGE: { fecha: string; id: string } | null = null;
 
-export default async function ArcaReceivedPage() {
+export default async function ArcaReceivedPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | undefined>>;
+}) {
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "purchase_invoices:write")) {
     redirect("/purchases");
   }
+  // The tab to open: the Conciliación links a voucher to its tab.
+  const { estado } = await searchParams;
+  const status = isReceivedVoucherStatus(estado) ? estado : "pending_review";
 
   const dehydratedState = await prefetchQueries([
     {
       infinite: true,
-      queryKey: arcaReceivedKeys.list("pending_review"),
+      queryKey: arcaReceivedKeys.list(status),
       queryFn: ({
         pageParam,
       }: {
@@ -43,7 +55,7 @@ export default async function ArcaReceivedPage() {
       }) =>
         runAction(() =>
           listReceivedVouchersAction({
-            status: "pending_review",
+            status,
             cursor: pageParam,
           }),
         ),
@@ -69,17 +81,21 @@ export default async function ArcaReceivedPage() {
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
-        <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Recibidos de ARCA
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Los comprobantes que tus proveedores informaron a ARCA. Aceptá cada
-            uno para cargarlo como compra, o descartalo si no corresponde.
-          </p>
-        </div>
+        <PageHeader
+          title="Recibidos de ARCA"
+          description="Los comprobantes que tus proveedores informaron a ARCA. Aceptá cada uno para cargarlo como compra, o descartalo si no corresponde."
+          actions={
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/purchases/arca/reconciliation">
+                <Scale />
+                Conciliación con ARCA
+              </Link>
+            </Button>
+          }
+        />
         <Hydrate state={dehydratedState}>
           <ArcaReceivedTray
+            initialStatus={status}
             canBulkAccept={userCanAll(ctx.access, ARCA_BULK_ACCEPT_PERMISSIONS)}
           />
         </Hydrate>

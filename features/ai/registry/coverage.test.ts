@@ -45,6 +45,7 @@ const PAGE_TOOLS: Record<string, readonly string[]> = {
   "/purchases": ["getPurchaseInvoices"],
   "/purchases/[id]": ["getPurchaseInvoiceDetail"],
   "/purchases/arca": ["getArcaReceivedVouchers"],
+  "/purchases/arca/reconciliation": ["getArcaPurchaseReconciliation"],
   "/payment-orders": ["getPaymentOrders"],
   "/payment-orders/[id]": ["getPaymentOrderDetail"],
   "/aging-suppliers": ["getSupplierAging", "getSupplierUpcomingDues"],

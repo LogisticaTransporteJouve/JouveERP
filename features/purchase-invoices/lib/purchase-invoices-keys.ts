@@ -57,4 +57,7 @@ export const arcaReceivedKeys = {
   counts: () => [...arcaReceivedKeys.all, "counts"] as const,
   syncStatus: () => [...arcaReceivedKeys.all, "sync_status"] as const,
   bulkAccept: () => [...arcaReceivedKeys.all, "bulk_accept"] as const,
+  reconciliation: () => [...arcaReceivedKeys.all, "reconciliation"] as const,
+  reconciliationDetail: (period: string) =>
+    [...arcaReceivedKeys.reconciliation(), period] as const,
 };

@@ -2,6 +2,15 @@ import { z } from "zod";
 
 import { listPaymentOrdersAction } from "@/features/payment-orders/actions/payment-orders-actions";
 import { listReceivedVouchersAction } from "@/features/purchase-invoices/actions/arca-received-actions";
+import {
+  getArcaReconciliationDetailAction,
+  getArcaReconciliationMonthsAction,
+} from "@/features/purchase-invoices/actions/arca-reconciliation-actions";
+import {
+  ReconciliationPeriodSchema,
+  groupByYear,
+  periodReconciled,
+} from "@/features/purchase-invoices/lib/arca-reconciliation";
 import { RECEIVED_VOUCHER_STATUSES } from "@/features/purchase-invoices/schema";
 import { searchPurchaseInvoicesAction } from "@/features/purchase-invoices/actions/purchase-invoices-actions";
 import { listSupplierCategoriesAction } from "@/features/supplier-categories/actions/supplier-categories-actions";
@@ -326,6 +335,51 @@ export const getSupplierCategories = defineAiAction({
     const res = await listSupplierCategoriesAction();
     if (!res.ok) return errResult(res.error);
     return okResult(`${res.data.length} categorías de proveedores.`, res.data);
+  },
+});
+
+export const getArcaPurchaseReconciliation = defineAiAction({
+  name: "getArcaPurchaseReconciliation",
+  domain: "compras",
+  // Same gate as the page and the tray: whoever loads purchases.
+  permission: "purchase_invoices:write",
+  sideEffect: "read",
+  sources: ["arca_received_vouchers", "purchase_invoices", "suppliers"],
+  description:
+    "Conciliación de compras con ARCA: lo que ARCA lista como recibido (sin los descartados) contra las compras fiscales del ERP (sin anuladas ni otras compras), por año y mes: cantidad, neto gravado, IVA, otros tributos y total de cada lado, en ARS (USD a su cotización, NC restan), y cuántos comprobantes están solo en ARCA, solo en el ERP o con total distinto. Con period (año 'AAAA' o mes 'AAAA-MM') trae además esos comprobantes (hasta 200 por lista). Para '¿coinciden mis compras con ARCA?', '¿qué facturas de ARCA no cargué en octubre?'.",
+  input: z.object({
+    period: ReconciliationPeriodSchema.nullish().describe(
+      "Año 'AAAA' o mes 'AAAA-MM' para listar los comprobantes con diferencias; sin él, solo los totales.",
+    ),
+  }),
+  run: async (_ctx, input) => {
+    const months = await getArcaReconciliationMonthsAction();
+    if (!months.ok) return errResult(months.error);
+    const years = groupByYear(months.data);
+    const withDiffs = years.filter((y) => !periodReconciled(y)).length;
+    const summary = `${years.length} años con comprobantes; ${withDiffs} con diferencias (importes en ARS).`;
+    if (!input.period) return okResult(summary, years);
+    const detail = await getArcaReconciliationDetailAction({
+      period: input.period,
+    });
+    if (!detail.ok) return errResult(detail.error);
+    const d = detail.data;
+    const partial =
+      d.arca_only.count > d.arca_only.rows.length ||
+      d.erp_only.count > d.erp_only.rows.length ||
+      d.amount_mismatch.count > d.amount_mismatch.rows.length;
+    return okResult(
+      `${summary} En ${input.period}: ${d.arca_only.count} solo en ARCA, ${d.erp_only.count} solo en el ERP, ${d.amount_mismatch.count} con total distinto.`,
+      {
+        period: years
+          .flatMap((y) => [y, ...y.months])
+          .find((p) => p.period === input.period),
+        arcaOnly: d.arca_only.rows,
+        erpOnly: d.erp_only.rows,
+        amountMismatch: d.amount_mismatch.rows,
+      },
+      { partial },
+    );
   },
 });
 

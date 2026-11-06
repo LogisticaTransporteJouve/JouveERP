@@ -421,11 +421,13 @@ function uploadSummary(r: {
 
 export function ArcaReceivedTray({
   canBulkAccept = false,
+  initialStatus = "pending_review",
 }: {
   /** The owner's «Aceptar todos los pendientes». */
   canBulkAccept?: boolean;
+  initialStatus?: ReceivedVoucherStatus;
 } = {}) {
-  const [status, setStatus] = useState<ReceivedVoucherStatus>("pending_review");
+  const [status, setStatus] = useState<ReceivedVoucherStatus>(initialStatus);
   const upload = useUploadReceivedExport();
   const counts = useReceivedVoucherCounts();
   const pending = counts.data?.pending ?? 0;
