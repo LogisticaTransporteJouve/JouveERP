@@ -266,7 +266,10 @@ function parseMoneda(raw: string): "PES" | "DOL" | null {
   return null;
 }
 
-const near = (a: number, b: number) => Math.abs(a - b) <= 0.01;
+/** An amount in whole cents: compared this way, a rounding cent is 1, never
+ *  0.0100000000002. */
+const cents = (n: number) => Math.round(n * 100);
+const near = (a: number, b: number) => Math.abs(cents(a) - cents(b)) <= 1;
 
 function parseRow(
   row: readonly string[],
@@ -334,7 +337,10 @@ function parseRow(
   // where the difference goes. Parts above the total, or a per-rate or
   // per-tribute detail that contradicts its own subtotal, leave no figure to
   // trust, so the row is not read.
-  if (round2(netoGravado + noGravado + exentas + iva + trib) - total > 0.01) {
+  if (
+    cents(netoGravado + noGravado + exentas + iva + trib) - cents(total) >
+    1
+  ) {
     return "amount_over_total";
   }
   if (ivaBreakdown.length > 0) {
