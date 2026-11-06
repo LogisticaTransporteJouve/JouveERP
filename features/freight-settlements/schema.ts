@@ -270,6 +270,16 @@ export const FreightSettlementIdSchema = z.object({
   id: z.string().uuid(),
 });
 
+/** Confirming a draft at the total it showed (an assistant proposal): the
+ *  confirm is refused if repricing gives another one. */
+export const FreightSettlementConfirmSchema = FreightSettlementIdSchema.extend({
+  expected_total: z
+    .number()
+    .finite()
+    .positive("La liquidación no tiene total.")
+    .max(999_999_999_999.99),
+});
+
 /** "Facturar" / "Emitir remito interno": the grouped invoice's channel and
  *  point of sale. */
 export const FreightSettlementInvoiceSchema = z.object({

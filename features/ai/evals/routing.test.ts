@@ -400,6 +400,23 @@ vi.mock(
     listFreightSettlementCandidatesAction: stub(
       "listFreightSettlementCandidatesAction",
     ),
+    getFreightSettlementAction: stub("getFreightSettlementAction"),
+  }),
+);
+vi.mock("@/features/storage-billing/actions/billing-actions", async (orig) => ({
+  ...(await orig<
+    typeof import("@/features/storage-billing/actions/billing-actions")
+  >()),
+  getStorageBillingAction: stub("getStorageBillingAction"),
+}));
+vi.mock(
+  "@/features/driver-settlements/actions/driver-settlements-actions",
+  async (orig) => ({
+    ...(await orig<
+      typeof import("@/features/driver-settlements/actions/driver-settlements-actions")
+    >()),
+    listCodPendingAction: stub("listCodPendingAction"),
+    getDriverSettlementAction: stub("getDriverSettlementAction"),
   }),
 );
 // The km proposal compares with the month's grid, which lists the truck.

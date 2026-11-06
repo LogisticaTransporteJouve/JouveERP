@@ -248,6 +248,30 @@ describe("confirmDriverSettlementAction", () => {
   it("returns the receipts the rendición posted", async () => {
     const res = await confirmDriverSettlementAction({ id: SETTLEMENT });
     expect(res).toEqual({ ok: true, data: { receiptIds: ["r1", "r2"] } });
+    expect(
+      fake.calls.find((c) => c.table === "confirm_driver_settlement")?.payload,
+    ).toEqual({ p_settlement_id: SETTLEMENT, p_user_id: "u1" });
+  });
+
+  it("passes a proposal's totals to the database, which refuses changed ones", async () => {
+    const { confirmDriverSettlement } =
+      await import("@/lib/commands/driver-settlements");
+    const guard =
+      "La rendición cambió desde la propuesta (se editó un pago o el importe contra entrega de una carga): revisala y volvé a confirmarla.";
+    rpcError = { message: guard, hint: "jouve_guard", code: "22023" };
+    const res = await confirmDriverSettlement("u1", SETTLEMENT, {
+      expected_total: 1500.5,
+      received_total: 1400,
+    });
+    expect(res).toEqual({ ok: false, error: guard });
+    expect(
+      fake.calls.find((c) => c.table === "confirm_driver_settlement")?.payload,
+    ).toEqual({
+      p_settlement_id: SETTLEMENT,
+      p_user_id: "u1",
+      p_expected_total: 1500.5,
+      p_received_total: 1400,
+    });
   });
 });
 

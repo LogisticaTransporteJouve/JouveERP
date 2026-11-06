@@ -415,3 +415,30 @@ export function computeStorageBilling(input: {
     applied_tariffs: [...appliedTariffs.values()],
   };
 }
+
+/** What one client's storage invoice bills: its Almacenaje, Carga and
+ *  Descarga lines and their total, each rounded to cents. The invoice and
+ *  the assistant's proposal both read it, so the total a proposal shows is
+ *  the one the invoice recomputes. */
+export type StorageInvoiceAmounts = {
+  storage: number;
+  loading: number;
+  unloading: number;
+  total: number;
+};
+
+export function storageInvoiceAmounts(
+  lines: readonly BillingLine[],
+  clientId: string,
+): StorageInvoiceAmounts {
+  const own = lines.filter((l) => l.client_id === clientId);
+  const storage = round2(own.reduce((s, l) => s + l.storage_charge, 0));
+  const loading = round2(own.reduce((s, l) => s + l.handling_in_charge, 0));
+  const unloading = round2(own.reduce((s, l) => s + l.handling_out_charge, 0));
+  return {
+    storage,
+    loading,
+    unloading,
+    total: round2(storage + loading + unloading),
+  };
+}

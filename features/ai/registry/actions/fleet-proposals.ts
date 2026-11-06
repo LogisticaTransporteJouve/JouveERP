@@ -1,6 +1,9 @@
 import { z } from "zod";
 
-import { listFreightSettlementCandidatesAction } from "@/features/freight-settlements/actions/freight-settlements-actions";
+import {
+  getFreightSettlementAction,
+  listFreightSettlementCandidatesAction,
+} from "@/features/freight-settlements/actions/freight-settlements-actions";
 import { MAINTENANCE_KINDS } from "@/features/maintenance/schema";
 import {
   findShipmentRemitoConflictAction,
@@ -16,6 +19,7 @@ import { TRIP_STATUSES } from "@/features/trips/schema";
 import { getVehicleKmMonthAction } from "@/features/vehicle-km/actions/vehicle-km-actions";
 import { userCan } from "@/lib/auth/permissions";
 import { changeShipmentStatus } from "@/lib/commands/change-shipment-status";
+import { confirmFreightSettlement } from "@/lib/commands/confirm-freight-settlement";
 import { createFuelLoad } from "@/lib/commands/create-fuel-load";
 import { createMaintenance } from "@/lib/commands/create-maintenance";
 import { createShipment } from "@/lib/commands/create-shipment";
@@ -23,7 +27,12 @@ import { createTrip } from "@/lib/commands/create-trip";
 import { saveFreightSettlement } from "@/lib/commands/save-freight-settlement";
 import { REMITO_TAKEN_ERROR } from "@/lib/commands/shipment-remito";
 import { saveVehicleKmReading } from "@/lib/commands/save-vehicle-km-reading";
-import { formatArgentineDate, formatMoney, todayInAR } from "@/lib/format";
+import {
+  formatArgentineDate,
+  formatMoney,
+  round2,
+  todayInAR,
+} from "@/lib/format";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { getServiceClient } from "@/lib/supabase/service";
 import {
@@ -34,9 +43,11 @@ import {
 
 import {
   CANCEL_REASON_REQUIRED,
+  FREIGHT_CONFIRM_LABELS,
   FREIGHT_SETTLEMENT_LABELS,
   SHIPMENT_STATUS_LABEL_KEYS,
   VEHICLE_KM_LABELS,
+  freightSettlementConfirmProposalSpec,
   freightSettlementProposalSpec,
   fuelLoadProposalSpec,
   maintenanceProposalSpec,
@@ -538,4 +549,104 @@ export const proposeFreightSettlement = defineAiProposal({
     };
   },
   execute: (ctx, draft) => saveFreightSettlement(ctx.userId, draft),
+});
+
+export const proposeFreightSettlementConfirm = defineAiProposal({
+  name: "proposeFreightSettlementConfirm",
+  domain: "ventas",
+  permission: ["invoices:issue", "invoices:read"],
+  sources: [
+    "freight_settlements",
+    "freight_settlement_items",
+    "shipments",
+    "client_tariffs",
+  ],
+  description:
+    "Propose confirming a liquidación de fletes draft of a Ventas client " +
+    "(settlement_id from getFreightSettlements) for the user to accept on a " +
+    "card: each carga is priced at its flete or the freight tariff in force, " +
+    "the card shows that total and confirming emits its Remito R. An Otras " +
+    "ventas liquidación is confirmed when its remito interno is issued, on " +
+    "the liquidación. Writes nothing by itself.",
+  input: z.object({ settlement_id: UuidSchema }),
+  spec: freightSettlementConfirmProposalSpec,
+  prepare: async (_ctx, input) => {
+    const detail = await getFreightSettlementAction(input.settlement_id);
+    if (!detail.ok) return { kind: "error", error: detail.error };
+    const s = detail.data;
+    if (s.status !== "draft") {
+      return {
+        kind: "error",
+        error:
+          s.status === "cancelled"
+            ? "La liquidación está cancelada."
+            : "La liquidación ya está confirmada.",
+      };
+    }
+    if (!s.client_is_fiscal) {
+      return {
+        kind: "error",
+        error:
+          "Es una liquidación de Otras ventas: se confirma al emitir su remito interno, desde la liquidación.",
+      };
+    }
+    if (s.items.length === 0) {
+      return { kind: "error", error: "La liquidación no tiene cargas." };
+    }
+    // The prices the confirm will take: each carga's flete or tariff now.
+    const res = await listFreightSettlementCandidatesAction({
+      client_id: s.client_id,
+      period_start: s.period_start,
+      period_end: s.period_end,
+      settlement_id: s.id,
+    });
+    if (!res.ok) return { kind: "error", error: res.error };
+    const priceOf = new Map(res.data.map((c) => [c.shipment_id, c.amount]));
+    let total = 0;
+    for (const item of s.items) {
+      const amount = priceOf.get(item.shipment_id);
+      const name = item.remito_number ?? item.shipment_id.slice(0, 8);
+      if (amount === undefined) {
+        return {
+          kind: "error",
+          error: `La carga ${name} ya no se puede liquidar en este período: revisá la liquidación.`,
+        };
+      }
+      if (amount === null || amount <= 0) {
+        return {
+          kind: "error",
+          error: `La carga ${name} ya no tiene flete ni tarifa de flete vigente: cargá uno de los dos.`,
+        };
+      }
+      total += amount;
+    }
+    total = round2(total);
+    return {
+      kind: "draft",
+      draft: { id: s.id, expected_total: total },
+      labels: {
+        [s.id]: s.client_name,
+        [FREIGHT_CONFIRM_LABELS.period]: `${formatArgentineDate(s.period_start)} al ${formatArgentineDate(s.period_end)}`,
+        [FREIGHT_CONFIRM_LABELS.cargas]: String(s.items.length),
+        ...(round2(s.total) !== total
+          ? { [FREIGHT_CONFIRM_LABELS.savedTotal]: formatMoney(s.total) }
+          : {}),
+      },
+    };
+  },
+  execute: async (ctx, draft) => {
+    const res = await confirmFreightSettlement(
+      ctx.userId,
+      draft.id,
+      draft.expected_total,
+    );
+    if (!res.ok) return res;
+    return {
+      ok: true,
+      data: {
+        id: draft.id,
+        ...(res.data.number ? { note: `Remito ${res.data.number}` } : {}),
+      },
+    };
+  },
 });

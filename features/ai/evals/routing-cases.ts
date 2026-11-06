@@ -433,6 +433,66 @@ export const ROUTING_CASES: RoutingCase[] = [
       args: { client_id: record, period_start: "2026-10-01" },
     },
   },
+  // The confirm reads the draft first; the offline stub refuses.
+  {
+    id: "propose-freight-settlement-confirm",
+    question: `Confirmá la liquidación de fletes ${record} y emití el remito R.`,
+    roles: ["finance"],
+    expect: {
+      tool: "proposeFreightSettlementConfirm",
+      input: { settlement_id: record },
+    },
+    dispatch: { fn: "getFreightSettlementAction", args: {} },
+  },
+  // Storage billing reads the period's computation first; the stub refuses.
+  {
+    id: "propose-storage-invoice",
+    question: "Facturá el almacenaje de octubre 2026 de Acme SA.",
+    roles: ["finance"],
+    expect: {
+      tool: "proposeStorageInvoice",
+      input: {
+        client: EVAL_FIXTURES.client.name,
+        period_start: "2026-10-01",
+        period_end: "2026-10-31",
+      },
+    },
+    dispatch: {
+      fn: "getStorageBillingAction",
+      args: { periodStart: "2026-10-01", periodEnd: "2026-10-31" },
+    },
+  },
+  // Rendiciones read the pending cargas or the rendición first.
+  {
+    id: "propose-driver-settlement",
+    question: "Juan Pérez rindió todo lo que cobró, en efectivo.",
+    roles: ["finance"],
+    expect: {
+      tool: "proposeDriverSettlement",
+      input: { driver: driver.name, all_collected: true },
+    },
+    dispatch: { fn: "listCodPendingAction", args: {} },
+  },
+  {
+    id: "propose-driver-settlement-confirm",
+    question: `Confirmá la rendición ${record}.`,
+    roles: ["finance"],
+    expect: {
+      tool: "proposeDriverSettlementConfirm",
+      input: { settlement_id: record },
+    },
+    dispatch: { fn: "getDriverSettlementAction", args: {} },
+  },
+  {
+    id: "propose-driver-settlement-difference",
+    question: `El faltante de la rendición ${record} va a cargo del chofer.`,
+    roles: ["finance"],
+    expect: {
+      tool: "proposeDriverSettlementDifference",
+      input: { settlement_id: record, charged_to: "driver" },
+    },
+    dispatch: { fn: "getDriverSettlementAction", args: {} },
+  },
   {
     id: "propose-client-internal",
     question:
@@ -1103,6 +1163,29 @@ export const DENIED_CASES: DeniedCase[] = [
       "proposeManualCheck",
       "proposeCheckDeposit",
       "proposeIssuedCheck",
+    ],
+  },
+  {
+    id: "storage-invoice-warehouse",
+    question: "Facturá el almacenaje de octubre de Acme SA.",
+    roles: ["warehouse"],
+    forbiddenTools: ["proposeStorageInvoice", "getStorageBilling"],
+  },
+  {
+    id: "freight-confirm-operations",
+    question: "Confirmá la liquidación de fletes de Acme de octubre.",
+    roles: ["operations"],
+    forbiddenTools: ["proposeFreightSettlementConfirm"],
+  },
+  {
+    id: "driver-settlement-operations",
+    question:
+      "Juan Pérez rindió todo en efectivo: armá y confirmá la rendición.",
+    roles: ["operations"],
+    forbiddenTools: [
+      "proposeDriverSettlement",
+      "proposeDriverSettlementConfirm",
+      "proposeDriverSettlementDifference",
     ],
   },
 ];
