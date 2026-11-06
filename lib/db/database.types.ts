@@ -9627,6 +9627,13 @@ export type Database = {
         }
         Returns: string
       }
+      create_payroll_period: {
+        Args: { p_month: number; p_year: number }
+        Returns: {
+          created: boolean
+          period_id: string
+        }[]
+      }
       create_purchase_invoice: {
         Args: { p_header: Json; p_items?: Json }
         Returns: string
@@ -9657,6 +9664,13 @@ export type Database = {
           p_title: string
         }
         Returns: string
+      }
+      create_sac_period: {
+        Args: { p_half: number; p_year: number }
+        Returns: {
+          created: boolean
+          period_id: string
+        }[]
       }
       create_task: {
         Args: {

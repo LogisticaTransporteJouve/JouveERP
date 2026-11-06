@@ -132,7 +132,7 @@ const GUARDS = [
   "allocate_payment_order",
   "guard_transaction_owned_by_document",
   "fill_payroll_period",
-  "seed_sac_period",
+  "create_sac_period",
   "guard_employee_account_movement",
   "guard_employee_debt_plan",
   "guard_purchase_employee_charge",
