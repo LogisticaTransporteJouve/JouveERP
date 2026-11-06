@@ -370,7 +370,7 @@ function ManagementReportView({
       )}
 
       <div className="space-y-2">
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           {kpis.kpis.map((k) => (
             <div key={k.key} className="rounded-lg border bg-card px-4 py-3">
               <p className="text-xs text-muted-foreground">{k.label}</p>
@@ -393,7 +393,7 @@ function ManagementReportView({
         )}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[2fr_1fr]">
         <div className="rounded-lg border bg-card p-4">
           <h2 className="mb-2 text-sm font-medium">
             Cascada del año fiscal

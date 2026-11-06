@@ -16,6 +16,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { PageHeader } from "@/components/ui/page-header";
 import { formatMoney } from "@/lib/format";
 
 import { useCancelLoan, useLoans } from "../hooks/use-loans";
@@ -178,23 +179,18 @@ export function LoansTable({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Préstamos y leasing
-          </h1>
-          <p className="text-muted-foreground text-sm">
-            Capital, cuotas y pagos. Las cuotas pendientes se proyectan en el
-            flujo de caja.
-          </p>
-        </div>
-        {canWrite && (
-          <Button onClick={() => setCreateOpen(true)}>
-            <Plus />
-            Nuevo préstamo
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        title="Préstamos y leasing"
+        description="Capital, cuotas y pagos. Las cuotas pendientes se proyectan en el flujo de caja."
+        actions={
+          canWrite && (
+            <Button onClick={() => setCreateOpen(true)}>
+              <Plus />
+              Nuevo préstamo
+            </Button>
+          )
+        }
+      />
 
       <DataTable
         columns={columns}

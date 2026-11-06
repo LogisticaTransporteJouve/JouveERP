@@ -17,6 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
+import { PageHeader } from "@/components/ui/page-header";
 import { userCan, type Access } from "@/lib/auth/permissions";
 import { todayInAR } from "@/lib/format";
 
@@ -210,32 +211,27 @@ export function StorageTariffsTable({
 
   return (
     <>
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Tarifas de almacenaje
-          </h1>
-          <p className="text-muted-foreground text-sm">
-            Tarifas por pallet con vigencia. Una tarifa sin cliente aplica como
-            general para todos.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <ExportButton resource="storage-tariffs" />
-          {canWrite && (
-            <>
-              <Button variant="outline" onClick={() => setIncreaseOpen(true)}>
-                <TrendingUp />
-                Aumentar %
-              </Button>
-              <Button onClick={() => setDialog({ mode: "create" })}>
-                <Plus />
-                Nueva tarifa
-              </Button>
-            </>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        title="Tarifas de almacenaje"
+        description="Tarifas por pallet con vigencia. Una tarifa sin cliente aplica como general para todos."
+        actions={
+          <>
+            <ExportButton resource="storage-tariffs" />
+            {canWrite && (
+              <>
+                <Button variant="outline" onClick={() => setIncreaseOpen(true)}>
+                  <TrendingUp />
+                  Aumentar %
+                </Button>
+                <Button onClick={() => setDialog({ mode: "create" })}>
+                  <Plus />
+                  Nueva tarifa
+                </Button>
+              </>
+            )}
+          </>
+        }
+      />
 
       <DataTable
         columns={columns}

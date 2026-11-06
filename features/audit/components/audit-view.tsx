@@ -132,7 +132,7 @@ function AuditFiltersBar({
   const hasFilters = Object.values(filters).some(Boolean);
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[repeat(5,minmax(0,1fr))_auto] lg:items-end">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[repeat(5,minmax(0,1fr))_auto] lg:items-end">
       <div className="space-y-1">
         <Label htmlFor="audit-from">Desde</Label>
         <DatePicker

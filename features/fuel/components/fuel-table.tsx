@@ -22,6 +22,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { PageHeader } from "@/components/ui/page-header";
 import { userCan, type Access } from "@/lib/auth/permissions";
 import type { CostVoucherAccess } from "@/lib/cost-vouchers";
 
@@ -175,31 +176,27 @@ export function FuelTable({
 
   return (
     <>
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Cargas de combustible
-          </h1>
-          <p className="text-muted-foreground text-sm">
-            Cargas de combustible de la flota por vehículo.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <ExportButton resource="fuel" />
-          {canWrite && (
-            <>
-              <Button variant="outline" onClick={() => setImporting(true)}>
-                <FileUp />
-                Importar resumen
-              </Button>
-              <Button onClick={() => setDialog({ mode: "create" })}>
-                <Plus />
-                Nueva carga
-              </Button>
-            </>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        title="Cargas de combustible"
+        description="Cargas de combustible de la flota por vehículo."
+        actions={
+          <>
+            <ExportButton resource="fuel" />
+            {canWrite && (
+              <>
+                <Button variant="outline" onClick={() => setImporting(true)}>
+                  <FileUp />
+                  Importar resumen
+                </Button>
+                <Button onClick={() => setDialog({ mode: "create" })}>
+                  <Plus />
+                  Nueva carga
+                </Button>
+              </>
+            )}
+          </>
+        }
+      />
 
       <DataTable
         columns={columns}

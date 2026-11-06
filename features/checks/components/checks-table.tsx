@@ -239,7 +239,7 @@ export function ChequesTable({
   return (
     <>
       {/* Summary cards by status */}
-      <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {(Object.keys(STATUS_TONE) as ChequeStatus[]).map((status) => (
           <div key={status} className="rounded-md border bg-card p-3 text-sm">
             <div className="text-xs text-muted-foreground">

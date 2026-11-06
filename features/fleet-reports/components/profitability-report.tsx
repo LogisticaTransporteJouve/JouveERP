@@ -244,7 +244,7 @@ export function ProfitabilityReport() {
               Cargas de combustible y mantenimientos del rango sin factura de
               compra ni movimiento vinculado: no llegan a la contabilidad.
             </p>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="bg-card rounded-lg border p-4">
                 <p className="text-muted-foreground text-xs">Combustible</p>
                 <p className="font-mono text-lg font-semibold tabular-nums">

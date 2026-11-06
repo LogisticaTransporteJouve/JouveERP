@@ -163,7 +163,7 @@ export function AccountOpeningBalanceDialog({
         </DialogHeader>
 
         <form onSubmit={onSubmit} className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1">
               <Label className="text-xs">Fecha de ajuste</Label>
               <DatePicker value={adjustmentDate} onChange={setAdjustmentDate} />

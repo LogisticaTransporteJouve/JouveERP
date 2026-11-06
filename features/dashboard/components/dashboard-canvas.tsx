@@ -240,7 +240,7 @@ export function DashboardCanvas({
             items={layout.map((i) => i.id)}
             strategy={rectSortingStrategy}
           >
-            <div className="grid gap-x-4 gap-y-8 lg:grid-cols-2">
+            <div className="grid grid-cols-1 gap-x-4 gap-y-8 lg:grid-cols-2">
               {layout.map((item, index) => (
                 <SortableWidget
                   key={item.id}
@@ -260,7 +260,7 @@ export function DashboardCanvas({
           </SortableContext>
         </DndContext>
       ) : (
-        <div className="grid gap-x-4 gap-y-8 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-x-4 gap-y-8 lg:grid-cols-2">
           {layout.map((item) => (
             <div
               key={item.id}

@@ -291,7 +291,7 @@ export function TransactionForm({
 
         {/* Account(s) */}
         {kind === "transfer" ? (
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <FormField
               control={form.control}
               name="account_from_id"
@@ -389,7 +389,7 @@ export function TransactionForm({
         )}
 
         {/* Channel + amount + currency */}
-        <div className="grid gap-3 sm:grid-cols-[1fr_140px_100px]">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_140px_100px]">
           <FormField
             control={form.control}
             name="channel_id"
@@ -454,7 +454,7 @@ export function TransactionForm({
         </div>
 
         {/* Dates */}
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <FormField
             control={form.control}
             name="transaction_date"
@@ -496,7 +496,7 @@ export function TransactionForm({
         </div>
 
         {kind === "expense" && (
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <FormField
               control={form.control}
               name="expense_account_id"
