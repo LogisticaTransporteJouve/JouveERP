@@ -17,6 +17,7 @@ import { getVehicleKmMonthAction } from "@/features/vehicle-km/actions/vehicle-k
 import { listVehiclesAction } from "@/features/vehicles/actions/vehicles-actions";
 import { type Access, userCan } from "@/lib/auth/permissions";
 import { todayInAR } from "@/lib/format";
+import { IsoDateSchema } from "@/lib/validation/common";
 
 import { defineAiAction } from "../define";
 import {
@@ -27,6 +28,8 @@ import {
   reachedCap,
 } from "../result";
 import { readScope } from "../scope";
+
+import { resolveFleetRefs } from "./fleet-refs";
 
 // Fleet read tools. Each wraps an existing read action, inheriting its
 // `userCan` gate (trips/vehicles/fuel/maintenance/fleet_documents/fleet_km
@@ -93,21 +96,127 @@ export const getVehicles = defineAiAction({
   run: (_ctx, input) => runVehicles(input),
 });
 
+/** Rows a fleet list returns by default and at most. */
+const LIST_DEFAULT = 200;
+const LIST_MAX = 500;
+
+/** The filters every fleet list takes: a vehicle, a date range and a cap. */
+const fleetListShape = {
+  vehicle: z
+    .string()
+    .trim()
+    .min(1)
+    .max(60)
+    .nullish()
+    .describe(
+      "Vehicle: license plate (e.g. AB123CD; spaces and dashes ignored), alias or UUID.",
+    ),
+  from: IsoDateSchema.nullish().describe("Date from, YYYY-MM-DD."),
+  to: IsoDateSchema.nullish().describe("Date to, YYYY-MM-DD (inclusive)."),
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(LIST_MAX)
+    .nullish()
+    .describe(
+      `Max rows, newest first (default ${LIST_DEFAULT}, max ${LIST_MAX}).`,
+    ),
+};
+
+export type FleetListInput = {
+  vehicle?: string | null;
+  driver?: string | null;
+  from?: string | null;
+  to?: string | null;
+  limit?: number | null;
+};
+
+/** What a fleet list asks its action for: the resolved filters and one row
+ *  over the cap, so a cut list can say so. */
+export async function fleetFilter(
+  access: Access,
+  input: FleetListInput,
+): Promise<
+  | {
+      ok: true;
+      filter: {
+        vehicleId: string | null;
+        driverId: string | null;
+        from: string | null;
+        to: string | null;
+        limit: number;
+      };
+      cap: number;
+      label: string;
+    }
+  | { ok: false; error: string }
+> {
+  if (input.from && input.to && input.from > input.to) {
+    return {
+      ok: false,
+      error: "La fecha desde es posterior a la fecha hasta.",
+    };
+  }
+  const refs = await resolveFleetRefs(access, input);
+  if (!refs.ok) return refs;
+  const cap = input.limit ?? LIST_DEFAULT;
+  const parts = [
+    ...refs.labels,
+    ...(input.from || input.to
+      ? [`${input.from ?? "inicio"}→${input.to ?? "hoy"}`]
+      : []),
+  ];
+  return {
+    ok: true,
+    filter: {
+      vehicleId: refs.vehicleId,
+      driverId: refs.driverId,
+      from: input.from ?? null,
+      to: input.to ?? null,
+      limit: cap + 1,
+    },
+    cap,
+    label: parts.length ? ` (${parts.join(", ")})` : "",
+  };
+}
+
+/** The sentence a list cut at `cap` adds to its summary. */
+export function capNote(rows: number, cap: number): string {
+  return rows > cap
+    ? ` Showing the newest ${cap}: there are more, narrow the filters or raise limit.`
+    : "";
+}
+
 /** Trips with the revenue «Rentabilidad de flota» counts (v_trip_revenue)
  *  and the manual figure apart; the total leaves out cancelled trips. The
  *  revenue needs shipments:read, as in getFleetProfitability. */
-export async function runTrips(access: Access): Promise<AiRunResult> {
-  const res = await listTripsAction();
+export async function runTrips(
+  access: Access,
+  input: FleetListInput = {},
+): Promise<AiRunResult> {
+  const f = await fleetFilter(access, input);
+  if (!f.ok) return errResult(f.error);
+  const res = await listTripsAction(f.filter);
   if (!res.ok) return errResult(res.error);
-  const live = res.data.filter((t) => t.status !== "cancelled");
-  const head = `${res.data.length} trips (${res.data.length - live.length} cancelled)`;
+  const cut = res.data.length > f.cap;
+  const trips = res.data.slice(0, f.cap);
+  const live = trips.filter((t) => t.status !== "cancelled");
+  const km = live.reduce((s, t) => s + (t.km ?? 0), 0);
+  const withoutKm = live.filter((t) => t.km === null).length;
+  const head =
+    `${trips.length} trips${f.label} (${trips.length - live.length} cancelled) · ` +
+    `${km.toLocaleString("es-AR")} km of the not cancelled` +
+    (withoutKm > 0 ? ` (${withoutKm} without km)` : "");
+  const more = capNote(res.data.length, f.cap);
   if (!userCan(access, "shipments:read")) {
     return okResult(
-      `${head}. Revenue not summed: it is the invoiced freight of each trip's shipments, which this user cannot read; manual_revenue is only the figure typed on the trip.`,
-      res.data.map((t) => ({ ...t, revenue: null, manual_revenue: t.revenue })),
+      `${head}. Revenue not summed: it is the invoiced freight of each trip's shipments, which this user cannot read; manual_revenue is only the figure typed on the trip.${more}`,
+      trips.map((t) => ({ ...t, revenue: null, manual_revenue: t.revenue })),
+      { partial: cut },
     );
   }
-  const revenue = await listTripRevenueAction();
+  const revenue = await listTripRevenueAction(trips.map((t) => t.id));
   if (!revenue.ok) return errResult(revenue.error);
   const byTrip = new Map(revenue.data.map((r) => [r.trip_id, r]));
   let total = 0;
@@ -140,15 +249,16 @@ export async function runTrips(access: Access): Promise<AiRunResult> {
       (missing > 0
         ? `; ${missing} trip(s) without a revenue read left out.`
         : ".") +
-      (pending ? ` ${pending}` : ""),
-    res.data.map((t) => ({
+      (pending ? ` ${pending}` : "") +
+      more,
+    trips.map((t) => ({
       ...t,
       revenue: byTrip.get(t.id)?.revenue ?? null,
       uninvoiced_freight: byTrip.get(t.id)?.uninvoiced_freight ?? null,
       uninvoiced_shipments: byTrip.get(t.id)?.uninvoiced_shipments ?? null,
       manual_revenue: t.revenue,
     })),
-    { currency: "ARS", partial: missing > 0 },
+    { currency: "ARS", partial: missing > 0 || cut },
   );
 }
 
@@ -159,29 +269,47 @@ export const getTrips = defineAiAction({
   sideEffect: "read",
   sources: ["trips", "v_trip_revenue"],
   description:
-    "Trips: date, origin/destination, vehicle, driver, status, cost, " +
-    "revenue and manual_revenue. revenue is the invoiced freight of the " +
+    "Trips, newest first, filterable by vehicle (plate), driver (name), " +
+    "date range and limit: date, origin/destination, vehicle, driver, " +
+    "status, km, cost, revenue and manual_revenue, with the km of the not " +
+    "cancelled ones summed. revenue is the invoiced freight of the " +
     "trip's shipments (without shipments, the manual figure), as in " +
     "getFleetProfitability; the total leaves out cancelled trips; without " +
     "shipments:read, revenue is null and there is no total. " +
     PENDING_FREIGHT_RULE +
-    " For queries about trips or transport; " +
-    "per-trip net and per-vehicle margin are in getFleetProfitability and " +
-    "getFleetMargin.",
-  input: z.object({}),
-  run: (ctx) => runTrips(ctx.access),
+    " For queries about trips or transport. The km and the drivers of ONE " +
+    "vehicle in a period are in getVehicleUsage; per-trip net and " +
+    "per-vehicle margin in getFleetProfitability and getFleetMargin.",
+  input: z.object({
+    ...fleetListShape,
+    driver: z
+      .string()
+      .trim()
+      .min(1)
+      .max(120)
+      .nullish()
+      .describe("Driver: name or UUID."),
+  }),
+  run: (ctx, input) => runTrips(ctx.access, input),
 });
 
-export async function runFuelLoads(): Promise<AiRunResult> {
-  const res = await listFuelLoadsAction();
+export async function runFuelLoads(
+  access: Access,
+  input: FleetListInput = {},
+): Promise<AiRunResult> {
+  const f = await fleetFilter(access, input);
+  if (!f.ok) return errResult(f.error);
+  const res = await listFuelLoadsAction(f.filter);
   if (!res.ok) return errResult(res.error);
-  const liters = res.data.reduce((s, f) => s + Number(f.liters ?? 0), 0);
-  const amount = res.data.reduce((s, f) => s + Number(f.amount ?? 0), 0);
+  const loads = res.data.slice(0, f.cap);
+  const liters = loads.reduce((s, l) => s + Number(l.liters ?? 0), 0);
+  const amount = loads.reduce((s, l) => s + Number(l.amount ?? 0), 0);
   return okResult(
-    `${res.data.length} fuel loads · ${liters.toLocaleString(
+    `${loads.length} fuel loads${f.label} · ${liters.toLocaleString(
       "es-AR",
-    )} L · $${amount.toLocaleString("es-AR")}.`,
-    res.data,
+    )} L · ${money(amount)}.` + capNote(res.data.length, f.cap),
+    loads,
+    { partial: res.data.length > f.cap },
   );
 }
 
@@ -192,23 +320,33 @@ export const getFuelLoads = defineAiAction({
   sideEffect: "read",
   sources: ["fuel_loads"],
   description:
-    "Fuel loads: date, vehicle, trip, liters and amount. For fleet fuel " +
-    "consumption or expense.",
-  input: z.object({}),
-  run: () => runFuelLoads(),
+    "Fuel loads, newest first, filterable by vehicle (plate), date range " +
+    "and limit: date, vehicle, trip, liters, amount and odometer. For fleet " +
+    "fuel consumption or expense.",
+  input: z.object(fleetListShape),
+  run: (ctx, input) => runFuelLoads(ctx.access, input),
 });
 
-export async function runMaintenance(): Promise<AiRunResult> {
-  const res = await listMaintenanceAction();
+export async function runMaintenance(
+  access: Access,
+  input: FleetListInput = {},
+): Promise<AiRunResult> {
+  const f = await fleetFilter(access, input);
+  if (!f.ok) return errResult(f.error);
+  const res = await listMaintenanceAction(f.filter);
   if (!res.ok) return errResult(res.error);
+  const records = res.data.slice(0, f.cap);
   // A record without cost (unknown) is left out of the total and counted.
-  const cost = res.data.reduce((s, m) => s + Number(m.cost ?? 0), 0);
-  const noCost = res.data.filter((m) => m.cost === null).length;
+  const cost = records.reduce((s, m) => s + Number(m.cost ?? 0), 0);
+  const noCost = records.filter((m) => m.cost === null).length;
   return okResult(
-    `${res.data.length} maintenance records · $${cost.toLocaleString(
+    `${records.length} maintenance records${f.label} · $${cost.toLocaleString(
       "es-AR",
-    )}` + (noCost > 0 ? ` · ${noCost} without cost (not in the total).` : "."),
-    res.data,
+    )}` +
+      (noCost > 0 ? ` · ${noCost} without cost (not in the total).` : ".") +
+      capNote(res.data.length, f.cap),
+    records,
+    { partial: res.data.length > f.cap },
   );
 }
 
@@ -219,11 +357,12 @@ export const getMaintenance = defineAiAction({
   sideEffect: "read",
   sources: ["maintenance_records"],
   description:
-    "Vehicle maintenance: service date, vehicle, description, cost and next " +
-    "service. A record with cost null has an unknown cost: it is not in the " +
-    "total and the summary counts it. For fleet repairs or servicing.",
-  input: z.object({}),
-  run: () => runMaintenance(),
+    "Vehicle maintenance, newest first, filterable by vehicle (plate), " +
+    "date range and limit: service date, vehicle, description, cost and " +
+    "next service. A record with cost null has an unknown cost: it is not " +
+    "in the total and the summary counts it. For fleet repairs or servicing.",
+  input: z.object(fleetListShape),
+  run: (ctx, input) => runMaintenance(ctx.access, input),
 });
 
 export async function runFleetDocuments(): Promise<AiRunResult> {

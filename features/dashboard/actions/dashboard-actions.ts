@@ -7,7 +7,6 @@ import {
   TREASURY_PERMISSIONS,
   userCan,
   userCanAll,
-  type Permission,
 } from "@/lib/auth/permissions";
 import { logger } from "@/lib/logger";
 import { todayInAR } from "@/lib/format";
@@ -22,6 +21,7 @@ import {
   type PaperDoc,
 } from "../lib/papers";
 import {
+  DUE_DATE_PERMISSIONS,
   DashboardLayoutSchema,
   type DashboardLayout,
   type DashboardToday,
@@ -45,15 +45,6 @@ const DUE_DATE_SECTION_LABELS = [
   "documentos de empleados",
 ] as const;
 
-const SECTION_PERMISSIONS: Permission[] = [
-  "cheques:read",
-  "issued_checks:read",
-  "accounts:read",
-  "recurring_payments:read",
-  "fleet_documents:read",
-  "hr:read",
-];
-
 // Unified 14-day agenda: checks maturing (both directions), loan
 // installments, recurring payments and document expiries. Each section is
 // included only if the caller has that section's read permission, so the
@@ -62,7 +53,7 @@ export async function getDashboardDueDatesAction(): Promise<
   ActionResult<DueDates>
 > {
   const ctx = await requireUserContext();
-  if (!SECTION_PERMISSIONS.some((p) => userCan(ctx.access, p))) {
+  if (!DUE_DATE_PERMISSIONS.some((p) => userCan(ctx.access, p))) {
     return { ok: false, error: "No tenés permiso." };
   }
 

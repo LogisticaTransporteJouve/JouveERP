@@ -1,9 +1,6 @@
 import { z } from "zod";
 
-import {
-  getReconciliationAction,
-  listReconciliationAccountsAction,
-} from "@/features/bank-reconciliation/actions/reconciliation-actions";
+import { getReconciliationAction } from "@/features/bank-reconciliation/actions/reconciliation-actions";
 import {
   CLIENT_TARIFF_CONCEPTS,
   CLIENT_TARIFF_CURRENCIES,
@@ -38,6 +35,8 @@ import { defineAiAction } from "../define";
 import { defineAiProposal } from "../propose";
 import { errResult, money, okResult } from "../result";
 import { readScope } from "../scope";
+
+import { findReconciliationAccount } from "./treasury";
 
 // 6.3 proposals over existing writes. Each `prepare` resolves names with the
 // feature's read actions (their gate + RLS); the write runs only after the
@@ -236,35 +235,25 @@ export const proposeBankMatches = defineAiProposal({
   }),
   spec: bankMatchesProposalSpec,
   prepare: async (_ctx, input) => {
-    const accounts = await listReconciliationAccountsAction();
-    if (!accounts.ok) return { kind: "error", error: accounts.error };
-    const q = norm(input.account);
-    const exact = accounts.data.filter((a) => norm(a.name) === q);
-    const close = accounts.data.filter((a) => norm(a.name).includes(q));
-    const account =
-      exact.length === 1 ? exact[0] : close.length === 1 ? close[0] : undefined;
-    if (!account) {
+    const found = await findReconciliationAccount(input.account);
+    if (!found.ok && found.options.length === 0) {
+      return { kind: "error", error: found.error };
+    }
+    if (!found.ok) {
       return {
         kind: "issues",
-        issues: [
-          {
-            field: "account",
-            message:
-              close.length === 0
-                ? `No hay una cuenta que se concilie con el nombre "${input.account}".`
-                : `"${input.account}" coincide con varias cuentas.`,
-          },
-        ],
+        issues: [{ field: "account", message: found.error }],
         candidates: [
           {
             field: "account",
-            options: (close.length ? close : accounts.data)
+            options: found.options
               .slice(0, MAX_CANDIDATES)
               .map((a) => ({ value: a.name, label: a.name })),
           },
         ],
       };
     }
+    const { account } = found;
     const view = await getReconciliationAction({
       account_id: account.id,
       from: input.from,

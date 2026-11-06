@@ -29,6 +29,17 @@ export type DeniedCase = {
   forbiddenTools: string[];
 };
 
+/** Records the offline suite's lookups return, so a tool that resolves a
+ *  name (a plate, a driver, a bank account) reaches its read with the id. */
+export const EVAL_FIXTURES = {
+  truck: { id: "00000000-0000-4000-8000-0000000000f1", patente: "AB123CD" },
+  driver: { id: "00000000-0000-4000-8000-0000000000f2", name: "Juan Pérez" },
+  bank: { id: "00000000-0000-4000-8000-0000000000f3", name: "Banco Galicia" },
+  record: "00000000-0000-4000-8000-0000000000f4",
+} as const;
+
+const { truck, driver, bank, record } = EVAL_FIXTURES;
+
 export const ROUTING_CASES: RoutingCase[] = [
   {
     id: "payroll-month",
@@ -336,9 +347,175 @@ export const ROUTING_CASES: RoutingCase[] = [
     expect: { tool: "getTaxDocuments", input: { ivaPeriod: "2026-10" } },
     dispatch: { fn: "listTaxDocumentsAction", args: {} },
   },
+  // Fleet by vehicle (the owner's two questions) and by driver.
+  {
+    id: "fleet-vehicle-km",
+    question: "¿Cuántos km recorrió el camión AB123CD en octubre 2026?",
+    roles: ["operations"],
+    expect: {
+      tool: "getVehicleUsage",
+      input: { vehicle: "AB123CD", from: "2026-10-01", to: "2026-10-31" },
+    },
+    dispatch: {
+      fn: "listTripsAction",
+      args: { vehicleId: truck.id, from: "2026-10-01", to: "2026-10-31" },
+    },
+  },
+  {
+    id: "fleet-vehicle-drivers",
+    question: "¿Quién manejó el camión AB123CD el último mes (octubre 2026)?",
+    roles: ["operations"],
+    expect: { tool: "getVehicleUsage", input: { vehicle: "AB123CD" } },
+    scriptedInput: {
+      vehicle: "AB123CD",
+      from: "2026-10-01",
+      to: "2026-10-31",
+    },
+    dispatch: { fn: "listTripsAction", args: { vehicleId: truck.id } },
+  },
+  {
+    id: "fleet-driver-trips",
+    question: "¿Qué viajes hizo Juan Pérez en octubre 2026?",
+    roles: ["operations"],
+    expect: {
+      tool: "getTrips",
+      input: { driver: "Juan Pérez", from: "2026-10-01", to: "2026-10-31" },
+    },
+    dispatch: {
+      fn: "listTripsAction",
+      args: { driverId: driver.id, from: "2026-10-01", to: "2026-10-31" },
+    },
+  },
+  {
+    id: "fleet-vehicle-fuel",
+    question: "¿Qué cargas de combustible tuvo el AB123CD en octubre 2026?",
+    roles: ["operations"],
+    expect: {
+      tool: "getFuelLoads",
+      input: { vehicle: "AB123CD", from: "2026-10-01", to: "2026-10-31" },
+    },
+    dispatch: {
+      fn: "listFuelLoadsAction",
+      args: { vehicleId: truck.id, from: "2026-10-01", to: "2026-10-31" },
+    },
+  },
+  {
+    id: "shipment-by-remito",
+    question: "Buscame la carga del remito 0001-00004567.",
+    roles: ["operations"],
+    expect: { tool: "getShipments", input: { remito: "0001-00004567" } },
+    dispatch: { fn: "listShipmentsAction", args: { remito: "0001-00004567" } },
+  },
+  {
+    id: "trip-detail",
+    question: `¿Qué cargas llevó el viaje ${record}?`,
+    roles: ["operations"],
+    expect: { tool: "getTripDetail", input: { tripId: record } },
+    dispatch: { fn: "getTripAction", args: {} },
+  },
+  {
+    id: "pallet-where",
+    question: "¿Dónde está el pallet P-0042?",
+    roles: ["admin"],
+    expect: { tool: "getPallets", input: { code: "P-0042" } },
+    dispatch: { fn: "listPalletsAction", args: {} },
+  },
+  // Tesorería
+  {
+    id: "cash-flow",
+    question: "¿Cómo viene la caja los próximos meses? ¿Algún mes en rojo?",
+    roles: ["finance"],
+    expect: { tool: "getCashFlow", input: {} },
+    dispatch: { fn: "getCashFlowAction", args: {} },
+  },
+  {
+    id: "due-dates",
+    question: "¿Qué vence en las próximas dos semanas?",
+    roles: ["finance"],
+    expect: { tool: "getUpcomingDueDates", input: {} },
+    dispatch: { fn: "getDashboardDueDatesAction", args: {} },
+  },
+  {
+    id: "bank-unmatched",
+    question:
+      "¿Qué líneas del extracto del Galicia faltan conciliar en octubre 2026?",
+    roles: ["finance"],
+    expect: {
+      tool: "getBankReconciliation",
+      input: { account: "Galicia", from: "2026-10-01", to: "2026-10-31" },
+    },
+    dispatch: {
+      fn: "getReconciliationAction",
+      args: { account_id: bank.id, from: "2026-10-01", to: "2026-10-31" },
+    },
+  },
+  // Cuentas corrientes y detalle de documentos (the id comes from a search
+  // or a list; positional arguments, so only the call is checked).
+  {
+    id: "client-account",
+    question: `Mostrame la cuenta corriente del cliente ${record}.`,
+    roles: ["finance"],
+    expect: { tool: "getClientAccount", input: { clientId: record } },
+    dispatch: { fn: "getClientAccountAction", args: {} },
+  },
+  {
+    id: "supplier-account",
+    question: `¿Cuánto le debemos al proveedor ${record}? Su cuenta corriente.`,
+    roles: ["finance"],
+    expect: { tool: "getSupplierAccount", input: { supplierId: record } },
+    dispatch: { fn: "getSupplierAccountAction", args: {} },
+  },
+  {
+    id: "invoice-detail",
+    question: `¿Qué ítems y qué CAE tiene la factura ${record}?`,
+    roles: ["finance"],
+    expect: { tool: "getInvoiceDetail", input: { id: record } },
+    dispatch: { fn: "getInvoiceDetailAction", args: {} },
+  },
+  {
+    id: "purchase-detail",
+    question: `¿Con qué órdenes de pago se pagó la factura de compra ${record}?`,
+    roles: ["finance"],
+    expect: { tool: "getPurchaseInvoiceDetail", input: { id: record } },
+    dispatch: { fn: "getPurchaseInvoiceByIdAction", args: {} },
+  },
+  // Compras y Documentos
+  {
+    id: "arca-pending",
+    question: "¿Qué facturas de proveedores que están en ARCA faltan cargar?",
+    roles: ["finance"],
+    expect: { tool: "getArcaReceivedVouchers", input: {} },
+    dispatch: {
+      fn: "listReceivedVouchersAction",
+      args: { status: "pending_review" },
+    },
+  },
+  {
+    id: "documents-pending",
+    question: "¿Qué documentos escaneados faltan revisar?",
+    roles: ["finance"],
+    expect: { tool: "getDocumentExtractions", input: {} },
+    dispatch: { fn: "listExtractionsAction", args: {} },
+  },
 ];
 
 export const DENIED_CASES: DeniedCase[] = [
+  {
+    id: "cash-flow-operations",
+    question: "¿Cómo viene la caja los próximos meses?",
+    roles: ["operations"],
+    forbiddenTools: [
+      "getCashFlow",
+      "getBankReconciliation",
+      "getArcaReceivedVouchers",
+    ],
+  },
+  {
+    id: "fleet-fiscal-reader",
+    question: "¿Cuántos km recorrió el camión AB123CD en octubre?",
+    roles: ["fiscal_reader"],
+    forbiddenTools: ["getVehicleUsage", "getTrips", "getShipments"],
+  },
   {
     id: "management-fiscal-reader",
     question: "¿Ganamos plata en septiembre 2026?",

@@ -8,11 +8,13 @@ import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
-import { paginateRange } from "@/lib/supabase/paginate";
+import { drainOrFirst } from "@/lib/supabase/paginate";
 
 import {
   TripCreateSchema,
+  TripListFilterSchema,
   TripUpdateSchema,
+  type TripListFilter,
   isTripStatus,
   type Trip,
 } from "../schema";
@@ -39,20 +41,29 @@ function narrow(row: {
   } as Trip;
 }
 
-export async function listTripsAction(): Promise<ActionResult<Trip[]>> {
+/** Every trip, newest first; `filter` narrows it (the page passes none). */
+export async function listTripsAction(
+  filter?: TripListFilter,
+): Promise<ActionResult<Trip[]>> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "trips:read")) {
     return { ok: false, error: "No tenés permiso para ver viajes." };
   }
+  const parsed = TripListFilterSchema.safeParse(filter ?? {});
+  if (!parsed.success) return { ok: false, error: "Filtros inválidos." };
+  const f = parsed.data;
   const supabase = await createSupabaseClient();
-  const { data, error } = await paginateRange((from, to) =>
-    supabase
-      .from("trips")
-      .select(SELECT_COLUMNS)
+  const { data, error } = await drainOrFirst((from, to) => {
+    let query = supabase.from("trips").select(SELECT_COLUMNS);
+    if (f.from) query = query.gte("trip_date", f.from);
+    if (f.to) query = query.lte("trip_date", f.to);
+    if (f.vehicleId) query = query.eq("vehicle_id", f.vehicleId);
+    if (f.driverId) query = query.eq("driver_id", f.driverId);
+    return query
       .order("trip_date", { ascending: false })
       .order("id")
-      .range(from, to),
-  );
+      .range(from, to);
+  }, f.limit);
   if (error) {
     logger.error("trips.list.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudieron listar los viajes." };

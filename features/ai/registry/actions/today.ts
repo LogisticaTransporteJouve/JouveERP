@@ -1,6 +1,10 @@
 import { z } from "zod";
 
-import { getDashboardTodayAction } from "@/features/dashboard/actions/dashboard-actions";
+import {
+  getDashboardDueDatesAction,
+  getDashboardTodayAction,
+} from "@/features/dashboard/actions/dashboard-actions";
+import { DUE_DATE_PERMISSIONS } from "@/features/dashboard/schema";
 
 import { defineAiAction } from "../define";
 import { type AiRunResult, errResult, okResult } from "../result";
@@ -46,4 +50,33 @@ export const getTodayOverview = defineAiAction({
     "one is not listed). For what is due this week use getTasks.",
   input: z.object({}),
   run: () => runTodayOverview(),
+});
+
+export const getUpcomingDueDates = defineAiAction({
+  name: "getUpcomingDueDates",
+  domain: "tesoreria",
+  permission: { anyOf: DUE_DATE_PERMISSIONS },
+  sideEffect: "read",
+  sources: [
+    "checks",
+    "issued_checks",
+    "loan_installments",
+    "recurring_payments",
+    "fleet_documents",
+    "employee_documents",
+  ],
+  description:
+    "Agenda de vencimientos de los próximos 14 días (tarjeta Vencimientos del dashboard): cheques en cartera y propios, cuotas de préstamos, pagos recurrentes y documentos de flota y de empleados, por fecha, con monto, moneda y si entra o sale plata. Cada sección necesita su permiso; las que no se pudieron leer se nombran.",
+  input: z.object({}),
+  run: async () => {
+    const res = await getDashboardDueDatesAction();
+    if (!res.ok) return errResult(res.error);
+    const { items, failed } = res.data;
+    return okResult(
+      `${items.length} vencimientos en los próximos 14 días.` +
+        (failed.length ? ` No se pudieron leer: ${failed.join(", ")}.` : ""),
+      res.data,
+      { partial: failed.length > 0 },
+    );
+  },
 });

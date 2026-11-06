@@ -1,7 +1,12 @@
 import { generateText, isStepCount } from "ai";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { DENIED_CASES, ROUTING_CASES, inputMatches } from "./routing-cases";
+import {
+  DENIED_CASES,
+  EVAL_FIXTURES,
+  ROUTING_CASES,
+  inputMatches,
+} from "./routing-cases";
 import { scriptedModel, textTurn, toolCallTurn } from "./scripted-model";
 import { resolveAccess } from "@/lib/auth/permissions";
 
@@ -137,6 +142,141 @@ vi.mock("@/features/taxes/actions/tax-documents-actions", async (orig) => ({
   >()),
   listTaxDocumentsAction: stub("listTaxDocumentsAction"),
   getIvaPositionEstimateAction: stub("getIvaPositionEstimateAction"),
+}));
+
+// Name lookups resolve to the fixtures, so the tool reaches its read.
+vi.mock("@/features/vehicles/actions/vehicles-actions", async (orig) => ({
+  ...(await orig<
+    typeof import("@/features/vehicles/actions/vehicles-actions")
+  >()),
+  listVehiclesAction: vi.fn(async () => ({
+    ok: true,
+    data: [
+      {
+        id: EVAL_FIXTURES.truck.id,
+        patente: EVAL_FIXTURES.truck.patente,
+        alias: null,
+      },
+    ],
+  })),
+}));
+vi.mock("@/features/drivers/actions/drivers-actions", async (orig) => ({
+  ...(await orig<
+    typeof import("@/features/drivers/actions/drivers-actions")
+  >()),
+  listDriversAction: vi.fn(async () => ({
+    ok: true,
+    data: [
+      { id: EVAL_FIXTURES.driver.id, full_name: EVAL_FIXTURES.driver.name },
+    ],
+  })),
+}));
+vi.mock(
+  "@/features/bank-reconciliation/actions/reconciliation-actions",
+  async (orig) => ({
+    ...(await orig<
+      typeof import("@/features/bank-reconciliation/actions/reconciliation-actions")
+    >()),
+    listReconciliationAccountsAction: vi.fn(async () => ({
+      ok: true,
+      data: [
+        {
+          id: EVAL_FIXTURES.bank.id,
+          name: EVAL_FIXTURES.bank.name,
+          type: "bank",
+          currency: "ARS",
+        },
+      ],
+    })),
+    getReconciliationAction: stub("getReconciliationAction"),
+  }),
+);
+vi.mock("@/features/trips/actions/trips-actions", async (orig) => ({
+  ...(await orig<typeof import("@/features/trips/actions/trips-actions")>()),
+  listTripsAction: stub("listTripsAction"),
+  getTripAction: stub("getTripAction"),
+}));
+vi.mock("@/features/fuel/actions/fuel-actions", async (orig) => ({
+  ...(await orig<typeof import("@/features/fuel/actions/fuel-actions")>()),
+  listFuelLoadsAction: stub("listFuelLoadsAction"),
+}));
+vi.mock("@/features/shipments/actions/shipments-actions", async (orig) => ({
+  ...(await orig<
+    typeof import("@/features/shipments/actions/shipments-actions")
+  >()),
+  listShipmentsAction: stub("listShipmentsAction"),
+  listShipmentsByTripAction: stub("listShipmentsByTripAction"),
+}));
+vi.mock("@/features/pallets/actions/pallets-actions", async (orig) => ({
+  ...(await orig<
+    typeof import("@/features/pallets/actions/pallets-actions")
+  >()),
+  listPalletsAction: stub("listPalletsAction"),
+}));
+vi.mock("@/features/treasury/actions/cash-flow-actions", async (orig) => ({
+  ...(await orig<
+    typeof import("@/features/treasury/actions/cash-flow-actions")
+  >()),
+  getCashFlowAction: stub("getCashFlowAction"),
+}));
+vi.mock("@/features/dashboard/actions/dashboard-actions", async (orig) => ({
+  ...(await orig<
+    typeof import("@/features/dashboard/actions/dashboard-actions")
+  >()),
+  getDashboardDueDatesAction: stub("getDashboardDueDatesAction"),
+}));
+vi.mock("@/features/clients/actions/account-actions", async (orig) => ({
+  ...(await orig<
+    typeof import("@/features/clients/actions/account-actions")
+  >()),
+  getClientAccountAction: stub("getClientAccountAction"),
+}));
+vi.mock("@/features/suppliers/actions/account-actions", async (orig) => ({
+  ...(await orig<
+    typeof import("@/features/suppliers/actions/account-actions")
+  >()),
+  getSupplierAccountAction: stub("getSupplierAccountAction"),
+}));
+vi.mock("@/features/invoices/actions/invoices-actions", async (orig) => ({
+  ...(await orig<
+    typeof import("@/features/invoices/actions/invoices-actions")
+  >()),
+  getInvoiceDetailAction: stub("getInvoiceDetailAction"),
+}));
+vi.mock(
+  "@/features/purchase-invoices/actions/purchase-invoices-actions",
+  async (orig) => ({
+    ...(await orig<
+      typeof import("@/features/purchase-invoices/actions/purchase-invoices-actions")
+    >()),
+    getPurchaseInvoiceByIdAction: stub("getPurchaseInvoiceByIdAction"),
+    getPurchaseInvoiceItemsAction: stub("getPurchaseInvoiceItemsAction"),
+    getPurchaseInvoiceAllocationsAction: stub(
+      "getPurchaseInvoiceAllocationsAction",
+    ),
+  }),
+);
+vi.mock(
+  "@/features/purchase-invoices/actions/impute-remitos-actions",
+  async (orig) => ({
+    ...(await orig<
+      typeof import("@/features/purchase-invoices/actions/impute-remitos-actions")
+    >()),
+    getPurchaseImputationsAction: stub("getPurchaseImputationsAction"),
+  }),
+);
+vi.mock(
+  "@/features/purchase-invoices/actions/arca-received-actions",
+  async (orig) => ({
+    ...(await orig<
+      typeof import("@/features/purchase-invoices/actions/arca-received-actions")
+    >()),
+    listReceivedVouchersAction: stub("listReceivedVouchersAction"),
+  }),
+);
+vi.mock("@/features/ai/document/actions", async (orig) => ({
+  ...(await orig<typeof import("@/features/ai/document/actions")>()),
+  listExtractionsAction: stub("listExtractionsAction"),
 }));
 
 const { buildAiTools, buildCapabilitiesSummary } = await import("../registry");

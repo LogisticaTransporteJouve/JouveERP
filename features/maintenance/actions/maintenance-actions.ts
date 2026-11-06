@@ -9,13 +9,15 @@ import type { Database } from "@/lib/db/database.types";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
-import { paginateRange } from "@/lib/supabase/paginate";
+import { drainOrFirst } from "@/lib/supabase/paginate";
 
 import {
   LINKED_VOUCHER_COST_REQUIRED,
   MaintenanceCreateSchema,
   MaintenanceDeleteSchema,
+  MaintenanceListFilterSchema,
   MaintenanceUpdateSchema,
+  type MaintenanceListFilter,
   isMaintenanceKind,
   linkedVoucherWithoutCost,
   type MaintenanceRecord,
@@ -57,22 +59,28 @@ function narrow(row: MaintenanceSelectRow): MaintenanceRecord | null {
 const SELECT_COLUMNS =
   "id, vehicle_id, service_date, kind, description, cost, odometer_km, next_service_date, next_service_km, provider, notes, purchase_invoice_id, transaction_id, created_at, vehicle:vehicles(patente)";
 
-export async function listMaintenanceAction(): Promise<
-  ActionResult<MaintenanceRecord[]>
-> {
+/** Every record, newest first; `filter` narrows it (the page passes none). */
+export async function listMaintenanceAction(
+  filter?: MaintenanceListFilter,
+): Promise<ActionResult<MaintenanceRecord[]>> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "maintenance:read")) {
     return { ok: false, error: "No tenés permiso para ver mantenimientos." };
   }
+  const parsed = MaintenanceListFilterSchema.safeParse(filter ?? {});
+  if (!parsed.success) return { ok: false, error: "Filtros inválidos." };
+  const f = parsed.data;
   const supabase = await createSupabaseClient();
-  const { data, error } = await paginateRange((from, to) =>
-    supabase
-      .from("maintenance_records")
-      .select(SELECT_COLUMNS)
+  const { data, error } = await drainOrFirst((from, to) => {
+    let query = supabase.from("maintenance_records").select(SELECT_COLUMNS);
+    if (f.from) query = query.gte("service_date", f.from);
+    if (f.to) query = query.lte("service_date", f.to);
+    if (f.vehicleId) query = query.eq("vehicle_id", f.vehicleId);
+    return query
       .order("service_date", { ascending: false })
       .order("id")
-      .range(from, to),
-  );
+      .range(from, to);
+  }, f.limit);
   if (error) {
     logger.error("maintenance.list.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudieron listar los mantenimientos." };

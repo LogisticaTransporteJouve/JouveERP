@@ -4,6 +4,7 @@ import { logAudit } from "@/lib/actions/audit";
 import { logger } from "@/lib/logger";
 
 import { workflowProposalSpec } from "../../lib/proposal-specs";
+import { listAiWorkflowsAction } from "../../workflows/actions";
 import {
   WEEKDAYS,
   WORKFLOW_CADENCES,
@@ -11,7 +12,29 @@ import {
 } from "../../workflows/schema";
 import { announceWorkflowChange } from "../../workflows/scheduling";
 import { WorkflowLimitError, createWorkflow } from "../../workflows/store";
+import { defineAiAction } from "../define";
 import { defineAiProposal } from "../propose";
+import { errResult, okResult } from "../result";
+
+export const getAiWorkflows = defineAiAction({
+  name: "getAiWorkflows",
+  domain: "general",
+  permission: "ai:chat",
+  sideEffect: "read",
+  sources: ["ai_workflows"],
+  description:
+    "Las tareas programadas de IA del usuario (Tareas IA): título, pedido, frecuencia, si está activa y la próxima ejecución. Para '¿qué tareas programadas tengo?'.",
+  input: z.object({}),
+  run: async () => {
+    const res = await listAiWorkflowsAction();
+    if (!res.ok) return errResult(res.error);
+    const active = res.data.filter((w) => w.isActive).length;
+    return okResult(
+      `${res.data.length} tareas programadas (${active} activas).`,
+      res.data,
+    );
+  },
+});
 
 export const proposeAiWorkflow = defineAiProposal({
   name: "proposeAiWorkflow",

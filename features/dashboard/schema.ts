@@ -1,7 +1,11 @@
 import { z } from "zod";
 
 import type { CurrencyAmounts } from "@/lib/aging";
-import { highestRole, type Role } from "@/lib/auth/permissions";
+import {
+  highestRole,
+  type Permission,
+  type Role,
+} from "@/lib/auth/permissions";
 
 export const DUE_DATE_KINDS = [
   "received_check",
@@ -27,6 +31,16 @@ export interface DueDateItem {
   direction: "in" | "out" | null;
   href: string;
 }
+
+/** Any of these opens the agenda; each section needs its own. */
+export const DUE_DATE_PERMISSIONS: readonly Permission[] = [
+  "cheques:read",
+  "issued_checks:read",
+  "accounts:read",
+  "recurring_payments:read",
+  "fleet_documents:read",
+  "hr:read",
+];
 
 /** The agenda, and the sections whose read failed (their items are
  *  missing, not absent). */

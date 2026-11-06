@@ -1,5 +1,7 @@
 "use server";
 
+import { z } from "zod";
+
 import { requireUserContext } from "@/lib/auth/context";
 import {
   FLEET_PROFITABILITY_PERMISSIONS,
@@ -7,8 +9,9 @@ import {
 } from "@/lib/auth/permissions";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
-import { paginateRange } from "@/lib/supabase/paginate";
+import { fetchInChunks, paginateRange } from "@/lib/supabase/paginate";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
+import { UuidSchema } from "@/lib/validation/common";
 
 import {
   computeProfitability,
@@ -220,21 +223,29 @@ export type TripRevenue = {
  * (v_trip_revenue: invoiced freight of its shipments, else the manual
  * figure) and its freight still to invoice, drained. Gated like the report.
  */
-export async function listTripRevenueAction(): Promise<
-  ActionResult<TripRevenue[]>
-> {
+/** The revenue of every trip, or only of `tripIds` when given. */
+export async function listTripRevenueAction(
+  tripIds?: readonly string[],
+): Promise<ActionResult<TripRevenue[]>> {
   const ctx = await requireUserContext();
   if (!userCanAll(ctx.access, FLEET_PROFITABILITY_PERMISSIONS)) {
     return { ok: false, error: "No tenés permiso para ver la rentabilidad." };
   }
+  const ids = z.array(UuidSchema).optional().safeParse(tripIds);
+  if (!ids.success) return { ok: false, error: "Viajes inválidos." };
   const supabase = await createSupabaseClient();
-  const { data, error } = await paginateRange((from, to) =>
-    supabase
-      .from("v_trip_revenue")
-      .select("trip_id, revenue, uninvoiced_freight, uninvoiced_shipments")
-      .order("trip_id")
-      .range(from, to),
-  );
+  const columns = "trip_id, revenue, uninvoiced_freight, uninvoiced_shipments";
+  const { data, error } = ids.data
+    ? await fetchInChunks(ids.data, (chunk) =>
+        supabase.from("v_trip_revenue").select(columns).in("trip_id", chunk),
+      )
+    : await paginateRange((from, to) =>
+        supabase
+          .from("v_trip_revenue")
+          .select(columns)
+          .order("trip_id")
+          .range(from, to),
+      );
   if (error) {
     logger.error("fleet.trip_revenue.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo leer el ingreso de los viajes." };

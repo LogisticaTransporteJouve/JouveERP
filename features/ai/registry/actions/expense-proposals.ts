@@ -3,9 +3,12 @@ import { z } from "zod";
 import { listCostTagOptionsAction } from "@/features/cost-centers/actions/cost-tag-options-actions";
 import { getExpenseCostTagsAction } from "@/features/cost-centers/actions/recategorize-actions";
 import {
+  EXPENSE_SOURCE_WRITE,
   EXPENSE_SOURCES,
   type CostTagOption,
+  type ExpenseSource,
 } from "@/features/cost-centers/schema";
+import { userCan } from "@/lib/auth/permissions";
 import { recategorizeExpense } from "@/lib/commands/recategorize-expense";
 
 import {
@@ -15,6 +18,14 @@ import {
 import { defineAiProposal, type AiPrepareResult } from "../propose";
 
 const MAX_CANDIDATES = 5;
+
+/** Why a user who may recategorize one source cannot touch the other. */
+const SOURCE_WRITE_DENIED: Record<ExpenseSource, string> = {
+  transactions:
+    "No tenés permiso para recategorizar movimientos de caja: solo compras.",
+  purchase_invoices:
+    "No tenés permiso para recategorizar facturas de compra: solo movimientos de caja.",
+};
 
 /** What the model may say to mean "the default account" / "no center". */
 const NONE_WORDS = new Set([
@@ -92,12 +103,11 @@ function resolveOption(
 export const proposeRecategorizeExpense = defineAiProposal({
   name: "proposeRecategorizeExpense",
   domain: "contabilidad",
-  permission: [
-    "transactions:write",
-    "purchase_invoices:write",
-    "transactions:read",
-    "purchase_invoices:read",
-  ],
+  // recategorizeExpenseAction gates on the write of the expense's source
+  // (EXPENSE_SOURCE_WRITE): offered with either, and prepare / execute
+  // refuse the source the user cannot write (getExpenseCostTagsAction
+  // checks its read).
+  permission: { anyOf: ["transactions:write", "purchase_invoices:write"] },
   sources: [
     "transactions",
     "purchase_invoices",
@@ -133,7 +143,10 @@ export const proposeRecategorizeExpense = defineAiProposal({
       .describe("New cost center: code or name. Omit to keep it."),
   }),
   spec: recategorizeExpenseProposalSpec,
-  prepare: async (_ctx, input) => {
+  prepare: async (ctx, input) => {
+    if (!userCan(ctx.access, EXPENSE_SOURCE_WRITE[input.source])) {
+      return { kind: "error", error: SOURCE_WRITE_DENIED[input.source] };
+    }
     if (
       input.expense_account === undefined &&
       input.cost_center === undefined
@@ -220,6 +233,9 @@ export const proposeRecategorizeExpense = defineAiProposal({
     return { kind: "draft", draft, labels };
   },
   execute: async (ctx, draft) => {
+    if (!userCan(ctx.access, EXPENSE_SOURCE_WRITE[draft.source])) {
+      return { ok: false, error: SOURCE_WRITE_DENIED[draft.source] };
+    }
     const res = await recategorizeExpense(ctx.userId, draft);
     if (!res.ok) return res;
     return {

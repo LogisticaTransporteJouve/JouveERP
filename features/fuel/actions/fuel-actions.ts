@@ -11,11 +11,13 @@ import type { Database } from "@/lib/db/database.types";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
-import { paginateRange } from "@/lib/supabase/paginate";
+import { drainOrFirst } from "@/lib/supabase/paginate";
 
 import {
   FuelLoadCreateSchema,
+  FuelLoadListFilterSchema,
   FuelLoadUpdateSchema,
+  type FuelLoadListFilter,
   type FuelLoad,
 } from "../schema";
 
@@ -50,7 +52,10 @@ const IdSchema = z.object({ id: z.string().uuid() });
 const SELECT_COLUMNS =
   "id, vehicle_id, trip_id, load_date, liters, amount, odometer_km, station, card, notes, purchase_invoice_id, transaction_id, created_at, vehicle:vehicles(patente)";
 
-export async function listFuelLoadsAction(): Promise<ActionResult<FuelLoad[]>> {
+/** Every load, newest first; `filter` narrows it (the page passes none). */
+export async function listFuelLoadsAction(
+  filter?: FuelLoadListFilter,
+): Promise<ActionResult<FuelLoad[]>> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "fuel:read")) {
     return {
@@ -58,15 +63,21 @@ export async function listFuelLoadsAction(): Promise<ActionResult<FuelLoad[]>> {
       error: "No tenés permiso para ver cargas de combustible.",
     };
   }
+  const parsed = FuelLoadListFilterSchema.safeParse(filter ?? {});
+  if (!parsed.success) return { ok: false, error: "Filtros inválidos." };
+  const f = parsed.data;
   const supabase = await createSupabaseClient();
-  const { data, error } = await paginateRange((from, to) =>
-    supabase
-      .from("fuel_loads")
-      .select(SELECT_COLUMNS)
+  const { data, error } = await drainOrFirst((from, to) => {
+    let query = supabase.from("fuel_loads").select(SELECT_COLUMNS);
+    if (f.from) query = query.gte("load_date", f.from);
+    if (f.to) query = query.lte("load_date", f.to);
+    if (f.vehicleId) query = query.eq("vehicle_id", f.vehicleId);
+    if (f.tripId) query = query.eq("trip_id", f.tripId);
+    return query
       .order("load_date", { ascending: false })
       .order("id")
-      .range(from, to),
-  );
+      .range(from, to);
+  }, f.limit);
   if (error) {
     logger.error("fuel.list.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudieron listar las cargas." };

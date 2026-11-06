@@ -17,6 +17,7 @@ import {
   getLoanAction,
   listLoansAction,
 } from "@/features/loans/actions/loans-actions";
+import { TREASURY_PERMISSIONS } from "@/lib/auth/permissions";
 import {
   IsoDateSchema,
   PeriodSchema,
@@ -295,7 +296,8 @@ export const getExpenseByCategory = defineAiAction({
 export const getLoans = defineAiAction({
   name: "getLoans",
   domain: "contabilidad",
-  permission: "accounting:read",
+  // listLoansAction / getLoanAction check accounting:read + accounts:read.
+  permission: TREASURY_PERMISSIONS,
   sideEffect: "read",
   sources: ["loans", "loan_installments"],
   description:
@@ -325,7 +327,8 @@ export const getLoans = defineAiAction({
 export const getLoanDetail = defineAiAction({
   name: "getLoanDetail",
   domain: "contabilidad",
-  permission: "accounting:read",
+  // listLoansAction / getLoanAction check accounting:read + accounts:read.
+  permission: TREASURY_PERMISSIONS,
   sideEffect: "read",
   sources: ["loans", "loan_installments"],
   description:

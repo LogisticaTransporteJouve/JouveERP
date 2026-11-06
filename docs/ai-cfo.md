@@ -53,13 +53,49 @@ exchangeRate?, note? }` y el prompt obliga a citarlo y a avisar si es parcial.
   mantenimiento imputados como en el reporte de rentabilidad (`ai_fleet_margin`).
 - **Clientes** (`clients:read` + `invoices:read` + `receipts:read`): facturado en ARS, cobrado por
   moneda, días promedio de cobro y deuda abierta/vencida (`ai_client_sales_summary`).
-- **Proveedores** (`suppliers:read` + `purchase_invoices:read` [+ `payment_orders:read`]): compras y
+- **Proveedores** (`suppliers:read` + `purchase_invoices:read` + `payment_orders:read`): compras y
   pagos por proveedor, próximos vencimientos y evolución de precios por proveedor, categoría o ítem.
 - **Dominios sin cobertura previa:** pagos recurrentes, depósito (stock de pallets
   `ai_pallets_summary`, depósitos, productos, tarifas y facturación de almacenaje), cargas
   (`ai_shipments_summary`), choferes, categorías de proveedor, AFIP (`afip:admin`: numeración por punto
   de venta `ai_afip_last_numbers` y CAEA, sin llamar a AFIP) y adjuntos (solo metadatos). La búsqueda global
   (`searchGlobal`) se retiró el 2026-11-04.
+
+**Cobertura de lecturas (2026-11-06): la IA ve todo lo que el usuario ve.** Cada página del dashboard
+tiene su tool de lectura, con el mismo permiso que su server action:
+
+- **Tesorería:** `getCashFlow` (flujo de caja real y proyectado, `TREASURY_PERMISSIONS`),
+  `getUpcomingDueDates` (vencimientos de 14 días del dashboard; cualquiera de los permisos de sus
+  secciones) y `getBankReconciliation` (conciliación de una cuenta por nombre y período: líneas
+  pendientes, diferencia extracto − libros, sugerencias; `transactions:read`).
+- **Cuentas corrientes:** `getClientAccount` (`clients:read`) y `getSupplierAccount`
+  (`suppliers:read`), con saldo por moneda y movimientos filtrables por fecha; `getClientTariffs`
+  (`storage_billing:read`).
+- **Detalle de documentos**, un tool por tipo: `getInvoiceDetail`, `getReceiptDetail`,
+  `getPaymentOrderDetail`, `getPurchaseInvoiceDetail` (ítems, pagos imputados y remitos) y
+  `getTripDetail` (con sus cargas si hay `shipments:read`).
+- **Flota:** `getTrips`, `getFuelLoads` y `getMaintenance` aceptan vehículo (patente, alias o UUID),
+  chofer (en viajes), rango de fechas y límite (default 200, máx 500; `partial` si hay más); los
+  server actions de la página reciben esos filtros opcionales y sin ellos se comportan igual.
+  `getVehicleUsage` responde "¿cuántos km hizo el AB123CD en octubre?" y "¿quién lo manejó?": km de
+  viajes, km de odómetro (`fleet_km:read`), litros (`fuel:read`) y cada chofer con sus viajes y km.
+  `getShipments` lista cargas por fecha, cliente, viaje, estado o remito.
+- **Depósito y compras:** `getPallets` (trazabilidad por cliente, código o lote, estado y fecha) y
+  `getArcaReceivedVouchers` (comprobantes de ARCA sin cargar; `purchase_invoices:write`, como la
+  página).
+- **General y administración:** `searchFiles` (centro de Archivos), `getDocumentExtractions`
+  (Documentos), `getAiWorkflows` (Tareas IA), `getUsers`, `getImportRuns` y `getBackups`.
+
+Sin tool, a propósito: `/ai`, `/ai/pinned`, `/chat`, `/profile`, `/admin/afip/preview-pdf` y
+`/admin/padron` (su lectura, `verifyCuitAction`, consulta AFIP y escribe la caché del padrón; la cerca
+de ESLint solo deja cruzar acciones de lectura, así que hace falta una en `features/clients` primero).
+
+Dos tests lo sostienen: `features/ai/registry/coverage.test.ts` falla si una página de
+`app/(dashboard)` o una entrada del menú no tiene tool de lectura (o un motivo en la lista de
+excepciones), y `features/ai/registry/parity.test.ts` compara el permiso de cada tool con el gate que
+el server action envuelto chequea en su código. `getLoans` y `getLoanDetail` ahora piden
+`TREASURY_PERMISSIONS`, como sus acciones; `proposeRecategorizeExpense` se ofrece con el permiso de
+escritura de cualquiera de los dos orígenes y rechaza el que el usuario no puede escribir.
 
 **System prompt:** persona "AI CFO de Jouve" en español rioplatense con voseo, solo lectura, resumen de
 capacidades del usuario, "nunca inventes cifras; citá fuente y fecha; si un resultado es parcial,

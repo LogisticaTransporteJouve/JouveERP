@@ -12,7 +12,8 @@ import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { findSourceInvoiceSlot, invoiceIsVoid } from "@/lib/source-invoice-key";
-import { fetchInChunks, paginateRange } from "@/lib/supabase/paginate";
+import { drainOrFirst, fetchInChunks } from "@/lib/supabase/paginate";
+import { containsPattern } from "@/lib/supabase/like-pattern";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { getServiceClient } from "@/lib/supabase/service";
 
@@ -25,7 +26,9 @@ import {
   FreightInvoiceSchema,
   type FreightInvoiceInput,
   ShipmentCreateSchema,
+  ShipmentListFilterSchema,
   ShipmentRemitoCheckSchema,
+  type ShipmentListFilter,
   type ShipmentRemitoCheckInput,
   type ShipmentRemitoConflict,
   ShipmentStatusChangeSchema,
@@ -152,21 +155,34 @@ export async function findShipmentRemitoConflictAction(
   };
 }
 
-export async function listShipmentsAction(): Promise<ActionResult<Shipment[]>> {
+/** Every carga, newest first; `filter` narrows it (the page passes none). */
+export async function listShipmentsAction(
+  filter?: ShipmentListFilter,
+): Promise<ActionResult<Shipment[]>> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "shipments:read")) {
     return { ok: false, error: "No tenés permiso para ver cargas." };
   }
+  const parsed = ShipmentListFilterSchema.safeParse(filter ?? {});
+  if (!parsed.success) return { ok: false, error: "Filtros inválidos." };
+  const f = parsed.data;
   const supabase = await createSupabaseClient();
-  const { data, error } = await paginateRange((from, to) =>
-    supabase
-      .from("shipments")
-      .select(SELECT_COLUMNS)
+  const { data, error } = await drainOrFirst((from, to) => {
+    let query = supabase.from("shipments").select(SELECT_COLUMNS);
+    if (f.from) query = query.gte("scheduled_date", f.from);
+    if (f.to) query = query.lte("scheduled_date", f.to);
+    if (f.clientId) query = query.eq("client_id", f.clientId);
+    if (f.tripId) query = query.eq("trip_id", f.tripId);
+    if (f.status) query = query.eq("status", f.status);
+    if (f.remito) {
+      query = query.ilike("remito_number", containsPattern(f.remito));
+    }
+    return query
       .order("scheduled_date", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false })
       .order("id")
-      .range(from, to),
-  );
+      .range(from, to);
+  }, f.limit);
   if (error) {
     logger.error("shipments.list.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudieron listar las cargas." };

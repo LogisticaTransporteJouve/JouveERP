@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { CostVoucherShape } from "@/lib/cost-vouchers";
+import { listWindowShape, UuidSchema } from "@/lib/validation/common";
 
 import {
   FUEL_IMPORT_LIMITS,
@@ -138,3 +139,11 @@ export const FuelImportConfirmSchema = z.object({
 });
 
 export type FuelImportConfirmInput = z.infer<typeof FuelImportConfirmSchema>;
+
+/** Optional filters of the fuel loads list (by load_date); none = every load. */
+export const FuelLoadListFilterSchema = z.object({
+  ...listWindowShape,
+  vehicleId: UuidSchema.nullish(),
+  tripId: UuidSchema.nullish(),
+});
+export type FuelLoadListFilter = z.input<typeof FuelLoadListFilterSchema>;
