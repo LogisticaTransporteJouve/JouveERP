@@ -9,6 +9,8 @@ const h = vi.hoisted(() => ({
   updates: [] as Row[],
   warn: vi.fn(),
   failCounts: false,
+  /** The next `update … maybeSingle` fails with this error. */
+  updateError: null as { code: string; message: string } | null,
   afipPoints: [] as Array<{
     number: number;
     emissionType: string;
@@ -56,6 +58,11 @@ function from(table: string) {
       return { error: null };
     },
     maybeSingle: async () => {
+      if (patch && h.updateError) {
+        const error = h.updateError;
+        h.updateError = null;
+        return { data: null, error };
+      }
       const found = rows()[0] ?? null;
       if (patch && found) {
         Object.assign(found, patch);
@@ -105,6 +112,7 @@ const { configurePosAction, syncAfipPosAction, getCaeaStatusAction } =
 
 beforeEach(() => {
   h.failCounts = false;
+  h.updateError = null;
   h.upserts.length = 0;
   h.updates.length = 0;
   h.warn.mockClear();
@@ -161,6 +169,36 @@ describe("configurePosAction", () => {
     expect(h.updates).toEqual([
       { channel_id: "dz_fiscal", nickname: null, is_enabled: false },
     ]);
+  });
+
+  it("says so when another enable on the channel won the race (unique index)", async () => {
+    // The check saw no other enabled POS; the index refused the update.
+    h.updateError = { code: "23505", message: "duplicate key value" };
+    const res = await configurePosAction({
+      numero: 7,
+      channel_id: "jouve_internal",
+      nickname: null,
+      is_enabled: false,
+    });
+    expect(res).toEqual({
+      ok: false,
+      error:
+        "El canal ya tiene otro POS habilitado. Deshabilitalo antes de habilitar otro.",
+    });
+  });
+
+  it("does not show the database's message on another failure", async () => {
+    h.updateError = { code: "XX000", message: "relation sales_points broke" };
+    const res = await configurePosAction({
+      numero: 7,
+      channel_id: "jouve_internal",
+      nickname: null,
+      is_enabled: false,
+    });
+    expect(res).toEqual({
+      ok: false,
+      error: "No se pudo guardar el POS. Reintentá.",
+    });
   });
 
   it("assigns a free POS to an active channel", async () => {
