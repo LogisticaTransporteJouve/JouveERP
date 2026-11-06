@@ -14,13 +14,13 @@
       por carga (cuenta, importe, cheque) y diferencias; confirmar emite un
       recibo por cliente y canal (caja, bancos o cartera) imputado a la
       factura de cada carga. Idempotente; cancelar pide los recibos anulados.
-- [ ] Aprobar las migraciones `20261103090000_freight_settlements` y
+- [x] Aprobar las migraciones `20261103090000_freight_settlements` y
       `20261103090100_cod_driver_settlements` junto con el deploy (dependen de
       `20261103080000`/`20261103080100`, PR #318): sin ellas fallan el listado
-      de cargas (`cod_amount`), `/liquidaciones` y `/rendiciones`.
-- [ ] Un rollback a código anterior con tarifas de flete cargadas hace fallar
+      de cargas (`cod_amount`), `/liquidaciones` y `/rendiciones`. — hecho: aplicadas en producción (están en `production-latest`, `bbe08b38`).
+- [x] Un rollback a código anterior con tarifas de flete cargadas hace fallar
       la facturación de almacenaje de ese cliente (el código viejo rechaza un
-      concepto que no conoce).
+      concepto que no conoce). — ya no aplica: la migración está en `production-latest` (`bbe08b38`): un rollback vuelve a un SHA que ya tiene ese código.
 - [ ] Editar desde Recibos un recibo de una rendición no la actualiza: la
       rendición lo marca ("recibos cambiados en Recibos") y no deja asentar
       la diferencia; no se recalcula sola. Se detecta por el total del

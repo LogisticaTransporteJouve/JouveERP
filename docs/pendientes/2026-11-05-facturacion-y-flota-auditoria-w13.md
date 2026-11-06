@@ -16,15 +16,15 @@ Ver [la decisión](../decisions/2026-11-05-facturacion-y-flota-auditoria-w13.md)
       mira** (w13-s6 F3): se lee con el cliente de servicio.
 - [x] Corregido el pendiente w12 que decía «ingreso cero»
       ([w12](2026-11-04-cargas-y-liquidaciones-vinculo-de-factura-w12.md)).
-- [ ] No verificado contra una base real: las dos migraciones y los pgTAP
+- [x] No verificado contra una base real: las dos migraciones y los pgTAP
       `settlement_guards_definer`, `fleet_revenue_void_invoice` y los de
-      margen de flota, liquidaciones y rendiciones que ya existían.
-- [ ] El borrador sin ítems que quedó bajo la clave anterior sigue en
+      margen de flota, liquidaciones y rendiciones que ya existían. — hecho: las migraciones están en producción (`production-latest`, `bbe08b38`) y su pgTAP corre verde en el job `database` de CI (`main` en `e239ee7`).
+- [x] El borrador sin ítems que quedó bajo la clave anterior sigue en
       `invoices` como borrador: nadie lo envía ni lo puede anular desde la
       app. No factura nada (no tiene ítems ni CAE), pero aparece en la lista
       de comprobantes. Borrarlo a mano o con un barrido es una decisión
-      aparte.
-- [ ] Las cifras de flota llaman a `shipment_invoice_is_void` una vez por
+      aparte. — hecho: `issue-invoice-reconcile` marca fallido el borrador sin ítems (`20261105100000_fail_itemless_invoice_drafts.sql`).
+- [x] Las cifras de flota llaman a `shipment_invoice_is_void` una vez por
       carga facturada. Con el volumen de hoy no pesa; si la rentabilidad se
       vuelve lenta, materializar la regla en una columna es el siguiente
-      paso.
+      paso. — ya no aplica: las cifras de flota ya no llaman a `shipment_invoice_is_void` (sin lectores, `20261105130000_billing_void_note_chain.sql:36`); el costo por carga sigue en el ítem de `shipment_invoice_billed_ratio` (w14).

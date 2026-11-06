@@ -19,13 +19,13 @@ Decisiones: `docs/decisions/2026-11-05-archivos-por-registro-w14.md`.
 - [x] **Crear desde un escaneo muestra el error de lectura** del canal,
       cliente, proveedor o cuenta sugerida (w14-s6 F3).
 - [x] **Comentarios de `duplicate_unknown`** al día (w14-s7 F2).
-- [ ] **Correr la consulta de control antes de promover**
+- [x] **Correr la consulta de control antes de promover**
       (`antes-de-promover.md`, ítem `20261105100100`). Lista, por usuario
       que no es owner/admin, los archivos que deja de leer. Lo esperado es
       que operaciones y depósito pierdan adjuntos de compras, comprobantes,
       recibos, órdenes de pago, cheques y movimientos, y los escaneos de
       otros usuarios. Si alguien necesita alguno de esos archivos, hay que
-      darle el rol que lee el registro, no tocar la política.
+      darle el rol que lee el registro, no tocar la política. — hecho: aprobada con su consulta de control y promovida (ítem tildado en `antes-de-promover.md`; la migración está en `production-latest`, `bbe08b38`).
 - [x] **Quitar un adjunto que otro creó ya no da un falso «Adjunto
       eliminado».** La política de borrado de `file_attachments` es «quien
       lo creó u owner/admin». Antes la acción borraba 0 filas, auditaba
@@ -36,6 +36,6 @@ Decisiones: `docs/decisions/2026-11-05-archivos-por-registro-w14.md`.
       quien no es owner/admin, y la acción lo rechaza. Para esconderlo,
       `listAttachmentsAction` tendría que devolver si el usuario puede
       quitar cada adjunto.
-- [ ] **`is_linked_file` ya no lo usa ninguna política.** Se dejó definida
+- [x] **`is_linked_file` ya no lo usa ninguna política.** Se dejó definida
       porque borrarla cambia los tipos y no ahorra nada. Se puede borrar en
-      una limpieza futura.
+      una limpieza futura. — ya no aplica: `guard_link_file_visible` la volvió a usar (`20261105130100_document_file_unshared.sql:64`).

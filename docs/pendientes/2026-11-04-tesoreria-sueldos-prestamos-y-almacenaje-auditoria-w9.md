@@ -14,8 +14,8 @@ Ver [la decisión](../decisions/2026-11-04-tesoreria-sueldos-prestamos-y-almacen
       migración ya mergeada `20261104150201` («older code reads center_cost
       as a number») dice lo mismo que la nota vieja y queda así: no se edita
       una migración mergeada.
-- [ ] No verificado contra una base real: las tres migraciones y el pgTAP
-      `treasury_payroll_loan_storage_w9`.
+- [x] No verificado contra una base real: las tres migraciones y el pgTAP
+      `treasury_payroll_loan_storage_w9`. — hecho: las migraciones están en producción (`production-latest`, `bbe08b38`) y su pgTAP corre verde en el job `database` de CI (`main` en `e239ee7`).
 - [ ] Fuera de alcance: `storage_billing_runs` sigue abierta a PATCH de sus
       otras columnas (período, totales) para owner, admin y finance, como
       antes.

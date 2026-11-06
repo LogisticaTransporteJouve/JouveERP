@@ -15,9 +15,9 @@ Migración: `20261105120100`.
       como si fuera de flete en `billing_invoice_is_void`, porque la regla
       corre como el usuario. Responde «no anulada», del lado seguro. Si
       algún día otro rol lee la regla, revisar.
-- [ ] **Facturas que dejan de leerse anuladas** al aplicar `120100`: la
+- [x] **Facturas que dejan de leerse anuladas** al aplicar `120100`: la
       consulta de control está en su ítem de `antes-de-promover.md`. Owner:
       revisá si alguna carga, período o liquidación de esas facturas ya se
       volvió a facturar. (Desde la auditoría w16, «Facturar flete» ya no
       vuelve a tomar la factura vieja: solo el último intento puede ser el
-      vigente, `lib/source-invoice-key.ts`.)
+      vigente, `lib/source-invoice-key.ts`.) — hecho: aprobada con su consulta de control y promovida (ítem tildado en `antes-de-promover.md`; la migración está en `production-latest`, `bbe08b38`).
