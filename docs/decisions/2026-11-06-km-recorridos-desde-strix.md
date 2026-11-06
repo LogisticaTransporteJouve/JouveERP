@@ -5,7 +5,7 @@ camiones) y no de una lectura del odómetro cargada a mano. Un robot HTTP
 (`lib/strix/robot.ts`, armado sobre la grabación del owner del 2026-11-06)
 entra con un usuario de Strix, pide el informe «Kmts recorridos» y guarda los
 km por vehículo y día en `vehicle_km_daily` (migración
-`20261106190000_strix_vehicle_km`). Corre todos los días (la última semana)
+`20261106191306_strix_vehicle_km`). Corre todos los días (la última semana)
 desde Inngest (`strix-km-sync`) y a pedido con «Traer de Strix» para las
 fechas elegidas. Flota → Km recorridos (`/vehicle-km`) suma los km del rango
 que se elige; un clic en la patente (ahí o en Vehículos) muestra los km de
