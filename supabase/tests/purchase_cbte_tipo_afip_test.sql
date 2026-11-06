@@ -1,12 +1,13 @@
 -- A recibo or liquidación loaded as a factura keeps its AFIP code
--- (20261106190000): only on a factura of the matching letter, and
+-- (20261106190000), and so does an M loaded as an A of its kind
+-- (20261106201042): only on the matching kind and letter, and
 -- create_purchase_invoice takes it. One transaction, rolled back.
 
 begin;
 
 select set_config('request.jwt.claims', '{"role":"service_role"}', true);
 
-select plan(5);
+select plan(9);
 
 insert into public.suppliers (id, cuit, legal_name, iva_condition, is_fiscal) values
   ('00000000-0000-0000-0000-0000000c6101', '30500010912', 'Banco Liquidación SA', 'responsable_inscripto', true);
@@ -45,6 +46,30 @@ select throws_ok(
   '23514',
   'new row for relation "purchase_invoices" violates check constraint "purchase_invoices_cbte_tipo_afip_check"',
   'a plain factura carries no code of its own'
+);
+
+select lives_ok(
+  $$select pg_temp.add(5, 'factura', 'A', 51)$$,
+  'a Factura M is a factura A with code 51'
+);
+
+select lives_ok(
+  $$select pg_temp.add(6, 'nd', 'A', 52)$$,
+  'an ND M is an ND A with code 52'
+);
+
+select throws_ok(
+  $$select pg_temp.add(7, 'factura', 'A', 53)$$,
+  '23514',
+  'new row for relation "purchase_invoices" violates check constraint "purchase_invoices_cbte_tipo_afip_check"',
+  'an NC M is never a factura'
+);
+
+select throws_ok(
+  $$select pg_temp.add(8, 'factura', 'B', 51)$$,
+  '23514',
+  'new row for relation "purchase_invoices" violates check constraint "purchase_invoices_cbte_tipo_afip_check"',
+  'a Factura M is never a letter B'
 );
 
 select ok(

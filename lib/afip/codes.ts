@@ -69,34 +69,46 @@ export function kindLetterForCbteTipo(
   return KIND_LETTER_BY_CBTE_TIPO.get(cbteTipo) ?? null;
 }
 
-/** Received vouchers that are not a factura, NC or ND but load as a factura
- *  of their letter: recibos (4, 9, 15) and liquidaciones (63, 64). The
- *  purchase keeps the code (purchase_invoices.cbte_tipo_afip). */
-export const PURCHASE_FACTURA_LIKE_TIPOS: ReadonlyMap<number, InvoiceLetter> =
-  new Map([
-    [4, "A"],
-    [9, "B"],
-    [15, "C"],
-    [63, "A"],
-    [64, "B"],
-  ]);
+/** Received vouchers the ERP loads as one of its kinds and letters while the
+ *  purchase keeps the voucher's own AFIP code (purchase_invoices.cbte_tipo_afip)
+ *  for the Libro IVA TXT: recibos (4, 9, 15) and liquidaciones (63, 64) as a
+ *  factura of their letter, and the M vouchers (51, 52, 53), which discriminate
+ *  IVA for the buyer as an A does. */
+const PURCHASE_OWN_CODE_TIPOS: ReadonlyMap<
+  number,
+  { kind: InvoiceKind; letter: InvoiceLetter; label: string }
+> = new Map([
+  [4, { kind: "factura", letter: "A", label: "Recibo A" }],
+  [9, { kind: "factura", letter: "B", label: "Recibo B" }],
+  [15, { kind: "factura", letter: "C", label: "Recibo C" }],
+  [63, { kind: "factura", letter: "A", label: "Liquidación A" }],
+  [64, { kind: "factura", letter: "B", label: "Liquidación B" }],
+  [51, { kind: "factura", letter: "A", label: "Factura M" }],
+  [52, { kind: "nd", letter: "A", label: "Nota de débito M" }],
+  [53, { kind: "nc", letter: "A", label: "Nota de crédito M" }],
+]);
+
+/** Whether a received voucher's code is kept on its purchase. */
+export function purchaseKeepsOwnCode(cbteTipo: number): boolean {
+  return PURCHASE_OWN_CODE_TIPOS.has(cbteTipo);
+}
 
 /** What a received voucher's code is as a purchase: an ERP kind and letter,
- *  a recibo or liquidación as a factura of its letter; null for any other
- *  (FCE MiPyME, M, tickets…). */
+ *  or the kind and letter a recibo, liquidación or M loads as; null for any
+ *  other (FCE MiPyME, tickets…). */
 export function purchaseKindLetterForCbteTipo(
   cbteTipo: number,
 ): { kind: InvoiceKind; letter: InvoiceLetter } | null {
-  const letter = PURCHASE_FACTURA_LIKE_TIPOS.get(cbteTipo);
-  return letter ? { kind: "factura", letter } : kindLetterForCbteTipo(cbteTipo);
+  const own = PURCHASE_OWN_CODE_TIPOS.get(cbteTipo);
+  return own
+    ? { kind: own.kind, letter: own.letter }
+    : kindLetterForCbteTipo(cbteTipo);
 }
 
-/** A recibo or liquidación's own name («Liquidación A»), or null for the
- *  codes the ERP names by kind and letter. */
-export function facturaLikeTipoLabel(cbteTipo: number): string | null {
-  const letter = PURCHASE_FACTURA_LIKE_TIPOS.get(cbteTipo);
-  if (!letter) return null;
-  return `${cbteTipo >= 63 ? "Liquidación" : "Recibo"} ${letter}`;
+/** A recibo, liquidación or M voucher's own name («Factura M»), or null for
+ *  the codes the ERP names by kind and letter. */
+export function purchaseOwnTipoLabel(cbteTipo: number): string | null {
+  return PURCHASE_OWN_CODE_TIPOS.get(cbteTipo)?.label ?? null;
 }
 
 // Only a letter A voucher discriminates IVA for the buyer: on B and C the IVA,
