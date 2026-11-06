@@ -1143,7 +1143,7 @@ export const fleetPage: GuidePage = {
           steps: [
             "En [[/cargas]], en la fila de la carga, abrí el menú ⋯ y elegí {{Facturar flete}}. El diálogo muestra el cliente y el flete.",
             "En {{Canal}}, elegí el canal: solo se ofrecen los del lado del cliente (Ventas o Otras ventas). Si la carga ya tiene canal, viene fijo.",
-            "En {{Punto de venta}}, elegí el punto de venta del canal.",
+            "El {{Punto de venta}} viene elegido: es el único habilitado del canal.",
             "Hacé clic en {{Facturar}}.",
           ],
           after: [
@@ -1155,7 +1155,7 @@ export const fleetPage: GuidePage = {
             { message: "Elegí un canal.", fix: "Elegí el canal en {{Canal}}." },
             {
               message: "Elegí un punto de venta.",
-              fix: "Elegí el punto de venta.",
+              fix: "El canal no tiene un punto de venta habilitado: pedile a un owner o admin que habilite uno en [[/admin/afip/puntos-de-venta]].",
             },
             {
               message: "La carga ya tiene una factura o se está facturando.",
@@ -1590,7 +1590,7 @@ export const fleetPage: GuidePage = {
           ],
           steps: [
             "En [[/liquidaciones]], en la fila de la liquidación, abrí el menú ⋯ y elegí {{Facturar}}. El diálogo muestra el {{Documento}}, el cliente y el {{Neto}}.",
-            "Elegí {{Canal}} (solo los fiscales) y {{Punto de venta}}.",
+            "Elegí el {{Canal}} (solo los fiscales; si hay uno solo, viene elegido). El {{Punto de venta}} viene elegido: es el único habilitado del canal.",
             "Hacé clic en {{Facturar}}.",
           ],
           after: [
@@ -1652,7 +1652,7 @@ export const fleetPage: GuidePage = {
           ],
           steps: [
             "En [[/liquidaciones]], en la fila de la liquidación, abrí el menú ⋯ y elegí {{Emitir remito interno}}.",
-            "Elegí {{Canal}} (solo los internos) y {{Punto de venta}}.",
+            "Elegí el {{Canal}} (solo los internos; si hay uno solo, viene elegido). El {{Punto de venta}} viene elegido: es el único habilitado del canal.",
             "Hacé clic en {{Emitir remito interno}}.",
           ],
           after: [
@@ -1663,7 +1663,7 @@ export const fleetPage: GuidePage = {
             { message: "Elegí un canal.", fix: "Elegí el canal." },
             {
               message: "Elegí un punto de venta.",
-              fix: "Elegí el punto de venta.",
+              fix: "El canal no tiene un punto de venta habilitado: pedile a un owner o admin que habilite uno en [[/admin/afip/puntos-de-venta]].",
             },
             {
               message: "La liquidación ya se facturó o se está facturando.",
@@ -2512,6 +2512,7 @@ export const fleetPage: GuidePage = {
       intro: [
         "La lectura del odómetro de cada vehículo, una vez por mes. Arriba se elige el mes (por defecto, el actual; no se puede ir a un mes futuro) y se ve cuántos vehículos faltan. La tabla muestra {{Vehículo}}, {{Lectura anterior}} (con su mes), {{Km del mes}} (con la fecha de lectura) y {{Recorrido}}.",
         "Llevan km los vehículos activos que no son acoplado ni semi. Tareas lo recuerda: el día 1 se abre la tarea del mes en [[/tasks]], que vence el día 5; la revisión diaria de tareas (a la mañana) la cierra cuando están todos los km.",
+        "Cuando le preguntás al [[/ai]] cuántos km hizo un vehículo, responde con estas lecturas: la del último mes del rango menos la del mes anterior al primero (por ejemplo, para octubre, la de octubre menos la de septiembre). Si falta alguna de las dos, aclara que no hay km medidos y da los km cargados en los viajes solo como referencia. Hace falta poder ver esta pantalla.",
       ],
       screens: [
         {

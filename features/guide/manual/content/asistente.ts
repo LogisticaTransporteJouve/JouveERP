@@ -770,7 +770,7 @@ export const assistantPage: GuidePage = {
           ],
           steps: [
             "En la revisión, hacé clic en {{Emitir factura de venta}}.",
-            "Revisá cliente, fecha, total e ítems, y elegí {{Canal}} y {{Punto de venta}}.",
+            "Revisá cliente, fecha, total e ítems, y el {{Canal}}. El {{Punto de venta}} viene elegido: es el único habilitado del canal.",
             "Hacé clic en {{Emitir factura}}.",
           ],
           after: [

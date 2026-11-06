@@ -24,6 +24,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+import { PosSelect } from "@/features/invoices/components/pos-select";
+
 import {
   billedRuns,
   lastBilledEnd,
@@ -33,7 +35,6 @@ import {
   uncoveredGap,
 } from "../lib/continuity";
 import {
-  useEnabledPos,
   useInvoiceStorage,
   useInvoicingChannels,
   useStorageBilling,
@@ -91,8 +92,6 @@ export function StorageInvoiceDialog({
       client?.client_is_fiscal == null ||
       c.is_fiscal === client.client_is_fiscal,
   );
-  const posQuery = useEnabledPos(channelId);
-  const posList = posQuery.data;
   const invoiceMut = useInvoiceStorage();
 
   // Live preview for [start, end] (recomputed server-side on emit).
@@ -262,29 +261,12 @@ export function StorageInvoiceDialog({
 
           <div className="space-y-2">
             <Label htmlFor="storage-pos">Punto de venta</Label>
-            <Select
+            <PosSelect
+              id="storage-pos"
+              channelId={channelId || null}
               value={puntoVenta}
-              onValueChange={setPuntoVenta}
-              disabled={!channelId}
-            >
-              <SelectTrigger id="storage-pos">
-                <SelectValue placeholder="Elegí un punto de venta" />
-              </SelectTrigger>
-              <SelectContent>
-                {(posList ?? []).map((p) => (
-                  <SelectItem key={p.numero} value={String(p.numero)}>
-                    {String(p.numero).padStart(5, "0")}
-                    {p.nickname ? ` — ${p.nickname}` : ""}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {channelId && posQuery.isError && (
-              <ReadError
-                message="No se pudieron cargar los puntos de venta."
-                onRetry={() => void posQuery.refetch()}
-              />
-            )}
+              onChange={setPuntoVenta}
+            />
           </div>
 
           <div className="space-y-1 rounded-md border bg-muted/30 p-3 text-sm">

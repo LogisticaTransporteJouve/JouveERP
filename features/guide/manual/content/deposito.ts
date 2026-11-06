@@ -1734,7 +1734,7 @@ export const warehousePage: GuidePage = {
                 {
                   label: "Punto de venta",
                   kind: "select",
-                  value: "00003",
+                  value: "0003",
                   marker: 3,
                   wide: true,
                 },
@@ -1757,9 +1757,9 @@ export const warehousePage: GuidePage = {
           steps: [
             "En [[/storage-billing]], en la fila del cliente en {{Por cliente}}, hacé clic en {{Facturar}}.",
             "Revisá {{Desde}} (propuesto el día siguiente al último facturado) y {{Hasta}} (el fin del rango de la pantalla). Leé los avisos de hueco o superposición si aparecen.",
-            "Elegí el {{Canal}} (solo los del lado del cliente: fiscal para un cliente de Ventas, interno para uno de Otras ventas; si hay uno solo, viene elegido) y el {{Punto de venta}}.",
+            "Elegí el {{Canal}} (solo los del lado del cliente: fiscal para un cliente de Ventas, interno para uno de Otras ventas; si hay uno solo, viene elegido). El {{Punto de venta}} viene elegido: es el único habilitado del canal.",
             "Revisá el resumen: {{Almacenaje}}, {{Carga}}, {{Descarga}} y {{Total}} se recalculan con el período.",
-            "Hacé clic en {{Emitir factura}}. Se habilita cuando el período es válido, no se superpone con uno facturado, el total es mayor a 0 y elegiste canal y punto de venta.",
+            "Hacé clic en {{Emitir factura}}. Se habilita cuando el período es válido, no se superpone con uno facturado, el total es mayor a 0 y hay canal y punto de venta.",
           ],
           after: [
             "Aparece el aviso {{Factura de almacenaje emitida.}}. Se crea una factura con fecha de hoy, concepto servicios con el período facturado, en pesos, con hasta tres líneas con IVA 21%: «Almacenaje dd/mm/aaaa–dd/mm/aaaa», «Carga …» y «Descarga …» (solo las que tienen importe).",
@@ -1796,12 +1796,12 @@ export const warehousePage: GuidePage = {
             {
               message:
                 "Punto de venta … no está configurado o no pertenece a ….",
-              fix: "Elegí otro punto de venta o pedile a un admin que lo habilite para ese canal.",
+              fix: "Ese punto de venta ya no está habilitado para el canal: pedile a un owner o admin que lo revise en [[/admin/afip/puntos-de-venta]].",
             },
             {
               message:
                 "La fecha no puede ser anterior a la del último comprobante de este tipo en el punto de venta (…).",
-              fix: "Ya hay un comprobante posterior en ese punto de venta: usá otro punto de venta o consultalo con el administrador.",
+              fix: "Ya hay un comprobante posterior en ese punto de venta: consultalo con el administrador.",
             },
             {
               message: "El cliente está inactivo.",
