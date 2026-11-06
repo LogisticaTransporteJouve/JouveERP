@@ -616,6 +616,31 @@ export const ROUTING_CASES: RoutingCase[] = [
     },
   },
   {
+    id: "propose-treasury-account-bank",
+    question:
+      "Creá una cuenta de banco: Banco Nación en pesos, con saldo inicial de $1.500.000.",
+    roles: ["finance"],
+    expect: {
+      tool: "proposeTreasuryAccount",
+      input: { name: "Banco Nación", type: "bank", currency: "ARS" },
+    },
+    scriptedInput: {
+      name: "Banco Nación",
+      type: "bank",
+      currency: "ARS",
+      opening_balance: "1.500.000",
+    },
+  },
+  {
+    id: "propose-treasury-account-cash",
+    question: "Me ayudás a crear una cuenta de caja? Caja chica, en dólares.",
+    roles: ["finance"],
+    expect: {
+      tool: "proposeTreasuryAccount",
+      input: { name: "Caja chica", type: "cash", currency: "USD" },
+    },
+  },
+  {
     id: "propose-cash-movement",
     question:
       "Cargá un egreso de $15.000 del Banco Galicia por comisiones bancarias, en el canal fiscal.",
@@ -1218,6 +1243,12 @@ export const DENIED_CASES: DeniedCase[] = [
       "proposeCashMovement",
       "proposeTransfer",
     ],
+  },
+  {
+    id: "treasury-account-operations",
+    question: "Creá una cuenta de caja: Caja chica.",
+    roles: ["operations", "fiscal_reader"],
+    forbiddenTools: ["proposeTreasuryAccount"],
   },
   {
     id: "checks-operations",

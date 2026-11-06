@@ -37,6 +37,7 @@ import {
   getPurchaseInvoiceDetail,
   getReceiptDetail,
 } from "./actions/details";
+import { proposeTreasuryAccount } from "./actions/account-proposals";
 import {
   getDocumentExtractions,
   proposeDocumentScan,
@@ -263,6 +264,7 @@ export const AI_ACTIONS: readonly AiAction[] = [
   getDriverSettlements,
   getBankReconciliation,
   proposeBankMatches,
+  proposeTreasuryAccount,
   proposeCashMovement,
   proposeTransfer,
   proposeManualCheck,

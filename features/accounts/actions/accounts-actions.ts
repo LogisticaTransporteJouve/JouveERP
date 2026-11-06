@@ -5,6 +5,10 @@ import type { JsonValue } from "@/lib/actions/audit";
 import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
+import {
+  createAccount,
+  DUPLICATE_ACCOUNT,
+} from "@/lib/commands/create-account";
 import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { logger } from "@/lib/logger";
@@ -86,47 +90,7 @@ export async function createAccountAction(
     return { ok: false, error: first };
   }
 
-  const supabase = await createSupabaseClient();
-  const { data, error } = await supabase
-    .from("accounts")
-    .insert({
-      name: parsed.data.name,
-      type: parsed.data.type,
-      currency: parsed.data.currency,
-      opening_balance: parsed.data.opening_balance,
-      notes: parsed.data.notes ?? null,
-      created_by: ctx.userId,
-    })
-    .select("id")
-    .single();
-
-  if (error) {
-    if (error.code === PG_UNIQUE_VIOLATION) {
-      return {
-        ok: false,
-        error: "Ya existe una cuenta con ese nombre, tipo y moneda.",
-      };
-    }
-    logger.error("accounts.create.failed", {
-      userId: ctx.userId,
-      name: parsed.data.name,
-      type: parsed.data.type,
-      error,
-    });
-    return { ok: false, error: "No se pudo crear la cuenta." };
-  }
-
-  await logAudit(
-    "account.created",
-    ctx.userId,
-    {
-      name: parsed.data.name,
-      type: parsed.data.type,
-      currency: parsed.data.currency,
-    },
-    data.id,
-  );
-  return { ok: true, data: { id: data.id } };
+  return createAccount(ctx.userId, parsed.data);
 }
 
 /** Whether the account has movements, checks, statement lines or an opening
@@ -196,10 +160,7 @@ export async function updateAccountAction(
 
   if (error) {
     if (error.code === PG_UNIQUE_VIOLATION) {
-      return {
-        ok: false,
-        error: "Ya existe una cuenta con ese nombre, tipo y moneda.",
-      };
+      return { ok: false, error: DUPLICATE_ACCOUNT };
     }
     // guard_account_currency_change: currency, type and opening balance are
     // frozen once the account has movements.
