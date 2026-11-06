@@ -69,10 +69,10 @@ export function LibroMayorPage() {
       </div>
 
       <div className="flex flex-wrap items-end gap-3 rounded-lg border bg-card p-4">
-        <div className="space-y-1">
+        <div className="w-full space-y-1 sm:w-auto">
           <label className="text-xs text-muted-foreground">Cuenta</label>
           <Select value={accountId ?? ""} onValueChange={setAccountId}>
-            <SelectTrigger className="w-[360px]">
+            <SelectTrigger className="w-full sm:w-[360px]">
               <SelectValue placeholder="Elegí una cuenta" />
             </SelectTrigger>
             <SelectContent>

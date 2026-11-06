@@ -83,7 +83,7 @@ function FormItem({ className, ...props }: React.ComponentProps<"div">) {
         // content-start: in a form grid a shorter field (no description or
         // error) stretches to its row's height; its label must stay on top
         // instead of sliding down with the stretched rows.
-        className={cn("grid content-start gap-2", className)}
+        className={cn("grid grid-cols-1 content-start gap-2", className)}
         {...props}
       />
     </FormItemContext.Provider>

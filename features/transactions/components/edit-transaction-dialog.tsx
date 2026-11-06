@@ -153,7 +153,7 @@ export function EditTransactionDialog({
                 </FormItem>
               )}
             />
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <FormField
                 control={form.control}
                 name="transaction_date"
@@ -200,7 +200,7 @@ export function EditTransactionDialog({
               />
             </div>
             {transaction?.kind === "expense" && (
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <FormField
                   control={form.control}
                   name="expense_account_id"

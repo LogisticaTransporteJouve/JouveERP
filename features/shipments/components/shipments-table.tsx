@@ -27,6 +27,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { PageHeader } from "@/components/ui/page-header";
 import { userCan, type Access } from "@/lib/auth/permissions";
 
 import { useDeleteShipment, useShipments } from "../hooks/use-shipments";
@@ -288,20 +289,18 @@ export function ShipmentsTable({
 
   return (
     <>
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Cargas</h1>
-          <p className="text-sm text-muted-foreground">
-            Cargas a transportar con cliente, ruta, viaje y estado de entrega.
-          </p>
-        </div>
-        {canWrite && (
-          <Button onClick={() => setDialog({ mode: "create" })}>
-            <Plus />
-            Nueva carga
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        title="Cargas"
+        description="Cargas a transportar con cliente, ruta, viaje y estado de entrega."
+        actions={
+          canWrite && (
+            <Button onClick={() => setDialog({ mode: "create" })}>
+              <Plus />
+              Nueva carga
+            </Button>
+          )
+        }
+      />
 
       <ListSearch
         value={search}

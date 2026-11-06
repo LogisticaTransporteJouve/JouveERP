@@ -45,7 +45,7 @@ export function TodayWeek({
       icon={Sun}
       description="Lo vencido, lo que vence en los próximos 7 días, los viajes de hoy y los papeles por renovar"
     >
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         {tasks && (
           <Tile title="Vencimientos" icon={ListTodo} href="/tasks">
             <TileBody

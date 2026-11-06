@@ -358,7 +358,7 @@ function BGTab({
   const cuadra = Math.abs(totalActivo - sumaPN) < 0.01;
 
   return (
-    <div className="grid gap-6 md:grid-cols-2">
+    <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
       <div className="space-y-4">
         {activo && (
           <TypeBlock label="Activo" rows={activo.rows} total={totalActivo} />

@@ -51,7 +51,7 @@ export function JournalFiltersBar({ filters, onChange, channels }: Props) {
         <label className="text-xs text-muted-foreground">
           Período (YYYY-MM)
         </label>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <MonthPicker
             value={period}
             onChange={(value) =>

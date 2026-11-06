@@ -17,6 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
+import { PageHeader } from "@/components/ui/page-header";
 import { userCan, type Access } from "@/lib/auth/permissions";
 
 import {
@@ -175,26 +176,21 @@ export function RecurringPaymentsTable({
 
   return (
     <>
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Pagos recurrentes
-          </h1>
-          <p className="text-muted-foreground text-sm">
-            Compromisos que se repiten (alquiler, servicios, préstamos,
-            impuestos, sueldos). Insumo del cash-flow proyectado.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <ExportButton resource="recurring-payments" />
-          {canWrite && (
-            <Button onClick={() => setDialog({ mode: "create" })}>
-              <Plus />
-              Nuevo pago
-            </Button>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        title="Pagos recurrentes"
+        description="Compromisos que se repiten (alquiler, servicios, préstamos, impuestos, sueldos). Insumo del cash-flow proyectado."
+        actions={
+          <>
+            <ExportButton resource="recurring-payments" />
+            {canWrite && (
+              <Button onClick={() => setDialog({ mode: "create" })}>
+                <Plus />
+                Nuevo pago
+              </Button>
+            )}
+          </>
+        }
+      />
 
       <DataTable
         columns={columns}

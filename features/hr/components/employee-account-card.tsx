@@ -544,7 +544,7 @@ function ManualMovementDialog({
             un pago en efectivo o transferencia usá los botones de caja.
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="manual-kind">Tipo</Label>
             <Select
@@ -730,7 +730,7 @@ function PlanDialog({
             En la planilla se puede cambiar el descuento de un mes.
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="space-y-2 sm:col-span-2">
             <Label htmlFor="plan-description">Descripción</Label>
             <Input

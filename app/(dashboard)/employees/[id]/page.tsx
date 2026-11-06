@@ -107,7 +107,7 @@ export default async function EmployeeDetailPage({
         )}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="rounded-lg border bg-card p-4 lg:col-span-2">
           <h2 className="text-sm font-medium">Datos</h2>
           <dl className="mt-3 space-y-1 text-sm">
@@ -139,7 +139,7 @@ export default async function EmployeeDetailPage({
 
       <div className="rounded-lg border bg-card p-4">
         <h2 className="text-sm font-medium">Datos formales</h2>
-        <dl className="mt-3 grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
+        <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
           <Row label="Convenio" value={employee.convenio ?? "—"} />
           <Row label="Categoría" value={employee.categoria ?? "—"} />
           <Row label="Obra social" value={employee.obra_social ?? "—"} />
@@ -181,7 +181,7 @@ export default async function EmployeeDetailPage({
 
       <EmployeeGarnishmentsCard employeeId={employee.id} canWrite={canWrite} />
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <SalaryHistoryCard employeeId={employee.id} />
         <TripRatesCard
           employeeId={employee.id}

@@ -26,7 +26,9 @@ export function ListGroupToggle({
     <div
       role="radiogroup"
       aria-label="Vista"
-      className="inline-flex rounded-md border p-0.5"
+      // On a phone the four options get tighter padding, and if they still
+      // do not fit they scroll inside the switch, never the page.
+      className="inline-flex max-w-full rounded-md border p-0.5 max-sm:overflow-x-auto max-sm:[scrollbar-width:none]"
     >
       {options.map((o) => (
         <Button
@@ -36,7 +38,7 @@ export function ListGroupToggle({
           aria-checked={value === o.value}
           size="sm"
           variant={value === o.value ? "secondary" : "ghost"}
-          className="h-8"
+          className="h-8 shrink-0 max-sm:px-2"
           onClick={() => onChange(o.value)}
         >
           {o.label}
