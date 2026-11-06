@@ -4,6 +4,7 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { Fragment, Suspense, useMemo, useState } from "react";
 
+import { IconButton } from "@/components/ui/icon-button";
 import { Section } from "@/components/ui/section";
 import { Skeleton } from "@/components/ui/skeleton";
 import { purchaseOwnTipoLabel } from "@/lib/afip/codes";
@@ -160,21 +161,18 @@ function PeriodRows({
         <td rowSpan={3} className="px-4 py-2 align-top">
           <div className="flex items-center gap-1">
             {isYear ? (
-              <button
-                type="button"
+              <IconButton
+                label={expanded ? "Ocultar meses" : "Ver meses"}
+                variant="ghost"
+                size="icon-xs"
                 onClick={onToggle}
                 aria-expanded={expanded}
-                aria-label={expanded ? "Ocultar meses" : "Ver meses"}
-                className="rounded p-0.5 text-muted-foreground hover:text-foreground"
+                className="text-muted-foreground"
               >
-                {expanded ? (
-                  <ChevronDown className="size-4" />
-                ) : (
-                  <ChevronRight className="size-4" />
-                )}
-              </button>
+                {expanded ? <ChevronDown /> : <ChevronRight />}
+              </IconButton>
             ) : (
-              <span className="w-5" aria-hidden />
+              <span className="size-6 shrink-0" aria-hidden />
             )}
             <button
               type="button"
@@ -189,7 +187,7 @@ function PeriodRows({
               {periodLabel(row.period)}
             </button>
           </div>
-          <p className="mt-1 pl-6 text-xs text-muted-foreground">
+          <p className="mt-1 pl-7 text-xs text-muted-foreground">
             {periodReconciled(row) ? "Conciliado" : "Con diferencias"}
           </p>
         </td>
