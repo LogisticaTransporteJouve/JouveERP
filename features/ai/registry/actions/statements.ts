@@ -19,6 +19,12 @@ import {
 } from "@/features/loans/actions/loans-actions";
 import { TREASURY_PERMISSIONS } from "@/lib/auth/permissions";
 import {
+  fiscalYearLabel,
+  fiscalYearOf,
+  fiscalYearStart,
+} from "@/lib/fiscal-year";
+import { readFiscalYearStartMonth } from "@/lib/fiscal-year-settings";
+import {
   IsoDateSchema,
   PeriodSchema,
   ScopeInputSchema,
@@ -112,7 +118,9 @@ function delta(current: number, previous: number) {
 
 const IncomeStatementInputSchema = z
   .object({
-    periodStart: PeriodSchema.describe("Período desde, YYYY-MM."),
+    periodStart: PeriodSchema.nullish().describe(
+      "Período desde, YYYY-MM. Sin él, desde el primer mes del ejercicio (año fiscal de la empresa, configurable; Jouve: octubre a septiembre) que contiene periodEnd.",
+    ),
     periodEnd: PeriodSchema.describe("Período hasta, YYYY-MM (inclusive)."),
     compareStart: PeriodSchema.nullish().describe(
       "Período desde a comparar, YYYY-MM (opcional).",
@@ -124,7 +132,10 @@ const IncomeStatementInputSchema = z
       "UUID de un centro de costo (opcional).",
     ),
   })
-  .refine((v) => v.periodStart <= v.periodEnd, "Rango de períodos invertido.")
+  .refine(
+    (v) => !v.periodStart || v.periodStart <= v.periodEnd,
+    "Rango de períodos invertido.",
+  )
   .refine(
     (v) => !v.compareStart === !v.compareEnd,
     "Para comparar indicá compareStart y compareEnd.",
@@ -141,13 +152,24 @@ export const getIncomeStatement = defineAiAction({
     "chart_of_accounts",
   ],
   description:
-    "Estado de resultados (EERR) de un rango de períodos por categoría: ingresos, gastos y resultado neto; opcionalmente comparado con otro rango (variación absoluta y %) y filtrado por centro de costo.",
+    "Estado de resultados (EERR) de un rango de períodos por categoría: ingresos, gastos y resultado neto; opcionalmente comparado con otro rango (variación absoluta y %) y filtrado por centro de costo. Sin periodStart cubre el ejercicio (año fiscal) hasta periodEnd: usarlo para «el ejercicio» o «el año fiscal».",
   input: IncomeStatementInputSchema,
-  run: async (_ctx, input): Promise<AiRunResult> => {
+  run: async (ctx, input): Promise<AiRunResult> => {
     const costCenterId = input.costCenterId ?? null;
+    let periodStart = input.periodStart ?? null;
+    let fiscalYear: string | null = null;
+    if (!periodStart) {
+      const startMonth = await readFiscalYearStartMonth(ctx.userId);
+      if (!startMonth.ok) return errResult(startMonth.error);
+      periodStart = fiscalYearStart(input.periodEnd, startMonth.data);
+      fiscalYear = fiscalYearLabel(
+        fiscalYearOf(input.periodEnd, startMonth.data),
+        startMonth.data,
+      );
+    }
     const [cur, prev] = await Promise.all([
       getAccountTypeTotalsAction({
-        periodStart: input.periodStart,
+        periodStart,
         periodEnd: input.periodEnd,
         costCenterId,
       }),
@@ -172,7 +194,7 @@ export const getIncomeStatement = defineAiAction({
         }
       : null;
     return okResult(
-      `EERR ${input.periodStart}→${input.periodEnd}: ingresos ${money(
+      `EERR ${fiscalYear ? `del ejercicio ${fiscalYear}, ` : ""}${periodStart}→${input.periodEnd}: ingresos ${money(
         current.totalIncome,
       )} · gastos ${money(current.totalExpenses)} · resultado ${money(current.net)}` +
         (comparison
@@ -180,7 +202,7 @@ export const getIncomeStatement = defineAiAction({
               comparison.net.delta,
             )}).`
           : "."),
-      { current, previous, comparison },
+      { periodStart, fiscalYear, current, previous, comparison },
       { currency: "ARS", note: FISCAL_NOTE },
     );
   },

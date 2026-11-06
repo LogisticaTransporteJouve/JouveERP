@@ -515,6 +515,7 @@ export const treasuryPage: GuidePage = {
           ],
           after: [
             "La cuenta aparece activa en la lista, en [[/treasury]] y en los selectores de cuenta de recibos, órdenes de pago y movimientos.",
+            "También se la podés pedir al asistente (por ejemplo, «creá una cuenta de banco Galicia en dólares»): arma la propuesta {{Crear cuenta de tesorería}} y la cuenta se crea cuando la confirmás ([[#confirmar-propuesta-ia]]).",
           ],
           errors: [
             {

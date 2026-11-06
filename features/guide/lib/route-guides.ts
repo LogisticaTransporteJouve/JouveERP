@@ -1,5 +1,5 @@
-// Short help per screen for the sidebar guide (roadmap 6.5): what the page is
-// for and the usual steps. The full guide of each screen is in the user guide
+// Short help per screen (roadmap 6.5): what the page is for and the usual
+// steps. The sidebar block that showed it is no longer mounted. The full guide of each screen is in the user guide
 // (features/guide/manual), linked through /manual/para?ruta=<path>.
 
 export type RouteGuide = {
@@ -115,13 +115,13 @@ export const ROUTE_GUIDES: readonly RouteGuide[] = [
     prefix: "/purchases/arca",
     title: "Recibidos de ARCA",
     summary:
-      "Los comprobantes que tus proveedores informaron a ARCA: aceptá cada uno para cargarlo como compra o descartalo.",
+      "Los comprobantes que tus proveedores informaron a ARCA: aceptá cada uno para cargarlo como compra o descartalo. Los que no se pudieron leer o no se cargan solos se cargan a mano.",
   },
   {
     prefix: "/purchases",
     title: "Comprobantes",
     summary:
-      "Facturas de proveedores con su IVA, percepciones, rubro y centro de costo. Del lado interno son remitos de compra.",
+      "Facturas, notas de crédito y débito de proveedores con su IVA, percepciones, rubro y centro de costo. Del lado interno son remitos de compra.",
   },
   {
     prefix: "/payment-orders",
@@ -160,7 +160,8 @@ export const ROUTE_GUIDES: readonly RouteGuide[] = [
   {
     prefix: "/accounts",
     title: "Cuentas",
-    summary: "Cajas, bancos y billeteras con su moneda y su saldo inicial.",
+    summary:
+      "Cajas, bancos y billeteras con su moneda y su saldo inicial. También se crean pidiéndoselo al asistente.",
   },
   {
     prefix: "/transactions",
@@ -253,6 +254,12 @@ export const ROUTE_GUIDES: readonly RouteGuide[] = [
     summary: "El dólar oficial de cada día; se baja solo del BCRA.",
   },
   {
+    prefix: "/accounting/settings",
+    title: "Configuración contable",
+    summary:
+      "El mes en que empieza el ejercicio: lo usan el EERR, el balance general y el resultado de gestión.",
+  },
+  {
     prefix: "/taxes",
     title: "Impuestos",
     summary:
@@ -267,13 +274,14 @@ export const ROUTE_GUIDES: readonly RouteGuide[] = [
   {
     prefix: "/drivers",
     title: "Choferes",
-    summary: "Choferes con su licencia y documentación.",
+    summary:
+      "Choferes con su licencia y documentación. La página de cada chofer muestra sus viajes y km por día.",
   },
   {
     prefix: "/vehicles",
     title: "Vehículos",
     summary:
-      "Camiones, acoplados y semis con su documentación y tarjeta de combustible.",
+      "Camiones, acoplados y semis con su documentación y tarjeta de combustible. La página de cada vehículo muestra sus km por día y quién lo manejó.",
   },
   {
     prefix: "/trips",

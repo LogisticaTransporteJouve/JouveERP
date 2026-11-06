@@ -380,7 +380,8 @@ export const adminPage: GuidePage = {
       intro: [
         "Los usuarios con los que JouveERP entra solo a servicios externos, todos en un lugar. Cada bloque dice si funciona y cuándo entró por última vez, y {{Cambiar}} (o {{Configurar}} la primera vez) carga el usuario y la clave.",
         "{{Usuario de ARCA para Mis Comprobantes}}: con el que se bajan los comprobantes recibidos a [[/purchases/arca]].",
-        "{{Usuario de Strix para los km de la flota}}: con el que se traen los km de cada vehículo a [[/vehicle-km]].",
+        "{{Usuario de Strix para los km de la flota}}: con el que se traen los km de cada vehículo a [[/vehicle-km]] (ver [[#editar-km-mensual]]).",
+        "Cada bloque lo ve quien administra ese servicio (hoy, owner y admin). Si ARCA o Strix no están configurados o quedaron pausados, el aviso de [[/purchases/arca]] o de [[/vehicle-km]] manda acá.",
         "Las claves se guardan cifradas y no se vuelven a mostrar. Si un servicio rechaza la clave, JouveERP deja de intentar hasta que se vuelva a cargar acá.",
       ],
       tasks: [

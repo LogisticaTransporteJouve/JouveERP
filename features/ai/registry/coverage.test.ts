@@ -77,6 +77,9 @@ const PAGE_TOOLS: Record<string, readonly string[]> = {
   "/taxes": ["getTaxDocuments"],
   "/accounting/inflation": ["getInflationAdjustments"],
   "/accounting/exchange-rates": ["getExchangeRates"],
+  // The ejercicio's start month: getIncomeStatement without periodStart
+  // reports the ejercicio it covers.
+  "/accounting/settings": ["getIncomeStatement"],
   // Flota
   "/drivers": ["getDrivers", "getDriverActivity"],
   "/drivers/[id]": ["getDriverActivity", "getVehicleKm"],
