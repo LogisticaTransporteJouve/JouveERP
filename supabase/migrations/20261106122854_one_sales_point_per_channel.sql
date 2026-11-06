@@ -43,6 +43,8 @@ begin
 end;
 $$;
 
+-- sales_points has a handful of rows: the lock is momentary.
+-- squawk-ignore require-concurrent-index-creation
 create unique index sales_points_one_enabled_per_channel
   on public.sales_points (channel_id)
   where is_enabled;
