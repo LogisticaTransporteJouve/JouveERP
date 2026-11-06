@@ -29,6 +29,9 @@ export type LibroIvaComprasRow = {
   imp_total_orig: string | number;
   /** The supplier's IVA condition code (C.I.), added by fetch-books. */
   ci?: string | null;
+  /** The voucher's AFIP code when it is a recibo or liquidación loaded as a
+   *  factura (purchase_invoices.cbte_tipo_afip), added by fetch-books. */
+  cbte_tipo_afip?: number | null;
 } & Record<
   ComprasBreakdownKey | `${ComprasBreakdownKey}_orig`,
   string | number
@@ -122,6 +125,9 @@ export type LibroIvaComprasGroupedRow = {
   supplier_cuit: string | null;
   /** IVA condition code (RI, RM, EX…); null when unknown. */
   ci: string | null;
+  /** AFIP code of a recibo or liquidación loaded as a factura; null when
+   *  kind and letter give it. */
+  cbte_tipo_afip: number | null;
   cae_proveedor: string | null;
   cae_vto_proveedor: string | null;
   imp_trib: number;
@@ -160,6 +166,7 @@ export function groupComprasByInvoice(
         supplier_legal_name: r.supplier_legal_name,
         supplier_cuit: r.supplier_cuit,
         ci: r.ci ?? null,
+        cbte_tipo_afip: r.cbte_tipo_afip ?? null,
         cae_proveedor: r.cae_proveedor,
         cae_vto_proveedor: r.cae_vto_proveedor,
         imp_trib: Number(r.imp_trib),

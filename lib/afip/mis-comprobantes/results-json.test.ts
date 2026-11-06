@@ -182,6 +182,53 @@ describe("parseReceivedResults", () => {
     );
   });
 
+  it("reads a bank's Liquidación A (63) and a Recibo C (15) as facturas of their letter", () => {
+    const out = parseReceivedResults({
+      estado: "ok",
+      datos: {
+        data: [
+          row({
+            ...base,
+            1: "63",
+            4: "140",
+            5: "140",
+            32: "21",
+            34: "100",
+            40: "100",
+            42: "0",
+            44: "0",
+            48: "21",
+            50: "121",
+          }),
+          row({
+            ...base,
+            1: "15",
+            4: "141",
+            5: "141",
+            42: "0",
+            44: "0",
+            50: "500",
+          }),
+          row({
+            ...base,
+            1: "201",
+            4: "142",
+            5: "142",
+            42: "0",
+            44: "0",
+            50: "500",
+          }),
+        ],
+      },
+    });
+    if (typeof out === "string") throw new Error(out);
+    expect(out.vouchers.map((v) => [v.cbte_tipo, v.kind, v.letter])).toEqual([
+      [63, "factura", "A"],
+      [15, "factura", "C"],
+      [201, null, null],
+    ]);
+  });
+
   it("refuses an answer it does not recognise", () => {
     expect(parseReceivedResults({ estado: "error", datos: null })).toMatch(
       /formato que no se reconoce/,

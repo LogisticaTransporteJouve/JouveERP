@@ -69,6 +69,36 @@ export function kindLetterForCbteTipo(
   return KIND_LETTER_BY_CBTE_TIPO.get(cbteTipo) ?? null;
 }
 
+/** Received vouchers that are not a factura, NC or ND but load as a factura
+ *  of their letter: recibos (4, 9, 15) and liquidaciones (63, 64). The
+ *  purchase keeps the code (purchase_invoices.cbte_tipo_afip). */
+export const PURCHASE_FACTURA_LIKE_TIPOS: ReadonlyMap<number, InvoiceLetter> =
+  new Map([
+    [4, "A"],
+    [9, "B"],
+    [15, "C"],
+    [63, "A"],
+    [64, "B"],
+  ]);
+
+/** What a received voucher's code is as a purchase: an ERP kind and letter,
+ *  a recibo or liquidación as a factura of its letter; null for any other
+ *  (FCE MiPyME, M, tickets…). */
+export function purchaseKindLetterForCbteTipo(
+  cbteTipo: number,
+): { kind: InvoiceKind; letter: InvoiceLetter } | null {
+  const letter = PURCHASE_FACTURA_LIKE_TIPOS.get(cbteTipo);
+  return letter ? { kind: "factura", letter } : kindLetterForCbteTipo(cbteTipo);
+}
+
+/** A recibo or liquidación's own name («Liquidación A»), or null for the
+ *  codes the ERP names by kind and letter. */
+export function facturaLikeTipoLabel(cbteTipo: number): string | null {
+  const letter = PURCHASE_FACTURA_LIKE_TIPOS.get(cbteTipo);
+  if (!letter) return null;
+  return `${cbteTipo >= 63 ? "Liquidación" : "Recibo"} ${letter}`;
+}
+
 // Only a letter A voucher discriminates IVA for the buyer: on B and C the IVA,
 // exento and no gravado are part of the price.
 export function ivaIsComputable(letter: string | null): boolean {

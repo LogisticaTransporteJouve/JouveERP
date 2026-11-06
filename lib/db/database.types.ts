@@ -5719,6 +5719,7 @@ export type Database = {
           cae_vto_proveedor: string | null
           cancelled_at: string | null
           cancelled_by: string | null
+          cbte_tipo_afip: number | null
           channel_id: string
           charged_employee_id: string | null
           cost_center_id: string | null
@@ -5758,6 +5759,7 @@ export type Database = {
           cae_vto_proveedor?: string | null
           cancelled_at?: string | null
           cancelled_by?: string | null
+          cbte_tipo_afip?: number | null
           channel_id: string
           charged_employee_id?: string | null
           cost_center_id?: string | null
@@ -5797,6 +5799,7 @@ export type Database = {
           cae_vto_proveedor?: string | null
           cancelled_at?: string | null
           cancelled_by?: string | null
+          cbte_tipo_afip?: number | null
           channel_id?: string
           charged_employee_id?: string | null
           cost_center_id?: string | null
