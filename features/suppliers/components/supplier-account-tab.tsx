@@ -424,9 +424,10 @@ export function SupplierAccountTab({
             const balLabel = balanceLabel(balance);
             // The balance never follows the period filter: it is the
             // whole account's, so say so.
-            const title = runningBalance
-              ? "Saldo total (todas las fechas)"
-              : `Saldo pendiente total · ${SCOPE_LABEL[fiscalFilter]}`;
+            const title =
+              fiscalFilter === "all"
+                ? "Saldo total (todas las fechas)"
+                : `Saldo pendiente total · ${SCOPE_LABEL[fiscalFilter]}`;
             return (
               <div key={currency}>
                 <div className="text-xs text-muted-foreground">

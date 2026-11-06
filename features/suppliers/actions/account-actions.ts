@@ -455,18 +455,35 @@ export async function getSupplierAccountAction(
     }
   }
 
+  // A side's running balance is known where the whole account's split is: from
+  // the start when there is no opening balance, or from an opening balance
+  // that leaves the account at 0 (each side starts at 0 there). Any other
+  // opening does not say how much of it is this side's: no Saldo.
+  const scoped = movements.filter(
+    (m) =>
+      m.channel_is_fiscal === isFiscal || m.source_type === "opening_balance",
+  );
+  const openings = scoped.filter((m) => m.source_type === "opening_balance");
+  const sideRunning = openings.every((m) => m.balance === 0);
+  let known = openings.length === 0;
+  const side = zeroBalances();
+  const withBalance = scoped.map((m) => {
+    if (m.source_type === "opening_balance") {
+      known = sideRunning;
+      side.ARS = 0;
+      side.USD = 0;
+      return { ...m, balance: known ? 0 : null };
+    }
+    side[m.currency] = round2(side[m.currency] + m.signed_amount);
+    return { ...m, balance: known ? side[m.currency] : null };
+  });
+
   return {
     ok: true,
     data: {
-      movements: movements
-        .filter(
-          (m) =>
-            m.channel_is_fiscal === isFiscal ||
-            m.source_type === "opening_balance",
-        )
-        .map((m) => ({ ...m, balance: null })),
+      movements: withBalance,
       balances: roundBalances(balances),
-      runningBalance: false,
+      runningBalance: sideRunning,
     },
   };
 }
