@@ -1,26 +1,27 @@
 "use server";
 
+import { z } from "zod";
+
 import { logAudit } from "@/lib/actions/audit";
 import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import type { Database } from "@/lib/db/database.types";
+import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { logger } from "@/lib/logger";
 import { todayInAR } from "@/lib/format";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
 import {
-  deactivateEmployeeDriver,
   readEmployeeDriver,
-  syncEmployeeDriver,
   type EmployeeDriver,
 } from "../lib/employee-driver";
-import { applyVacationOpening } from "../lib/vacation-opening";
+import { currentVacationPeriodYear } from "../lib/vacation-periods";
 import { paginateRange } from "@/lib/supabase/paginate";
 
 import {
+  DRIVER_POSITION,
   EmployeeCreateSchema,
-  isDriverPosition,
   EmployeeReactivateSchema,
   EmployeeTerminateSchema,
   EmployeeUpdateSchema,
@@ -182,6 +183,28 @@ export async function getEmployeeByIdAction(
 
 // ─── Mutations ───────────────────────────────────────────────────────────────
 
+/** The driver fields of the form, only those it sent (an absent key keeps
+ *  the stored value). */
+function driverPayload(fields: {
+  license_number?: string | null;
+  license_category?: string | null;
+  driver_phone?: string | null;
+}): {
+  license_number?: string | null;
+  license_category?: string | null;
+  phone?: string | null;
+} {
+  return {
+    ...(fields.license_number !== undefined && {
+      license_number: fields.license_number,
+    }),
+    ...(fields.license_category !== undefined && {
+      license_category: fields.license_category,
+    }),
+    ...(fields.driver_phone !== undefined && { phone: fields.driver_phone }),
+  };
+}
+
 export async function createEmployeeAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
@@ -196,10 +219,25 @@ export async function createEmployeeAction(
     return { ok: false, error: first };
   }
 
+  // Vacation days loaded with the employee: owner/admin only, like the
+  // balances' RLS; anyone else's figures are left out.
+  const loadsVacations =
+    (parsed.data.vacation_current_days != null ||
+      parsed.data.vacation_previous_days != null) &&
+    userCan(ctx.access, "hr:admin");
+  const currentDays = loadsVacations
+    ? (parsed.data.vacation_current_days ?? null)
+    : null;
+  const previousDays = loadsVacations
+    ? (parsed.data.vacation_previous_days ?? null)
+    : null;
+  const today = todayInAR();
+
+  // One transaction: the employee, its driver record (a driver position,
+  // Flota → Choferes) and its vacation days, or nothing.
   const supabase = await createSupabaseClient();
-  const { data, error } = await supabase
-    .from("employees")
-    .insert({
+  const { data: id, error } = await supabase.rpc("create_employee", {
+    p_employee: {
       legal_name: parsed.data.legal_name,
       position: parsed.data.position ?? null,
       cuil: parsed.data.cuil ?? null,
@@ -216,11 +254,20 @@ export async function createEmployeeAction(
       art: parsed.data.art ?? null,
       retribucion_formal: parsed.data.retribucion_formal ?? null,
       created_by: ctx.userId,
-    })
-    .select("id")
-    .single();
+    },
+    p_driver_position: DRIVER_POSITION,
+    p_driver: driverPayload(parsed.data),
+    p_current_days: currentDays ?? undefined,
+    p_previous_days: previousDays ?? undefined,
+    p_today: today,
+  });
 
-  if (error) {
+  if (error || !id) {
+    const guardError = mapDbGuardError(error, {
+      slug: "employees.create.rejected",
+      userId: ctx.userId,
+    });
+    if (guardError) return { ok: false, error: guardError };
     logger.error("employees.create.failed", {
       userId: ctx.userId,
       legal_name: parsed.data.legal_name,
@@ -237,72 +284,21 @@ export async function createEmployeeAction(
       pay_frequency: parsed.data.pay_frequency,
       base_salary: parsed.data.base_salary ?? null,
     },
-    data.id,
+    id,
   );
-
-  // A driver position creates the employee's driver record (Flota → Choferes).
-  if (isDriverPosition(parsed.data.position)) {
-    const driver = await syncEmployeeDriver({
-      employeeId: data.id,
-      fullName: parsed.data.legal_name,
-      cuil: parsed.data.cuil ?? null,
-      isDriver: true,
-      licenseNumber: parsed.data.license_number ?? null,
-      licenseCategory: parsed.data.license_category ?? null,
-      phone: parsed.data.driver_phone ?? null,
-      userId: ctx.userId,
-    });
-    if (!driver.ok) {
-      logger.warn("employees.create.driver_failed", {
-        userId: ctx.userId,
-        employeeId: data.id,
-      });
-      return {
-        ok: false,
-        error: `El empleado se creó, pero no su ficha de chofer: ${driver.error} Guardalo de nuevo desde su ficha.`,
-      };
-    }
-  }
-
-  // Vacation days loaded with the employee (owner/admin only, like the
-  // balances' RLS). The employee already exists, so a failure here is
-  // reported but does not undo it: the days can be loaded again from the
-  // employee's page.
-  const currentDays = parsed.data.vacation_current_days ?? null;
-  const previousDays = parsed.data.vacation_previous_days ?? null;
-  if (
-    (currentDays !== null || previousDays !== null) &&
-    userCan(ctx.access, "hr:admin")
-  ) {
-    const opening = await applyVacationOpening(supabase, {
-      employeeId: data.id,
-      currentDays,
-      previousDays,
-      today: todayInAR(),
-      userId: ctx.userId,
-    });
-    if (!opening.ok) {
-      logger.warn("employees.create.vacations_failed", {
-        userId: ctx.userId,
-        employeeId: data.id,
-      });
-      return {
-        ok: false,
-        error: `El empleado se creó, pero no se pudieron guardar las vacaciones: ${opening.error} Cargalas desde su ficha.`,
-      };
-    }
+  if (loadsVacations) {
     await logAudit(
       "employee.vacation_balance_set",
       ctx.userId,
       {
-        period_year: opening.periodYear,
+        period_year: currentVacationPeriodYear(today),
         current_days: currentDays,
         previous_days: previousDays,
       },
-      data.id,
+      id,
     );
   }
-  return { ok: true, data: { id: data.id } };
+  return { ok: true, data: { id } };
 }
 
 export async function updateEmployeeAction(
@@ -320,21 +316,6 @@ export async function updateEmployeeAction(
   }
 
   const { id, ...rest } = parsed.data;
-
-  // Audit: to detect a sensitive salary change, we read the old value first.
-  const supabase = await createSupabaseClient();
-  const { data: previous, error: prevErr } = await supabase
-    .from("employees")
-    .select("base_salary, legal_name, position, cuil")
-    .eq("id", id)
-    .maybeSingle();
-  if (prevErr) {
-    logger.error("employees.update.prev_fetch_failed", {
-      userId: ctx.userId,
-      id,
-      error: prevErr,
-    });
-  }
 
   type EmployeeUpdate = Database["public"]["Tables"]["employees"]["Update"];
   const patch: EmployeeUpdate = {};
@@ -360,79 +341,47 @@ export async function updateEmployeeAction(
   if (rest.retribucion_formal !== undefined)
     patch.retribucion_formal = rest.retribucion_formal ?? null;
 
-  const driverTouched =
-    rest.license_number !== undefined ||
-    rest.license_category !== undefined ||
-    rest.driver_phone !== undefined;
-  if (Object.keys(patch).length === 0 && !driverTouched) {
+  const driver = driverPayload(rest);
+  if (Object.keys(patch).length === 0 && Object.keys(driver).length === 0) {
     return { ok: true, data: undefined };
   }
 
-  if (Object.keys(patch).length > 0) {
-    const { error } = await supabase
-      .from("employees")
-      .update(patch)
-      .eq("id", id);
-    if (error) {
-      logger.error("employees.update.failed", {
-        userId: ctx.userId,
-        id,
-        error,
-      });
-      return { ok: false, error: "No se pudo actualizar el empleado." };
-    }
+  // One transaction: the employee and its driver record, which follows it.
+  // Only a change away from the driver position deactivates the record:
+  // rows saved before the positions list (free text) keep their driver.
+  const supabase = await createSupabaseClient();
+  const { data: previous, error } = await supabase.rpc("update_employee", {
+    p_id: id,
+    p_patch: patch,
+    p_driver_position: DRIVER_POSITION,
+    p_driver: driver,
+  });
+  if (error) {
+    const guardError = mapDbGuardError(error, {
+      slug: "employees.update.rejected",
+      userId: ctx.userId,
+      id,
+    });
+    if (guardError) return { ok: false, error: guardError };
+    logger.error("employees.update.failed", { userId: ctx.userId, id, error });
+    return { ok: false, error: "No se pudo actualizar el empleado." };
   }
-
-  // The driver record follows the employee. Only a change away from the
-  // driver position deactivates it: rows saved before the positions list
-  // (free text) keep their driver as it is.
-  if (previous) {
-    const position =
-      rest.position !== undefined ? (rest.position ?? null) : previous.position;
-    const isDriver = isDriverPosition(position);
-    const leftDriver = isDriverPosition(previous.position) && !isDriver;
-    let existing: EmployeeDriver | null = null;
-    try {
-      existing = await readEmployeeDriver(id);
-    } catch {
-      existing = null;
-    }
-    if (isDriver || leftDriver || existing) {
-      const driver = await syncEmployeeDriver({
-        employeeId: id,
-        fullName: rest.legal_name ?? previous.legal_name,
-        cuil: rest.cuil !== undefined ? (rest.cuil ?? null) : previous.cuil,
-        isDriver: isDriver || (!leftDriver && existing?.is_active === true),
-        licenseNumber: rest.license_number,
-        licenseCategory: rest.license_category,
-        phone: rest.driver_phone,
-        userId: ctx.userId,
-      });
-      if (!driver.ok) {
-        logger.warn("employees.update.driver_failed", {
-          userId: ctx.userId,
-          id,
-        });
-        return {
-          ok: false,
-          error: `Se guardó el empleado, pero no su ficha de chofer: ${driver.error}`,
-        };
-      }
-    }
+  const before = PreviousEmployeeSchema.safeParse(previous);
+  if (!before.success) {
+    return { ok: false, error: "El empleado no existe." };
   }
 
   // Granular audit: salary is the most sensitive field.
   if (
-    previous &&
     rest.base_salary !== undefined &&
-    Number(previous.base_salary ?? 0) !== Number(rest.base_salary ?? 0)
+    Number(before.data.base_salary ?? 0) !== Number(rest.base_salary ?? 0)
   ) {
     await logAudit(
       "employee.salary_changed",
       ctx.userId,
       {
-        legal_name: previous.legal_name,
-        from: previous.base_salary,
+        legal_name: before.data.legal_name,
+        from: before.data.base_salary,
         to: rest.base_salary,
       },
       id,
@@ -449,6 +398,12 @@ export async function updateEmployeeAction(
   return { ok: true, data: undefined };
 }
 
+/** What update_employee returns: the row before the edit (null: not found). */
+const PreviousEmployeeSchema = z.object({
+  legal_name: z.string(),
+  base_salary: z.number().nullable(),
+});
+
 export async function terminateEmployeeAction(
   input: unknown,
 ): Promise<ActionResult> {
@@ -463,39 +418,23 @@ export async function terminateEmployeeAction(
     return { ok: false, error: first };
   }
 
+  // One transaction: the termination, the reason appended to the notes
+  // (never replacing them) and the driver record leaving the trip pickers
+  // (history stays).
   const supabase = await createSupabaseClient();
-
-  // The reason is appended to the employee's notes, never replaces them.
-  let notes: string | undefined;
-  if (parsed.data.notes) {
-    const { data: current, error: readError } = await supabase
-      .from("employees")
-      .select("notes")
-      .eq("id", parsed.data.id)
-      .maybeSingle();
-    if (readError) {
-      logger.error("employees.terminate.read_failed", {
-        userId: ctx.userId,
-        id: parsed.data.id,
-        error: readError,
-      });
-      return { ok: false, error: "No se pudo dar de baja al empleado." };
-    }
-    notes = current?.notes
-      ? `${current.notes}\n\n${parsed.data.notes}`
-      : parsed.data.notes;
-  }
-
-  const { error } = await supabase
-    .from("employees")
-    .update({
-      termination_date: parsed.data.termination_date,
-      is_active: false,
-      ...(notes !== undefined && { notes }),
-    })
-    .eq("id", parsed.data.id);
+  const { data: found, error } = await supabase.rpc("terminate_employee", {
+    p_id: parsed.data.id,
+    p_termination_date: parsed.data.termination_date,
+    p_reason: parsed.data.notes ?? undefined,
+  });
 
   if (error) {
+    const guardError = mapDbGuardError(error, {
+      slug: "employees.terminate.rejected",
+      userId: ctx.userId,
+      id: parsed.data.id,
+    });
+    if (guardError) return { ok: false, error: guardError };
     logger.error("employees.terminate.failed", {
       userId: ctx.userId,
       id: parsed.data.id,
@@ -503,6 +442,7 @@ export async function terminateEmployeeAction(
     });
     return { ok: false, error: "No se pudo dar de baja al empleado." };
   }
+  if (!found) return { ok: false, error: "El empleado no existe." };
 
   await logAudit(
     "employee.terminated",
@@ -510,16 +450,6 @@ export async function terminateEmployeeAction(
     { termination_date: parsed.data.termination_date },
     parsed.data.id,
   );
-
-  // A terminated employee no longer drives: their driver record leaves the
-  // trip pickers (history stays).
-  const driverOff = await deactivateEmployeeDriver(parsed.data.id);
-  if (!driverOff.ok) {
-    logger.warn("employees.terminate.driver_failed", {
-      userId: ctx.userId,
-      id: parsed.data.id,
-    });
-  }
   return { ok: true, data: undefined };
 }
 
@@ -537,13 +467,14 @@ export async function reactivateEmployeeAction(
   }
 
   const supabase = await createSupabaseClient();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("employees")
     .update({
       termination_date: null,
       is_active: true,
     })
-    .eq("id", parsed.data.id);
+    .eq("id", parsed.data.id)
+    .select("id");
 
   if (error) {
     logger.error("employees.reactivate.failed", {
@@ -552,6 +483,9 @@ export async function reactivateEmployeeAction(
       error,
     });
     return { ok: false, error: "No se pudo reactivar al empleado." };
+  }
+  if (!data || data.length === 0) {
+    return { ok: false, error: "El empleado no existe." };
   }
 
   await logAudit("employee.reactivated", ctx.userId, {}, parsed.data.id);

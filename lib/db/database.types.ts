@@ -9171,6 +9171,19 @@ export type Database = {
         }
         Returns: undefined
       }
+      apply_final_settlement: {
+        Args: {
+          p_employee_id: string
+          p_extra_prefix: string
+          p_month: number
+          p_sac_amount: number
+          p_sac_description: string
+          p_sueldo_neto: number
+          p_vacaciones_monto: number
+          p_year: number
+        }
+        Returns: string
+      }
       apply_salary_raise: {
         Args: {
           p_effective_month: string
@@ -9469,6 +9482,17 @@ export type Database = {
         Args: { p_description: string; p_member_ids: string[]; p_name: string }
         Returns: string
       }
+      create_employee: {
+        Args: {
+          p_current_days?: number
+          p_driver: Json
+          p_driver_position: string
+          p_employee: Json
+          p_previous_days?: number
+          p_today: string
+        }
+        Returns: string
+      }
       create_journal_entry: {
         Args: {
           p_accrual_period: string
@@ -9603,6 +9627,7 @@ export type Database = {
         Args: { p_id: string; p_period: string; p_source: string }
         Returns: undefined
       }
+      employee_editable_fields: { Args: never; Returns: string[] }
       employee_plans_refresh_entries: {
         Args: { p_employee_id: string }
         Returns: undefined
@@ -10616,6 +10641,15 @@ export type Database = {
         }
         Returns: undefined
       }
+      set_vacation_opening: {
+        Args: {
+          p_current_days?: number
+          p_employee_id: string
+          p_previous_days?: number
+          p_today: string
+        }
+        Returns: number
+      }
       settle_billed_remito: { Args: { p_factura_id: string }; Returns: string }
       shipment_invoice_billed_ratio: {
         Args: { p_shipment_id: string }
@@ -10721,6 +10755,10 @@ export type Database = {
           task_id: string
         }[]
       }
+      sync_employee_driver: {
+        Args: { p_driver: Json; p_employee_id: string; p_is_driver: boolean }
+        Returns: undefined
+      }
       sync_purchase_employee_charge: {
         Args: { p_invoice_id: string }
         Returns: undefined
@@ -10736,6 +10774,10 @@ export type Database = {
       tax_document_label: {
         Args: { p_jurisdiction: string; p_kind: string; p_title: string }
         Returns: string
+      }
+      terminate_employee: {
+        Args: { p_id: string; p_reason?: string; p_termination_date: string }
+        Returns: boolean
       }
       transaction_is_loose: {
         Args: { p_tx: Database["public"]["Tables"]["transactions"]["Row"] }
@@ -10783,6 +10825,15 @@ export type Database = {
       update_chat_channel: {
         Args: { p_channel: string; p_description: string; p_name: string }
         Returns: undefined
+      }
+      update_employee: {
+        Args: {
+          p_driver: Json
+          p_driver_position: string
+          p_id: string
+          p_patch: Json
+        }
+        Returns: Json
       }
       update_payment_order: {
         Args: {

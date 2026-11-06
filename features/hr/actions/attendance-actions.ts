@@ -4,6 +4,7 @@ import { logAudit } from "@/lib/actions/audit";
 import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
+import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { logger } from "@/lib/logger";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
@@ -80,8 +81,13 @@ export async function getAttendanceMonthAction(
         .lt("date", end),
     ]);
 
-  if (recErr) return { ok: false, error: recErr.message };
-  if (holErr) return { ok: false, error: holErr.message };
+  if (recErr || holErr) {
+    logger.error("attendance.month.failed", {
+      userId: ctx.userId,
+      error: recErr ?? holErr,
+    });
+    return { ok: false, error: "No se pudo cargar la asistencia del mes." };
+  }
 
   return {
     ok: true,
@@ -111,6 +117,8 @@ export async function upsertAttendanceRecordAction(
     };
   }
 
+  // A day synced from a leave or a holiday is not overwritten: the guard on
+  // attendance_records refuses it (it is changed from its source).
   const supabase = await createSupabaseClient();
   const { data, error } = await supabase
     .from("attendance_records")
@@ -130,7 +138,13 @@ export async function upsertAttendanceRecordAction(
     .single();
 
   if (error || !data) {
-    return { ok: false, error: error?.message ?? "No se pudo guardar." };
+    const guardError = mapDbGuardError(error, {
+      slug: "attendance.upsert.rejected",
+      userId: ctx.userId,
+    });
+    if (guardError) return { ok: false, error: guardError };
+    logger.error("attendance.upsert.failed", { userId: ctx.userId, error });
+    return { ok: false, error: "No se pudo guardar la asistencia." };
   }
   await logAudit(
     "attendance.upserted",
@@ -158,13 +172,28 @@ export async function deleteAttendanceRecordAction(
   const supabase = await createSupabaseClient();
   // We only delete manual rows — leave_sync and holiday_sync are managed
   // from their source tables.
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("attendance_records")
     .delete()
     .eq("id", parsed.data.id)
-    .eq("source", "manual");
+    .eq("source", "manual")
+    .select("id");
 
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    logger.error("attendance.delete.failed", {
+      userId: ctx.userId,
+      id: parsed.data.id,
+      error,
+    });
+    return { ok: false, error: "No se pudo borrar la asistencia." };
+  }
+  if (!data || data.length === 0) {
+    return {
+      ok: false,
+      error:
+        "No se borró: el día ya no está o lo carga una licencia o un feriado.",
+    };
+  }
   await logAudit("attendance.deleted", ctx.userId, {}, parsed.data.id);
   return { ok: true, data: undefined };
 }
@@ -190,6 +219,9 @@ export async function listAttendanceEmployeesAction(): Promise<
     .eq("is_active", true)
     .order("legal_name");
 
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    logger.error("attendance.employees.failed", { userId: ctx.userId, error });
+    return { ok: false, error: "No se pudieron cargar los empleados." };
+  }
   return { ok: true, data: (data ?? []) as AttendanceEmployee[] };
 }
