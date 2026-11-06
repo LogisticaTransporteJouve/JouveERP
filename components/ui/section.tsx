@@ -26,7 +26,7 @@ function Section({
     <section
       data-slot="section"
       aria-labelledby={id}
-      className={cn("grid gap-3", className)}
+      className={cn("grid grid-cols-1 gap-3", className)}
     >
       <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
         <div className="grid gap-0.5">

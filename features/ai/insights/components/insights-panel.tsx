@@ -89,7 +89,7 @@ export function InsightsPanel({
             No hay insights todavía. Recalculá para generarlos.
           </p>
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {insights.map((insight) => (
               <InsightCard
                 key={insight.id}

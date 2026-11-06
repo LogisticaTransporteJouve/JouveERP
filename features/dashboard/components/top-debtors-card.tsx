@@ -43,7 +43,7 @@ export function TopDebtorsCard({
                 >
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-medium">{d.name}</span>
-                    <span className="block font-mono text-xs text-muted-foreground">
+                    <span className="block truncate font-mono text-xs text-muted-foreground">
                       {d.cuit}
                     </span>
                   </span>

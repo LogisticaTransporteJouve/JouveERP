@@ -122,11 +122,15 @@ export function InsightCard({
       <CardHeader className="flex flex-row items-start gap-2 space-y-0 pb-2">
         <Icon className="mt-0.5 size-4 shrink-0" />
         <div className="min-w-0">
-          <p className="text-sm font-semibold leading-tight">{insight.title}</p>
+          <p className="text-sm font-semibold leading-tight break-words">
+            {insight.title}
+          </p>
         </div>
       </CardHeader>
       <CardContent className="space-y-2 pb-2">
-        <p className="text-muted-foreground text-sm">{insight.finding}</p>
+        <p className="text-muted-foreground text-sm break-words">
+          {insight.finding}
+        </p>
         {chips.length > 0 && (
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
             {chips.map((c) => (
