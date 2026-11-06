@@ -296,6 +296,77 @@ describe("parseReceivedResults", () => {
     });
   });
 
+  // Real rows ARCA lists for 2019: parts above the total by the issuer's
+  // rounding (7 and 16 cents), and one supplier's net reported twice.
+  it("takes the issuer's rounding off the net and halves a doubled net", () => {
+    const out = parseReceivedResults({
+      estado: "ok",
+      datos: {
+        data: [
+          row({
+            ...base,
+            1: "1",
+            4: "160",
+            5: "160",
+            32: "3755.77",
+            34: "17884.62",
+            40: "17884.62",
+            42: "0",
+            44: "0",
+            48: "3755.77",
+            50: "21640.32",
+          }),
+          row({
+            ...base,
+            1: "1",
+            4: "161",
+            5: "161",
+            40: "22618.78",
+            42: "0",
+            44: "0",
+            46: "904.75",
+            48: "1187.48",
+            50: "13401.62",
+          }),
+          row({
+            ...base,
+            1: "1",
+            4: "162",
+            5: "162",
+            40: "22618.78",
+            42: "0",
+            44: "0",
+            46: "904.75",
+            48: "1187.48",
+            50: "14000",
+          }),
+        ],
+      },
+    });
+    if (typeof out === "string") throw new Error(out);
+    expect(
+      out.vouchers.map((v) => [
+        v.numero,
+        v.imp_neto_gravado,
+        v.imp_iva,
+        v.imp_trib,
+        v.imp_total,
+        v.iva_breakdown,
+      ]),
+    ).toEqual([
+      [
+        160,
+        17884.55,
+        3755.77,
+        0,
+        21640.32,
+        [{ iva_rate_id: 5, neto: 17884.55, iva: 3755.77 }],
+      ],
+      [161, 11309.39, 1187.48, 904.75, 13401.62, []],
+    ]);
+    expect(out.skippedByReason).toEqual({ amount_over_total: 1 });
+  });
+
   it("refuses an answer it does not recognise", () => {
     expect(parseReceivedResults({ estado: "error", datos: null })).toMatch(
       /formato que no se reconoce/,

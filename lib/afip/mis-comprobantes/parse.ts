@@ -155,6 +155,10 @@ const FIELDS = [
 ] as const;
 type Field = (typeof FIELDS)[number];
 
+/** How far, in cents, a voucher's parts may exceed its total and still be
+ *  read: the issuer's rounding, seen up to 16 cents on ARCA's 2018-2021 rows. */
+const ROUNDING_OVER_CENTS = 100;
+
 /** AFIP's 0% alícuota (id 3). */
 const ZERO_RATE = ivaRateIdForPercent(0);
 
@@ -446,25 +450,28 @@ function parseRow(
     noGravado + exentas > 0 &&
     cents(neto) >= cents(noGravado + exentas) &&
     Math.abs(cents(neto + iva + trib) - cents(total)) <= 1;
-  const netoGravado = onlyTotal
+  // Some issuers report the net twice in «neto gravado»: half of it with the
+  // rest of the parts is the total, to the cent.
+  const netoDoubled =
+    !onlyTotal &&
+    !netoIncludesUntaxed &&
+    cents(neto) > 0 &&
+    cents(neto + noGravado + exentas + iva + trib) - cents(total) > 1 &&
+    Math.abs(
+      cents(round2(neto / 2) + noGravado + exentas + iva + trib) - cents(total),
+    ) <= 1;
+  let netoGravado = onlyTotal
     ? total
     : netoIncludesUntaxed
       ? round2(neto - noGravado - exentas)
-      : neto;
-  // A total above its parts is kept as ARCA lists it (percepciones it did not
-  // itemize, or a voucher with only its total): the person accepting it says
-  // where the difference goes. Parts above the total, or a per-rate or
-  // per-tribute detail that contradicts its own subtotal, leave no figure to
-  // trust, so the row is not read.
-  if (
-    cents(netoGravado + noGravado + exentas + iva + trib) - cents(total) >
-    1
-  ) {
-    return "amount_over_total";
-  }
+      : netoDoubled
+        ? round2(neto / 2)
+        : neto;
+  let noGravadoRead = noGravado;
   // Such a voucher reports its exento and no gravado in the per-rate detail
-  // too, as a 0% line: that line is the untaxed part, not a gravado one.
-  const rateLines = netoIncludesUntaxed
+  // too, as a 0% line: that line is the untaxed part, not a gravado one. A
+  // doubled net may come with its per-rate detail doubled as well.
+  let rateLines = netoIncludesUntaxed
     ? ivaBreakdown.filter(
         (l) =>
           !(
@@ -474,11 +481,45 @@ function parseRow(
           ),
       )
     : ivaBreakdown;
+  if (
+    netoDoubled &&
+    near(round2(rateLines.reduce((a, l) => a + l.neto, 0)), neto)
+  ) {
+    rateLines = rateLines.map((l) => ({ ...l, neto: round2(l.neto / 2) }));
+  }
+  // A total above its parts is kept as ARCA lists it (percepciones it did not
+  // itemize, or a voucher with only its total): the person accepting it says
+  // where the difference goes. Parts above the total by the issuer's rounding
+  // (up to a peso) come off the no gravado when it covers them, else off the
+  // net, so IVA and total stay ARCA's. Parts further above the total, or a
+  // per-rate or per-tribute detail that contradicts its own subtotal, leave
+  // no figure to trust, so the row is not read.
+  const over =
+    cents(netoGravado + noGravado + exentas + iva + trib) - cents(total);
+  if (over > ROUNDING_OVER_CENTS) return "amount_over_total";
   if (rateLines.length > 0) {
     const sumNeto = round2(rateLines.reduce((a, l) => a + l.neto, 0));
     const sumIva = round2(rateLines.reduce((a, l) => a + l.iva, 0));
     if (!near(sumNeto, netoGravado) || !near(sumIva, iva))
       return "breakdown_mismatch";
+  }
+  if (over > 0) {
+    const excess = over / 100;
+    if (cents(noGravado) >= over) {
+      noGravadoRead = round2(noGravado - excess);
+    } else {
+      netoGravado = round2(netoGravado - excess);
+      // The largest per-rate line carries the same cents off its net.
+      const largest = rateLines.reduce<number>(
+        (best, l, i) => (best < 0 || l.neto > rateLines[best]!.neto ? i : best),
+        -1,
+      );
+      if (largest >= 0) {
+        rateLines = rateLines.map((l, i) =>
+          i === largest ? { ...l, neto: round2(l.neto - excess) } : l,
+        );
+      }
+    }
   }
   const tribParts = Object.values(tribBreakdown);
   if (
@@ -507,7 +548,7 @@ function parseRow(
     moneda,
     cotizacion: cotizacion !== null && cotizacion > 0 ? cotizacion : null,
     imp_neto_gravado: netoGravado,
-    imp_no_gravado: noGravado,
+    imp_no_gravado: noGravadoRead,
     imp_op_exentas: exentas,
     imp_iva: iva,
     imp_trib: trib,
