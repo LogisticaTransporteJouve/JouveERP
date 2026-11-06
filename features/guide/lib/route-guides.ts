@@ -287,6 +287,12 @@ export const ROUTE_GUIDES: readonly RouteGuide[] = [
       "Liquidación de los fletes de cada cliente; lo de los choferes está en Rendiciones.",
   },
   {
+    prefix: "/fleet-tariffs",
+    title: "Tarifas de flete",
+    summary:
+      "Los precios de flete por período, para seguir los aumentos; no los toman las cargas.",
+  },
+  {
     prefix: "/rendiciones",
     title: "Rendiciones",
     summary: "Lo que cada chofer cobró contra entrega y rindió.",

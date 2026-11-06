@@ -83,6 +83,7 @@ const PAGE_TOOLS: Record<string, readonly string[]> = {
   "/trips/[id]": ["getTripDetail"],
   "/cargas": ["getShipments", "getShipmentsSummary"],
   "/liquidaciones": ["getFreightSettlements"],
+  "/fleet-tariffs": ["getFreightTariffs"],
   "/rendiciones": ["getDriverSettlements"],
   "/fuel": ["getFuelLoads"],
   "/vehicle-km": ["getVehicleKm", "getVehicleUsage"],

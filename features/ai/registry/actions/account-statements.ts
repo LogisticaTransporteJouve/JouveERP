@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { getClientAccountAction } from "@/features/clients/actions/account-actions";
 import { listClientTariffsAction } from "@/features/client-tariffs/actions/client-tariffs-actions";
+import { listFreightTariffsAction } from "@/features/freight-tariffs/actions/freight-tariffs-actions";
 import { getSupplierAccountAction } from "@/features/suppliers/actions/account-actions";
 import type { CurrencyBalances } from "@/lib/allocations";
 import {
@@ -163,5 +164,25 @@ export const getClientTariffs = defineAiAction({
     const res = await listClientTariffsAction(input.clientId);
     if (!res.ok) return errResult(res.error);
     return okResult(`${res.data.length} tarifas del cliente.`, res.data);
+  },
+});
+
+export const getFreightTariffs = defineAiAction({
+  name: "getFreightTariffs",
+  domain: "flota",
+  permission: "freight_tariffs:read",
+  sideEffect: "read",
+  sources: [
+    "freight_tariff_lists",
+    "freight_tariff_versions",
+    "freight_tariff_lines",
+  ],
+  description:
+    "Tarifas de flete de Flota › Tarifas (referencia, no las usan las cargas): cada tarifario (general, consumidor final, muebles, clientes con tarifa propia) con sus períodos, el más nuevo primero, el aumento % de cada uno sobre el anterior y sus líneas (sección, concepto, precio en pesos o porcentaje, nota). Para '¿cuánto sale el flete de 2 pallets?' o '¿cuánto aumentamos en noviembre?'.",
+  input: z.object({}),
+  run: async () => {
+    const res = await listFreightTariffsAction();
+    if (!res.ok) return errResult(res.error);
+    return okResult(`${res.data.length} tarifarios de flete.`, res.data);
   },
 });

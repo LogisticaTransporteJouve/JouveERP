@@ -361,6 +361,12 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         permission: "shipments:read",
       },
       {
+        href: "/fleet-tariffs",
+        label: "Tarifas",
+        icon: Tags,
+        permission: "freight_tariffs:read",
+      },
+      {
         href: "/liquidaciones",
         label: "Liquidaciones",
         icon: FileText,

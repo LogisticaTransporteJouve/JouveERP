@@ -3562,6 +3562,126 @@ export type Database = {
           },
         ]
       }
+      freight_tariff_lines: {
+        Row: {
+          concept: string
+          id: string
+          note: string | null
+          percent: number | null
+          price: number | null
+          section: string | null
+          sort_order: number
+          version_id: string
+        }
+        Insert: {
+          concept: string
+          id?: string
+          note?: string | null
+          percent?: number | null
+          price?: number | null
+          section?: string | null
+          sort_order?: number
+          version_id: string
+        }
+        Update: {
+          concept?: string
+          id?: string
+          note?: string | null
+          percent?: number | null
+          price?: number | null
+          section?: string | null
+          sort_order?: number
+          version_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "freight_tariff_lines_version_id_fkey"
+            columns: ["version_id"]
+            referencedRelation: "freight_tariff_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      freight_tariff_lists: {
+        Row: {
+          client_id: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          notes: string | null
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "freight_tariff_lists_client_id_fkey"
+            columns: ["client_id"]
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      freight_tariff_versions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          increase_pct: number | null
+          label: string
+          list_id: string
+          notes: string | null
+          valid_from: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          increase_pct?: number | null
+          label: string
+          list_id: string
+          notes?: string | null
+          valid_from: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          increase_pct?: number | null
+          label?: string
+          list_id?: string
+          notes?: string | null
+          valid_from?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "freight_tariff_versions_list_id_fkey"
+            columns: ["list_id"]
+            referencedRelation: "freight_tariff_lists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fuel_loads: {
         Row: {
           amount: number
@@ -9196,6 +9316,17 @@ export type Database = {
         }
         Returns: string
       }
+      apply_freight_tariff_increase: {
+        Args: {
+          p_label: string
+          p_list_ids: string[]
+          p_pct: number
+          p_round_to: number
+          p_user_id: string
+          p_valid_from: string
+        }
+        Returns: string[]
+      }
       apply_salary_raise: {
         Args: {
           p_effective_month: string
@@ -10541,6 +10672,10 @@ export type Database = {
         Returns: undefined
       }
       reopen_accounting_period: { Args: { p_period: string }; Returns: Json }
+      replace_freight_tariff_lines: {
+        Args: { p_lines: Json; p_version_id: string }
+        Returns: number
+      }
       replace_purchase_invoice_items: {
         Args: { p_invoice_id: string; p_items: Json }
         Returns: undefined
