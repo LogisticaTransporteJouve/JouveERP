@@ -31,6 +31,20 @@ describe("segmentParts", () => {
     });
   });
 
+  it("lifts an answer's markdown table into an artifact segment between its text", () => {
+    const parts: ChatPart[] = [
+      {
+        type: "text",
+        text: "Antes.\n\n| A | B |\n|---|---|\n| x | 1 |\n\nDespués.",
+      },
+    ];
+    const lifted = segmentParts(parts, "m1", { liftTables: true });
+    expect(lifted.map((s) => s.kind)).toEqual(["bubble", "artifact", "bubble"]);
+    expect(lifted[1]).toMatchObject({ kind: "artifact", id: "m1:0:table1" });
+    // A user's message (or no option) keeps the text as written.
+    expect(segmentParts(parts, "m1").map((s) => s.kind)).toEqual(["bubble"]);
+  });
+
   it("keeps transcript order: text after a card renders after it", () => {
     const parts: ChatPart[] = [
       { type: "text", text: "Te armo la propuesta." },
@@ -151,6 +165,6 @@ describe("activitySteps", () => {
       ["getLedger", "error", null, false],
       ["getTrips", "running", null, false],
     ]);
-    expect(steps[0]?.sources).toEqual(["invoices"]);
+    expect(steps[0]?.asOf).toBe("2026-10-16T12:00:00Z");
   });
 });

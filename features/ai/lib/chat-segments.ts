@@ -3,6 +3,7 @@ import { getToolName, isToolUIPart, type UIMessage } from "ai";
 import { ARTIFACT_PART } from "../artifacts/spec";
 import { readAttachmentPart, type ChatAttachment } from "../attachments/schema";
 
+import { answerChunks } from "./answer-text";
 import { PROPOSAL_SPECS } from "./proposal-specs";
 import { ASK_QUESTIONS_TOOL } from "./questions";
 
@@ -33,11 +34,20 @@ export function isCardPart(part: ChatPart): boolean {
   return name === ASK_QUESTIONS_TOOL || name in PROPOSAL_SPECS;
 }
 
+function pushText(segments: ChatSegment[], part: ChatPart, index: number) {
+  const last = segments.at(-1);
+  if (last?.kind === "bubble") last.parts.push({ part, index });
+  else segments.push({ kind: "bubble", parts: [{ part, index }] });
+}
+
 /** Splits a message into segments in transcript order, so text written after
- *  a card or a chart renders after it. */
+ *  a card or a chart renders after it. With `liftTables` (assistant answers),
+ *  each markdown table of the text becomes an artifact segment of its own and
+ *  tool names in the text read as their labels. */
 export function segmentParts(
   parts: readonly ChatPart[],
   messageId = "",
+  { liftTables = false }: { liftTables?: boolean } = {},
 ): ChatSegment[] {
   const segments: ChatSegment[] = [];
   parts.forEach((part, index) => {
@@ -67,9 +77,22 @@ export function segmentParts(
       return;
     }
     if (part.type !== "text" || part.text.trim() === "") return;
-    const last = segments.at(-1);
-    if (last?.kind === "bubble") last.parts.push({ part, index });
-    else segments.push({ kind: "bubble", parts: [{ part, index }] });
+    if (!liftTables) {
+      pushText(segments, part, index);
+      return;
+    }
+    for (const chunk of answerChunks(part.text, `${messageId}:${index}`)) {
+      if (chunk.kind === "table") {
+        segments.push({
+          kind: "artifact",
+          data: chunk.artifact,
+          id: chunk.id,
+          index,
+        });
+      } else {
+        pushText(segments, { ...part, text: chunk.text }, index);
+      }
+    }
   });
   return segments;
 }

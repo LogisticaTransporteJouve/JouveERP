@@ -22,7 +22,7 @@
     "test:watch": "vitest",
     "manual:build": "vitest run features/guide/manual/build.test.ts --update",
     "manual:screenshots": "MANUAL_SCREENSHOTS=1 playwright test tests/e2e/manual-screenshots.spec.ts",
-    "eval:ai": "AI_EVALS_LIVE=1 vitest run features/ai/evals/routing.live.test.ts",
+    "eval:ai": "AI_EVALS_LIVE=1 vitest run features/ai/evals/routing.live.test.ts features/ai/evals/answer-format.live.test.ts",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:security": "RUN_SECURITY=1 vitest run tests/security",

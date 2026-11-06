@@ -59,6 +59,12 @@ describe("system prompt guardrails", () => {
     );
   });
 
+  it("keeps internal names out of what the user reads", () => {
+    expect(CFO_BASE_PROMPT).toContain("Nada técnico llega al usuario");
+    expect(CFO_BASE_PROMPT).toContain("Nunca copies los nombres internos");
+    expect(CFO_BASE_PROMPT).toContain("un solo idioma");
+  });
+
   it("appends the caller's capabilities after the static block", () => {
     const prompt = buildSystemPrompt(
       "RRHH y sueldos:\n- getPayrollSummary: Totales",
