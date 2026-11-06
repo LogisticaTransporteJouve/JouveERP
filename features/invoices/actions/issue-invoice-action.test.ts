@@ -16,7 +16,11 @@ const h = vi.hoisted(() => {
   const openAmount: Record<string, number> = {};
   // Tables whose reads fail with a DB error.
   const failing = new Set<string>();
-  return { db, inserts, deletes, openAmount, failing };
+  // The error create_invoice_draft answers with, if any.
+  const draftError: {
+    current: { message: string; code?: string; hint?: string } | null;
+  } = { current: null };
+  return { db, inserts, deletes, openAmount, failing, draftError };
 });
 
 function from(table: string) {
@@ -70,10 +74,21 @@ vi.mock("@/lib/auth/context", () => ({
 vi.mock("@/lib/supabase/service", () => ({
   getServiceClient: () => ({
     from,
-    rpc: async (fn: string, args: { p_invoice_id: string }) =>
-      fn === "invoice_open_amount"
-        ? { data: h.openAmount[args.p_invoice_id] ?? null, error: null }
-        : { data: null, error: { message: `unexpected rpc ${fn}` } },
+    rpc: async (fn: string, args: Record<string, unknown>) => {
+      if (fn === "invoice_open_amount") {
+        const id = String(args.p_invoice_id);
+        return { data: h.openAmount[id] ?? null, error: null };
+      }
+      if (fn === "create_invoice_draft") {
+        // One call writes both, as the function's one transaction does.
+        h.inserts.push({ table: "invoices", values: args.p_invoice });
+        h.inserts.push({ table: "invoice_items", values: args.p_items });
+        return h.draftError.current
+          ? { data: null, error: h.draftError.current }
+          : { data: "new-invoice", error: null };
+      }
+      return { data: null, error: { message: `unexpected rpc ${fn}` } };
+    },
   }),
 }));
 vi.mock("@/lib/actions/audit", () => ({ logAudit: vi.fn() }));
@@ -126,6 +141,7 @@ beforeEach(() => {
   h.inserts.length = 0;
   h.deletes.length = 0;
   h.failing.clear();
+  h.draftError.current = null;
   h.db.invoicing_channels = [
     { id: "jouve_fiscal", is_fiscal: true, is_active: true },
   ];
@@ -416,6 +432,46 @@ describe("issueFiscalInvoiceAction with an idempotency key", () => {
 // cannot move) are the DB's — guard_invoice_source_remito runs
 // billed_remito_blocker on the draft insert, whoever drafts it. Pinned in
 // supabase/tests/otras_ventas_sides_test.sql.
+
+describe("issueFiscalInvoiceAction writing the draft", () => {
+  it("writes the draft and its items in one create_invoice_draft call", async () => {
+    const res = await issueFiscalInvoiceAction(noteInput());
+    expect(res.ok).toBe(true);
+    expect(h.inserts.map((i) => i.table)).toEqual([
+      "invoices",
+      "invoice_items",
+    ]);
+    expect(h.inserts[1]?.values).toEqual([
+      expect.objectContaining({ sort_order: 0, description: "Flete" }),
+    ]);
+  });
+
+  it("deletes nothing and sends nothing when the write is refused", async () => {
+    h.draftError.current = { message: "insert on invoice_items failed" };
+    const send = vi.mocked(inngest.send);
+    send.mockClear();
+    const res = await issueFiscalInvoiceAction(noteInput());
+    expect(res).toEqual({
+      ok: false,
+      error: "No se pudo crear el comprobante.",
+    });
+    expect(h.deletes).toEqual([]);
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("shows a guard's refusal in its own words", async () => {
+    h.draftError.current = {
+      message: "El remito ya tiene una nota de crédito.",
+      code: "P0001",
+      hint: "jouve_guard",
+    };
+    const res = await issueFiscalInvoiceAction(noteInput());
+    expect(res).toEqual({
+      ok: false,
+      error: "El remito ya tiene una nota de crédito.",
+    });
+  });
+});
 
 describe("issueFiscalInvoiceAction across sides", () => {
   it("refuses an Otras ventas client on a Ventas channel before writing", async () => {
