@@ -1,13 +1,14 @@
 -- A recibo or liquidación loaded as a factura keeps its AFIP code
 -- (20261106190000), and so does an M loaded as an A of its kind
--- (20261106201042): only on the matching kind and letter, and
+-- (20261106201042), and a public-service liquidación or Recibo M
+-- (20261106205121): only on the matching kind and letter, and
 -- create_purchase_invoice takes it. One transaction, rolled back.
 
 begin;
 
 select set_config('request.jwt.claims', '{"role":"service_role"}', true);
 
-select plan(9);
+select plan(11);
 
 insert into public.suppliers (id, cuit, legal_name, iva_condition, is_fiscal) values
   ('00000000-0000-0000-0000-0000000c6101', '30500010912', 'Banco Liquidación SA', 'responsable_inscripto', true);
@@ -78,6 +79,18 @@ select throws_ok(
   '23514',
   'new row for relation "purchase_invoices" violates check constraint "purchase_invoices_cbte_tipo_afip_check"',
   'an ND M code is never on a factura'
+);
+
+select lives_ok(
+  $$select pg_temp.add(9, 'factura', 'A', 17)$$,
+  'a public-service liquidación A is a factura A with code 17'
+);
+
+select throws_ok(
+  $$select pg_temp.add(10, 'factura', 'A', 18)$$,
+  '23514',
+  'new row for relation "purchase_invoices" violates check constraint "purchase_invoices_cbte_tipo_afip_check"',
+  'a public-service liquidación B is never a letter A'
 );
 
 select ok(

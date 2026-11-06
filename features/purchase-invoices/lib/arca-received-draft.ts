@@ -303,7 +303,7 @@ export function arcaVoucherToDraft(
       ? null
       : { legal_name: voucher.issuer_name, cuit: voucher.issuer_cuit },
     kind,
-    kind_read: true,
+    kind_read: voucher.kind !== null,
     letter: voucher.letter,
     punto_venta: voucher.punto_venta,
     numero: voucher.numero,
@@ -335,9 +335,10 @@ export function arcaVoucherToDraft(
   };
 }
 
-/** A purchase prefilled from a voucher whose amounts did not read: its
- *  identity from ARCA, the amounts for the person to type from the invoice
- *  (what ARCA listed is shown as a note). */
+/** A purchase prefilled from a voucher whose amounts did not read, or whose
+ *  type does not load by itself: its identity from ARCA, the amounts (and,
+ *  for an unsupported type, the kind and letter) for the person to type from
+ *  the invoice (what ARCA listed is shown as a note). */
 export function unreadableVoucherToDraft(
   voucher: ReceivedVoucher,
 ): PurchaseInvoiceDraftData {
@@ -349,7 +350,7 @@ export function unreadableVoucherToDraft(
       ? null
       : { legal_name: voucher.issuer_name, cuit: voucher.issuer_cuit },
     kind,
-    kind_read: true,
+    kind_read: voucher.kind !== null,
     letter: voucher.letter,
     punto_venta: voucher.punto_venta,
     numero: voucher.numero,
@@ -368,7 +369,9 @@ export function unreadableVoucherToDraft(
     account: null,
     cost_center_id: null,
     warnings: [
-      `ARCA no se pudo leer${listed ? ` (lista ${listed})` : ""}: cargá los importes de la factura.`,
+      voucher.status === "unsupported"
+        ? `ARCA lo informa como tipo ${voucher.cbte_tipo}, que no se carga solo: elegí la clase y la letra y cargá los importes del comprobante.`
+        : `ARCA no se pudo leer${listed ? ` (lista ${listed})` : ""}: cargá los importes de la factura.`,
       ...(kind !== "factura" ? ["NC/ND: elegí la factura de origen."] : []),
     ],
   };

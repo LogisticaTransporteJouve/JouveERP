@@ -346,7 +346,8 @@ async function moveVoucher(
       ? parsed.data.reason
       : null;
   const supabase = getServiceClient();
-  // A voucher whose amounts did not read goes back to its own tab.
+  // A voucher whose amounts did not read, or whose type does not load by
+  // itself, goes back to its own tab.
   let restoreTo: ReceivedVoucherStatus = "pending_review";
   if (op === "restore") {
     const current = await readVoucher(supabase, voucherId);
@@ -358,10 +359,13 @@ async function moveVoucher(
       });
       return { ok: false, error: "No se pudo actualizar el comprobante." };
     }
-    if (current?.unreadable_reason) restoreTo = "unreadable";
+    if (current?.kind === null) restoreTo = "unsupported";
+    else if (current?.unreadable_reason) restoreTo = "unreadable";
   }
   const from: ReceivedVoucherStatus[] =
-    op === "discard" ? ["pending_review", "unreadable"] : ["discarded"];
+    op === "discard"
+      ? ["pending_review", "unreadable", "unsupported"]
+      : ["discarded"];
   let query = supabase
     .from("arca_received_vouchers")
     .update(
@@ -405,7 +409,8 @@ async function moveVoucher(
         op === "discard" &&
         current !== "failed" &&
         (current?.status === "pending_review" ||
-          current?.status === "unreadable")
+          current?.status === "unreadable" ||
+          current?.status === "unsupported")
           ? BEING_LOADED
           : ALREADY_PROCESSED,
     };

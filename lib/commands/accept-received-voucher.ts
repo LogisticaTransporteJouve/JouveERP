@@ -70,9 +70,12 @@ async function mismatch(
   if (supplier?.cuit !== voucher.issuer_cuit) {
     return `El proveedor tiene que ser el de CUIT ${voucher.issuer_cuit}.`;
   }
+  // An unsupported type has no kind or letter of its own: the person picks
+  // them.
   if (
-    invoice.kind !== voucher.kind ||
-    (invoice.letter ?? null) !== voucher.letter ||
+    (voucher.kind !== null &&
+      (invoice.kind !== voucher.kind ||
+        (invoice.letter ?? null) !== voucher.letter)) ||
     invoice.punto_venta !== voucher.punto_venta ||
     invoice.numero !== voucher.numero
   ) {
@@ -93,8 +96,10 @@ async function mismatch(
   if (channelError) return "No se pudo leer el canal.";
   if (!channel?.is_fiscal)
     return "Un comprobante de ARCA va a un canal fiscal.";
-  // ARCA's amounts did not read: the person types them.
-  if (voucher.status === "unreadable") return null;
+  // ARCA's amounts did not read, or its type does not load by itself: the
+  // person types them.
+  if (voucher.status === "unreadable" || voucher.status === "unsupported")
+    return null;
 
   const gap = receivedVoucherGap(voucher);
   if (gap !== null && gapTarget === null) {
@@ -164,18 +169,16 @@ export async function acceptReceivedVoucher(
   }
   if (
     !voucher ||
-    (voucher.status !== "pending_review" && voucher.status !== "unreadable")
+    (voucher.status !== "pending_review" &&
+      voucher.status !== "unreadable" &&
+      voucher.status !== "unsupported")
   ) {
     return { ok: false, error: ALREADY_PROCESSED };
   }
   const from = voucher.status;
-  const unreadable = from === "unreadable";
-  if (voucher.kind === null) {
-    return {
-      ok: false,
-      error: "Este tipo de comprobante todavía se carga a mano desde Compras.",
-    };
-  }
+  // Loaded by hand: amounts the person typed (and, for an unsupported type,
+  // the kind and letter they picked), not ARCA's.
+  const unreadable = from === "unreadable" || from === "unsupported";
   const wrong = await mismatch(supabase, voucher, invoice, gapTarget);
   if (wrong) return { ok: false, error: wrong };
 
@@ -221,8 +224,8 @@ export async function acceptReceivedVoucher(
     .eq("punto_venta", voucher.punto_venta)
     .eq("numero", voucher.numero)
     .or(
-      voucher.letter
-        ? `letter.eq.${voucher.letter},letter.is.null`
+      (voucher.letter ?? invoice.letter)
+        ? `letter.eq.${voucher.letter ?? invoice.letter},letter.is.null`
         : "letter.is.null",
     )
     .limit(1);
@@ -241,6 +244,7 @@ export async function acceptReceivedVoucher(
       from,
       existing.id,
       true,
+      voucher.kind === null ? invoice : null,
     );
   }
   if (existing) {
@@ -312,6 +316,7 @@ export async function acceptReceivedVoucher(
     from,
     created.data.id,
     false,
+    voucher.kind === null ? invoice : null,
   );
 }
 
@@ -320,13 +325,17 @@ async function confirmVoucher(
   supabase: Service,
   actorId: string,
   voucherId: string,
-  from: "pending_review" | "unreadable",
+  from: "pending_review" | "unreadable" | "unsupported",
   purchaseId: string,
   linkedExisting: boolean,
+  picked: Pick<Invoice, "kind" | "letter"> | null,
 ): Promise<ActionResult<{ id: string; linkedExisting: boolean }>> {
   const { error: confirmError } = await supabase
     .from("arca_received_vouchers")
     .update({
+      // A loaded voucher has a kind: one of a type ARCA's code does not map
+      // takes the one the person picked.
+      ...(picked ? { kind: picked.kind, letter: picked.letter ?? null } : {}),
       status: "confirmed",
       purchase_invoice_id: purchaseId,
       reviewed_by: actorId,
