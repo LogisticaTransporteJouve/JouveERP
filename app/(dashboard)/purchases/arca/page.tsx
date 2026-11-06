@@ -14,9 +14,10 @@ import {
   listReceivedVouchersAction,
 } from "@/features/purchase-invoices/actions/arca-received-actions";
 import { ArcaReceivedTray } from "@/features/purchase-invoices/components/arca-received-tray";
+import { ARCA_BULK_ACCEPT_PERMISSIONS } from "@/features/purchase-invoices/lib/arca-bulk-accept";
 import { arcaReceivedKeys } from "@/features/purchase-invoices/lib/purchase-invoices-keys";
 import { requireUserContext } from "@/lib/auth/context";
-import { userCan } from "@/lib/auth/permissions";
+import { userCan, userCanAll } from "@/lib/auth/permissions";
 import { Hydrate } from "@/lib/query/hydrate";
 import { prefetchQueries } from "@/lib/query/prefetch";
 import { runAction } from "@/lib/query/run-action";
@@ -78,7 +79,9 @@ export default async function ArcaReceivedPage() {
           </p>
         </div>
         <Hydrate state={dehydratedState}>
-          <ArcaReceivedTray />
+          <ArcaReceivedTray
+            canBulkAccept={userCanAll(ctx.access, ARCA_BULK_ACCEPT_PERMISSIONS)}
+          />
         </Hydrate>
       </div>
     </PageSideProvider>

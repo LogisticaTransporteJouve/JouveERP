@@ -11,8 +11,15 @@ import {
 import {
   arcaGapTargetLabel,
   arcaVoucherToDraft,
-  placeReceivedGap,
 } from "@/features/purchase-invoices/lib/arca-received-draft";
+import {
+  arcaDraftAmounts,
+  arcaReceivedInvoice,
+  fullTributeSplit,
+  supplierDueDate,
+  tributeSplitTotal,
+  type TributeSplit,
+} from "@/features/purchase-invoices/lib/arca-received-invoice";
 import { supplierCostDefaults } from "@/features/purchase-invoices/lib/supplier-defaults";
 import {
   ARCA_GAP_TARGETS,
@@ -63,8 +70,7 @@ import { findSupplier } from "./resolve-supplier";
 const EMPLOYEE_CHARGE_DENIED =
   "No tenés permiso para cargar una compra a un empleado.";
 
-type TributeField = (typeof PURCHASE_TRIBUTE_FIELDS)[number];
-type Split = Record<TributeField, number>;
+type Split = TributeSplit;
 
 const amount = z.number().finite().min(0).max(999_999_999_999.99);
 
@@ -86,33 +92,6 @@ const lookup = z.string().trim().min(1).max(120);
 
 function stop(field: string, message: string): AiPrepareResult {
   return { kind: "issues", issues: [{ field, message }] };
-}
-
-function fullSplit(partial: Partial<Split>): Split {
-  return {
-    imp_perc_iva: partial.imp_perc_iva ?? 0,
-    imp_perc_nacionales: partial.imp_perc_nacionales ?? 0,
-    imp_perc_iibb: partial.imp_perc_iibb ?? 0,
-    imp_perc_municipales: partial.imp_perc_municipales ?? 0,
-    imp_impuestos_internos: partial.imp_impuestos_internos ?? 0,
-  };
-}
-
-const splitTotal = (s: Split) =>
-  round2(PURCHASE_TRIBUTE_FIELDS.reduce((a, f) => a + s[f], 0));
-
-function addDays(iso: string, days: number): string {
-  const d = new Date(`${iso}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
-
-/** The due date the form prefills: the supplier's payment term from the
- *  date, when it has one. */
-function supplierDueDate(supplier: Supplier, fecha: string): string | null {
-  return supplier.default_payment_term_days != null
-    ? addDays(fecha, supplier.default_payment_term_days)
-    : null;
 }
 
 type ChannelPick =
@@ -464,12 +443,12 @@ export const proposePurchaseInvoice = defineAiProposal({
       );
     }
 
-    const given = fullSplit(input.tributes ?? {});
-    const trib = splitTotal(given);
+    const given = fullTributeSplit(input.tributes ?? {});
+    const trib = tributeSplitTotal(given);
     // The tributes are split on a fiscal purchase and are IIBB on an
     // internal one (the form's rule).
     const split: Split = internal
-      ? { ...fullSplit({}), imp_perc_iibb: trib }
+      ? { ...fullTributeSplit({}), imp_perc_iibb: trib }
       : given;
     const imp_iva = input.imp_iva ?? 0;
     const imp_no_gravado = input.imp_no_gravado ?? 0;
@@ -660,27 +639,16 @@ export const proposeArcaPurchase = defineAiProposal({
       };
     }
     const gapTarget = gap !== null ? (input.gap_target ?? null) : null;
-    const arca = {
-      imp_neto: base.imp_neto ?? 0,
-      imp_no_gravado: base.imp_no_gravado ?? 0,
-      imp_op_exentas: base.imp_op_exentas ?? 0,
-      imp_iva: base.imp_iva ?? 0,
-      imp_trib: base.imp_trib ?? 0,
-      imp_total: base.imp_total ?? 0,
-    };
-    const amounts =
-      gap !== null && gapTarget !== null
-        ? placeReceivedGap(arca, voucher.letter, gap, gapTarget)
-        : arca;
+    const amounts = arcaDraftAmounts(base, voucher.letter, gapTarget);
     if (gap !== null) {
       labels[PURCHASE_LABELS.gap] = formatMoney(gap, currency);
     }
 
     let split: Split;
     if (input.tributes) {
-      split = fullSplit(input.tributes);
+      split = fullTributeSplit(input.tributes);
     } else {
-      split = fullSplit(base.tributes ?? {});
+      split = fullTributeSplit(base.tributes ?? {});
       if (gap !== null && gapTarget === "otros_tributos") {
         if (!input.gap_tribute) {
           return {
@@ -705,7 +673,7 @@ export const proposeArcaPurchase = defineAiProposal({
         split[input.gap_tribute] = round2(split[input.gap_tribute] + gap);
       }
     }
-    if (Math.abs(splitTotal(split) - amounts.imp_trib) > 0.01) {
+    if (Math.abs(tributeSplitTotal(split) - amounts.imp_trib) > 0.01) {
       return stop(
         "tributes",
         `Los otros tributos suman ${formatMoney(amounts.imp_trib, currency)}: falta cómo se reparten (percepción de IVA, Ganancias, IIBB, municipales, internos).`,
@@ -744,32 +712,24 @@ export const proposeArcaPurchase = defineAiProposal({
       draft: {
         voucher_id: voucher.id,
         gap_target: gapTarget,
-        invoice: {
-          channel_id: channel.id,
-          account_id: costs.account_id,
-          cost_center_id: costs.cost_center_id,
-          supplier_id: supplier.id,
-          kind,
-          letter: voucher.letter,
-          punto_venta: voucher.punto_venta,
-          numero: voucher.numero,
-          fecha: voucher.fecha,
-          fch_vto_pago:
-            input.fch_vto_pago ??
-            supplierDueDate(supplier, voucher.fecha) ??
-            voucher.fecha,
-          ...amounts,
-          ...split,
-          moneda: voucher.moneda,
-          cotizacion,
-          cae_proveedor: voucher.cae,
-          cae_vto_proveedor: null,
-          invoice_origin_id: origin.id,
-          motivo_nc_nd:
-            kind === "factura" ? null : "Según ARCA → Mis Comprobantes",
-          notes: input.notes ?? null,
-          items: [],
-        },
+        invoice: arcaReceivedInvoice(
+          { ...voucher, kind },
+          {
+            channelId: channel.id,
+            supplierId: supplier.id,
+            accountId: costs.account_id,
+            costCenterId: costs.cost_center_id,
+            amounts,
+            split,
+            cotizacion,
+            fchVtoPago:
+              input.fch_vto_pago ??
+              supplierDueDate(supplier, voucher.fecha) ??
+              voucher.fecha,
+            originId: origin.id,
+            notes: input.notes ?? null,
+          },
+        ),
       },
       labels,
     };

@@ -56,4 +56,5 @@ export const arcaReceivedKeys = {
   list: (status: string) => [...arcaReceivedKeys.all, "list", status] as const,
   counts: () => [...arcaReceivedKeys.all, "counts"] as const,
   syncStatus: () => [...arcaReceivedKeys.all, "sync_status"] as const,
+  bulkAccept: () => [...arcaReceivedKeys.all, "bulk_accept"] as const,
 };

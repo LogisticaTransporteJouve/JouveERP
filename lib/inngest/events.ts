@@ -133,6 +133,21 @@ export type ArcaReceivedSyncRequested = z.infer<
   typeof ArcaReceivedSyncRequestedSchema
 >;
 
+/** «Aceptar todos los pendientes» in Compras › Recibidos de ARCA. */
+export const ARCA_BULK_ACCEPT_REQUESTED =
+  "afip/received-bulk-accept.requested" as const;
+
+export const ArcaBulkAcceptRequestedSchema = z.object({
+  // The arca_bulk_accept_runs row the run reports to; also its idempotency.
+  run_id: z.string().uuid(),
+  // The owner who asked: every write runs as them.
+  requested_by: z.string().uuid(),
+});
+
+export type ArcaBulkAcceptRequested = z.infer<
+  typeof ArcaBulkAcceptRequestedSchema
+>;
+
 export const STRIX_KM_SYNC_REQUESTED = "fleet/strix-km-sync.requested" as const;
 
 export const StrixKmSyncRequestedSchema = z.object({
