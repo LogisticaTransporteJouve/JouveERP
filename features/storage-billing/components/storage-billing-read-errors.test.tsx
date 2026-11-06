@@ -42,11 +42,14 @@ vi.mock("../hooks/use-storage-billing", () => ({
   useStorageBilling: () => h.billing,
   useStorageBillingRuns: () => h.runs,
   useInvoicingChannels: () => h.channelsRead ?? loaded(h.channels),
-  useEnabledPos: (channelId: string) => {
-    h.posChannel = channelId;
+  useInvoiceStorage: () => ({ mutate: vi.fn(), isPending: false }),
+}));
+
+vi.mock("@/features/invoices/hooks/use-invoices", () => ({
+  useEnabledPos: (channelId: string | null) => {
+    h.posChannel = channelId ?? "";
     return h.pos;
   },
-  useInvoiceStorage: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
 const { StorageBillingReport } = await import("./storage-billing-report");
@@ -172,22 +175,32 @@ describe("StorageInvoiceDialog", () => {
     { id: "jouve_internal", name: "Jouve interno", is_fiscal: false },
   ];
 
-  it("preselects the only channel on the client's side", () => {
+  it("preselects the only channel on the client's side and its only point of sale", () => {
     h.channels = bothChannels;
+    h.pos = loaded([
+      { numero: 7, channel_id: "jouve_internal", nickname: null },
+    ]);
     openDialog(false);
     expect(h.posChannel).toBe("jouve_internal");
-    expect(
-      document.getElementById("storage-pos")?.hasAttribute("disabled"),
-    ).toBe(false);
+    const pos = document.getElementById("storage-pos");
+    expect(pos?.textContent).toContain("0007");
+    expect(pos?.hasAttribute("disabled")).toBe(true);
   });
 
   it("leaves the channel to choose when the client's side is unknown", () => {
     h.channels = bothChannels;
     openDialog(null);
     expect(h.posChannel).toBe("");
+    expect(screen.getByText("Elegí un canal.")).toBeTruthy();
+    expect(document.getElementById("storage-pos")).toBeNull();
+  });
+
+  it("says the channel has no enabled point of sale", () => {
+    h.channels = bothChannels;
+    openDialog(false);
     expect(
-      document.getElementById("storage-pos")?.hasAttribute("disabled"),
-    ).toBe(true);
+      screen.getByText("Este canal no tiene puntos de venta habilitados."),
+    ).toBeTruthy();
   });
 
   it("says a failed channel read with «Reintentar», not an empty select", () => {

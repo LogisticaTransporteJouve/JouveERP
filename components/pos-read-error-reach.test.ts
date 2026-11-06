@@ -38,7 +38,7 @@ const channelReaders = files.filter(
 
 describe("puntos de venta and channel read error reach", () => {
   it("finds the readers", () => {
-    expect(posReaders.length).toBeGreaterThanOrEqual(5);
+    expect(posReaders.length).toBeGreaterThanOrEqual(4);
     expect(channelReaders.length).toBeGreaterThanOrEqual(2);
   });
 
