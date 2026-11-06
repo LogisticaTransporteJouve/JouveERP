@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import {
@@ -14,6 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DIALOG_STICKY_FOOTER,
 } from "@/components/ui/dialog";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
@@ -385,7 +387,12 @@ export function NcNdForm({
         />
       </div>
 
-      <div className="flex items-center justify-end gap-2">
+      <div
+        className={cn(
+          "flex items-center justify-end gap-2",
+          DIALOG_STICKY_FOOTER,
+        )}
+      >
         <Button
           type="button"
           variant="ghost"

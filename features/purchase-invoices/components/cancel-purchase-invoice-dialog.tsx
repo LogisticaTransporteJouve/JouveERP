@@ -62,10 +62,18 @@ export function CancelPurchaseInvoiceDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <p className="text-sm">
-          La factura queda marcada como anulada y deja de contar para los
-          balances y aging. La anulación no se puede deshacer.
-        </p>
+        <div className="space-y-2 text-sm">
+          <p>
+            La factura queda anulada: sale del saldo del proveedor, de la deuda
+            y del Libro IVA Compras, y su asiento se revierte. No se puede
+            deshacer.
+          </p>
+          <p className="text-muted-foreground">
+            No se puede anular si tiene órdenes de pago imputadas, notas de
+            crédito o débito cargadas, o si quedó saldada por el ajuste de saldo
+            del proveedor. En esos casos corresponde una nota de crédito.
+          </p>
+        </div>
 
         <DialogFooter className="gap-2 sm:gap-2">
           <Button

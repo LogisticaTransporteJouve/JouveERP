@@ -7,6 +7,11 @@ import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import {
+  FormColumn,
+  FormColumns,
+  WIDE_FORM_DIALOG,
+} from "@/components/form-columns";
 import { MoneyInput } from "@/components/money-input";
 import { ReadError } from "@/components/read-error";
 import { Button } from "@/components/ui/button";
@@ -275,7 +280,7 @@ export function ShipmentDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className={WIDE_FORM_DIALOG}>
         <DialogHeader>
           <DialogTitle>{isEdit ? "Editar carga" : "Nueva carga"}</DialogTitle>
           <DialogDescription>
@@ -293,222 +298,228 @@ export function ShipmentDialog({
         ) : (
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="client_id"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Cliente</FormLabel>
-                    <ClientPicker
-                      value={client}
-                      onChange={(picked) => {
-                        setClient(picked);
-                        field.onChange(picked?.id ?? "");
-                      }}
-                      isFiscal={null}
-                    />
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="remito_number"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Remito del cliente</FormLabel>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        placeholder="0001-00012345"
-                        maxLength={REMITO_NUMBER_MAX}
-                        autoComplete="off"
-                      />
-                    </FormControl>
-                    {remitoConflict && (
-                      <p
-                        role="alert"
-                        className="flex items-start gap-2 text-sm text-muted-foreground"
-                      >
-                        <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-                        <span>
-                          Ese remito ya está en otra carga del cliente (
-                          {remitoConflictLabel(remitoConflict)}). Cambiá el
-                          número o cancelá esa carga para usarlo.
-                        </span>
-                      </p>
-                    )}
-                    {remitoCheck.isError && (
-                      <p className="text-sm text-muted-foreground">
-                        No se pudo verificar si el remito está repetido.
-                      </p>
-                    )}
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              {/* A new carga waits unassigned; trips pick their cargas from
-                  the trip page. Editing can still move or unassign it. */}
-              {isEdit && (
-                <FormField
-                  control={form.control}
-                  name="trip_id"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Viaje</FormLabel>
-                      <Select
-                        value={field.value === "" ? NONE : field.value}
-                        onValueChange={(v) =>
-                          field.onChange(v === NONE ? "" : v)
-                        }
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Sin asignar" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value={NONE}>Sin asignar</SelectItem>
-                          {withOwnTrip(options?.trips ?? [], shipment).map(
-                            (t) => (
-                              <SelectItem key={t.id} value={t.id}>
-                                {t.trip_date}
-                              </SelectItem>
-                            ),
-                          )}
-                        </SelectContent>
-                      </Select>
-                      {((optionsFailed && !options) ||
-                        options?.trips === null) && (
-                        <ReadError
-                          message="No se pudieron cargar los viajes."
-                          onRetry={() => void refetchOptions()}
+              <FormColumns>
+                <FormColumn>
+                  <FormField
+                    control={form.control}
+                    name="client_id"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Cliente</FormLabel>
+                        <ClientPicker
+                          value={client}
+                          onChange={(picked) => {
+                            setClient(picked);
+                            field.onChange(picked?.id ?? "");
+                          }}
+                          isFiscal={null}
                         />
-                      )}
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              )}
-              <div className="grid grid-cols-2 gap-3">
-                <FormField
-                  control={form.control}
-                  name="origin"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Origen</FormLabel>
-                      <FormControl>
-                        <Input {...field} placeholder="Buenos Aires" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="destination"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Destino</FormLabel>
-                      <FormControl>
-                        <Input {...field} placeholder="Córdoba" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Descripción</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        {...field}
-                        rows={2}
-                        placeholder="Materiales de obra"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <div className="grid grid-cols-2 gap-3">
-                <FormField
-                  control={form.control}
-                  name="scheduled_date"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Fecha programada</FormLabel>
-                      <FormControl>
-                        <DatePicker {...field} clearable />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="freight_amount"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Flete</FormLabel>
-                      <FormControl>
-                        <MoneyInput {...field} />
-                      </FormControl>
-                      {!isEdit && tariffFailed ? (
-                        <p className="text-xs text-muted-foreground">
-                          No se pudo leer la tarifa de flete del cliente.
-                        </p>
-                      ) : (
-                        !isEdit &&
-                        suggestedFreight !== null && (
-                          <p className="text-xs text-muted-foreground">
-                            Tarifa de flete del cliente:{" "}
-                            {formatMoney(suggestedFreight)}
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="remito_number"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Remito del cliente</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            placeholder="0001-00012345"
+                            maxLength={REMITO_NUMBER_MAX}
+                            autoComplete="off"
+                          />
+                        </FormControl>
+                        {remitoConflict && (
+                          <p
+                            role="alert"
+                            className="flex items-start gap-2 text-sm text-muted-foreground"
+                          >
+                            <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+                            <span>
+                              Ese remito ya está en otra carga del cliente (
+                              {remitoConflictLabel(remitoConflict)}). Cambiá el
+                              número o cancelá esa carga para usarlo.
+                            </span>
                           </p>
-                        )
+                        )}
+                        {remitoCheck.isError && (
+                          <p className="text-sm text-muted-foreground">
+                            No se pudo verificar si el remito está repetido.
+                          </p>
+                        )}
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  {/* A new carga waits unassigned; trips pick their cargas from
+                  the trip page. Editing can still move or unassign it. */}
+                  {isEdit && (
+                    <FormField
+                      control={form.control}
+                      name="trip_id"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Viaje</FormLabel>
+                          <Select
+                            value={field.value === "" ? NONE : field.value}
+                            onValueChange={(v) =>
+                              field.onChange(v === NONE ? "" : v)
+                            }
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Sin asignar" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value={NONE}>Sin asignar</SelectItem>
+                              {withOwnTrip(options?.trips ?? [], shipment).map(
+                                (t) => (
+                                  <SelectItem key={t.id} value={t.id}>
+                                    {t.trip_date}
+                                  </SelectItem>
+                                ),
+                              )}
+                            </SelectContent>
+                          </Select>
+                          {((optionsFailed && !options) ||
+                            options?.trips === null) && (
+                            <ReadError
+                              message="No se pudieron cargar los viajes."
+                              onRetry={() => void refetchOptions()}
+                            />
+                          )}
+                          <FormMessage />
+                        </FormItem>
                       )}
-                      <FormMessage />
-                    </FormItem>
+                    />
                   )}
-                />
-              </div>
-              <FormField
-                control={form.control}
-                name="cod_amount"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Cobranza contra entrega</FormLabel>
-                    <FormControl>
-                      <MoneyInput
-                        {...field}
-                        placeholder="Vacío si no cobra al entregar"
-                      />
-                    </FormControl>
-                    <p className="text-xs text-muted-foreground">
-                      Lo que el chofer cobra al cliente al entregar. Lo rinde
-                      después en Rendiciones.
-                    </p>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="notes"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Notas</FormLabel>
-                    <FormControl>
-                      <Textarea {...field} rows={2} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                  <div className="grid grid-cols-2 gap-3">
+                    <FormField
+                      control={form.control}
+                      name="origin"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Origen</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="Buenos Aires" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="destination"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Destino</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="Córdoba" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </FormColumn>
+                <FormColumn>
+                  <FormField
+                    control={form.control}
+                    name="description"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Descripción</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            {...field}
+                            rows={2}
+                            placeholder="Materiales de obra"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <div className="grid grid-cols-2 gap-3">
+                    <FormField
+                      control={form.control}
+                      name="scheduled_date"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Fecha programada</FormLabel>
+                          <FormControl>
+                            <DatePicker {...field} clearable />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="freight_amount"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Flete</FormLabel>
+                          <FormControl>
+                            <MoneyInput {...field} />
+                          </FormControl>
+                          {!isEdit && tariffFailed ? (
+                            <p className="text-xs text-muted-foreground">
+                              No se pudo leer la tarifa de flete del cliente.
+                            </p>
+                          ) : (
+                            !isEdit &&
+                            suggestedFreight !== null && (
+                              <p className="text-xs text-muted-foreground">
+                                Tarifa de flete del cliente:{" "}
+                                {formatMoney(suggestedFreight)}
+                              </p>
+                            )
+                          )}
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <FormField
+                    control={form.control}
+                    name="cod_amount"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Cobranza contra entrega</FormLabel>
+                        <FormControl>
+                          <MoneyInput
+                            {...field}
+                            placeholder="Vacío si no cobra al entregar"
+                          />
+                        </FormControl>
+                        <p className="text-xs text-muted-foreground">
+                          Lo que el chofer cobra al cliente al entregar. Lo
+                          rinde después en Rendiciones.
+                        </p>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="notes"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Notas</FormLabel>
+                        <FormControl>
+                          <Textarea {...field} rows={2} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </FormColumn>
+              </FormColumns>
               <DialogFooter>
                 <Button
                   type="button"

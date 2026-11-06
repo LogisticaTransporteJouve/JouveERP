@@ -54,7 +54,7 @@ export function NewPurchaseInvoiceDialog({
           onClose={() => onOpenChange(false)}
         />
       ) : (
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
+        <DialogContent className="sm:max-w-[min(90vw,90rem)]">
           <DialogHeader>
             <DialogTitle>Cargar factura de compra</DialogTitle>
             <DialogDescription>

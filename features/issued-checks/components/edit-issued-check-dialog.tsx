@@ -36,7 +36,7 @@ export function EditIssuedCheckDialog({
           <Pencil className="size-4" />
         </IconButton>
       </DialogTrigger>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+      <DialogContent className="sm:max-w-4xl">
         <DialogHeader>
           <DialogTitle>
             Cheque {check.bank_name} · #{check.check_number}

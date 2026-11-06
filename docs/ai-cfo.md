@@ -373,6 +373,7 @@ centrado muestra el resumen con **Aceptar / Descartar**. Nada se prepara en segu
 | `proposeReceiptEmail`               | `email:send` + `receipts:read`                                                               | `lib/commands/send-receipt-email.ts`: el PDF de un recibo emitido, al email del cliente por defecto                                                                                                                                 |
 | `proposeReceipt`                    | `receipts:write` + `receipts:read` + `clients:read` + `accounts:read`                        | `lib/commands/create-receipt.ts` (`create_receipt`) con `listPendingComprobantesForClientAction` inyectado                                                                                                                          |
 | `proposePaymentOrder`               | `payment_orders:write` + `payment_orders:read` + `suppliers:read` + `accounts:read`          | `lib/commands/create-payment-order.ts` (`create_payment_order`) con `listPendingInvoicesForSupplierAction` inyectado                                                                                                                |
+| `proposeTreasuryAccount`            | `accounts:write` + `accounts:read`                                                           | `lib/commands/create-account.ts`: alta de cuenta de Tesorería › Cuentas (banco, caja, billetera, inversión o cartera de cheques), rechazada si ya hay una activa con ese nombre, tipo y moneda                                      |
 | `proposeCashMovement`               | `transactions:write` + `accounts:read`                                                       | `lib/commands/create-transaction.ts`: ingreso o egreso manual de Caja                                                                                                                                                               |
 | `proposeTransfer`                   | `transactions:write` + `accounts:read`                                                       | `lib/commands/create-transfer.ts` (`create_transfer`): las dos patas en una transacción                                                                                                                                             |
 | `proposeManualCheck`                | `cheques:write` + `transactions:write` + `accounts:read`                                     | `lib/commands/create-manual-check.ts` (`create_manual_check`)                                                                                                                                                                       |
@@ -478,6 +479,14 @@ cuenta, cheques de terceros en cartera (endosados por su importe, solo los de su
 canal dicho, toma el del cheque) y cheques propios sobre una cuenta bancaria (beneficiario: el
 proveedor); todos los medios en una moneda. Ni Caja ni la transferencia aceptan cuentas de
 cheques.
+
+**Cuentas** (`account-proposals.ts`): `proposeTreasuryAccount` arma el alta de Tesorería ›
+Cuentas › «Nueva cuenta» con nombre, tipo (pregunta si no lo dijo), moneda (ARS si no la dijo),
+saldo inicial (leído con `parseArAmount`, 0 si no lo dijo; puede ser negativo) y notas. Rechaza
+en `prepare` una cuenta activa con el mismo nombre (sin distinguir mayúsculas), tipo y moneda,
+como el índice único que choca en el formulario, y al aceptar corre el mismo comando que el
+formulario. El saldo inicial no se edita en la tarjeta (el campo numérico no lleva signo): se
+cambia pidiéndoselo al asistente.
 
 **Cheques** (`checks-proposals.ts`): `proposeManualCheck` carga un cheque recibido a la cartera de
 su tipo (sin recibo: para que cancele deuda va por `proposeReceipt`), `proposeCheckDeposit`

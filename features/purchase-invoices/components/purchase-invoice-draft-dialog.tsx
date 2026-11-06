@@ -112,10 +112,10 @@ export function PurchaseInvoiceDraftDialogContent({
     <DialogContent
       className={
         source
-          ? "flex max-h-[92vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl lg:h-[92vh] lg:max-w-6xl"
+          ? "flex max-h-[92vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl lg:h-[92vh] lg:max-w-[min(96vw,110rem)]"
           : fromArca
             ? "flex max-h-[92vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl lg:max-w-6xl"
-            : "flex max-h-[92vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl"
+            : "flex max-h-[92vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-[min(90vw,90rem)]"
       }
     >
       <DialogHeader className="border-b px-4 py-3 text-left">
@@ -139,7 +139,7 @@ export function PurchaseInvoiceDraftDialogContent({
         )}
       </DialogHeader>
       {source ? (
-        <div className="grid grid-cols-1 min-h-0 flex-1 lg:grid-cols-2">
+        <div className="grid grid-cols-1 min-h-0 flex-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
           <SourcePreview source={source} />
           {form}
         </div>

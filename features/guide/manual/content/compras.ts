@@ -773,7 +773,7 @@ export const purchasesPage: GuidePage = {
     {
       id: "facturas-de-compra",
       title: "Facturas de compra y remitos de compra",
-      menuPath: "Compras › Compras (y Otras compras › Remitos de compra)",
+      menuPath: "Compras › Comprobantes (y Otras compras › Remitos de compra)",
       routes: ["/purchases", "/purchases/[id]"],
       permission: "purchase_invoices:read",
       intro: [
@@ -785,7 +785,7 @@ export const purchasesPage: GuidePage = {
       screens: [
         {
           kind: "page",
-          caption: "Compras › Compras",
+          caption: "Compras › Comprobantes",
           title: "Facturas de compra",
           subtitle:
             "Facturas, notas de crédito y débito recibidas de proveedores de Compras.",
@@ -1683,7 +1683,7 @@ export const purchasesPage: GuidePage = {
     {
       id: "recibidos-de-arca",
       title: "Recibidos de ARCA",
-      menuPath: "Compras › Compras › Recibidos de ARCA",
+      menuPath: "Compras › Comprobantes › Recibidos de ARCA",
       routes: ["/purchases/arca"],
       permission: "purchase_invoices:write",
       intro: [

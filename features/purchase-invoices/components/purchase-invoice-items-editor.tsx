@@ -182,17 +182,17 @@ export function PurchaseInvoiceItemsEditor({
   return (
     <div className="space-y-3">
       <div className="overflow-x-auto rounded-md border">
-        <table className="w-full text-sm">
+        <table className="w-full min-w-[60rem] table-fixed text-sm">
           <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
             <tr>
               <th className="px-2 py-2 text-left font-medium">Descripción</th>
-              <th className="px-2 py-2 text-right font-medium w-20">Cant.</th>
-              <th className="px-2 py-2 text-right font-medium w-28">P. unit</th>
-              <th className="px-2 py-2 text-left font-medium w-24">IVA</th>
-              <th className="px-2 py-2 text-right font-medium w-28">Neto</th>
-              <th className="px-2 py-2 text-right font-medium w-28">IVA</th>
-              <th className="px-2 py-2 text-right font-medium w-28">Total</th>
-              <th className="w-9" />
+              <th className="w-24 px-2 py-2 text-right font-medium">Cant.</th>
+              <th className="w-36 px-2 py-2 text-right font-medium">P. unit</th>
+              <th className="w-28 px-2 py-2 text-left font-medium">IVA</th>
+              <th className="w-36 px-2 py-2 text-right font-medium">Neto</th>
+              <th className="w-36 px-2 py-2 text-right font-medium">IVA</th>
+              <th className="w-36 px-2 py-2 text-right font-medium">Total</th>
+              <th className="w-11" />
             </tr>
           </thead>
           <tbody>
@@ -257,13 +257,13 @@ export function PurchaseInvoiceItemsEditor({
                       </SelectContent>
                     </Select>
                   </td>
-                  <td className="px-2 py-1 text-right font-mono text-muted-foreground">
+                  <td className="whitespace-nowrap px-2 py-1 text-right font-mono text-muted-foreground">
                     {ARS.format(c.line_neto)}
                   </td>
-                  <td className="px-2 py-1 text-right font-mono text-muted-foreground">
+                  <td className="whitespace-nowrap px-2 py-1 text-right font-mono text-muted-foreground">
                     {ARS.format(c.line_iva)}
                   </td>
-                  <td className="px-2 py-1 text-right font-mono">
+                  <td className="whitespace-nowrap px-2 py-1 text-right font-mono">
                     {ARS.format(c.line_total)}
                   </td>
                   <td className="px-2 py-1 text-center">

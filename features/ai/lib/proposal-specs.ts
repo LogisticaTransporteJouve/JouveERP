@@ -1,5 +1,12 @@
 import { z } from "zod";
 
+import {
+  ACCOUNT_CURRENCIES,
+  ACCOUNT_TYPE_LABEL,
+  ACCOUNT_TYPES,
+  AccountCreateSchema,
+  isCheckAccount,
+} from "@/features/accounts/schema";
 import { MatchLineSchema } from "@/features/bank-reconciliation/schema";
 import {
   CHECK_KIND_LABEL,
@@ -1529,6 +1536,50 @@ export const receiptEmailProposalSpec = defineProposalSpec({
 
 // ─── Treasury ────────────────────────────────────────────────────────────────
 
+export const treasuryAccountProposalSpec = defineProposalSpec({
+  title: "Crear cuenta de tesorería",
+  draft: AccountCreateSchema,
+  // The saldo inicial may be negative (an overdrawn bank), which the number
+  // field cannot hold: it changes through the assistant.
+  fields: [
+    { key: "name", label: "Nombre", kind: "text" },
+    {
+      key: "type",
+      label: "Tipo",
+      kind: "select",
+      options: ACCOUNT_TYPES.map((t) => ({
+        value: t,
+        label: ACCOUNT_TYPE_LABEL[t],
+      })),
+    },
+    {
+      key: "currency",
+      label: "Moneda",
+      kind: "select",
+      options: ACCOUNT_CURRENCIES.map((c) => ({ value: c, label: c })),
+    },
+    { key: "notes", label: "Notas", kind: "textarea" },
+  ],
+  confirmLabel: "Crear cuenta",
+  declineLabel: "Descartar",
+  summarize: (d) => [
+    { label: "Nombre", value: d.name },
+    { label: "Tipo", value: ACCOUNT_TYPE_LABEL[d.type] },
+    { label: "Moneda", value: d.currency },
+    {
+      label: "Saldo inicial",
+      value: formatMoney(d.opening_balance, d.currency),
+    },
+    ...(d.notes ? [{ label: "Notas", value: d.notes }] : []),
+    {
+      label: "Qué pasa",
+      value: isCheckAccount(d.type)
+        ? "Se crea como en Tesorería › Cuentas › «Nueva cuenta», como cartera de cheques."
+        : "Se crea como en Tesorería › Cuentas › «Nueva cuenta» y queda disponible en Caja, Recibos y Órdenes de pago.",
+    },
+  ],
+});
+
 export const cashMovementProposalSpec = defineProposalSpec({
   title: "Registrar movimiento de caja",
   draft: TransactionCreateSchema,
@@ -2581,6 +2632,7 @@ export const PROPOSAL_SPECS: Readonly<Record<string, ProposalSpec>> = {
   proposeCreditDebitNote: creditDebitNoteProposalSpec,
   proposeInvoiceEmail: invoiceEmailProposalSpec,
   proposeReceiptEmail: receiptEmailProposalSpec,
+  proposeTreasuryAccount: treasuryAccountProposalSpec,
   proposeCashMovement: cashMovementProposalSpec,
   proposeTransfer: transferProposalSpec,
   proposeReceipt: receiptProposalSpec,
