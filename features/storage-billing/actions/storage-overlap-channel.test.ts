@@ -116,6 +116,8 @@ vi.mock("@/lib/commands/issue-comprobante", () => ({
 
 const { invoiceStorageAction, listStorageBillingRunsAction } =
   await import("./billing-actions");
+const { invoiceStorage } = await import("@/lib/commands/invoice-storage");
+const { createClient } = await import("@/lib/supabase/server");
 
 const october = {
   client_id: CLIENT_ID,
@@ -383,5 +385,25 @@ describe("listStorageBillingRunsAction", () => {
     );
     const res = await listStorageBillingRunsAction();
     expect(res.ok).toBe(false);
+  });
+});
+
+// An accepted assistant proposal bills at the total its card showed.
+describe("invoiceStorage at a proposal's total", () => {
+  it("refuses, claiming nothing, when the period recomputes to another total", async () => {
+    const res = await invoiceStorage(await createClient(), "u1", october, 300);
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error).toMatch(/cambió desde la propuesta/);
+    expect(
+      fake.calls.some(
+        (c) => c.table === "claim_storage_billing_period_with_relinks",
+      ),
+    ).toBe(false);
+    expect(issue).not.toHaveBeenCalled();
+  });
+
+  it("bills when the total is the one shown", async () => {
+    const res = await invoiceStorage(await createClient(), "u1", october, 310);
+    expect(res).toEqual({ ok: true, data: { invoiceId: "inv1" } });
   });
 });

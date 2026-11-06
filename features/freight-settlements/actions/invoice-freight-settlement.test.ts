@@ -378,6 +378,28 @@ describe("confirmFreightSettlementAction", () => {
     ).toEqual({ p_settlement_id: ID, p_user_id: "u1" });
   });
 
+  it("passes a proposal's total to the database, which refuses a changed one", async () => {
+    const { confirmFreightSettlement } =
+      await import("@/lib/commands/confirm-freight-settlement");
+    const guard =
+      "El total de la liquidación cambió desde la propuesta (se editó el flete o la tarifa de una carga): revisala y volvé a confirmarla.";
+    fake = recordingSupabase((call) =>
+      call.table === "confirm_freight_settlement_document"
+        ? { data: null, error: { message: guard, hint: "jouve_guard" } }
+        : respond(call),
+    );
+    const res = await confirmFreightSettlement("u1", ID, 260_000);
+    expect(res).toEqual({ ok: false, error: guard });
+    expect(
+      fake.calls.find((c) => c.table === "confirm_freight_settlement_document")
+        ?.payload,
+    ).toEqual({
+      p_settlement_id: ID,
+      p_user_id: "u1",
+      p_expected_total: 260_000,
+    });
+  });
+
   it("gives an internal liquidación no number", async () => {
     confirmResult = {
       channel: "internal",

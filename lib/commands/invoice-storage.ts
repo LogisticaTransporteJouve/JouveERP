@@ -10,6 +10,7 @@ import {
 import {
   computeStorageBilling,
   STORAGE_TARIFF_COLUMNS,
+  storageInvoiceAmounts,
   toTariffInput,
   type PalletInput,
 } from "@/features/storage-billing/lib/billing";
@@ -222,14 +223,10 @@ export async function invoiceStorage(
       error: `Falta la cotización del dólar al ${fmtDate(period_end)} (o anterior) para las tarifas en USD del cliente. Cargala en Contabilidad › Cotización USD y volvé a facturar.`,
     };
   }
-  const storage = billing.storage_total;
-  const loading = round2(
-    billing.lines.reduce((s, l) => s + l.handling_in_charge, 0),
+  const { storage, loading, unloading, total } = storageInvoiceAmounts(
+    billing.lines,
+    client_id,
   );
-  const unloading = round2(
-    billing.lines.reduce((s, l) => s + l.handling_out_charge, 0),
-  );
-  const total = round2(storage + loading + unloading);
   if (total <= 0) {
     return { ok: false, error: "No hay nada para facturar en ese período." };
   }

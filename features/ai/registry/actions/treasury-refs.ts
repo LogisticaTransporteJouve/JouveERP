@@ -22,7 +22,7 @@ export type Resolved<T> =
 
 /** The one option whose name equals `said`, else the one that contains it;
  *  otherwise `null` and the close ones (all of them when none is close). */
-function pick<T>(
+export function pick<T>(
   said: string,
   options: readonly T[],
   names: (o: T) => string[],
@@ -37,7 +37,7 @@ function pick<T>(
   return { many: exact.length > 1 ? exact : close };
 }
 
-function ask(
+export function ask(
   field: string,
   message: string,
   options: { value: string; label: string }[],

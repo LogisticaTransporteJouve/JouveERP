@@ -39,7 +39,10 @@ import {
   type DriverSettlementsPage,
   type SettlementAccount,
 } from "../schema";
-import { CHARGE_DRIVER_PERMISSIONS } from "../lib/charge-driver";
+import {
+  CHARGE_DRIVER_DENIED,
+  CHARGE_DRIVER_PERMISSIONS,
+} from "../lib/charge-driver";
 
 const READ_DENIED = "No tenés permiso para ver rendiciones.";
 const WRITE_DENIED = "No tenés permiso para registrar rendiciones.";
@@ -522,9 +525,6 @@ export async function cancelDriverSettlementAction(input: {
   return { ok: true, data: undefined };
 }
 
-const DIFFERENCE_DENIED =
-  "No tenés permiso para asentar en la cuenta corriente del chofer y mover la caja.";
-
 /** "Resolver diferencia": who bears the rendición's difference.
  *  - `driver`: a shortfall settles the client with a receipt and goes to
  *    the driver's employee account as an advance paid out of the cash
@@ -544,7 +544,7 @@ export async function postDriverSettlementDifferenceAction(
     parsed.data.charged_to === "driver" &&
     !userCanAll(ctx.access, CHARGE_DRIVER_PERMISSIONS)
   ) {
-    return { ok: false, error: DIFFERENCE_DENIED };
+    return { ok: false, error: CHARGE_DRIVER_DENIED };
   }
   return postDriverSettlementDifference(ctx.userId, parsed.data);
 }

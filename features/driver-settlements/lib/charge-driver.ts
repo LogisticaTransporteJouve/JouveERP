@@ -8,3 +8,7 @@ export const CHARGE_DRIVER_PERMISSIONS = [
   "hr:write",
   "transactions:write",
 ] as const satisfies readonly Permission[];
+
+/** The refusal for a user without CHARGE_DRIVER_PERMISSIONS. */
+export const CHARGE_DRIVER_DENIED =
+  "No tenés permiso para asentar en la cuenta corriente del chofer y mover la caja.";
