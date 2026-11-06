@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { DisabledHint, NO_CHANGES_REASON } from "@/components/disabled-hint";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
@@ -51,18 +52,21 @@ const FormSchema = z
   .object({
     kind: z.enum(EMPLOYEE_DOCUMENT_KINDS),
     number: z.string().trim().max(120).optional(),
-    issued_at: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida.").optional().or(z.literal("")),
-    expires_at: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha de vencimiento requerida."),
+    issued_at: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida.")
+      .optional()
+      .or(z.literal("")),
+    expires_at: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha de vencimiento requerida."),
     issuing_authority: z.string().trim().max(200).optional(),
     notes: z.string().trim().max(500).optional(),
   })
-  .refine(
-    (d) => !d.issued_at || d.expires_at >= d.issued_at,
-    {
-      message: "Vencimiento debe ser posterior a la emisión.",
-      path: ["expires_at"],
-    },
-  );
+  .refine((d) => !d.issued_at || d.expires_at >= d.issued_at, {
+    message: "Vencimiento debe ser posterior a la emisión.",
+    path: ["expires_at"],
+  });
 
 type FormValues = z.infer<typeof FormSchema>;
 
@@ -83,7 +87,8 @@ export function EmployeeDocumentDialog(
   const form = useForm<FormValues>({
     resolver: zodResolver(FormSchema),
     defaultValues: {
-      kind: (props.document?.kind ?? "licencia_conducir") as EmployeeDocumentKind,
+      kind: (props.document?.kind ??
+        "licencia_conducir") as EmployeeDocumentKind,
       number: props.document?.number ?? "",
       issued_at: props.document?.issued_at ?? "",
       expires_at: props.document?.expires_at ?? "",
@@ -95,7 +100,8 @@ export function EmployeeDocumentDialog(
   useEffect(() => {
     if (!open) return;
     form.reset({
-      kind: (props.document?.kind ?? "licencia_conducir") as EmployeeDocumentKind,
+      kind: (props.document?.kind ??
+        "licencia_conducir") as EmployeeDocumentKind,
       number: props.document?.number ?? "",
       issued_at: props.document?.issued_at ?? "",
       expires_at: props.document?.expires_at ?? "",
@@ -166,10 +172,7 @@ export function EmployeeDocumentDialog(
         </DialogHeader>
 
         <Form {...form}>
-          <form
-            onSubmit={form.handleSubmit(onSubmit)}
-            className="space-y-4"
-          >
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               control={form.control}
               name="kind"
@@ -294,12 +297,16 @@ export function EmployeeDocumentDialog(
               >
                 Cancelar
               </Button>
-              <Button
-                type="submit"
-                disabled={isSaving || !form.formState.isDirty}
+              <DisabledHint
+                reason={!form.formState.isDirty ? NO_CHANGES_REASON : null}
               >
-                {props.mode === "create" ? "Crear" : "Guardar"}
-              </Button>
+                <Button
+                  type="submit"
+                  disabled={isSaving || !form.formState.isDirty}
+                >
+                  {props.mode === "create" ? "Crear" : "Guardar"}
+                </Button>
+              </DisabledHint>
             </DialogFooter>
           </form>
         </Form>

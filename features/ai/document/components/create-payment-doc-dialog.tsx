@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { DisabledHint, firstReason } from "@/components/disabled-hint";
 import {
   useDefaultChannel,
   useScope,
@@ -277,13 +278,23 @@ export function CreatePaymentDocDialog({
           >
             Cancelar
           </Button>
-          <Button
-            type="button"
-            onClick={onSubmit}
-            disabled={incomplete || mutation.isPending}
+          <DisabledHint
+            reason={firstReason(
+              [!channelId, "Elegí el canal."],
+              [!numero, "Completá el número."],
+              [!fecha, "Completá la fecha."],
+              [!importe, "Completá el importe."],
+              [!accountId, "Elegí la cuenta."],
+            )}
           >
-            {copy.submit}
-          </Button>
+            <Button
+              type="button"
+              onClick={onSubmit}
+              disabled={incomplete || mutation.isPending}
+            >
+              {copy.submit}
+            </Button>
+          </DisabledHint>
         </DialogFooter>
       </DialogContent>
     </Dialog>

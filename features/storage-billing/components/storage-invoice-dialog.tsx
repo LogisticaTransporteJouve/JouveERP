@@ -4,6 +4,7 @@ import { AlertTriangle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { DisabledHint, firstReason } from "@/components/disabled-hint";
 import { ReadError } from "@/components/read-error";
 import { Button } from "@/components/ui/button";
 import {
@@ -296,21 +297,32 @@ export function StorageInvoiceDialog({
           <Button type="button" variant="outline" onClick={onClose}>
             Cancelar
           </Button>
-          <Button
-            type="button"
-            onClick={onSubmit}
-            disabled={
-              invoiceMut.isPending ||
-              previewMissing ||
-              !validRange ||
-              overlaps ||
-              total <= 0 ||
-              !channelId ||
-              !puntoVenta
-            }
+          <DisabledHint
+            reason={firstReason(
+              [previewMissing, "No se pudo calcular el total: recalculalo."],
+              [!validRange, "Completá un período válido."],
+              [overlaps, "Ese período ya fue facturado para este cliente."],
+              [total <= 0, "No hay nada para facturar en el período."],
+              [!channelId, "Elegí el canal."],
+              [!puntoVenta, "Elegí el punto de venta."],
+            )}
           >
-            Emitir factura
-          </Button>
+            <Button
+              type="button"
+              onClick={onSubmit}
+              disabled={
+                invoiceMut.isPending ||
+                previewMissing ||
+                !validRange ||
+                overlaps ||
+                total <= 0 ||
+                !channelId ||
+                !puntoVenta
+              }
+            >
+              Emitir factura
+            </Button>
+          </DisabledHint>
         </DialogFooter>
       </DialogContent>
     </Dialog>

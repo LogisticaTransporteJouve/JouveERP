@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useFormContext } from "react-hook-form";
 import { toast } from "sonner";
 
+import { DisabledHint } from "@/components/disabled-hint";
 import { Button } from "@/components/ui/button";
 import {
   FormControl,
@@ -158,14 +159,18 @@ export function CounterpartyIdentityFields<T extends Counterparty>({
                       />
                     </FormControl>
                     {!cuitLocked && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={onVerifyCuit}
-                        disabled={isVerifying || !field.value}
+                      <DisabledHint
+                        reason={!field.value ? "Ingresá un CUIT." : null}
                       >
-                        {isVerifying ? "Verificando…" : "Verificar AFIP"}
-                      </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={onVerifyCuit}
+                          disabled={isVerifying || !field.value}
+                        >
+                          {isVerifying ? "Verificando…" : "Verificar AFIP"}
+                        </Button>
+                      </DisabledHint>
                     )}
                   </div>
                   <FormMessage />

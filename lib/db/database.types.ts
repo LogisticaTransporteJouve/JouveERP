@@ -1946,7 +1946,9 @@ export type Database = {
           notes: string | null
           opening_date: string
           target_balance: number
+          target_balance_usd: number | null
           total_settled: number
+          total_settled_usd: number | null
           updated_at: string
         }
         Insert: {
@@ -1957,7 +1959,9 @@ export type Database = {
           notes?: string | null
           opening_date: string
           target_balance: number
+          target_balance_usd?: number | null
           total_settled: number
+          total_settled_usd?: number | null
           updated_at?: string
         }
         Update: {
@@ -1968,7 +1972,9 @@ export type Database = {
           notes?: string | null
           opening_date?: string
           target_balance?: number
+          target_balance_usd?: number | null
           total_settled?: number
+          total_settled_usd?: number | null
           updated_at?: string
         }
         Relationships: [
@@ -7116,7 +7122,9 @@ export type Database = {
           opening_date: string
           supplier_id: string
           target_balance: number
+          target_balance_usd: number | null
           total_settled: number
+          total_settled_usd: number | null
           updated_at: string
         }
         Insert: {
@@ -7126,7 +7134,9 @@ export type Database = {
           opening_date: string
           supplier_id: string
           target_balance: number
+          target_balance_usd?: number | null
           total_settled: number
+          total_settled_usd?: number | null
           updated_at?: string
         }
         Update: {
@@ -7136,7 +7146,9 @@ export type Database = {
           opening_date?: string
           supplier_id?: string
           target_balance?: number
+          target_balance_usd?: number | null
           total_settled?: number
+          total_settled_usd?: number | null
           updated_at?: string
         }
         Relationships: [
@@ -9402,6 +9414,7 @@ export type Database = {
           p_notes?: string
           p_opening_date: string
           p_target_balance: number
+          p_target_balance_usd?: number
         }
         Returns: undefined
       }
@@ -9412,6 +9425,7 @@ export type Database = {
           p_notes: string
           p_opening_date: string
           p_target_balance: number
+          p_target_balance_usd?: number
           p_user_id: string
         }
         Returns: undefined
@@ -9455,6 +9469,7 @@ export type Database = {
           p_opening_date: string
           p_supplier_id: string
           p_target_balance: number
+          p_target_balance_usd?: number
         }
         Returns: undefined
       }

@@ -470,6 +470,11 @@ export const salesPage: GuidePage = {
                   marker: 3,
                 },
                 {
+                  label: "Saldo en dólares al corte (US$, opcional)",
+                  kind: "money",
+                  wide: true,
+                },
+                {
                   label: "Notas (opcional)",
                   kind: "textarea",
                   wide: true,
@@ -485,18 +490,24 @@ export const salesPage: GuidePage = {
             "En la ficha del cliente, pestaña {{Cuenta corriente}}, hacé clic en {{Ajustar saldo}}.",
             "En {{Fecha de corte}}, elegí la fecha a la que conocés el saldo real.",
             "En {{Saldo real al corte ($)}}, escribí lo que el cliente debía ese día, en pesos (0 o más).",
+            "Si el cliente tiene facturas en dólares, en {{Saldo en dólares al corte (US$, opcional)}} escribí cuántos dólares debía ese día (0 o más). Si lo dejás vacío, se vuelve a aplicar el saldo en dólares que ya tenía el ajuste; si no tenía, los comprobantes en dólares quedan como están.",
             "Agregá una nota si querés y hacé clic en {{Registrar}} (si ya había un ajuste, el botón dice {{Actualizar}} y lo reemplaza).",
           ],
           after: [
             "El sistema calcula lo que figuraba abierto en pesos hasta la fecha de corte (facturas y notas de débito, menos las notas de crédito de esas facturas y los cobros) y, si es más que el saldo real, da por saldada la diferencia, aplicándola a las facturas más viejas primero. Si el saldo real es igual o mayor que lo abierto, no salda nada: el ajuste no agrega deuda.",
-            "En la cuenta corriente aparece un movimiento {{Ajuste de saldo}}. Los comprobantes en dólares no entran en el ajuste.",
-            "Las notas de crédito en pesos sin factura de origen con fecha hasta el corte quedan dentro del ajuste: no saldan facturas posteriores. Las de dólares sí se siguen aplicando a las facturas en dólares abiertas, de la más vencida a la más nueva.",
+            "Con saldo en dólares, hace lo mismo con los comprobantes en dólares, en dólares y aparte de los pesos. Sin saldo en dólares, los comprobantes en dólares no entran en el ajuste.",
+            "En la cuenta corriente aparece un movimiento {{Ajuste de saldo}} por moneda ajustada: ahí el saldo de esa moneda pasa a ser el que ingresaste.",
+            "Las notas de crédito sin factura de origen con fecha hasta el corte quedan dentro del ajuste (las de dólares, si el ajuste tiene saldo en dólares): no saldan facturas posteriores. Las demás se siguen aplicando a las facturas abiertas de su moneda, de la más vencida a la más nueva.",
             "Volver a registrarlo reemplaza el ajuste anterior completo.",
           ],
           errors: [
             {
               message: "Ingresá un saldo válido (no negativo).",
               fix: "Escribí un importe de 0 o más.",
+            },
+            {
+              message: "Ingresá un saldo en dólares válido (no negativo).",
+              fix: "Escribí un importe de 0 o más, o dejá el campo vacío.",
             },
             {
               message: "Ingresá la fecha de corte.",

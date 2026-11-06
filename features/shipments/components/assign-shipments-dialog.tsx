@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { DisabledHint } from "@/components/disabled-hint";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -124,12 +125,18 @@ export function AssignShipmentsDialog({
           <Button variant="outline" onClick={() => close(false)}>
             Cancelar
           </Button>
-          <Button
-            disabled={selected.size === 0 || assign.isPending}
-            onClick={submit}
+          <DisabledHint
+            reason={selected.size === 0 ? "Elegí al menos una carga." : null}
           >
-            {selected.size > 1 ? `Asignar ${selected.size} cargas` : "Asignar"}
-          </Button>
+            <Button
+              disabled={selected.size === 0 || assign.isPending}
+              onClick={submit}
+            >
+              {selected.size > 1
+                ? `Asignar ${selected.size} cargas`
+                : "Asignar"}
+            </Button>
+          </DisabledHint>
         </DialogFooter>
       </DialogContent>
     </Dialog>

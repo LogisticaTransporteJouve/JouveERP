@@ -8,6 +8,7 @@ import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { DisabledHint, NO_CHANGES_REASON } from "@/components/disabled-hint";
 import { MoneyInput } from "@/components/money-input";
 import { ReadError } from "@/components/read-error";
 import { Button } from "@/components/ui/button";
@@ -361,12 +362,18 @@ export function StorageTariffDialog({
               >
                 Cancelar
               </Button>
-              <Button
-                type="submit"
-                disabled={isSaving || (isEdit && !form.formState.isDirty)}
+              <DisabledHint
+                reason={
+                  isEdit && !form.formState.isDirty ? NO_CHANGES_REASON : null
+                }
               >
-                {isEdit ? "Guardar" : "Crear"}
-              </Button>
+                <Button
+                  type="submit"
+                  disabled={isSaving || (isEdit && !form.formState.isDirty)}
+                >
+                  {isEdit ? "Guardar" : "Crear"}
+                </Button>
+              </DisabledHint>
             </DialogFooter>
           </form>
         </Form>

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { DisabledHint } from "@/components/disabled-hint";
 import { MoneyInput } from "@/components/money-input";
 import { Button } from "@/components/ui/button";
 import {
@@ -129,13 +130,15 @@ export function PayInstallmentDialog({
           <Button type="button" variant="outline" onClick={onClose}>
             Cancelar
           </Button>
-          <Button
-            type="button"
-            onClick={onSubmit}
-            disabled={payMut.isPending || !accountId}
-          >
-            Pagar
-          </Button>
+          <DisabledHint reason={!accountId ? "Elegí la cuenta." : null}>
+            <Button
+              type="button"
+              onClick={onSubmit}
+              disabled={payMut.isPending || !accountId}
+            >
+              Pagar
+            </Button>
+          </DisabledHint>
         </DialogFooter>
       </DialogContent>
     </Dialog>

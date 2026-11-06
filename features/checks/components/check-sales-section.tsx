@@ -4,6 +4,7 @@ import { Banknote, Undo2 } from "lucide-react";
 import { Suspense, useState } from "react";
 import { toast } from "sonner";
 
+import { DisabledHint } from "@/components/disabled-hint";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -83,28 +84,32 @@ function CancelSaleDialog({
           <Button type="button" variant="ghost" onClick={onClose}>
             Volver
           </Button>
-          <Button
-            type="button"
-            variant="destructive"
-            disabled={mut.isPending || reason.trim() === ""}
-            onClick={() =>
-              mut.mutate(
-                { sale_id: sale.id, reason },
-                {
-                  onSuccess: () => {
-                    toast.success(
-                      "Venta anulada: los cheques volvieron a cartera.",
-                    );
-                    setReason("");
-                    onClose();
-                  },
-                  onError: (err) => toast.error(err.message),
-                },
-              )
-            }
+          <DisabledHint
+            reason={reason.trim() === "" ? "Escribí el motivo." : null}
           >
-            {mut.isPending ? "Anulando…" : "Anular venta"}
-          </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={mut.isPending || reason.trim() === ""}
+              onClick={() =>
+                mut.mutate(
+                  { sale_id: sale.id, reason },
+                  {
+                    onSuccess: () => {
+                      toast.success(
+                        "Venta anulada: los cheques volvieron a cartera.",
+                      );
+                      setReason("");
+                      onClose();
+                    },
+                    onError: (err) => toast.error(err.message),
+                  },
+                )
+              }
+            >
+              {mut.isPending ? "Anulando…" : "Anular venta"}
+            </Button>
+          </DisabledHint>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -172,24 +177,30 @@ function PayDebtDialog({
           <Button type="button" variant="ghost" onClick={onClose}>
             Volver
           </Button>
-          <Button
-            type="button"
-            disabled={mut.isPending || accountId === ""}
-            onClick={() =>
-              mut.mutate(
-                { debt_id: debt.id, account_id: accountId, payment_date: date },
-                {
-                  onSuccess: () => {
-                    toast.success("Deuda pagada.");
-                    onClose();
+          <DisabledHint reason={accountId === "" ? "Elegí la cuenta." : null}>
+            <Button
+              type="button"
+              disabled={mut.isPending || accountId === ""}
+              onClick={() =>
+                mut.mutate(
+                  {
+                    debt_id: debt.id,
+                    account_id: accountId,
+                    payment_date: date,
                   },
-                  onError: (err) => toast.error(err.message),
-                },
-              )
-            }
-          >
-            {mut.isPending ? "Pagando…" : "Pagar"}
-          </Button>
+                  {
+                    onSuccess: () => {
+                      toast.success("Deuda pagada.");
+                      onClose();
+                    },
+                    onError: (err) => toast.error(err.message),
+                  },
+                )
+              }
+            >
+              {mut.isPending ? "Pagando…" : "Pagar"}
+            </Button>
+          </DisabledHint>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -315,7 +326,7 @@ export function CheckSalesSection({
                       </Button>
                     ) : (
                       payDeniedReason && (
-                        <span title={payDeniedReason}>
+                        <DisabledHint reason={payDeniedReason}>
                           <Button
                             variant="outline"
                             size="sm"
@@ -325,7 +336,7 @@ export function CheckSalesSection({
                             <Banknote className="size-4" />
                             Pagar
                           </Button>
-                        </span>
+                        </DisabledHint>
                       )
                     )}
                   </span>

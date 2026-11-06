@@ -13,6 +13,7 @@ import {
   WIDE_FORM_DIALOG,
 } from "@/components/form-columns";
 import { ChannelsReadError } from "@/components/channels-read-error";
+import { DisabledHint, firstReason } from "@/components/disabled-hint";
 import { useDefaultChannel } from "@/components/providers/scope-provider";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -503,16 +504,23 @@ export function BulkPayrollPaymentDialog({
               >
                 Cancelar
               </Button>
-              <Button
-                type="submit"
-                disabled={
-                  mut.isPending || selectedCount === 0 || invalidCount > 0
-                }
+              <DisabledHint
+                reason={firstReason(
+                  [selectedCount === 0, "Elegí al menos un empleado."],
+                  [invalidCount > 0, "Hay importes inválidos en la selección."],
+                )}
               >
-                {mut.isPending
-                  ? "Registrando…"
-                  : `Registrar ${selectedCount} pago${selectedCount !== 1 ? "s" : ""}`}
-              </Button>
+                <Button
+                  type="submit"
+                  disabled={
+                    mut.isPending || selectedCount === 0 || invalidCount > 0
+                  }
+                >
+                  {mut.isPending
+                    ? "Registrando…"
+                    : `Registrar ${selectedCount} pago${selectedCount !== 1 ? "s" : ""}`}
+                </Button>
+              </DisabledHint>
             </DialogFooter>
           </form>
         </Form>

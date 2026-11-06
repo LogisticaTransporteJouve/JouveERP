@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { DisabledHint, firstReason } from "@/components/disabled-hint";
 import { MoneyInput } from "@/components/money-input";
 import { Button } from "@/components/ui/button";
 import {
@@ -146,13 +147,23 @@ export function PayTaxDocumentDialog({
           <Button type="button" variant="outline" onClick={onClose}>
             Cancelar
           </Button>
-          <Button
-            type="button"
-            onClick={onSubmit}
-            disabled={payMut.isPending || !accountId || missingAccount}
+          <DisabledHint
+            reason={firstReason(
+              [
+                missingAccount,
+                "Antes, editá el impuesto y elegí su cuenta contable.",
+              ],
+              [!accountId, "Elegí la cuenta."],
+            )}
           >
-            Pagar
-          </Button>
+            <Button
+              type="button"
+              onClick={onSubmit}
+              disabled={payMut.isPending || !accountId || missingAccount}
+            >
+              Pagar
+            </Button>
+          </DisabledHint>
         </DialogFooter>
       </DialogContent>
     </Dialog>

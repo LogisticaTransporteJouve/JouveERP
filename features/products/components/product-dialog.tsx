@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { DisabledHint, NO_CHANGES_REASON } from "@/components/disabled-hint";
 import { ReadError } from "@/components/read-error";
 import { Button } from "@/components/ui/button";
 import { Combobox } from "@/components/ui/combobox";
@@ -208,12 +209,18 @@ export function ProductDialog({
               >
                 Cancelar
               </Button>
-              <Button
-                type="submit"
-                disabled={isSaving || (isEdit && !form.formState.isDirty)}
+              <DisabledHint
+                reason={
+                  isEdit && !form.formState.isDirty ? NO_CHANGES_REASON : null
+                }
               >
-                {isEdit ? "Guardar" : "Crear"}
-              </Button>
+                <Button
+                  type="submit"
+                  disabled={isSaving || (isEdit && !form.formState.isDirty)}
+                >
+                  {isEdit ? "Guardar" : "Crear"}
+                </Button>
+              </DisabledHint>
             </DialogFooter>
           </form>
         </Form>

@@ -4,6 +4,7 @@ import { Lock, LockOpen } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { DisabledHint, firstReason } from "@/components/disabled-hint";
 import { useConfirm } from "@/components/providers/confirm-provider";
 import { Button } from "@/components/ui/button";
 import {
@@ -94,13 +95,20 @@ export function ClosedPeriodsDialog({ open, onOpenChange }: Props) {
             <Label htmlFor="cp-period">Período</Label>
             <MonthPicker id="cp-period" value={period} onChange={setPeriod} />
           </div>
-          <Button
-            onClick={onClose}
-            disabled={!period || alreadyClosed || closeMut.isPending}
+          <DisabledHint
+            reason={firstReason(
+              [!period, "Elegí el período."],
+              [alreadyClosed, "Ese período ya está cerrado."],
+            )}
           >
-            <Lock />
-            {closeMut.isPending ? "Cerrando…" : "Cerrar período"}
-          </Button>
+            <Button
+              onClick={onClose}
+              disabled={!period || alreadyClosed || closeMut.isPending}
+            >
+              <Lock />
+              {closeMut.isPending ? "Cerrando…" : "Cerrar período"}
+            </Button>
+          </DisabledHint>
         </div>
         {alreadyClosed && (
           <p className="text-xs text-muted-foreground">

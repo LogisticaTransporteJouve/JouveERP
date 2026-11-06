@@ -42,6 +42,7 @@ const SetSupplierOpeningInput = z.object({
   supplier_id: UuidSchema,
   opening_date: IsoDateSchema,
   target_balance: NonNegativeAmountSchema,
+  target_balance_usd: NonNegativeAmountSchema.nullish(),
   notes: NotesSchema,
 });
 
@@ -50,6 +51,9 @@ export interface SupplierOpeningBalance {
   opening_date: string;
   target_balance: number;
   total_settled: number;
+  /** null = the dollars are not adjusted. */
+  target_balance_usd: number | null;
+  total_settled_usd: number | null;
   notes: string | null;
   created_at: string;
   updated_at: string;
@@ -71,7 +75,7 @@ export async function getSupplierOpeningBalanceAction(
   const { data, error } = await supabase
     .from("supplier_opening_balances")
     .select(
-      "supplier_id, opening_date, target_balance, total_settled, notes, created_at, updated_at",
+      "supplier_id, opening_date, target_balance, total_settled, target_balance_usd, total_settled_usd, notes, created_at, updated_at",
     )
     .eq("supplier_id", supplierId)
     .maybeSingle();
@@ -91,6 +95,12 @@ export async function getSupplierOpeningBalanceAction(
       opening_date: data.opening_date,
       target_balance: Number(data.target_balance),
       total_settled: Number(data.total_settled),
+      target_balance_usd:
+        data.target_balance_usd === null
+          ? null
+          : Number(data.target_balance_usd),
+      total_settled_usd:
+        data.total_settled_usd === null ? null : Number(data.total_settled_usd),
       notes: data.notes,
       created_at: data.created_at,
       updated_at: data.updated_at,
@@ -102,6 +112,9 @@ export async function setSupplierOpeningBalanceAction(input: {
   supplier_id: string;
   opening_date: string;
   target_balance: number;
+  /** Omitted or null: the dollar target already set (if any) is applied
+   *  again; with none, the dollars are not adjusted. */
+  target_balance_usd?: number | null;
   notes?: string | null;
 }): Promise<ActionResult<void>> {
   const ctx = await requireUserContext();
@@ -126,6 +139,7 @@ export async function setSupplierOpeningBalanceAction(input: {
     p_opening_date: input.opening_date,
     p_target_balance: input.target_balance,
     p_notes: input.notes ?? undefined,
+    p_target_balance_usd: input.target_balance_usd ?? undefined,
   });
   if (error) {
     // A negative opening balance is refused with the guard's message.
@@ -148,6 +162,7 @@ export async function setSupplierOpeningBalanceAction(input: {
     {
       opening_date: input.opening_date,
       target_balance: input.target_balance,
+      target_balance_usd: input.target_balance_usd ?? null,
     },
     input.supplier_id,
   );
@@ -208,10 +223,13 @@ export interface SupplierAccountMovement {
   punto_venta: number;
   numero: number;
   /** Positive = we owe (factura, ND, opening, bounced check).
-   *  Negative = our payment or a supplier NC. */
+   *  Negative = our payment or a supplier NC. An opening row carries the jump
+   *  to its target (target − balance just before); under a scope, the
+   *  target. */
   signed_amount: number;
   gross_amount: number;
-  /** The movement's currency; the opening balance is in pesos. */
+  /** The movement's currency; the opening balance has one row per currency
+   *  it fixes (pesos, and dollars when it has a dollar target). */
   currency: StatementCurrency;
   channel_id: string;
   channel_name: string | null;
@@ -374,8 +392,11 @@ export async function getSupplierAccountAction(
   }
 
   // Rows arrive ordered by movement_date + numero (asc). Opening balance rows
-  // have movement_date = opening_date and no numero, so they close their day.
+  // have movement_date = opening_date and no numero, so they close their day:
+  // there their currency's balance jumps to the target (effective signed =
+  // target − balance just before), as in the client statement.
   const running = zeroBalances();
+  const openingTargets = new Map<StatementCurrency, number>();
   const movements: SupplierAccountMovement[] = [];
   for (const r of movementsRes.data) {
     if (
@@ -394,7 +415,14 @@ export async function getSupplierAccountAction(
       continue;
     }
     const currency = paymentCurrencyOf(r.currency);
-    const signed = Number(r.signed_amount);
+    let signed = Number(r.signed_amount);
+    let gross = Number(r.gross_amount);
+    if (r.source_type === "opening_balance") {
+      // The view leaves the target here.
+      openingTargets.set(currency, signed);
+      signed = round2(signed - running[currency]);
+      gross = Math.abs(signed);
+    }
     running[currency] = round2(running[currency] + signed);
     let outstanding: number | null = null;
     if (
@@ -420,7 +448,7 @@ export async function getSupplierAccountAction(
       punto_venta: r.punto_venta ?? 0,
       numero: r.numero ?? 0,
       signed_amount: signed,
-      gross_amount: Number(r.gross_amount),
+      gross_amount: gross,
       currency,
       channel_id: r.channel_id ?? "",
       channel_name: r.channel_name,
@@ -472,7 +500,14 @@ export async function getSupplierAccountAction(
       known = sideRunning;
       side.ARS = 0;
       side.USD = 0;
-      return { ...m, balance: known ? 0 : null };
+      // The opening has no channel: shown as its target, informative only.
+      const target = openingTargets.get(m.currency) ?? 0;
+      return {
+        ...m,
+        signed_amount: target,
+        gross_amount: Math.abs(target),
+        balance: known ? 0 : null,
+      };
     }
     side[m.currency] = round2(side[m.currency] + m.signed_amount);
     return { ...m, balance: known ? side[m.currency] : null };

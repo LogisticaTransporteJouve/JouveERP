@@ -4,6 +4,7 @@ import { Pencil, Percent, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { DisabledHint } from "@/components/disabled-hint";
 import { useConfirm } from "@/components/providers/confirm-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -55,14 +56,18 @@ export function FreightTariffsView({ canWrite }: { canWrite: boolean }) {
         actions={
           canWrite && (
             <>
-              <Button
-                variant="outline"
-                disabled={lists.length === 0}
-                onClick={() => setDialog("increase")}
+              <DisabledHint
+                reason={lists.length === 0 ? "No hay listas de tarifas." : null}
               >
-                <Percent className="size-4" />
-                Aplicar aumento
-              </Button>
+                <Button
+                  variant="outline"
+                  disabled={lists.length === 0}
+                  onClick={() => setDialog("increase")}
+                >
+                  <Percent className="size-4" />
+                  Aplicar aumento
+                </Button>
+              </DisabledHint>
               <Button onClick={() => setDialog("new")}>
                 <Plus className="size-4" />
                 Nuevo tarifario

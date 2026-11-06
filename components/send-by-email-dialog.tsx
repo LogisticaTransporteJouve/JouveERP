@@ -4,6 +4,7 @@ import { Loader2, Mail } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { DisabledHint, firstReason } from "@/components/disabled-hint";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import {
@@ -234,16 +235,35 @@ export function SendByEmailDialog({
               >
                 Cancelar
               </Button>
-              <Button type="submit" disabled={!canSubmit}>
-                {sending ? (
-                  <>
-                    <Loader2 className="size-4 animate-spin" />
-                    Enviando…
-                  </>
-                ) : (
-                  "Enviar"
-                )}
-              </Button>
+              <DisabledHint
+                reason={
+                  loading || sending
+                    ? null
+                    : firstReason(
+                        [recipient.length === 0, "Ingresá el destinatario."],
+                        [subject.length === 0, "Escribí el asunto."],
+                        [
+                          subject.length > 200,
+                          "El asunto no puede pasar de 200 caracteres.",
+                        ],
+                        [
+                          body.length > 4000,
+                          "El mensaje no puede pasar de 4000 caracteres.",
+                        ],
+                      )
+                }
+              >
+                <Button type="submit" disabled={!canSubmit}>
+                  {sending ? (
+                    <>
+                      <Loader2 className="size-4 animate-spin" />
+                      Enviando…
+                    </>
+                  ) : (
+                    "Enviar"
+                  )}
+                </Button>
+              </DisabledHint>
             </DialogFooter>
           </form>
         )}

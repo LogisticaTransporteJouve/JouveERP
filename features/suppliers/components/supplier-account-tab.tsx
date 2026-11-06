@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { DisabledHint } from "@/components/disabled-hint";
 import { useUrlPeriod } from "@/hooks/use-url-period";
 
 import { ExportButton } from "@/components/export-button";
@@ -26,12 +27,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import type { Account } from "@/features/accounts/schema";
 import { NewPaymentOrderDialog } from "@/features/payment-orders/components/new-payment-order-dialog";
 import type { ChannelOption } from "@/features/payment-orders/components/payment-order-form";
@@ -337,10 +332,9 @@ export function SupplierAccountTab({
                           prefill
                           trigger={
                             <IconButton
-                              label={
-                                canSetOpening
-                                  ? "Editar ajuste de saldo"
-                                  : `Editar ajuste de saldo. ${OWNER_ONLY_HINT}`
+                              label="Editar ajuste de saldo"
+                              disabledReason={
+                                canSetOpening ? null : OWNER_ONLY_HINT
                               }
                               variant="ghost"
                               disabled={!canSetOpening}
@@ -352,10 +346,9 @@ export function SupplierAccountTab({
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <IconButton
-                              label={
-                                canSetOpening
-                                  ? "Borrar ajuste de saldo"
-                                  : `Borrar ajuste de saldo. ${OWNER_ONLY_HINT}`
+                              label="Borrar ajuste de saldo"
+                              disabledReason={
+                                canSetOpening ? null : OWNER_ONLY_HINT
                               }
                               variant="ghost"
                               disabled={
@@ -472,7 +465,7 @@ export function SupplierAccountTab({
               }}
               label="Exportar resumen"
             />
-            <OwnerOnly disabled={!canSetOpening}>
+            <DisabledHint reason={canSetOpening ? null : OWNER_ONLY_HINT}>
               <SupplierOpeningBalanceDialog
                 supplierId={supplierId}
                 trigger={
@@ -482,7 +475,7 @@ export function SupplierAccountTab({
                   </Button>
                 }
               />
-            </OwnerOnly>
+            </DisabledHint>
             {canWritePI && (
               <NewPurchaseInvoiceDialog
                 initialSupplier={supplier}
@@ -518,7 +511,7 @@ export function SupplierAccountTab({
         data={visibleMovements}
         getRowId={(m) =>
           m.source_type === "opening_balance"
-            ? `opening-${m.movement_date}`
+            ? `opening-${m.currency}-${m.movement_date}`
             : `${m.source_type}-${m.source_id}`
         }
         emptyMessage={emptyMessage}
@@ -538,23 +531,3 @@ export function SupplierAccountTab({
 }
 
 const OWNER_ONLY_HINT = "Solo el owner puede tocar el ajuste de saldo.";
-
-function OwnerOnly({
-  children,
-  disabled,
-}: {
-  children: React.ReactNode;
-  disabled: boolean;
-}) {
-  if (!disabled) return <>{children}</>;
-  return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span className="inline-block">{children}</span>
-        </TooltipTrigger>
-        <TooltipContent>{OWNER_ONLY_HINT}</TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
-}

@@ -347,6 +347,11 @@ export function NcNdForm({
                 type="button"
                 variant="ghost"
                 onClick={() => removeItem(idx)}
+                disabledReason={
+                  items.length === 1
+                    ? "Tiene que quedar al menos un ítem."
+                    : null
+                }
                 disabled={items.length === 1}
               >
                 ×

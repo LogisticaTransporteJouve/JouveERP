@@ -61,6 +61,8 @@ export function OpeningBalanceDialog({
   const [openingDate, setOpeningDate] = useState(todayIso());
   const [targetRaw, setTargetRaw] = useState("");
   const targetId = useId();
+  const [targetUsdRaw, setTargetUsdRaw] = useState("");
+  const targetUsdId = useId();
   const [notes, setNotes] = useState("");
 
   // When opening the dialog: if prefill=true and an adjustment exists, we
@@ -71,10 +73,16 @@ export function OpeningBalanceDialog({
     if (prefill && existing) {
       setOpeningDate(existing.opening_date);
       setTargetRaw(signedAmountToInput(existing.target_balance));
+      setTargetUsdRaw(
+        existing.target_balance_usd == null
+          ? ""
+          : signedAmountToInput(existing.target_balance_usd),
+      );
       setNotes(existing.notes ?? "");
     } else {
       setOpeningDate(todayIso());
       setTargetRaw("");
+      setTargetUsdRaw("");
       setNotes("");
     }
   }, [open, prefill, existing]);
@@ -86,6 +94,14 @@ export function OpeningBalanceDialog({
       toast.error("Ingresá un saldo válido (no negativo).");
       return;
     }
+    let targetUsd: number | null = null;
+    if (targetUsdRaw.trim() !== "") {
+      targetUsd = parseArAmount(targetUsdRaw);
+      if (targetUsd == null || targetUsd < 0) {
+        toast.error("Ingresá un saldo en dólares válido (no negativo).");
+        return;
+      }
+    }
     if (!openingDate) {
       toast.error("Ingresá la fecha de corte.");
       return;
@@ -95,6 +111,7 @@ export function OpeningBalanceDialog({
         client_id: clientId,
         opening_date: openingDate,
         target_balance: target,
+        target_balance_usd: targetUsd,
         notes: notes.trim().length > 0 ? notes.trim() : null,
       },
       {
@@ -172,6 +189,23 @@ export function OpeningBalanceDialog({
           </div>
 
           <div className="space-y-1">
+            <Label htmlFor={targetUsdId} className="text-xs">
+              Saldo en dólares al corte (US$, opcional)
+            </Label>
+            <MoneyInput
+              id={targetUsdId}
+              placeholder="Sin ajustar"
+              value={targetUsdRaw}
+              onChange={setTargetUsdRaw}
+            />
+            <p className="text-xs text-muted-foreground">
+              Imputa FIFO contra las facturas en dólares anteriores. Vacío: se
+              vuelve a aplicar el saldo en dólares ya fijado; si no hay, los
+              dólares no se tocan.
+            </p>
+          </div>
+
+          <div className="space-y-1">
             <Label className="text-xs">Notas (opcional)</Label>
             <Textarea
               rows={2}
@@ -189,6 +223,13 @@ export function OpeningBalanceDialog({
                 {formatNumber2(existing.target_balance)} · Imputado a facturas:
                 ${formatNumber2(existing.total_settled)}
               </p>
+              {existing.target_balance_usd != null && (
+                <p className="font-mono">
+                  Saldo: US${formatNumber2(existing.target_balance_usd)} ·
+                  Imputado a facturas: US$
+                  {formatNumber2(existing.total_settled_usd ?? 0)}
+                </p>
+              )}
             </div>
           )}
 

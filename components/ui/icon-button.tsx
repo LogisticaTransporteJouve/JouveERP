@@ -18,6 +18,8 @@ type IconButtonProps = Omit<
   label: string;
   size?: "icon" | "icon-xs" | "icon-sm" | "icon-lg";
   tooltipSide?: React.ComponentProps<typeof TooltipContent>["side"];
+  /** Why it is disabled, in Spanish; the tooltip adds it to the label. */
+  disabledReason?: string | null;
 };
 
 /**
@@ -29,6 +31,7 @@ function IconButton({
   size = "icon",
   tooltipSide,
   disabled,
+  disabledReason,
   ...props
 }: IconButtonProps) {
   const button = (
@@ -78,7 +81,9 @@ function IconButton({
             button
           )}
         </TooltipTrigger>
-        <TooltipContent side={tooltipSide}>{label}</TooltipContent>
+        <TooltipContent side={tooltipSide}>
+          {disabled && disabledReason ? `${label}. ${disabledReason}` : label}
+        </TooltipContent>
       </Tooltip>
     </TooltipProvider>
   );

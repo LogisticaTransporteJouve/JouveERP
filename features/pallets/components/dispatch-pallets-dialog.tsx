@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { DisabledHint } from "@/components/disabled-hint";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -110,9 +111,13 @@ export function DispatchPalletsDialog({
               >
                 Cancelar
               </Button>
-              <Button type="submit" disabled={isSaving || count === 0}>
-                Despachar
-              </Button>
+              <DisabledHint
+                reason={count === 0 ? "No hay pallets elegidos." : null}
+              >
+                <Button type="submit" disabled={isSaving || count === 0}>
+                  Despachar
+                </Button>
+              </DisabledHint>
             </DialogFooter>
           </form>
         </Form>

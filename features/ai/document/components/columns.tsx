@@ -2,6 +2,7 @@
 
 import { Loader2, Sparkles, Trash2 } from "lucide-react";
 
+import { DisabledHint } from "@/components/disabled-hint";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
@@ -113,14 +114,22 @@ export function buildDocumentColumns(opts: {
       meta: { headerClassName: "w-32", align: "right" },
       cell: ({ row }) => (
         <div className="flex items-center justify-end gap-1">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={row.original.detected_type === null}
-            onClick={() => opts.onReview(row.original.id)}
+          <DisabledHint
+            reason={
+              row.original.detected_type === null
+                ? "Todavía se está leyendo el documento."
+                : null
+            }
           >
-            Revisar
-          </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={row.original.detected_type === null}
+              onClick={() => opts.onReview(row.original.id)}
+            >
+              Revisar
+            </Button>
+          </DisabledHint>
           <IconButton
             label="Descartar"
             variant="ghost"

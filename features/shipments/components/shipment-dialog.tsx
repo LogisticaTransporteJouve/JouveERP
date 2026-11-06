@@ -8,6 +8,11 @@ import { toast } from "sonner";
 import { z } from "zod";
 
 import {
+  DisabledHint,
+  NO_CHANGES_REASON,
+  firstReason,
+} from "@/components/disabled-hint";
+import {
   FormColumn,
   FormColumns,
   WIDE_FORM_DIALOG,
@@ -528,16 +533,26 @@ export function ShipmentDialog({
                 >
                   Cancelar
                 </Button>
-                <Button
-                  type="submit"
-                  disabled={
-                    isSaving ||
-                    remitoConflict !== null ||
-                    (isEdit && !form.formState.isDirty)
-                  }
+                <DisabledHint
+                  reason={firstReason(
+                    [
+                      remitoConflict !== null,
+                      "Ese remito ya está en otra carga del cliente.",
+                    ],
+                    [isEdit && !form.formState.isDirty, NO_CHANGES_REASON],
+                  )}
                 >
-                  {isEdit ? "Guardar" : "Crear"}
-                </Button>
+                  <Button
+                    type="submit"
+                    disabled={
+                      isSaving ||
+                      remitoConflict !== null ||
+                      (isEdit && !form.formState.isDirty)
+                    }
+                  >
+                    {isEdit ? "Guardar" : "Crear"}
+                  </Button>
+                </DisabledHint>
               </DialogFooter>
             </form>
           </Form>

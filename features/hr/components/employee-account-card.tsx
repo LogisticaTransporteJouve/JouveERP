@@ -457,10 +457,11 @@ function MovementRow({
         <td className="px-1 py-2 text-right">
           {deletable && cashDenied && (
             <IconButton
-              label={`Borrar el movimiento y su movimiento de caja: ${HR_CASH_DENIED_REASON}`}
+              label="Borrar el movimiento y su movimiento de caja"
               variant="ghost"
               size="icon-sm"
               disabled
+              disabledReason={HR_CASH_DENIED_REASON}
             >
               <Trash2 className="size-3.5" />
             </IconButton>

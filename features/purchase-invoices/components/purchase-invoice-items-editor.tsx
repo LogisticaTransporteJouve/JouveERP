@@ -272,6 +272,11 @@ export function PurchaseInvoiceItemsEditor({
                       type="button"
                       variant="ghost"
                       onClick={() => removeAt(idx)}
+                      disabledReason={
+                        items.length === 1
+                          ? "Tiene que quedar al menos un ítem."
+                          : null
+                      }
                       disabled={items.length === 1}
                     >
                       <Trash2 className="size-4" />

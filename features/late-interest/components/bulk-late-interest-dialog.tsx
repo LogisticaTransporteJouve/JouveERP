@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { DisabledHint } from "@/components/disabled-hint";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -193,13 +194,21 @@ export function BulkLateInterestDialog({
               >
                 Cancelar
               </Button>
-              <Button
-                type="button"
-                disabled={mut.isPending || selected.length === 0}
-                onClick={onSubmit}
+              <DisabledHint
+                reason={
+                  selected.length === 0
+                    ? "Elegí al menos un comprobante."
+                    : null
+                }
               >
-                {mut.isPending ? "Emitiendo…" : "Emitir"}
-              </Button>
+                <Button
+                  type="button"
+                  disabled={mut.isPending || selected.length === 0}
+                  onClick={onSubmit}
+                >
+                  {mut.isPending ? "Emitiendo…" : "Emitir"}
+                </Button>
+              </DisabledHint>
             </>
           ) : (
             <Button type="button" onClick={onClose}>

@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 
+import { DisabledHint } from "@/components/disabled-hint";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -39,9 +40,16 @@ export function PadronLookup() {
             autoComplete="off"
           />
         </div>
-        <Button type="submit" disabled={isPending || cuit.trim().length === 0}>
-          {isPending ? "Consultando…" : "Consultar"}
-        </Button>
+        <DisabledHint
+          reason={cuit.trim().length === 0 ? "Ingresá un CUIT." : null}
+        >
+          <Button
+            type="submit"
+            disabled={isPending || cuit.trim().length === 0}
+          >
+            {isPending ? "Consultando…" : "Consultar"}
+          </Button>
+        </DisabledHint>
       </form>
 
       {result && !result.ok && (

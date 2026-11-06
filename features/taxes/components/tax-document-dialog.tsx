@@ -4,6 +4,7 @@ import { Calculator, Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
+import { DisabledHint } from "@/components/disabled-hint";
 import {
   FormColumn,
   FormColumns,
@@ -356,19 +357,23 @@ export function TaxDocumentDialog({
                     }
                   />
                   {form.kind === "iva" && !readOnly && canEstimate && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={runEstimate}
-                      disabled={estimateMut.isPending || !form.period}
+                    <DisabledHint
+                      reason={!form.period ? "Elegí el período." : null}
                     >
-                      {estimateMut.isPending ? (
-                        <Loader2 className="animate-spin" />
-                      ) : (
-                        <Calculator />
-                      )}
-                      Estimar
-                    </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={runEstimate}
+                        disabled={estimateMut.isPending || !form.period}
+                      >
+                        {estimateMut.isPending ? (
+                          <Loader2 className="animate-spin" />
+                        ) : (
+                          <Calculator />
+                        )}
+                        Estimar
+                      </Button>
+                    </DisabledHint>
                   )}
                 </div>
                 {form.amount_is_estimate && (

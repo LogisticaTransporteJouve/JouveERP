@@ -4,6 +4,7 @@ import { CheckCheck, Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
+import { DisabledHint } from "@/components/disabled-hint";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -76,7 +77,7 @@ function summary(p: BulkProgress): string[] {
   ];
   if (p.dolOpen > 0) {
     lines.push(
-      `${p.dolOpen} compras en dólares hasta el ${OPENING} siguen abiertas: el saldo de apertura es en pesos.`,
+      `${p.dolOpen} compras en dólares hasta el ${OPENING} siguen abiertas: este saldo de apertura es en pesos. Para cancelarlas, ajustá el saldo en dólares del proveedor.`,
     );
   }
   return lines;
@@ -171,7 +172,8 @@ function ConfirmDialog({
             compras hasta esa fecha: todo lo anterior queda cancelado, y lo de
             noviembre en adelante queda como deuda abierta. Si el proveedor ya
             tenía un saldo de apertura, se reemplaza. Las compras en dólares no
-            se cancelan: el saldo de apertura es en pesos.
+            se cancelan: este saldo de apertura es en pesos (el saldo en dólares
+            se ajusta desde la cuenta corriente del proveedor).
           </li>
         </ol>
         <p className="text-sm text-muted-foreground">
@@ -256,19 +258,28 @@ export function ArcaBulkAcceptCard({ pending }: { pending: number }) {
           </p>
         )}
       </div>
-      <Button
-        size="sm"
+      <DisabledHint
+        reason={
+          !running && !status.isPending && pending === 0
+            ? "No hay comprobantes pendientes de aceptar."
+            : null
+        }
         className="shrink-0"
-        disabled={running || pending === 0 || status.isPending}
-        onClick={() => setOpen(true)}
       >
-        {running ? (
-          <Loader2 aria-hidden className="animate-spin" />
-        ) : (
-          <CheckCheck aria-hidden />
-        )}
-        {running ? "Cargando…" : "Aceptar todos los pendientes"}
-      </Button>
+        <Button
+          size="sm"
+          className="shrink-0"
+          disabled={running || pending === 0 || status.isPending}
+          onClick={() => setOpen(true)}
+        >
+          {running ? (
+            <Loader2 aria-hidden className="animate-spin" />
+          ) : (
+            <CheckCheck aria-hidden />
+          )}
+          {running ? "Cargando…" : "Aceptar todos los pendientes"}
+        </Button>
+      </DisabledHint>
       {open ? (
         <ConfirmDialog open={open} onOpenChange={setOpen} pending={pending} />
       ) : null}

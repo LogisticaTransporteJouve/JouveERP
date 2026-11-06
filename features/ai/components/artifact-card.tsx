@@ -12,6 +12,7 @@ import {
 import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
+import { DisabledHint } from "@/components/disabled-hint";
 import { Button } from "@/components/ui/button";
 import { downloadCsv } from "@/lib/export/csv";
 import { downloadBlob } from "@/lib/export/download";
@@ -177,25 +178,27 @@ export function PinArtifactButton({
   const pin = usePinAiArtifact();
   const [pinned, setPinned] = useState(false);
   return (
-    <Button
-      variant="ghost"
-      size="sm"
-      disabled={pin.isPending || pinned}
-      onClick={() =>
-        pin.mutate(artifact, {
-          onSuccess: () => {
-            setPinned(true);
-            toast.success("Fijado. Lo ves en Fijados de IA.");
-          },
-          onError: (err) =>
-            toast.error(
-              err instanceof Error ? err.message : "No se pudo fijar.",
-            ),
-        })
-      }
-    >
-      <Pin className="size-3.5" />
-      {pinned ? "Fijado" : "Fijar"}
-    </Button>
+    <DisabledHint reason={pinned ? "Ya está fijado." : null}>
+      <Button
+        variant="ghost"
+        size="sm"
+        disabled={pin.isPending || pinned}
+        onClick={() =>
+          pin.mutate(artifact, {
+            onSuccess: () => {
+              setPinned(true);
+              toast.success("Fijado. Lo ves en Fijados de IA.");
+            },
+            onError: (err) =>
+              toast.error(
+                err instanceof Error ? err.message : "No se pudo fijar.",
+              ),
+          })
+        }
+      >
+        <Pin className="size-3.5" />
+        {pinned ? "Fijado" : "Fijar"}
+      </Button>
+    </DisabledHint>
   );
 }

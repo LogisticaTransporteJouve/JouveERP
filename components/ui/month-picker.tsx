@@ -195,6 +195,9 @@ export function MonthPicker({
             variant="ghost"
             className="size-8"
             label="Año anterior"
+            disabledReason={
+              !canPrevYear ? "No hay meses anteriores para elegir." : null
+            }
             disabled={!canPrevYear}
             onClick={() => setYear((y) => y - 1)}
           >
@@ -208,6 +211,9 @@ export function MonthPicker({
             variant="ghost"
             className="size-8"
             label="Año siguiente"
+            disabledReason={
+              !canNextYear ? "No hay meses posteriores para elegir." : null
+            }
             disabled={!canNextYear}
             onClick={() => setYear((y) => y + 1)}
           >

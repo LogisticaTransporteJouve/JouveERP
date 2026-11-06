@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { DisabledHint } from "@/components/disabled-hint";
 import { MoneyInput } from "@/components/money-input";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -302,9 +303,13 @@ export function SellChequesDialog({
               >
                 Cancelar
               </Button>
-              <Button type="submit" disabled={mut.isPending || net <= 0}>
-                {mut.isPending ? "Vendiendo…" : "Vender"}
-              </Button>
+              <DisabledHint
+                reason={net <= 0 ? "El neto tiene que ser mayor a cero." : null}
+              >
+                <Button type="submit" disabled={mut.isPending || net <= 0}>
+                  {mut.isPending ? "Vendiendo…" : "Vender"}
+                </Button>
+              </DisabledHint>
             </DialogFooter>
           </form>
         )}
