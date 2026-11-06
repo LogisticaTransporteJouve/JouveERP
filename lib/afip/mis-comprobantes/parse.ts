@@ -435,7 +435,19 @@ function parseRow(
   const onlyTotal =
     (kl?.letter === "B" || kl?.letter === "C") &&
     neto + noGravado + exentas + iva + trib === 0;
-  const netoGravado = onlyTotal ? total : neto;
+  // Some vouchers list the whole net (gravado plus exento and no gravado) as
+  // «neto gravado»: the parts then exceed the total by exactly the exento and
+  // no gravado, while neto + IVA + tributos is the total.
+  const netoIncludesUntaxed =
+    !onlyTotal &&
+    noGravado + exentas > 0 &&
+    cents(neto) >= cents(noGravado + exentas) &&
+    Math.abs(cents(neto + iva + trib) - cents(total)) <= 1;
+  const netoGravado = onlyTotal
+    ? total
+    : netoIncludesUntaxed
+      ? round2(neto - noGravado - exentas)
+      : neto;
   // A total above its parts is kept as ARCA lists it (percepciones it did not
   // itemize, or a voucher with only its total): the person accepting it says
   // where the difference goes. Parts above the total, or a per-rate or
@@ -450,7 +462,11 @@ function parseRow(
   if (ivaBreakdown.length > 0) {
     const sumNeto = round2(ivaBreakdown.reduce((a, l) => a + l.neto, 0));
     const sumIva = round2(ivaBreakdown.reduce((a, l) => a + l.iva, 0));
-    if (!near(sumNeto, neto) || !near(sumIva, iva)) return "breakdown_mismatch";
+    if (
+      !near(sumNeto, netoIncludesUntaxed ? netoGravado : neto) ||
+      !near(sumIva, iva)
+    )
+      return "breakdown_mismatch";
   }
   const tribParts = Object.values(tribBreakdown);
   if (

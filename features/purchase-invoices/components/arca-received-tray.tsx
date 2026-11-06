@@ -232,7 +232,7 @@ function VoucherTable({ status }: { status: ReceivedVoucherStatus }) {
         cell: ({ row }) =>
           row.original.unreadable_reason ? (
             // Nothing read is trusted: what ARCA listed, as text.
-            <span className="block max-w-[16rem] text-right text-xs text-muted-foreground">
+            <span className="ml-auto block max-w-[16rem] whitespace-normal text-right text-xs text-muted-foreground">
               {rawAmountsText(row.original.raw_amounts) || "—"}
             </span>
           ) : (
