@@ -176,7 +176,7 @@ export function SellChequesDialog({
           <p className="text-sm">{blocker}</p>
         ) : (
           <form onSubmit={onSubmit} className="space-y-4">
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-1">
                 <Label htmlFor="sell-buyer" className="text-xs">
                   Comprador
@@ -216,7 +216,7 @@ export function SellChequesDialog({
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-1">
                 <Label className="text-xs">Canal</Label>
                 {fixedChannel ? (
@@ -246,7 +246,7 @@ export function SellChequesDialog({
                 <DatePicker value={saleDate} onChange={setSaleDate} />
               </div>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-1">
                 <Label htmlFor="sell-interest" className="text-xs">
                   Intereses

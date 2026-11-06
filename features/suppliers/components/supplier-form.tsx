@@ -188,7 +188,7 @@ export function SupplierForm({
             </p>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {/* With one channel on the supplier's side, a purchase already
                 starts on it: there is nothing to pick. None shows the field
                 with its read error. */}

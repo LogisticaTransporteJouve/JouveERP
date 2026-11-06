@@ -29,6 +29,7 @@ import {
 import { MonthPicker } from "@/components/ui/month-picker";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { PageHeader } from "@/components/ui/page-header";
 import { ManualEntryDialog } from "@/features/journal-entries/components/manual-entry-dialog";
 import { userCan, type Access } from "@/lib/auth/permissions";
 import { formatArgentineDate } from "@/lib/format";
@@ -180,23 +181,19 @@ export function InflationPage({ actorAccess }: { actorAccess: Access }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-end justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Ajuste por inflación
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            RG 4667 — coeficiente mensual usado para reexpresar saldos no
-            monetarios (preparación de balance ajustado).
-          </p>
-        </div>
-        {canWrite && (
-          <Button onClick={() => setDialogOpen(true)}>
-            <Plus />
-            Cargar coeficiente
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        className="items-end"
+        title="Ajuste por inflación"
+        description="RG 4667 — coeficiente mensual usado para reexpresar saldos no monetarios (preparación de balance ajustado)."
+        actions={
+          canWrite && (
+            <Button onClick={() => setDialogOpen(true)}>
+              <Plus />
+              Cargar coeficiente
+            </Button>
+          )
+        }
+      />
 
       <DataTable
         columns={columns}

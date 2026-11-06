@@ -16,6 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
+import { PageHeader } from "@/components/ui/page-header";
 import { userCan, type Access } from "@/lib/auth/permissions";
 
 import {
@@ -137,23 +138,21 @@ export function WarehousesTable({ actorAccess }: { actorAccess: Access }) {
 
   return (
     <>
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Depósitos</h1>
-          <p className="text-muted-foreground text-sm">
-            Depósitos físicos para almacenamiento de mercadería.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <ExportButton resource="warehouses" />
-          {canWrite && (
-            <Button onClick={() => setDialog({ mode: "create" })}>
-              <Plus />
-              Nuevo depósito
-            </Button>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        title="Depósitos"
+        description="Depósitos físicos para almacenamiento de mercadería."
+        actions={
+          <>
+            <ExportButton resource="warehouses" />
+            {canWrite && (
+              <Button onClick={() => setDialog({ mode: "create" })}>
+                <Plus />
+                Nuevo depósito
+              </Button>
+            )}
+          </>
+        }
+      />
 
       <DataTable
         columns={columns}

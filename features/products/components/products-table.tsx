@@ -16,6 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
+import { PageHeader } from "@/components/ui/page-header";
 import { userCan, type Access } from "@/lib/auth/permissions";
 
 import {
@@ -150,23 +151,21 @@ export function ProductsTable({
 
   return (
     <>
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Productos</h1>
-          <p className="text-muted-foreground text-sm">
-            Catálogo de productos por cliente.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <ExportButton resource="products" />
-          {canWrite && (
-            <Button onClick={() => setDialog({ mode: "create" })}>
-              <Plus />
-              Nuevo producto
-            </Button>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        title="Productos"
+        description="Catálogo de productos por cliente."
+        actions={
+          <>
+            <ExportButton resource="products" />
+            {canWrite && (
+              <Button onClick={() => setDialog({ mode: "create" })}>
+                <Plus />
+                Nuevo producto
+              </Button>
+            )}
+          </>
+        }
+      />
 
       <DataTable
         columns={columns}

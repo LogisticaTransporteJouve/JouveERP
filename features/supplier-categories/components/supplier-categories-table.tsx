@@ -26,6 +26,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { PageHeader } from "@/components/ui/page-header";
 import { userCan, type Access } from "@/lib/auth/permissions";
 
 import {
@@ -132,25 +133,21 @@ export function SupplierCategoriesTable({
 
   return (
     <>
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Categorías de proveedores
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Clasificá los proveedores para filtrar y agrupar gastos.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <ExportButton resource="supplier-categories" />
-          {canWrite && (
-            <Button onClick={() => setDialogState({ mode: "create" })}>
-              <Plus />
-              Nueva categoría
-            </Button>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        title="Categorías de proveedores"
+        description="Clasificá los proveedores para filtrar y agrupar gastos."
+        actions={
+          <>
+            <ExportButton resource="supplier-categories" />
+            {canWrite && (
+              <Button onClick={() => setDialogState({ mode: "create" })}>
+                <Plus />
+                Nueva categoría
+              </Button>
+            )}
+          </>
+        }
+      />
 
       <DataTable
         columns={columns}

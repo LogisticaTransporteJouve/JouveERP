@@ -92,7 +92,7 @@ export function RetentionsEditor({
                 key={idx}
                 className="space-y-2 rounded-md border bg-card p-3"
               >
-                <div className="grid items-end gap-2 sm:grid-cols-[140px_140px_1fr_auto]">
+                <div className="grid grid-cols-1 items-end gap-2 sm:grid-cols-[140px_140px_1fr_auto]">
                   <div className="space-y-1">
                     <Label className="text-xs">Tipo</Label>
                     <Select
@@ -153,7 +153,7 @@ export function RetentionsEditor({
                   </IconButton>
                 </div>
 
-                <div className="grid items-end gap-2 sm:grid-cols-[140px_140px_140px_1fr]">
+                <div className="grid grid-cols-1 items-end gap-2 sm:grid-cols-[140px_140px_140px_1fr]">
                   <div className="space-y-1">
                     <Label className="text-xs">Fecha cert.</Label>
                     <DatePicker

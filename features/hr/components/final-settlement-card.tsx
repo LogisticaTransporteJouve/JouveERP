@@ -140,7 +140,7 @@ export function FinalSettlementCard({ employeeId }: { employeeId: string }) {
               ajustalo en esa planilla.
             </p>
           ) : null}
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field
               id="fs-salary"
               label={`Sueldo por ${data.days_worked} días trabajados`}
