@@ -9821,6 +9821,13 @@ export type Database = {
         }
         Returns: string[]
       }
+      increase_storage_tariffs: {
+        Args: { p_percent: number; p_valid_from: string }
+        Returns: {
+          skipped: number
+          updated: number
+        }[]
+      }
       invoice_effective_due_date: {
         Args: { p_fch_vto_pago: string; p_fecha: string }
         Returns: string

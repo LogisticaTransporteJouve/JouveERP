@@ -8,10 +8,9 @@ import type { Database } from "@/lib/db/database.types";
 import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
-import { fetchInChunks, paginateRange } from "@/lib/supabase/paginate";
+import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
-import { isRaisedByIncrease } from "../lib/increase";
 import {
   StorageTariffCreateSchema,
   StorageTariffIncreaseSchema,
@@ -160,7 +159,7 @@ export async function updateStorageTariffAction(
   const { id, ...rest } = parsed.data;
 
   const supabase = await createSupabaseClient();
-  const { error } = await supabase
+  const { data: changed, error } = await supabase
     .from("storage_tariffs")
     .update({
       ...(rest.client_id !== undefined && { client_id: rest.client_id }),
@@ -178,7 +177,8 @@ export async function updateStorageTariffAction(
       ...(rest.is_active !== undefined && { is_active: rest.is_active }),
       ...(rest.notes !== undefined && { notes: rest.notes }),
     })
-    .eq("id", id);
+    .eq("id", id)
+    .select("id");
   if (error) {
     // A row moved to the client's tarifario refuses price/validity changes.
     const guardError = mapDbGuardError(error, {
@@ -193,6 +193,9 @@ export async function updateStorageTariffAction(
       error,
     });
     return { ok: false, error: "No se pudo actualizar la tarifa." };
+  }
+  if (!changed || changed.length === 0) {
+    return { ok: false, error: "No se encontró la tarifa." };
   }
 
   await logAudit(
@@ -215,10 +218,11 @@ export async function setStorageTariffActiveAction(
   if (!parsed.success) return { ok: false, error: "Datos inválidos." };
 
   const supabase = await createSupabaseClient();
-  const { error } = await supabase
+  const { data: changed, error } = await supabase
     .from("storage_tariffs")
     .update({ is_active: parsed.data.is_active })
-    .eq("id", parsed.data.id);
+    .eq("id", parsed.data.id)
+    .select("id");
   if (error) {
     logger.error("storage_tariffs.toggle.failed", {
       userId: ctx.userId,
@@ -226,6 +230,9 @@ export async function setStorageTariffActiveAction(
       error,
     });
     return { ok: false, error: "No se pudo cambiar el estado." };
+  }
+  if (!changed || changed.length === 0) {
+    return { ok: false, error: "No se encontró la tarifa." };
   }
 
   await logAudit(
@@ -239,22 +246,13 @@ export async function setStorageTariffActiveAction(
   return { ok: true, data: undefined };
 }
 
-function round2(n: number): number {
-  return Math.round(n * 100) / 100;
-}
-
-function dayBefore(iso: string): string {
-  const d = new Date(`${iso}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() - 1);
-  return d.toISOString().slice(0, 10);
-}
-
 /**
- * Applies a % increase to every tariff in effect at `valid_from`: inserts the
- * new row (rate + handling × factor, open-ended) and closes the old one the
- * day before. Old rows stay as history; billing runs already snapshot what
- * they used. Tariffs that start on/after `valid_from` are skipped (edit those
- * by hand).
+ * Applies a % increase to every tariff in effect at `valid_from`
+ * (isRaisedByIncrease): a new open-ended row with rate + handling × factor,
+ * and the old one closed the day before, in one transaction
+ * (increase_storage_tariffs). Old rows stay as history; billing runs already
+ * snapshot what they used. Tariffs that start on/after `valid_from` are
+ * skipped (edit those by hand).
  */
 export async function increaseStorageTariffsAction(
   input: unknown,
@@ -271,92 +269,31 @@ export async function increaseStorageTariffsAction(
     };
   }
   const { percent, valid_from } = parsed.data;
-  const factor = 1 + percent / 100;
 
   const supabase = await createSupabaseClient();
-  const { data: current, error } = await supabase
-    .from("storage_tariffs")
-    .select(
-      "id, client_id, area_id, rate_per_pallet, handling_in, handling_out, period, valid_from, valid_to, is_active, migrated_to_client_tariffs_at",
-    )
-    .eq("is_active", true)
-    .is("migrated_to_client_tariffs_at", null)
-    .or(`valid_to.is.null,valid_to.gte.${valid_from}`);
+  const { data, error } = await supabase.rpc("increase_storage_tariffs", {
+    p_percent: percent,
+    p_valid_from: valid_from,
+  });
   if (error) {
-    logger.error("storage_tariffs.increase.read_failed", {
+    // Nothing in force before that date to raise.
+    const guardError = mapDbGuardError(error, {
+      slug: "storage_tariffs.increase.rejected",
+      userId: ctx.userId,
+    });
+    if (guardError) return { ok: false, error: guardError };
+    logger.error("storage_tariffs.increase.failed", {
       userId: ctx.userId,
       error,
     });
-    return { ok: false, error: "No se pudieron leer las tarifas vigentes." };
-  }
-
-  // The read leaves only the future-dated ones out of the selection.
-  const eligible = (current ?? []).filter((t) =>
-    isRaisedByIncrease(t, valid_from),
-  );
-  const skipped = (current ?? []).length - eligible.length;
-  if (eligible.length === 0) {
-    return {
-      ok: false,
-      error: "No hay tarifas vigentes anteriores a esa fecha para aumentar.",
-    };
-  }
-
-  // One bulk insert for all the new rows (atomic: all or none), then one
-  // chunked update closing the old ones the day before. Was 2 round trips per
-  // tariff. Inserting first keeps the previous invariant: if the close fails
-  // the new row still wins (latest valid_from) and the overlap is logged.
-  const { data: inserted, error: insErr } = await supabase
-    .from("storage_tariffs")
-    .insert(
-      eligible.map((t) => {
-        const oldRate = Number(t.rate_per_pallet);
-        return {
-          client_id: t.client_id,
-          area_id: t.area_id,
-          rate_per_pallet: round2(oldRate * factor),
-          handling_in: round2(Number(t.handling_in) * factor),
-          handling_out: round2(Number(t.handling_out) * factor),
-          period: t.period,
-          valid_from,
-          valid_to: null,
-          notes: `Aumento ${percent}% s/ $${oldRate.toLocaleString("es-AR")}`,
-          created_by: ctx.userId,
-        };
-      }),
-    )
-    .select("id");
-  if (insErr || !inserted) {
-    logger.error("storage_tariffs.increase.insert_failed", {
-      userId: ctx.userId,
-      count: eligible.length,
-      error: insErr,
-    });
     return { ok: false, error: "No se pudo aplicar el aumento." };
   }
-  const updated = inserted.length;
-
-  const closeRes = await fetchInChunks(
-    eligible.map((t) => t.id),
-    (ids) =>
-      supabase
-        .from("storage_tariffs")
-        .update({ valid_to: dayBefore(valid_from) })
-        .in("id", ids)
-        .select("id"),
-  );
-  if (closeRes.error) {
-    // The new rows still win (latest valid_from), but log the overlap.
-    logger.error("storage_tariffs.increase.close_failed", {
-      userId: ctx.userId,
-      tariffIds: eligible.map((t) => t.id),
-      error: closeRes.error,
-    });
-  }
-
-  if (updated === 0) {
+  const result = data?.[0];
+  if (!result) {
+    logger.error("storage_tariffs.increase.no_result", { userId: ctx.userId });
     return { ok: false, error: "No se pudo aplicar el aumento." };
   }
+  const { updated, skipped } = result;
 
   await logAudit("storage_tariff.increased", ctx.userId, {
     percent,
@@ -375,16 +312,20 @@ export async function deleteStorageTariffAction(input: {
     return { ok: false, error: "No tenés permiso para borrar tarifas." };
   }
   const supabase = await createSupabaseClient();
-  const { error } = await supabase
+  const { data: changed, error } = await supabase
     .from("storage_tariffs")
     .delete()
-    .eq("id", input.id);
+    .eq("id", input.id)
+    .select("id");
   if (error) {
     logger.error("storage_tariffs.delete.failed", {
       userId: ctx.userId,
       error,
     });
     return { ok: false, error: "No se pudo borrar la tarifa." };
+  }
+  if (!changed || changed.length === 0) {
+    return { ok: false, error: "No se encontró la tarifa." };
   }
   await logAudit("storage_tariff.deleted", ctx.userId, {}, input.id);
   return { ok: true, data: undefined };
