@@ -19,6 +19,10 @@ import {
   uploadReceivedExportAction,
 } from "../actions/arca-received-actions";
 import {
+  getArcaBulkAcceptStatusAction,
+  requestArcaBulkAcceptAction,
+} from "../actions/arca-bulk-accept-actions";
+import {
   getArcaSyncStatusAction,
   requestArcaReceivedSyncAction,
 } from "../actions/arca-received-sync-actions";
@@ -139,5 +143,30 @@ export function useRequestArcaSync() {
     // The status starts polling once it sees the request.
     onSettled: () =>
       qc.invalidateQueries({ queryKey: arcaReceivedKeys.syncStatus() }),
+  });
+}
+
+const BULK_POLL_MS = 5000;
+
+/** The latest «Aceptar todos los pendientes» run, polled while it is open. */
+export function useArcaBulkAcceptStatus() {
+  return useQuery({
+    queryKey: arcaReceivedKeys.bulkAccept(),
+    queryFn: () => runAction(() => getArcaBulkAcceptStatusAction()),
+    refetchInterval: (query) => {
+      const run = query.state.data;
+      return run && run.finishedAt === null ? BULK_POLL_MS : false;
+    },
+  });
+}
+
+export function useRequestArcaBulkAccept() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      runAction(() => requestArcaBulkAcceptAction({ confirm: true })),
+    // The status starts polling once it sees the open run.
+    onSettled: () =>
+      qc.invalidateQueries({ queryKey: arcaReceivedKeys.bulkAccept() }),
   });
 }

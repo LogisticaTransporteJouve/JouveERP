@@ -734,6 +734,39 @@ export type Database = {
         }
         Relationships: []
       }
+      arca_bulk_accept_runs: {
+        Row: {
+          error: string | null
+          finished_at: string | null
+          id: string
+          phase: string
+          progress: Json
+          requested_at: string
+          requested_by: string | null
+          started_at: string | null
+        }
+        Insert: {
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          phase?: string
+          progress?: Json
+          requested_at?: string
+          requested_by?: string | null
+          started_at?: string | null
+        }
+        Update: {
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          phase?: string
+          progress?: Json
+          requested_at?: string
+          requested_by?: string | null
+          started_at?: string | null
+        }
+        Relationships: []
+      }
       arca_received_vouchers: {
         Row: {
           cae: string | null

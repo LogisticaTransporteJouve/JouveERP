@@ -49,6 +49,7 @@ import {
   type ReceivedVoucher,
   type ReceivedVoucherStatus,
 } from "../schema";
+import { ArcaBulkAcceptCard } from "./arca-bulk-accept-card";
 import { ArcaSyncCard } from "./arca-sync-card";
 import { ArcaVoucherDetailDialog } from "./arca-voucher-detail";
 import { PurchaseInvoiceDraftDialog } from "./purchase-invoice-draft-dialog";
@@ -418,7 +419,12 @@ function uploadSummary(r: {
   return parts.join(" · ");
 }
 
-export function ArcaReceivedTray() {
+export function ArcaReceivedTray({
+  canBulkAccept = false,
+}: {
+  /** The owner's «Aceptar todos los pendientes». */
+  canBulkAccept?: boolean;
+} = {}) {
   const [status, setStatus] = useState<ReceivedVoucherStatus>("pending_review");
   const upload = useUploadReceivedExport();
   const counts = useReceivedVoucherCounts();
@@ -465,6 +471,10 @@ export function ArcaReceivedTray() {
           </TabsList>
         </Tabs>
       </div>
+
+      {status === "pending_review" && canBulkAccept && (
+        <ArcaBulkAcceptCard pending={pending} />
+      )}
 
       <Suspense
         key={status}
