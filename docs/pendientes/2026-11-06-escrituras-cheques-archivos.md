@@ -1,7 +1,7 @@
 # 2026-11-06 — Escrituras: cheques, archivos, combustible, POS y choferes
 
-Migraciones: `20261106110000` (cheque cargado a mano en una sola función) y
-`20261106110001` (clave de importación de combustible).
+Migraciones: `20261106112826` (cheque cargado a mano en una sola función) y
+`20261106112827` (clave de importación de combustible).
 
 - [ ] **pgTAP sin correr en la sesión** (no había stack local):
       `supabase/tests/create_manual_check_test.sql` corre en el job

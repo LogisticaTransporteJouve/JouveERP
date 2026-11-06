@@ -1,4 +1,4 @@
--- 20261106110000: a check loaded by hand («Nuevo cheque», cheque scan) is
+-- 20261106112826: a check loaded by hand («Nuevo cheque», cheque scan) is
 -- written with its cartera inflow and its 'received' anchor in one call, or
 -- not at all. One transaction, rolled back.
 
