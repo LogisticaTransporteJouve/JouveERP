@@ -20,7 +20,7 @@ export type PosChannel = {
 };
 
 /** A POS synced with AFIP goes only to a fiscal channel
- *  (guard_sales_point_channel); a local one (never synced, e.g. 9001) numbers
+ *  (guard_sales_point_channel); a local one (never synced, e.g. 1) numbers
  *  internal documents, so it goes to an internal channel. The current channel
  *  stays listed even when inactive or of the other kind, so the select can
  *  show it. */
