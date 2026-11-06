@@ -101,6 +101,59 @@ describe("proposeEmployeeAccountCash", () => {
     });
   });
 
+  it("asks which channel when the side has two active, and takes the one picked", async () => {
+    readInvoicingChannels.mockResolvedValue({
+      ok: true,
+      channels: [
+        {
+          id: "jouve_internal",
+          name: "Interno",
+          is_fiscal: false,
+          is_active: true,
+        },
+        {
+          id: "jouve_internal_2",
+          name: "Interno 2",
+          is_fiscal: false,
+          is_active: true,
+        },
+      ],
+    });
+    const asked = await proposeEmployeeAccountCash.proposal?.prepareDraft(
+      ctx,
+      advance,
+    );
+    expect(asked).toMatchObject({
+      kind: "issues",
+      issues: [{ field: "channel" }],
+      candidates: [
+        {
+          field: "channel",
+          options: [{ value: "Interno" }, { value: "Interno 2" }],
+        },
+      ],
+    });
+    const picked = await proposeEmployeeAccountCash.proposal?.prepareDraft(
+      ctx,
+      { ...advance, channel: "interno 2" },
+    );
+    expect(picked).toMatchObject({
+      kind: "draft",
+      draft: { channel_id: "jouve_internal_2" },
+    });
+  });
+
+  it("refuses a side with no active channel", async () => {
+    const res = await proposeEmployeeAccountCash.proposal?.prepareDraft(ctx, {
+      ...advance,
+      channel: "fiscal",
+    });
+    expect(res).toEqual({
+      kind: "error",
+      error: "No hay un canal fiscal activo.",
+    });
+  });
+
   it("does not pay an advance from a check cartera", async () => {
     const res = await proposeEmployeeAccountCash.proposal?.prepareDraft(ctx, {
       ...advance,
