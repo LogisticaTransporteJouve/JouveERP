@@ -4,6 +4,10 @@ import { logAudit } from "@/lib/actions/audit";
 import { CONCEPTO, IVA_RATE, MONEDA, voucherReceptor } from "@/lib/afip/codes";
 import { requireUserContext } from "@/lib/auth/context";
 import { isFiscalOnly, userCan } from "@/lib/auth/permissions";
+import {
+  confirmFreightSettlement,
+  type ConfirmedSettlement,
+} from "@/lib/commands/confirm-freight-settlement";
 import { saveFreightSettlement } from "@/lib/commands/save-freight-settlement";
 import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { todayInAR } from "@/lib/format";
@@ -24,8 +28,6 @@ import {
   FreightSettlementInvoiceSchema,
   FreightSettlementSaveSchema,
   freightItemDescription,
-  formatRemitoR,
-  formatSettlementNumber,
   isFreightPriceSource,
   isFreightSettlementChannel,
   isFreightSettlementStatus,
@@ -33,7 +35,6 @@ import {
   settlementInScope,
   type FreightCandidatesInput,
   type FreightSettlement,
-  type FreightSettlementChannel,
   type FreightSettlementCandidate,
   type FreightSettlementDetail,
   type FreightSettlementInvoiceInput,
@@ -298,55 +299,6 @@ export async function saveFreightSettlementAction(
   return saveFreightSettlement(ctx.userId, parsed.data);
 }
 
-export type ConfirmedSettlement = {
-  channel: FreightSettlementChannel | null;
-  /** "R9002-00000001" (fiscal), the legacy "R-00000012", or null (internal:
-   *  its document is the remito interno X issued next). */
-  number: string | null;
-};
-
-/** Runs confirm_freight_settlement_document and audits it. The caller has
- *  already gated on invoices:issue. */
-async function confirmSettlement(
-  supabase: ReturnType<typeof getServiceClient>,
-  id: string,
-  userId: string,
-): Promise<ActionResult<ConfirmedSettlement>> {
-  const { data, error } = await supabase
-    .rpc("confirm_freight_settlement_document", {
-      p_settlement_id: id,
-      p_user_id: userId,
-    })
-    .maybeSingle();
-  if (error || !data) {
-    const guardError = mapDbGuardError(error, {
-      slug: "freight_settlements.confirm.rejected",
-      userId,
-      id,
-    });
-    if (guardError) return { ok: false, error: guardError };
-    logger.error("freight_settlements.confirm.failed", { userId, id, error });
-    return { ok: false, error: "No se pudo confirmar la liquidación." };
-  }
-  const channel = isFreightSettlementChannel(data.channel)
-    ? data.channel
-    : null;
-  const number =
-    data.remito_pos !== null && data.remito_number !== null
-      ? formatRemitoR(data.remito_pos, data.remito_number)
-      : data.numero !== null
-        ? formatSettlementNumber(data.numero)
-        : null;
-
-  await logAudit(
-    "freight_settlement.confirmed",
-    userId,
-    { channel, numero: number },
-    id,
-  );
-  return { ok: true, data: { channel, number } };
-}
-
 /** Reprices the draft from its cargas' flete or tariff and confirms it on
  *  its client's side: a fiscal one gets its Remito R number, an internal one
  *  none (its document is the remito interno X). Confirming twice returns the
@@ -360,7 +312,7 @@ export async function confirmFreightSettlementAction(input: {
   }
   const parsed = FreightSettlementIdSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Liquidación inválida." };
-  return confirmSettlement(getServiceClient(), parsed.data.id, ctx.userId);
+  return confirmFreightSettlement(ctx.userId, parsed.data.id);
 }
 
 /** A live invoice issued for the liquidación that is not its linked one (the
@@ -477,7 +429,7 @@ export async function invoiceFreightSettlementAction(
     }
     // Otras ventas: the remito interno X is the liquidación's document, so
     // confirming and issuing it are one step. Re-read: confirming reprices.
-    const confirmed = await confirmSettlement(supabase, id, ctx.userId);
+    const confirmed = await confirmFreightSettlement(ctx.userId, id);
     if (!confirmed.ok) return confirmed;
     const fresh = await getFreightSettlementAction(id);
     if (!fresh.ok) return fresh;

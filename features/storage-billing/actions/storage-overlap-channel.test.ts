@@ -110,8 +110,8 @@ vi.mock("@/lib/supabase/server", () => ({
 vi.mock("@/lib/actions/audit", () => ({
   logAudit: (...args: unknown[]) => audit(...args),
 }));
-vi.mock("@/features/invoices/actions/invoices-actions", () => ({
-  issueFiscalInvoiceAction: (input: unknown) => issue(input),
+vi.mock("@/lib/commands/issue-comprobante", () => ({
+  issueComprobante: (_actorId: string, input: unknown) => issue(input),
 }));
 
 const { invoiceStorageAction, listStorageBillingRunsAction } =

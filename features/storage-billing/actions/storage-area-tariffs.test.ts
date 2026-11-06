@@ -91,8 +91,8 @@ vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => fake.client,
 }));
 vi.mock("@/lib/actions/audit", () => ({ logAudit: vi.fn() }));
-vi.mock("@/features/invoices/actions/invoices-actions", () => ({
-  issueFiscalInvoiceAction: (input: unknown) => issue(input),
+vi.mock("@/lib/commands/issue-comprobante", () => ({
+  issueComprobante: (_actorId: string, input: unknown) => issue(input),
 }));
 
 const { getStorageBillingAction, invoiceStorageAction } =
