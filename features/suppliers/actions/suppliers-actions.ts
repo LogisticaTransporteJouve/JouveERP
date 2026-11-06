@@ -1,15 +1,12 @@
 "use server";
 
 import { logAudit } from "@/lib/actions/audit";
-import type { JsonValue } from "@/lib/actions/audit";
 import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
-import {
-  PG_FOREIGN_KEY_VIOLATION,
-  PG_UNIQUE_VIOLATION,
-} from "@/lib/db/pg-error-codes";
-import { mapDbGuardError } from "@/lib/db/guard-errors";
+import { createSupplier } from "@/lib/commands/create-supplier";
+import { updateSupplier } from "@/lib/commands/update-supplier";
+import { PG_FOREIGN_KEY_VIOLATION } from "@/lib/db/pg-error-codes";
 import { logger } from "@/lib/logger";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { getServiceClient } from "@/lib/supabase/service";
@@ -183,58 +180,7 @@ export async function createSupplierAction(
     return { ok: false, error: first };
   }
 
-  const supabase = await createSupabaseClient();
-  const { data, error } = await supabase
-    .from("suppliers")
-    .insert({
-      is_fiscal: parsed.data.is_fiscal,
-      cuit: parsed.data.is_fiscal ? parsed.data.cuit : null,
-      legal_name: parsed.data.legal_name,
-      display_name: parsed.data.display_name ?? null,
-      iva_condition: parsed.data.is_fiscal ? parsed.data.iva_condition : null,
-      email: parsed.data.email ?? null,
-      phone: parsed.data.phone ?? null,
-      address: parsed.data.is_fiscal ? (parsed.data.address ?? null) : null,
-      real_address: parsed.data.real_address ?? null,
-      notes: parsed.data.notes ?? null,
-      default_channel_id: parsed.data.default_channel_id ?? null,
-      default_payment_term_days: parsed.data.default_payment_term_days ?? null,
-      category_id: parsed.data.category_id ?? null,
-      default_expense_account_id:
-        parsed.data.default_expense_account_id ?? null,
-      default_cost_center_id: parsed.data.default_cost_center_id ?? null,
-      created_by: ctx.userId,
-    })
-    .select("id")
-    .single();
-
-  if (error) {
-    if (error.code === PG_UNIQUE_VIOLATION) {
-      return { ok: false, error: "Ya existe un proveedor con ese CUIT." };
-    }
-    const guardError = mapDbGuardError(error, {
-      slug: "suppliers.create.rejected",
-      userId: ctx.userId,
-    });
-    if (guardError) return { ok: false, error: guardError };
-    logger.error("suppliers.create.failed", {
-      userId: ctx.userId,
-      cuit: parsed.data.is_fiscal ? parsed.data.cuit : null,
-      error,
-    });
-    return { ok: false, error: "No se pudo crear el proveedor." };
-  }
-
-  await logAudit(
-    "supplier.created",
-    ctx.userId,
-    {
-      cuit: parsed.data.is_fiscal ? parsed.data.cuit : null,
-      legal_name: parsed.data.legal_name,
-    },
-    data.id,
-  );
-  return { ok: true, data: { id: data.id } };
+  return createSupplier(ctx.userId, parsed.data);
 }
 
 export async function updateSupplierAction(
@@ -251,70 +197,7 @@ export async function updateSupplierAction(
     return { ok: false, error: first };
   }
 
-  const { id, ...rest } = parsed.data;
-
-  const supabase = await createSupabaseClient();
-  const { data: changed, error } = await supabase
-    .from("suppliers")
-    .update({
-      ...(rest.cuit !== undefined && { cuit: rest.cuit }),
-      ...(rest.legal_name !== undefined && { legal_name: rest.legal_name }),
-      ...(rest.display_name !== undefined && {
-        display_name: rest.display_name ?? null,
-      }),
-      ...(rest.iva_condition !== undefined && {
-        iva_condition: rest.iva_condition,
-      }),
-      ...(rest.email !== undefined && { email: rest.email ?? null }),
-      ...(rest.phone !== undefined && { phone: rest.phone ?? null }),
-      ...(rest.address !== undefined && { address: rest.address ?? null }),
-      ...(rest.real_address !== undefined && {
-        real_address: rest.real_address ?? null,
-      }),
-      ...(rest.notes !== undefined && { notes: rest.notes ?? null }),
-      ...(rest.default_channel_id !== undefined && {
-        default_channel_id: rest.default_channel_id ?? null,
-      }),
-      ...(rest.default_payment_term_days !== undefined && {
-        default_payment_term_days: rest.default_payment_term_days ?? null,
-      }),
-      ...(rest.category_id !== undefined && {
-        category_id: rest.category_id ?? null,
-      }),
-      ...(rest.default_expense_account_id !== undefined && {
-        default_expense_account_id: rest.default_expense_account_id ?? null,
-      }),
-      ...(rest.default_cost_center_id !== undefined && {
-        default_cost_center_id: rest.default_cost_center_id ?? null,
-      }),
-    })
-    .eq("id", id)
-    .select("id");
-
-  if (error) {
-    if (error.code === PG_UNIQUE_VIOLATION) {
-      return { ok: false, error: "Ya existe un proveedor con ese CUIT." };
-    }
-    const guardError = mapDbGuardError(error, {
-      slug: "suppliers.update.rejected",
-      userId: ctx.userId,
-      id,
-    });
-    if (guardError) return { ok: false, error: guardError };
-    logger.error("suppliers.update.failed", { userId: ctx.userId, id, error });
-    return { ok: false, error: "No se pudo actualizar el proveedor." };
-  }
-  if (!changed || changed.length === 0) {
-    return { ok: false, error: "No se encontró el proveedor." };
-  }
-
-  await logAudit(
-    "supplier.updated",
-    ctx.userId,
-    { fields: Object.keys(rest) as JsonValue[] },
-    id,
-  );
-  return { ok: true, data: undefined };
+  return updateSupplier(ctx.userId, parsed.data);
 }
 
 export type SupplierReferences = {

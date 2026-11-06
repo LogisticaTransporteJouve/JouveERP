@@ -1,52 +1,19 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { requireUserContext } from "@/lib/auth/context";
 import { isFiscalOnly, userCan } from "@/lib/auth/permissions";
-import { sendComprobanteByEmail } from "@/lib/email/send-comprobante";
-import {
-  buildPdfFilename,
-  formatArDateShort,
-  formatNumber2,
-} from "@/lib/format";
+import { sendInvoiceEmail } from "@/lib/commands/send-invoice-email";
 import { logger } from "@/lib/logger";
-import { DIVISION_LABEL } from "@/lib/pdf/emisor";
-import { generateInvoicePdfBuffer } from "@/lib/pdf/generate-and-hash";
+import type { ActionResult } from "@/lib/query/run-action";
 import { getServiceClient } from "@/lib/supabase/service";
 
-import type { ClientLegalJoin } from "@/features/clients/schema";
-
-import { formatInvoiceNumero } from "../schema";
-import type { ActionResult } from "@/lib/query/run-action";
-
-/** Shape of `channel:invoicing_channels(name, is_fiscal,
- *  business_unit:business_units(name))`: the issuer's name and whether the
- *  comprobante is fiscal. */
-type ChannelBusinessUnitJoin = {
-  channel: {
-    name: string;
-    is_fiscal: boolean;
-    business_unit: { name: string } | null;
-  } | null;
-};
-
-const SendInvoiceEmailSchema = z.object({
-  invoice_id: z.string().uuid(),
-  recipient: z.string().email("Email inválido."),
-  subject: z
-    .string()
-    .min(1, "Asunto requerido.")
-    .max(200, "Máx 200 caracteres."),
-  body: z
-    .string()
-    .max(4000, "Máx 4000 caracteres.")
-    .optional()
-    .transform((v) => (v && v.trim().length > 0 ? v : null)),
-});
-
-export type SendInvoiceEmailInput = z.input<typeof SendInvoiceEmailSchema>;
+import {
+  formatInvoiceNumero,
+  SendInvoiceEmailSchema,
+  type SendInvoiceEmailInput,
+} from "../schema";
 
 export async function sendInvoiceByEmailAction(
   rawInput: SendInvoiceEmailInput,
@@ -66,95 +33,8 @@ export async function sendInvoiceByEmailAction(
       error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
     };
   }
-  const input = parsed.data;
 
-  const supabase = getServiceClient();
-  const { data: invoice, error: invErr } = await supabase
-    .from("invoices")
-    .select(
-      `id, kind, letter, punto_venta, numero, fecha, imp_total, status,
-       channel:invoicing_channels(name, is_fiscal, business_unit:business_units(name)),
-       client:clients(legal_name)`,
-    )
-    .eq("id", input.invoice_id)
-    .maybeSingle();
-
-  if (invErr) {
-    logger.error("send_invoice_email.read_failed", {
-      userId: ctx.userId,
-      invoiceId: input.invoice_id,
-      error: invErr,
-    });
-    return { ok: false, error: "No se pudo leer el comprobante." };
-  }
-  if (!invoice || (isFiscalOnly(ctx.access) && !invoice.channel?.is_fiscal)) {
-    return { ok: false, error: "Comprobante no encontrado." };
-  }
-  if (invoice.status !== "emitted") {
-    return {
-      ok: false,
-      error: "Solo se pueden enviar comprobantes en estado emitido.",
-    };
-  }
-
-  const client = (invoice as unknown as ClientLegalJoin).client;
-  const channel = (invoice as unknown as ChannelBusinessUnitJoin).channel;
-  const isFiscal = channel?.is_fiscal ?? true;
-  // D5: an internal comprobante goes out under the division, never under the
-  // fiscal issuer.
-  const emisorName = isFiscal
-    ? (channel?.business_unit?.name ?? "DZ & Sons")
-    : DIVISION_LABEL;
-
-  const numberLabel = formatInvoiceNumero(
-    invoice.kind,
-    invoice.letter,
-    invoice.punto_venta,
-    invoice.numero,
-  );
-
-  let pdf;
-  try {
-    pdf = await generateInvoicePdfBuffer(input.invoice_id);
-  } catch (err) {
-    logger.error("send_invoice_email.pdf_failed", {
-      userId: ctx.userId,
-      invoice_id: input.invoice_id,
-      err: err instanceof Error ? err.message : String(err),
-    });
-    return { ok: false, error: "No se pudo generar el PDF." };
-  }
-
-  const dateLabel = formatArDateShort(invoice.fecha);
-  const totalLabel = `$${formatNumber2(Number(invoice.imp_total))}`;
-  const pdfFilename = buildPdfFilename(
-    numberLabel,
-    client?.legal_name ?? "Cliente",
-  );
-
-  const result = await sendComprobanteByEmail({
-    entity_type: "invoice",
-    entity_id: input.invoice_id,
-    recipient: input.recipient,
-    subject: input.subject,
-    body: input.body,
-    emisor_name: emisorName,
-    internal: !isFiscal,
-    client_legal_name: client?.legal_name ?? "Cliente",
-    numero_label: numberLabel,
-    fecha: dateLabel,
-    total_label: totalLabel,
-    pdf_buffer: pdf.pdfBuffer,
-    pdf_filename: pdfFilename,
-    sent_by: ctx.userId,
-  });
-
-  if (!result.ok) return result;
-
-  revalidatePath("/invoices");
-  revalidatePath(`/invoices/${input.invoice_id}`);
-
-  return { ok: true, data: { log_id: result.data.log_id } };
+  return sendInvoiceEmail(ctx, parsed.data);
 }
 
 // Suggested defaults to prefill the dialog.

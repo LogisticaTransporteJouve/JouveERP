@@ -40,7 +40,19 @@ import {
   getDocumentExtractions,
   proposeDocumentScan,
 } from "./actions/documents";
+import {
+  proposeEmployeeAccountCash,
+  proposeEmployeeAccountMovement,
+} from "./actions/employee-account-proposals";
 import { proposeRecategorizeExpense } from "./actions/expense-proposals";
+import {
+  proposeArcaPurchase,
+  proposePurchaseInvoice,
+} from "./actions/purchase-proposals";
+import {
+  proposeSupplier,
+  proposeSupplierUpdate,
+} from "./actions/supplier-proposals";
 import {
   getDrivers,
   getFleetDocuments,
@@ -58,8 +70,22 @@ import {
   getTripDetail,
   getVehicleUsage,
 } from "./actions/fleet-detail";
+import {
+  proposeFreightSettlement,
+  proposeFuelLoad,
+  proposeMaintenance,
+  proposeShipment,
+  proposeShipmentStatus,
+  proposeTrip,
+  proposeVehicleKm,
+} from "./actions/fleet-proposals";
 import { getAttachments, searchFiles } from "./actions/general";
 import { searchGuide } from "./actions/guide";
+import {
+  proposeAttendance,
+  proposeCreateEmployee,
+  proposeUpdateEmployee,
+} from "./actions/hr-proposals";
 import {
   getAttendance,
   getEmployees,
@@ -82,6 +108,7 @@ import {
   getTripExtrasSuggestion,
   getVacationOverview,
 } from "./actions/payroll";
+import { proposePayrollPayment } from "./actions/payroll-proposals";
 import {
   getArcaReceivedVouchers,
   getPaymentOrders,
@@ -118,6 +145,7 @@ import {
   getManagementPnL,
   getManagementPnLDocuments,
 } from "./actions/management";
+import { proposeLoanInstallmentPayment } from "./actions/loans-proposals";
 import { getMonthlyPackageStatus } from "./actions/monthly-package";
 import {
   getLateInterestCandidates,
@@ -127,10 +155,29 @@ import {
   proposeTask,
 } from "./actions/operations-proposals";
 import {
+  proposeClient,
+  proposeClientUpdate,
+  proposeCreditDebitNote,
+  proposeInvoice,
+  proposeInvoiceEmail,
+} from "./actions/sales-proposals";
+import {
   getDriverSettlements,
   getFreightSettlements,
 } from "./actions/settlements";
+import {
+  proposeCheckDeposit,
+  proposeIssuedCheck,
+  proposeManualCheck,
+} from "./actions/checks-proposals";
+import {
+  proposeCashMovement,
+  proposePaymentOrder,
+  proposeReceipt,
+  proposeTransfer,
+} from "./actions/treasury-proposals";
 import { getTasks } from "./actions/tasks";
+import { proposeTaxDocument, proposeTaxPayment } from "./actions/tax-proposals";
 import { getTaxDocuments } from "./actions/taxes";
 import { getTodayOverview, getUpcomingDueDates } from "./actions/today";
 import {
@@ -167,7 +214,14 @@ export const AI_ACTIONS: readonly AiAction[] = [
   getClientPaymentBehavior,
   getLateInterestCandidates,
   proposeLateInterestNd,
+  proposeClient,
+  proposeClientUpdate,
+  proposeInvoice,
+  proposeCreditDebitNote,
+  proposeInvoiceEmail,
+  proposeReceipt,
   getFreightSettlements,
+  proposeFreightSettlement,
   // Compras / cuentas por pagar
   getSupplierAging,
   getPurchaseInvoices,
@@ -181,6 +235,11 @@ export const AI_ACTIONS: readonly AiAction[] = [
   getSupplierUpcomingDues,
   getSupplierPriceEvolution,
   getSupplierCategories,
+  proposePaymentOrder,
+  proposePurchaseInvoice,
+  proposeArcaPurchase,
+  proposeSupplier,
+  proposeSupplierUpdate,
   // Tesorería
   getTreasurySummary,
   getCashFlow,
@@ -193,6 +252,11 @@ export const AI_ACTIONS: readonly AiAction[] = [
   getDriverSettlements,
   getBankReconciliation,
   proposeBankMatches,
+  proposeCashMovement,
+  proposeTransfer,
+  proposeManualCheck,
+  proposeCheckDeposit,
+  proposeIssuedCheck,
   // Contabilidad
   getTrialBalance,
   getLedger,
@@ -211,9 +275,12 @@ export const AI_ACTIONS: readonly AiAction[] = [
   getExpenseByCategory,
   getLoans,
   getLoanDetail,
+  proposeLoanInstallmentPayment,
   getExchangeRates,
   getMonthlyPackageStatus,
   getTaxDocuments,
+  proposeTaxDocument,
+  proposeTaxPayment,
   proposeJournalEntry,
   proposeExchangeRate,
   proposeRecategorizeExpense,
@@ -237,6 +304,12 @@ export const AI_ACTIONS: readonly AiAction[] = [
   getLeavesSummary,
   getAttendanceSummary,
   proposeLeave,
+  proposeCreateEmployee,
+  proposeUpdateEmployee,
+  proposePayrollPayment,
+  proposeEmployeeAccountCash,
+  proposeEmployeeAccountMovement,
+  proposeAttendance,
   // Flota / transporte
   getVehicles,
   getTrips,
@@ -254,6 +327,12 @@ export const AI_ACTIONS: readonly AiAction[] = [
   getShipmentsSummary,
   getShipments,
   getTodayOverview,
+  proposeTrip,
+  proposeShipment,
+  proposeShipmentStatus,
+  proposeFuelLoad,
+  proposeMaintenance,
+  proposeVehicleKm,
   // Depósito
   getPalletsSummary,
   getPallets,

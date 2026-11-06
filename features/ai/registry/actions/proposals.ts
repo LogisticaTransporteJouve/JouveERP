@@ -4,7 +4,6 @@ import { listChartOfAccountsAction } from "@/features/chart-of-accounts/actions/
 import type { ChartAccount } from "@/features/chart-of-accounts/schema";
 import { getUsdReferenceRateAction } from "@/features/exchange-rates/actions/exchange-rates-actions";
 import { isoDate } from "@/features/exchange-rates/schema";
-import { searchEmployeesAction } from "@/features/hr/actions/employees-actions";
 import { LEAVE_KINDS } from "@/features/hr/vacation-schema";
 import { createLeave } from "@/lib/commands/create-leave";
 import { createManualJournalEntry } from "@/lib/commands/create-manual-journal-entry";
@@ -19,19 +18,12 @@ import {
 } from "../../lib/proposal-specs";
 import { defineAiProposal, type ProposalCandidate } from "../propose";
 
+import { resolveEmployee } from "./hr-refs";
+import { MAX_CANDIDATES, norm } from "./resolve-client";
+
 // Lookups go through the read actions (their own gate + RLS); the writes run
 // only after the user confirms, through the same lib/commands function the
 // manual form's server action calls.
-
-const MAX_CANDIDATES = 5;
-
-function norm(text: string): string {
-  return text
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .trim()
-    .toLowerCase();
-}
 
 export const proposeLeave = defineAiProposal({
   name: "proposeLeave",
@@ -56,47 +48,9 @@ export const proposeLeave = defineAiProposal({
   }),
   spec: leaveProposalSpec,
   prepare: async (_ctx, input) => {
-    const res = await searchEmployeesAction({
-      query: input.employee,
-      onlyActive: true,
-      limit: MAX_CANDIDATES + 1,
-    });
-    if (!res.ok) return { kind: "error", error: res.error };
-    const found = res.data.employees;
-    const exact = found.filter(
-      (e) =>
-        norm(e.legal_name) === norm(input.employee) ||
-        e.cuil === input.employee,
-    );
-    const pick =
-      exact.length === 1 ? exact[0] : found.length === 1 ? found[0] : undefined;
-    if (!pick) {
-      return {
-        kind: "issues",
-        issues: [
-          {
-            field: "employee",
-            message:
-              found.length === 0
-                ? `No hay un empleado activo que coincida con "${input.employee}".`
-                : `Hay varios empleados que coinciden con "${input.employee}".`,
-          },
-        ],
-        candidates: found.length
-          ? [
-              {
-                field: "employee",
-                options: found.slice(0, MAX_CANDIDATES).map((e) => ({
-                  value: e.legal_name,
-                  label: e.position
-                    ? `${e.legal_name} (${e.position})`
-                    : e.legal_name,
-                })),
-              },
-            ]
-          : undefined,
-      };
-    }
+    const found = await resolveEmployee(input.employee);
+    if (!found.ok) return found.result;
+    const pick = found.value;
     return {
       kind: "draft",
       draft: {

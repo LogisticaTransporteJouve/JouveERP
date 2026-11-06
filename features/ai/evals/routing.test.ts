@@ -141,6 +141,7 @@ vi.mock("@/features/taxes/actions/tax-documents-actions", async (orig) => ({
     typeof import("@/features/taxes/actions/tax-documents-actions")
   >()),
   listTaxDocumentsAction: stub("listTaxDocumentsAction"),
+  listTaxAccountOptionsAction: vi.fn(async () => ({ ok: true, data: [] })),
   getIvaPositionEstimateAction: stub("getIvaPositionEstimateAction"),
 }));
 
@@ -191,6 +192,189 @@ vi.mock(
     getReconciliationAction: stub("getReconciliationAction"),
   }),
 );
+// The treasury proposals resolve an account, a party and a channel, then
+// read the number and the open documents.
+vi.mock("@/features/accounts/actions/accounts-actions", async (orig) => ({
+  ...(await orig<
+    typeof import("@/features/accounts/actions/accounts-actions")
+  >()),
+  listAccountsAction: vi.fn(async () => ({
+    ok: true,
+    data: [
+      { ...EVAL_FIXTURES.bank, type: "bank" },
+      { ...EVAL_FIXTURES.cash, type: "cash" },
+      { ...EVAL_FIXTURES.cartera, type: "checks" },
+    ].map((a) => ({ ...a, currency: "ARS", is_active: true })),
+  })),
+}));
+vi.mock("@/features/checks/actions/checks-actions", async (orig) => ({
+  ...(await orig<typeof import("@/features/checks/actions/checks-actions")>()),
+  listEnCarteraChecksAction: vi.fn(async () => ({
+    ok: true,
+    data: [
+      {
+        id: EVAL_FIXTURES.record,
+        kind: "fisico",
+        check_number: "12345",
+        bank_name: "Banco Macro",
+        drawer_name: EVAL_FIXTURES.client.name,
+        due_date: "2026-11-20",
+        amount: 300_000,
+        currency: "ARS",
+        cartera_account_id: EVAL_FIXTURES.cartera.id,
+        cartera_account_name: EVAL_FIXTURES.cartera.name,
+        channel_id: "jouve_fiscal",
+      },
+    ],
+  })),
+}));
+vi.mock("@/lib/channels", async (orig) => ({
+  ...(await orig<typeof import("@/lib/channels")>()),
+  readInvoicingChannels: vi.fn(async () => ({
+    ok: true,
+    channels: [
+      { id: "jouve_fiscal", name: "Fiscal", is_fiscal: true, is_active: true },
+      {
+        id: "jouve_internal",
+        name: "Interno",
+        is_fiscal: false,
+        is_active: true,
+      },
+    ],
+  })),
+}));
+const nextNumero = vi.fn(async () => ({
+  ok: true,
+  data: { next: 1, isFirst: true },
+}));
+const openInFiscal = vi.fn(async (_party: string, channel: string) => ({
+  ok: true,
+  data:
+    channel === "jouve_fiscal"
+      ? [
+          {
+            id: EVAL_FIXTURES.record,
+            document_type: "invoice",
+            numero: 1,
+            punto_venta: 1,
+            letter: "A",
+            kind: "factura",
+            fecha: "2026-10-01",
+            imp_total: 500_000,
+            already_allocated: 0,
+            outstanding: 500_000,
+            currency: "ARS",
+            check_number: null,
+          },
+        ]
+      : [],
+}));
+vi.mock("@/features/receipts/actions/receipts-actions", async (orig) => ({
+  ...(await orig<
+    typeof import("@/features/receipts/actions/receipts-actions")
+  >()),
+  listPendingComprobantesForClientAction: openInFiscal,
+  getNextReceiptNumeroAction: nextNumero,
+}));
+vi.mock(
+  "@/features/payment-orders/actions/payment-orders-actions",
+  async (orig) => ({
+    ...(await orig<
+      typeof import("@/features/payment-orders/actions/payment-orders-actions")
+    >()),
+    listPendingInvoicesForSupplierAction: openInFiscal,
+    getNextPaymentOrderNumeroAction: nextNumero,
+  }),
+);
+vi.mock("@/features/hr/actions/employees-actions", async (orig) => ({
+  ...(await orig<typeof import("@/features/hr/actions/employees-actions")>()),
+  searchEmployeesAction: vi.fn(async () => ({
+    ok: true,
+    data: {
+      employees: [
+        {
+          id: EVAL_FIXTURES.employee.id,
+          legal_name: EVAL_FIXTURES.employee.name,
+          position: "Administrativo",
+          cuil: null,
+          cbu: null,
+          pay_frequency: "mensual",
+          base_salary: 900000,
+          viatico_monthly: 0,
+          is_monotributo: false,
+          hire_date: "2024-03-01",
+          notes: null,
+          convenio: null,
+          categoria: null,
+          obra_social: null,
+          art: null,
+          retribucion_formal: null,
+        },
+      ],
+      nextOffset: null,
+    },
+  })),
+}));
+const loanFixture = {
+  id: EVAL_FIXTURES.record,
+  kind: "leasing",
+  description: "Leasing Scania",
+  lender: "Banco Galicia",
+  currency: "ARS",
+  status: "active",
+};
+vi.mock("@/features/loans/actions/loans-actions", async (orig) => ({
+  ...(await orig<typeof import("@/features/loans/actions/loans-actions")>()),
+  listLoansAction: vi.fn(async () => ({ ok: true, data: [loanFixture] })),
+  getLoanAction: vi.fn(async () => ({
+    ok: true,
+    data: {
+      ...loanFixture,
+      installments: [
+        {
+          id: EVAL_FIXTURES.record,
+          number: 1,
+          due_date: "2026-11-10",
+          amount: 250000,
+          status: "pendiente",
+          split: null,
+        },
+      ],
+    },
+  })),
+}));
+vi.mock("@/features/hr/actions/attendance-actions", async (orig) => ({
+  ...(await orig<typeof import("@/features/hr/actions/attendance-actions")>()),
+  getAttendanceMonthAction: vi.fn(async () => ({
+    ok: true,
+    data: { year: 2026, month: 11, records: [], holidays: [] },
+  })),
+}));
+vi.mock("@/features/hr/actions/payroll-actions", async (orig) => ({
+  ...(await orig<typeof import("@/features/hr/actions/payroll-actions")>()),
+  getPayrollPeriodAction: vi.fn(async () => ({
+    ok: true,
+    data: {
+      period: { id: EVAL_FIXTURES.record, status: "draft" },
+      entries: [
+        {
+          id: EVAL_FIXTURES.record,
+          employee_id: EVAL_FIXTURES.employee.id,
+          employee_legal_name: EVAL_FIXTURES.employee.name,
+          recibo_neto: null,
+          sueldo_neto: 900000,
+          total_a_pagar: 900000,
+          saldo: 900000,
+          embargo: 0,
+          deudas: 0,
+          telefono: 0,
+          paid_transferencia: 0,
+          paid_efectivo: 0,
+        },
+      ],
+    },
+  })),
+}));
 vi.mock("@/features/trips/actions/trips-actions", async (orig) => ({
   ...(await orig<typeof import("@/features/trips/actions/trips-actions")>()),
   listTripsAction: stub("listTripsAction"),
@@ -206,6 +390,42 @@ vi.mock("@/features/shipments/actions/shipments-actions", async (orig) => ({
   >()),
   listShipmentsAction: stub("listShipmentsAction"),
   listShipmentsByTripAction: stub("listShipmentsByTripAction"),
+}));
+vi.mock(
+  "@/features/freight-settlements/actions/freight-settlements-actions",
+  async (orig) => ({
+    ...(await orig<
+      typeof import("@/features/freight-settlements/actions/freight-settlements-actions")
+    >()),
+    listFreightSettlementCandidatesAction: stub(
+      "listFreightSettlementCandidatesAction",
+    ),
+  }),
+);
+// The km proposal compares with the month's grid, which lists the truck.
+vi.mock("@/features/vehicle-km/actions/vehicle-km-actions", async (orig) => ({
+  ...(await orig<
+    typeof import("@/features/vehicle-km/actions/vehicle-km-actions")
+  >()),
+  getVehicleKmMonthAction: vi.fn(async ({ period }: { period: string }) => ({
+    ok: true,
+    data: {
+      period,
+      missing: 1,
+      rows: [
+        {
+          vehicle_id: EVAL_FIXTURES.truck.id,
+          patente: EVAL_FIXTURES.truck.patente,
+          alias: null,
+          vehicle_type: "camion",
+          is_active: true,
+          reading: null,
+          previous: null,
+          driven: null,
+        },
+      ],
+    },
+  })),
 }));
 vi.mock("@/features/pallets/actions/pallets-actions", async (orig) => ({
   ...(await orig<
@@ -242,6 +462,41 @@ vi.mock("@/features/invoices/actions/invoices-actions", async (orig) => ({
     typeof import("@/features/invoices/actions/invoices-actions")
   >()),
   getInvoiceDetailAction: stub("getInvoiceDetailAction"),
+  listInvoicingChannelsAction: vi.fn(async () => ({
+    ok: true,
+    data: [{ id: "jouve_fiscal", name: "Jouve fiscal", is_fiscal: true }],
+  })),
+  listEnabledPosAction: vi.fn(async () => ({
+    ok: true,
+    data: [{ numero: 3, channel_id: "jouve_fiscal", nickname: null }],
+  })),
+}));
+vi.mock("@/features/clients/actions/clients-actions", async (orig) => ({
+  ...(await orig<
+    typeof import("@/features/clients/actions/clients-actions")
+  >()),
+  searchClientsAction: vi.fn(async () => ({
+    ok: true,
+    data: {
+      clients: [
+        {
+          id: EVAL_FIXTURES.client.id,
+          legal_name: EVAL_FIXTURES.client.name,
+          display_name: null,
+          cuit: EVAL_FIXTURES.client.cuit,
+          iva_condition: "responsable_inscripto",
+          is_fiscal: true,
+          email: null,
+          phone: null,
+          address: null,
+          real_address: null,
+          notes: null,
+          is_active: true,
+        },
+      ],
+      nextOffset: null,
+    },
+  })),
 }));
 vi.mock(
   "@/features/purchase-invoices/actions/purchase-invoices-actions",
@@ -250,6 +505,10 @@ vi.mock(
       typeof import("@/features/purchase-invoices/actions/purchase-invoices-actions")
     >()),
     getPurchaseInvoiceByIdAction: stub("getPurchaseInvoiceByIdAction"),
+    findPurchaseInvoiceDuplicateAction: vi.fn(async () => ({
+      ok: true,
+      data: null,
+    })),
     getPurchaseInvoiceItemsAction: stub("getPurchaseInvoiceItemsAction"),
     getPurchaseInvoiceAllocationsAction: stub(
       "getPurchaseInvoiceAllocationsAction",
@@ -274,6 +533,31 @@ vi.mock(
     listReceivedVouchersAction: stub("listReceivedVouchersAction"),
   }),
 );
+vi.mock("@/features/suppliers/actions/suppliers-actions", async (orig) => ({
+  ...(await orig<
+    typeof import("@/features/suppliers/actions/suppliers-actions")
+  >()),
+  findSupplierByCuitAction: vi.fn(async () => ({ ok: true, data: null })),
+  searchSuppliersAction: vi.fn(async () => ({
+    ok: true,
+    data: {
+      suppliers: [
+        {
+          id: EVAL_FIXTURES.supplier.id,
+          legal_name: EVAL_FIXTURES.supplier.name,
+          display_name: null,
+          cuit: "30711111111",
+          is_fiscal: true,
+          default_channel_id: null,
+          default_payment_term_days: null,
+          default_expense_account_id: null,
+          default_cost_center_id: null,
+        },
+      ],
+      nextOffset: null,
+    },
+  })),
+}));
 vi.mock("@/features/ai/document/actions", async (orig) => ({
   ...(await orig<typeof import("@/features/ai/document/actions")>()),
   listExtractionsAction: stub("listExtractionsAction"),

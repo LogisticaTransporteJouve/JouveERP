@@ -7,13 +7,14 @@ import { userCan, userCanAll } from "@/lib/auth/permissions";
 import { logger } from "@/lib/logger";
 import { formatMoney } from "@/lib/format";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
-import { isAccountType } from "@/features/accounts/schema";
-
 import {
-  exceedsBalance,
-  payrollDbErrorMessage,
-  payrollPayableAccounts,
-} from "../lib/payroll-payments";
+  bulkCreatePayrollPayments,
+  createPayrollPayment,
+  loadPayrollBalances,
+  payrollAccountProblem,
+} from "@/lib/commands/pay-payroll";
+
+import { exceedsBalance, payrollDbErrorMessage } from "../lib/payroll-payments";
 import { HR_CASH_PERMISSIONS } from "../lib/hr-cash";
 import {
   BulkCreatePayrollPaymentsSchema,
@@ -23,8 +24,6 @@ import {
   UpdatePayrollPaymentSchema,
   type PayrollPayment,
 } from "../payroll-schema";
-
-type Supabase = Awaited<ReturnType<typeof createSupabaseClient>>;
 
 function narrowPayment(row: {
   method: string;
@@ -39,53 +38,6 @@ function narrowPayment(row: {
 
 const COLS =
   "id, entry_id, account_id, channel_id, amount, method, paid_at, transaction_id, notes, created_by, created_at, updated_at";
-
-/** Salaries are paid from active ARS cash/bank accounts only. */
-async function accountProblem(
-  supabase: Supabase,
-  accountId: string,
-): Promise<string | null> {
-  const { data, error } = await supabase
-    .from("accounts")
-    .select("id, is_active, currency, type")
-    .eq("id", accountId)
-    .maybeSingle();
-  if (error) return "No se pudo verificar la cuenta.";
-  if (!data) return "La cuenta elegida no existe.";
-  if (!isAccountType(data.type)) return "La cuenta elegida no es válida.";
-  const [ok] = payrollPayableAccounts([
-    { is_active: data.is_active, currency: data.currency, type: data.type },
-  ]);
-  if (ok) return null;
-  if (data.currency !== "ARS") {
-    return `Los sueldos se pagan desde una cuenta en pesos (la cuenta elegida es en ${data.currency}).`;
-  }
-  if (!data.is_active) return "La cuenta elegida está inactiva.";
-  return "Los sueldos no se pagan desde una cartera de cheques.";
-}
-
-type EntryBalance = { id: string; saldo: number; employee_id: string };
-
-async function loadBalances(
-  supabase: Supabase,
-  entryIds: readonly string[],
-): Promise<Map<string, EntryBalance> | null> {
-  const { data, error } = await supabase
-    .from("v_payroll_entries_with_payments")
-    .select("id, saldo, employee_id")
-    .in("id", [...entryIds]);
-  if (error) return null;
-  const map = new Map<string, EntryBalance>();
-  for (const row of data ?? []) {
-    if (!row.id || !row.employee_id) continue;
-    map.set(row.id, {
-      id: row.id,
-      saldo: Number(row.saldo ?? 0),
-      employee_id: row.employee_id,
-    });
-  }
-  return map;
-}
 
 export async function listPayrollPaymentsAction(
   entryId: string,
@@ -130,60 +82,7 @@ export async function createPayrollPaymentAction(
     };
   }
 
-  const supabase = await createSupabaseClient();
-  const problem = await accountProblem(supabase, parsed.data.account_id);
-  if (problem) return { ok: false, error: problem };
-
-  if (!parsed.data.allow_overpay) {
-    const balances = await loadBalances(supabase, [parsed.data.entry_id]);
-    const entry = balances?.get(parsed.data.entry_id);
-    if (!entry) return { ok: false, error: "No se encontró la liquidación." };
-    if (exceedsBalance(parsed.data.amount, entry.saldo)) {
-      return {
-        ok: false,
-        error: `El pago supera el saldo pendiente (${formatMoney(Math.max(entry.saldo, 0))}). Si es correcto, marcá "Pagar más que el saldo".`,
-      };
-    }
-  }
-
-  const { data, error } = await supabase
-    .from("payroll_payments")
-    .insert({
-      entry_id: parsed.data.entry_id,
-      account_id: parsed.data.account_id,
-      channel_id: parsed.data.channel_id,
-      amount: parsed.data.amount,
-      method: parsed.data.method,
-      paid_at: parsed.data.paid_at,
-      notes: parsed.data.notes ?? null,
-      created_by: ctx.userId,
-    })
-    .select("id")
-    .single();
-
-  if (error || !data) {
-    logger.error("payroll_payments.create.failed", {
-      userId: ctx.userId,
-      error,
-    });
-    return {
-      ok: false,
-      error: payrollDbErrorMessage(error, "No se pudo registrar el pago."),
-    };
-  }
-  await logAudit(
-    "payroll.payment_created",
-    ctx.userId,
-    {
-      entry_id: parsed.data.entry_id,
-      amount: parsed.data.amount,
-      method: parsed.data.method,
-      account_id: parsed.data.account_id,
-      overpay_confirmed: parsed.data.allow_overpay === true,
-    },
-    data.id,
-  );
-  return { ok: true, data: { id: data.id } };
+  return createPayrollPayment(ctx.userId, parsed.data);
 }
 
 export async function updatePayrollPaymentAction(
@@ -214,12 +113,15 @@ export async function updatePayrollPaymentAction(
   if (!current) return { ok: false, error: "El pago ya no existe." };
 
   if (parsed.data.account_id !== current.account_id) {
-    const problem = await accountProblem(supabase, parsed.data.account_id);
+    const problem = await payrollAccountProblem(
+      supabase,
+      parsed.data.account_id,
+    );
     if (problem) return { ok: false, error: problem };
   }
 
   if (!parsed.data.allow_overpay) {
-    const balances = await loadBalances(supabase, [current.entry_id]);
+    const balances = await loadPayrollBalances(supabase, [current.entry_id]);
     const entry = balances?.get(current.entry_id);
     if (!entry) return { ok: false, error: "No se encontró la liquidación." };
     // The current payment already counts in `paid`; give its amount back.
@@ -283,9 +185,6 @@ export async function updatePayrollPaymentAction(
   return { ok: true, data: undefined };
 }
 
-// Bulk payment: 1 batch insert of N payroll_payments, each with its own
-// amount → trigger creates N transactions in the chosen account. If any one
-// fails (e.g. an entry_id that doesn't exist), the whole batch rolls back.
 export async function bulkCreatePayrollPaymentsAction(
   input: unknown,
 ): Promise<ActionResult<{ inserted: number }>> {
@@ -302,69 +201,7 @@ export async function bulkCreatePayrollPaymentsAction(
     };
   }
 
-  const supabase = await createSupabaseClient();
-  const problem = await accountProblem(supabase, parsed.data.account_id);
-  if (problem) return { ok: false, error: problem };
-
-  if (!parsed.data.allow_overpay) {
-    const balances = await loadBalances(
-      supabase,
-      parsed.data.items.map((i) => i.entry_id),
-    );
-    if (!balances) {
-      return { ok: false, error: "No se pudieron leer los saldos." };
-    }
-    const over = parsed.data.items.filter((item) => {
-      const entry = balances.get(item.entry_id);
-      return !entry || exceedsBalance(item.amount, entry.saldo);
-    });
-    if (over.length > 0) {
-      return {
-        ok: false,
-        error: `${over.length} empleado(s) quedarían con saldo negativo. Bajá el monto, sacalos de la selección o marcá "Pagar más que el saldo".`,
-      };
-    }
-  }
-
-  const rows = parsed.data.items.map(({ entry_id, amount }) => ({
-    entry_id,
-    account_id: parsed.data.account_id,
-    channel_id: parsed.data.channel_id,
-    amount,
-    method: parsed.data.method,
-    paid_at: parsed.data.paid_at,
-    notes: parsed.data.notes ?? null,
-    created_by: ctx.userId,
-  }));
-
-  const { data, error } = await supabase
-    .from("payroll_payments")
-    .insert(rows)
-    .select("id");
-
-  if (error) {
-    logger.error("payroll_payments.bulk_create.failed", {
-      userId: ctx.userId,
-      count: rows.length,
-      error,
-    });
-    return {
-      ok: false,
-      error: payrollDbErrorMessage(
-        error,
-        "No se pudo registrar el pago masivo.",
-      ),
-    };
-  }
-  await logAudit("payroll.payment_bulk_created", ctx.userId, {
-    count: data?.length ?? 0,
-    total: parsed.data.items.reduce((s, i) => s + i.amount, 0),
-    method: parsed.data.method,
-    account_id: parsed.data.account_id,
-    items: parsed.data.items,
-    overpay_confirmed: parsed.data.allow_overpay === true,
-  });
-  return { ok: true, data: { inserted: data?.length ?? 0 } };
+  return bulkCreatePayrollPayments(ctx.userId, parsed.data);
 }
 
 export async function deletePayrollPaymentAction(

@@ -3,7 +3,7 @@
 import { logAudit } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
-import { todayInAR } from "@/lib/format";
+import { saveVehicleKmReading } from "@/lib/commands/save-vehicle-km-reading";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { paginateRange } from "@/lib/supabase/paginate";
@@ -70,8 +70,7 @@ export async function getVehicleKmMonthAction(
   };
 }
 
-/** Loads or corrects a vehicle's reading for a month (one per month). A
- *  reading below the previous month's is accepted: the screen warns. */
+/** Loads or corrects a vehicle's reading for a month (Km mensual). */
 export async function saveVehicleKmReadingAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
@@ -86,45 +85,7 @@ export async function saveVehicleKmReadingAction(
       error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
     };
   }
-  const today = todayInAR();
-  if (parsed.data.period > today.slice(0, 7)) {
-    return { ok: false, error: "No se puede cargar el km de un mes futuro." };
-  }
-  if (parsed.data.read_on > today) {
-    return { ok: false, error: "La fecha de lectura no puede ser futura." };
-  }
-
-  const { data, error } = await getServiceClient()
-    .from("vehicle_km_readings")
-    .upsert(
-      {
-        vehicle_id: parsed.data.vehicle_id,
-        period: parsed.data.period,
-        km: parsed.data.km,
-        read_on: parsed.data.read_on,
-        notes: parsed.data.notes,
-        loaded_by: ctx.userId,
-      },
-      { onConflict: "vehicle_id,period" },
-    )
-    .select("id")
-    .single();
-  if (error) {
-    logger.error("vehicle_km.save.failed", { userId: ctx.userId, error });
-    return { ok: false, error: "No se pudo guardar el km." };
-  }
-
-  await logAudit(
-    "vehicle_km.saved",
-    ctx.userId,
-    {
-      vehicle_id: parsed.data.vehicle_id,
-      period: parsed.data.period,
-      km: parsed.data.km,
-    },
-    data.id,
-  );
-  return { ok: true, data: { id: data.id } };
+  return saveVehicleKmReading(getServiceClient(), ctx.userId, parsed.data);
 }
 
 export async function deleteVehicleKmReadingAction(

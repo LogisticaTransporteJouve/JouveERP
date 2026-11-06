@@ -115,6 +115,28 @@ const driverFields = {
   driver_phone: driverText(40),
 };
 
+/** The driver fields a form sent, as the driver record's columns; an absent
+ *  key keeps the stored value. */
+export function driverRecordPatch(fields: {
+  license_number?: string | null;
+  license_category?: string | null;
+  driver_phone?: string | null;
+}): {
+  license_number?: string | null;
+  license_category?: string | null;
+  phone?: string | null;
+} {
+  return {
+    ...(fields.license_number !== undefined && {
+      license_number: fields.license_number,
+    }),
+    ...(fields.license_category !== undefined && {
+      license_category: fields.license_category,
+    }),
+    ...(fields.driver_phone !== undefined && { phone: fields.driver_phone }),
+  };
+}
+
 /** Data of the formal receipt the liquidador issues (decision D5). */
 const formalFields = {
   convenio: shortTextNullable,

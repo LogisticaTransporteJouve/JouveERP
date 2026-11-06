@@ -31,7 +31,12 @@ import { userCan, type Access } from "@/lib/auth/permissions";
 
 import { useDeleteShipment, useShipments } from "../hooks/use-shipments";
 import { formatRoute, matchesShipmentSearch } from "../lib/format";
-import { type Shipment, type ShipmentStatus } from "../schema";
+import {
+  SHIPMENT_NEXT_STATUSES,
+  type Shipment,
+  type ShipmentStatus,
+  type ShipmentTargetStatus,
+} from "../schema";
 
 import { FreightInvoiceDialog } from "./freight-invoice-dialog";
 import { ShipmentDialog } from "./shipment-dialog";
@@ -52,13 +57,16 @@ function formatDate(value: string | null): string {
   return new Date(value).toLocaleDateString("es-AR");
 }
 
-const STATUS_ACTIONS: Record<ShipmentStatus, ShipmentStatusAction[]> = {
-  not_started: ["start", "deliver", "cancel", "reprogram"],
-  in_progress: ["deliver", "cancel", "reprogram"],
-  delivered: [],
-  cancelled: ["reprogram"],
-  reprogrammed: ["reprogram"],
+const TARGET_ACTION: Record<ShipmentTargetStatus, ShipmentStatusAction> = {
+  in_progress: "start",
+  delivered: "deliver",
+  cancelled: "cancel",
+  reprogrammed: "reprogram",
 };
+
+function statusActions(status: ShipmentStatus): ShipmentStatusAction[] {
+  return SHIPMENT_NEXT_STATUSES[status].map((s) => TARGET_ACTION[s]);
+}
 
 const ACTION_LABEL: Record<ShipmentStatusAction, string> = {
   start: "Iniciar",
@@ -208,7 +216,7 @@ export function ShipmentsTable({
         meta: { headerClassName: "w-12", mobile: "primary" },
         cell: ({ row }) => {
           const shipment = row.original;
-          const statusActions = canWrite ? STATUS_ACTIONS[shipment.status] : [];
+          const actions = canWrite ? statusActions(shipment.status) : [];
           const canInvoiceFreight = Boolean(
             canInvoice &&
             shipment.freight_amount &&
@@ -231,8 +239,8 @@ export function ShipmentsTable({
                     Editar
                   </DropdownMenuItem>
                 )}
-                {statusActions.length > 0 && <DropdownMenuSeparator />}
-                {statusActions.map((action) => {
+                {actions.length > 0 && <DropdownMenuSeparator />}
+                {actions.map((action) => {
                   const Icon = ACTION_ICON[action];
                   return (
                     <DropdownMenuItem

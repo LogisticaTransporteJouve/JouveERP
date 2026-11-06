@@ -2,32 +2,127 @@ import { z } from "zod";
 
 import { MatchLineSchema } from "@/features/bank-reconciliation/schema";
 import {
+  CHECK_KIND_LABEL,
+  DepositChequeSchema,
+  ManualChequeCreateSchema,
+} from "@/features/checks/schema";
+import {
   CLIENT_TARIFF_CONCEPT_LABELS,
   CLIENT_TARIFF_UNIT_LABELS,
   ClientTariffCreateSchema,
 } from "@/features/client-tariffs/schema";
 import {
-  RecategorizeExpenseSchema,
+  ClientCreateSchema,
+  ClientUpdateSchema,
+  isIvaCondition,
+  IVA_CONDITION_LABEL,
+  ivaConditionLabel,
+} from "@/features/clients/schema";
+import {
   type ExpenseSource,
+  RecategorizeExpenseSchema,
 } from "@/features/cost-centers/schema";
 import {
   rateJumpWarningFor,
   type RateReference,
 } from "@/features/exchange-rates/lib/rate-jump";
 import { ExchangeRateCreateSchema } from "@/features/exchange-rates/schema";
+import { FreightSettlementSaveSchema } from "@/features/freight-settlements/schema";
+import { FuelLoadCreateSchema } from "@/features/fuel/schema";
+import {
+  ACCOUNT_MOVEMENT_KIND_LABEL,
+  CreateManualMovementSchema,
+  CREDITOR_LABEL,
+  RecordAccountCashSchema,
+} from "@/features/hr/account-schema";
+import {
+  ATTENDANCE_KIND_LABEL,
+  ATTENDANCE_KINDS,
+  UpsertAttendanceSchema,
+} from "@/features/hr/attendance-schema";
+import {
+  BulkCreatePayrollPaymentsSchema,
+  PAYROLL_PAYMENT_METHOD_LABEL,
+} from "@/features/hr/payroll-schema";
+import {
+  EMPLOYEE_POSITIONS,
+  EmployeeCreateSchema,
+  EmployeeUpdateSchema,
+  isDriverPosition,
+  isPayFrequency,
+  PAY_FREQUENCIES,
+  PAY_FREQUENCY_LABEL,
+} from "@/features/hr/schema";
 import {
   CreateLeaveSchema,
   LEAVE_KIND_LABEL,
   LEAVE_KINDS,
 } from "@/features/hr/vacation-schema";
+import {
+  computeLineAmounts,
+  computeTotals,
+  CreateComprobanteSchema,
+  invoiceKindLabel,
+  SendInvoiceEmailSchema,
+} from "@/features/invoices/schema";
+import {
+  ISSUED_CHECK_KIND_LABEL,
+  IssuedCheckCreateSchema,
+} from "@/features/issued-checks/schema";
 import { ManualJournalEntryCreateSchema } from "@/features/journal-entries/schema";
 import { IssueLateInterestSchema } from "@/features/late-interest/schema";
+import { PayInstallmentSchema } from "@/features/loans/schema";
+import {
+  MAINTENANCE_KIND_LABELS,
+  MAINTENANCE_KINDS,
+  MaintenanceCreateSchema,
+} from "@/features/maintenance/schema";
+import { PaymentOrderCreateSchema } from "@/features/payment-orders/schema";
+import { arcaGapTargetLabel } from "@/features/purchase-invoices/lib/arca-received-draft";
+import {
+  ARCA_GAP_TARGETS,
+  PURCHASE_TRIBUTE_FIELDS,
+  PURCHASE_TRIBUTE_LABEL,
+  PurchaseInvoiceCreateSchema,
+  purchaseKindLabel,
+} from "@/features/purchase-invoices/schema";
+import { ReceiptCreateSchema } from "@/features/receipts/schema";
+import {
+  SHIPMENT_STATUS_LABELS,
+  SHIPMENT_TARGET_STATUSES,
+  ShipmentCreateSchema,
+  ShipmentStatusChangeSchema,
+} from "@/features/shipments/schema";
+import {
+  SupplierCreateSchema,
+  SupplierUpdateSchema,
+} from "@/features/suppliers/schema";
 import { TaskCreateSchema } from "@/features/tasks/schema";
+import {
+  PayTaxDocumentSchema,
+  TAX_KIND_LABEL,
+  TaxDocumentCreateSchema,
+  taxDocumentLabel,
+} from "@/features/taxes/schema";
+import {
+  TRANSACTION_KIND_LABEL,
+  TransactionCreateSchema,
+  TransferCreateSchema,
+} from "@/features/transactions/schema";
+import {
+  TRIP_STATUS_LABELS,
+  TRIP_STATUSES,
+  TripCreateSchema,
+} from "@/features/trips/schema";
+import { KmReadingSaveSchema } from "@/features/vehicle-km/schema";
+import { ivaRatePercent, MONEDA } from "@/lib/afip/codes";
 import {
   amountToInput,
   formatAmountInput,
   formatArgentineDate,
+  formatInteger,
   formatMoney,
+  formatPeriod,
   formatRate,
   parseArAmount,
 } from "@/lib/format";
@@ -569,6 +664,1609 @@ export const recategorizeExpenseProposalSpec = defineProposalSpec({
   },
 });
 
+// ─── Fleet & operations ──────────────────────────────────────────────────────
+
+function kmText(km: number): string {
+  return `${km.toLocaleString("es-AR", { maximumFractionDigits: 1 })} km`;
+}
+
+/** A summary row only when the draft has a value for it. */
+function rowIf(
+  label: string,
+  value: string | null | undefined,
+): ProposalSummaryRow[] {
+  return value ? [{ label, value }] : [];
+}
+
+/** "Origen → Destino", or the one that is set. */
+function routeText(
+  origin: string | null | undefined,
+  destination: string | null | undefined,
+): string | null {
+  if (origin && destination) return `${origin} → ${destination}`;
+  return origin ?? destination ?? null;
+}
+
+export const tripProposalSpec = defineProposalSpec({
+  title: "Crear viaje",
+  draft: TripCreateSchema,
+  fields: [
+    { key: "trip_date", label: "Fecha", kind: "date" },
+    { key: "origin", label: "Origen", kind: "text" },
+    { key: "destination", label: "Destino", kind: "text" },
+    { key: "cargo_description", label: "Carga", kind: "textarea" },
+    {
+      key: "status",
+      label: "Estado",
+      kind: "select",
+      options: TRIP_STATUSES.map((s) => ({
+        value: s,
+        label: TRIP_STATUS_LABELS[s],
+      })),
+    },
+    { key: "km", label: "Km", kind: "number", decimals: 0 },
+    { key: "revenue", label: "Ingreso", kind: "number" },
+    { key: "cost", label: "Costo", kind: "number" },
+    { key: "notes", label: "Notas", kind: "textarea" },
+  ],
+  confirmLabel: "Crear viaje",
+  declineLabel: "Descartar",
+  summarize: (d, labels) => [
+    { label: "Fecha", value: formatArgentineDate(d.trip_date) },
+    ...rowIf(
+      "Vehículo",
+      d.vehicle_id ? (labels[d.vehicle_id] ?? d.vehicle_id) : null,
+    ),
+    ...rowIf(
+      "Chofer",
+      d.driver_id ? (labels[d.driver_id] ?? d.driver_id) : null,
+    ),
+    ...rowIf("Recorrido", routeText(d.origin, d.destination)),
+    ...rowIf("Carga", d.cargo_description),
+    { label: "Estado", value: TRIP_STATUS_LABELS[d.status] },
+    ...rowIf("Km", d.km != null ? kmText(d.km) : null),
+    ...rowIf("Ingreso", d.revenue != null ? formatMoney(d.revenue) : null),
+    ...rowIf("Costo", d.cost != null ? formatMoney(d.cost) : null),
+    ...rowIf("Notas", d.notes),
+  ],
+});
+
+export const shipmentProposalSpec = defineProposalSpec({
+  title: "Crear carga",
+  draft: ShipmentCreateSchema,
+  fields: [
+    { key: "remito_number", label: "Remito", kind: "text" },
+    { key: "scheduled_date", label: "Fecha programada", kind: "date" },
+    { key: "origin", label: "Origen", kind: "text" },
+    { key: "destination", label: "Destino", kind: "text" },
+    { key: "description", label: "Descripción", kind: "textarea" },
+    { key: "freight_amount", label: "Flete", kind: "number" },
+    { key: "cod_amount", label: "Contra entrega", kind: "number" },
+    { key: "notes", label: "Notas", kind: "textarea" },
+  ],
+  confirmLabel: "Crear carga",
+  declineLabel: "Descartar",
+  summarize: (d, labels) => [
+    {
+      label: "Cliente",
+      value: d.client_id ? (labels[d.client_id] ?? d.client_id) : "Sin cliente",
+    },
+    ...rowIf("Remito", d.remito_number),
+    ...rowIf(
+      "Fecha programada",
+      d.scheduled_date ? formatArgentineDate(d.scheduled_date) : null,
+    ),
+    ...rowIf("Recorrido", routeText(d.origin, d.destination)),
+    ...rowIf("Descripción", d.description),
+    ...rowIf(
+      "Flete",
+      d.freight_amount != null ? formatMoney(d.freight_amount) : null,
+    ),
+    ...rowIf(
+      "Contra entrega",
+      d.cod_amount != null ? formatMoney(d.cod_amount) : null,
+    ),
+    ...rowIf("Notas", d.notes),
+    { label: "Estado", value: SHIPMENT_STATUS_LABELS.not_started },
+  ],
+});
+
+export const CANCEL_REASON_REQUIRED = "El motivo es obligatorio.";
+
+/** The status dialog's input and its rules: a target status, and a reason to
+ *  cancel. */
+export const ShipmentStatusDraftSchema = ShipmentStatusChangeSchema.extend({
+  status: z.enum(SHIPMENT_TARGET_STATUSES),
+}).superRefine((v, ctx) => {
+  if (v.status === "cancelled" && !v.failure_reason) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["failure_reason"],
+      message: CANCEL_REASON_REQUIRED,
+    });
+  }
+});
+
+/** Keys of the display labels a status-change draft carries. */
+export const SHIPMENT_STATUS_LABEL_KEYS = {
+  shipment: "shipment",
+  statusBefore: "status_before",
+} as const;
+
+export const shipmentStatusProposalSpec = defineProposalSpec({
+  title: "Cambiar estado de la carga",
+  draft: ShipmentStatusDraftSchema,
+  fields: [
+    { key: "delivery_date", label: "Fecha de entrega", kind: "date" },
+    { key: "scheduled_date", label: "Nueva fecha programada", kind: "date" },
+    { key: "failure_reason", label: "Motivo", kind: "textarea" },
+    { key: "comment", label: "Comentario", kind: "textarea" },
+  ],
+  confirmLabel: "Cambiar estado",
+  declineLabel: "Descartar",
+  summarize: (d, labels) => {
+    const before = labels[SHIPMENT_STATUS_LABEL_KEYS.statusBefore];
+    return [
+      {
+        label: "Carga",
+        value: labels[SHIPMENT_STATUS_LABEL_KEYS.shipment] ?? d.id,
+      },
+      {
+        label: "Estado",
+        value: `${before ?? "—"} → ${SHIPMENT_STATUS_LABELS[d.status]}`,
+      },
+      ...(d.status === "delivered"
+        ? [
+            {
+              label: "Fecha de entrega",
+              value: d.delivery_date
+                ? formatArgentineDate(d.delivery_date)
+                : "Hoy",
+            },
+          ]
+        : []),
+      ...(d.status === "reprogrammed"
+        ? rowIf(
+            "Nueva fecha programada",
+            d.scheduled_date ? formatArgentineDate(d.scheduled_date) : null,
+          )
+        : []),
+      ...(d.status === "cancelled" || d.status === "reprogrammed"
+        ? rowIf("Motivo", d.failure_reason)
+        : []),
+      ...rowIf("Comentario", d.comment),
+      {
+        label: "Qué pasa",
+        value:
+          "Cambia el estado como en Cargas y queda en el historial; si la carga cambió de estado mientras tanto, no se toca.",
+      },
+    ];
+  },
+});
+
+export const fuelLoadProposalSpec = defineProposalSpec({
+  title: "Registrar carga de combustible",
+  draft: FuelLoadCreateSchema,
+  fields: [
+    { key: "load_date", label: "Fecha", kind: "date" },
+    { key: "liters", label: "Litros", kind: "number" },
+    { key: "amount", label: "Importe", kind: "number" },
+    { key: "odometer_km", label: "Odómetro (km)", kind: "number", decimals: 0 },
+    { key: "station", label: "Estación", kind: "text" },
+    { key: "card", label: "Tarjeta", kind: "text" },
+    { key: "notes", label: "Notas", kind: "textarea" },
+  ],
+  confirmLabel: "Registrar carga",
+  declineLabel: "Descartar",
+  summarize: (d, labels) => [
+    { label: "Vehículo", value: labels[d.vehicle_id] ?? d.vehicle_id },
+    { label: "Fecha", value: formatArgentineDate(d.load_date) },
+    {
+      label: "Litros",
+      value: d.liters.toLocaleString("es-AR", { maximumFractionDigits: 2 }),
+    },
+    { label: "Importe", value: formatMoney(d.amount) },
+    ...rowIf("Odómetro", d.odometer_km != null ? kmText(d.odometer_km) : null),
+    ...rowIf("Estación", d.station),
+    ...rowIf("Tarjeta", d.card),
+    ...rowIf("Notas", d.notes),
+  ],
+});
+
+export const maintenanceProposalSpec = defineProposalSpec({
+  title: "Registrar mantenimiento",
+  draft: MaintenanceCreateSchema,
+  fields: [
+    { key: "service_date", label: "Fecha", kind: "date" },
+    {
+      key: "kind",
+      label: "Tipo",
+      kind: "select",
+      options: MAINTENANCE_KINDS.map((k) => ({
+        value: k,
+        label: MAINTENANCE_KIND_LABELS[k],
+      })),
+    },
+    { key: "description", label: "Descripción", kind: "textarea" },
+    { key: "cost", label: "Costo", kind: "number" },
+    { key: "odometer_km", label: "Odómetro (km)", kind: "number", decimals: 0 },
+    {
+      key: "next_service_date",
+      label: "Próximo service (fecha)",
+      kind: "date",
+    },
+    {
+      key: "next_service_km",
+      label: "Próximo service (km)",
+      kind: "number",
+      decimals: 0,
+    },
+    { key: "provider", label: "Proveedor / taller", kind: "text" },
+    { key: "notes", label: "Notas", kind: "textarea" },
+  ],
+  confirmLabel: "Registrar mantenimiento",
+  declineLabel: "Descartar",
+  summarize: (d, labels) => [
+    { label: "Vehículo", value: labels[d.vehicle_id] ?? d.vehicle_id },
+    { label: "Fecha", value: formatArgentineDate(d.service_date) },
+    { label: "Tipo", value: MAINTENANCE_KIND_LABELS[d.kind] },
+    { label: "Descripción", value: d.description },
+    {
+      label: "Costo",
+      value: d.cost != null ? formatMoney(d.cost) : "Sin costo",
+    },
+    ...rowIf("Odómetro", d.odometer_km != null ? kmText(d.odometer_km) : null),
+    ...rowIf(
+      "Próximo service",
+      [
+        d.next_service_date ? formatArgentineDate(d.next_service_date) : null,
+        d.next_service_km != null ? kmText(d.next_service_km) : null,
+      ]
+        .filter(Boolean)
+        .join(" o ") || null,
+    ),
+    ...rowIf("Proveedor", d.provider),
+    ...rowIf("Notas", d.notes),
+  ],
+});
+
+/** Keys of the display labels a km-reading draft carries. */
+export const VEHICLE_KM_LABELS = {
+  previousKm: "km_previous",
+  previousPeriod: "km_previous_period",
+  current: "km_current",
+  unread: "km_unread",
+} as const;
+
+export const vehicleKmProposalSpec = defineProposalSpec({
+  title: "Cargar km del vehículo",
+  draft: KmReadingSaveSchema,
+  fields: [
+    { key: "km", label: "Km", kind: "number", decimals: 1 },
+    { key: "read_on", label: "Fecha de lectura", kind: "date" },
+    { key: "notes", label: "Notas", kind: "textarea" },
+  ],
+  confirmLabel: "Guardar km",
+  declineLabel: "Descartar",
+  summarize: (d, labels) => {
+    const previousPeriod = labels[VEHICLE_KM_LABELS.previousPeriod];
+    const previousKm = Number(labels[VEHICLE_KM_LABELS.previousKm]);
+    const current = labels[VEHICLE_KM_LABELS.current];
+    return [
+      { label: "Vehículo", value: labels[d.vehicle_id] ?? d.vehicle_id },
+      { label: "Mes", value: formatPeriod(d.period) },
+      { label: "Km", value: kmText(d.km) },
+      { label: "Fecha de lectura", value: formatArgentineDate(d.read_on) },
+      ...(previousPeriod && Number.isFinite(previousKm)
+        ? [
+            {
+              label: "Lectura anterior",
+              value: `${kmText(previousKm)} (${formatPeriod(previousPeriod)})`,
+            },
+            ...(d.km < previousKm
+              ? [
+                  {
+                    label: "Atención",
+                    value:
+                      "El km es menor que el de la lectura anterior. Revisá el número antes de guardar.",
+                  },
+                ]
+              : [
+                  {
+                    label: "Recorridos",
+                    value: kmText(d.km - previousKm),
+                  },
+                ]),
+          ]
+        : []),
+      ...(labels[VEHICLE_KM_LABELS.unread]
+        ? [
+            {
+              label: "Atención",
+              value:
+                "No se pudo leer la lectura anterior para compararla. Revisá el número antes de guardar.",
+            },
+          ]
+        : []),
+      ...(current
+        ? [
+            {
+              label: "Reemplaza",
+              value: `La lectura cargada de ese mes (${kmText(Number(current))})`,
+            },
+          ]
+        : []),
+      ...rowIf("Notas", d.notes),
+    ];
+  },
+});
+
+/** Keys of the display labels a liquidación draft carries (the client's id
+ *  carries its name). */
+export const FREIGHT_SETTLEMENT_LABELS = {
+  total: "fs_total",
+  unpriced: "fs_unpriced",
+} as const;
+
+export const freightSettlementProposalSpec = defineProposalSpec({
+  title: "Armar liquidación de fletes",
+  draft: FreightSettlementSaveSchema,
+  fields: [{ key: "notes", label: "Notas", kind: "textarea" }],
+  confirmLabel: "Guardar borrador",
+  declineLabel: "Descartar",
+  summarize: (d, labels) => {
+    const unpriced = Number(labels[FREIGHT_SETTLEMENT_LABELS.unpriced] ?? 0);
+    return [
+      { label: "Cliente", value: labels[d.client_id] ?? d.client_id },
+      {
+        label: "Período",
+        value: `${formatArgentineDate(d.period_start)} al ${formatArgentineDate(d.period_end)}`,
+      },
+      { label: "Cargas", value: String(d.shipment_ids.length) },
+      ...rowIf("Total estimado", labels[FREIGHT_SETTLEMENT_LABELS.total]),
+      ...(unpriced > 0
+        ? [
+            {
+              label: "Atención",
+              value: `${unpriced} ${unpriced === 1 ? "carga entregada queda" : "cargas entregadas quedan"} afuera: no tienen flete ni tarifa de flete vigente.`,
+            },
+          ]
+        : []),
+      ...rowIf("Notas", d.notes),
+      {
+        label: "Qué pasa",
+        value:
+          "Queda en borrador en Liquidaciones de fletes, como al guardarla a mano: cada carga se valoriza al guardar. Confirmarla y facturarla se hace desde la liquidación.",
+      },
+    ];
+  },
+});
+
+// ─── Clients ─────────────────────────────────────────────────────────────────
+
+/** The contact and address fields the client form edits on both sides. */
+const CLIENT_TEXT_FIELDS: readonly ProposalField[] = [
+  { key: "legal_name", label: "Razón social / nombre", kind: "text" },
+  { key: "display_name", label: "Nombre de fantasía", kind: "text" },
+  { key: "email", label: "Email", kind: "text" },
+  { key: "phone", label: "Teléfono", kind: "text" },
+  { key: "address", label: "Domicilio fiscal", kind: "text" },
+  { key: "real_address", label: "Domicilio real", kind: "text" },
+  { key: "notes", label: "Notas", kind: "textarea" },
+];
+
+export const clientCreateProposalSpec = defineProposalSpec({
+  title: "Dar de alta cliente",
+  draft: ClientCreateSchema,
+  fields: CLIENT_TEXT_FIELDS,
+  confirmLabel: "Crear cliente",
+  declineLabel: "Descartar",
+  summarize: (d) => [
+    {
+      label: "Lado",
+      value: d.is_fiscal
+        ? "Ventas (factura con CAE)"
+        : "Otras ventas (remito interno, sin CUIT)",
+    },
+    { label: "Razón social", value: d.legal_name },
+    ...(d.is_fiscal
+      ? [
+          { label: "CUIT", value: d.cuit },
+          {
+            label: "Condición de IVA",
+            value: IVA_CONDITION_LABEL[d.iva_condition],
+          },
+          ...rowIf("Domicilio fiscal", d.address),
+        ]
+      : []),
+    ...rowIf("Nombre de fantasía", d.display_name),
+    ...rowIf("Email", d.email),
+    ...rowIf("Teléfono", d.phone),
+    ...rowIf("Domicilio real", d.real_address),
+    ...rowIf("Notas", d.notes),
+  ],
+});
+
+/** A client's editable fields as the proposal saw them: the update is
+ *  refused if any of them changed before the user accepts. */
+export const ClientSnapshotSchema = z.object({
+  is_fiscal: z.boolean(),
+  cuit: z.string().nullable(),
+  legal_name: z.string(),
+  display_name: z.string().nullable(),
+  iva_condition: z.string().nullable(),
+  email: z.string().nullable(),
+  phone: z.string().nullable(),
+  address: z.string().nullable(),
+  real_address: z.string().nullable(),
+  notes: z.string().nullable(),
+});
+
+export type ClientSnapshot = z.output<typeof ClientSnapshotSchema>;
+
+export const CLIENT_SNAPSHOT_KEYS = ClientSnapshotSchema.keyof().options;
+
+export const ClientUpdateDraftSchema = ClientUpdateSchema.extend({
+  before: ClientSnapshotSchema,
+});
+
+const CLIENT_FIELD_LABEL: Record<string, string> = {
+  cuit: "CUIT",
+  iva_condition: "Condición de IVA",
+  ...Object.fromEntries(CLIENT_TEXT_FIELDS.map((f) => [f.key, f.label])),
+};
+
+function clientFieldText(key: string, value: unknown): string {
+  if (value === null || value === undefined || value === "") return "—";
+  if (key === "iva_condition") return ivaConditionLabel(String(value)) ?? "—";
+  return String(value);
+}
+
+/** The fields of an update draft whose value differs from the snapshot. */
+export function changedClientFields(
+  d: z.output<typeof ClientUpdateDraftSchema>,
+): (keyof ClientSnapshot)[] {
+  return CLIENT_SNAPSHOT_KEYS.filter((key) => {
+    if (key === "is_fiscal") return false;
+    const next: unknown = Reflect.get(d, key);
+    return next !== undefined && (next ?? null) !== (d.before[key] ?? null);
+  });
+}
+
+export const clientUpdateProposalSpec = defineProposalSpec({
+  title: "Editar cliente",
+  draft: ClientUpdateDraftSchema,
+  fields: CLIENT_TEXT_FIELDS,
+  confirmLabel: "Guardar cambios",
+  declineLabel: "Descartar",
+  summarize: (d) => {
+    const changed = changedClientFields(d);
+    return [
+      { label: "Cliente", value: d.before.legal_name },
+      ...(changed.length === 0
+        ? [{ label: "Cambios", value: "Ninguno: queda igual." }]
+        : changed.map((key) => ({
+            label: CLIENT_FIELD_LABEL[key] ?? key,
+            value: `${clientFieldText(key, d.before[key])} → ${clientFieldText(key, Reflect.get(d, key))}`,
+          }))),
+      {
+        label: "Qué pasa",
+        value:
+          "Se guarda como al editar la ficha del cliente. Si alguien lo modificó mientras tanto, no se guarda.",
+      },
+    ];
+  },
+});
+
+// ─── Comprobantes ────────────────────────────────────────────────────────────
+
+/** Keys of the display labels a comprobante draft carries. */
+export const COMPROBANTE_LABELS = {
+  client: "client",
+  channel: "channel",
+  origin: "origin",
+  invoice: "invoice",
+} as const;
+
+function comprobanteRows(
+  d: z.output<typeof CreateComprobanteSchema>,
+  labels: ProposalLabels,
+): ProposalSummaryRow[] {
+  // Only a fiscal comprobante carries a letter (the action resolves it).
+  const isFiscal = d.letter !== null;
+  const currency = d.moneda === MONEDA.PESOS ? "ARS" : "USD";
+  const totals = computeTotals(d.items, isFiscal);
+  const kind = invoiceKindLabel(d.kind, isFiscal);
+  return [
+    {
+      label: "Cliente",
+      value: labels[COMPROBANTE_LABELS.client] ?? d.client_id,
+    },
+    {
+      label: "Comprobante",
+      value: d.kind === "factura" && d.letter ? `${kind} ${d.letter}` : kind,
+    },
+    ...rowIf("Sobre", labels[COMPROBANTE_LABELS.origin]),
+    {
+      label: "Canal",
+      value: labels[COMPROBANTE_LABELS.channel] ?? d.channel_id,
+    },
+    { label: "Punto de venta", value: String(d.punto_venta) },
+    { label: "Fecha", value: formatArgentineDate(d.fecha) },
+    ...d.items.map((it) => {
+      const line = computeLineAmounts(it, isFiscal);
+      const iva =
+        isFiscal && it.iva_rate_id !== null
+          ? ` + IVA ${String(ivaRatePercent(it.iva_rate_id)).replace(".", ",")} %`
+          : "";
+      const qty = Number.isInteger(it.quantity)
+        ? formatInteger(it.quantity)
+        : formatRate(it.quantity);
+      return {
+        label: it.description,
+        value: `${qty} ×${formatMoney(it.unit_price, currency)} = ${formatMoney(line.line_neto, currency)}${iva}`,
+      };
+    }),
+    ...(isFiscal
+      ? [
+          { label: "Neto", value: formatMoney(totals.imp_neto, currency) },
+          { label: "IVA", value: formatMoney(totals.imp_iva, currency) },
+        ]
+      : []),
+    { label: "Total", value: formatMoney(totals.imp_total, currency) },
+    ...(currency !== "ARS"
+      ? [{ label: "Cotización", value: `$ ${formatRate(d.cotizacion)}` }]
+      : []),
+    ...rowIf("Motivo", d.motivo_nc_nd),
+    ...rowIf("Observaciones (internas)", d.notes),
+    {
+      label: "Qué pasa",
+      value: isFiscal
+        ? "Al aceptar se emite como desde Comprobantes: va a AFIP y queda con CAE (o con el error de AFIP para reintentar)."
+        : "Al aceptar se guarda como desde Comprobantes, con número interno y sin AFIP.",
+    },
+  ];
+}
+
+export const invoiceProposalSpec = defineProposalSpec({
+  title: "Emitir comprobante",
+  draft: CreateComprobanteSchema,
+  fields: [
+    { key: "notes", label: "Observaciones (internas)", kind: "textarea" },
+  ],
+  confirmLabel: "Emitir",
+  declineLabel: "Descartar",
+  summarize: comprobanteRows,
+});
+
+export const creditDebitNoteProposalSpec = defineProposalSpec({
+  title: "Emitir nota de crédito o débito",
+  draft: CreateComprobanteSchema,
+  fields: [
+    { key: "motivo_nc_nd", label: "Motivo", kind: "text" },
+    { key: "notes", label: "Observaciones (internas)", kind: "textarea" },
+  ],
+  confirmLabel: "Emitir nota",
+  declineLabel: "Descartar",
+  summarize: comprobanteRows,
+});
+
+export const invoiceEmailProposalSpec = defineProposalSpec({
+  title: "Enviar comprobante por email",
+  draft: SendInvoiceEmailSchema,
+  fields: [
+    { key: "recipient", label: "Para", kind: "text" },
+    { key: "subject", label: "Asunto", kind: "text" },
+    { key: "body", label: "Mensaje", kind: "textarea" },
+  ],
+  confirmLabel: "Enviar",
+  declineLabel: "Descartar",
+  summarize: (d, labels) => [
+    {
+      label: "Comprobante",
+      value: labels[COMPROBANTE_LABELS.invoice] ?? d.invoice_id,
+    },
+    ...rowIf("Cliente", labels[COMPROBANTE_LABELS.client]),
+    { label: "Para", value: d.recipient },
+    { label: "Asunto", value: d.subject },
+    ...rowIf("Mensaje", d.body),
+    {
+      label: "Qué pasa",
+      value:
+        "Se manda el PDF como con «Enviar por email» y queda registrado en el comprobante.",
+    },
+  ],
+});
+
+// ─── Treasury ────────────────────────────────────────────────────────────────
+
+export const cashMovementProposalSpec = defineProposalSpec({
+  title: "Registrar movimiento de caja",
+  draft: TransactionCreateSchema,
+  fields: [
+    { key: "amount", label: "Monto", kind: "number" },
+    { key: "transaction_date", label: "Fecha", kind: "date" },
+    { key: "description", label: "Descripción", kind: "textarea" },
+  ],
+  confirmLabel: "Registrar movimiento",
+  declineLabel: "Descartar",
+  summarize: (d, labels) => [
+    { label: "Tipo", value: TRANSACTION_KIND_LABEL[d.kind] },
+    { label: "Cuenta", value: labels[d.account_id] ?? d.account_id },
+    { label: "Canal", value: labels[d.channel_id] ?? d.channel_id },
+    { label: "Monto", value: formatMoney(d.amount, d.currency) },
+    { label: "Fecha", value: formatArgentineDate(d.transaction_date) },
+    {
+      label: "Mes devengado",
+      value: formatPeriod(d.accrual_month.slice(0, 7)),
+    },
+    ...(d.description ? [{ label: "Descripción", value: d.description }] : []),
+    {
+      label: "Qué pasa",
+      value:
+        "Se registra como en Caja › Nuevo movimiento y se asienta solo. Un período cerrado no se toca.",
+    },
+  ],
+});
+
+export const transferProposalSpec = defineProposalSpec({
+  title: "Registrar transferencia entre cuentas",
+  draft: TransferCreateSchema,
+  fields: [
+    { key: "amount", label: "Monto", kind: "number" },
+    { key: "transaction_date", label: "Fecha", kind: "date" },
+    { key: "description", label: "Descripción", kind: "textarea" },
+  ],
+  confirmLabel: "Registrar transferencia",
+  declineLabel: "Descartar",
+  summarize: (d, labels) => [
+    { label: "Sale de", value: labels[d.account_from_id] ?? d.account_from_id },
+    { label: "Entra en", value: labels[d.account_to_id] ?? d.account_to_id },
+    { label: "Canal", value: labels[d.channel_id] ?? d.channel_id },
+    { label: "Monto", value: formatMoney(d.amount, d.currency) },
+    { label: "Fecha", value: formatArgentineDate(d.transaction_date) },
+    {
+      label: "Mes devengado",
+      value: formatPeriod(d.accrual_month.slice(0, 7)),
+    },
+    ...(d.description ? [{ label: "Descripción", value: d.description }] : []),
+  ],
+});
+
+/** A payer's total, payment lines, allocations and what stays «a cuenta», as
+ *  summary rows (a receipt and a payment order read the same). */
+function payerRows(
+  d: {
+    total_amount: number;
+    currency: string;
+    cotizacion?: number | null;
+    payment_lines: readonly { amount: number; reference?: string | null }[];
+  },
+  lineAccounts: readonly string[],
+  allocations: readonly { id: string; amount: number }[],
+  labels: ProposalLabels,
+  lineLabel: string,
+): ProposalSummaryRow[] {
+  const allocated = allocations.reduce((s, a) => s + a.amount, 0);
+  const aCuenta = Math.round((d.total_amount - allocated) * 100) / 100;
+  return [
+    { label: "Total", value: formatMoney(d.total_amount, d.currency) },
+    ...(d.cotizacion
+      ? [{ label: "Cotización", value: `$ ${formatRate(d.cotizacion)}` }]
+      : []),
+    ...d.payment_lines.map((l, i) => {
+      const account = lineAccounts[i] ?? "";
+      return {
+        label: `${lineLabel} ${labels[account] ?? account}`.trim(),
+        value: `${formatMoney(l.amount, d.currency)}${l.reference ? ` · ${l.reference}` : ""}`,
+      };
+    }),
+    ...allocations.map((a) => ({
+      label: `Imputa a ${labels[a.id] ?? a.id}`,
+      value: formatMoney(a.amount, d.currency),
+    })),
+    ...(aCuenta > 0.005
+      ? [{ label: "Queda a cuenta", value: formatMoney(aCuenta, d.currency) }]
+      : []),
+  ];
+}
+
+export const receiptProposalSpec = defineProposalSpec({
+  title: "Registrar cobro",
+  draft: ReceiptCreateSchema,
+  fields: [
+    { key: "receipt_date", label: "Fecha", kind: "date" },
+    { key: "numero", label: "Número de recibo", kind: "number", decimals: 0 },
+    { key: "notes", label: "Notas", kind: "textarea" },
+  ],
+  confirmLabel: "Emitir recibo",
+  declineLabel: "Descartar",
+  summarize: (d, labels) => [
+    { label: "Cliente", value: labels[d.client_id] ?? d.client_id },
+    { label: "Canal", value: labels[d.channel_id] ?? d.channel_id },
+    { label: "Recibo Nº", value: String(d.numero) },
+    { label: "Fecha", value: formatArgentineDate(d.receipt_date) },
+    ...payerRows(
+      d,
+      d.payment_lines.map((l) => l.account_id),
+      d.allocations.map((a) => ({
+        id: a.invoice_id ?? a.rejected_check_id ?? "",
+        amount: a.amount_applied,
+      })),
+      labels,
+      "Cobrado en",
+    ),
+    ...d.payment_lines.flatMap((l) =>
+      l.check
+        ? [
+            {
+              label: "Cheque",
+              value: `${l.check.bank_name ?? ""} · librador ${l.check.drawer_name ?? ""} · se cobra el ${formatArgentineDate(l.check.due_date)}`,
+            },
+          ]
+        : [],
+    ),
+    ...(d.notes ? [{ label: "Notas", value: d.notes }] : []),
+    {
+      label: "Qué pasa",
+      value:
+        "Se emite el recibo como en Recibos › Nuevo recibo: la plata entra en la cuenta, se imputa a esos comprobantes y se asienta. Si alguno ya no tiene ese saldo pendiente, no se emite.",
+    },
+  ],
+});
+
+export const paymentOrderProposalSpec = defineProposalSpec({
+  title: "Crear orden de pago",
+  draft: PaymentOrderCreateSchema,
+  fields: [
+    { key: "payment_date", label: "Fecha", kind: "date" },
+    { key: "numero", label: "Número de orden", kind: "number", decimals: 0 },
+    { key: "notes", label: "Notas", kind: "textarea" },
+  ],
+  confirmLabel: "Emitir orden de pago",
+  declineLabel: "Descartar",
+  summarize: (d, labels) => [
+    { label: "Proveedor", value: labels[d.supplier_id] ?? d.supplier_id },
+    { label: "Canal", value: labels[d.channel_id] ?? d.channel_id },
+    { label: "Orden Nº", value: String(d.numero) },
+    { label: "Fecha", value: formatArgentineDate(d.payment_date) },
+    ...payerRows(
+      d,
+      d.payment_lines.map((l) =>
+        l.line_kind === "endorse_check" ? l.endorsed_check_id : l.account_id,
+      ),
+      d.allocations.map((a) => ({
+        id: a.purchase_invoice_id,
+        amount: a.amount_applied,
+      })),
+      labels,
+      "Pagado desde",
+    ),
+    ...(d.notes ? [{ label: "Notas", value: d.notes }] : []),
+    {
+      label: "Qué pasa",
+      value:
+        "Se emite la orden de pago como en Órdenes de pago › Nueva: la plata sale de la cuenta, se imputa a esas facturas y se asienta. Si alguna ya no tiene ese saldo pendiente, no se emite.",
+    },
+  ],
+});
+
+// ─── Cheques ─────────────────────────────────────────────────────────────────
+
+export const manualCheckProposalSpec = defineProposalSpec({
+  title: "Cargar cheque recibido",
+  draft: ManualChequeCreateSchema,
+  fields: [
+    { key: "check_number", label: "Número", kind: "text" },
+    { key: "bank_name", label: "Banco", kind: "text" },
+    { key: "drawer_name", label: "Firmante", kind: "text" },
+    { key: "amount", label: "Monto", kind: "number" },
+    { key: "issue_date", label: "Emisión", kind: "date" },
+    { key: "due_date", label: "Fecha de cobro", kind: "date" },
+    { key: "notes", label: "Notas", kind: "textarea" },
+  ],
+  confirmLabel: "Cargar cheque",
+  declineLabel: "Descartar",
+  summarize: (d, labels) => [
+    { label: "Tipo", value: CHECK_KIND_LABEL[d.kind] },
+    { label: "Número", value: d.check_number },
+    { label: "Banco", value: d.bank_name },
+    {
+      label: "Firmante",
+      value: d.drawer_cuit
+        ? `${d.drawer_name} (${d.drawer_cuit})`
+        : d.drawer_name,
+    },
+    { label: "Monto", value: formatMoney(d.amount, d.currency) },
+    { label: "Emisión", value: formatArgentineDate(d.issue_date) },
+    { label: "Fecha de cobro", value: formatArgentineDate(d.due_date) },
+    {
+      label: "Cartera",
+      value: labels[d.cartera_account_id] ?? d.cartera_account_id,
+    },
+    { label: "Canal", value: labels[d.channel_id] ?? d.channel_id },
+    ...(d.source_client_id
+      ? [
+          {
+            label: "Lo dio",
+            value: labels[d.source_client_id] ?? d.source_client_id,
+          },
+        ]
+      : []),
+    ...(d.notes ? [{ label: "Notas", value: d.notes }] : []),
+    {
+      label: "Qué pasa",
+      value:
+        "Entra a la cartera como en Cheques › Nuevo cheque, sin recibo: para que cancele deuda de un cliente, registrá el cobro con el cheque.",
+    },
+  ],
+});
+
+/** Key of the label that describes the deposited check. */
+export const DEPOSIT_CHECK_LABEL = "check";
+
+export const checkDepositProposalSpec = defineProposalSpec({
+  title: "Depositar cheque",
+  draft: DepositChequeSchema,
+  fields: [
+    { key: "event_date", label: "Fecha", kind: "date" },
+    { key: "description", label: "Descripción", kind: "textarea" },
+  ],
+  confirmLabel: "Depositar",
+  declineLabel: "Descartar",
+  summarize: (d, labels) => [
+    { label: "Cheque", value: labels[DEPOSIT_CHECK_LABEL] ?? d.check_id },
+    { label: "Se deposita en", value: labels[d.account_id] ?? d.account_id },
+    { label: "Canal", value: labels[d.channel_id] ?? d.channel_id },
+    { label: "Fecha", value: formatArgentineDate(d.event_date) },
+    ...(d.description ? [{ label: "Descripción", value: d.description }] : []),
+    {
+      label: "Qué pasa",
+      value:
+        "Sale de la cartera y entra en la cuenta, como «Depositar» en Cheques. Si el cheque ya no está en cartera, no se deposita.",
+    },
+  ],
+});
+
+export const issuedCheckProposalSpec = defineProposalSpec({
+  title: "Emitir cheque propio",
+  draft: IssuedCheckCreateSchema,
+  fields: [
+    { key: "check_number", label: "Número", kind: "text" },
+    { key: "bank_name", label: "Banco", kind: "text" },
+    { key: "beneficiary_name", label: "Beneficiario", kind: "text" },
+    { key: "amount", label: "Monto", kind: "number" },
+    { key: "issue_date", label: "Emisión", kind: "date" },
+    { key: "due_date", label: "Vencimiento", kind: "date" },
+    { key: "notes", label: "Notas", kind: "textarea" },
+  ],
+  confirmLabel: "Cargar cheque",
+  declineLabel: "Descartar",
+  summarize: (d, labels) => [
+    { label: "Tipo", value: ISSUED_CHECK_KIND_LABEL[d.kind] },
+    { label: "Número", value: d.check_number },
+    { label: "Banco", value: d.bank_name },
+    { label: "Cuenta", value: labels[d.bank_account_id] ?? d.bank_account_id },
+    {
+      label: "Beneficiario",
+      value:
+        (d.supplier_id ? labels[d.supplier_id] : null) ??
+        d.beneficiary_name ??
+        "—",
+    },
+    { label: "Monto", value: formatMoney(d.amount, d.currency) },
+    { label: "Emisión", value: formatArgentineDate(d.issue_date) },
+    { label: "Vencimiento", value: formatArgentineDate(d.due_date) },
+    { label: "Canal", value: labels[d.channel_id] ?? d.channel_id },
+    ...(d.notes ? [{ label: "Notas", value: d.notes }] : []),
+    {
+      label: "Qué pasa",
+      value:
+        "Queda emitido como en Cheques propios › Nuevo: el banco se mueve cuando se marca cobrado. Para pagarle a un proveedor con este cheque, armá la orden de pago en la pantalla.",
+    },
+  ],
+});
+
+// ─── Purchases ───────────────────────────────────────────────────────────────
+
+/** Keys of the display labels a purchase draft carries (the supplier,
+ *  channel, account, center and origin ids carry their own). */
+export const PURCHASE_LABELS = {
+  /** "1" when the channel is internal (remito interno, not a factura). */
+  internal: "purchase_internal",
+  /** What the server suggested and the user should check. */
+  warning: "purchase_warning",
+  /** The ARCA gap, formatted in the voucher's currency. */
+  gap: "arca_gap",
+} as const;
+
+type PurchaseDraft = z.output<typeof PurchaseInvoiceCreateSchema>;
+
+function purchaseNumber(d: PurchaseDraft): string {
+  const pv = String(d.punto_venta).padStart(5, "0");
+  const nu = String(d.numero).padStart(8, "0");
+  return `${d.letter ? `${d.letter} ` : ""}${pv}-${nu}`;
+}
+
+/** A purchase draft as the card's rows: what the purchase form would save. */
+function purchaseRows(
+  d: PurchaseDraft,
+  labels: ProposalLabels,
+): ProposalSummaryRow[] {
+  const currency = d.moneda === "PES" ? "ARS" : "USD";
+  const money = (n: number) => formatMoney(n, currency);
+  const internal = labels[PURCHASE_LABELS.internal] === "1";
+  const split = PURCHASE_TRIBUTE_FIELDS.filter((f) => d[f] > 0).map(
+    (f) => `${PURCHASE_TRIBUTE_LABEL[f]} ${money(d[f])}`,
+  );
+  const warning = labels[PURCHASE_LABELS.warning];
+  return [
+    { label: "Proveedor", value: labels[d.supplier_id] ?? d.supplier_id },
+    { label: "Canal", value: labels[d.channel_id] ?? d.channel_id },
+    {
+      label: "Comprobante",
+      value: `${purchaseKindLabel(d.kind, internal)} ${purchaseNumber(d)}`,
+    },
+    ...(d.invoice_origin_id
+      ? [
+          {
+            label: "Comprobante de origen",
+            value: labels[d.invoice_origin_id] ?? d.invoice_origin_id,
+          },
+        ]
+      : []),
+    ...(d.motivo_nc_nd ? [{ label: "Motivo", value: d.motivo_nc_nd }] : []),
+    { label: "Fecha", value: formatArgentineDate(d.fecha) },
+    {
+      label: "Vencimiento de pago",
+      value: d.fch_vto_pago
+        ? formatArgentineDate(d.fch_vto_pago)
+        : "Sin vencimiento",
+    },
+    { label: "Neto", value: money(d.imp_neto) },
+    ...(d.imp_no_gravado > 0
+      ? [{ label: "No gravado", value: money(d.imp_no_gravado) }]
+      : []),
+    ...(d.imp_op_exentas > 0
+      ? [{ label: "Exento", value: money(d.imp_op_exentas) }]
+      : []),
+    { label: "IVA", value: money(d.imp_iva) },
+    ...(d.imp_trib > 0
+      ? [
+          {
+            label: "Otros tributos",
+            value: `${money(d.imp_trib)}${split.length ? ` (${split.join(" · ")})` : ""}`,
+          },
+        ]
+      : []),
+    { label: "Total", value: money(d.imp_total) },
+    ...(d.moneda !== "PES"
+      ? [{ label: "Cotización", value: `$ ${formatRate(d.cotizacion)}` }]
+      : []),
+    ...(d.cae_proveedor ? [{ label: "CAE", value: d.cae_proveedor }] : []),
+    {
+      label: "Cuenta de gasto",
+      value: d.account_id
+        ? (labels[d.account_id] ?? d.account_id)
+        : d.kind === "factura"
+          ? "Compras (sin cuenta propia)"
+          : "La del comprobante de origen",
+    },
+    ...(d.cost_center_id
+      ? [
+          {
+            label: "Centro de costo",
+            value: labels[d.cost_center_id] ?? d.cost_center_id,
+          },
+        ]
+      : []),
+    ...(d.notes ? [{ label: "Notas", value: d.notes }] : []),
+    ...(warning ? [{ label: "Atención", value: warning }] : []),
+  ];
+}
+
+export const purchaseInvoiceProposalSpec = defineProposalSpec({
+  title: "Cargar factura de compra",
+  draft: PurchaseInvoiceCreateSchema,
+  fields: [
+    { key: "fecha", label: "Fecha", kind: "date" },
+    { key: "fch_vto_pago", label: "Vencimiento de pago", kind: "date" },
+    { key: "notes", label: "Notas", kind: "textarea" },
+  ],
+  confirmLabel: "Cargar factura",
+  declineLabel: "Descartar",
+  summarize: (d, labels) => [
+    ...purchaseRows(d, labels),
+    {
+      label: "Qué pasa",
+      value:
+        "Se carga como en Compras › Nueva factura: queda el asiento y la deuda con el proveedor. Si ya está cargada, no se duplica.",
+    },
+  ],
+});
+
+export const ArcaPurchaseDraftSchema = z.object({
+  voucher_id: z.string().uuid(),
+  /** Where ARCA's total above its parts goes: the user's choice, never the
+   *  model's; null when the parts add up. */
+  gap_target: z.enum(ARCA_GAP_TARGETS).nullable(),
+  invoice: PurchaseInvoiceCreateSchema,
+});
+
+export const arcaPurchaseProposalSpec = defineProposalSpec({
+  title: "Cargar comprobante de ARCA",
+  draft: ArcaPurchaseDraftSchema,
+  // Identity and amounts are ARCA's, and the gap's destination moves the
+  // amounts: a change goes back through the assistant, which redrafts it.
+  fields: [],
+  confirmLabel: "Cargar comprobante",
+  declineLabel: "Descartar",
+  summarize: (d, labels) => [
+    ...purchaseRows(d.invoice, labels),
+    ...(d.gap_target
+      ? [
+          {
+            label: "Diferencia de ARCA",
+            value: `${labels[PURCHASE_LABELS.gap] ?? "—"} → ${arcaGapTargetLabel(d.gap_target, d.invoice.letter ?? null)} (lo elegiste vos)`,
+          },
+        ]
+      : []),
+    {
+      label: "Qué pasa",
+      value:
+        "Se carga como al aceptarlo en Compras › ARCA: el número, la fecha, el CAE y los importes son los de ARCA. Si alguien ya la cargó a mano, queda vinculada; si ARCA cambió, no se carga.",
+    },
+  ],
+});
+
+/** Keys of the display labels a supplier draft carries; the category,
+ *  account, center and channel ids carry their own. A supplier edit stores
+ *  each changed field's value before under `before:<field>`. */
+export const SUPPLIER_LABELS = {
+  supplier: "supplier",
+  before: (field: string) => `before:${field}`,
+} as const;
+
+const SUPPLIER_FIELD_LABEL: Record<string, string> = {
+  cuit: "CUIT",
+  legal_name: "Razón social",
+  display_name: "Nombre de fantasía",
+  iva_condition: "Condición de IVA",
+  email: "Email",
+  phone: "Teléfono",
+  address: "Domicilio fiscal",
+  real_address: "Domicilio real",
+  notes: "Notas",
+  default_channel_id: "Canal por defecto",
+  default_payment_term_days: "Plazo de pago",
+  category_id: "Categoría",
+  default_expense_account_id: "Cuenta de gasto por defecto",
+  default_cost_center_id: "Centro de costo por defecto",
+};
+
+/** Field values that are ids show their label; the rest, as they read. */
+function supplierValue(
+  field: string,
+  value: unknown,
+  labels: ProposalLabels,
+): string {
+  if (value === null || value === undefined || value === "") return "—";
+  if (field === "iva_condition" && isIvaCondition(value)) {
+    return IVA_CONDITION_LABEL[value];
+  }
+  if (field === "default_payment_term_days") return `${String(value)} días`;
+  const text = String(value);
+  return labels[text] ?? text;
+}
+
+const SUPPLIER_TEXT_FIELDS = [
+  "display_name",
+  "email",
+  "phone",
+  "address",
+  "real_address",
+  "default_payment_term_days",
+  "category_id",
+  "default_expense_account_id",
+  "default_cost_center_id",
+  "default_channel_id",
+  "notes",
+] as const;
+
+export const supplierProposalSpec = defineProposalSpec({
+  title: "Dar de alta proveedor",
+  draft: SupplierCreateSchema,
+  fields: [
+    { key: "legal_name", label: "Razón social", kind: "text" },
+    { key: "display_name", label: "Nombre de fantasía", kind: "text" },
+    { key: "email", label: "Email", kind: "text" },
+    { key: "phone", label: "Teléfono", kind: "text" },
+    { key: "real_address", label: "Domicilio real", kind: "text" },
+    { key: "notes", label: "Notas", kind: "textarea" },
+  ],
+  confirmLabel: "Crear proveedor",
+  declineLabel: "Descartar",
+  summarize: (d, labels) => [
+    {
+      label: "Tipo",
+      value: d.is_fiscal
+        ? "Compras (con CUIT, factura fiscal)"
+        : "Otras compras (sin CUIT)",
+    },
+    { label: d.is_fiscal ? "Razón social" : "Nombre", value: d.legal_name },
+    ...(d.is_fiscal
+      ? [
+          { label: "CUIT", value: d.cuit },
+          {
+            label: "Condición de IVA",
+            value: IVA_CONDITION_LABEL[d.iva_condition],
+          },
+        ]
+      : []),
+    ...SUPPLIER_TEXT_FIELDS.flatMap((field) => {
+      const value: unknown = Reflect.get(d, field);
+      return value === null || value === undefined
+        ? []
+        : [
+            {
+              label: SUPPLIER_FIELD_LABEL[field] ?? field,
+              value: supplierValue(field, value, labels),
+            },
+          ];
+    }),
+  ],
+});
+
+export const supplierUpdateProposalSpec = defineProposalSpec({
+  title: "Editar proveedor",
+  draft: SupplierUpdateSchema,
+  // Only what the user asked to change travels in the draft: a change goes
+  // back through the assistant.
+  fields: [],
+  confirmLabel: "Guardar cambios",
+  declineLabel: "Descartar",
+  summarize: (d, labels) => {
+    const { id, ...rest } = d;
+    return [
+      {
+        label: "Proveedor",
+        value: labels[SUPPLIER_LABELS.supplier] ?? id,
+      },
+      ...Object.entries(rest)
+        .filter(([, value]) => value !== undefined)
+        .map(([field, value]) => ({
+          label: SUPPLIER_FIELD_LABEL[field] ?? field,
+          value: `${labels[SUPPLIER_LABELS.before(field)] ?? "—"} → ${supplierValue(field, value, labels)}`,
+        })),
+    ];
+  },
+});
+
+// ─── Impuestos ───────────────────────────────────────────────────────────────
+
+/** Keys of the display labels a tax payment draft carries (the document and
+ *  the cash or bank account ids carry their own). */
+export const TAX_PAYMENT_LABELS = {
+  /** The chart account the payment debits. */
+  ledger: "tax_ledger_account",
+  due: "tax_due",
+} as const;
+
+export const taxDocumentProposalSpec = defineProposalSpec({
+  title: "Cargar impuesto",
+  draft: TaxDocumentCreateSchema,
+  fields: [
+    { key: "due_date", label: "Vence", kind: "date" },
+    { key: "notes", label: "Notas", kind: "textarea" },
+  ],
+  confirmLabel: "Cargar impuesto",
+  declineLabel: "Descartar",
+  summarize: (d, labels) => [
+    { label: "Impuesto", value: taxDocumentLabel(d) },
+    { label: "Tipo", value: TAX_KIND_LABEL[d.kind] },
+    { label: "Período", value: formatPeriod(d.period) },
+    { label: "Vence", value: formatArgentineDate(d.due_date) },
+    {
+      label: "Importe",
+      value:
+        d.amount === null
+          ? "Sin importe todavía"
+          : `${formatMoney(d.amount)}${d.amount_is_estimate ? " (estimado)" : ""}`,
+    },
+    ...(d.credit_balance !== null
+      ? [
+          {
+            label: "Saldo a favor técnico",
+            value: formatMoney(d.credit_balance),
+          },
+        ]
+      : []),
+    {
+      label: "Cuenta contable",
+      value: d.account_id
+        ? (labels[d.account_id] ?? d.account_id)
+        : "Sin cuenta (hace falta para pagarlo)",
+    },
+    ...(d.notes ? [{ label: "Notas", value: d.notes }] : []),
+  ],
+});
+
+export const taxPaymentProposalSpec = defineProposalSpec({
+  title: "Pagar impuesto",
+  draft: PayTaxDocumentSchema,
+  fields: [
+    { key: "paid_date", label: "Fecha de pago", kind: "date" },
+    { key: "amount", label: "Importe", kind: "number" },
+  ],
+  confirmLabel: "Registrar pago",
+  declineLabel: "Descartar",
+  summarize: (d, labels) => {
+    const due = labels[TAX_PAYMENT_LABELS.due];
+    return [
+      { label: "Impuesto", value: labels[d.id] ?? d.id },
+      ...(due ? [{ label: "Vence", value: due }] : []),
+      { label: "Importe", value: formatMoney(d.amount) },
+      { label: "Fecha de pago", value: formatArgentineDate(d.paid_date) },
+      { label: "Pagado desde", value: labels[d.account_id] ?? d.account_id },
+      {
+        label: "Cuenta contable",
+        value: labels[TAX_PAYMENT_LABELS.ledger] ?? "La del impuesto",
+      },
+      {
+        label: "Qué pasa",
+        value:
+          "Como «Pagar» en Impuestos: queda el egreso en Caja contra la cuenta del impuesto y el impuesto pasa a pagado. Si ya estaba pagado, no se registra de nuevo.",
+      },
+    ];
+  },
+});
+
+// ─── Employees ───────────────────────────────────────────────────────────────
+
+/** The employee columns a proposal card shows, in the form's order. */
+const EMPLOYEE_SUMMARY_FIELDS = [
+  ["legal_name", "Apellido y nombre"],
+  ["position", "Puesto"],
+  ["cuil", "CUIL"],
+  ["cbu", "CBU"],
+  ["pay_frequency", "Frecuencia de pago"],
+  ["base_salary", "Sueldo base"],
+  ["viatico_monthly", "Viático mensual"],
+  ["is_monotributo", "Monotributista"],
+  ["hire_date", "Ingreso"],
+  ["convenio", "Convenio"],
+  ["categoria", "Categoría"],
+  ["obra_social", "Obra social"],
+  ["art", "ART"],
+  ["retribucion_formal", "Retribución formal"],
+  ["license_number", "Licencia de conducir"],
+  ["license_category", "Categoría de licencia"],
+  ["driver_phone", "Teléfono del chofer"],
+  ["notes", "Notas"],
+] as const;
+
+type EmployeeSummaryKey = (typeof EMPLOYEE_SUMMARY_FIELDS)[number][0];
+
+const EMPLOYEE_MONEY_KEYS: ReadonlySet<string> = new Set([
+  "base_salary",
+  "viatico_monthly",
+  "retribucion_formal",
+]);
+
+/** An employee field as the card shows it ("—" when empty). */
+export function employeeFieldText(key: string, value: unknown): string {
+  if (value === null || value === undefined || value === "") return "—";
+  if (typeof value === "boolean") return value ? "Sí" : "No";
+  if (typeof value === "number") {
+    return EMPLOYEE_MONEY_KEYS.has(key) ? formatMoney(value) : String(value);
+  }
+  if (typeof value !== "string") return "—";
+  if (key === "hire_date") return formatArgentineDate(value);
+  if (key === "pay_frequency" && isPayFrequency(value)) {
+    return PAY_FREQUENCY_LABEL[value];
+  }
+  return value;
+}
+
+/** The label that carries an employee field as it was before the edit. */
+export function employeeBeforeLabel(key: string): string {
+  return `before.${key}`;
+}
+
+const employeeEditableFields: readonly ProposalField[] = [
+  { key: "legal_name", label: "Apellido y nombre", kind: "text" },
+  {
+    key: "position",
+    label: "Puesto",
+    kind: "select",
+    options: EMPLOYEE_POSITIONS.map((p) => ({ value: p, label: p })),
+  },
+  { key: "cuil", label: "CUIL", kind: "text" },
+  { key: "cbu", label: "CBU", kind: "text" },
+  {
+    key: "pay_frequency",
+    label: "Frecuencia de pago",
+    kind: "select",
+    options: PAY_FREQUENCIES.map((f) => ({
+      value: f,
+      label: PAY_FREQUENCY_LABEL[f],
+    })),
+  },
+  { key: "base_salary", label: "Sueldo base", kind: "number" },
+  { key: "viatico_monthly", label: "Viático mensual", kind: "number" },
+  { key: "hire_date", label: "Ingreso", kind: "date" },
+  { key: "notes", label: "Notas", kind: "textarea" },
+];
+
+/** Shown even when empty: the card says the salary or position is missing. */
+const ALWAYS_SHOWN: ReadonlySet<string> = new Set(["position", "base_salary"]);
+
+export const createEmployeeProposalSpec = defineProposalSpec({
+  title: "Dar de alta un empleado",
+  draft: EmployeeCreateSchema,
+  fields: employeeEditableFields,
+  confirmLabel: "Crear empleado",
+  declineLabel: "Descartar",
+  summarize: (d) => [
+    ...EMPLOYEE_SUMMARY_FIELDS.flatMap(([key, label]) => {
+      const text = employeeFieldText(key, d[key]);
+      return text === "—" && !ALWAYS_SHOWN.has(key)
+        ? []
+        : [{ label, value: text }];
+    }),
+    ...(isDriverPosition(d.position)
+      ? [
+          {
+            label: "Qué pasa",
+            value: "Como es chofer, también queda en Flota → Choferes.",
+          },
+        ]
+      : []),
+  ],
+});
+
+/** The fields of an edit draft that differ from the employee before it. */
+export function changedEmployeeFields(
+  draft: Record<string, unknown>,
+  labels: ProposalLabels,
+): EmployeeSummaryKey[] {
+  return EMPLOYEE_SUMMARY_FIELDS.map(([key]) => key).filter(
+    (key) =>
+      key in draft &&
+      employeeFieldText(key, draft[key]) !==
+        (labels[employeeBeforeLabel(key)] ?? "—"),
+  );
+}
+
+export const updateEmployeeProposalSpec = defineProposalSpec({
+  title: "Editar empleado",
+  draft: EmployeeUpdateSchema,
+  fields: employeeEditableFields,
+  confirmLabel: "Guardar cambios",
+  declineLabel: "Descartar",
+  summarize: (d, labels) => {
+    const changed = changedEmployeeFields(d, labels);
+    return [
+      { label: "Empleado", value: labels[d.id] ?? d.id },
+      ...(changed.length
+        ? changed.map((key) => ({
+            label: EMPLOYEE_SUMMARY_FIELDS.find(([k]) => k === key)?.[1] ?? key,
+            value: `${labels[employeeBeforeLabel(key)] ?? "—"} → ${employeeFieldText(key, d[key])}`,
+          }))
+        : [{ label: "Cambios", value: "Ninguno: queda igual." }]),
+    ];
+  },
+});
+
+// ─── Payroll payments ────────────────────────────────────────────────────────
+
+/** Keys of the display labels a payroll payment draft carries (the ids of
+ *  the entries, the account and the channel carry their own). */
+export const PAYROLL_PAYMENT_LABELS = { period: "period" } as const;
+
+export const payrollPaymentProposalSpec = defineProposalSpec({
+  title: "Pagar sueldos",
+  draft: BulkCreatePayrollPaymentsSchema,
+  fields: [
+    { key: "paid_at", label: "Fecha de pago", kind: "date" },
+    { key: "notes", label: "Notas", kind: "textarea" },
+  ],
+  confirmLabel: "Registrar pago",
+  declineLabel: "Descartar",
+  summarize: (d, labels) => [
+    {
+      label: "Período",
+      value: labels[PAYROLL_PAYMENT_LABELS.period] ?? "—",
+    },
+    { label: "Cuenta", value: labels[d.account_id] ?? d.account_id },
+    { label: "Canal", value: labels[d.channel_id] ?? d.channel_id },
+    { label: "Método", value: PAYROLL_PAYMENT_METHOD_LABEL[d.method] },
+    { label: "Fecha", value: formatArgentineDate(d.paid_at) },
+    ...d.items.map((i) => ({
+      label: labels[i.entry_id] ?? i.entry_id,
+      value: formatMoney(i.amount),
+    })),
+    ...(d.items.length > 1
+      ? [
+          {
+            label: "Total",
+            value: formatMoney(d.items.reduce((s, i) => s + i.amount, 0)),
+          },
+        ]
+      : []),
+    ...(d.notes ? [{ label: "Notas", value: d.notes }] : []),
+    {
+      label: "Qué pasa",
+      value:
+        d.items.length > 1
+          ? "Se registran todos los pagos juntos, como el Pago masivo de la planilla: cada uno con su egreso en Caja. Si alguno supera el saldo pendiente, no se registra ninguno."
+          : "Se registra el pago como en la planilla, con su egreso en Caja. Si supera el saldo pendiente, no se registra.",
+    },
+  ],
+});
+
+// ─── Employee account ────────────────────────────────────────────────────────
+
+/** Keys of the display labels an employee account draft carries (the
+ *  employee, account and channel ids carry their own). */
+export const EMPLOYEE_ACCOUNT_LABELS = { currency: "currency" } as const;
+
+const CASH_KIND_LABEL = {
+  advance: "Adelanto al empleado",
+  payment: "Pago del empleado",
+} as const;
+
+export const employeeAccountCashProposalSpec = defineProposalSpec({
+  title: "Movimiento de caja del empleado",
+  draft: RecordAccountCashSchema,
+  fields: [
+    { key: "date", label: "Fecha", kind: "date" },
+    { key: "amount", label: "Importe", kind: "number" },
+    { key: "description", label: "Descripción", kind: "textarea" },
+  ],
+  confirmLabel: "Registrar",
+  declineLabel: "Descartar",
+  summarize: (d, labels) => {
+    const currency = labels[EMPLOYEE_ACCOUNT_LABELS.currency] ?? "ARS";
+    return [
+      { label: "Empleado", value: labels[d.employee_id] ?? d.employee_id },
+      { label: "Tipo", value: CASH_KIND_LABEL[d.kind] },
+      { label: "Cuenta", value: labels[d.account_id] ?? d.account_id },
+      { label: "Canal", value: labels[d.channel_id] ?? d.channel_id },
+      { label: "Fecha", value: formatArgentineDate(d.date) },
+      { label: "Importe", value: formatMoney(d.amount, currency) },
+      ...(d.kind === "advance"
+        ? [
+            {
+              label: "Descuento en planilla",
+              value:
+                d.installment_amount != null
+                  ? `Plan en cuotas de ${formatMoney(d.installment_amount, currency)}`
+                  : "Sin plan: queda como deuda en la cuenta corriente",
+            },
+          ]
+        : []),
+      ...(d.description
+        ? [{ label: "Descripción", value: d.description }]
+        : []),
+      {
+        label: "Qué pasa",
+        value:
+          d.kind === "advance"
+            ? "Sale la plata de la cuenta (egreso en Caja) y el adelanto queda en la cuenta corriente del empleado, como en su ficha."
+            : "Entra la plata a la cuenta (ingreso en Caja) y el pago baja la deuda en la cuenta corriente del empleado, como en su ficha.",
+      },
+    ];
+  },
+});
+
+export const employeeAccountMovementProposalSpec = defineProposalSpec({
+  title: "Movimiento en la cuenta del empleado",
+  draft: CreateManualMovementSchema,
+  fields: [
+    { key: "movement_date", label: "Fecha", kind: "date" },
+    { key: "amount", label: "Importe", kind: "number" },
+    { key: "description", label: "Descripción", kind: "text" },
+  ],
+  confirmLabel: "Cargar movimiento",
+  declineLabel: "Descartar",
+  summarize: (d, labels) => [
+    { label: "Empleado", value: labels[d.employee_id] ?? d.employee_id },
+    { label: "Tipo", value: ACCOUNT_MOVEMENT_KIND_LABEL[d.kind] },
+    { label: "Fecha", value: formatArgentineDate(d.movement_date) },
+    { label: "Importe", value: formatMoney(d.amount, d.currency) },
+    { label: "A favor de", value: CREDITOR_LABEL[d.creditor] },
+    { label: "Descripción", value: d.description },
+    {
+      label: "Qué pasa",
+      value:
+        "Solo la cuenta corriente del empleado: no mueve Caja ni bancos, como «Cargo / pago manual» en su ficha.",
+    },
+  ],
+});
+
+// ─── Attendance ──────────────────────────────────────────────────────────────
+
+/** Keys of the display labels an attendance draft carries. */
+export const ATTENDANCE_LABELS = {
+  /** What the day had loaded by hand before, which the proposal replaces. */
+  before: "before",
+} as const;
+
+export const attendanceProposalSpec = defineProposalSpec({
+  title: "Cargar asistencia",
+  draft: UpsertAttendanceSchema,
+  fields: [
+    { key: "date", label: "Día", kind: "date" },
+    {
+      key: "kind",
+      label: "Novedad",
+      kind: "select",
+      options: ATTENDANCE_KINDS.map((k) => ({
+        value: k,
+        label: ATTENDANCE_KIND_LABEL[k],
+      })),
+    },
+    { key: "notes", label: "Notas", kind: "textarea" },
+  ],
+  confirmLabel: "Cargar asistencia",
+  declineLabel: "Descartar",
+  summarize: (d, labels) => [
+    { label: "Empleado", value: labels[d.employee_id] ?? d.employee_id },
+    { label: "Día", value: formatArgentineDate(d.date) },
+    { label: "Novedad", value: ATTENDANCE_KIND_LABEL[d.kind] },
+    ...(d.hours_lost != null
+      ? [{ label: "Horas perdidas", value: String(d.hours_lost) }]
+      : []),
+    ...(d.notes ? [{ label: "Notas", value: d.notes }] : []),
+    ...(labels[ATTENDANCE_LABELS.before]
+      ? [
+          {
+            label: "Reemplaza",
+            value: `${labels[ATTENDANCE_LABELS.before]}, cargado a mano ese día`,
+          },
+        ]
+      : []),
+    {
+      label: "Qué pasa",
+      value:
+        "Queda en la grilla de Asistencia como si la cargaras a mano. Un día que viene de una licencia o un feriado no se pisa: se cambia desde su origen.",
+    },
+  ],
+});
+
+// ─── Loans ───────────────────────────────────────────────────────────────────
+
+/** Keys of the display labels a loan installment draft carries (the
+ *  installment and account ids carry their own). */
+export const LOAN_INSTALLMENT_LABELS = {
+  loan: "loan",
+  currency: "currency",
+} as const;
+
+export const loanInstallmentPaymentProposalSpec = defineProposalSpec({
+  title: "Pagar cuota de préstamo",
+  draft: PayInstallmentSchema,
+  fields: [{ key: "paid_date", label: "Fecha de pago", kind: "date" }],
+  confirmLabel: "Registrar pago",
+  declineLabel: "Descartar",
+  summarize: (d, labels) => [
+    { label: "Préstamo", value: labels[LOAN_INSTALLMENT_LABELS.loan] ?? "—" },
+    { label: "Cuota", value: labels[d.id] ?? d.id },
+    {
+      label: "Monto",
+      value: formatMoney(d.amount, labels[LOAN_INSTALLMENT_LABELS.currency]),
+    },
+    { label: "Cuenta", value: labels[d.account_id] ?? d.account_id },
+    { label: "Fecha de pago", value: formatArgentineDate(d.paid_date) },
+    {
+      label: "Qué pasa",
+      value:
+        "Se registra el egreso en Caja en el canal del préstamo, como «Pagar cuota»; después de la última, el préstamo queda cancelado. Una cuota que ya se pagó no se paga dos veces.",
+    },
+  ],
+});
+
 /** Every proposal action's spec, by the action (tool) name. */
 export const PROPOSAL_SPECS: Readonly<Record<string, ProposalSpec>> = {
   proposeLeave: leaveProposalSpec,
@@ -581,4 +2279,36 @@ export const PROPOSAL_SPECS: Readonly<Record<string, ProposalSpec>> = {
   proposeBankMatches: bankMatchesProposalSpec,
   proposeLateInterestNd: lateInterestNdProposalSpec,
   proposeRecategorizeExpense: recategorizeExpenseProposalSpec,
+  proposeTrip: tripProposalSpec,
+  proposeShipment: shipmentProposalSpec,
+  proposeShipmentStatus: shipmentStatusProposalSpec,
+  proposeFuelLoad: fuelLoadProposalSpec,
+  proposeMaintenance: maintenanceProposalSpec,
+  proposeVehicleKm: vehicleKmProposalSpec,
+  proposeFreightSettlement: freightSettlementProposalSpec,
+  proposeClient: clientCreateProposalSpec,
+  proposeClientUpdate: clientUpdateProposalSpec,
+  proposeInvoice: invoiceProposalSpec,
+  proposeCreditDebitNote: creditDebitNoteProposalSpec,
+  proposeInvoiceEmail: invoiceEmailProposalSpec,
+  proposeCashMovement: cashMovementProposalSpec,
+  proposeTransfer: transferProposalSpec,
+  proposeReceipt: receiptProposalSpec,
+  proposePaymentOrder: paymentOrderProposalSpec,
+  proposeManualCheck: manualCheckProposalSpec,
+  proposeCheckDeposit: checkDepositProposalSpec,
+  proposeIssuedCheck: issuedCheckProposalSpec,
+  proposePurchaseInvoice: purchaseInvoiceProposalSpec,
+  proposeArcaPurchase: arcaPurchaseProposalSpec,
+  proposeSupplier: supplierProposalSpec,
+  proposeSupplierUpdate: supplierUpdateProposalSpec,
+  proposeTaxDocument: taxDocumentProposalSpec,
+  proposeTaxPayment: taxPaymentProposalSpec,
+  proposeCreateEmployee: createEmployeeProposalSpec,
+  proposeUpdateEmployee: updateEmployeeProposalSpec,
+  proposePayrollPayment: payrollPaymentProposalSpec,
+  proposeEmployeeAccountCash: employeeAccountCashProposalSpec,
+  proposeEmployeeAccountMovement: employeeAccountMovementProposalSpec,
+  proposeAttendance: attendanceProposalSpec,
+  proposeLoanInstallmentPayment: loanInstallmentPaymentProposalSpec,
 };

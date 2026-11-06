@@ -1,14 +1,15 @@
 "use server";
 
 import { logAudit } from "@/lib/actions/audit";
-import type { JsonValue } from "@/lib/actions/audit";
 import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import {
-  PG_FOREIGN_KEY_VIOLATION,
-  PG_UNIQUE_VIOLATION,
-} from "@/lib/db/pg-error-codes";
+  CLIENT_NOT_FOUND,
+  createClientRecord,
+  updateClientRecord,
+} from "@/lib/commands/save-client";
+import { PG_FOREIGN_KEY_VIOLATION } from "@/lib/db/pg-error-codes";
 import { logger } from "@/lib/logger";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
@@ -212,51 +213,8 @@ export async function createClientAction(
     return { ok: false, error: first };
   }
 
-  const supabase = await createSupabaseClient();
-  const { data, error } = await supabase
-    .from("clients")
-    .insert({
-      is_fiscal: parsed.data.is_fiscal,
-      cuit: parsed.data.is_fiscal ? parsed.data.cuit : null,
-      legal_name: parsed.data.legal_name,
-      display_name: parsed.data.display_name ?? null,
-      iva_condition: parsed.data.is_fiscal ? parsed.data.iva_condition : null,
-      email: parsed.data.email ?? null,
-      phone: parsed.data.phone ?? null,
-      address: parsed.data.is_fiscal ? (parsed.data.address ?? null) : null,
-      real_address: parsed.data.real_address ?? null,
-      notes: parsed.data.notes ?? null,
-      created_by: ctx.userId,
-    })
-    .select("id")
-    .single();
-
-  if (error) {
-    if (error.code === PG_UNIQUE_VIOLATION) {
-      return { ok: false, error: "Ya existe un cliente con ese CUIT." };
-    }
-    logger.error("clients.create.failed", {
-      userId: ctx.userId,
-      cuit: parsed.data.is_fiscal ? parsed.data.cuit : null,
-      error,
-    });
-    return { ok: false, error: "No se pudo crear el cliente." };
-  }
-
-  await logAudit(
-    "client.created",
-    ctx.userId,
-    {
-      cuit: parsed.data.is_fiscal ? parsed.data.cuit : null,
-      legal_name: parsed.data.legal_name,
-    },
-    data.id,
-  );
-  return { ok: true, data: { id: data.id } };
+  return createClientRecord(ctx.userId, parsed.data);
 }
-
-/** No row matched: deleted meanwhile, or hidden by RLS. */
-const CLIENT_NOT_FOUND = "No se encontró el cliente. Actualizá la página.";
 
 export async function updateClientAction(
   input: unknown,
@@ -272,49 +230,8 @@ export async function updateClientAction(
     return { ok: false, error: first };
   }
 
-  const { id, ...rest } = parsed.data;
-
-  const supabase = await createSupabaseClient();
-  const { data: changed, error } = await supabase
-    .from("clients")
-    .update({
-      ...(rest.cuit !== undefined && { cuit: rest.cuit }),
-      ...(rest.legal_name !== undefined && { legal_name: rest.legal_name }),
-      ...(rest.display_name !== undefined && {
-        display_name: rest.display_name ?? null,
-      }),
-      ...(rest.iva_condition !== undefined && {
-        iva_condition: rest.iva_condition,
-      }),
-      ...(rest.email !== undefined && { email: rest.email ?? null }),
-      ...(rest.phone !== undefined && { phone: rest.phone ?? null }),
-      ...(rest.address !== undefined && { address: rest.address ?? null }),
-      ...(rest.real_address !== undefined && {
-        real_address: rest.real_address ?? null,
-      }),
-      ...(rest.notes !== undefined && { notes: rest.notes ?? null }),
-    })
-    .eq("id", id)
-    .select("id");
-
-  if (error) {
-    if (error.code === PG_UNIQUE_VIOLATION) {
-      return { ok: false, error: "Ya existe un cliente con ese CUIT." };
-    }
-    logger.error("clients.update.failed", { userId: ctx.userId, id, error });
-    return { ok: false, error: "No se pudo actualizar el cliente." };
-  }
-  if ((changed ?? []).length === 0) {
-    return { ok: false, error: CLIENT_NOT_FOUND };
-  }
-
-  await logAudit(
-    "client.updated",
-    ctx.userId,
-    { fields: Object.keys(rest) as JsonValue[] },
-    id,
-  );
-  return { ok: true, data: undefined };
+  const res = await updateClientRecord(ctx.userId, parsed.data);
+  return res.ok ? { ok: true, data: undefined } : res;
 }
 
 export type ClientReferences = {

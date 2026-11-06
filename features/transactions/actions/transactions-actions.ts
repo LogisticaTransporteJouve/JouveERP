@@ -1,6 +1,8 @@
 "use server";
 
 import { logAudit } from "@/lib/actions/audit";
+import { createTransaction } from "@/lib/commands/create-transaction";
+import { createTransfer } from "@/lib/commands/create-transfer";
 import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
@@ -185,79 +187,7 @@ export async function createTransactionAction(
       error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
     };
   }
-  const data = parsed.data;
-
-  const supabase = await createSupabaseClient();
-
-  // Accounts of type checks/echeq are handled exclusively from
-  // /checks (manual entry, deposit, endorsement, crediting). We block
-  // manual ins/outs against those accounts to avoid drift
-  // between the check portfolio and the cash register.
-  const { data: acc, error: accErr } = await supabase
-    .from("accounts")
-    .select("type")
-    .eq("id", data.account_id)
-    .maybeSingle();
-  if (accErr) {
-    logger.error("transactions.create.account_read_failed", {
-      userId: ctx.userId,
-      error: accErr,
-    });
-    return { ok: false, error: "No se pudo leer la cuenta." };
-  }
-  if (!acc) return { ok: false, error: "Cuenta no encontrada." };
-  if (acc.type === "checks" || acc.type === "echeq") {
-    return {
-      ok: false,
-      error:
-        "Los movimientos en cuentas de cheques se manejan desde /checks (cargar, depositar, endosar).",
-    };
-  }
-
-  const { data: row, error } = await supabase
-    .from("transactions")
-    .insert({
-      account_id: data.account_id,
-      channel_id: data.channel_id,
-      kind: data.kind,
-      amount: data.amount,
-      currency: data.currency,
-      transaction_date: data.transaction_date,
-      accrual_month: data.accrual_month,
-      description: data.description ?? null,
-      invoice_id: data.invoice_id ?? null,
-      counterparty_client_id: data.counterparty_client_id ?? null,
-      expense_account_id: data.expense_account_id ?? null,
-      cost_center_id: data.cost_center_id ?? null,
-      created_by: ctx.userId,
-    })
-    .select("id")
-    .single();
-
-  if (error) {
-    const guardError = mapDbGuardError(error, {
-      slug: "transactions.create.rejected",
-      userId: ctx.userId,
-    });
-    if (guardError) return { ok: false, error: guardError };
-    logger.error("transactions.create.failed", { userId: ctx.userId, error });
-    return { ok: false, error: "No se pudo registrar el movimiento." };
-  }
-
-  await logAudit(
-    "transaction.created",
-    ctx.userId,
-    {
-      kind: data.kind,
-      amount: data.amount,
-      account_id: data.account_id,
-      channel_id: data.channel_id,
-      expense_account_id: data.expense_account_id ?? null,
-      cost_center_id: data.cost_center_id ?? null,
-    },
-    row.id,
-  );
-  return { ok: true, data: { id: row.id } };
+  return createTransaction(ctx.userId, parsed.data);
 }
 
 export async function createTransferAction(
@@ -275,57 +205,7 @@ export async function createTransferAction(
       error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
     };
   }
-  const data = parsed.data;
-
-  const supabase = await createSupabaseClient();
-  const { data: rows, error } = await supabase.rpc("create_transfer", {
-    p_account_from_id: data.account_from_id,
-    p_account_to_id: data.account_to_id,
-    p_channel_id: data.channel_id,
-    p_amount: data.amount,
-    p_currency: data.currency,
-    p_transaction_date: data.transaction_date,
-    p_accrual_month: data.accrual_month,
-    p_description: data.description ?? "",
-  });
-
-  if (error) {
-    const guardError = mapDbGuardError(error, {
-      slug: "transactions.create_transfer.rejected",
-      userId: ctx.userId,
-    });
-    if (guardError) return { ok: false, error: guardError };
-    logger.error("transactions.create_transfer.failed", {
-      userId: ctx.userId,
-      error,
-    });
-    return { ok: false, error: "No se pudo registrar la transferencia." };
-  }
-
-  const row = Array.isArray(rows) ? rows[0] : rows;
-  if (!row) {
-    return { ok: false, error: "El RPC create_transfer no devolvió ids." };
-  }
-
-  await logAudit(
-    "transaction.transfer_created",
-    ctx.userId,
-    {
-      from: data.account_from_id,
-      to: data.account_to_id,
-      amount: data.amount,
-      channel_id: data.channel_id,
-    },
-    row.transfer_out_id,
-  );
-
-  return {
-    ok: true,
-    data: {
-      transfer_out_id: row.transfer_out_id as string,
-      transfer_in_id: row.transfer_in_id as string,
-    },
-  };
+  return createTransfer(ctx.userId, parsed.data);
 }
 
 export async function updateTransactionAction(

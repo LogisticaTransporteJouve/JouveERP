@@ -14,7 +14,7 @@ import {
 } from "@/lib/format";
 import { formatInvoiceNumero } from "@/features/invoices/schema";
 
-import type { PendingComprobante } from "../actions/receipts-actions";
+import type { PendingComprobante } from "../schema";
 import { usePendingComprobantes } from "../hooks/use-receipts";
 import { formatReceiptNumber } from "../schema";
 

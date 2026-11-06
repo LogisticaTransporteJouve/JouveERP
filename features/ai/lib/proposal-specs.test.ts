@@ -97,12 +97,15 @@ describe("proposal specs", () => {
 
   it("only offers editable fields the draft schema knows", () => {
     // Accepted as shown: an edit would change the figures the server checks
-    // again at accept time (the matches, the ND's interest), or pick ids the
-    // server resolved from names (the recategorized account and center).
+    // again at accept time (the matches, the ND's interest, an ARCA
+    // voucher's amounts), or pick ids the server resolved from names (the
+    // recategorized account and center, a supplier edit's fields).
     const asShown = new Set([
       "proposeBankMatches",
       "proposeLateInterestNd",
       "proposeRecategorizeExpense",
+      "proposeArcaPurchase",
+      "proposeSupplierUpdate",
     ]);
     for (const [action, spec] of Object.entries(PROPOSAL_SPECS)) {
       if (asShown.has(action)) {

@@ -113,6 +113,10 @@ export const IssuedCheckTransitionSchema = z.object({
 });
 
 export type IssuedCheckCreateInput = z.infer<typeof IssuedCheckCreateSchema>;
+
+/** Why a check loaded or edited by hand cannot point at a payment order. */
+export const PAYMENT_ORDER_LINK_ERROR =
+  "Un cheque propio se liga a una orden de pago solo cargándolo desde la orden de pago.";
 export type IssuedCheckUpdateInput = z.infer<typeof IssuedCheckUpdateSchema>;
 export type IssuedCheckTransitionInput = z.infer<
   typeof IssuedCheckTransitionSchema

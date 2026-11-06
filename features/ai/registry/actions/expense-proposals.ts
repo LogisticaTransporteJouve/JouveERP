@@ -17,7 +17,7 @@ import {
 } from "../../lib/proposal-specs";
 import { defineAiProposal, type AiPrepareResult } from "../propose";
 
-const MAX_CANDIDATES = 5;
+import { MAX_CANDIDATES, norm } from "./resolve-client";
 
 /** Why a user who may recategorize one source cannot touch the other. */
 const SOURCE_WRITE_DENIED: Record<ExpenseSource, string> = {
@@ -39,26 +39,24 @@ const NONE_WORDS = new Set([
   "none",
 ]);
 
-function norm(text: string): string {
-  return text
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .trim()
-    .toLowerCase();
-}
-
-function optionLabel(o: CostTagOption): string {
+export function optionLabel(o: CostTagOption): string {
   return `${o.code} ${o.name}`;
 }
 
-type Resolved =
+export type Resolved =
   | { kind: "id"; id: string | null }
   | { kind: "issues"; result: AiPrepareResult };
 
 /** A code or name as the user said it → one option (by exact code, exact
  *  name, or the single option whose name contains it), or a question. */
-function resolveOption(
-  field: "expense_account" | "cost_center",
+const OPTION_KIND = {
+  expense_account: "cuenta de gasto imputable",
+  cost_center: "centro de costo activo",
+  category: "categoría de proveedor activa",
+} as const;
+
+export function resolveOption(
+  field: keyof typeof OPTION_KIND,
   said: string,
   options: readonly CostTagOption[],
 ): Resolved {
@@ -71,10 +69,7 @@ function resolveOption(
   const pick =
     exact.length === 1 ? exact[0] : close.length === 1 ? close[0] : undefined;
   if (pick) return { kind: "id", id: pick.id };
-  const what =
-    field === "expense_account"
-      ? "cuenta de gasto imputable"
-      : "centro de costo activo";
+  const what = OPTION_KIND[field];
   return {
     kind: "issues",
     result: {

@@ -7,6 +7,7 @@ import {
   userCan,
   userCanAll,
 } from "@/lib/auth/permissions";
+import { payLoanInstallment } from "@/lib/commands/pay-loan-installment";
 import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
@@ -555,42 +556,7 @@ export async function payInstallmentAction(
       error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
     };
   }
-  const { id, paid_date, account_id, amount } = parsed.data;
-  const supabase = await createSupabaseClient();
-
-  // One transaction: claims the pending installment (FOR UPDATE), books the
-  // outflow on the loan's channel and closes the loan after the last one.
-  const { data: transactionId, error } = await supabase.rpc(
-    "pay_loan_installment",
-    {
-      p_installment_id: id,
-      p_paid_date: paid_date,
-      p_account_id: account_id,
-      p_amount: amount,
-    },
-  );
-  if (error) {
-    const guardError = mapDbGuardError(error, {
-      slug: "loans.installment.pay.rejected",
-      userId: ctx.userId,
-      id,
-    });
-    if (guardError) return { ok: false, error: guardError };
-    logger.error("loans.installment.pay.failed", {
-      userId: ctx.userId,
-      id,
-      error,
-    });
-    return { ok: false, error: "No se pudo registrar el pago de la cuota." };
-  }
-
-  await logAudit(
-    "loan.installment_paid",
-    ctx.userId,
-    { installment_id: id, amount },
-    transactionId,
-  );
-  return { ok: true, data: { transactionId } };
+  return payLoanInstallment(ctx.userId, parsed.data);
 }
 
 export async function cancelLoanAction(input: unknown): Promise<ActionResult> {

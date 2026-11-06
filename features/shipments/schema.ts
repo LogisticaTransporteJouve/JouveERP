@@ -187,6 +187,28 @@ export const ASSIGNABLE_SHIPMENT_STATUSES = [
   "reprogrammed",
 ] as const satisfies readonly ShipmentStatus[];
 
+/** The statuses a carga can be moved to (never back to not_started). */
+export const SHIPMENT_TARGET_STATUSES = [
+  "in_progress",
+  "delivered",
+  "cancelled",
+  "reprogrammed",
+] as const satisfies readonly ShipmentStatus[];
+export type ShipmentTargetStatus = (typeof SHIPMENT_TARGET_STATUSES)[number];
+
+/** Where each status can go: the transitions change_shipment_status accepts
+ *  and the cargas table offers. */
+export const SHIPMENT_NEXT_STATUSES: Record<
+  ShipmentStatus,
+  readonly ShipmentTargetStatus[]
+> = {
+  not_started: ["in_progress", "delivered", "cancelled", "reprogrammed"],
+  in_progress: ["delivered", "cancelled", "reprogrammed"],
+  delivered: [],
+  cancelled: ["reprogrammed"],
+  reprogrammed: ["reprogrammed"],
+};
+
 /** Status transition: start / deliver / cancel / reprogram. The relevant extra
  *  fields per status are validated/applied in the action. */
 export const ShipmentStatusChangeSchema = z.object({
@@ -228,6 +250,8 @@ export type ShipmentsSummaryRow =
  *  without one is left out of a dated filter); none = every carga. */
 export const ShipmentListFilterSchema = z.object({
   ...listWindowShape,
+  /** One carga (the assistant's status-change proposal). */
+  id: UuidSchema.nullish(),
   clientId: UuidSchema.nullish(),
   tripId: UuidSchema.nullish(),
   status: z.enum(SHIPMENT_STATUSES).nullish(),

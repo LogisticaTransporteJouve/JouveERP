@@ -211,6 +211,58 @@ export const PaymentOrderAllocateSchema = z
 export type PaymentOrderCreateInput = z.infer<typeof PaymentOrderCreateSchema>;
 export type PaymentOrderUpdateInput = z.infer<typeof PaymentOrderUpdateSchema>;
 export type PaymentLineInput = z.infer<typeof PaymentLineSchema>;
+
+/** A payment line as `create_payment_order` / `update_payment_order` take it. */
+export function serializePaymentLine(line: PaymentLineInput) {
+  if (line.line_kind === "endorse_check") {
+    return {
+      line_kind: "endorse_check",
+      endorsed_check_id: line.endorsed_check_id,
+      amount: line.amount,
+      reference: line.reference ?? null,
+    };
+  }
+  if (line.line_kind === "issue_check") {
+    return {
+      line_kind: "issue_check",
+      account_id: line.account_id,
+      amount: line.amount,
+      reference: line.reference ?? null,
+      issued_check: {
+        kind: line.issued_check.kind,
+        check_number: line.issued_check.check_number,
+        bank_name: line.issued_check.bank_name,
+        due_date: line.issued_check.due_date,
+        issue_date: line.issued_check.issue_date ?? null,
+        beneficiary_name: line.issued_check.beneficiary_name ?? null,
+        beneficiary_cuit: line.issued_check.beneficiary_cuit ?? null,
+        notes: line.issued_check.notes ?? null,
+      },
+    };
+  }
+  return {
+    line_kind: "account",
+    account_id: line.account_id,
+    amount: line.amount,
+    reference: line.reference ?? null,
+  };
+}
+
+/** A received purchase of a supplier with how much is still open: the
+ *  "imputar" picker's rows and what a new OP's FIFO spreads over. */
+export type PendingPurchaseInvoice = {
+  id: string;
+  numero: number;
+  punto_venta: number;
+  letter: string | null;
+  kind: string;
+  fecha: string;
+  imp_total: number;
+  already_allocated: number;
+  outstanding: number;
+  /** The purchase's moneda as an OP currency (DOL → USD, else ARS). */
+  currency: "ARS" | "USD";
+};
 export type PaymentLineAccountInput = z.infer<typeof PaymentLineAccountSchema>;
 export type PaymentLineEndorseInput = z.infer<typeof PaymentLineEndorseSchema>;
 export type PaymentLineIssueInput = z.infer<typeof PaymentLineIssueSchema>;

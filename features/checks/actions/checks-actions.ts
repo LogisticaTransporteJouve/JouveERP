@@ -2,6 +2,7 @@
 
 import { logAudit } from "@/lib/actions/audit";
 import { createManualCheck } from "@/lib/commands/create-manual-check";
+import { depositCheck } from "@/lib/commands/deposit-check";
 import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan, userCanAll } from "@/lib/auth/permissions";
@@ -287,39 +288,7 @@ export async function depositCheckAction(
       error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
     };
   }
-  const data = parsed.data;
-
-  const supabase = await createSupabaseClient();
-  const { data: id, error } = await supabase.rpc("deposit_check", {
-    p_check_id: data.check_id,
-    p_account_id: data.account_id,
-    p_event_date: data.event_date,
-    p_channel_id: data.channel_id,
-    p_description: data.description ?? "",
-  });
-
-  if (error) {
-    const guard = mapDbGuardError(error, {
-      slug: "cheques.deposit.rejected",
-      userId: ctx.userId,
-      id: data.check_id,
-    });
-    if (guard) return { ok: false, error: guard };
-    logger.error("cheques.deposit.failed", {
-      userId: ctx.userId,
-      check_id: data.check_id,
-      error,
-    });
-    return { ok: false, error: "No se pudo depositar el cheque." };
-  }
-
-  await logAudit(
-    "check.deposited",
-    ctx.userId,
-    { destination_account_id: data.account_id },
-    data.check_id,
-  );
-  return { ok: true, data: { movement_id: id as string } };
+  return depositCheck(ctx.userId, parsed.data);
 }
 
 export async function creditCheckAction(

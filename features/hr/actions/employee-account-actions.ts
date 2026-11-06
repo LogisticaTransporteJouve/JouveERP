@@ -6,6 +6,10 @@ import { requireUserContext } from "@/lib/auth/context";
 import { userCan, userCanAll } from "@/lib/auth/permissions";
 import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { logger } from "@/lib/logger";
+import {
+  createEmployeeAccountMovement,
+  recordEmployeeAccountCash,
+} from "@/lib/commands/record-employee-account";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
 import {
@@ -258,54 +262,7 @@ export async function createManualMovementAction(
       error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
     };
   }
-  const v = parsed.data;
-  const supabase = await createSupabaseClient();
-  const { data, error } = await supabase
-    .from("employee_account_movements")
-    .insert({
-      employee_id: v.employee_id,
-      kind: v.kind,
-      currency: v.currency,
-      amount: v.amount,
-      movement_date: v.movement_date,
-      description: v.description,
-      creditor: v.creditor,
-      plan_id: v.plan_id ?? null,
-      created_by: ctx.userId,
-    })
-    .select("id")
-    .single();
-  if (error || !data) {
-    if (error && !error.hint) {
-      logger.error("employee_account.manual.failed", {
-        userId: ctx.userId,
-        error,
-      });
-    }
-    return {
-      ok: false,
-      error: writeError(
-        error,
-        "employee_account.manual.rejected",
-        ctx.userId,
-        "No se pudo cargar el movimiento.",
-      ),
-    };
-  }
-  await logAudit(
-    "employee.account_movement_created",
-    ctx.userId,
-    {
-      employee_id: v.employee_id,
-      kind: v.kind,
-      currency: v.currency,
-      amount: v.amount,
-      creditor: v.creditor,
-      plan_id: v.plan_id ?? null,
-    },
-    data.id,
-  );
-  return { ok: true, data: { id: data.id } };
+  return createEmployeeAccountMovement(ctx.userId, parsed.data);
 }
 
 /** "Adelanto a empleado" / "Pago del empleado": the treasury movement and the
@@ -327,57 +284,7 @@ export async function recordEmployeeAccountCashAction(
       error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
     };
   }
-  const v = parsed.data;
-  const supabase = await createSupabaseClient();
-  const { data, error } = await supabase.rpc("record_employee_account_cash", {
-    p_employee_id: v.employee_id,
-    p_kind: v.kind,
-    p_account_id: v.account_id,
-    p_channel_id: v.channel_id,
-    p_date: v.date,
-    p_amount: v.amount,
-    ...(v.description ? { p_description: v.description } : {}),
-    ...(v.plan_id ? { p_plan_id: v.plan_id } : {}),
-    ...(v.installment_amount != null
-      ? { p_installment_amount: v.installment_amount }
-      : {}),
-  });
-  if (error || !data) {
-    if (error && !error.hint) {
-      logger.error("employee_account.cash.failed", {
-        userId: ctx.userId,
-        error,
-      });
-    }
-    return {
-      ok: false,
-      error: writeError(
-        error,
-        "employee_account.cash.rejected",
-        ctx.userId,
-        v.kind === "advance"
-          ? "No se pudo registrar el adelanto."
-          : "No se pudo registrar el pago.",
-      ),
-    };
-  }
-  await logAudit(
-    v.kind === "advance"
-      ? "employee.advance_recorded"
-      : "employee.account_payment_recorded",
-    ctx.userId,
-    {
-      employee_id: v.employee_id,
-      account_id: v.account_id,
-      channel_id: v.channel_id,
-      date: v.date,
-      amount: v.amount,
-      plan_id: v.plan_id ?? null,
-      installment_amount: v.installment_amount ?? null,
-    },
-    data,
-  );
-  return { ok: true, data: { id: data } };
+  return recordEmployeeAccountCash(ctx.userId, parsed.data);
 }
 
 export async function updateAccountMovementAction(

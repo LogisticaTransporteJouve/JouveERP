@@ -7,7 +7,6 @@ import {
   CLIENT_TARIFF_UNITS,
   UNITS_BY_CONCEPT,
 } from "@/features/client-tariffs/schema";
-import { searchClientsAction } from "@/features/clients/actions/clients-actions";
 import { isoDate } from "@/features/exchange-rates/schema";
 import { issueFiscalInvoiceAction } from "@/features/invoices/actions/invoices-actions";
 import { listLateInterestCandidatesAction } from "@/features/late-interest/actions/late-interest-actions";
@@ -36,6 +35,7 @@ import { defineAiProposal } from "../propose";
 import { errResult, money, okResult } from "../result";
 import { readScope } from "../scope";
 
+import { MAX_CANDIDATES, resolveClient } from "./resolve-client";
 import { findReconciliationAccount } from "./treasury";
 
 // 6.3 proposals over existing writes. Each `prepare` resolves names with the
@@ -43,16 +43,6 @@ import { findReconciliationAccount } from "./treasury";
 // user accepts, through the lib/commands function the feature's own server
 // action calls (the late-interest ND through issueFiscalInvoiceAction, the
 // documented cross-feature write).
-
-const MAX_CANDIDATES = 5;
-
-function norm(text: string): string {
-  return text
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .trim()
-    .toLowerCase();
-}
 
 function short(text: string, max = 60): string {
   return text.length > max ? `${text.slice(0, max - 1)}…` : text;
@@ -154,44 +144,9 @@ export const proposeClientTariff = defineAiProposal({
         ],
       };
     }
-    const res = await searchClientsAction({
-      query: input.client,
-      onlyActive: true,
-      limit: MAX_CANDIDATES + 1,
-    });
-    if (!res.ok) return { kind: "error", error: res.error };
-    const found = res.data.clients;
-    const q = norm(input.client);
-    const exact = found.filter(
-      (c) => norm(c.legal_name) === q || c.cuit === input.client.trim(),
-    );
-    const pick =
-      exact.length === 1 ? exact[0] : found.length === 1 ? found[0] : undefined;
-    if (!pick) {
-      return {
-        kind: "issues",
-        issues: [
-          {
-            field: "client",
-            message:
-              found.length === 0
-                ? `No hay un cliente activo que coincida con "${input.client}".`
-                : `Hay varios clientes que coinciden con "${input.client}".`,
-          },
-        ],
-        candidates: found.length
-          ? [
-              {
-                field: "client",
-                options: found.slice(0, MAX_CANDIDATES).map((c) => ({
-                  value: c.legal_name,
-                  label: c.cuit ? `${c.legal_name} (${c.cuit})` : c.legal_name,
-                })),
-              },
-            ]
-          : undefined,
-      };
-    }
+    const found = await resolveClient(input.client);
+    if (!found.ok) return found.result;
+    const pick = found.client;
     return {
       kind: "draft",
       draft: {

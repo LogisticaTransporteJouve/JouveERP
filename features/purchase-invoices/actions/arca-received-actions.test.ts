@@ -128,8 +128,9 @@ vi.mock("@/lib/auth/context", () => ({
 }));
 vi.mock("@/lib/supabase/service", () => ({ getServiceClient: () => service }));
 vi.mock("@/lib/actions/audit", () => ({ logAudit: vi.fn() }));
-vi.mock("./purchase-invoices-actions", () => ({
-  createPurchaseInvoiceAction: (input: unknown) => createPurchase(input),
+vi.mock("@/lib/commands/create-purchase-invoice", () => ({
+  createPurchaseInvoice: (_actorId: string, input: unknown) =>
+    createPurchase(input),
 }));
 
 const { createPurchaseInvoiceFromReceivedAction } =
