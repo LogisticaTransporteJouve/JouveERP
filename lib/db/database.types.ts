@@ -9456,6 +9456,24 @@ export type Database = {
           remito_pos: number
         }[]
       }
+      create_ai_confirmation_revision: {
+        Args: {
+          p_action: string
+          p_draft: Json
+          p_labels: Json
+          p_origin: string
+          p_replaces?: string
+          p_revision_key: string
+          p_session_id: string
+          p_summary: Json
+          p_tool_call_id: string
+          p_user_id: string
+        }
+        Returns: {
+          id: string
+          revision: number
+        }[]
+      }
       create_bank_statement_line_tax_payment: {
         Args: {
           p_allow_difference?: boolean
