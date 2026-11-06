@@ -145,7 +145,14 @@ function SyncDialog({
 /** «Traer de ARCA»: the stored ARCA user's state, the last run and the
  *  button that queues one for chosen months. Follows a pending run and
  *  refreshes the tray when it ends. */
-export function ArcaSyncCard() {
+export function ArcaSyncCard({
+  unreadable = 0,
+  onShowUnreadable,
+}: {
+  /** Vouchers in the tray whose amounts did not read. */
+  unreadable?: number;
+  onShowUnreadable?: () => void;
+} = {}) {
   const status = useArcaSyncStatus();
   const invalidateTray = useInvalidateTray();
   const [open, setOpen] = useState(false);
@@ -189,6 +196,17 @@ export function ArcaSyncCard() {
               ? status.error.message
               : statusText(status.data, phase)}
         </p>
+        {unreadable > 0 && onShowUnreadable && (
+          <button
+            type="button"
+            className="text-sm underline underline-offset-2"
+            onClick={onShowUnreadable}
+          >
+            {unreadable === 1
+              ? "Ver el comprobante que no se pudo leer"
+              : `Ver los ${unreadable} comprobantes que no se pudieron leer`}
+          </button>
+        )}
       </div>
       <Button
         size="sm"

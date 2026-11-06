@@ -104,6 +104,8 @@ const voucher: ReceivedVoucher = {
   iva_breakdown: [],
   status: "pending_review",
   discard_reason: null,
+  unreadable_reason: null,
+  raw_amounts: null,
   purchase: null,
   supplier: {
     id: "s1",

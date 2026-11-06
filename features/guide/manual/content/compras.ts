@@ -1676,7 +1676,7 @@ export const purchasesPage: GuidePage = {
       permission: "purchase_invoices:write",
       intro: [
         "La bandeja con los comprobantes que tus proveedores informaron a ARCA (Mis Comprobantes › Recibidos). Cada uno se acepta para cargarlo como compra, o se descarta si no corresponde. Se llega con el botón {{Recibidos de ARCA}} de [[/purchases]], del lado fiscal.",
-        "Arriba está el recuadro {{Traer de ARCA}} (estado de la conexión con ARCA y la última corrida) y el recuadro para subir el archivo de Mis Comprobantes. Debajo, cuatro pestañas: {{Pendientes}}, {{Cargadas}}, {{Descartadas}} y {{No soportados}}.",
+        "Arriba está el recuadro {{Traer de ARCA}} (estado de la conexión con ARCA y la última corrida) y el recuadro para subir el archivo de Mis Comprobantes. Debajo, cinco pestañas: {{Pendientes}}, {{No se pudieron leer}}, {{Cargadas}}, {{Descartadas}} y {{No soportados}}.",
         "Columnas: {{Fecha}}, {{Proveedor}} (con el CUIT; «proveedor nuevo» si todavía no está cargado), {{Comprobante}} y {{Total}}.",
       ],
       concepts: [
@@ -1686,6 +1686,7 @@ export const purchasesPage: GuidePage = {
             "{{Pendientes}}: lo que falta revisar. Cada fila tiene {{Ver detalle}}, {{Aceptar y cargar}} y {{Descartar}}.",
             "{{Cargadas}}: ya están en Compras. {{Ver compra}} abre la compra; si la compra se anuló dice {{Anulada}}.",
             "{{Descartadas}}: las que se decidió no cargar; {{Volver a pendientes}} las recupera.",
+            "{{No se pudieron leer}}: comprobantes que ARCA lista pero cuyos importes no se pueden leer (ver «Cuando los importes de ARCA no suman el total»).",
             "{{No soportados}}: facturas de crédito MiPyME (FCE) y tipo M, que todavía se cargan a mano.",
           ],
         },
@@ -1701,7 +1702,8 @@ export const purchasesPage: GuidePage = {
           body: [
             "A veces ARCA informa un total mayor que neto + no gravado + exento + IVA + otros tributos: suelen ser percepciones que no detalló, o un comprobante con solo el total. Ese comprobante entra igual a la bandeja tal como lo informó ARCA, y en la columna {{Comprobante}} dice «Los importes de ARCA no suman el total (diferencia $ …)».",
             "Al aceptarlo elegís a dónde va la diferencia: ver [[#aceptar-comprobante-de-arca]]. Nada se completa solo.",
-            "No se leen (el aviso los cuenta como «no se pudieron leer» y nombra los primeros) las filas con un importe ilegible, con importes que suman más que el total, o con un detalle por alícuota o de otros tributos que no coincide con su propio subtotal.",
+            "Las filas con un importe ilegible, con importes que suman más que el total (más de un centavo), o con un detalle por alícuota o de otros tributos que no coincide con su propio subtotal no se pueden leer. Quedan en la pestaña {{No se pudieron leer}} con el motivo y los importes tal como los lista ARCA; el aviso de {{Traer de ARCA}} las cuenta y tiene un enlace a esa pestaña.",
+            "Desde esa pestaña: {{Cargar a mano}} abre la compra con el proveedor, el tipo, el número, la fecha y el CAE de ARCA, y vos cargás los importes de la factura; {{Volver a intentar}} le pide ese mes de nuevo a ARCA, y si ahora se puede leer pasa a {{Pendientes}}; o descartalo. Una fila sin CUIT, tipo, número o fecha legibles no se guarda: solo la nombra el aviso.",
           ],
         },
       ],

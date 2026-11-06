@@ -9,7 +9,8 @@ const CHANNEL = "jouve_fiscal";
 let roles: string[] = ["finance"];
 let voucherRow: Record<string, unknown> | null;
 let linkMakesConfirmed = false;
-let sameKeyRows: { status: string; imp_total: number }[] = [];
+let sameKeyRows: { id?: string; status: string; imp_total: number }[] = [];
+const updateValues: Record<string, unknown>[] = [];
 let claimWins: boolean | "error" = true;
 const writes: string[] = [];
 
@@ -37,6 +38,8 @@ function row(over: Record<string, unknown> = {}) {
     iva_breakdown: [],
     status: "pending_review",
     discard_reason: null,
+    unreadable_reason: null,
+    raw_amounts: null,
     purchase_invoice_id: null,
     purchase_invoices: null,
     ...over,
@@ -47,9 +50,10 @@ function builder(table: string) {
   let op: "select" | "update" = "select";
   const b = {
     select: () => b,
-    update: () => {
+    update: (values: Record<string, unknown>) => {
       op = "update";
       writes.push(`update:${table}`);
+      updateValues.push(values);
       return b;
     },
     eq: () => b,
@@ -97,9 +101,11 @@ function builder(table: string) {
   return b;
 }
 
+const rpcCalls: string[] = [];
 const service = {
   from: (t: string) => builder(t),
-  rpc: async () => {
+  rpc: async (fn: string) => {
+    rpcCalls.push(fn);
     if (linkMakesConfirmed && voucherRow) {
       voucherRow = {
         ...voucherRow,
@@ -133,8 +139,11 @@ vi.mock("@/lib/commands/create-purchase-invoice", () => ({
     createPurchase(input),
 }));
 
-const { createPurchaseInvoiceFromReceivedAction } =
-  await import("./arca-received-actions");
+const {
+  createPurchaseInvoiceFromReceivedAction,
+  discardReceivedVoucherAction,
+  restoreReceivedVoucherAction,
+} = await import("./arca-received-actions");
 
 const invoice = {
   channel_id: CHANNEL,
@@ -162,7 +171,107 @@ beforeEach(() => {
   sameKeyRows = [];
   claimWins = true;
   writes.length = 0;
+  updateValues.length = 0;
+  rpcCalls.length = 0;
   createPurchase.mockClear();
+});
+
+describe("a voucher whose amounts did not read", () => {
+  const unreadable = () =>
+    row({
+      status: "unreadable",
+      imp_neto_gravado: 0,
+      imp_op_exentas: 0,
+      imp_iva: 0,
+      imp_trib: 0,
+      imp_total: 0,
+      unreadable_reason: "amount_over_total",
+      raw_amounts: { neto: "1000", total: "900" },
+    });
+
+  it("loads it by hand: the amounts typed are not checked against ARCA's", async () => {
+    voucherRow = unreadable();
+    const items = [
+      {
+        description: "Servicio",
+        quantity: 1,
+        unit_price: 1000,
+        iva_rate_id: 5,
+        line_neto: 1000,
+        line_iva: 210,
+        line_total: 1210,
+      },
+    ];
+    const res = await createPurchaseInvoiceFromReceivedAction({
+      voucherId: VOUCHER_ID,
+      invoice: { ...invoice, items },
+    });
+    expect(res).toEqual({
+      ok: true,
+      data: { id: "pi-new", linkedExisting: false },
+    });
+    // The person's lines, and no link by amounts (there are none to compare).
+    expect(createPurchase.mock.calls[0]?.[0]).toMatchObject({
+      items: [expect.objectContaining({ description: "Servicio" })],
+    });
+    expect(rpcCalls).toEqual([]);
+    expect(updateValues).toContainEqual(
+      expect.objectContaining({
+        status: "confirmed",
+        purchase_invoice_id: "pi-new",
+      }),
+    );
+  });
+
+  it("still checks it is ARCA's voucher (número)", async () => {
+    voucherRow = unreadable();
+    const res = await createPurchaseInvoiceFromReceivedAction({
+      voucherId: VOUCHER_ID,
+      invoice: { ...invoice, numero: 121 },
+    });
+    expect(res.ok ? null : res.error).toMatch(/número/);
+    expect(createPurchase).not.toHaveBeenCalled();
+  });
+
+  it("links the purchase already loaded with its number, whatever its total", async () => {
+    voucherRow = unreadable();
+    sameKeyRows = [{ id: "pi-hand", status: "received", imp_total: 999 }];
+    const res = await createPurchaseInvoiceFromReceivedAction({
+      voucherId: VOUCHER_ID,
+      invoice,
+    });
+    expect(res).toEqual({
+      ok: true,
+      data: { id: "pi-hand", linkedExisting: true },
+    });
+    expect(createPurchase).not.toHaveBeenCalled();
+  });
+
+  it("refuses a type the tray does not load", async () => {
+    voucherRow = unreadable();
+    voucherRow = { ...voucherRow, kind: null, letter: null, cbte_tipo: 201 };
+    const res = await createPurchaseInvoiceFromReceivedAction({
+      voucherId: VOUCHER_ID,
+      invoice,
+    });
+    expect(res.ok).toBe(false);
+    expect(createPurchase).not.toHaveBeenCalled();
+  });
+
+  it("discards it, and restoring it sends it back to «No se pudieron leer»", async () => {
+    voucherRow = unreadable();
+    expect(
+      await discardReceivedVoucherAction({ voucherId: VOUCHER_ID }),
+    ).toEqual({ ok: true, data: undefined });
+    voucherRow = { ...unreadable(), status: "discarded" };
+    updateValues.length = 0;
+    expect(
+      await restoreReceivedVoucherAction({ voucherId: VOUCHER_ID }),
+    ).toEqual({ ok: true, data: undefined });
+    expect(updateValues).toEqual([
+      expect.objectContaining({ status: "unreadable" }),
+    ]);
+  });
 });
 
 describe("createPurchaseInvoiceFromReceivedAction", () => {
