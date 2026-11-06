@@ -27,11 +27,12 @@ import {
 //     It is internal, and both converge on one number
 //     (next_internal_invoice_numero_atomic) and one guarded mark-emitted.
 //   * A draft with no items: its header was inserted and its items never were
-//     (issueFiscalInvoiceAction writes them in two requests). It is not a
-//     voucher, yet it holds what it was billing: a remito interno, a
-//     late-interest period, a carga, a storage period. Once it is past the
-//     resend wait it is marked failed (fail_itemless_invoice_drafts), which
-//     frees them.
+//     (issueFiscalInvoiceAction wrote them in two requests before
+//     create_invoice_draft; such drafts may still exist, or come from an older
+//     build after a rollback). It is not a voucher, yet it holds what it was
+//     billing: a remito interno, a late-interest period, a carga, a storage
+//     period. Once it is past the resend wait it is marked failed
+//     (fail_itemless_invoice_drafts), which frees them.
 
 /** A draft younger than this may still be on its way to Inngest. */
 const UNSENT_AFTER_MS = 15 * 60_000;

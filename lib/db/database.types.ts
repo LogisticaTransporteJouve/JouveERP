@@ -9525,6 +9525,10 @@ export type Database = {
         }
         Returns: string
       }
+      create_invoice_draft: {
+        Args: { p_invoice: Json; p_items: Json }
+        Returns: string
+      }
       create_journal_entry: {
         Args: {
           p_accrual_period: string

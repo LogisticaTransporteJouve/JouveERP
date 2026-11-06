@@ -25,9 +25,12 @@ import {
 } from "../../lib/proposal-specs";
 import { defineAiProposal, type ProposalCandidate } from "../propose";
 
-import { resolveChannel, resolveTreasuryAccount } from "./hr-refs";
+import {
+  HrChannelInput,
+  resolveChannel,
+  resolveTreasuryAccount,
+} from "./hr-refs";
 import { MAX_CANDIDATES, norm } from "./resolve-client";
-import { CHANNEL_SIDES } from "./treasury-refs";
 
 // "Pagar" / "Pago masivo" of a payroll month. The amounts are the planilla's
 // own suggestion for the method (what is left of that share, never above the
@@ -136,9 +139,7 @@ export const proposePayrollPayment = defineAiProposal({
       .min(1)
       .max(120)
       .describe("Cash or bank account to pay from, as the user said it."),
-    channel: z
-      .enum(CHANNEL_SIDES)
-      .describe("fiscal (en blanco) or internal (interno)."),
+    channel: HrChannelInput,
     paid_at: isoDate.optional().describe("Payment date; default today."),
     notes: z.string().trim().max(500).optional(),
   }),
