@@ -77,6 +77,45 @@ export type SkipReason =
   | "amount_over_total"
   | "breakdown_mismatch";
 
+/** Why a row's amounts were not read, when its identity was. */
+export const UNREADABLE_REASONS = [
+  "bad_amount",
+  "amount_over_total",
+  "breakdown_mismatch",
+] as const;
+export type UnreadableReason = (typeof UNREADABLE_REASONS)[number];
+
+function isUnreadableReason(r: SkipReason): r is UnreadableReason {
+  return (UNREADABLE_REASONS as readonly string[]).includes(r);
+}
+
+/** The amounts of an unreadable row as ARCA lists them (text, unparsed). */
+export type RawAmounts = Partial<
+  Record<
+    "neto" | "no_gravado" | "exentas" | "iva" | "otros_tributos" | "total",
+    string
+  >
+>;
+
+/** A row whose identity reads but whose amounts do not: kept in the tray as
+ *  «No se pudieron leer», with what ARCA listed. */
+export type UnreadableVoucher = Pick<
+  ReceivedVoucher,
+  | "issuer_cuit"
+  | "issuer_name"
+  | "cbte_tipo"
+  | "kind"
+  | "letter"
+  | "punto_venta"
+  | "numero"
+  | "fecha"
+  | "cae"
+> & {
+  moneda: "PES" | "DOL";
+  unreadable_reason: UnreadableReason;
+  raw_amounts: RawAmounts;
+};
+
 /** A row that was not read, named as ARCA lists it so a person can find it
  *  (tipo, punto de venta-número, CUIT emisor; whatever the row has). */
 export type SkippedRow = { reason: SkipReason; ref: string };
@@ -86,6 +125,8 @@ export const SKIPPED_ROWS_NAMED = 20;
 
 export type ParsedReceivedExport = {
   vouchers: ReceivedVoucher[];
+  /** Skipped rows whose identity reads (also counted in skippedByReason). */
+  unreadable: UnreadableVoucher[];
   skippedByReason: Partial<Record<SkipReason, number>>;
   skipped: SkippedRow[];
 };
@@ -271,14 +312,21 @@ function parseMoneda(raw: string): "PES" | "DOL" | null {
 const cents = (n: number) => Math.round(n * 100);
 const near = (a: number, b: number) => Math.abs(cents(a) - cents(b)) <= 1;
 
-function parseRow(
+type Identity = {
+  fecha: string;
+  cbteTipo: number;
+  puntoVenta: number;
+  numero: number;
+  cuit: string;
+};
+
+/** What identifies a row: its date, type, number and issuer. */
+function parseIdentity(
   row: readonly string[],
   cols: Partial<Record<Field, number>>,
-  rateCols: Map<IvaRateId, { neto?: number; iva?: number }>,
-): ReceivedVoucher | SkipReason {
+): Identity | SkipReason {
   const cell = (f: Field) =>
     cols[f] === undefined ? "" : (row[cols[f]!] ?? "").trim();
-
   const fecha = parseSheetDate(cell("fecha"));
   if (!fecha) return "bad_date";
   const cbteTipo = parseTipo(cell("tipo"));
@@ -288,6 +336,62 @@ function parseRow(
   if (puntoVenta === null || numero === null) return "bad_number";
   const cuit = cell("cuit").replace(/\D/g, "");
   if (!/^\d{11}$/.test(cuit)) return "bad_cuit";
+  return { fecha, cbteTipo, puntoVenta, numero, cuit };
+}
+
+/** A row whose amounts did not read, with its identity and what ARCA
+ *  listed; null when its identity does not read either. */
+function unreadableRow(
+  row: readonly string[],
+  cols: Partial<Record<Field, number>>,
+  reason: UnreadableReason,
+): UnreadableVoucher | null {
+  const identity = parseIdentity(row, cols);
+  if (typeof identity === "string") return null;
+  const cell = (f: Field) =>
+    cols[f] === undefined ? "" : (row[cols[f]!] ?? "").trim();
+  const raw: RawAmounts = {};
+  for (const [field, key] of RAW_AMOUNT_FIELDS) {
+    const v = cell(field);
+    if (v !== "") raw[key] = v.slice(0, 40);
+  }
+  const kl = kindLetterForCbteTipo(identity.cbteTipo);
+  return {
+    issuer_cuit: identity.cuit,
+    issuer_name: cell("denominacion").slice(0, 300) || identity.cuit,
+    cbte_tipo: identity.cbteTipo,
+    kind: kl?.kind ?? null,
+    letter: kl?.letter ?? null,
+    punto_venta: identity.puntoVenta,
+    numero: identity.numero,
+    fecha: identity.fecha,
+    cae: cell("cae").replace(/\D/g, "").slice(0, 20) || null,
+    moneda: parseMoneda(cell("moneda")) ?? "PES",
+    unreadable_reason: reason,
+    raw_amounts: raw,
+  };
+}
+
+const RAW_AMOUNT_FIELDS: readonly [Field, keyof RawAmounts][] = [
+  ["neto_gravado", "neto"],
+  ["no_gravado", "no_gravado"],
+  ["exentas", "exentas"],
+  ["iva", "iva"],
+  ["otros_tributos", "otros_tributos"],
+  ["total", "total"],
+];
+
+function parseRow(
+  row: readonly string[],
+  cols: Partial<Record<Field, number>>,
+  rateCols: Map<IvaRateId, { neto?: number; iva?: number }>,
+): ReceivedVoucher | SkipReason {
+  const cell = (f: Field) =>
+    cols[f] === undefined ? "" : (row[cols[f]!] ?? "").trim();
+
+  const identity = parseIdentity(row, cols);
+  if (typeof identity === "string") return identity;
+  const { fecha, cbteTipo, puntoVenta, numero, cuit } = identity;
   const moneda = parseMoneda(cell("moneda"));
   if (moneda === null) return "bad_amount";
 
@@ -454,12 +558,17 @@ export function parseReceivedTable(
   if (dataRows.length > 5000) return TOO_MANY;
 
   const vouchers: ReceivedVoucher[] = [];
+  const unreadable: UnreadableVoucher[] = [];
   const skippedByReason: Partial<Record<SkipReason, number>> = {};
   const skipped: SkippedRow[] = [];
   for (const row of dataRows) {
     const result = parseRow(row, cols, rateCols);
     if (typeof result === "string") {
       skippedByReason[result] = (skippedByReason[result] ?? 0) + 1;
+      const kept = isUnreadableReason(result)
+        ? unreadableRow(row, cols, result)
+        : null;
+      if (kept) unreadable.push(kept);
       if (skipped.length < SKIPPED_ROWS_NAMED) {
         const amounts =
           result === "amount_over_total" ? amountsRef(row, cols) : "";
@@ -474,7 +583,7 @@ export function parseReceivedTable(
       vouchers.push(result);
     }
   }
-  return { vouchers, skippedByReason, skipped };
+  return { vouchers, unreadable, skippedByReason, skipped };
 }
 
 /** The uploaded file (CSV in UTF-8 or windows-1252, or Excel) as vouchers, or

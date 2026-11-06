@@ -9,8 +9,10 @@ vi.mock("./arca-web-account", () => ({
   getArcaWebAccountStatus: () => status(),
   readArcaWebPassword: () => password(),
 }));
+const ingestUnreadable = vi.fn(async () => 0);
 vi.mock("./received-vouchers", () => ({
   ingestReceivedVouchers: (...args: unknown[]) => ingest(...args),
+  ingestUnreadableVouchers: () => ingestUnreadable(),
 }));
 
 const { runReceivedSync, monthRanges } = await import("./received-sync");
@@ -75,6 +77,7 @@ describe("runReceivedSync", () => {
   it("signs in once, reads each month and adds it to the tray", async () => {
     const queryReceived = vi.fn(async () => ({
       vouchers: [voucher],
+      unreadable: [],
       skippedByReason: { bad_cuit: 1 },
       skipped: [
         { reason: "bad_cuit" as const, ref: "tipo 1 · 00003-00000007" },
@@ -190,6 +193,7 @@ describe("runReceivedSync", () => {
       .mockRejectedValueOnce(new ArcaRobotError("TOO_MANY", "x"))
       .mockResolvedValueOnce({
         vouchers: [voucher],
+        unreadable: [],
         skippedByReason: {},
         skipped: [],
       })
@@ -240,7 +244,7 @@ describe("runReceivedSync", () => {
     let t = 0;
     const queryReceived = vi.fn(async () => {
       t += 150_000;
-      return { vouchers: [], skippedByReason: {}, skipped: [] };
+      return { vouchers: [], unreadable: [], skippedByReason: {}, skipped: [] };
     });
     const out = await runReceivedSync(
       supabase,
@@ -279,6 +283,7 @@ describe("runReceivedSync", () => {
     let t = 0;
     const queryReceived = vi.fn(async () => ({
       vouchers: [],
+      unreadable: [],
       skippedByReason: {},
       skipped: [],
     }));
@@ -313,6 +318,7 @@ describe("runReceivedSync", () => {
           signIn: async () => ({
             queryReceived: async () => ({
               vouchers: [voucher],
+              unreadable: [],
               skippedByReason: {},
               skipped: [],
             }),
@@ -353,6 +359,7 @@ describe("runReceivedSync", () => {
       .mockRejectedValueOnce(new ArcaRobotError("QUERY_FAILED", "x"))
       .mockResolvedValueOnce({
         vouchers: [voucher],
+        unreadable: [],
         skippedByReason: {},
         skipped: [],
       });
@@ -396,12 +403,18 @@ describe("runReceivedSync", () => {
   it("pauses between months and retries a refused month with growing waits", async () => {
     const queryReceived = vi
       .fn()
-      .mockResolvedValueOnce({ vouchers: [], skippedByReason: {}, skipped: [] })
+      .mockResolvedValueOnce({
+        vouchers: [],
+        unreadable: [],
+        skippedByReason: {},
+        skipped: [],
+      })
       .mockRejectedValueOnce(
         new ArcaRobotError("QUERY_REFUSED", "ARCA rechazó la consulta: x"),
       )
       .mockResolvedValueOnce({
         vouchers: [voucher],
+        unreadable: [],
         skippedByReason: {},
         skipped: [],
       });

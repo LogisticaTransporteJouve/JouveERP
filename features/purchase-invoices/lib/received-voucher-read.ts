@@ -19,7 +19,7 @@ import {
 export type Service = ReturnType<typeof getServiceClient>;
 
 export const VOUCHER_COLS =
-  "id, issuer_cuit, issuer_name, cbte_tipo, kind, letter, punto_venta, numero, fecha, cae, moneda, cotizacion, imp_neto_gravado, imp_no_gravado, imp_op_exentas, imp_iva, imp_trib, imp_total, trib_breakdown, iva_breakdown, status, discard_reason, purchase_invoice_id, purchase_invoices(status, invoicing_channels(is_fiscal))";
+  "id, issuer_cuit, issuer_name, cbte_tipo, kind, letter, punto_venta, numero, fecha, cae, moneda, cotizacion, imp_neto_gravado, imp_no_gravado, imp_op_exentas, imp_iva, imp_trib, imp_total, trib_breakdown, iva_breakdown, status, discard_reason, unreadable_reason, raw_amounts, purchase_invoice_id, purchase_invoices(status, invoicing_channels(is_fiscal))";
 
 const money = z.number();
 export const RowSchema = z.object({
@@ -61,6 +61,18 @@ export const RowSchema = z.object({
     .catch([]),
   status: z.enum(RECEIVED_VOUCHER_STATUSES),
   discard_reason: z.string().nullable(),
+  unreadable_reason: z.string().nullable(),
+  raw_amounts: z
+    .object({
+      neto: z.string().optional(),
+      no_gravado: z.string().optional(),
+      exentas: z.string().optional(),
+      iva: z.string().optional(),
+      otros_tributos: z.string().optional(),
+      total: z.string().optional(),
+    })
+    .nullable()
+    .catch(null),
   purchase_invoice_id: z.string().nullable(),
   purchase_invoices: z
     .object({
@@ -98,6 +110,8 @@ export function toVoucher(row: Row, suppliers: SupplierById): ReceivedVoucher {
     iva_breakdown: row.iva_breakdown,
     status: row.status,
     discard_reason: row.discard_reason,
+    unreadable_reason: row.unreadable_reason,
+    raw_amounts: row.raw_amounts,
     purchase:
       row.purchase_invoice_id && p && isPurchaseInvoiceStatus(p.status)
         ? {

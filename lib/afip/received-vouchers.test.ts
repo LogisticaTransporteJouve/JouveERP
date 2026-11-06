@@ -3,7 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/logger", () => ({ logger: { error: vi.fn() } }));
 
-const { ingestReceivedVouchers } = await import("./received-vouchers");
+const { ingestReceivedVouchers, ingestUnreadableVouchers } =
+  await import("./received-vouchers");
 import type { ReceivedVoucher } from "./mis-comprobantes/parse";
 
 function voucher(
@@ -33,12 +34,40 @@ function voucher(
   };
 }
 
-/** A tray that already holds número 1; linking matches número 2. */
-function fakeClient(opts: { failUpsert?: boolean } = {}) {
+/** A tray that already holds número 1 (and, with `unreadable`, número 5 as
+ *  «No se pudieron leer»); linking matches número 2. */
+function fakeClient(opts: { failUpsert?: boolean; unreadable?: boolean } = {}) {
   const linkedIds: string[][] = [];
   const upserts: unknown[][] = [];
+  const updates: { id: string; values: Record<string, unknown> }[] = [];
+  const held = opts.unreadable
+    ? [
+        {
+          id: "id-5",
+          issuer_cuit: "30711111118",
+          cbte_tipo: 1,
+          punto_venta: 1,
+          numero: 5,
+        },
+      ]
+    : [];
   const client = {
     from: () => ({
+      select: () => ({
+        eq: () => ({ in: async () => ({ data: held, error: null }) }),
+      }),
+      update: (values: Record<string, unknown>) => ({
+        eq: (_c: string, id: string) => ({
+          eq: () => ({
+            select: () => ({
+              maybeSingle: async () => {
+                updates.push({ id, values });
+                return { data: { id }, error: null };
+              },
+            }),
+          }),
+        }),
+      }),
       upsert: (rows: { numero: number; status: string }[]) => {
         upserts.push(rows);
         return {
@@ -47,7 +76,10 @@ function fakeClient(opts: { failUpsert?: boolean } = {}) {
               ? { data: null, error: { code: "XX000" } }
               : {
                   data: rows
-                    .filter((r) => r.numero !== 1)
+                    .filter(
+                      (r) =>
+                        r.numero !== 1 && !(opts.unreadable && r.numero === 5),
+                    )
                     .map((r) => ({ id: `id-${r.numero}`, status: r.status })),
                   error: null,
                 },
@@ -62,7 +94,7 @@ function fakeClient(opts: { failUpsert?: boolean } = {}) {
       };
     },
   };
-  return { client, linkedIds, upserts };
+  return { client, linkedIds, upserts, updates };
 }
 
 describe("ingestReceivedVouchers", () => {
@@ -96,5 +128,68 @@ describe("ingestReceivedVouchers", () => {
       // @ts-expect-error a minimal fake of the query builder
       await ingestReceivedVouchers(client, [voucher(2)], { origin: "upload" }),
     ).toBeNull();
+  });
+
+  it("moves a voucher that could not be read before to pending when it reads now", async () => {
+    const { client, linkedIds, updates } = fakeClient({ unreadable: true });
+    const counts = await ingestReceivedVouchers(
+      // @ts-expect-error a minimal fake of the query builder
+      client,
+      [voucher(1), voucher(5)],
+      { origin: "sync" },
+    );
+    expect(counts).toEqual({
+      inserted: 1,
+      unsupported: 0,
+      alreadyInTray: 1,
+      linked: 0,
+    });
+    expect(updates).toEqual([
+      {
+        id: "id-5",
+        values: expect.objectContaining({
+          status: "pending_review",
+          imp_total: 121,
+          unreadable_reason: null,
+          raw_amounts: null,
+        }),
+      },
+    ]);
+    expect(linkedIds).toEqual([["id-5"]]);
+  });
+
+  it("keeps an unreadable row as «No se pudieron leer», with total 0", async () => {
+    const { client, upserts } = fakeClient();
+    const added = await ingestUnreadableVouchers(
+      // @ts-expect-error a minimal fake of the query builder
+      client,
+      [
+        {
+          issuer_cuit: "30711111118",
+          issuer_name: "P",
+          cbte_tipo: 1,
+          kind: "factura",
+          letter: "A",
+          punto_venta: 1,
+          numero: 7,
+          fecha: "2026-09-10",
+          cae: null,
+          moneda: "PES",
+          unreadable_reason: "amount_over_total",
+          raw_amounts: { neto: "100", total: "90" },
+        },
+      ],
+      { origin: "sync" },
+    );
+    expect(added).toBe(1);
+    expect(upserts[0]).toEqual([
+      expect.objectContaining({
+        numero: 7,
+        status: "unreadable",
+        imp_total: 0,
+        unreadable_reason: "amount_over_total",
+        raw_amounts: { neto: "100", total: "90" },
+      }),
+    ]);
   });
 });

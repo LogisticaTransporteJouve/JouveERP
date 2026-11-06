@@ -493,6 +493,7 @@ export function formatInvoiceNumber(p: {
 
 export const RECEIVED_VOUCHER_STATUSES = [
   "pending_review",
+  "unreadable",
   "confirmed",
   "discarded",
   "unsupported",
@@ -514,7 +515,27 @@ export const RECEIVED_VOUCHER_TAB_LABEL: Record<ReceivedVoucherStatus, string> =
     confirmed: "Cargadas",
     discarded: "Descartadas",
     unsupported: "No soportados",
+    unreadable: "No se pudieron leer",
   };
+
+/** Why ARCA's amounts did not read (arca_received_vouchers.unreadable_reason). */
+export const UNREADABLE_REASON_LABEL: Record<string, string> = {
+  bad_amount: "Un importe no es un número",
+  amount_over_total: "Los importes suman más que el total",
+  breakdown_mismatch:
+    "El detalle por alícuota o de otros tributos no coincide con su subtotal",
+};
+
+/** The amounts of an unreadable voucher, as ARCA lists them. */
+export const RAW_AMOUNT_LABEL = {
+  neto: "Neto gravado",
+  no_gravado: "No gravado",
+  exentas: "Exento",
+  iva: "IVA",
+  otros_tributos: "Otros tributos",
+  total: "Total",
+} as const;
+export type RawAmountKey = keyof typeof RAW_AMOUNT_LABEL;
 
 /** A tray row as the page shows it. */
 export type ReceivedVoucher = {
@@ -541,6 +562,9 @@ export type ReceivedVoucher = {
   iva_breakdown: IvaBreakdownLine[];
   status: ReceivedVoucherStatus;
   discard_reason: string | null;
+  /** Set when ARCA's amounts did not read: why, and what it listed. */
+  unreadable_reason: string | null;
+  raw_amounts: Partial<Record<RawAmountKey, string>> | null;
   /** The purchase it is linked to: its status and whether its channel is
    *  fiscal (an internal one cannot happen, but the page says so). */
   purchase: {

@@ -16,7 +16,11 @@ import {
   type ArcaRobotErrorCode,
 } from "./mis-comprobantes/robot";
 import { SKIPPED_ROWS_NAMED } from "./mis-comprobantes/parse";
-import { ingestReceivedVouchers, type IngestCounts } from "./received-vouchers";
+import {
+  ingestReceivedVouchers,
+  ingestUnreadableVouchers,
+  type IngestCounts,
+} from "./received-vouchers";
 
 type Supabase = SupabaseClient<Database>;
 
@@ -313,7 +317,13 @@ async function syncReceived(
     const ingested = await ingestReceivedVouchers(supabase, parsed.vouchers, {
       origin: "sync",
     });
-    if (!ingested) {
+    // The rows that did not read stay in the tray to be loaded by hand.
+    const kept =
+      ingested &&
+      (await ingestUnreadableVouchers(supabase, parsed.unreadable, {
+        origin: "sync",
+      }));
+    if (!ingested || kept === null) {
       failedMonths[month] = "INGEST_FAILED";
       stopped = true;
       continue;

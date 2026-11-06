@@ -92,6 +92,8 @@ async function mismatch(
   if (channelError) return "No se pudo leer el canal.";
   if (!channel?.is_fiscal)
     return "Un comprobante de ARCA va a un canal fiscal.";
+  // ARCA's amounts did not read: the person types them.
+  if (voucher.status === "unreadable") return null;
 
   const gap = receivedVoucherGap(voucher);
   if (gap !== null && gapTarget === null) {
@@ -159,17 +161,32 @@ export async function acceptReceivedVoucher(
       data: { id: voucher.purchase.id, linkedExisting: true },
     };
   }
-  if (!voucher || voucher.status !== "pending_review") {
+  if (
+    !voucher ||
+    (voucher.status !== "pending_review" && voucher.status !== "unreadable")
+  ) {
     return { ok: false, error: ALREADY_PROCESSED };
+  }
+  const from = voucher.status;
+  const unreadable = from === "unreadable";
+  if (voucher.kind === null) {
+    return {
+      ok: false,
+      error: "Este tipo de comprobante todavía se carga a mano desde Compras.",
+    };
   }
   const wrong = await mismatch(supabase, voucher, invoice, gapTarget);
   if (wrong) return { ok: false, error: wrong };
 
-  // Loaded by hand meanwhile: link it instead of creating a second one.
-  const { error: linkError } = await supabase.rpc("link_received_vouchers", {
-    p_ids: [voucherId],
-  });
-  if (linkError) return fail(linkError.code);
+  // Loaded by hand meanwhile: link it instead of creating a second one. The
+  // link compares the amounts, which an unreadable voucher does not have:
+  // the same-key check below links that one.
+  if (!unreadable) {
+    const { error: linkError } = await supabase.rpc("link_received_vouchers", {
+      p_ids: [voucherId],
+    });
+    if (linkError) return fail(linkError.code);
+  }
   const relinked = await readVoucher(supabase, voucherId);
   if (relinked === "failed") return fail("reread");
   if (relinked?.status === "confirmed" && relinked.purchase) {
@@ -195,7 +212,7 @@ export async function acceptReceivedVoucher(
   const { data: sameKey, error: sameKeyError } = await supabase
     .from("purchase_invoices")
     .select(
-      "status, imp_total, suppliers!inner(cuit), invoicing_channels!inner(is_fiscal)",
+      "id, status, imp_total, suppliers!inner(cuit), invoicing_channels!inner(is_fiscal)",
     )
     .eq("suppliers.cuit", voucher.issuer_cuit)
     .eq("invoicing_channels.is_fiscal", true)
@@ -213,6 +230,18 @@ export async function acceptReceivedVoucher(
   if (existing?.status === "cancelled") {
     return { ok: false, error: "Ya existe esta factura anulada en Compras." };
   }
+  if (existing && unreadable) {
+    // ARCA's amounts did not read, so there is no total to compare: the
+    // purchase already loaded with this number is the one.
+    return confirmVoucher(
+      supabase,
+      actorId,
+      voucherId,
+      from,
+      existing.id,
+      true,
+    );
+  }
   if (existing) {
     return {
       ok: false,
@@ -224,7 +253,8 @@ export async function acceptReceivedVoucher(
   // just checked. Re-parsed, as the form's create would, with them.
   const withLines = PurchaseInvoiceCreateSchema.safeParse({
     ...invoice,
-    items: receivedVoucherItems(voucher),
+    // An unreadable voucher keeps the lines the person typed.
+    items: unreadable ? invoice.items : receivedVoucherItems(voucher),
   });
   if (!withLines.success) {
     return {
@@ -242,7 +272,7 @@ export async function acceptReceivedVoucher(
           reviewed_by: actorId,
         })
         .eq("id", voucherId)
-        .eq("status", "pending_review")
+        .eq("status", from)
         .or(`claimed_at.is.null,claimed_at.lt.${cutoff}`)
         .select("id")
         .maybeSingle();
@@ -268,27 +298,56 @@ export async function acceptReceivedVoucher(
   // released the claim.
   if (!created.ok) return { ok: false, error: created.error };
 
+  return confirmVoucher(
+    supabase,
+    actorId,
+    voucherId,
+    from,
+    created.data.id,
+    false,
+  );
+}
+
+/** Marks the voucher loaded as that purchase and audits it. */
+async function confirmVoucher(
+  supabase: Service,
+  actorId: string,
+  voucherId: string,
+  from: "pending_review" | "unreadable",
+  purchaseId: string,
+  linkedExisting: boolean,
+): Promise<ActionResult<{ id: string; linkedExisting: boolean }>> {
   const { error: confirmError } = await supabase
     .from("arca_received_vouchers")
     .update({
       status: "confirmed",
-      purchase_invoice_id: created.data.id,
+      purchase_invoice_id: purchaseId,
       reviewed_by: actorId,
       reviewed_at: new Date().toISOString(),
       claimed_at: null,
     })
     .eq("id", voucherId)
     .or(
-      `status.eq.pending_review,and(status.eq.confirmed,purchase_invoice_id.eq.${created.data.id})`,
+      `status.eq.${from},and(status.eq.confirmed,purchase_invoice_id.eq.${purchaseId})`,
     );
   // The trigger linked it already; this only stamps who reviewed it.
-  if (confirmError) fail(confirmError.code);
+  if (confirmError) {
+    logger.error("arca_received.accept.failed", {
+      userId: actorId,
+      voucherId,
+      code: confirmError.code,
+    });
+    // Linking an existing purchase is all this call does: say it failed.
+    if (linkedExisting) {
+      return { ok: false, error: "No se pudo cargar el comprobante." };
+    }
+  }
 
   await logAudit(
     "purchase_invoice.arca_voucher_confirmed",
     actorId,
-    { voucherId, purchaseInvoiceId: created.data.id, linkedExisting: false },
-    created.data.id,
+    { voucherId, purchaseInvoiceId: purchaseId, linkedExisting },
+    purchaseId,
   );
-  return { ok: true, data: { id: created.data.id, linkedExisting: false } };
+  return { ok: true, data: { id: purchaseId, linkedExisting } };
 }

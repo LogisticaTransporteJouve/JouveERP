@@ -335,7 +335,7 @@ export const getArcaReceivedVouchers = defineAiAction({
   sideEffect: "read",
   sources: ["arca_received_vouchers", "suppliers"],
   description:
-    "Comprobantes recibidos de ARCA (Mis Comprobantes): los que los proveedores nos emitieron según ARCA, por estado: pending_review (todavía sin cargar como compra, default), confirmed (ya cargados) o discarded. Cada uno con emisor y CUIT, tipo, número, fecha, neto, IVA, otros tributos, total, moneda y el proveedor cargado con ese CUIT. Los 50 más recientes. Para '¿qué facturas de proveedores faltan cargar?'.",
+    "Comprobantes recibidos de ARCA (Mis Comprobantes): los que los proveedores nos emitieron según ARCA, por estado: pending_review (todavía sin cargar como compra, default), confirmed (ya cargados), discarded, unsupported (tipos que no se cargan desde la bandeja) o unreadable (ARCA los lista pero sus importes no se pudieron leer: su total es 0 y lo que listó ARCA está en raw_amounts, como texto; se cargan a mano desde la bandeja). Cada uno con emisor y CUIT, tipo, número, fecha, neto, IVA, otros tributos, total, moneda y el proveedor cargado con ese CUIT. Los 50 más recientes. Para '¿qué facturas de proveedores faltan cargar?'.",
   input: z.object({
     status: z
       .enum(RECEIVED_VOUCHER_STATUSES)
