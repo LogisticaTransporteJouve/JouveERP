@@ -91,6 +91,7 @@ function ActivityRow({ step }: { step: ActivityStep }) {
       <Check className="size-3 shrink-0" />
     );
   const details = [
+    ...step.filters,
     step.status === "error" ? "no se pudo consultar" : null,
     step.rows !== null
       ? `${step.rows.toLocaleString("es-AR")} ${step.rows === 1 ? "fila" : "filas"}`

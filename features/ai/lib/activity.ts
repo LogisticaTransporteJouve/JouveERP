@@ -4,6 +4,7 @@ import { z } from "zod";
 import { resolveRows } from "../artifacts/rows";
 import { RENDER_TOOLS } from "../artifacts/spec";
 
+import { activityFilters } from "./activity-filters";
 import type { ChatPart } from "./chat-segments";
 
 /** One tool call of a turn, as the activity block lists it. */
@@ -11,6 +12,8 @@ export type ActivityStep = {
   toolCallId: string;
   name: string;
   status: "running" | "done" | "error";
+  /** What it was asked for, as labels: "AB123CD", "01/10/2026 – 31/10/2026". */
+  filters: string[];
   /** Rows the query returned, when it returned a list (not counted for the
    *  artifact tools: their chart or table is shown in the answer). */
   rows: number | null;
@@ -44,6 +47,7 @@ export function activitySteps(
     const base = {
       toolCallId: part.toolCallId,
       name: getToolName(part),
+      filters: activityFilters(part.input),
       rows: null,
       sources: [],
       asOf: null,
