@@ -3,13 +3,6 @@ import { describe, expect, it } from "vitest";
 import { auditActorLabel } from "./lib/actor";
 import { isSensitiveKey, MASK, maskSensitive } from "./lib/mask";
 import {
-  auditModuleLabel,
-  auditModuleOf,
-  auditModulesOf,
-  auditRecordHref,
-} from "./lib/modules";
-import { summarizeAuditPayload } from "./lib/summary";
-import {
   AuditCursorSchema,
   AuditFiltersSchema,
   EMPTY_AUDIT_FILTERS,
@@ -28,6 +21,17 @@ describe("AuditFiltersSchema", () => {
       to: "2026-11-01",
     });
     expect(res.success).toBe(false);
+  });
+
+  it("takes a «Qué» group and a search, and refuses an unknown group", () => {
+    expect(
+      AuditFiltersSchema.safeParse({ group: "receipts", q: "Transportes Sur" })
+        .success,
+    ).toBe(true);
+    expect(AuditFiltersSchema.safeParse({ group: "nope" }).success).toBe(false);
+    expect(AuditFiltersSchema.safeParse({ q: "x".repeat(81) }).success).toBe(
+      false,
+    );
   });
 
   it("rejects a module or action outside the event-type alphabet", () => {
@@ -76,6 +80,13 @@ describe("maskSensitive", () => {
     });
   });
 
+  it("keeps a flag under a secret key: it says a secret changed, not which", () => {
+    expect(maskSensitive({ passwordChanged: true, password: "x" })).toEqual({
+      passwordChanged: true,
+      password: MASK,
+    });
+  });
+
   it("masks a whole object under a secret key", () => {
     expect(maskSensitive({ credentials: { user: "a", pass: "b" } })).toEqual({
       credentials: MASK,
@@ -87,54 +98,6 @@ describe("maskSensitive", () => {
     expect(isSensitiveKey("signing-key")).toBe(true);
     expect(isSensitiveKey("monkey")).toBe(false);
     expect(isSensitiveKey("tokens_used")).toBe(false);
-  });
-});
-
-describe("summarizeAuditPayload", () => {
-  it("lists the fields a before/after pair changed", () => {
-    expect(
-      summarizeAuditPayload({
-        before: { amount: 10, note: "a" },
-        after: { amount: 12, note: "a" },
-      }),
-    ).toBe("amount: 10 → 12");
-  });
-
-  it("reads a from/to pair", () => {
-    expect(summarizeAuditPayload({ from: 100, to: 150 })).toBe("100 → 150");
-  });
-
-  it("falls back to the first scalar fields and to null", () => {
-    expect(summarizeAuditPayload({ period: "2026-10", nested: { a: 1 } })).toBe(
-      "period: 2026-10",
-    );
-    expect(summarizeAuditPayload({})).toBeNull();
-    expect(summarizeAuditPayload(null)).toBeNull();
-  });
-});
-
-describe("audit modules", () => {
-  it("takes the event type's first word", () => {
-    expect(auditModuleOf("invoice.cancelled")).toBe("invoice");
-    expect(auditModuleOf("account.opening_balance.applied")).toBe("account");
-    expect(auditModuleLabel("invoice")).toBe("Comprobantes");
-    expect(auditModuleLabel("unknown_thing")).toBe("unknown_thing");
-  });
-
-  it("links a record to its detail page or module list", () => {
-    expect(auditRecordHref("invoice.cancelled", "i1")).toBe("/invoices/i1");
-    expect(auditRecordHref("transaction.deleted", "t1")).toBe("/transactions");
-    expect(auditRecordHref("ai.tool_call", "x")).toBeNull();
-    expect(auditRecordHref("invoice.cancelled", null)).toBeNull();
-  });
-
-  it("lists distinct modules sorted by label", () => {
-    expect(
-      auditModulesOf(["trip.deleted", "client.created", "client.updated"]),
-    ).toEqual([
-      { id: "client", label: "Clientes" },
-      { id: "trip", label: "Viajes" },
-    ]);
   });
 });
 

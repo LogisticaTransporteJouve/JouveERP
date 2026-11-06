@@ -9,13 +9,16 @@ import { formatArgentineDateTime } from "@/lib/format";
 
 import { useAuditUserNames, useRecordHistory } from "../hooks/use-audit";
 import { auditActorLabel } from "../lib/actor";
-import { RECORD_HISTORY_LIMIT, type AuditEventRow } from "../schema";
+import type { AuditListItem } from "../lib/ai-turns";
+import { RECORD_HISTORY_LIMIT } from "../schema";
 
 import { AuditDetailDialog } from "./audit-detail-dialog";
 
 /**
- * A record's "Historial" from audit_events, for any detail page. Render it
- * only for users with audit:read: the action refuses everyone else.
+ * A record's «Historial» from audit_events, for any detail page: who created,
+ * edited, issued or cancelled it and when, in the same words as Admin ›
+ * Auditoría. Render it only for users with audit:read: the action refuses
+ * everyone else.
  */
 export function RecordHistory({ resourceId }: { resourceId: string }) {
   return (
@@ -23,7 +26,7 @@ export function RecordHistory({ resourceId }: { resourceId: string }) {
       <div className="border-b px-4 py-3">
         <h2 className="text-sm font-medium">Historial</h2>
         <p className="text-muted-foreground mt-0.5 text-xs">
-          Lo que se hizo sobre este registro, lo más reciente primero.
+          Quién hizo qué sobre este registro, lo más reciente primero.
         </p>
       </div>
       <Suspense fallback={<Skeleton className="m-4 h-16" />}>
@@ -36,7 +39,7 @@ export function RecordHistory({ resourceId }: { resourceId: string }) {
 function RecordHistoryList({ resourceId }: { resourceId: string }) {
   const { data } = useRecordHistory(resourceId);
   const names = useAuditUserNames();
-  const [selected, setSelected] = useState<AuditEventRow | null>(null);
+  const [selected, setSelected] = useState<AuditListItem | null>(null);
 
   if (data.length === 0) {
     return (
@@ -55,21 +58,20 @@ function RecordHistoryList({ resourceId }: { resourceId: string }) {
           >
             <div className="min-w-0">
               <p>
-                <span className="font-mono text-xs">{event.event_type}</span>{" "}
-                <span className="text-muted-foreground">
-                  · {auditActorLabel(event, names)}
-                </span>
+                <span className="font-medium">
+                  {auditActorLabel(event, names)}
+                </span>{" "}
+                {event.sentence}
               </p>
               <p className="text-muted-foreground text-xs tabular-nums">
                 {formatArgentineDateTime(event.ts)}
-                {event.summary ? ` · ${event.summary}` : ""}
               </p>
             </div>
             <Button
               type="button"
               variant="ghost"
               size="sm"
-              onClick={() => setSelected(event)}
+              onClick={() => setSelected({ kind: "event", ...event })}
             >
               <Eye />
               Ver detalle
@@ -84,7 +86,7 @@ function RecordHistoryList({ resourceId }: { resourceId: string }) {
         </p>
       )}
       <AuditDetailDialog
-        event={selected}
+        item={selected}
         onOpenChange={(open) => {
           if (!open) setSelected(null);
         }}

@@ -48,11 +48,12 @@ export function isSensitiveKey(key: string): boolean {
 }
 
 function maskValue(value: JsonValue, keepTail: boolean): JsonValue {
-  if (value === null) return null;
+  // A flag (`passwordChanged: true`) says that a secret changed, not what it is.
+  if (value === null || typeof value === "boolean") return value;
   if (keepTail && typeof value === "string" && value.length > 4) {
     return `${MASK}${value.slice(-4)}`;
   }
-  // Numbers, booleans and whole objects or lists under the key go too.
+  // Numbers and whole objects or lists under the key go too.
   return MASK;
 }
 

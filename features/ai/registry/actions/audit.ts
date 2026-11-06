@@ -16,6 +16,7 @@ export async function runAuditEvents(input: {
   to?: string | null;
   module?: string | null;
   eventType?: string | null;
+  search?: string | null;
 }): Promise<AiRunResult> {
   const res = await listAuditEventsAction({
     filters: {
@@ -24,6 +25,7 @@ export async function runAuditEvents(input: {
       to: input.to ?? null,
       module: input.module ?? null,
       eventType: input.eventType ?? null,
+      q: input.search ?? null,
     },
     cursor: null,
   });
@@ -39,9 +41,9 @@ export async function runAuditEvents(input: {
         actor_id: r.actor_id,
         actor_type: r.actor_type,
         event_type: r.event_type,
-        module: r.module,
+        what: r.sentence,
+        about: r.subject?.label ?? null,
         target_resource_id: r.target_resource_id,
-        summary: r.summary,
       })),
     },
     { partial: more },
@@ -57,8 +59,9 @@ export const getAuditEvents = defineAiAction({
   description:
     "Audit log (Admin › Auditoría): who did what and when, newest first — " +
     "event type (module.action), actor (user, ai-agent acting for a user, " +
-    "system), the record id and a one-line summary. For 'who changed X', " +
-    "'what was done yesterday' or a record's history.",
+    "system), what was done as a Spanish sentence ('what') and the record it " +
+    "is about by name ('about'). For 'who issued the invoice to X', 'who " +
+    "changed X', 'what was done yesterday' or a record's history.",
   input: z.object({
     from: IsoDateSchema.nullish().describe("First day (YYYY-MM-DD)."),
     to: IsoDateSchema.nullish().describe("Last day (YYYY-MM-DD)."),
@@ -74,6 +77,13 @@ export const getAuditEvents = defineAiAction({
       .regex(/^[a-z0-9_.:-]{1,80}$/)
       .nullish()
       .describe("Exact event type, e.g. 'invoice.cancelled'."),
+    search: z
+      .string()
+      .max(80)
+      .nullish()
+      .describe(
+        "Text the record names: client or supplier name, document number, patente.",
+      ),
   }),
   run: (_ctx, input) => runAuditEvents(input),
 });

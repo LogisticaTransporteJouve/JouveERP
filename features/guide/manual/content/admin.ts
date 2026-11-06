@@ -1128,8 +1128,9 @@ export const adminPage: GuidePage = {
       permission: "audit:read",
       intro: [
         "Quién hizo qué y cuándo: usuarios, el asistente IA (con el usuario que lo pidió) y los procesos automáticos. Los eventos se guardan 400 días.",
-        "La tabla muestra {{Fecha}}, {{Quién}} (el usuario, «Asistente IA (por …)» o {{Sistema}}), {{Acción}} (el código del evento y su módulo), {{Resumen}} y {{Registro}} (con {{Abrir}} para ir al registro cuando tiene pantalla propia). Muestra de a 50 eventos; {{Cargar más}} trae los siguientes.",
-        "El detalle de un comprobante también muestra su {{Historial}} con los eventos de ese registro, para quien puede ver la auditoría.",
+        "La tabla muestra {{Fecha}}, {{Quién}} (el usuario, «Asistente IA (por …)» o {{Sistema}}), {{Qué hizo}} en una frase («emitió la Factura A 0003-00022312 a TRANSPORTES SUR SA por $ 1.234.567,00», «registró el Recibo 0001-00000045 de AGRO PAMPA», «programó el viaje del 07/11/2026 con AE463UF») y {{Sobre qué}}: el comprobante, recibo, viaje, cliente o proveedor, con link a su pantalla. Al llegar al final de la lista se cargan solos los eventos siguientes.",
+        "Las consultas seguidas que hace el asistente para responder una pregunta se muestran en una sola fila («consultó IVA Ventas, IVA Compras e Impuestos (09/2026)»). Para no verlas, prendé {{Ocultar consultas del asistente}}.",
+        "El detalle de una factura, un recibo, una orden de pago, una compra o un viaje también muestra su {{Historial}}: quién lo creó, editó, emitió o anuló y cuándo, con las mismas frases. Lo ve solo quien puede ver la auditoría.",
       ],
       screens: [
         {
@@ -1137,21 +1138,32 @@ export const adminPage: GuidePage = {
           title: "Auditoría",
           actions: [{ label: "Exportar CSV", variant: "outline" }],
           toolbar: [
+            {
+              label: "Buscar",
+              kind: "input",
+              value: "Transportes Sur, 22312, AE463UF",
+              wide: true,
+            },
             { label: "Desde", kind: "date" },
             { label: "Hasta", kind: "date" },
             { label: "Usuario", kind: "select", value: "Todos" },
-            { label: "Módulo", kind: "select", value: "Todos" },
-            { label: "Acción", kind: "select", value: "Todas" },
+            { label: "Qué", kind: "select", value: "Todo" },
+            { label: "Ocultar consultas del asistente", kind: "switch" },
           ],
           table: {
-            columns: ["Fecha", "Quién", "Acción", "Resumen", "Registro"],
+            columns: ["Fecha", "Quién", "Qué hizo", "Sobre qué"],
             rows: [
               [
-                "~05/11/2026 09:31",
-                "~maria@jouve.com.ar",
-                "~invoice.issued",
+                "~5 nov 2026, 09:31",
+                "~María Gómez",
+                "~emitió la Factura A 0003-00022312 a TRANSPORTES SUR SA por $ 1.234.567,00",
+                "~Factura A 0003-00022312 · TRANSPORTES SUR SA",
+              ],
+              [
+                "~5 nov 2026, 09:20",
+                "~Asistente IA (por Tomás)",
+                "~consultó IVA Ventas, IVA Compras e Impuestos (09/2026)",
                 "~—",
-                "~Abrir",
               ],
             ],
           },
@@ -1164,19 +1176,20 @@ export const adminPage: GuidePage = {
           permission: "audit:read",
           steps: [
             {
-              text: "En [[/admin/audit]], usá los filtros (se aplican al instante).",
+              text: "En [[/admin/audit]], usá el buscador y los filtros (se aplican al instante).",
               substeps: [
+                "El buscador encuentra los eventos por lo que nombran: un cliente o proveedor («Transportes Sur»), un número de comprobante o recibo («22312») o una patente («AE463UF»). Por ejemplo, para saber quién le hizo una factura a un cliente, escribí el nombre del cliente y elegí {{Qué}} › {{Facturas y notas}}.",
                 "{{Desde}} y {{Hasta}}: el rango de fechas. La fecha desde no puede ser posterior a la hasta.",
                 "{{Usuario}}: quién lo hizo.",
-                "{{Módulo}}: el área del sistema (Comprobantes, Clientes, Importador…).",
-                "{{Acción}}: el evento puntual; si elegiste un módulo, lista solo los de ese módulo.",
+                "{{Qué}}: el tipo de tarea (Facturas y notas, Recibos, Órdenes de pago, Compras, Viajes y cargas, Clientes, Proveedores, Usuarios y permisos, Asistente IA, Configuración…).",
+                "{{Ocultar consultas del asistente}}: saca de la lista lo que el asistente solo leyó para responder.",
               ],
             },
             "Para ver un evento completo, hacé clic en la fila o en {{Ver detalle}}.",
             "Para volver a ver todo, hacé clic en {{Limpiar}}.",
           ],
           after: [
-            "El detalle muestra quién, el registro (con {{Abrir}}), el resumen y el {{Detalle}} completo del evento. CBU, CUIL, claves y tokens se muestran enmascarados.",
+            "El detalle muestra quién, qué hizo y sobre qué, y un {{Detalle técnico}} con los datos del evento (identificadores incluidos). CBU, CUIL, claves y tokens se muestran enmascarados.",
           ],
           errors: [
             {
@@ -1196,6 +1209,9 @@ export const adminPage: GuidePage = {
             "historial de cambios",
             "trazabilidad",
             "registro de actividad",
+            "quién hizo la factura",
+            "quién hizo el recibo",
+            "quién programó el viaje",
           ],
         },
         {
@@ -1207,7 +1223,7 @@ export const adminPage: GuidePage = {
             "Hacé clic en {{Exportar CSV}}.",
           ],
           after: [
-            "Se descarga un archivo `auditoria-AAAA-MM-DD.csv` con los eventos filtrados, del más nuevo al más viejo, hasta 10.000 eventos.",
+            "Se descarga un archivo `auditoria-AAAA-MM-DD.csv` con los eventos filtrados (buscador incluido), del más nuevo al más viejo, hasta 10.000 eventos, con las columnas {{Fecha}}, {{Quién}}, {{Qué hizo}} y {{Sobre qué}}.",
           ],
           errors: [
             {

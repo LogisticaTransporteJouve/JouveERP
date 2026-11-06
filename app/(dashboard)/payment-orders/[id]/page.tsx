@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { RecordHistory } from "@/features/audit/components/record-history";
 import { AttachmentsZone } from "@/features/files/components/attachments-zone";
 import {
   Breadcrumb,
@@ -331,6 +332,10 @@ export default async function PaymentOrderDetailPage({
           />
         </div>
       </div>
+
+      {userCan(ctx.access, "audit:read") && (
+        <RecordHistory resourceId={paymentOrder.id} />
+      )}
     </div>
   );
 }

@@ -1,8 +1,7 @@
 "use client";
 
-import { Download, Eye, FilterX } from "lucide-react";
-import Link from "next/link";
-import { Suspense, useMemo, useState } from "react";
+import { Download, Eye, FilterX, Search } from "lucide-react";
+import { Suspense, useDeferredValue, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { DisabledHint } from "@/components/disabled-hint";
@@ -10,8 +9,12 @@ import { Button } from "@/components/ui/button";
 import { Combobox } from "@/components/ui/combobox";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import { DatePicker } from "@/components/ui/date-picker";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
 import { downloadCsv } from "@/lib/export/csv";
 import { formatArgentineDateTime } from "@/lib/format";
 
@@ -22,19 +25,26 @@ import {
   useExportAuditCsv,
 } from "../hooks/use-audit";
 import { auditActorLabel } from "../lib/actor";
-import { auditModuleLabel, auditModulesOf } from "../lib/modules";
+import { groupAiTurns, type AuditListItem } from "../lib/ai-turns";
+import { AUDIT_GROUPS, isAuditGroupId } from "../lib/registry";
 import {
+  AUDIT_SEARCH_MAX,
   EMPTY_AUDIT_FILTERS,
-  type AuditEventRow,
   type AuditFilters,
 } from "../schema";
 
 import { AuditDetailDialog } from "./audit-detail-dialog";
+import { AuditSubjectLink } from "./audit-subject-link";
 
 export function AuditView() {
   const [filters, setFilters] = useState<AuditFilters>(EMPTY_AUDIT_FILTERS);
-  const [selected, setSelected] = useState<AuditEventRow | null>(null);
+  const [search, setSearch] = useState("");
+  const [selected, setSelected] = useState<AuditListItem | null>(null);
   const exportCsv = useExportAuditCsv();
+  const q = useDebouncedValue(search.trim(), 300);
+  const applied = useMemo(() => ({ ...filters, q: q || null }), [filters, q]);
+  // The previous list stays on screen while the new one loads.
+  const shown = useDeferredValue(applied);
   const invalidRange =
     !!filters.from && !!filters.to && filters.from > filters.to;
 
@@ -43,7 +53,7 @@ export function AuditView() {
   }
 
   function onExport() {
-    exportCsv.mutate(filters, {
+    exportCsv.mutate(applied, {
       onSuccess: (data) => {
         if (data.rows === 0) {
           toast.error("No hay eventos para exportar con esos filtros.");
@@ -90,11 +100,16 @@ export function AuditView() {
         </DisabledHint>
       </div>
 
-      <Suspense fallback={<Skeleton className="h-16 w-full" />}>
+      <Suspense fallback={<Skeleton className="h-28 w-full" />}>
         <AuditFiltersBar
           filters={filters}
+          search={search}
+          onSearch={setSearch}
           onChange={set}
-          onClear={() => setFilters(EMPTY_AUDIT_FILTERS)}
+          onClear={() => {
+            setFilters(EMPTY_AUDIT_FILTERS);
+            setSearch("");
+          }}
         />
       </Suspense>
 
@@ -104,12 +119,16 @@ export function AuditView() {
         </p>
       ) : (
         <Suspense fallback={<Skeleton className="h-64 w-full" />}>
-          <AuditTable filters={filters} onOpen={setSelected} />
+          <AuditTable
+            filters={shown}
+            stale={shown !== applied}
+            onOpen={setSelected}
+          />
         </Suspense>
       )}
 
       <AuditDetailDialog
-        event={selected}
+        item={selected}
         onOpenChange={(open) => {
           if (!open) setSelected(null);
         }}
@@ -120,10 +139,14 @@ export function AuditView() {
 
 function AuditFiltersBar({
   filters,
+  search,
+  onSearch,
   onChange,
   onClear,
 }: {
   filters: AuditFilters;
+  search: string;
+  onSearch: (value: string) => void;
   onChange: <K extends keyof AuditFilters>(
     key: K,
     value: AuditFilters[K],
@@ -131,100 +154,117 @@ function AuditFiltersBar({
   onClear: () => void;
 }) {
   const { data } = useAuditFilterOptions();
-  const modules = useMemo(
-    () => auditModulesOf(data.eventTypes),
-    [data.eventTypes],
-  );
-  const eventTypes = filters.module
-    ? data.eventTypes.filter((t) => t.startsWith(`${filters.module}.`))
-    : data.eventTypes;
-  const hasFilters = Object.values(filters).some(Boolean);
+  const hasFilters =
+    search.trim() !== "" ||
+    !!filters.from ||
+    !!filters.to ||
+    !!filters.actorId ||
+    !!filters.group ||
+    !!filters.hideAiQueries;
 
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[repeat(5,minmax(0,1fr))_auto] lg:items-end">
-      <div className="space-y-1">
-        <Label htmlFor="audit-from">Desde</Label>
-        <DatePicker
-          id="audit-from"
-          value={filters.from ?? ""}
-          onChange={(v) => onChange("from", v)}
-          clearable
+    <div className="space-y-3">
+      <div className="relative">
+        <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
+        <Input
+          aria-label="Buscar"
+          value={search}
+          maxLength={AUDIT_SEARCH_MAX}
+          onChange={(e) => onSearch(e.target.value)}
+          placeholder="Buscar por cliente, proveedor, número o patente (p. ej. Transportes Sur, 22312, AE463UF)"
+          className="pl-8"
         />
       </div>
-      <div className="space-y-1">
-        <Label htmlFor="audit-to">Hasta</Label>
-        <DatePicker
-          id="audit-to"
-          value={filters.to ?? ""}
-          onChange={(v) => onChange("to", v)}
-          clearable
-        />
-      </div>
-      <div className="space-y-1">
-        <Label htmlFor="audit-user">Usuario</Label>
-        <Combobox
-          id="audit-user"
-          options={data.users.map((u) => ({ value: u.id, label: u.label }))}
-          value={filters.actorId ?? ""}
-          onChange={(v) => onChange("actorId", v)}
-          placeholder="Todos"
-        />
-      </div>
-      <div className="space-y-1">
-        <Label htmlFor="audit-module">Módulo</Label>
-        <Combobox
-          id="audit-module"
-          options={modules.map((m) => ({ value: m.id, label: m.label }))}
-          value={filters.module ?? ""}
-          onChange={(v) => {
-            onChange("module", v);
-            if (filters.eventType && !filters.eventType.startsWith(`${v}.`)) {
-              onChange("eventType", null);
-            }
-          }}
-          placeholder="Todos"
-        />
-      </div>
-      <div className="space-y-1">
-        <Label htmlFor="audit-event">Acción</Label>
-        <Combobox
-          id="audit-event"
-          options={eventTypes.map((t) => ({ value: t, label: t }))}
-          value={filters.eventType ?? ""}
-          onChange={(v) => onChange("eventType", v)}
-          placeholder="Todas"
-        />
-      </div>
-      <DisabledHint
-        reason={!hasFilters ? "No hay filtros para limpiar." : null}
-        className="justify-self-start"
-      >
-        <Button
-          variant="ghost"
-          onClick={onClear}
-          disabled={!hasFilters}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[repeat(4,minmax(0,1fr))_auto] lg:items-end">
+        <div className="space-y-1">
+          <Label htmlFor="audit-from">Desde</Label>
+          <DatePicker
+            id="audit-from"
+            value={filters.from ?? ""}
+            onChange={(v) => onChange("from", v)}
+            clearable
+          />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="audit-to">Hasta</Label>
+          <DatePicker
+            id="audit-to"
+            value={filters.to ?? ""}
+            onChange={(v) => onChange("to", v)}
+            clearable
+          />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="audit-user">Usuario</Label>
+          <Combobox
+            id="audit-user"
+            options={data.users.map((u) => ({ value: u.id, label: u.label }))}
+            value={filters.actorId ?? ""}
+            onChange={(v) => onChange("actorId", v)}
+            placeholder="Todos"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="audit-group">Qué</Label>
+          <Combobox
+            id="audit-group"
+            options={AUDIT_GROUPS.map((g) => ({ value: g.id, label: g.label }))}
+            value={filters.group ?? ""}
+            onChange={(v) => onChange("group", isAuditGroupId(v) ? v : null)}
+            placeholder="Todo"
+          />
+        </div>
+        <DisabledHint
+          reason={!hasFilters ? "No hay filtros para limpiar." : null}
           className="justify-self-start"
         >
-          <FilterX />
-          Limpiar
-        </Button>
-      </DisabledHint>
+          <Button
+            variant="ghost"
+            onClick={onClear}
+            disabled={!hasFilters}
+            className="justify-self-start"
+          >
+            <FilterX />
+            Limpiar
+          </Button>
+        </DisabledHint>
+      </div>
+      <div className="flex items-center gap-2">
+        <Switch
+          id="audit-hide-ai"
+          checked={!!filters.hideAiQueries}
+          onCheckedChange={(checked) => onChange("hideAiQueries", checked)}
+        />
+        <Label htmlFor="audit-hide-ai" className="font-normal">
+          Ocultar consultas del asistente
+        </Label>
+      </div>
     </div>
   );
 }
 
 function AuditTable({
   filters,
+  stale,
   onOpen,
 }: {
   filters: AuditFilters;
-  onOpen: (row: AuditEventRow) => void;
+  stale: boolean;
+  onOpen: (item: AuditListItem) => void;
 }) {
   const { rows, hasNextPage, fetchNextPage, isFetchingNextPage } =
     useAuditEvents(filters);
   const names = useAuditUserNames();
+  const items = useMemo(() => groupAiTurns(rows), [rows]);
 
-  const columns = useMemo<ColumnDef<AuditEventRow>[]>(
+  const sentinelRef = useIntersectionObserver<HTMLDivElement>(
+    () => {
+      if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
+    },
+    { rootMargin: "200px", enabled: hasNextPage && !isFetchingNextPage },
+  );
+
+  const columns = useMemo<ColumnDef<AuditListItem>[]>(
     () => [
       {
         accessorKey: "ts",
@@ -241,56 +281,29 @@ function AuditTable({
         id: "actor",
         header: "Quién",
         enableSorting: false,
-        meta: { mobile: "secondary" },
+        meta: { headerClassName: "w-48", mobile: "secondary" },
         cell: ({ row }) => auditActorLabel(row.original, names),
       },
       {
-        accessorKey: "event_type",
-        header: "Acción",
+        id: "sentence",
+        header: "Qué hizo",
         enableSorting: false,
         meta: { mobile: "primary" },
         cell: ({ row }) => (
-          <div className="min-w-0">
-            <p className="font-mono text-xs">{row.original.event_type}</p>
-            <p className="text-muted-foreground text-xs">
-              {auditModuleLabel(row.original.module)}
-            </p>
-          </div>
+          <span className="line-clamp-3">{row.original.sentence}</span>
         ),
       },
       {
-        id: "summary",
-        header: "Resumen",
+        id: "subject",
+        header: "Sobre qué",
         enableSorting: false,
-        meta: { mobile: "hidden" },
-        cell: ({ row }) => (
-          <span className="text-muted-foreground line-clamp-2 text-xs">
-            {row.original.summary ?? "—"}
-          </span>
-        ),
-      },
-      {
-        id: "record",
-        header: "Registro",
-        enableSorting: false,
-        meta: { headerClassName: "w-28", mobile: "secondary" },
-        cell: ({ row }) => {
-          const { record_href, target_resource_id } = row.original;
-          if (!target_resource_id) return "—";
-          return record_href ? (
-            <Link
-              href={record_href}
-              className="font-mono text-xs underline"
-              onClick={(e) => e.stopPropagation()}
-            >
-              Abrir
-            </Link>
+        meta: { mobile: "secondary" },
+        cell: ({ row }) =>
+          row.original.kind === "event" ? (
+            <AuditSubjectLink subject={row.original.subject} />
           ) : (
-            <span className="font-mono text-xs">
-              {target_resource_id.slice(0, 8)}
-            </span>
-          );
-        },
+            "—"
+          ),
       },
       {
         id: "detail",
@@ -317,26 +330,24 @@ function AuditTable({
   );
 
   return (
-    <DataTable
-      columns={columns}
-      data={rows}
-      getRowId={(row) => row.id}
-      onRowClick={onOpen}
-      emptyMessage="No hay eventos con esos filtros."
-      footer={
-        hasNextPage ? (
-          <div className="flex justify-center border-t p-3">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={isFetchingNextPage}
-              onClick={() => fetchNextPage()}
+    <div className={stale ? "opacity-60 transition-opacity" : undefined}>
+      <DataTable
+        columns={columns}
+        data={items}
+        getRowId={(row) => row.id}
+        onRowClick={onOpen}
+        emptyMessage="No hay eventos con esos filtros."
+        footer={
+          hasNextPage ? (
+            <div
+              ref={sentinelRef}
+              className="py-4 text-center text-xs text-muted-foreground"
             >
-              {isFetchingNextPage ? "Cargando…" : "Cargar más"}
-            </Button>
-          </div>
-        ) : null
-      }
-    />
+              Cargando…
+            </div>
+          ) : null
+        }
+      />
+    </div>
   );
 }

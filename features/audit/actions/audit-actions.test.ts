@@ -10,6 +10,7 @@ import { MASK } from "../lib/mask";
 
 const USER_A = "11111111-1111-4111-8111-111111111111";
 const EVENT_ID = "33333333-3333-4333-8333-333333333333";
+const EMPLOYEE = "44444444-4444-4444-8444-444444444444";
 
 type Result = { data: unknown; error: unknown };
 type Call = { table: string; method: string; args: unknown[] };
@@ -107,11 +108,17 @@ describe("audit actions gate", () => {
 });
 
 describe("listAuditEventsAction", () => {
-  it("masks the payload, links the record and pages by keyset", async () => {
+  it("masks the payload, names and links the record and pages by keyset", async () => {
     const rows = Array.from({ length: 51 }, (_, i) =>
-      event({ id: `3333333${i % 10}-3333-4333-8333-333333333333` }),
+      event({
+        id: `3333333${i % 10}-3333-4333-8333-333333333333`,
+        target_resource_id: EMPLOYEE,
+      }),
     );
     results.audit_events = [{ data: rows, error: null }];
+    results.employees = [
+      { data: [{ id: EMPLOYEE, legal_name: "Juan Pérez" }], error: null },
+    ];
     const res = await listAuditEventsAction({
       filters: { module: "fuel_load" },
       cursor: null,
@@ -123,13 +130,56 @@ describe("listAuditEventsAction", () => {
       cbu: `${MASK}7370`,
       position: "chofer",
     });
-    expect(res.data.rows[0]?.record_href).toBe("/employees/e1");
+    expect(res.data.rows[0]?.sentence).toBe("editó el legajo de Juan Pérez");
+    expect(res.data.rows[0]?.subject).toEqual({
+      label: "Juan Pérez",
+      href: `/employees/${EMPLOYEE}`,
+    });
     expect(res.data.nextCursor).not.toBeNull();
+    // One query names the 50 rows' employee: no query per row.
+    expect(
+      calls.filter((c) => c.table === "employees" && c.method === "in"),
+    ).toEqual([{ table: "employees", method: "in", args: ["id", [EMPLOYEE]] }]);
     // `_` in the module is matched literally, not as LIKE's wildcard.
     expect(calls).toContainEqual({
       table: "audit_events",
       method: "like",
       args: ["event_type", "fuel\\_load.%"],
+    });
+  });
+
+  it("filters by «Qué», by the search text and without the assistant's queries", async () => {
+    results.audit_events = [{ data: [], error: null }];
+    await listAuditEventsAction({
+      filters: {
+        group: "receipts",
+        q: "  Transportes  SÚR ",
+        hideAiQueries: true,
+      },
+      cursor: null,
+    });
+    expect(calls).toContainEqual({
+      table: "audit_events",
+      method: "in",
+      args: [
+        "event_type",
+        [
+          "receipt.created",
+          "receipt.updated",
+          "receipt.canceled",
+          "receipt.allocated",
+        ],
+      ],
+    });
+    expect(calls).toContainEqual({
+      table: "audit_events",
+      method: "like",
+      args: ["search_text", "%transportes sur%"],
+    });
+    expect(calls).toContainEqual({
+      table: "audit_events",
+      method: "neq",
+      args: ["event_type", "ai.tool_call"],
     });
   });
 
@@ -153,7 +203,11 @@ describe("exportAuditEventsCsvAction", () => {
     expect(res.ok).toBe(true);
     if (!res.ok) return;
     expect(res.data.rows).toBe(1);
+    expect(res.data.csv.split("\r\n")[0]).toBe(
+      "Fecha,Quién,Qué hizo,Sobre qué",
+    );
     expect(res.data.csv).toContain("Ana Pérez");
+    expect(res.data.csv).toContain("editó el legajo de un empleado");
     expect(res.data.csv).not.toContain("0170099220000067797370");
     expect(logAudit).toHaveBeenCalledWith(
       "audit.exported",
