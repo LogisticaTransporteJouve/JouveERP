@@ -1,17 +1,35 @@
 import { describe, expect, it } from "vitest";
 
-import { formatTokens } from "../components/ai-usage-meter";
 import { usageTokens } from "./chat-store";
 import { DEFAULT_PRICING, MODEL_PRICING, estimateCostUsd } from "./pricing";
+import { aiSpendView } from "./usage-money";
 
-describe("formatTokens", () => {
-  it("formats counts compactly", () => {
-    expect(formatTokens(0)).toBe("0");
-    expect(formatTokens(999)).toBe("999");
-    expect(formatTokens(1_000)).toBe("1K");
-    expect(formatTokens(120_000)).toBe("120K");
-    expect(formatTokens(500_000)).toBe("500K");
-    expect(formatTokens(1_500_000)).toBe("1.5M");
+describe("aiSpendView", () => {
+  const usdRate = { rate: 1545.5, rate_date: "2026-11-05" };
+
+  it("shows today's spend and the cap in pesos at the official dollar", () => {
+    expect(aiSpendView({ costUsd: 0.52, capUsd: 1.5, usdRate })).toEqual({
+      spent: "$ 804",
+      cap: "$ 2.318",
+      pct: 35,
+      atCap: false,
+      tooltip:
+        "Gasto de IA de hoy: US$ 0,52 ≈ $ 804 al dólar oficial del 5 nov 2026",
+    });
+  });
+
+  it("fills the bar and flags the cap once spend reaches it", () => {
+    const view = aiSpendView({ costUsd: 2, capUsd: 1.5, usdRate });
+    expect(view.pct).toBe(100);
+    expect(view.atCap).toBe(true);
+  });
+
+  it("falls back to dollars when no rate is loaded, never tokens", () => {
+    const view = aiSpendView({ costUsd: 0.52, capUsd: 1.5, usdRate: null });
+    expect(view.spent).toBe("US$ 0,52");
+    expect(view.cap).toBe("US$ 1,50");
+    expect(view.tooltip).toContain("sin cotización");
+    expect(JSON.stringify(view)).not.toMatch(/token/i);
   });
 });
 

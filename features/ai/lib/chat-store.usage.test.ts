@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const inserts: Array<{ table: string; row: Record<string, unknown> }> = [];
-let todayTokens: number | Error = 0;
+let todayCost: number | Error = 0;
 
 vi.mock("@/lib/supabase/service", () => ({
   getServiceClient: () => ({
@@ -12,23 +12,24 @@ vi.mock("@/lib/supabase/service", () => ({
       },
     }),
     rpc: async () =>
-      todayTokens instanceof Error
-        ? { data: null, error: todayTokens }
-        : { data: [{ total_tokens: todayTokens, cost_usd: 0 }], error: null },
+      todayCost instanceof Error
+        ? { data: null, error: todayCost }
+        : { data: [{ total_tokens: 0, cost_usd: todayCost }], error: null },
   }),
 }));
 
 const {
   AI_BACKGROUND_CAP_FRACTION,
-  AI_DAILY_TOKEN_CAP,
+  AI_DAILY_COST_CAP_USD,
   checkAiDailyCap,
+  isOverDailyCap,
   recordAiUsage,
 } = await import("./chat-store");
 const { logAudit } = await import("@/lib/actions/audit");
 
 beforeEach(() => {
   inserts.length = 0;
-  todayTokens = 0;
+  todayCost = 0;
 });
 
 describe("recordAiUsage", () => {
@@ -59,25 +60,36 @@ describe("recordAiUsage", () => {
   });
 });
 
+describe("isOverDailyCap", () => {
+  it("gates on spend, not tokens", () => {
+    expect(isOverDailyCap({ totalTokens: 10_000_000, costUsd: 0.1 })).toBe(
+      false,
+    );
+    expect(
+      isOverDailyCap({ totalTokens: 0, costUsd: AI_DAILY_COST_CAP_USD }),
+    ).toBe(true);
+  });
+});
+
 describe("checkAiDailyCap", () => {
   it("is ok under the cap, exceeded at it, unavailable (fail-closed) on RPC error", async () => {
-    todayTokens = AI_DAILY_TOKEN_CAP - 1;
+    todayCost = AI_DAILY_COST_CAP_USD - 0.01;
     expect(await checkAiDailyCap()).toBe("ok");
-    todayTokens = AI_DAILY_TOKEN_CAP;
+    todayCost = AI_DAILY_COST_CAP_USD;
     expect(await checkAiDailyCap()).toBe("exceeded");
-    todayTokens = new Error("rpc down");
+    todayCost = new Error("rpc down");
     expect(await checkAiDailyCap()).toBe("unavailable");
   });
 
   it("stops background jobs at AI_BACKGROUND_CAP_FRACTION, leaving headroom for chat", async () => {
     expect(AI_BACKGROUND_CAP_FRACTION).toBeLessThan(1);
-    const threshold = AI_DAILY_TOKEN_CAP * AI_BACKGROUND_CAP_FRACTION;
-    todayTokens = threshold - 1;
+    const threshold = AI_DAILY_COST_CAP_USD * AI_BACKGROUND_CAP_FRACTION;
+    todayCost = threshold - 0.01;
     expect(await checkAiDailyCap({ background: true })).toBe("ok");
-    todayTokens = threshold;
+    todayCost = threshold;
     expect(await checkAiDailyCap({ background: true })).toBe("exceeded");
     expect(await checkAiDailyCap()).toBe("ok");
-    todayTokens = new Error("rpc down");
+    todayCost = new Error("rpc down");
     expect(await checkAiDailyCap({ background: true })).toBe("unavailable");
   });
 });

@@ -31,11 +31,11 @@ import {
 } from "@/features/ai/attachments/store";
 import { parseIncomingUserMessage } from "@/features/ai/lib/chat-message";
 import {
-  AI_DAILY_TOKEN_CAP,
   appendAiMessage,
   deleteAiMessageRow,
   ensureAiSession,
   getAiUsageToday,
+  isOverDailyCap,
   loadAiSessionMessages,
   maybeTitleAiSession,
   messageText,
@@ -111,9 +111,9 @@ export async function POST(req: Request) {
     throw err;
   }
 
-  // Daily token cap (global, fail-closed). Approximate: the current turn isn't
-  // counted yet, but maxSteps bounds the overshoot. If the usage RPC errors we
-  // block rather than let spend run unbounded.
+  // Daily spend cap (global, fail-closed). Approximate: the current turn isn't
+  // counted yet, but the step cap bounds the overshoot. If the usage RPC
+  // errors we block rather than let spend run unbounded.
   let usageToday: AiUsageToday;
   try {
     usageToday = await getAiUsageToday();
@@ -123,7 +123,7 @@ export async function POST(req: Request) {
       { status: 503 },
     );
   }
-  if (usageToday.totalTokens >= AI_DAILY_TOKEN_CAP) {
+  if (isOverDailyCap(usageToday)) {
     return NextResponse.json(
       { error: "Se alcanzó el límite diario de IA. Probá de nuevo mañana." },
       { status: 429 },

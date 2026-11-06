@@ -45,7 +45,7 @@ export const assistantPage: GuidePage = {
         {
           title: "Límite diario",
           body: [
-            "El consumo de IA tiene un tope por día para todo el equipo (lo que usa uno descuenta del total). El medidor de arriba a la derecha muestra lo usado hoy; al llegar al tope, el cuadro de texto dice {{Límite diario alcanzado}} hasta el día siguiente.",
+            "El consumo de IA tiene un tope por día para todo el equipo (lo que usa uno descuenta del total). El medidor de arriba a la derecha muestra lo gastado hoy en pesos (al dólar oficial cargado) contra el tope; al llegar al tope, el cuadro de texto dice {{Límite diario alcanzado}} hasta el día siguiente.",
           ],
         },
       ],
