@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 
+import { DisabledHint, NO_CHANGES_REASON } from "@/components/disabled-hint";
 import { cn } from "@/lib/utils";
 import { FormColumn, FormColumns } from "@/components/form-columns";
 import { DIALOG_STICKY_FOOTER } from "@/components/ui/dialog";
@@ -626,16 +627,26 @@ export function EmployeeForm({
               Cancelar
             </Button>
           )}
-          <Button
-            type="submit"
-            disabled={isSaving || (mode === "edit" && !form.formState.isDirty)}
+          <DisabledHint
+            reason={
+              mode === "edit" && !form.formState.isDirty
+                ? NO_CHANGES_REASON
+                : null
+            }
           >
-            {isSaving
-              ? "Guardando…"
-              : mode === "create"
-                ? "Crear empleado"
-                : "Guardar cambios"}
-          </Button>
+            <Button
+              type="submit"
+              disabled={
+                isSaving || (mode === "edit" && !form.formState.isDirty)
+              }
+            >
+              {isSaving
+                ? "Guardando…"
+                : mode === "create"
+                  ? "Crear empleado"
+                  : "Guardar cambios"}
+            </Button>
+          </DisabledHint>
         </div>
       </form>
     </Form>

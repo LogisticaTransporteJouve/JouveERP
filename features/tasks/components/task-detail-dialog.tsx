@@ -12,6 +12,7 @@ import Link from "next/link";
 import { Suspense, useState } from "react";
 import { toast } from "sonner";
 
+import { DisabledHint } from "@/components/disabled-hint";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -301,14 +302,18 @@ function Comments({
             rows={2}
             maxLength={2000}
           />
-          <Button
-            type="button"
-            size="sm"
-            onClick={submit}
-            disabled={addComment.isPending || body.trim() === ""}
+          <DisabledHint
+            reason={body.trim() === "" ? "Escribí un comentario." : null}
           >
-            Comentar
-          </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={submit}
+              disabled={addComment.isPending || body.trim() === ""}
+            >
+              Comentar
+            </Button>
+          </DisabledHint>
         </div>
       )}
     </section>

@@ -4,6 +4,7 @@ import { Download, Eye, Pencil, Plus, Trash2, Wallet } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { DisabledHint } from "@/components/disabled-hint";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,12 +20,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { ExportButton } from "@/components/export-button";
 import { ListToolbar } from "@/components/list-toolbar";
 import { PeriodEmptyNotice, PeriodFilter } from "@/components/period-filter";
@@ -327,10 +322,9 @@ export function ClientAccountTab({
                           prefill
                           trigger={
                             <IconButton
-                              label={
-                                canSetOpening
-                                  ? "Editar ajuste de saldo"
-                                  : `Editar ajuste de saldo. ${OWNER_ONLY_HINT}`
+                              label="Editar ajuste de saldo"
+                              disabledReason={
+                                canSetOpening ? null : OWNER_ONLY_HINT
                               }
                               variant="ghost"
                               disabled={!canSetOpening}
@@ -342,10 +336,9 @@ export function ClientAccountTab({
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <IconButton
-                              label={
-                                canSetOpening
-                                  ? "Borrar ajuste de saldo"
-                                  : `Borrar ajuste de saldo. ${OWNER_ONLY_HINT}`
+                              label="Borrar ajuste de saldo"
+                              disabledReason={
+                                canSetOpening ? null : OWNER_ONLY_HINT
                               }
                               variant="ghost"
                               disabled={
@@ -486,7 +479,7 @@ export function ClientAccountTab({
               label="Exportar resumen"
             />
             {canIssueInvoice && (
-              <OwnerOnly disabled={!canSetOpening}>
+              <DisabledHint reason={canSetOpening ? null : OWNER_ONLY_HINT}>
                 <OpeningBalanceDialog
                   clientId={clientId}
                   trigger={
@@ -496,7 +489,7 @@ export function ClientAccountTab({
                     </Button>
                   }
                 />
-              </OwnerOnly>
+              </DisabledHint>
             )}
             {canIssueInvoice && (
               <NewInvoiceDialog
@@ -555,32 +548,6 @@ export function ClientAccountTab({
 }
 
 const OWNER_ONLY_HINT = "Solo el owner puede tocar el ajuste de saldo.";
-
-/**
- * Wraps the children in a Tooltip when `disabled=true`. The children
- * (typically a Button) receive their normal props — the tooltip only
- * attaches the explanation. Used for the balance adjustment controls
- * that only the owner can use.
- */
-function OwnerOnly({
-  children,
-  disabled,
-}: {
-  children: React.ReactNode;
-  disabled: boolean;
-}) {
-  if (!disabled) return <>{children}</>;
-  return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span className="inline-block">{children}</span>
-        </TooltipTrigger>
-        <TooltipContent>{OWNER_ONLY_HINT}</TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
-}
 
 /** One balance per currency: dollars only when the account has any.
  *  `scopeLabel` set: each is that scope's open documents (aging), not a

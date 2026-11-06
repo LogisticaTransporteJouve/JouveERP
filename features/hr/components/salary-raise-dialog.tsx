@@ -4,6 +4,7 @@ import { Percent } from "lucide-react";
 import { Suspense, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { DisabledHint, firstReason } from "@/components/disabled-hint";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -226,17 +227,31 @@ function RaiseForm({ onDone }: { onDone: () => void }) {
         >
           Cancelar
         </Button>
-        <Button
-          onClick={onApply}
-          disabled={
-            mutation.isPending ||
-            !validPct ||
-            targets.length === 0 ||
-            (scope !== "all" && value === "")
-          }
+        <DisabledHint
+          reason={firstReason(
+            [!validPct, "Ingresá un porcentaje mayor a 0 y hasta 100."],
+            [
+              scope !== "all" && value === "",
+              scope === "position" ? "Elegí el puesto." : "Elegí el convenio.",
+            ],
+            [
+              targets.length === 0,
+              "No hay empleados a los que aplicar el aumento.",
+            ],
+          )}
         >
-          {mutation.isPending ? "Aplicando…" : "Aplicar aumento"}
-        </Button>
+          <Button
+            onClick={onApply}
+            disabled={
+              mutation.isPending ||
+              !validPct ||
+              targets.length === 0 ||
+              (scope !== "all" && value === "")
+            }
+          >
+            {mutation.isPending ? "Aplicando…" : "Aplicar aumento"}
+          </Button>
+        </DisabledHint>
       </DialogFooter>
     </div>
   );

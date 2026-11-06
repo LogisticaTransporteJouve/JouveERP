@@ -1,3 +1,4 @@
+import { DisabledHint, NO_CHANGES_REASON } from "@/components/disabled-hint";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -8,7 +9,7 @@ export function DialogFormFooter({
   isSaving,
   isDirty,
   createLabel,
-  submitDisabled = false,
+  submitDisabledReason = null,
   onCancel,
   className,
 }: {
@@ -16,11 +17,16 @@ export function DialogFormFooter({
   isSaving: boolean;
   isDirty: boolean;
   createLabel: string;
-  /** Something the form says next to the footer is still missing. */
-  submitDisabled?: boolean;
+  /** Something the form says next to the footer is still missing: it blocks
+   *  submit and the button explains it on hover. */
+  submitDisabledReason?: string | null;
   onCancel: () => void;
   className?: string;
 }) {
+  const reason = isSaving
+    ? null
+    : (submitDisabledReason ??
+      (mode === "edit" && !isDirty ? NO_CHANGES_REASON : null));
   return (
     <div className={cn("flex items-center justify-end gap-2", className)}>
       <Button
@@ -31,16 +37,15 @@ export function DialogFormFooter({
       >
         Cancelar
       </Button>
-      <Button
-        type="submit"
-        disabled={isSaving || submitDisabled || (mode === "edit" && !isDirty)}
-      >
-        {isSaving
-          ? "Guardando…"
-          : mode === "create"
-            ? createLabel
-            : "Guardar cambios"}
-      </Button>
+      <DisabledHint reason={reason}>
+        <Button type="submit" disabled={isSaving || reason !== null}>
+          {isSaving
+            ? "Guardando…"
+            : mode === "create"
+              ? createLabel
+              : "Guardar cambios"}
+        </Button>
+      </DisabledHint>
     </div>
   );
 }

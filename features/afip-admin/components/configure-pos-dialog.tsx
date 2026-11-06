@@ -3,6 +3,7 @@
 import { Suspense, useState } from "react";
 import { toast } from "sonner";
 
+import { DisabledHint, NO_CHANGES_REASON } from "@/components/disabled-hint";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -169,9 +170,11 @@ function ConfigurePosForm({
         >
           Cancelar
         </Button>
-        <Button type="submit" disabled={isSaving || !isDirty}>
-          {isSaving ? "Guardando…" : "Guardar"}
-        </Button>
+        <DisabledHint reason={!isDirty ? NO_CHANGES_REASON : null}>
+          <Button type="submit" disabled={isSaving || !isDirty}>
+            {isSaving ? "Guardando…" : "Guardar"}
+          </Button>
+        </DisabledHint>
       </div>
     </form>
   );

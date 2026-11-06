@@ -5,6 +5,7 @@ import { Suspense, useState } from "react";
 import { toast } from "sonner";
 
 import { ChannelsReadError } from "@/components/channels-read-error";
+import { DisabledHint, firstReason } from "@/components/disabled-hint";
 import { useScope } from "@/components/providers/scope-provider";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -270,19 +271,32 @@ export function ImportDialog({
               }}
             />
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={!file || !kind || !targetsReady || busy}
-            onClick={() => read(null)}
-          >
-            {previewMut.isPending ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <FileUp className="size-4" />
+          <DisabledHint
+            reason={firstReason(
+              [!file, "Elegí un archivo."],
+              [!kind, "Elegí qué vas a importar."],
+              [
+                !targetsReady,
+                needsAccount && accountId === ""
+                  ? "Elegí la cuenta."
+                  : "Elegí el canal.",
+              ],
             )}
-            Leer archivo
-          </Button>
+          >
+            <Button
+              type="button"
+              variant="outline"
+              disabled={!file || !kind || !targetsReady || busy}
+              onClick={() => read(null)}
+            >
+              {previewMut.isPending ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <FileUp className="size-4" />
+              )}
+              Leer archivo
+            </Button>
+          </DisabledHint>
         </div>
 
         {kind && (needsAccount || needsChannel) && (
@@ -511,22 +525,44 @@ export function ImportDialog({
           >
             Cancelar
           </Button>
-          <Button
-            type="button"
-            disabled={
-              !preview ||
-              preview.missing.length > 0 ||
-              preview.truncated ||
-              mappingChanged ||
-              ready === 0 ||
-              busy
+          <DisabledHint
+            reason={
+              !preview
+                ? "Leé el archivo primero."
+                : firstReason(
+                    [
+                      preview.missing.length > 0,
+                      "Faltan columnas: elegilas y volvé a leer.",
+                    ],
+                    [
+                      preview.truncated,
+                      "El archivo es demasiado grande: dividilo para importarlo.",
+                    ],
+                    [
+                      mappingChanged,
+                      "Cambiaste las columnas: volvé a leer el archivo.",
+                    ],
+                    [ready === 0, "No hay filas listas para importar."],
+                  )
             }
-            onClick={commit}
           >
-            {commitMut.isPending
-              ? "Importando…"
-              : `Importar ${ready} ${ready === 1 ? "fila" : "filas"}`}
-          </Button>
+            <Button
+              type="button"
+              disabled={
+                !preview ||
+                preview.missing.length > 0 ||
+                preview.truncated ||
+                mappingChanged ||
+                ready === 0 ||
+                busy
+              }
+              onClick={commit}
+            >
+              {commitMut.isPending
+                ? "Importando…"
+                : `Importar ${ready} ${ready === 1 ? "fila" : "filas"}`}
+            </Button>
+          </DisabledHint>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { ChannelsReadError } from "@/components/channels-read-error";
+import { DisabledHint } from "@/components/disabled-hint";
 import { useScope } from "@/components/providers/scope-provider";
 import { Button } from "@/components/ui/button";
 import {
@@ -230,12 +231,14 @@ export function BillRemitoDialog({
           >
             Cancelar
           </Button>
-          <Button
-            onClick={submit}
-            disabled={bill.isPending || pos.isPending || posProblem !== null}
-          >
-            {bill.isPending ? "Emitiendo…" : "Emitir factura"}
-          </Button>
+          <DisabledHint reason={posProblem}>
+            <Button
+              onClick={submit}
+              disabled={bill.isPending || pos.isPending || posProblem !== null}
+            >
+              {bill.isPending ? "Emitiendo…" : "Emitir factura"}
+            </Button>
+          </DisabledHint>
         </DialogFooter>
       </DialogContent>
     </Dialog>

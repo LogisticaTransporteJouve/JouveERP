@@ -4,6 +4,7 @@ import { Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { DisabledHint } from "@/components/disabled-hint";
 import { ReadError } from "@/components/read-error";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
@@ -156,14 +157,20 @@ export function DeleteClientDialog({ client }: { client: Client }) {
           )}
           {stage === "ready" && !hasRefs && (
             <>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={onDeactivate}
-                disabled={isPending || isAlreadyInactive}
+              <DisabledHint
+                reason={
+                  isAlreadyInactive ? "El cliente ya está inactivo." : null
+                }
               >
-                Desactivar
-              </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={onDeactivate}
+                  disabled={isPending || isAlreadyInactive}
+                >
+                  Desactivar
+                </Button>
+              </DisabledHint>
               <Button
                 type="button"
                 variant="destructive"

@@ -74,6 +74,26 @@ describe("IconButton", () => {
     expect((await screen.findByRole("tooltip")).textContent).toBe("Borrar");
   });
 
+  it("adds the disabled reason to the tooltip only while disabled", async () => {
+    render(
+      <IconButton label="Borrar" disabled disabledReason="Ya está anulada.">
+        <Pencil />
+      </IconButton>,
+    );
+    screen.getByRole("button", { name: "Borrar" }).parentElement!.focus();
+    expect((await screen.findByRole("tooltip")).textContent).toBe(
+      "Borrar. Ya está anulada.",
+    );
+    cleanup();
+    render(
+      <IconButton label="Borrar" disabledReason="Ya está anulada.">
+        <Pencil />
+      </IconButton>,
+    );
+    screen.getByRole("button").focus();
+    expect((await screen.findByRole("tooltip")).textContent).toBe("Borrar");
+  });
+
   it("renders a link with asChild", () => {
     render(
       <IconButton label="Ver" asChild>

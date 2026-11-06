@@ -239,6 +239,9 @@ export function MessageComposer({
           label="Enviar"
           type="button"
           onClick={submit}
+          disabledReason={
+            body.trim().length === 0 ? "Escribí un mensaje." : null
+          }
           disabled={send.isPending || body.trim().length === 0}
         >
           <Send className="size-4" />

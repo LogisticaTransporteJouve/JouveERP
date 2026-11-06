@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { DisabledHint } from "@/components/disabled-hint";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
@@ -101,9 +102,13 @@ function FetchKmDialog({
             >
               Cancelar
             </Button>
-            <Button type="submit" disabled={invalid || request.isPending}>
-              Traer km
-            </Button>
+            <DisabledHint
+              reason={invalid ? "Completá un rango de fechas válido." : null}
+            >
+              <Button type="submit" disabled={invalid || request.isPending}>
+                Traer km
+              </Button>
+            </DisabledHint>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -154,14 +159,18 @@ export function StrixBar({
         )}
       </p>
       {canWrite && (
-        <Button
-          size="sm"
-          disabled={!s || s.state !== "ok" || busy}
-          onClick={() => setOpen(true)}
+        <DisabledHint
+          reason={s && s.state !== "ok" ? strixStatusText(s, Date.now()) : null}
         >
-          <RefreshCw className={busy ? "size-4 animate-spin" : "size-4"} />
-          Traer km
-        </Button>
+          <Button
+            size="sm"
+            disabled={!s || s.state !== "ok" || busy}
+            onClick={() => setOpen(true)}
+          >
+            <RefreshCw className={busy ? "size-4 animate-spin" : "size-4"} />
+            Traer km
+          </Button>
+        </DisabledHint>
       )}
       {open && (
         <FetchKmDialog

@@ -184,6 +184,11 @@ export function AiChat({
   // Only an unanswered card holds the composer; a pending proposal can still
   // be changed by asking for it.
   const locked = busy || atCap || waitingQuestion !== null;
+  const lockedReason = atCap
+    ? "Se alcanzó el límite diario de consultas de IA."
+    : waitingQuestion
+      ? "Respondé las preguntas de arriba para seguir."
+      : null;
   const hint = waitingQuestion
     ? "Respondé las preguntas de arriba para seguir."
     : waitingProposal
@@ -447,6 +452,7 @@ export function AiChat({
               label="Adjuntar PDF, imagen o planilla"
               type="button"
               variant="outline"
+              disabledReason={lockedReason}
               disabled={locked}
               onClick={() => pickerRef.current?.click()}
               className="size-11 shrink-0 rounded-lg"
@@ -459,6 +465,7 @@ export function AiChat({
                 label="Sacar una foto"
                 type="button"
                 variant="outline"
+                disabledReason={lockedReason}
                 disabled={locked}
                 onClick={() => cameraRef.current?.click()}
                 className="size-11 rounded-lg"
@@ -510,6 +517,14 @@ export function AiChat({
             <IconButton
               label="Enviar"
               type="submit"
+              disabledReason={
+                lockedReason ??
+                (!attachments.uploading &&
+                !input.trim() &&
+                attachments.readyCount === 0
+                  ? "Escribí una pregunta o adjuntá un archivo."
+                  : null)
+              }
               disabled={
                 locked ||
                 attachments.uploading ||

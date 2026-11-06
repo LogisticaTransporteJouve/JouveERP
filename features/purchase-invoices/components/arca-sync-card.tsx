@@ -4,6 +4,7 @@ import { CloudDownload, Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
+import { DisabledHint } from "@/components/disabled-hint";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -208,19 +209,28 @@ export function ArcaSyncCard({
           </button>
         )}
       </div>
-      <Button
-        size="sm"
+      <DisabledHint
+        reason={
+          status.data && status.data.state !== "ok"
+            ? statusText(status.data, phase)
+            : null
+        }
         className="shrink-0"
-        disabled={status.data?.state !== "ok" || pending}
-        onClick={() => setOpen(true)}
       >
-        {pending ? (
-          <Loader2 aria-hidden className="animate-spin" />
-        ) : (
-          <CloudDownload aria-hidden />
-        )}
-        {pending ? "Trayendo…" : "Traer de ARCA"}
-      </Button>
+        <Button
+          size="sm"
+          className="shrink-0"
+          disabled={status.data?.state !== "ok" || pending}
+          onClick={() => setOpen(true)}
+        >
+          {pending ? (
+            <Loader2 aria-hidden className="animate-spin" />
+          ) : (
+            <CloudDownload aria-hidden />
+          )}
+          {pending ? "Trayendo…" : "Traer de ARCA"}
+        </Button>
+      </DisabledHint>
       {open ? <SyncDialog open={open} onOpenChange={setOpen} /> : null}
     </div>
   );

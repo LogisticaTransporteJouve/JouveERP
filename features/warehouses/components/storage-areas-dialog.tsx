@@ -4,6 +4,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { DisabledHint } from "@/components/disabled-hint";
 import { useConfirm } from "@/components/providers/confirm-provider";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
@@ -98,13 +99,17 @@ export function StorageAreasDialog({
             maxLength={120}
             aria-label="Nombre del área"
           />
-          <Button
-            type="submit"
-            disabled={createMut.isPending || name.trim() === ""}
+          <DisabledHint
+            reason={name.trim() === "" ? "Escribí un nombre." : null}
           >
-            <Plus />
-            Agregar
-          </Button>
+            <Button
+              type="submit"
+              disabled={createMut.isPending || name.trim() === ""}
+            >
+              <Plus />
+              Agregar
+            </Button>
+          </DisabledHint>
         </form>
 
         {areas.length === 0 ? (

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { DisabledHint } from "@/components/disabled-hint";
 import { Button } from "@/components/ui/button";
 import { MoneyInput } from "@/components/money-input";
 import { Input } from "@/components/ui/input";
@@ -170,12 +171,20 @@ export function FinalSettlementCard({ employeeId }: { employeeId: string }) {
             />
           </div>
           <div className="flex justify-end">
-            <Button
-              onClick={onApply}
-              disabled={applyMut.isPending || data.period_status === "closed"}
+            <DisabledHint
+              reason={
+                data.period_status === "closed"
+                  ? "La planilla del período está cerrada."
+                  : null
+              }
             >
-              {applyMut.isPending ? "Cargando…" : "Cargar en la planilla"}
-            </Button>
+              <Button
+                onClick={onApply}
+                disabled={applyMut.isPending || data.period_status === "closed"}
+              >
+                {applyMut.isPending ? "Cargando…" : "Cargar en la planilla"}
+              </Button>
+            </DisabledHint>
           </div>
         </div>
       ) : null}

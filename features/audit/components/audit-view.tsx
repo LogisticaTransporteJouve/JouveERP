@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Suspense, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { DisabledHint } from "@/components/disabled-hint";
 import { Button } from "@/components/ui/button";
 import { Combobox } from "@/components/ui/combobox";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
@@ -71,14 +72,22 @@ export function AuditView() {
             pidió) y los procesos automáticos. Se guardan 400 días.
           </p>
         </div>
-        <Button
-          variant="outline"
-          onClick={onExport}
-          disabled={exportCsv.isPending || invalidRange}
+        <DisabledHint
+          reason={
+            invalidRange
+              ? "La fecha desde no puede ser posterior a la fecha hasta."
+              : null
+          }
         >
-          <Download />
-          {exportCsv.isPending ? "Exportando…" : "Exportar CSV"}
-        </Button>
+          <Button
+            variant="outline"
+            onClick={onExport}
+            disabled={exportCsv.isPending || invalidRange}
+          >
+            <Download />
+            {exportCsv.isPending ? "Exportando…" : "Exportar CSV"}
+          </Button>
+        </DisabledHint>
       </div>
 
       <Suspense fallback={<Skeleton className="h-16 w-full" />}>
@@ -186,15 +195,20 @@ function AuditFiltersBar({
           placeholder="Todas"
         />
       </div>
-      <Button
-        variant="ghost"
-        onClick={onClear}
-        disabled={!hasFilters}
+      <DisabledHint
+        reason={!hasFilters ? "No hay filtros para limpiar." : null}
         className="justify-self-start"
       >
-        <FilterX />
-        Limpiar
-      </Button>
+        <Button
+          variant="ghost"
+          onClick={onClear}
+          disabled={!hasFilters}
+          className="justify-self-start"
+        >
+          <FilterX />
+          Limpiar
+        </Button>
+      </DisabledHint>
     </div>
   );
 }

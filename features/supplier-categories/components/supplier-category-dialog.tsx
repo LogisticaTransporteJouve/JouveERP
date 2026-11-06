@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { toast } from "sonner";
 
+import { DisabledHint, NO_CHANGES_REASON } from "@/components/disabled-hint";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -171,18 +172,26 @@ export function SupplierCategoryDialog({
               >
                 Cancelar
               </Button>
-              <Button
-                type="submit"
-                disabled={
-                  isSaving || (mode === "edit" && !form.formState.isDirty)
+              <DisabledHint
+                reason={
+                  mode === "edit" && !form.formState.isDirty
+                    ? NO_CHANGES_REASON
+                    : null
                 }
               >
-                {isSaving
-                  ? "Guardando…"
-                  : mode === "create"
-                    ? "Crear"
-                    : "Guardar cambios"}
-              </Button>
+                <Button
+                  type="submit"
+                  disabled={
+                    isSaving || (mode === "edit" && !form.formState.isDirty)
+                  }
+                >
+                  {isSaving
+                    ? "Guardando…"
+                    : mode === "create"
+                      ? "Crear"
+                      : "Guardar cambios"}
+                </Button>
+              </DisabledHint>
             </DialogFooter>
           </form>
         </Form>

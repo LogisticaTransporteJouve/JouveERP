@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { DisabledHint, firstReason } from "@/components/disabled-hint";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -182,6 +183,9 @@ function LinkTaxPaymentBody({
                 label="Página anterior"
                 type="button"
                 variant="outline"
+                disabledReason={
+                  page === 0 ? "Ya estás en la primera página." : null
+                }
                 disabled={page === 0 || candidates.isFetching}
                 onClick={() => setPage((p) => p - 1)}
               >
@@ -191,6 +195,9 @@ function LinkTaxPaymentBody({
                 label="Página siguiente"
                 type="button"
                 variant="outline"
+                disabledReason={
+                  page + 1 >= pages ? "Ya estás en la última página." : null
+                }
                 disabled={page + 1 >= pages || candidates.isFetching}
                 onClick={() => setPage((p) => p + 1)}
               >
@@ -224,18 +231,32 @@ function LinkTaxPaymentBody({
         <Button type="button" variant="outline" onClick={onClose}>
           Cancelar
         </Button>
-        <Button
-          type="button"
-          onClick={submit}
-          disabled={
-            !selected ||
-            missingAccount ||
-            (differs && !confirmDifference) ||
-            linkMut.isPending
-          }
+        <DisabledHint
+          reason={firstReason(
+            [
+              missingAccount,
+              "Antes, editá el impuesto y elegí su cuenta contable.",
+            ],
+            [!selected, "Elegí el pago."],
+            [
+              differs && !confirmDifference,
+              "Confirmá que vinculás el pago con diferencia.",
+            ],
+          )}
         >
-          {linkMut.isPending ? "Vinculando…" : "Vincular y marcar pagado"}
-        </Button>
+          <Button
+            type="button"
+            onClick={submit}
+            disabled={
+              !selected ||
+              missingAccount ||
+              (differs && !confirmDifference) ||
+              linkMut.isPending
+            }
+          >
+            {linkMut.isPending ? "Vinculando…" : "Vincular y marcar pagado"}
+          </Button>
+        </DisabledHint>
       </DialogFooter>
     </>
   );

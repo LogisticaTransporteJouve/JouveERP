@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { DisabledHint } from "@/components/disabled-hint";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -173,17 +174,23 @@ export function BulkFreightSettlementsDialog({
               >
                 Cancelar
               </Button>
-              <Button
-                type="button"
-                disabled={mut.isPending || start === "" || end === ""}
-                onClick={onSubmit}
+              <DisabledHint
+                reason={
+                  start === "" || end === "" ? "Completá el período." : null
+                }
               >
-                {mut.isPending
-                  ? "Liquidando…"
-                  : confirm
-                    ? "Crear y confirmar"
-                    : "Crear borradores"}
-              </Button>
+                <Button
+                  type="button"
+                  disabled={mut.isPending || start === "" || end === ""}
+                  onClick={onSubmit}
+                >
+                  {mut.isPending
+                    ? "Liquidando…"
+                    : confirm
+                      ? "Crear y confirmar"
+                      : "Crear borradores"}
+                </Button>
+              </DisabledHint>
             </>
           ) : (
             <Button type="button" onClick={() => close(false)}>

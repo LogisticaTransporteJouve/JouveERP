@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { DisabledHint, NO_CHANGES_REASON } from "@/components/disabled-hint";
 import { MoneyInput } from "@/components/money-input";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -260,12 +261,16 @@ export function EditTransactionDialog({
               >
                 Cancelar
               </Button>
-              <Button
-                type="submit"
-                disabled={updateMut.isPending || !form.formState.isDirty}
+              <DisabledHint
+                reason={!form.formState.isDirty ? NO_CHANGES_REASON : null}
               >
-                {updateMut.isPending ? "Guardando…" : "Guardar"}
-              </Button>
+                <Button
+                  type="submit"
+                  disabled={updateMut.isPending || !form.formState.isDirty}
+                >
+                  {updateMut.isPending ? "Guardando…" : "Guardar"}
+                </Button>
+              </DisabledHint>
             </div>
           </form>
         </Form>

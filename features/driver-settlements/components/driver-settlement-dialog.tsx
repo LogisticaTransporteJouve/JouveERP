@@ -4,6 +4,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { DisabledHint } from "@/components/disabled-hint";
 import { MoneyInput } from "@/components/money-input";
 import { FormColumn, FormColumns } from "@/components/form-columns";
 import { Button } from "@/components/ui/button";
@@ -369,6 +370,11 @@ export function DriverSettlementDialog({
                                   label={`Quitar el pago ${index + 1}`}
                                   type="button"
                                   variant="ghost"
+                                  disabledReason={
+                                    r.lines.length === 1 && l.amount === ""
+                                      ? "No hay nada para quitar."
+                                      : null
+                                  }
                                   disabled={
                                     r.lines.length === 1 && l.amount === ""
                                   }
@@ -416,16 +422,24 @@ export function DriverSettlementDialog({
                             );
                           })}
                           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              disabled={r.lines.length >= MAX_LINES}
-                              onClick={() => addLine(r)}
+                            <DisabledHint
+                              reason={
+                                r.lines.length >= MAX_LINES
+                                  ? `Hasta ${MAX_LINES} medios de pago por carga.`
+                                  : null
+                              }
                             >
-                              <Plus />
-                              Otro medio de pago
-                            </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                disabled={r.lines.length >= MAX_LINES}
+                                onClick={() => addLine(r)}
+                              >
+                                <Plus />
+                                Otro medio de pago
+                              </Button>
+                            </DisabledHint>
                             <Input
                               aria-label="Nota"
                               className="sm:flex-1"
@@ -481,13 +495,17 @@ export function DriverSettlementDialog({
           >
             Cancelar
           </Button>
-          <Button
-            type="button"
-            disabled={saveMut.isPending || included.length === 0}
-            onClick={onSubmit}
+          <DisabledHint
+            reason={included.length === 0 ? "Incluí al menos una carga." : null}
           >
-            Guardar borrador
-          </Button>
+            <Button
+              type="button"
+              disabled={saveMut.isPending || included.length === 0}
+              onClick={onSubmit}
+            >
+              Guardar borrador
+            </Button>
+          </DisabledHint>
         </DialogFooter>
       </DialogContent>
     </Dialog>

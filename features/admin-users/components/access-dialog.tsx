@@ -3,6 +3,11 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import {
+  DisabledHint,
+  NO_CHANGES_REASON,
+  firstReason,
+} from "@/components/disabled-hint";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -179,14 +184,31 @@ export function AccessDialog({
           >
             Cancelar
           </Button>
-          <Button
-            onClick={submit}
-            disabled={
-              pending || !ready || outdated || (!rolesChanged && !deniedChanged)
+          <DisabledHint
+            reason={
+              !ready
+                ? null
+                : firstReason(
+                    [
+                      outdated,
+                      "Otro cambio se guardó mientras editabas: recargá los accesos.",
+                    ],
+                    [!rolesChanged && !deniedChanged, NO_CHANGES_REASON],
+                  )
             }
           >
-            {pending ? "Guardando…" : "Guardar"}
-          </Button>
+            <Button
+              onClick={submit}
+              disabled={
+                pending ||
+                !ready ||
+                outdated ||
+                (!rolesChanged && !deniedChanged)
+              }
+            >
+              {pending ? "Guardando…" : "Guardar"}
+            </Button>
+          </DisabledHint>
         </DialogFooter>
       </DialogContent>
     </Dialog>

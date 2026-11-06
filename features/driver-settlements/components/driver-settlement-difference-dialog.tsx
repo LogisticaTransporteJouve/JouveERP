@@ -4,6 +4,7 @@ import { Building2, UserRound } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { DisabledHint } from "@/components/disabled-hint";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -172,9 +173,15 @@ function DifferenceForm({
         <Button variant="outline" onClick={onDone} disabled={mut.isPending}>
           Volver
         </Button>
-        <Button onClick={submit} disabled={choice === null || mut.isPending}>
-          {mut.isPending ? "Guardando…" : "Confirmar"}
-        </Button>
+        <DisabledHint
+          reason={
+            choice === null ? "Elegí a quién se carga la diferencia." : null
+          }
+        >
+          <Button onClick={submit} disabled={choice === null || mut.isPending}>
+            {mut.isPending ? "Guardando…" : "Confirmar"}
+          </Button>
+        </DisabledHint>
       </DialogFooter>
     </>
   );

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { DisabledHint } from "@/components/disabled-hint";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -97,13 +98,15 @@ export function AdoptInstallmentPaymentDialog({
           <Button type="button" variant="outline" onClick={onClose}>
             Cancelar
           </Button>
-          <Button
-            type="button"
-            onClick={onSubmit}
-            disabled={adoptMut.isPending || !transactionId}
-          >
-            Vincular
-          </Button>
+          <DisabledHint reason={!transactionId ? "Elegí el egreso." : null}>
+            <Button
+              type="button"
+              onClick={onSubmit}
+              disabled={adoptMut.isPending || !transactionId}
+            >
+              Vincular
+            </Button>
+          </DisabledHint>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -234,13 +237,25 @@ export function RecordDisbursementDialog({
           <Button type="button" variant="outline" onClick={onClose}>
             Cancelar
           </Button>
-          <Button
-            type="button"
-            onClick={onSubmit}
-            disabled={recordMut.isPending || !ready}
+          <DisabledHint
+            reason={
+              ready
+                ? null
+                : mode === "new"
+                  ? !accountId
+                    ? "Elegí la cuenta."
+                    : "Completá la fecha."
+                  : "Elegí el ingreso."
+            }
           >
-            Registrar
-          </Button>
+            <Button
+              type="button"
+              onClick={onSubmit}
+              disabled={recordMut.isPending || !ready}
+            >
+              Registrar
+            </Button>
+          </DisabledHint>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -3,6 +3,7 @@
 import { FilePlus2, Files, MoreHorizontal, Percent } from "lucide-react";
 import { useMemo, useState, useTransition } from "react";
 
+import { DisabledHint } from "@/components/disabled-hint";
 import { useScopeIsFiscal } from "@/components/providers/scope-provider";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
@@ -209,14 +210,24 @@ export function LateInterestPage({
         </div>
         <div className="flex flex-wrap items-center gap-2 text-sm">
           {canIssue && (
-            <Button
-              size="sm"
-              disabled={eligible.length === 0}
-              onClick={() => setBulkOpen(true)}
+            <DisabledHint
+              reason={
+                eligible.length > 0
+                  ? null
+                  : items.length === 0
+                    ? "No hay comprobantes vencidos con saldo abierto."
+                    : "Ningún comprobante vencido tiene interés a cobrar: revisá que tenga tasa."
+              }
             >
-              <Files />
-              Generar varias ND
-            </Button>
+              <Button
+                size="sm"
+                disabled={eligible.length === 0}
+                onClick={() => setBulkOpen(true)}
+              >
+                <Files />
+                Generar varias ND
+              </Button>
+            </DisabledHint>
           )}
           <span className="text-muted-foreground">
             Tasa general:{" "}

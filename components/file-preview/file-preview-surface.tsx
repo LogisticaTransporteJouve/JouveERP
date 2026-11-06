@@ -111,6 +111,7 @@ export function FilePreviewSurface({
             label="Alejar"
             variant="ghost"
             className="size-8"
+            disabledReason={scale <= MIN_SCALE ? "Ya está al mínimo." : null}
             disabled={scale <= MIN_SCALE}
             onClick={() => setScale((s) => Math.max(MIN_SCALE, s - STEP))}
           >
@@ -120,6 +121,7 @@ export function FilePreviewSurface({
             label="Acercar"
             variant="ghost"
             className="size-8"
+            disabledReason={scale >= MAX_SCALE ? "Ya está al máximo." : null}
             disabled={scale >= MAX_SCALE}
             onClick={() => setScale((s) => Math.min(MAX_SCALE, s + STEP))}
           >

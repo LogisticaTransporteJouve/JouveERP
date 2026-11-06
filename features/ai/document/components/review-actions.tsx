@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { DisabledHint } from "@/components/disabled-hint";
 import { PageSideProvider } from "@/components/providers/scope-provider";
 import { ReadError } from "@/components/read-error";
 import { Button } from "@/components/ui/button";
@@ -237,13 +238,20 @@ function ReviewActionsInner({
     const count = chequeCount(extraction.payload);
     return (
       <div className="flex items-center gap-2 border-t pt-3">
-        <Button
+        <DisabledHint
+          reason={
+            count === 0 ? "No se detectaron cheques en el documento." : null
+          }
           className="ml-auto"
-          disabled={count === 0}
-          onClick={() => setNested(true)}
         >
-          Crear cheques en cartera{count > 0 ? ` (${count})` : ""}
-        </Button>
+          <Button
+            className="ml-auto"
+            disabled={count === 0}
+            onClick={() => setNested(true)}
+          >
+            Crear cheques en cartera{count > 0 ? ` (${count})` : ""}
+          </Button>
+        </DisabledHint>
         <CreateChequesDialog
           extractionId={extraction.id}
           payload={extraction.payload}

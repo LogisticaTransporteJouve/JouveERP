@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { DisabledHint } from "@/components/disabled-hint";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -138,9 +139,13 @@ export function BlockPalletDialog({
             >
               Cancelar
             </Button>
-            <Button type="submit" disabled={pending || reason.trim() === ""}>
-              {unblocking ? "Desbloquear" : "Bloquear"}
-            </Button>
+            <DisabledHint
+              reason={reason.trim() === "" ? "Escribí el motivo." : null}
+            >
+              <Button type="submit" disabled={pending || reason.trim() === ""}>
+                {unblocking ? "Desbloquear" : "Bloquear"}
+              </Button>
+            </DisabledHint>
           </DialogFooter>
         </form>
       </DialogContent>

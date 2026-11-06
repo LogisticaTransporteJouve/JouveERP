@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { DisabledHint } from "@/components/disabled-hint";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -113,14 +114,24 @@ export function LateInterestRateDialog({
             />
           </div>
           <DialogFooter className="gap-2 sm:justify-between">
-            <Button
-              type="button"
-              variant="ghost"
-              disabled={pending || target?.current === null}
-              onClick={() => save(null)}
+            <DisabledHint
+              reason={
+                target?.current === null
+                  ? target.kind === "client"
+                    ? "Este cliente ya usa la tasa general."
+                    : "No hay una tasa general para quitar."
+                  : null
+              }
             >
-              {target?.kind === "client" ? "Usar la general" : "Quitar tasa"}
-            </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={pending || target?.current === null}
+                onClick={() => save(null)}
+              >
+                {target?.kind === "client" ? "Usar la general" : "Quitar tasa"}
+              </Button>
+            </DisabledHint>
             <div className="flex gap-2">
               <Button type="button" variant="outline" onClick={onClose}>
                 Cancelar
