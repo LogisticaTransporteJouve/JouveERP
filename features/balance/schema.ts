@@ -1,3 +1,10 @@
+import {
+  fiscalYearLabel,
+  fiscalYearOf,
+  fiscalYearStart,
+  shortPeriodLabel,
+} from "@/lib/fiscal-year";
+
 export type AccountBalanceRow = {
   account_id: string;
   account_code: string;
@@ -188,4 +195,34 @@ export function computeBalanceSheetEquity(
 export function currentMonth(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+/**
+ * Where the Estado de Resultados and the balance sheet's «Resultado del
+ * período» start: «Desde» when set, else the first month of the fiscal year
+ * the cut-off is in. Balance sheet accounts stay cumulative either way.
+ */
+export function resultsStart(
+  periodEnd: string,
+  periodStart: string | null,
+  fiscalYearStartMonth: number,
+): string {
+  return periodStart ?? fiscalYearStart(periodEnd, fiscalYearStartMonth);
+}
+
+/** The hint under the Balance filters: what each tab adds up. */
+export function balanceRangeHint(
+  periodEnd: string,
+  periodStart: string | null,
+  fiscalYearStartMonth: number,
+): string {
+  if (periodStart) {
+    return `Mostrando movimientos del rango ${shortPeriodLabel(periodStart)} a ${shortPeriodLabel(periodEnd)}.`;
+  }
+  const fy = fiscalYearOf(periodEnd, fiscalYearStartMonth);
+  const from = fiscalYearStart(periodEnd, fiscalYearStartMonth);
+  return (
+    `Sin 'desde': saldos acumulados hasta el corte; resultados del ejercicio ` +
+    `${fiscalYearLabel(fy, fiscalYearStartMonth)} (${shortPeriodLabel(from)} – ${shortPeriodLabel(periodEnd)}).`
+  );
 }

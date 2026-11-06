@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  balanceRangeHint,
   computeBalanceSheetEquity,
   computeBalanceTotals,
   computeEERR,
   groupByType,
+  resultsStart,
   type AccountBalanceRow,
 } from "./schema";
 
@@ -107,5 +109,33 @@ describe("computeBalanceSheetEquity", () => {
     expect(equity.resultadosAnteriores).toBe(400);
     // Capital + every result: the equation Activo = Pasivo + PN still holds.
     expect(equity.totalPatrimonio).toBe(1200);
+  });
+});
+
+describe("results of the fiscal year (October start)", () => {
+  it("without «Desde», starts the results on the ejercicio's first month", () => {
+    expect(resultsStart("2026-03", null, 10)).toBe("2025-10");
+    expect(resultsStart("2026-09", null, 10)).toBe("2025-10");
+    expect(resultsStart("2026-10", null, 10)).toBe("2026-10");
+    expect(resultsStart("2026-11", null, 10)).toBe("2026-10");
+  });
+
+  it("with «Desde», starts the results there", () => {
+    expect(resultsStart("2026-03", "2026-01", 10)).toBe("2026-01");
+  });
+
+  it("names the ejercicio and its months in the hint", () => {
+    expect(balanceRangeHint("2026-03", null, 10)).toBe(
+      "Sin 'desde': saldos acumulados hasta el corte; resultados del ejercicio 2025/26 (oct 2025 – mar 2026).",
+    );
+    expect(balanceRangeHint("2026-11", null, 10)).toContain(
+      "ejercicio 2026/27 (oct 2026 – nov 2026)",
+    );
+    expect(balanceRangeHint("2026-03", null, 1)).toContain(
+      "ejercicio 2026 (ene 2026 – mar 2026)",
+    );
+    expect(balanceRangeHint("2026-03", "2026-01", 10)).toBe(
+      "Mostrando movimientos del rango ene 2026 a mar 2026.",
+    );
   });
 });

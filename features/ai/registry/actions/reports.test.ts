@@ -5,6 +5,9 @@ vi.mock("@/features/balance/actions/statements-actions", () => ({
   getCostCenterBreakdownAction: vi.fn(),
   getExpenseByCategoryAction: vi.fn(),
 }));
+vi.mock("@/lib/fiscal-year-settings", () => ({
+  readFiscalYearStartMonth: vi.fn(async () => ({ ok: true, data: 10 })),
+}));
 vi.mock("@/features/fleet-reports/actions/margin-actions", () => ({
   getFleetMarginAction: vi.fn(),
 }));
@@ -122,6 +125,22 @@ describe("getIncomeStatement", () => {
     });
     expect(res.meta.sources).toContain("ai_account_type_totals");
     expect(res.meta.currency).toBe("ARS");
+  });
+
+  it("without periodStart covers the ejercicio (October start) up to periodEnd", async () => {
+    vi.mocked(getAccountTypeTotalsAction).mockResolvedValueOnce({
+      ok: true,
+      data: PERIOD_A,
+    });
+    const res = await getIncomeStatement.execute(owner, {
+      periodEnd: "2026-03",
+    });
+    expect(getAccountTypeTotalsAction).toHaveBeenCalledWith({
+      periodStart: "2025-10",
+      periodEnd: "2026-03",
+      costCenterId: null,
+    });
+    expect(res.summary).toContain("ejercicio 2025/26");
   });
 
   it("requires both ends of the comparison range", async () => {

@@ -4,6 +4,8 @@ import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import { Suspense, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { FilterField } from "@/components/ui/filter-field";
 import { MonthPicker } from "@/components/ui/month-picker";
 import {
   Select,
@@ -14,17 +16,19 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { fiscalYearStart } from "@/lib/fiscal-year";
+import { fiscalYearPresets } from "@/lib/fiscal-year";
 import { formatNumber2 } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 import { useAccountBalances } from "../hooks/use-balance";
 import {
+  balanceRangeHint,
   computeBalanceSheetEquity,
   computeBalanceTotals,
   computeEERR,
   currentMonth,
   groupByType,
+  resultsStart,
   type AccountBalanceRow,
 } from "../schema";
 
@@ -37,12 +41,20 @@ const ALL_COST_CENTERS = "__all__";
 
 export function BalancePage({
   costCenters,
+  fiscalYearStartMonth,
 }: {
   costCenters: CostCenterOption[];
+  fiscalYearStartMonth: number;
 }) {
   const [periodEnd, setPeriodEnd] = useState(currentMonth());
   const [periodStart, setPeriodStart] = useState("");
   const [costCenterId, setCostCenterId] = useState<string | null>(null);
+  const presets = fiscalYearPresets(currentMonth(), fiscalYearStartMonth);
+
+  function applyPreset(range: { from: string; to: string }) {
+    setPeriodStart(range.from);
+    setPeriodEnd(range.to);
+  }
 
   return (
     <div className="space-y-6">
@@ -54,40 +66,33 @@ export function BalancePage({
       </div>
 
       <div className="flex flex-wrap items-end gap-3 rounded-lg border bg-card p-4">
-        <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">
-            Período de corte
-          </label>
+        <FilterField id="balance-period-end" label="Período de corte">
           <MonthPicker
+            id="balance-period-end"
             value={periodEnd}
             onChange={(value) => setPeriodEnd(value || currentMonth())}
             className="w-[180px]"
           />
-        </div>
-        <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">
-            Desde (opcional)
-          </label>
+        </FilterField>
+        <FilterField id="balance-period-start" label="Desde (opcional)">
           <MonthPicker
+            id="balance-period-start"
             value={periodStart}
             max={periodEnd}
             onChange={setPeriodStart}
             className="w-[180px]"
             clearable
           />
-        </div>
+        </FilterField>
         {costCenters.length > 0 && (
-          <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">
-              Centro de costo
-            </label>
+          <FilterField id="balance-cost-center" label="Centro de costo">
             <Select
               value={costCenterId ?? ALL_COST_CENTERS}
               onValueChange={(v) =>
                 setCostCenterId(v === ALL_COST_CENTERS ? null : v)
               }
             >
-              <SelectTrigger className="w-[220px]">
+              <SelectTrigger id="balance-cost-center" className="w-[220px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -99,21 +104,42 @@ export function BalancePage({
                 ))}
               </SelectContent>
             </Select>
-          </div>
+          </FilterField>
         )}
-        {periodStart && (
-          <button
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
             type="button"
-            onClick={() => setPeriodStart("")}
-            className="text-muted-foreground hover:text-foreground pb-2 text-xs underline"
+            variant="outline"
+            size="sm"
+            onClick={() => applyPreset(presets.current)}
           >
-            Limpiar rango
-          </button>
-        )}
+            Ejercicio actual
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => applyPreset(presets.previous)}
+          >
+            Ejercicio anterior
+          </Button>
+          {periodStart && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setPeriodStart("")}
+            >
+              Limpiar rango
+            </Button>
+          )}
+        </div>
         <p className="text-muted-foreground w-full text-xs">
-          {periodStart
-            ? `Mostrando movimientos del rango ${periodStart} a ${periodEnd}.`
-            : "Sin 'desde': saldos acumulados hasta el corte."}
+          {balanceRangeHint(
+            periodEnd,
+            periodStart || null,
+            fiscalYearStartMonth,
+          )}
         </p>
       </div>
 
@@ -122,6 +148,11 @@ export function BalancePage({
           periodEnd={periodEnd}
           periodStart={periodStart || null}
           costCenterId={costCenterId}
+          resultsFrom={resultsStart(
+            periodEnd,
+            periodStart || null,
+            fiscalYearStartMonth,
+          )}
         />
       </Suspense>
     </div>
@@ -132,14 +163,22 @@ function BalanceTabs({
   periodEnd,
   periodStart,
   costCenterId,
+  resultsFrom,
 }: {
   periodEnd: string;
   periodStart: string | null;
   costCenterId: string | null;
+  /** First month of the results: «Desde», else the ejercicio's start. */
+  resultsFrom: string;
 }) {
   const { data: rows } = useAccountBalances(
     periodEnd,
     periodStart,
+    costCenterId,
+  );
+  const { data: resultRows } = useAccountBalances(
+    periodEnd,
+    resultsFrom,
     costCenterId,
   );
 
@@ -154,12 +193,12 @@ function BalanceTabs({
         <SaldosTab rows={rows} />
       </TabsContent>
       <TabsContent value="eerr" className="mt-4">
-        <EERRTab rows={rows} />
+        <EERRTab rows={resultRows} />
       </TabsContent>
       <TabsContent value="bg" className="mt-4">
         <BGTab
           periodEnd={periodEnd}
-          periodStart={periodStart}
+          periodRows={resultRows}
           costCenterId={costCenterId}
         />
       </TabsContent>
@@ -327,21 +366,16 @@ function EERRTab({ rows }: { rows: AccountBalanceRow[] }) {
 
 function BGTab({
   periodEnd,
-  periodStart,
+  periodRows,
   costCenterId,
 }: {
   periodEnd: string;
-  periodStart: string | null;
+  periodRows: AccountBalanceRow[];
   costCenterId: string | null;
 }) {
   // A balance sheet is cumulative to the cut-off whatever "Desde" says; the
-  // period (from "Desde", else the fiscal year's October) only splits results.
+  // period's rows (from "Desde", else the ejercicio's start) only split results.
   const { data: rows } = useAccountBalances(periodEnd, null, costCenterId);
-  const { data: periodRows } = useAccountBalances(
-    periodEnd,
-    periodStart ?? fiscalYearStart(periodEnd),
-    costCenterId,
-  );
   const grouped = useMemo(() => groupByType(rows), [rows]);
 
   const activo = grouped.find((g) => g.type === "activo");
