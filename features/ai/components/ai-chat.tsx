@@ -522,10 +522,16 @@ function ArtifactPart({ data }: { data: unknown }) {
       </p>
     );
   }
+  const artifact = parsed.data;
   return (
     <ArtifactCard
-      artifact={parsed.data}
-      control={<PinArtifactButton artifact={parsed.data} />}
+      artifact={artifact}
+      control={
+        // A calendar shows in the chat only: pins rebuild charts and tables.
+        artifact.kind === "calendar" ? undefined : (
+          <PinArtifactButton artifact={artifact} />
+        )
+      }
     />
   );
 }

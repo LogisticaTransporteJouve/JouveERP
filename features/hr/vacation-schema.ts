@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import type { Database } from "@/lib/db/database.types";
+import { IsoDateSchema, UuidSchema } from "@/lib/validation/common";
 
 // ─── Leaves ──────────────────────────────────────────────────────────────────
 
@@ -49,6 +50,54 @@ export type CreateLeaveInput = z.infer<typeof CreateLeaveSchema>;
 
 type LeaveRow = Database["public"]["Tables"]["employee_leaves"]["Row"];
 export type EmployeeLeave = Omit<LeaveRow, "kind"> & { kind: LeaveKind };
+
+/** Most leaves one range read returns; more sets `partial`. */
+export const LEAVES_BY_RANGE_CAP = 500;
+
+/** Leaves that overlap a date range, of every employee or one. The
+ *  `.describe()` texts double as the assistant's tool parameter docs. */
+export const LeavesByRangeInputSchema = z
+  .object({
+    from: IsoDateSchema.describe("Fecha desde, YYYY-MM-DD."),
+    to: IsoDateSchema.describe("Fecha hasta, YYYY-MM-DD (inclusive)."),
+    employeeId: UuidSchema.nullish().describe(
+      "employee_id (de searchEmployees) para ver uno solo; vacío = todos.",
+    ),
+    kind: z
+      .enum(LEAVE_KINDS)
+      .nullish()
+      .describe("Solo un tipo de licencia (ej. vacaciones); vacío = todos."),
+  })
+  .refine((v) => v.from <= v.to, {
+    message: "La fecha desde es posterior a la fecha hasta.",
+    path: ["to"],
+  });
+
+export const HolidayRangeSchema = z.object({
+  from: IsoDateSchema,
+  to: IsoDateSchema,
+});
+
+/** One leave of a range read, with the days that fall inside the range. */
+export type LeaveInRange = {
+  id: string;
+  employee_id: string;
+  employee: string;
+  kind: LeaveKind;
+  kind_label: string;
+  start_date: string;
+  end_date: string;
+  /** Calendar days of the whole leave (end − start + 1). */
+  days: number;
+  /** Calendar days of the leave inside [from, to]. */
+  days_in_range: number;
+};
+
+export type LeavesByRange = {
+  rows: LeaveInRange[];
+  /** More leaves overlap the range than the cap returned. */
+  partial: boolean;
+};
 
 // ─── Vacation balances ───────────────────────────────────────────────────────
 

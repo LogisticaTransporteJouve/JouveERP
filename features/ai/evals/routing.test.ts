@@ -30,6 +30,10 @@ vi.mock("@/features/hr/actions/hr-reports-actions", async (orig) => ({
   getDriverExtrasAction: stub("getDriverExtrasAction"),
   getVacationOverviewAction: stub("getVacationOverviewAction"),
 }));
+vi.mock("@/features/hr/actions/vacations-actions", async (orig) => ({
+  ...(await orig<typeof import("@/features/hr/actions/vacations-actions")>()),
+  listLeavesByRangeAction: stub("listLeavesByRangeAction"),
+}));
 vi.mock(
   "@/features/suppliers/actions/purchases-report-actions",
   async (orig) => ({

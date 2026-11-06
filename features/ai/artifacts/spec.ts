@@ -9,6 +9,9 @@ export const ARTIFACT_LIMITS = {
   stackedSeries: 6,
   tableRows: 300,
   tableColumns: 12,
+  /** People (rows) of a month calendar, and the kinds its legend names. */
+  calendarRows: 100,
+  calendarKinds: 12,
   titleLength: 120,
   labelLength: 60,
   fieldLength: 64,
@@ -113,6 +116,23 @@ export const tableConfigSchema = z.strictObject({
 });
 export type TableConfig = z.infer<typeof tableConfigSchema>;
 
+const month = z
+  .string()
+  .regex(/^\d{4}-(0[1-9]|1[0-2])$/, "A month is YYYY-MM.");
+
+/** The model's choice for a month calendar: the title and the month. The
+ *  grid (who, which day, which kind) is built by the server from the rows. */
+export const calendarConfigSchema = z.strictObject({
+  title,
+  dataset: dataset.optional(),
+  month: month
+    .optional()
+    .describe(
+      "YYYY-MM. Default: the month of the query's `from` (e.g. 2026-12).",
+    ),
+});
+export type CalendarConfig = z.infer<typeof calendarConfigSchema>;
+
 /** The registry read action an artifact is built from, and its input. */
 export const artifactSourceSchema = z.strictObject({
   action: z
@@ -198,17 +218,55 @@ const tableArtifactSchema = z.strictObject({
   meta: metaSchema,
 });
 
+/** Between the codes of a calendar cell that two kinds cover ("V/E"). */
+export const CALENDAR_CODE_SEPARATOR = "/";
+
+/** A month as a grid: one row per person, one cell per day holding the codes
+ *  of what covers that day ("" = nothing), and the legend of the codes. */
+const calendarArtifactSchema = z.strictObject({
+  kind: z.literal("calendar"),
+  title,
+  source: artifactSourceSchema,
+  month,
+  legend: z
+    .array(z.strictObject({ code: z.string().min(1).max(2), label }))
+    .max(ARTIFACT_LIMITS.calendarKinds),
+  rows: z
+    .array(
+      z.strictObject({
+        label: z.string(),
+        cells: z.array(z.string().max(8)).min(28).max(31),
+      }),
+    )
+    .max(ARTIFACT_LIMITS.calendarRows),
+  /** People beyond the calendar's cap were left out. */
+  truncated: z.boolean(),
+  meta: metaSchema,
+});
+
 /** The payload of a `data-artifact` message part (and of a pinned view). */
 export const artifactSchema = z.discriminatedUnion("kind", [
   chartArtifactSchema,
   tableArtifactSchema,
+  calendarArtifactSchema,
 ]);
 export type Artifact = z.infer<typeof artifactSchema>;
 export type ChartArtifact = z.infer<typeof chartArtifactSchema>;
 export type TableArtifact = z.infer<typeof tableArtifactSchema>;
+export type CalendarArtifact = z.infer<typeof calendarArtifactSchema>;
+/** What a pin can rebuild: a calendar is shown in the chat only. */
+export type PinnableArtifact = ChartArtifact | TableArtifact;
 
 export const RENDER_CHART_TOOL = "renderChart";
 export const RENDER_TABLE_TOOL = "renderTable";
+export const RENDER_CALENDAR_TOOL = "renderCalendar";
+
+/** The tools that render an artifact instead of returning rows. */
+export const RENDER_TOOLS: readonly string[] = [
+  RENDER_CHART_TOOL,
+  RENDER_TABLE_TOOL,
+  RENDER_CALENDAR_TOOL,
+];
 
 /** The UI message part type the chat streams artifacts as. */
 export const ARTIFACT_PART = "data-artifact";
@@ -228,8 +286,14 @@ export const pinRequestSchema = z.discriminatedUnion("kind", [
 ]);
 export type PinRequest = z.infer<typeof pinRequestSchema>;
 
+/** What an artifact tool asks the server to build: a pinnable chart or
+ *  table, or a month calendar. */
+export type ArtifactRequest =
+  | PinRequest
+  | { kind: "calendar"; source: ArtifactSource; config: CalendarConfig };
+
 /** The pin request that rebuilds an artifact the user is looking at. */
-export function pinRequestOf(artifact: Artifact): PinRequest {
+export function pinRequestOf(artifact: PinnableArtifact): PinRequest {
   if (artifact.kind === "chart") {
     const {
       type,

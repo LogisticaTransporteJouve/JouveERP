@@ -3,7 +3,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { type Role, resolveAccess } from "@/lib/auth/permissions";
 
 let roles: Role[] = [];
-const rpc = vi.fn(async () => ({ data: [], error: null }));
+const rpc = vi.fn(async (): Promise<{ data: unknown[]; error: null }> => ({
+  data: [],
+  error: null,
+}));
 
 vi.mock("@/lib/auth/context", () => ({
   requireUserContext: async () => ({
@@ -81,5 +84,30 @@ describe("payroll aggregates", () => {
       p_as_of: undefined,
       p_expiring_days: undefined,
     });
+  });
+
+  it("narrows the vacation overview to one employee by name or id", async () => {
+    roles = ["admin"];
+    const ana = {
+      employee_id: "00000000-0000-4000-8000-0000000000a1",
+      legal_name: "Gómez Ana",
+      remaining_days: 12,
+    };
+    const luis = {
+      employee_id: "00000000-0000-4000-8000-0000000000a2",
+      legal_name: "Pérez Luis",
+      remaining_days: 3,
+    };
+    rpc.mockImplementation(async () => ({ data: [ana, luis], error: null }));
+
+    const byName = await getVacationOverviewAction({ employee: "gomez" });
+    expect(byName).toEqual({ ok: true, data: [ana] });
+    const byId = await getVacationOverviewAction({
+      employee: luis.employee_id,
+    });
+    expect(byId).toEqual({ ok: true, data: [luis] });
+    const all = await getVacationOverviewAction({});
+    expect(all.ok && all.data).toHaveLength(2);
+    rpc.mockImplementation(async () => ({ data: [], error: null }));
   });
 });

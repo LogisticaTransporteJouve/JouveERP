@@ -1,10 +1,11 @@
 "use client";
 
 import { Loader2, Plus, Trash2 } from "lucide-react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 
 import { ReadError } from "@/components/read-error";
+import { WarningNotes } from "@/components/warning-notes";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
@@ -41,8 +42,10 @@ import {
   useCreateLeave,
   useDeleteLeave,
   useEmployeeLeaves,
+  useHolidayDates,
   useVacationBalances,
 } from "../hooks/use-vacations";
+import { leaveWarnings, pendingVacationDays } from "../lib/leaves";
 import { currentVacationPeriodYear } from "../lib/vacation-periods";
 import {
   LEAVE_KIND_LABEL,
@@ -86,7 +89,6 @@ export function EmployeeVacationsCard({
   const createMut = useCreateLeave();
   const deleteMut = useDeleteLeave();
 
-  const activeBalance = balances.find((b) => b.status !== "expired");
   const period = currentVacationPeriodYear(todayInAR());
   const currentBalance = balances.find((b) => b.period_year === period);
   const previousPending = balances
@@ -138,7 +140,11 @@ export function EmployeeVacationsCard({
       {canWrite && !leavesFailed && (
         <NewLeaveForm
           employeeId={employeeId}
-          remaining={activeBalance?.remaining_days ?? 0}
+          pending={
+            balancesQuery.data
+              ? pendingVacationDays(balancesQuery.data, period)
+              : undefined
+          }
           submitting={createMut.isPending}
           onCreate={(values) =>
             createMut.mutate(
@@ -357,12 +363,14 @@ function LeavesSection({
 
 function NewLeaveForm({
   employeeId: _employeeId,
-  remaining,
+  pending,
   submitting,
   onCreate,
 }: {
   employeeId: string;
-  remaining: number;
+  /** Pending vacation days; null when none is loaded, undefined while the
+   *  balances are unread. */
+  pending: number | null | undefined;
   submitting: boolean;
   onCreate: (values: FormValues) => void;
 }) {
@@ -374,6 +382,17 @@ function NewLeaveForm({
       notes: "",
     },
   });
+
+  const [kind, startDate, endDate] = useWatch({
+    control: form.control,
+    name: ["kind", "start_date", "end_date"],
+  });
+  const holidaysQuery = useHolidayDates(Number(startDate.slice(0, 4)));
+  // Warnings, not blocks: the leave saves either way.
+  const warnings = leaveWarnings(
+    { kind, start_date: startDate, end_date: endDate },
+    { holidays: new Set(holidaysQuery.data ?? []), pending },
+  );
 
   function onSubmit(values: FormValues) {
     onCreate(values);
@@ -391,7 +410,8 @@ function NewLeaveForm({
       <p className="mt-1 text-xs text-muted-foreground">
         Días corridos (incluye fines de semana). Si es de tipo vacaciones,
         descuenta del saldo activo (FIFO).
-        {remaining > 0 && ` Saldo disponible: ${remaining} días.`}
+        {typeof pending === "number" &&
+          ` Pendientes: ${pending} días de vacaciones.`}
       </p>
       <Form {...form}>
         <form
@@ -461,6 +481,7 @@ function NewLeaveForm({
               </FormItem>
             )}
           />
+          <WarningNotes warnings={warnings} className="col-span-2" />
           <div className="col-span-2 flex justify-end">
             <Button type="submit" disabled={submitting}>
               <Plus className="size-4" />

@@ -2,7 +2,28 @@ import { csvFileName, toCsv } from "@/lib/export/csv";
 import { exportFileName } from "@/lib/export/download";
 import type { XlsxColumn, XlsxColumnType, XlsxSheet } from "@/lib/export/xlsx";
 
-import type { Artifact, ArtifactCell, ValueFormat } from "./spec";
+import type {
+  Artifact,
+  ArtifactCell,
+  CalendarArtifact,
+  ValueFormat,
+} from "./spec";
+
+/** A calendar as a grid: the person, then one column per day of the month
+ *  (empty cells stay empty). */
+function calendarGrid(artifact: CalendarArtifact): {
+  headers: string[];
+  rows: ArtifactCell[][];
+} {
+  const days = artifact.rows[0]?.cells.length ?? 0;
+  return {
+    headers: [
+      "Empleado",
+      ...Array.from({ length: days }, (_, i) => String(i + 1)),
+    ],
+    rows: artifact.rows.map((r) => [r.label, ...r.cells]),
+  };
+}
 
 /** The artifact's rows as CSV, from what the user is already looking at:
  *  raw values (numbers stay numeric), headers as shown. */
@@ -11,6 +32,10 @@ export function artifactCsv(artifact: Artifact): {
   csv: string;
 } {
   const fileName = csvFileName(artifact.title);
+  if (artifact.kind === "calendar") {
+    const { headers, rows } = calendarGrid(artifact);
+    return { fileName, csv: toCsv(headers, rows) };
+  }
   if (artifact.kind === "chart") {
     return {
       fileName,
@@ -59,6 +84,17 @@ export function artifactXlsx(artifact: Artifact): {
 } {
   const fileName = exportFileName(artifact.title, "xlsx");
   const currency = artifact.meta.currency ?? "ARS";
+  if (artifact.kind === "calendar") {
+    const { headers, rows } = calendarGrid(artifact);
+    return {
+      fileName,
+      sheet: {
+        name: artifact.title,
+        columns: headers.map((header) => ({ header, type: "text" })),
+        rows,
+      },
+    };
+  }
   if (artifact.kind === "chart") {
     const { chart, points } = artifact;
     return {

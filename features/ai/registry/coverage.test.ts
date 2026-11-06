@@ -106,7 +106,11 @@ const PAGE_TOOLS: Record<string, readonly string[]> = {
   "/hr/payroll": ["getPayrollPeriods", "getPayrollSummary"],
   "/hr/payroll/[year]/[month]": ["getPayrollPeriodDetail"],
   "/hr/payroll/sac/[year]/[half]": ["getPayrollPeriodDetail"],
-  "/hr/vacations": ["getVacationOverview", "getLeavesSummary"],
+  "/hr/vacations": [
+    "getVacationOverview",
+    "getLeavesSummary",
+    "getLeavesByRange",
+  ],
   "/hr/attendance": ["getAttendance", "getAttendanceSummary"],
   "/hr/attendance/[year]/[month]": ["getAttendance", "getAttendanceSummary"],
   "/hr/document-expirations": ["getExpiringDocuments"],

@@ -27,12 +27,20 @@ const failed = (): Read => ({
 const h = vi.hoisted(() => ({
   balances: undefined as unknown,
   leaves: undefined as unknown,
+  holidays: [] as string[],
+  today: "2026-11-06",
+}));
+
+vi.mock("@/lib/format", async (orig) => ({
+  ...(await orig<typeof import("@/lib/format")>()),
+  todayInAR: () => h.today,
 }));
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("../hooks/use-vacations", () => ({
   useVacationBalances: () => h.balances,
   useEmployeeLeaves: () => h.leaves,
+  useHolidayDates: () => ({ data: h.holidays }),
   useCreateLeave: () => ({ mutate: vi.fn(), isPending: false }),
   useDeleteLeave: () => ({ mutate: vi.fn(), isPending: false }),
   useSetVacationOpening: () => ({ mutate: vi.fn(), isPending: false }),
@@ -40,7 +48,25 @@ vi.mock("../hooks/use-vacations", () => ({
 
 const { EmployeeVacationsCard } = await import("./employee-vacations-card");
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  h.holidays = [];
+  h.today = "2026-11-06";
+});
+
+const balance = (remaining: number) => ({
+  id: "b1",
+  employee_id: "e1",
+  period_year: 2026,
+  entitled_days: 14,
+  bonus_days: 0,
+  carryover_days: 0,
+  used_days: 14 - remaining,
+  remaining_days: remaining,
+  granted_at: "2026-10-01",
+  expires_at: "2027-04-30",
+  status: "active",
+});
 
 function renderCard() {
   render(
@@ -82,5 +108,42 @@ describe("EmployeeVacationsCard", () => {
     expect(screen.getByText(/Sin saldos/)).toBeTruthy();
     expect(screen.getByText("Sin licencias registradas.")).toBeTruthy();
     expect(screen.getByRole("button", { name: /Cargar saldo/ })).toBeTruthy();
+  });
+
+  it("warns, without blocking, on a vacation that starts off Monday and exceeds the balance", () => {
+    h.today = "2026-12-09"; // a Wednesday: the form starts a 1-day leave today
+    h.balances = ok([balance(0)]);
+    h.leaves = ok([]);
+    renderCard();
+    expect(
+      screen.getByText(/Empieza el miércoles 9 dic 2026: por la LCT/),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        "La licencia es de 1 día y le quedan 0 días de vacaciones pendientes.",
+      ),
+    ).toBeTruthy();
+    expect(
+      screen
+        .getByRole("button", { name: /Registrar/ })
+        .hasAttribute("disabled"),
+    ).toBe(false);
+  });
+
+  it("shows no warning on a Monday within the balance", () => {
+    h.today = "2026-12-07";
+    h.balances = ok([balance(10)]);
+    h.leaves = ok([]);
+    renderCard();
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("takes the next working day when the Monday is a holiday", () => {
+    h.today = "2026-12-08";
+    h.holidays = ["2026-12-07"];
+    h.balances = ok([balance(10)]);
+    h.leaves = ok([]);
+    renderCard();
+    expect(screen.queryByText(/Empieza el/)).toBeNull();
   });
 });

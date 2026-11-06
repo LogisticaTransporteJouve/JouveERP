@@ -37,7 +37,7 @@ export const assistantPage: GuidePage = {
             "Tesorería: {{Registrar cobro}} (con sus retenciones), {{Enviar recibo por email}}, {{Crear orden de pago}} (desde una cuenta, con cheques en cartera o con cheques propios), {{Registrar movimiento de caja}}, {{Registrar transferencia entre cuentas}}, {{Cargar cheque recibido}}, {{Depositar cheque}} y {{Emitir cheque propio}}. Rendiciones: {{Armar rendición de chofer}} (si no le dijiste cuánto entregó o en qué cuenta, te pregunta), {{Confirmar rendición de chofer}} y {{Resolver diferencia de rendición}} (te pregunta si queda a cargo del chofer o del cliente).",
             "Depósito: {{Facturar almacenaje}} de un cliente y período, con los importes que calcula Facturación de almacenaje; si cambian antes de aceptar, no se emite.",
             "Compras e impuestos: {{Cargar factura de compra}}, {{Cargar comprobante de ARCA}} (si los importes de ARCA no suman el total, te pregunta a dónde va la diferencia), {{Dar de alta proveedor}}, {{Editar proveedor}}, {{Cargar impuesto}} y {{Pagar impuesto}}.",
-            "Personal: {{Dar de alta un empleado}}, {{Editar empleado}}, {{Pagar sueldos}}, {{Movimiento de caja del empleado}} (adelanto o pago), {{Movimiento en la cuenta del empleado}}, {{Cargar asistencia}} y {{Pagar cuota de préstamo}}.",
+            "Personal: {{Dar de alta un empleado}}, {{Editar empleado}}, {{Pagar sueldos}}, {{Movimiento de caja del empleado}} (adelanto o pago), {{Movimiento en la cuenta del empleado}}, {{Cargar asistencia}} y {{Pagar cuota de préstamo}}. En {{Registrar licencia}} de vacaciones, la tarjeta avisa (sin impedir confirmar) si no empieza un lunes (o el día hábil siguiente si el lunes es feriado, LCT art. 151) o si los días superan los pendientes del empleado.",
             "Para confirmar cada una necesitás el mismo permiso que para hacerla a mano.",
           ],
         },
@@ -264,6 +264,7 @@ export const assistantPage: GuidePage = {
                 "En un gráfico, {{Tabla}} muestra los mismos datos como tabla ({{Gráfico}} vuelve).",
               ],
             },
+            "Si le pedís quién se toma vacaciones o licencia en un mes («haceme un calendario de las vacaciones de diciembre»), arma un calendario: una fila por empleado, una columna por día y cada día marcado con la letra del tipo (V vacaciones, E enfermedad, F franco…), con la referencia abajo y los fines de semana sombreados. Se exporta a CSV o Excel; no se puede fijar.",
           ],
           after: ["Al fijar aparece «Fijado. Lo ves en Fijados de IA.»."],
           errors: [
@@ -273,7 +274,15 @@ export const assistantPage: GuidePage = {
             },
           ],
           related: ["quitar-fijado-ia"],
-          keywords: ["fijar", "exportar", "excel", "csv", "gráfico", "tabla"],
+          keywords: [
+            "fijar",
+            "exportar",
+            "excel",
+            "csv",
+            "gráfico",
+            "tabla",
+            "calendario",
+          ],
         },
         {
           id: "borrar-conversacion-ia",

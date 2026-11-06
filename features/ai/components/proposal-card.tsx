@@ -12,6 +12,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { WarningNotes } from "@/components/warning-notes";
 
 import {
   useConfirmAiProposal,
@@ -22,7 +23,11 @@ import {
   type AiConfirmation,
   type AiConfirmationStatus,
 } from "../lib/confirmation-schema";
-import { PROPOSAL_SPECS, type ProposalSummaryRow } from "../lib/proposal-specs";
+import {
+  PROPOSAL_SPECS,
+  PROPOSAL_WARNING_LABEL,
+  type ProposalSummaryRow,
+} from "../lib/proposal-specs";
 
 import { ProposalEditDialog } from "./proposal-edit-dialog";
 
@@ -99,13 +104,21 @@ export function ProposalCard({
       </div>
 
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
-        {summary.map((r, i) => (
-          <div key={`${r.label}-${i}`} className="contents">
-            <dt className="text-muted-foreground">{r.label}</dt>
-            <dd className="break-words">{r.value}</dd>
-          </div>
-        ))}
+        {summary.map((r, i) =>
+          r.label === PROPOSAL_WARNING_LABEL ? null : (
+            <div key={`${r.label}-${i}`} className="contents">
+              <dt className="text-muted-foreground">{r.label}</dt>
+              <dd className="break-words">{r.value}</dd>
+            </div>
+          ),
+        )}
       </dl>
+
+      <WarningNotes
+        warnings={summary
+          .filter((r) => r.label === PROPOSAL_WARNING_LABEL)
+          .map((r) => r.value)}
+      />
 
       {row?.status === "failed" && row.error && (
         <p className="text-xs">{row.error}</p>

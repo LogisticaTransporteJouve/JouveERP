@@ -4,6 +4,8 @@ import { gatedRead } from "@/lib/actions/gated-read";
 import type { ActionResult } from "@/lib/query/run-action";
 import { isFiscalFor } from "@/lib/scope";
 
+import { matchesEmployeeRef } from "../lib/employee-ref";
+
 import {
   DateRangeInputSchema,
   PayrollConceptsInputSchema,
@@ -82,7 +84,7 @@ export async function getDriverExtrasAction(
 export async function getVacationOverviewAction(
   input: unknown,
 ): Promise<ActionResult<VacationOverviewRow[]>> {
-  return gatedRead({
+  const res = await gatedRead({
     ...HR_READ,
     schema: VacationOverviewInputSchema,
     input,
@@ -93,6 +95,14 @@ export async function getVacationOverviewAction(
         p_expiring_days: v.expiringDays ?? undefined,
       }),
   });
+  // gatedRead already parsed the input; the employee filter is applied over
+  // the active employees the RPC returns (one row each).
+  const employee = VacationOverviewInputSchema.safeParse(input).data?.employee;
+  if (!res.ok || !employee) return res;
+  return {
+    ok: true,
+    data: res.data.filter((row) => matchesEmployeeRef(row, employee)),
+  };
 }
 
 export async function getLeavesSummaryAction(

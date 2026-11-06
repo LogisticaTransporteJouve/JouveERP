@@ -4,17 +4,26 @@ import { listChartOfAccountsAction } from "@/features/chart-of-accounts/actions/
 import type { ChartAccount } from "@/features/chart-of-accounts/schema";
 import { getUsdReferenceRateAction } from "@/features/exchange-rates/actions/exchange-rates-actions";
 import { isoDate } from "@/features/exchange-rates/schema";
+import {
+  listHolidayDatesAction,
+  listVacationBalancesAction,
+} from "@/features/hr/actions/vacations-actions";
+import { holidayWindow, pendingVacationDays } from "@/features/hr/lib/leaves";
+import { currentVacationPeriodYear } from "@/features/hr/lib/vacation-periods";
 import { LEAVE_KINDS } from "@/features/hr/vacation-schema";
 import { createLeave } from "@/lib/commands/create-leave";
 import { createManualJournalEntry } from "@/lib/commands/create-manual-journal-entry";
 import { upsertManualExchangeRate } from "@/lib/commands/upsert-exchange-rate";
+import { todayInAR } from "@/lib/format";
 
 import {
   exchangeRateProposalSpec,
   journalEntryProposalSpec,
+  LEAVE_LABELS,
   leaveProposalSpec,
   rateReferenceLabels,
   type ProposalIssue,
+  type ProposalLabels,
 } from "../../lib/proposal-specs";
 import { defineAiProposal, type ProposalCandidate } from "../propose";
 
@@ -25,6 +34,34 @@ import { MAX_CANDIDATES, norm } from "./resolve-client";
 // only after the user confirms, through the same lib/commands function the
 // manual form's server action calls.
 
+/**
+ * What the leave card's warnings need, read as the user (hr:read + RLS) and
+ * kept in the draft's labels so they survive the user's edits: the pending
+ * vacation days and the holidays around the start. Read for every kind: the
+ * user may switch the draft to vacaciones in the Modify dialog.
+ */
+async function leaveWarningLabels(
+  employeeId: string,
+  startDate: string,
+): Promise<ProposalLabels> {
+  const { from, to } = holidayWindow(Number(startDate.slice(0, 4)));
+  const [balances, holidays] = await Promise.all([
+    listVacationBalancesAction(employeeId),
+    listHolidayDatesAction(from, to),
+  ]);
+  const labels: ProposalLabels = {};
+  if (balances.ok) {
+    const pending = pendingVacationDays(
+      balances.data,
+      currentVacationPeriodYear(todayInAR()),
+    );
+    labels[LEAVE_LABELS.pending] = pending === null ? "none" : String(pending);
+  }
+  if (holidays.ok) labels[LEAVE_LABELS.holidays] = holidays.data.join(",");
+  if (!balances.ok || !holidays.ok) labels[LEAVE_LABELS.unread] = "1";
+  return labels;
+}
+
 export const proposeLeave = defineAiProposal({
   name: "proposeLeave",
   domain: "rrhh",
@@ -33,7 +70,10 @@ export const proposeLeave = defineAiProposal({
   description:
     "Propose registering an employee leave (vacaciones, enfermedad, franco, " +
     "maternidad, paternidad, otro) for the user to confirm on a card. Writes " +
-    "nothing by itself. Dates are YYYY-MM-DD, both inclusive.",
+    "nothing by itself. Dates are YYYY-MM-DD, both inclusive. For vacations " +
+    "the card warns (it does not block) when the start is not a Monday (or " +
+    "the next working day after a holiday Monday, LCT art. 151) or the days " +
+    "exceed the employee's pending balance.",
   input: z.object({
     employee: z
       .string()
@@ -60,7 +100,10 @@ export const proposeLeave = defineAiProposal({
         kind: input.kind,
         notes: input.notes ?? null,
       },
-      labels: { [pick.id]: pick.legal_name },
+      labels: {
+        [pick.id]: pick.legal_name,
+        ...(await leaveWarningLabels(pick.id, input.start_date)),
+      },
     };
   },
   execute: (ctx, draft) => createLeave(ctx.userId, draft),

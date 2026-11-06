@@ -16,7 +16,7 @@ import {
   unpinAiArtifactAction,
   type AiPinnedView,
 } from "../actions/pinned-actions";
-import { pinRequestOf, type Artifact } from "../artifacts/spec";
+import { pinRequestOf, type PinnableArtifact } from "../artifacts/spec";
 import { aiKeys } from "../lib/ai-keys";
 
 export function useAiPins() {
@@ -40,7 +40,7 @@ export function useAiPinnedView(id: string) {
 export function usePinAiArtifact() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (artifact: Artifact) =>
+    mutationFn: (artifact: PinnableArtifact) =>
       runAction(() => pinAiArtifactAction(pinRequestOf(artifact))),
     onSuccess: ({ id }, artifact) => {
       qc.setQueryData(aiKeys.pinnedView(id), {

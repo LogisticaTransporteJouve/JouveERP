@@ -2,7 +2,7 @@ import { getToolName, isToolUIPart } from "ai";
 import { z } from "zod";
 
 import { resolveRows } from "../artifacts/rows";
-import { RENDER_CHART_TOOL, RENDER_TABLE_TOOL } from "../artifacts/spec";
+import { RENDER_TOOLS } from "../artifacts/spec";
 
 import type { ChatPart } from "./chat-segments";
 
@@ -66,10 +66,9 @@ export function activitySteps(
     steps.push({
       ...base,
       status: "done",
-      rows:
-        base.name === RENDER_CHART_TOOL || base.name === RENDER_TABLE_TOOL
-          ? null
-          : (resolveRows(result.data.data)?.length ?? null),
+      rows: RENDER_TOOLS.includes(base.name)
+        ? null
+        : (resolveRows(result.data.data)?.length ?? null),
       sources: result.data.meta?.sources ?? [],
       asOf: result.data.meta?.asOf ?? null,
       partial: result.data.meta?.partial ?? false,

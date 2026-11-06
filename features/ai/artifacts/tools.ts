@@ -7,13 +7,16 @@ import { errResult, type AiToolResult } from "../registry/result";
 import { runArtifact } from "./run";
 import type { AiArtifactSink } from "./sink";
 import {
+  CALENDAR_CODE_SEPARATOR,
+  RENDER_CALENDAR_TOOL,
   RENDER_CHART_TOOL,
   RENDER_TABLE_TOOL,
   artifactSourceSchema,
+  calendarConfigSchema,
   chartConfigSchema,
   tableConfigSchema,
   type Artifact,
-  type PinRequest,
+  type ArtifactRequest,
 } from "./spec";
 
 /** Rows of a table artifact the model gets back to talk about. */
@@ -39,6 +42,32 @@ function modelResult(artifact: Artifact): AiToolResult {
     ...(artifact.meta.note ? { note: artifact.meta.note } : {}),
   };
   const cut = artifact.truncated ? " (cut to the display cap)" : "";
+  if (artifact.kind === "calendar") {
+    const legend = artifact.legend.map((l) => `${l.code} = ${l.label}`);
+    return {
+      ok: true,
+      summary: `Calendar "${artifact.title}" of ${artifact.month} shown to the user: ${artifact.rows.length} rows${cut}; legend: ${legend.join(", ")}. The user can export it to CSV.`,
+      data: {
+        month: artifact.month,
+        legend: artifact.legend,
+        // The days each row has marked, by code, for the model to talk about.
+        rows: artifact.rows.map((r) => ({
+          label: r.label,
+          days: Object.fromEntries(
+            artifact.legend.map((l) => [
+              l.code,
+              r.cells.flatMap((c, i) =>
+                c.split(CALENDAR_CODE_SEPARATOR).includes(l.code)
+                  ? [i + 1]
+                  : [],
+              ),
+            ]),
+          ),
+        })),
+      },
+      meta,
+    };
+  }
   if (artifact.kind === "chart") {
     const series = artifact.chart.series.map((s) => s.label);
     return {
@@ -62,7 +91,7 @@ function modelResult(artifact: Artifact): AiToolResult {
 async function render(
   ctx: AiActionContext,
   sink: AiArtifactSink,
-  request: PinRequest,
+  request: ArtifactRequest,
   toolCallId: string,
   actions?: readonly AiAction[],
 ): Promise<AiToolResult> {
@@ -76,8 +105,9 @@ async function render(
   return modelResult(run.artifact);
 }
 
-/** renderChart and renderTable, bound to one user and one chat stream. */
-export { RENDER_CHART_TOOL, RENDER_TABLE_TOOL };
+/** renderChart, renderTable and renderCalendar, bound to one user and one
+ *  chat stream. */
+export { RENDER_CALENDAR_TOOL, RENDER_CHART_TOOL, RENDER_TABLE_TOOL };
 
 export function buildArtifactTools(
   ctx: AiActionContext,
@@ -122,6 +152,26 @@ export function buildArtifactTools(
           ctx,
           sink,
           { kind: "table", source: { action, input }, config: table },
+          toolCallId,
+          actions,
+        ),
+    }),
+    [RENDER_CALENDAR_TOOL]: tool({
+      description:
+        "Show the user a month as a calendar grid: one row per employee, one " +
+        "column per day, each day marked with the code of its kind (V " +
+        "vacaciones, E enfermedad, F franco…), with a legend and CSV export. " +
+        "Build it from getLeavesByRange (its rows carry employee, kind, " +
+        "start_date and end_date); the server marks the days, you only choose " +
+        "the Spanish title and the month (YYYY-MM, default the query's from). " +
+        "Use it when the user asks who is off in a month, or for a calendar of " +
+        "vacations or leaves.",
+      inputSchema: z.object({ ...sourceShape, calendar: calendarConfigSchema }),
+      execute: ({ action, input, calendar }, { toolCallId }) =>
+        render(
+          ctx,
+          sink,
+          { kind: "calendar", source: { action, input }, config: calendar },
           toolCallId,
           actions,
         ),

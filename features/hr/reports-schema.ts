@@ -74,6 +74,15 @@ export const VacationOverviewInputSchema = z.object({
     .max(365)
     .nullish()
     .describe("Ventana en días para 'por vencer' (default 90)."),
+  employee: z
+    .string()
+    .trim()
+    .min(1)
+    .max(120)
+    .nullish()
+    .describe(
+      "Nombre (o parte, ej. el apellido) o employee_id de un empleado, para ver solo el suyo; vacío = todos.",
+    ),
 });
 
 export type PayrollSummaryRow = Fn["ai_payroll_summary"]["Returns"][number];

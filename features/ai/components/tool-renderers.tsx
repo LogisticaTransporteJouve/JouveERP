@@ -66,6 +66,7 @@ const TOOL_LABELS: Record<string, string> = {
   getDriverExtras: "Extras de choferes",
   getVacationOverview: "Vacaciones",
   getLeavesSummary: "Licencias",
+  getLeavesByRange: "Licencias del período",
   getAttendanceSummary: "Resumen de asistencia",
   getVehicles: "Vehículos",
   getTrips: "Viajes",
@@ -147,6 +148,7 @@ const TOOL_LABELS: Record<string, string> = {
   askQuestions: "Preguntas",
   renderChart: "Gráfico",
   renderTable: "Tabla",
+  renderCalendar: "Calendario",
 };
 
 export function toolLabel(name: string): string {

@@ -12,6 +12,8 @@ import {
 } from "@/features/hr/actions/payroll-actions";
 import { listSalaryChangesAction } from "@/features/hr/actions/salary-actions";
 import { getPeriodTripExtrasAction } from "@/features/hr/actions/trip-extras-actions";
+import { listLeavesByRangeAction } from "@/features/hr/actions/vacations-actions";
+import { LeavesByRangeInputSchema } from "@/features/hr/vacation-schema";
 import { payrollOtros, suggestedSplit } from "@/features/hr/lib/payroll-split";
 import { formatPayrollPeriod, sacMonth } from "@/features/hr/payroll-schema";
 import {
@@ -154,12 +156,18 @@ export const getVacationOverview = defineAiAction({
     "employee_leaves",
   ],
   description:
-    "Saldo de vacaciones por empleado activo: días que corresponden, tomados, pendientes, por vencer (ventana configurable) y próximo vencimiento, más días tomados en el año.",
+    "Saldo de vacaciones por empleado activo: días que corresponden, tomados, pendientes, por vencer (ventana configurable) y próximo vencimiento, más días tomados en el año. Con employee (nombre o employee_id), solo ese empleado: para «¿cuántas vacaciones le quedan a X?».",
   input: VacationOverviewInputSchema,
   run: async (_ctx, input) => {
     const res = await getVacationOverviewAction(input);
     if (!res.ok) return errResult(res.error);
     const expiring = res.data.filter((r) => r.expiring_days > 0);
+    if (input.employee && res.data.length === 0) {
+      return okResult(
+        `Ningún empleado activo coincide con «${input.employee}»: buscalo con searchEmployees.`,
+        { rows: [] },
+      );
+    }
     return okResult(
       `${res.data.length} empleados · ${sumBy(
         res.data,
@@ -189,6 +197,31 @@ export const getLeavesSummary = defineAiAction({
       )} días de licencia entre ${input.from} y ${input.to}.`,
       { rows: res.data },
       { partial: reachedCap(res.data.length) },
+    );
+  },
+});
+
+export const getLeavesByRange = defineAiAction({
+  name: "getLeavesByRange",
+  domain: "rrhh",
+  permission: "hr:read",
+  sideEffect: "read",
+  sources: ["employee_leaves", "employees"],
+  description:
+    "Licencias de un período, una por fila: cada licencia (vacaciones, enfermedad, franco, maternidad, paternidad, otro) que se superpone con el rango, con empleado, tipo, desde, hasta, días corridos totales y días dentro del rango. De todos los empleados o de uno (employeeId), de todos los tipos o de uno (kind). Para ver quién se toma vacaciones en un mes como calendario, llamá renderCalendar con esta consulta.",
+  input: LeavesByRangeInputSchema,
+  run: async (_ctx, input) => {
+    const res = await listLeavesByRangeAction(input);
+    if (!res.ok) return errResult(res.error);
+    const { rows, partial } = res.data;
+    const employees = new Set(rows.map((r) => r.employee_id)).size;
+    return okResult(
+      `${rows.length} licencias de ${employees} empleados entre ${input.from} y ${input.to} · ${sumBy(
+        rows,
+        (r) => r.days_in_range,
+      )} días dentro del rango.`,
+      { rows },
+      { partial },
     );
   },
 });

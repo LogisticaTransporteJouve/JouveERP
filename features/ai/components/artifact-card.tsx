@@ -3,6 +3,7 @@
 import {
   AlertTriangle,
   BarChart3,
+  CalendarDays,
   Download,
   FileSpreadsheet,
   Pin,
@@ -17,16 +18,17 @@ import { downloadBlob } from "@/lib/export/download";
 import { formatArgentineDateTime } from "@/lib/format";
 
 import { artifactCsv, artifactXlsx } from "../artifacts/export";
-import type { Artifact } from "../artifacts/spec";
+import type { Artifact, PinnableArtifact } from "../artifacts/spec";
 import { usePinAiArtifact } from "../hooks/use-ai-pins";
 
+import { ArtifactCalendar } from "./artifact-calendar";
 import { ArtifactChart } from "./artifact-chart";
 import { ArtifactTable } from "./artifact-table";
 import { toolLabel } from "./tool-renderers";
 
-/** A chart or table the assistant built from a server query: provenance
- *  line, chart/table toggle, CSV and Excel export of the rows on screen, and a slot
- *  for the pin or unpin control. */
+/** A chart, table or month calendar the assistant built from a server
+ *  query: provenance line, chart/table toggle, CSV and Excel export of the
+ *  rows on screen, and a slot for the pin or unpin control. */
 export function ArtifactCard({
   artifact,
   control,
@@ -35,7 +37,12 @@ export function ArtifactCard({
   control?: ReactNode;
 }) {
   const [asTable, setAsTable] = useState(artifact.kind === "table");
-  const Icon = artifact.kind === "chart" ? BarChart3 : Table2;
+  const Icon =
+    artifact.kind === "chart"
+      ? BarChart3
+      : artifact.kind === "calendar"
+        ? CalendarDays
+        : Table2;
 
   function exportCsv() {
     const { fileName, csv } = artifactCsv(artifact);
@@ -87,7 +94,9 @@ export function ArtifactCard({
           {control}
         </div>
       </header>
-      {artifact.kind === "chart" && !asTable ? (
+      {artifact.kind === "calendar" ? (
+        <ArtifactCalendar artifact={artifact} />
+      ) : artifact.kind === "chart" && !asTable ? (
         <ArtifactChart artifact={artifact} />
       ) : (
         <ArtifactTable artifact={artifact} />
@@ -103,7 +112,7 @@ export function ArtifactProvenance({ artifact }: { artifact: Artifact }) {
       <p title={meta.sources.join(", ")}>
         {toolLabel(artifact.source.action)} · al{" "}
         {formatArgentineDateTime(meta.asOf)}
-        {artifact.kind === "table" &&
+        {artifact.kind !== "chart" &&
           ` · ${artifact.rows.length.toLocaleString("es-AR")} filas`}
       </p>
       {meta.partial && (
@@ -125,7 +134,11 @@ export function ArtifactProvenance({ artifact }: { artifact: Artifact }) {
 
 /** Pins the artifact on screen: the server re-runs its query before
  *  storing it, so only the query and its config are sent. */
-export function PinArtifactButton({ artifact }: { artifact: Artifact }) {
+export function PinArtifactButton({
+  artifact,
+}: {
+  artifact: PinnableArtifact;
+}) {
   const pin = usePinAiArtifact();
   const [pinned, setPinned] = useState(false);
   return (
