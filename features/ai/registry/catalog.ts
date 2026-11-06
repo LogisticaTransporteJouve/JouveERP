@@ -8,6 +8,12 @@ import {
   getLibroIvaVentas,
   getTrialBalance,
 } from "./actions/accounting";
+import {
+  getClientAccount,
+  getClientTariffs,
+  getSupplierAccount,
+} from "./actions/account-statements";
+import { getBackups, getImportRuns, getUsers } from "./actions/admin";
 import { getAfipStatus } from "./actions/afip";
 import { getAuditEvents } from "./actions/audit";
 import {
@@ -24,7 +30,16 @@ import {
   getRecurringPayments,
   getTransactions,
 } from "./actions/cash";
-import { proposeDocumentScan } from "./actions/documents";
+import {
+  getInvoiceDetail,
+  getPaymentOrderDetail,
+  getPurchaseInvoiceDetail,
+  getReceiptDetail,
+} from "./actions/details";
+import {
+  getDocumentExtractions,
+  proposeDocumentScan,
+} from "./actions/documents";
 import { proposeRecategorizeExpense } from "./actions/expense-proposals";
 import {
   getDrivers,
@@ -38,7 +53,12 @@ import {
   getVehicleKm,
   getVehicles,
 } from "./actions/fleet";
-import { getAttachments } from "./actions/general";
+import {
+  getShipments,
+  getTripDetail,
+  getVehicleUsage,
+} from "./actions/fleet-detail";
+import { getAttachments, searchFiles } from "./actions/general";
 import { searchGuide } from "./actions/guide";
 import {
   getAttendance,
@@ -63,6 +83,7 @@ import {
   getVacationOverview,
 } from "./actions/payroll";
 import {
+  getArcaReceivedVouchers,
   getPaymentOrders,
   getPurchaseInvoices,
   getSupplierAging,
@@ -111,9 +132,14 @@ import {
 } from "./actions/settlements";
 import { getTasks } from "./actions/tasks";
 import { getTaxDocuments } from "./actions/taxes";
-import { getTodayOverview } from "./actions/today";
-import { getTreasurySummary } from "./actions/treasury";
+import { getTodayOverview, getUpcomingDueDates } from "./actions/today";
 import {
+  getBankReconciliation,
+  getCashFlow,
+  getTreasurySummary,
+} from "./actions/treasury";
+import {
+  getPallets,
   getPalletsSummary,
   getProducts,
   getStorageBilling,
@@ -121,7 +147,7 @@ import {
   getStorageTariffs,
   getWarehouses,
 } from "./actions/warehouse";
-import { proposeAiWorkflow } from "./actions/workflows";
+import { getAiWorkflows, proposeAiWorkflow } from "./actions/workflows";
 import type { AiAction } from "./define";
 
 /** Every action the assistant knows, one definition each. The chat tools,
@@ -132,7 +158,10 @@ export const AI_ACTIONS: readonly AiAction[] = [
   getClientAging,
   getInvoices,
   getReceipts,
+  getInvoiceDetail,
+  getReceiptDetail,
   searchClients,
+  getClientAccount,
   getClientSalesSummary,
   getClientMargin,
   getClientPaymentBehavior,
@@ -143,19 +172,26 @@ export const AI_ACTIONS: readonly AiAction[] = [
   getSupplierAging,
   getPurchaseInvoices,
   getPaymentOrders,
+  getPurchaseInvoiceDetail,
+  getPaymentOrderDetail,
+  getArcaReceivedVouchers,
   searchSuppliers,
+  getSupplierAccount,
   getSupplierPurchasesSummary,
   getSupplierUpcomingDues,
   getSupplierPriceEvolution,
   getSupplierCategories,
   // Tesorería
   getTreasurySummary,
+  getCashFlow,
+  getUpcomingDueDates,
   getAccounts,
   getTransactions,
   getChecks,
   getIssuedChecks,
   getRecurringPayments,
   getDriverSettlements,
+  getBankReconciliation,
   proposeBankMatches,
   // Contabilidad
   getTrialBalance,
@@ -204,6 +240,8 @@ export const AI_ACTIONS: readonly AiAction[] = [
   // Flota / transporte
   getVehicles,
   getTrips,
+  getTripDetail,
+  getVehicleUsage,
   getFuelLoads,
   getMaintenance,
   getFleetDocuments,
@@ -214,23 +252,32 @@ export const AI_ACTIONS: readonly AiAction[] = [
   getDriverActivity,
   getDrivers,
   getShipmentsSummary,
+  getShipments,
   getTodayOverview,
   // Depósito
   getPalletsSummary,
+  getPallets,
   getWarehouses,
   getProducts,
   getStorageTariffs,
   getStorageBilling,
   getStorageBillingRuns,
+  getClientTariffs,
   proposeClientTariff,
   // AFIP
   getAfipStatus,
   // General
   searchGuide,
   getAttachments,
+  searchFiles,
+  getDocumentExtractions,
   getTasks,
   proposeTask,
   getAuditEvents,
+  getUsers,
+  getImportRuns,
+  getBackups,
+  getAiWorkflows,
   proposeAiWorkflow,
   proposeDocumentScan,
 ];

@@ -7,10 +7,51 @@ import {
   findOwnSentAttachment,
   hasDocumentExtraction,
 } from "../../attachments/store";
+import { listExtractionsAction } from "../../document/actions";
 import { startDocumentExtraction } from "../../document/start";
-import { DOCUMENT_KINDS } from "../../document/types";
+import { DOCUMENT_KINDS, EXTRACTIONS_LIST_LIMIT } from "../../document/types";
 import { documentScanProposalSpec } from "../../lib/proposal-specs";
+import { defineAiAction } from "../define";
 import { defineAiProposal } from "../propose";
+import { errResult, okResult, reachedCap } from "../result";
+
+const EXTRACTION_STATUSES = [
+  "pending_review",
+  "confirmed",
+  "discarded",
+  "failed",
+  "all",
+] as const;
+
+export const getDocumentExtractions = defineAiAction({
+  name: "getDocumentExtractions",
+  domain: "general",
+  permission: "ai:read",
+  sideEffect: "read",
+  sources: ["ai_document_extractions", "files"],
+  description:
+    "Documentos escaneados (bandeja Documentos): cada archivo leído por Document Intelligence con su nombre, el tipo detectado (factura de compra, recibo, extracto…), la confianza, el estado (pending_review = falta revisarlo, confirmed, discarded, failed) y la fecha; los 100 más recientes del estado pedido. Para '¿qué documentos faltan revisar?'.",
+  input: z.object({
+    status: z
+      .enum(EXTRACTION_STATUSES)
+      .nullish()
+      .describe("Estado (default pending_review; all = todos)."),
+  }),
+  run: async (_ctx, input) => {
+    const status = input.status ?? "pending_review";
+    const res = await listExtractionsAction(status);
+    if (!res.ok) return errResult(res.error);
+    const rows = res.data.map(({ matches: _matches, ...row }) => row);
+    return okResult(
+      `${rows.length} documentos escaneados (${status})` +
+        (reachedCap(rows.length, EXTRACTIONS_LIST_LIMIT)
+          ? `: se muestran los ${EXTRACTIONS_LIST_LIMIT} más recientes.`
+          : "."),
+      rows,
+      { partial: reachedCap(rows.length, EXTRACTIONS_LIST_LIMIT) },
+    );
+  },
+});
 
 // Hand-off from a chat attachment to Document Intelligence: the assistant
 // proposes, the user confirms, and the same pipeline as the Documentos tray

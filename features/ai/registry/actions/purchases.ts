@@ -1,6 +1,8 @@
 import { z } from "zod";
 
 import { listPaymentOrdersAction } from "@/features/payment-orders/actions/payment-orders-actions";
+import { listReceivedVouchersAction } from "@/features/purchase-invoices/actions/arca-received-actions";
+import { RECEIVED_VOUCHER_STATUSES } from "@/features/purchase-invoices/schema";
 import { searchPurchaseInvoicesAction } from "@/features/purchase-invoices/actions/purchase-invoices-actions";
 import { listSupplierCategoriesAction } from "@/features/supplier-categories/actions/supplier-categories-actions";
 import { getSupplierAgingAction } from "@/features/suppliers/actions/account-actions";
@@ -322,5 +324,42 @@ export const getSupplierCategories = defineAiAction({
     const res = await listSupplierCategoriesAction();
     if (!res.ok) return errResult(res.error);
     return okResult(`${res.data.length} categorías de proveedores.`, res.data);
+  },
+});
+
+export const getArcaReceivedVouchers = defineAiAction({
+  name: "getArcaReceivedVouchers",
+  domain: "compras",
+  // The page and its read action are for whoever loads purchases.
+  permission: "purchase_invoices:write",
+  sideEffect: "read",
+  sources: ["arca_received_vouchers", "suppliers"],
+  description:
+    "Comprobantes recibidos de ARCA (Mis Comprobantes): los que los proveedores nos emitieron según ARCA, por estado: pending_review (todavía sin cargar como compra, default), confirmed (ya cargados) o discarded. Cada uno con emisor y CUIT, tipo, número, fecha, neto, IVA, otros tributos, total, moneda y el proveedor cargado con ese CUIT. Los 50 más recientes. Para '¿qué facturas de proveedores faltan cargar?'.",
+  input: z.object({
+    status: z
+      .enum(RECEIVED_VOUCHER_STATUSES)
+      .nullish()
+      .describe("Estado (default pending_review)."),
+  }),
+  run: async (_ctx, input) => {
+    const status = input.status ?? "pending_review";
+    const res = await listReceivedVouchersAction({ status });
+    if (!res.ok) return errResult(res.error);
+    const { vouchers, nextCursor } = res.data;
+    const total = totalsByCurrency(
+      vouchers.map((v) => ({
+        amount: v.kind === "nc" ? -v.imp_total : v.imp_total,
+        currency: v.moneda,
+        counts: true,
+      })),
+    );
+    return okResult(
+      `${vouchers.length} comprobantes de ARCA (${status})` +
+        (nextCursor ? ", hay más (se muestran los más recientes)" : "") +
+        ` · total ${total} (las NC restan; por moneda).`,
+      vouchers.map(({ tribute_history: _history, ...v }) => v),
+      { partial: nextCursor !== null },
+    );
   },
 });
