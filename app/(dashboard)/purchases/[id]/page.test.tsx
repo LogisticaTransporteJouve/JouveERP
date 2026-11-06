@@ -108,6 +108,9 @@ vi.mock("@/features/files/components/attachments-zone", () => ({
     <span>{`adjuntos write=${props.canWrite} delete=${props.canDelete}`}</span>
   ),
 }));
+vi.mock("@/features/audit/components/record-history", () => ({
+  RecordHistory: () => <p>stub-historial</p>,
+}));
 
 const { default: PurchaseInvoiceDetailPage } = await import("./page");
 
@@ -321,5 +324,16 @@ describe("purchase detail — Ítems", () => {
     expect(
       screen.getByText("Sin detalle (cargada solo por totales)"),
     ).toBeTruthy();
+  });
+});
+
+describe("purchase detail — Historial", () => {
+  it("shows the record's history only with audit:read", async () => {
+    await renderPage();
+    expect(screen.queryByText("stub-historial")).toBeNull();
+    cleanup();
+    h.access = resolveAccess(["owner"]);
+    await renderPage();
+    expect(screen.getByText("stub-historial")).toBeTruthy();
   });
 });

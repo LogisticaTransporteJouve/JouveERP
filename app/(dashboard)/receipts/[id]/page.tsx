@@ -11,6 +11,7 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
+import { RecordHistory } from "@/features/audit/components/record-history";
 import { AttachmentsZone } from "@/features/files/components/attachments-zone";
 import {
   ACCOUNT_TYPE_LABEL,
@@ -258,6 +259,10 @@ export default async function ReceiptDetailPage({
           />
         </div>
       </div>
+
+      {userCan(ctx.access, "audit:read") && (
+        <RecordHistory resourceId={receipt.id} />
+      )}
     </div>
   );
 }

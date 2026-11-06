@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { RecordHistory } from "@/features/audit/components/record-history";
 import { listPendingInvoicesForSupplierAction } from "@/features/payment-orders/actions/payment-orders-actions";
 import { PayDialog } from "@/features/payment-orders/components/pay-dialog";
 import { PAYMENT_ORDER_FORM_PERMISSIONS } from "@/features/payment-orders/lib/payment-order-form";
@@ -545,6 +546,10 @@ export default async function PurchaseInvoiceDetailPage({
           />
         </div>
       </div>
+
+      {userCan(ctx.access, "audit:read") && (
+        <RecordHistory resourceId={invoice.id} />
+      )}
     </div>
   );
 }

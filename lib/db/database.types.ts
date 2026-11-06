@@ -1020,6 +1020,7 @@ export type Database = {
           id: string
           ip_address: unknown
           payload: Json
+          search_text: string | null
           target_resource_id: string | null
           target_user_id: string | null
           ts: string
@@ -1032,6 +1033,7 @@ export type Database = {
           id?: string
           ip_address?: unknown
           payload?: Json
+          search_text?: string | null
           target_resource_id?: string | null
           target_user_id?: string | null
           ts?: string
@@ -1044,6 +1046,7 @@ export type Database = {
           id?: string
           ip_address?: unknown
           payload?: Json
+          search_text?: string | null
           target_resource_id?: string | null
           target_user_id?: string | null
           ts?: string
@@ -9477,7 +9480,16 @@ export type Database = {
         Args: { p_delta: number; p_employee_id: string }
         Returns: undefined
       }
+      audit_entity_search_text: {
+        Args: { p_id: string; p_kind: string }
+        Returns: string
+      }
       audit_event_types: { Args: never; Returns: string[] }
+      audit_events_search_text: {
+        Args: { p_event_type: string; p_payload: Json; p_target: string }
+        Returns: string
+      }
+      audit_search_normalize: { Args: { p_text: string }; Returns: string }
       backfill_check_channels: { Args: never; Returns: undefined }
       billed_remito_blocker: { Args: { p_remito_id: string }; Returns: string }
       billing_invoice_is_void: {

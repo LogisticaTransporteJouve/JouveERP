@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { IconButton } from "@/components/ui/icon-button";
+import { RecordHistory } from "@/features/audit/components/record-history";
 import { getTripAction } from "@/features/trips/actions/trips-actions";
 import { ShipmentsForTrip } from "@/features/shipments/components/shipments-for-trip";
 import { requireUserContext } from "@/lib/auth/context";
@@ -56,6 +57,10 @@ export default async function TripDetailPage({
         tripId={id}
         canWrite={userCan(ctx.access, "shipments:write")}
       />
+
+      {userCan(ctx.access, "audit:read") && (
+        <RecordHistory resourceId={trip.id} />
+      )}
     </div>
   );
 }

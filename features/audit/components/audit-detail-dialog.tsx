@@ -1,10 +1,7 @@
 "use client";
 
-import { ExternalLink } from "lucide-react";
-import Link from "next/link";
 import { Suspense } from "react";
 
-import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -17,70 +14,82 @@ import { formatArgentineDateTime } from "@/lib/format";
 
 import { useAuditUserNames } from "../hooks/use-audit";
 import { auditActorLabel } from "../lib/actor";
+import type { AuditListItem } from "../lib/ai-turns";
 import { MASK } from "../lib/mask";
-import { auditModuleLabel } from "../lib/modules";
-import type { AuditEventRow } from "../schema";
+import { auditGroupLabel } from "../lib/registry";
 
-/** One event in full: who, when, the record and its payload, with the
+import { AuditSubjectLink } from "./audit-subject-link";
+
+/** One row in full: who, when, what, about what, and the technical detail
+ *  (ids, the assistant's session and tool ids, the payload) with the
  *  sensitive values already masked by the server. */
 export function AuditDetailDialog({
-  event,
+  item,
   onOpenChange,
 }: {
-  event: AuditEventRow | null;
+  item: AuditListItem | null;
   onOpenChange: (open: boolean) => void;
 }) {
   return (
-    <Dialog open={event !== null} onOpenChange={onOpenChange}>
+    <Dialog open={item !== null} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-        {event && (
+        {item && (
           <>
             <DialogHeader>
-              <DialogTitle className="font-mono text-base">
-                {event.event_type}
+              <DialogTitle className="text-base">
+                <Suspense fallback={<Skeleton className="h-5 w-48" />}>
+                  <ActorName item={item} />
+                </Suspense>{" "}
+                <span className="font-normal">{item.sentence}</span>
               </DialogTitle>
               <DialogDescription>
-                {auditModuleLabel(event.module)} ·{" "}
-                {formatArgentineDateTime(event.ts)}
+                {item.kind === "event"
+                  ? auditGroupLabel(item.group)
+                  : "Asistente IA"}{" "}
+                · {formatArgentineDateTime(item.ts)}
               </DialogDescription>
             </DialogHeader>
-            <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-              <dt className="text-muted-foreground">Quién</dt>
-              <dd>
-                <Suspense fallback={<Skeleton className="h-4 w-32" />}>
-                  <ActorName event={event} />
-                </Suspense>
-              </dd>
-              <dt className="text-muted-foreground">Registro</dt>
-              <dd className="flex min-w-0 items-center gap-2">
-                <span className="truncate font-mono text-xs">
-                  {event.target_resource_id ?? "—"}
-                </span>
-                {event.record_href && (
-                  <Button asChild variant="ghost" size="sm">
-                    <Link href={event.record_href}>
-                      <ExternalLink />
-                      Abrir
-                    </Link>
-                  </Button>
-                )}
-              </dd>
-              {event.summary && (
-                <>
-                  <dt className="text-muted-foreground">Resumen</dt>
-                  <dd>{event.summary}</dd>
-                </>
-              )}
-            </dl>
-            <div className="space-y-1">
-              <p className="text-sm font-medium">Detalle</p>
-              <pre className="bg-muted/40 max-h-96 overflow-auto rounded-md border p-3 text-xs break-all whitespace-pre-wrap">
-                {JSON.stringify(event.payload, null, 2)}
-              </pre>
-              <p className="text-muted-foreground text-xs">
-                CBU, CUIL, claves y tokens se muestran como {MASK}.
-              </p>
-            </div>
+            {item.kind === "event" ? (
+              <>
+                <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
+                  <dt className="text-muted-foreground">Sobre qué</dt>
+                  <dd>
+                    <AuditSubjectLink subject={item.subject} />
+                  </dd>
+                </dl>
+                <TechnicalDetail
+                  value={{
+                    event_type: item.event_type,
+                    target_resource_id: item.target_resource_id,
+                    target_user_id: item.target_user_id,
+                    payload: item.payload,
+                  }}
+                />
+              </>
+            ) : (
+              <>
+                <ol className="divide-y rounded-md border text-sm">
+                  {item.calls
+                    .slice()
+                    .reverse()
+                    .map((call) => (
+                      <li key={call.id} className="flex gap-3 px-3 py-2">
+                        <span className="text-muted-foreground w-12 shrink-0 tabular-nums">
+                          {formatArgentineDateTime(call.ts).slice(-5)}
+                        </span>
+                        <span>{call.sentence}</span>
+                      </li>
+                    ))}
+                </ol>
+                <TechnicalDetail
+                  value={item.calls.map((call) => ({
+                    id: call.id,
+                    ts: call.ts,
+                    payload: call.payload,
+                  }))}
+                />
+              </>
+            )}
           </>
         )}
       </DialogContent>
@@ -88,7 +97,23 @@ export function AuditDetailDialog({
   );
 }
 
-function ActorName({ event }: { event: AuditEventRow }) {
+function TechnicalDetail({ value }: { value: unknown }) {
+  return (
+    <details className="space-y-1">
+      <summary className="cursor-pointer text-sm font-medium">
+        Detalle técnico
+      </summary>
+      <pre className="bg-muted/40 mt-2 max-h-96 overflow-auto rounded-md border p-3 text-xs break-all whitespace-pre-wrap">
+        {JSON.stringify(value, null, 2)}
+      </pre>
+      <p className="text-muted-foreground text-xs">
+        CBU, CUIL, claves y tokens se muestran como {MASK}.
+      </p>
+    </details>
+  );
+}
+
+function ActorName({ item }: { item: AuditListItem }) {
   const names = useAuditUserNames();
-  return <>{auditActorLabel(event, names)}</>;
+  return <>{auditActorLabel(item, names)}</>;
 }

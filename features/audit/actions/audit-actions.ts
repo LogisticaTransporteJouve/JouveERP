@@ -10,17 +10,16 @@ import { toCsv } from "@/lib/export/csv";
 import { formatArgentineDateTime, todayInAR } from "@/lib/format";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
-import { escapeLike } from "@/lib/supabase/like-pattern";
+import { containsPattern, escapeLike } from "@/lib/supabase/like-pattern";
 import { getServiceClient } from "@/lib/supabase/service";
 
 import { auditActorLabel } from "../lib/actor";
+import { AI_TOOL_CALL, groupAiTurns } from "../lib/ai-turns";
+import { describeAuditEvent } from "../lib/describe";
 import { maskSensitive } from "../lib/mask";
-import {
-  auditModuleLabel,
-  auditModuleOf,
-  auditRecordHref,
-} from "../lib/modules";
-import { summarizeAuditPayload } from "../lib/summary";
+import { auditEventTypesOf } from "../lib/registry";
+import { resolveAuditEntities } from "../lib/resolve-entities";
+import { normalizeAuditSearch } from "../lib/search";
 import {
   AUDIT_EXPORT_LIMIT,
   AUDIT_PAGE_SIZE,
@@ -45,6 +44,9 @@ const COLUMNS =
 const AR_DAY_START = "T00:00:00-03:00";
 const AR_DAY_END = "T23:59:59.999-03:00";
 
+/** Events whose names one batch resolves (bounds each `in (...)` list). */
+const RESOLVE_CHUNK = 200;
+
 type AuditEventDbRow = {
   id: string;
   ts: string;
@@ -56,23 +58,33 @@ type AuditEventDbRow = {
   payload: JsonValue;
 };
 
-/** The masked row the screen and the export show. */
-function toRow(row: AuditEventDbRow): AuditEventRow {
-  const payload = maskSensitive(row.payload);
-  const actorType = isAuditActorType(row.actor_type) ? row.actor_type : "user";
-  return {
-    id: row.id,
-    ts: row.ts,
-    actor_id: row.actor_id,
-    actor_type: actorType,
-    event_type: row.event_type,
-    module: auditModuleOf(row.event_type),
-    target_resource_id: row.target_resource_id,
-    target_user_id: row.target_user_id,
-    record_href: auditRecordHref(row.event_type, row.target_resource_id),
-    summary: summarizeAuditPayload(payload),
-    payload,
-  };
+/** The rows the screen and the export show: masked, named and linked. The
+ *  records they mention are looked up in one query per kind of record. */
+async function toRows(
+  rows: readonly AuditEventDbRow[],
+): Promise<AuditEventRow[]> {
+  const out: AuditEventRow[] = [];
+  for (let i = 0; i < rows.length; i += RESOLVE_CHUNK) {
+    const chunk = rows
+      .slice(i, i + RESOLVE_CHUNK)
+      .map((row) => ({ ...row, payload: maskSensitive(row.payload) }));
+    const lookup = await resolveAuditEntities(chunk);
+    for (const row of chunk) {
+      const described = describeAuditEvent(row, lookup);
+      out.push({
+        id: row.id,
+        ts: row.ts,
+        actor_id: row.actor_id,
+        actor_type: isAuditActorType(row.actor_type) ? row.actor_type : "user",
+        event_type: row.event_type,
+        target_resource_id: row.target_resource_id,
+        target_user_id: row.target_user_id,
+        payload: row.payload,
+        ...described,
+      });
+    }
+  }
+  return out;
 }
 
 function filteredQuery(filters: AuditFilters) {
@@ -80,6 +92,12 @@ function filteredQuery(filters: AuditFilters) {
   if (filters.from) query = query.gte("ts", `${filters.from}${AR_DAY_START}`);
   if (filters.to) query = query.lte("ts", `${filters.to}${AR_DAY_END}`);
   if (filters.actorId) query = query.eq("actor_id", filters.actorId);
+  if (filters.group) {
+    query = query.in("event_type", auditEventTypesOf(filters.group));
+  }
+  if (filters.hideAiQueries) query = query.neq("event_type", AI_TOOL_CALL);
+  const search = normalizeAuditSearch(filters.q);
+  if (search) query = query.like("search_text", containsPattern(search));
   if (filters.eventType) query = query.eq("event_type", filters.eventType);
   if (filters.module) {
     // A module name is matched as typed, not as a pattern.
@@ -133,23 +151,25 @@ export async function listAuditEventsAction(
       `ts.lt."${cursor.ts}",and(ts.eq."${cursor.ts}",id.lt.${cursor.id})`,
     );
   }
-  const { data, error } = await query.limit(AUDIT_PAGE_SIZE + 1);
-  if (error) {
+  try {
+    const { data, error } = await query.limit(AUDIT_PAGE_SIZE + 1);
+    if (error) throw error;
+    const page = (data ?? []).slice(0, AUDIT_PAGE_SIZE);
+    const last = page.at(-1);
+    return {
+      ok: true,
+      data: {
+        rows: await toRows(page),
+        nextCursor:
+          (data ?? []).length > AUDIT_PAGE_SIZE && last
+            ? { ts: last.ts, id: last.id }
+            : null,
+      },
+    };
+  } catch (error) {
     logger.error("audit.list.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo leer la auditoría." };
   }
-  const page = (data ?? []).slice(0, AUDIT_PAGE_SIZE);
-  const last = page.at(-1);
-  return {
-    ok: true,
-    data: {
-      rows: page.map(toRow),
-      nextCursor:
-        (data ?? []).length > AUDIT_PAGE_SIZE && last
-          ? { ts: last.ts, id: last.id }
-          : null,
-    },
-  };
 }
 
 export async function listAuditFilterOptionsAction(): Promise<
@@ -158,30 +178,17 @@ export async function listAuditFilterOptionsAction(): Promise<
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "audit:read")) return { ok: false, error: DENIED };
   try {
-    const [users, types] = await Promise.all([
-      loadUserOptions(),
-      getServiceClient().rpc("audit_event_types"),
-    ]);
-    if (types.error) throw types.error;
-    return { ok: true, data: { users, eventTypes: types.data ?? [] } };
+    return { ok: true, data: { users: await loadUserOptions() } };
   } catch (error) {
     logger.error("audit.options.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudieron leer los filtros." };
   }
 }
 
-const CSV_HEADER = [
-  "Fecha",
-  "Quién",
-  "Acción",
-  "Módulo",
-  "Registro",
-  "Resumen",
-  "Detalle",
-];
+const CSV_HEADER = ["Fecha", "Quién", "Qué hizo", "Sobre qué"];
 
 /** The filtered events as CSV, newest first, up to AUDIT_EXPORT_LIMIT rows,
- *  with the same masking as the screen. */
+ *  in the same words as the screen (an assistant turn is one line). */
 export async function exportAuditEventsCsvAction(
   input: unknown,
 ): Promise<ActionResult<AuditCsvExport>> {
@@ -197,6 +204,7 @@ export async function exportAuditEventsCsvAction(
 
   const rows: AuditEventDbRow[] = [];
   let users: AuditUserOption[];
+  let kept: AuditEventRow[];
   try {
     users = await loadUserOptions();
     // PostgREST stops at max_rows (1000) a response: page by range.
@@ -210,24 +218,21 @@ export async function exportAuditEventsCsvAction(
       rows.push(...(data ?? []));
       if ((data ?? []).length < PAGE) break;
     }
+    kept = await toRows(rows.slice(0, AUDIT_EXPORT_LIMIT));
   } catch (error) {
     logger.error("audit.export.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo exportar la auditoría." };
   }
 
   const truncated = rows.length > AUDIT_EXPORT_LIMIT;
-  const kept = rows.slice(0, AUDIT_EXPORT_LIMIT).map(toRow);
   const names = new Map(users.map((u) => [u.id, u.label]));
   const csv = toCsv(
     CSV_HEADER,
-    kept.map((row) => [
-      formatArgentineDateTime(row.ts),
-      auditActorLabel(row, names),
-      row.event_type,
-      auditModuleLabel(row.module),
-      row.target_resource_id,
-      row.summary,
-      JSON.stringify(row.payload),
+    groupAiTurns(kept).map((item) => [
+      formatArgentineDateTime(item.ts),
+      auditActorLabel(item, names),
+      item.sentence,
+      item.kind === "event" ? (item.subject?.label ?? "") : "",
     ]),
   );
 
@@ -259,14 +264,17 @@ export async function getRecordHistoryAction(
   const parsed = ResourceIdSchema.safeParse(resourceId);
   if (!parsed.success) return { ok: false, error: "Registro inválido." };
 
-  const { data, error } = await getServiceClient()
-    .from("audit_events")
-    .select(COLUMNS)
-    .eq("target_resource_id", parsed.data)
-    .order("ts", { ascending: false })
-    .order("id", { ascending: false })
-    .limit(RECORD_HISTORY_LIMIT);
-  if (error) {
+  try {
+    const { data, error } = await getServiceClient()
+      .from("audit_events")
+      .select(COLUMNS)
+      .eq("target_resource_id", parsed.data)
+      .order("ts", { ascending: false })
+      .order("id", { ascending: false })
+      .limit(RECORD_HISTORY_LIMIT);
+    if (error) throw error;
+    return { ok: true, data: await toRows(data ?? []) };
+  } catch (error) {
     logger.error("audit.record_history.failed", {
       userId: ctx.userId,
       resourceId: parsed.data,
@@ -274,5 +282,4 @@ export async function getRecordHistoryAction(
     });
     return { ok: false, error: "No se pudo leer el historial." };
   }
-  return { ok: true, data: (data ?? []).map(toRow) };
 }

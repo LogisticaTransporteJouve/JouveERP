@@ -3,6 +3,9 @@ import { z } from "zod";
 import type { JsonValue } from "@/lib/actions/audit";
 import { IsoDateSchema, UuidSchema } from "@/lib/validation/common";
 
+import type { AuditSubject } from "./lib/describe";
+import { isAuditGroupId, type AuditGroupId } from "./lib/registry";
+
 /** audit_events.actor_type (check constraint in 20260616130000). */
 export const AUDIT_ACTOR_TYPES = ["user", "ai-agent", "system"] as const;
 export type AuditActorType = (typeof AUDIT_ACTOR_TYPES)[number];
@@ -30,12 +33,23 @@ const ModuleSchema = z
   .trim()
   .regex(/^[a-z0-9_]{1,40}$/, "Módulo inválido.");
 
-/** The list's filters; empty means "any". */
+/** The search box: names, numbers, patentes. */
+export const AUDIT_SEARCH_MAX = 80;
+
+/** The list's filters; empty means "any". `module` and `eventType` are the
+ *  raw filters the assistant's tool uses; the screen filters by `group`. */
 export const AuditFiltersSchema = z
   .object({
     from: IsoDateSchema.nullish(),
     to: IsoDateSchema.nullish(),
     actorId: UuidSchema.nullish(),
+    group: z.custom<AuditGroupId>(isAuditGroupId, "Filtro inválido.").nullish(),
+    q: z
+      .string()
+      .trim()
+      .max(AUDIT_SEARCH_MAX, "Búsqueda demasiado larga.")
+      .nullish(),
+    hideAiQueries: z.boolean().nullish(),
     eventType: EventTypeSchema.nullish(),
     module: ModuleSchema.nullish(),
   })
@@ -48,6 +62,9 @@ export const EMPTY_AUDIT_FILTERS: AuditFilters = {
   from: null,
   to: null,
   actorId: null,
+  group: null,
+  q: null,
+  hideAiQueries: false,
   eventType: null,
   module: null,
 };
@@ -74,13 +91,15 @@ export type AuditEventRow = {
   actor_id: string | null;
   actor_type: AuditActorType;
   event_type: string;
-  module: string;
   target_resource_id: string | null;
   target_user_id: string | null;
-  /** Where the record lives, when the module has a page for it. */
-  record_href: string | null;
-  /** One line of what changed, from the payload. */
-  summary: string | null;
+  /** «emitió la Factura A 0003-00022312 a TRANSPORTES SUR SA por $ …»:
+   *  what the actor did, without the actor. */
+  sentence: string;
+  /** «Sobre qué»: the record, named and linked when it still exists. */
+  subject: AuditSubject | null;
+  /** The «Qué» group; null for an action the registry does not know. */
+  group: AuditGroupId | null;
   payload: JsonValue;
 };
 
@@ -93,7 +112,6 @@ export type AuditUserOption = { id: string; label: string };
 
 export type AuditFilterOptions = {
   users: AuditUserOption[];
-  eventTypes: string[];
 };
 
 export type AuditCsvExport = {
