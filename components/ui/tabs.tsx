@@ -26,10 +26,11 @@ function TabsList({
     <TabsPrimitive.List
       data-slot="tabs-list"
       className={cn(
-        // Wider than the screen (a phone), the tabs scroll inside the list
-        // instead of pushing the page sideways; `center-safe` keeps the first
-        // tab reachable when they overflow.
-        "bg-muted text-muted-foreground inline-flex h-9 w-fit max-w-full items-center justify-center-safe overflow-x-auto rounded-lg p-[3px] [scrollbar-width:none]",
+        // Wider than a phone screen, the tabs scroll inside the list instead
+        // of pushing the page sideways; `center-safe` keeps the first tab
+        // reachable when they overflow. Only below `md`: a scroll container
+        // clips the active tab's shadow, and desktop stays as it was.
+        "bg-muted text-muted-foreground inline-flex h-9 w-fit max-w-full items-center justify-center-safe rounded-lg p-[3px] max-md:overflow-x-auto max-md:[scrollbar-width:none]",
         className,
       )}
       {...props}

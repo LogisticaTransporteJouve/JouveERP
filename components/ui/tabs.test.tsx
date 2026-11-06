@@ -24,7 +24,7 @@ describe("TabsList", () => {
     expect(list).toEqual(
       expect.arrayContaining([
         "max-w-full",
-        "overflow-x-auto",
+        "max-md:overflow-x-auto",
         "justify-center-safe",
       ]),
     );

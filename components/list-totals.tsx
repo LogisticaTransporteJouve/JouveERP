@@ -28,7 +28,7 @@ export function ListGroupToggle({
       aria-label="Vista"
       // On a phone the four options get tighter padding, and if they still
       // do not fit they scroll inside the switch, never the page.
-      className="inline-flex max-w-full overflow-x-auto rounded-md border p-0.5 [scrollbar-width:none]"
+      className="inline-flex max-w-full rounded-md border p-0.5 max-sm:overflow-x-auto max-sm:[scrollbar-width:none]"
     >
       {options.map((o) => (
         <Button

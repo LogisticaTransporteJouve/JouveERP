@@ -23,7 +23,7 @@ function PageHeader({
     <div
       data-slot="page-header"
       className={cn(
-        "flex flex-wrap items-center justify-between gap-3 sm:flex-nowrap",
+        "flex flex-wrap items-center justify-between max-sm:gap-3 sm:flex-nowrap",
         className,
       )}
     >

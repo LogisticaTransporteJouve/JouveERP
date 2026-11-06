@@ -14,7 +14,7 @@ describe("ListGroupToggle", () => {
     render(<ListGroupToggle value={null} onChange={() => {}} />);
     const group = screen.getByRole("radiogroup", { name: "Vista" });
     expect(group.className.split(" ")).toEqual(
-      expect.arrayContaining(["max-w-full", "overflow-x-auto"]),
+      expect.arrayContaining(["max-w-full", "max-sm:overflow-x-auto"]),
     );
     for (const option of screen.getAllByRole("radio")) {
       expect(option.className.split(" ")).toEqual(
