@@ -26,18 +26,6 @@ function from(table: string) {
       }
       return { data: stored, error: null };
     },
-    insert: () => {
-      writes.push(`insert:${table}`);
-      return {
-        select: () => ({
-          single: async () => ({ data: null, error: { code: "XX000" } }),
-        }),
-      };
-    },
-    update: () => {
-      writes.push(`update:${table}`);
-      return { eq: async () => ({ error: { code: "XX000" } }) };
-    },
   };
   return builder;
 }
@@ -51,7 +39,17 @@ vi.mock("@/lib/auth/context", () => ({
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({
     from,
-    rpc: async () => ({ data: null, error: null }),
+    // The header writes are create/update_purchase_invoice; they fail here so
+    // the tests stop right after the rule let the write through.
+    rpc: async (name: string) => {
+      const write = {
+        create_purchase_invoice: "insert:purchase_invoices",
+        update_purchase_invoice: "update:purchase_invoices",
+      }[name];
+      if (!write) return { data: null, error: null };
+      writes.push(write);
+      return { data: null, error: { code: "XX000" } };
+    },
   }),
 }));
 vi.mock("@/lib/actions/audit", () => ({ logAudit: vi.fn() }));

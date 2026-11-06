@@ -104,7 +104,7 @@ export async function listPayrollPaymentsAction(
 
   if (error) {
     logger.error("payroll_payments.list.failed", { userId: ctx.userId, error });
-    return { ok: false, error: error.message };
+    return { ok: false, error: "No se pudieron cargar los pagos." };
   }
   return {
     ok: true,

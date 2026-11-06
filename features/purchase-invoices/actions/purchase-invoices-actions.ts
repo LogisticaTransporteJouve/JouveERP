@@ -1,10 +1,8 @@
 "use server";
 
-import type { PostgrestError } from "@supabase/supabase-js";
 import { z } from "zod";
 
 import { logAudit } from "@/lib/actions/audit";
-import type { PartialCreateFailure } from "@/lib/actions/claim";
 import { ivaIsComputable } from "@/lib/afip/codes";
 import type { JsonValue } from "@/lib/actions/audit";
 import type { ActionResult } from "@/lib/query/run-action";
@@ -442,7 +440,7 @@ export async function findPurchaseInvoiceDuplicateAction(
 
 export async function createPurchaseInvoiceAction(
   input: unknown,
-): Promise<ActionResult<{ id: string }> | PartialCreateFailure> {
+): Promise<ActionResult<{ id: string }>> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "purchase_invoices:write")) {
     return {
@@ -482,45 +480,48 @@ export async function createPurchaseInvoiceAction(
 
   // An expense account (picked, a supplier default or AI-suggested) must be a
   // postable leaf: guard_expense_account rejects any other with a message.
-  const { data, error } = await supabase
-    .from("purchase_invoices")
-    .insert({
-      channel_id: parsed.data.channel_id,
-      account_id: parsed.data.account_id ?? null,
-      cost_center_id: parsed.data.cost_center_id ?? null,
-      charged_employee_id: parsed.data.charged_employee_id ?? null,
-      supplier_id: parsed.data.supplier_id,
-      kind: parsed.data.kind,
-      letter: parsed.data.letter ?? null,
-      punto_venta: parsed.data.punto_venta,
-      numero: parsed.data.numero,
-      fecha: parsed.data.fecha,
-      fch_vto_pago: parsed.data.fch_vto_pago ?? null,
-      imp_neto: parsed.data.imp_neto,
-      imp_iva: parsed.data.imp_iva,
-      imp_trib: parsed.data.imp_trib,
-      imp_no_gravado: parsed.data.imp_no_gravado,
-      imp_op_exentas: parsed.data.imp_op_exentas,
-      imp_perc_iva: parsed.data.imp_perc_iva,
-      imp_perc_nacionales: parsed.data.imp_perc_nacionales,
-      imp_perc_iibb: parsed.data.imp_perc_iibb,
-      imp_perc_municipales: parsed.data.imp_perc_municipales,
-      imp_impuestos_internos: parsed.data.imp_impuestos_internos,
-      imp_total: parsed.data.imp_total,
-      moneda: parsed.data.moneda,
-      cotizacion: parsed.data.cotizacion,
-      cae_proveedor: parsed.data.cae_proveedor ?? null,
-      cae_vto_proveedor: parsed.data.cae_vto_proveedor ?? null,
-      invoice_origin_id: parsed.data.invoice_origin_id ?? null,
-      motivo_nc_nd: parsed.data.motivo_nc_nd ?? null,
-      notes: parsed.data.notes ?? null,
-      created_by: ctx.userId,
-    })
-    .select("id")
-    .single();
+  // The header and its items are one transaction: a refused item saves nothing.
+  const { data: createdId, error } = await supabase.rpc(
+    "create_purchase_invoice",
+    {
+      p_header: {
+        channel_id: parsed.data.channel_id,
+        account_id: parsed.data.account_id ?? null,
+        cost_center_id: parsed.data.cost_center_id ?? null,
+        charged_employee_id: parsed.data.charged_employee_id ?? null,
+        supplier_id: parsed.data.supplier_id,
+        kind: parsed.data.kind,
+        letter: parsed.data.letter ?? null,
+        punto_venta: parsed.data.punto_venta,
+        numero: parsed.data.numero,
+        fecha: parsed.data.fecha,
+        fch_vto_pago: parsed.data.fch_vto_pago ?? null,
+        imp_neto: parsed.data.imp_neto,
+        imp_iva: parsed.data.imp_iva,
+        imp_trib: parsed.data.imp_trib,
+        imp_no_gravado: parsed.data.imp_no_gravado,
+        imp_op_exentas: parsed.data.imp_op_exentas,
+        imp_perc_iva: parsed.data.imp_perc_iva,
+        imp_perc_nacionales: parsed.data.imp_perc_nacionales,
+        imp_perc_iibb: parsed.data.imp_perc_iibb,
+        imp_perc_municipales: parsed.data.imp_perc_municipales,
+        imp_impuestos_internos: parsed.data.imp_impuestos_internos,
+        imp_total: parsed.data.imp_total,
+        moneda: parsed.data.moneda,
+        cotizacion: parsed.data.cotizacion,
+        cae_proveedor: parsed.data.cae_proveedor ?? null,
+        cae_vto_proveedor: parsed.data.cae_vto_proveedor ?? null,
+        invoice_origin_id: parsed.data.invoice_origin_id ?? null,
+        motivo_nc_nd: parsed.data.motivo_nc_nd ?? null,
+        notes: parsed.data.notes ?? null,
+        created_by: ctx.userId,
+      },
+      p_items: itemsParam(parsed.data.items ?? []),
+    },
+  );
 
-  if (error) {
-    if (error.code === PG_UNIQUE_VIOLATION) {
+  if (error || !createdId) {
+    if (error?.code === PG_UNIQUE_VIOLATION) {
       return {
         ok: false,
         error:
@@ -540,33 +541,6 @@ export async function createPurchaseInvoiceAction(
     });
     return { ok: false, error: "No se pudo cargar la factura." };
   }
-
-  // If the invoice carries items, insert them + recompute header totals via
-  // RPC. If the RPC fails, we leave the header without items (better than an
-  // orphan): the header totals are already valid because they came from the input.
-  if (parsed.data.items && parsed.data.items.length > 0) {
-    const itemsError = await applyItems(supabase, data.id, parsed.data.items);
-    if (itemsError) {
-      const guardError = mapDbGuardError(itemsError, {
-        slug: "purchase_invoices.items.insert.rejected",
-        userId: ctx.userId,
-        id: data.id,
-      });
-      if (guardError)
-        return { ok: false, error: guardError, createdId: data.id };
-      logger.error("purchase_invoices.items.insert.failed", {
-        userId: ctx.userId,
-        id: data.id,
-        error: itemsError,
-      });
-      return {
-        ok: false,
-        error: "Factura cargada pero no se pudieron guardar los ítems.",
-        createdId: data.id,
-      };
-    }
-  }
-
   await logAudit(
     "purchase_invoice.created",
     ctx.userId,
@@ -580,9 +554,9 @@ export async function createPurchaseInvoiceAction(
       cost_center_id: parsed.data.cost_center_id ?? null,
       charged_employee_id: parsed.data.charged_employee_id ?? null,
     },
-    data.id,
+    createdId,
   );
-  return { ok: true, data: { id: data.id } };
+  return { ok: true, data: { id: createdId } };
 }
 
 function itemsParam(items: PurchaseInvoiceItemInput[]) {
@@ -596,18 +570,6 @@ function itemsParam(items: PurchaseInvoiceItemInput[]) {
     line_total: it.line_total,
     sort_order: it.sort_order ?? idx,
   }));
-}
-
-async function applyItems(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  invoiceId: string,
-  items: PurchaseInvoiceItemInput[],
-): Promise<PostgrestError | null> {
-  const { error } = await supabase.rpc("replace_purchase_invoice_items", {
-    p_invoice_id: invoiceId,
-    p_items: itemsParam(items),
-  });
-  return error;
 }
 
 const CLOSED_PERIOD_ITEMS_MESSAGE =
@@ -716,8 +678,8 @@ export async function updatePurchaseInvoiceAction(
     }
   }
 
-  // The header and the items are two writes: refuse a closed period's item
-  // change before the header is saved, with the rule the items RPC applies.
+  // update_purchase_invoice refuses it too (and saves nothing); asked first to
+  // answer in the user's words.
   if (rest.items !== undefined) {
     const { data: refused, error: checkError } = await supabase.rpc(
       "purchase_items_change_refused",
@@ -734,70 +696,80 @@ export async function updatePurchaseInvoiceAction(
     if (refused) return { ok: false, error: CLOSED_PERIOD_ITEMS_MESSAGE };
   }
 
-  const { error } = await supabase
-    .from("purchase_invoices")
-    .update({
-      ...(rest.channel_id !== undefined && { channel_id: rest.channel_id }),
-      ...(rest.account_id !== undefined && {
-        account_id: rest.account_id ?? null,
-      }),
-      ...(rest.cost_center_id !== undefined && {
-        cost_center_id: rest.cost_center_id ?? null,
-      }),
-      ...(rest.charged_employee_id !== undefined && {
-        charged_employee_id: rest.charged_employee_id ?? null,
-      }),
-      ...(rest.supplier_id !== undefined && { supplier_id: rest.supplier_id }),
-      ...(rest.kind !== undefined && { kind: rest.kind }),
-      ...(rest.letter !== undefined && { letter: rest.letter ?? null }),
-      ...(rest.punto_venta !== undefined && { punto_venta: rest.punto_venta }),
-      ...(rest.numero !== undefined && { numero: rest.numero }),
-      ...(rest.fecha !== undefined && { fecha: rest.fecha }),
-      ...(rest.fch_vto_pago !== undefined && {
-        fch_vto_pago: rest.fch_vto_pago ?? null,
-      }),
-      ...(rest.imp_neto !== undefined && { imp_neto: rest.imp_neto }),
-      ...(rest.imp_iva !== undefined && { imp_iva: rest.imp_iva }),
-      ...(rest.imp_trib !== undefined && { imp_trib: rest.imp_trib }),
-      ...(rest.imp_no_gravado !== undefined && {
-        imp_no_gravado: rest.imp_no_gravado,
-      }),
-      ...(rest.imp_op_exentas !== undefined && {
-        imp_op_exentas: rest.imp_op_exentas,
-      }),
-      ...(rest.imp_perc_iva !== undefined && {
-        imp_perc_iva: rest.imp_perc_iva,
-      }),
-      ...(rest.imp_perc_nacionales !== undefined && {
-        imp_perc_nacionales: rest.imp_perc_nacionales,
-      }),
-      ...(rest.imp_perc_iibb !== undefined && {
-        imp_perc_iibb: rest.imp_perc_iibb,
-      }),
-      ...(rest.imp_perc_municipales !== undefined && {
-        imp_perc_municipales: rest.imp_perc_municipales,
-      }),
-      ...(rest.imp_impuestos_internos !== undefined && {
-        imp_impuestos_internos: rest.imp_impuestos_internos,
-      }),
-      ...(rest.imp_total !== undefined && { imp_total: rest.imp_total }),
-      ...(rest.moneda !== undefined && { moneda: rest.moneda }),
-      ...(rest.cotizacion !== undefined && { cotizacion: rest.cotizacion }),
-      ...(rest.cae_proveedor !== undefined && {
-        cae_proveedor: rest.cae_proveedor ?? null,
-      }),
-      ...(rest.cae_vto_proveedor !== undefined && {
-        cae_vto_proveedor: rest.cae_vto_proveedor ?? null,
-      }),
-      ...(rest.invoice_origin_id !== undefined && {
-        invoice_origin_id: rest.invoice_origin_id ?? null,
-      }),
-      ...(rest.motivo_nc_nd !== undefined && {
-        motivo_nc_nd: rest.motivo_nc_nd ?? null,
-      }),
-      ...(rest.notes !== undefined && { notes: rest.notes ?? null }),
-    })
-    .eq("id", id);
+  // Header and items in one transaction: a refused item saves nothing. Items
+  // are optional: an array (even empty) replaces them, undefined keeps them.
+  const { data: updatedId, error } = await supabase.rpc(
+    "update_purchase_invoice",
+    {
+      p_id: id,
+      p_items: rest.items !== undefined ? itemsParam(rest.items) : undefined,
+      p_patch: {
+        ...(rest.channel_id !== undefined && { channel_id: rest.channel_id }),
+        ...(rest.account_id !== undefined && {
+          account_id: rest.account_id ?? null,
+        }),
+        ...(rest.cost_center_id !== undefined && {
+          cost_center_id: rest.cost_center_id ?? null,
+        }),
+        ...(rest.charged_employee_id !== undefined && {
+          charged_employee_id: rest.charged_employee_id ?? null,
+        }),
+        ...(rest.supplier_id !== undefined && {
+          supplier_id: rest.supplier_id,
+        }),
+        ...(rest.kind !== undefined && { kind: rest.kind }),
+        ...(rest.letter !== undefined && { letter: rest.letter ?? null }),
+        ...(rest.punto_venta !== undefined && {
+          punto_venta: rest.punto_venta,
+        }),
+        ...(rest.numero !== undefined && { numero: rest.numero }),
+        ...(rest.fecha !== undefined && { fecha: rest.fecha }),
+        ...(rest.fch_vto_pago !== undefined && {
+          fch_vto_pago: rest.fch_vto_pago ?? null,
+        }),
+        ...(rest.imp_neto !== undefined && { imp_neto: rest.imp_neto }),
+        ...(rest.imp_iva !== undefined && { imp_iva: rest.imp_iva }),
+        ...(rest.imp_trib !== undefined && { imp_trib: rest.imp_trib }),
+        ...(rest.imp_no_gravado !== undefined && {
+          imp_no_gravado: rest.imp_no_gravado,
+        }),
+        ...(rest.imp_op_exentas !== undefined && {
+          imp_op_exentas: rest.imp_op_exentas,
+        }),
+        ...(rest.imp_perc_iva !== undefined && {
+          imp_perc_iva: rest.imp_perc_iva,
+        }),
+        ...(rest.imp_perc_nacionales !== undefined && {
+          imp_perc_nacionales: rest.imp_perc_nacionales,
+        }),
+        ...(rest.imp_perc_iibb !== undefined && {
+          imp_perc_iibb: rest.imp_perc_iibb,
+        }),
+        ...(rest.imp_perc_municipales !== undefined && {
+          imp_perc_municipales: rest.imp_perc_municipales,
+        }),
+        ...(rest.imp_impuestos_internos !== undefined && {
+          imp_impuestos_internos: rest.imp_impuestos_internos,
+        }),
+        ...(rest.imp_total !== undefined && { imp_total: rest.imp_total }),
+        ...(rest.moneda !== undefined && { moneda: rest.moneda }),
+        ...(rest.cotizacion !== undefined && { cotizacion: rest.cotizacion }),
+        ...(rest.cae_proveedor !== undefined && {
+          cae_proveedor: rest.cae_proveedor ?? null,
+        }),
+        ...(rest.cae_vto_proveedor !== undefined && {
+          cae_vto_proveedor: rest.cae_vto_proveedor ?? null,
+        }),
+        ...(rest.invoice_origin_id !== undefined && {
+          invoice_origin_id: rest.invoice_origin_id ?? null,
+        }),
+        ...(rest.motivo_nc_nd !== undefined && {
+          motivo_nc_nd: rest.motivo_nc_nd ?? null,
+        }),
+        ...(rest.notes !== undefined && { notes: rest.notes ?? null }),
+      },
+    },
+  );
 
   if (error) {
     if (error.code === PG_UNIQUE_VIOLATION) {
@@ -820,41 +792,7 @@ export async function updatePurchaseInvoiceAction(
     return { ok: false, error: "No se pudo actualizar la factura." };
   }
 
-  // Items are optional on update. If the caller passes an array (even an
-  // empty one), we replace them. If it passes undefined, we don't touch the items.
-  if (rest.items !== undefined) {
-    const itemsError = await applyItems(supabase, id, rest.items);
-    if (itemsError) {
-      const guardError = mapDbGuardError(itemsError, {
-        slug: "purchase_invoices.items.update.rejected",
-        userId: ctx.userId,
-        id,
-      });
-      if (!guardError) {
-        logger.error("purchase_invoices.items.update.failed", {
-          userId: ctx.userId,
-          id,
-          error: itemsError,
-        });
-      }
-      // The header is already saved: audit it and say so.
-      await logAudit(
-        "purchase_invoice.updated",
-        ctx.userId,
-        {
-          fields: Object.keys(rest).filter((f) => f !== "items") as JsonValue[],
-          items_saved: false,
-        },
-        id,
-      );
-      return {
-        ok: false,
-        error: guardError
-          ? `Se guardó la factura, pero no los ítems: ${guardError}`
-          : "Factura actualizada pero no se pudieron guardar los ítems.",
-      };
-    }
-  }
+  if (!updatedId) return { ok: false, error: "La factura no existe." };
 
   await logAudit(
     "purchase_invoice.updated",

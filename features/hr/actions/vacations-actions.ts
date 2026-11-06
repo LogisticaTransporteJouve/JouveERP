@@ -6,10 +6,10 @@ import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { todayInAR } from "@/lib/format";
+import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { logger } from "@/lib/logger";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
-import { applyVacationOpening } from "../lib/vacation-opening";
 import { currentVacationPeriodYear } from "../lib/vacation-periods";
 
 import {
@@ -54,7 +54,10 @@ export async function listEmployeeLeavesAction(
     .eq("employee_id", employeeId)
     .order("start_date", { ascending: false });
 
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    logger.error("leaves.list.failed", { userId: ctx.userId, error });
+    return { ok: false, error: "No se pudieron cargar las licencias." };
+  }
   return {
     ok: true,
     data: (data ?? [])
@@ -90,12 +93,29 @@ export async function deleteLeaveAction(input: unknown): Promise<ActionResult> {
   if (!parsed.success) return { ok: false, error: "ID inválido." };
 
   const supabase = await createSupabaseClient();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("employee_leaves")
     .delete()
-    .eq("id", parsed.data.id);
+    .eq("id", parsed.data.id)
+    .select("id");
 
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    const guardError = mapDbGuardError(error, {
+      slug: "leaves.delete.rejected",
+      userId: ctx.userId,
+      id: parsed.data.id,
+    });
+    if (guardError) return { ok: false, error: guardError };
+    logger.error("leaves.delete.failed", {
+      userId: ctx.userId,
+      id: parsed.data.id,
+      error,
+    });
+    return { ok: false, error: "No se pudo borrar la licencia." };
+  }
+  if (!data || data.length === 0) {
+    return { ok: false, error: "La licencia no existe o ya se borró." };
+  }
   await logAudit("leave.deleted", ctx.userId, {}, parsed.data.id);
   return { ok: true, data: undefined };
 }
@@ -130,7 +150,13 @@ export async function listVacationBalancesAction(
     .eq("employee_id", employeeId)
     .order("period_year", { ascending: false });
 
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    logger.error("balances.list.failed", { userId: ctx.userId, error });
+    return {
+      ok: false,
+      error: "No se pudieron cargar los saldos de vacaciones.",
+    };
+  }
   return {
     ok: true,
     data: (data ?? [])
@@ -165,33 +191,43 @@ export async function setVacationOpeningAction(
     };
   }
 
+  // Both periods in one transaction: a refused one leaves neither written.
   const supabase = await createSupabaseClient();
-  const result = await applyVacationOpening(supabase, {
-    employeeId: parsed.data.employee_id,
-    currentDays: parsed.data.current_days,
-    previousDays: parsed.data.previous_days,
-    today: todayInAR(),
-    userId: ctx.userId,
-  });
-  if (!result.ok) {
-    logger.warn("vacations.opening.failed", {
+  const { data: periodYear, error } = await supabase.rpc(
+    "set_vacation_opening",
+    {
+      p_employee_id: parsed.data.employee_id,
+      p_current_days: parsed.data.current_days ?? undefined,
+      p_previous_days: parsed.data.previous_days ?? undefined,
+      p_today: todayInAR(),
+    },
+  );
+  if (error || periodYear === null) {
+    const guardError = mapDbGuardError(error, {
+      slug: "vacations.opening.rejected",
+      userId: ctx.userId,
+      id: parsed.data.employee_id,
+    });
+    if (guardError) return { ok: false, error: guardError };
+    logger.error("vacations.opening.failed", {
       userId: ctx.userId,
       employeeId: parsed.data.employee_id,
+      error,
     });
-    return { ok: false, error: result.error };
+    return { ok: false, error: "No se pudo guardar el saldo de vacaciones." };
   }
 
   await logAudit(
     "employee.vacation_balance_set",
     ctx.userId,
     {
-      period_year: result.periodYear,
+      period_year: periodYear,
       current_days: parsed.data.current_days,
       previous_days: parsed.data.previous_days,
     },
     parsed.data.employee_id,
   );
-  return { ok: true, data: { period_year: result.periodYear } };
+  return { ok: true, data: { period_year: periodYear } };
 }
 
 /** Personal → Vacaciones: one row per active employee for the period in

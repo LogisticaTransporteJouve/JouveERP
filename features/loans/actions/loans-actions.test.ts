@@ -140,13 +140,34 @@ describe("createLoanAction", () => {
 });
 
 describe("cancelLoanAction", () => {
-  function failingUpdate(error: { message: string; hint?: string }) {
+  function updateReturning(result: {
+    data: Array<{ id: string }> | null;
+    error: { message: string; hint?: string } | null;
+  }) {
     clientOverride = {
       from: () => ({
-        update: () => ({ eq: async () => ({ error }) }),
+        update: () => ({
+          eq: () => ({
+            neq: () => ({ select: async () => result }),
+          }),
+        }),
       }),
     };
   }
+  function failingUpdate(error: { message: string; hint?: string }) {
+    updateReturning({ data: null, error });
+  }
+
+  it("refuses, without auditing, a loan already cancelled or missing", async () => {
+    updateReturning({ data: [], error: null });
+    const res = await cancelLoanAction({
+      id: "00000000-0000-4000-8000-000000000001",
+    });
+    expect(res).toEqual({
+      ok: false,
+      error: "El préstamo ya estaba anulado o no existe. Recargá la página.",
+    });
+  });
 
   it("shows the guard's message when the loan has money recorded", async () => {
     const message =
@@ -186,6 +207,48 @@ describe("updateInstallmentAction", () => {
       notes: "x",
     });
     expect(res).toEqual({ ok: false, error: "No se pudo leer la cuota." });
+  });
+
+  it("does not overwrite a cuota paid since it was read", async () => {
+    const filters: Array<[string, unknown]> = [];
+    const write = {
+      eq: (col: string, v: unknown) => {
+        filters.push([col, v]);
+        return write;
+      },
+      is: (col: string, v: unknown) => {
+        filters.push([col, v]);
+        return write;
+      },
+      // The cuota was paid between the read and the write: no row matches.
+      select: async () => ({ data: [], error: null }),
+    };
+    clientOverride = {
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            maybeSingle: async () => ({
+              data: { status: "pendiente", capital_amount: null },
+              error: null,
+            }),
+          }),
+        }),
+        update: () => write,
+      }),
+    };
+    const res = await updateInstallmentAction({
+      id: "00000000-0000-4000-8000-000000000001",
+      amount: 50,
+    });
+    expect(res).toEqual({
+      ok: false,
+      error: "La cuota cambió mientras la editabas. Recargá la página.",
+    });
+    expect(filters).toEqual([
+      ["id", "00000000-0000-4000-8000-000000000001"],
+      ["status", "pendiente"],
+      ["capital_amount", null],
+    ]);
   });
 });
 

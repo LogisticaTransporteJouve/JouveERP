@@ -1,12 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const warn = vi.fn();
+const error = vi.fn();
 vi.mock("@/lib/logger", () => ({
-  logger: { warn: (...args: unknown[]) => warn(...args), error: vi.fn() },
+  logger: {
+    warn: (...args: unknown[]) => warn(...args),
+    error: (...args: unknown[]) => error(...args),
+  },
 }));
 
 import { latestDefinition } from "./testing/migration-sql";
-import { mapDbGuardError } from "./guard-errors";
+import { dbErrorMessage, mapDbGuardError } from "./guard-errors";
 import { PG_CHECK_VIOLATION, PG_OBJECT_IN_USE } from "./pg-error-codes";
 
 const ctx = { slug: "receipts.update.rejected", userId: "u-1", id: "r-1" };
@@ -46,6 +50,41 @@ describe("mapDbGuardError", () => {
 
   it("returns null without an error", () => {
     expect(mapDbGuardError(null, ctx)).toBeNull();
+  });
+});
+
+describe("dbErrorMessage", () => {
+  beforeEach(() => {
+    warn.mockClear();
+    error.mockClear();
+  });
+
+  it("shows a guard's message", () => {
+    const message = "Período cerrado: no se pueden modificar entries";
+    expect(
+      dbErrorMessage(
+        { message, code: PG_CHECK_VIOLATION, hint: "jouve_guard" },
+        ctx,
+        "No se pudo guardar.",
+      ),
+    ).toBe(message);
+    expect(error).not.toHaveBeenCalled();
+  });
+
+  it("logs any other error and shows the fallback instead of its text", () => {
+    const raw = {
+      message: "payment_lines sum (10) does not match total_amount (12)",
+      code: "P0001",
+      hint: null,
+    };
+    expect(dbErrorMessage(raw, ctx, "No se pudo guardar.")).toBe(
+      "No se pudo guardar.",
+    );
+    expect(error).toHaveBeenCalledWith("receipts.update.rejected", {
+      userId: "u-1",
+      id: "r-1",
+      error: raw,
+    });
   });
 });
 

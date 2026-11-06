@@ -6,7 +6,6 @@ import { logAudit } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { logger } from "@/lib/logger";
-import { captureException } from "@/lib/observability";
 import { getServiceClient } from "@/lib/supabase/service";
 
 import { canManageClosedPeriods } from "../lib/period-close";
@@ -110,12 +109,13 @@ export async function reopenAccountingPeriodAction(
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Inválido." };
   }
-  const supabase = getServiceClient();
-  const { data: reopened, error } = await supabase
-    .from("accounting_closed_periods")
-    .delete()
-    .eq("period", parsed.data)
-    .select("period");
+  // One transaction: the period reopens and the comprobantes AFIP authorized
+  // while it was closed get their entry, or neither happens and reopening
+  // again retries. An entry that fails on its own stays pending.
+  const { data: repost, error } = await getServiceClient().rpc(
+    "reopen_accounting_period",
+    { p_period: parsed.data },
+  );
   if (error) {
     logger.error("period.reopen.failed", {
       userId: ctx.userId,
@@ -124,25 +124,10 @@ export async function reopenAccountingPeriodAction(
     });
     return { ok: false, error: "No se pudo reabrir el período." };
   }
-  if (reopened.length === 0) {
+  if (repost === null) {
     return { ok: false, error: "El período no estaba cerrado." };
   }
-  // Comprobantes AFIP authorized while the period was closed get their entry
-  // now. The period is reopened either way; what fails stays pending.
-  let posted = 0;
-  const { data: repost, error: repostError } = await supabase.rpc(
-    "post_pending_journals",
-    { p_period: parsed.data },
-  );
-  if (repostError) {
-    captureException(repostError, {
-      op: "period.reopen.repost_failed",
-      userId: ctx.userId,
-      period: parsed.data,
-    });
-  } else {
-    posted = postedCount(repost);
-  }
+  const posted = postedCount(repost);
   await logAudit("accounting_period.reopened", ctx.userId, {
     period: parsed.data,
     posted_entries: posted,

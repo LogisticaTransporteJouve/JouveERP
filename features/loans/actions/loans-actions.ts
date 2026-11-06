@@ -401,7 +401,9 @@ export async function updateInstallmentAction(
             other_charges_amount: split.other,
           };
 
-  const { error } = await supabase
+  // Guarded on what was read: a cuota paid meanwhile, or split meanwhile
+  // while this edit changes its amount, is not overwritten.
+  let update = supabase
     .from("loan_installments")
     .update({
       ...(rest.amount !== undefined && { amount: rest.amount }),
@@ -409,7 +411,12 @@ export async function updateInstallmentAction(
       ...(rest.notes !== undefined && { notes: rest.notes }),
       ...splitColumns,
     })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("status", inst.status);
+  if (split === undefined && rest.amount !== undefined) {
+    update = update.is("capital_amount", null);
+  }
+  const { data: updated, error } = await update.select("id");
   if (error) {
     const guardError = mapDbGuardError(error, {
       slug: "loans.installment.update.rejected",
@@ -423,6 +430,12 @@ export async function updateInstallmentAction(
       error,
     });
     return { ok: false, error: "No se pudo actualizar la cuota." };
+  }
+  if (!updated || updated.length === 0) {
+    return {
+      ok: false,
+      error: "La cuota cambió mientras la editabas. Recargá la página.",
+    };
   }
   if (split !== undefined) {
     await logAudit(
@@ -590,10 +603,12 @@ export async function cancelLoanAction(input: unknown): Promise<ActionResult> {
     return { ok: false, error: "Datos inválidos." };
   }
   const supabase = await createSupabaseClient();
-  const { error } = await supabase
+  const { data: cancelled, error } = await supabase
     .from("loans")
     .update({ status: "cancelled" })
-    .eq("id", parsed.data.id);
+    .eq("id", parsed.data.id)
+    .neq("status", "cancelled")
+    .select("id");
   if (error) {
     const guardError = mapDbGuardError(error, {
       slug: "loans.cancel.rejected",
@@ -603,6 +618,12 @@ export async function cancelLoanAction(input: unknown): Promise<ActionResult> {
     if (guardError) return { ok: false, error: guardError };
     logger.error("loans.cancel.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo anular el préstamo." };
+  }
+  if (!cancelled || cancelled.length === 0) {
+    return {
+      ok: false,
+      error: "El préstamo ya estaba anulado o no existe. Recargá la página.",
+    };
   }
   await logAudit("loan.cancelled", ctx.userId, {}, parsed.data.id);
   return { ok: true, data: undefined };

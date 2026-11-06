@@ -205,22 +205,12 @@ export const hrPage: GuidePage = {
               fix: "Los días de vacaciones van de 0 a 365.",
             },
             {
-              message:
-                "El empleado se creó, pero no su ficha de chofer: … Guardalo de nuevo desde su ficha.",
-              fix: "El empleado ya existe: abrí su ficha, hacé clic en {{Editar}}, completá los {{Datos de chofer}} y hacé clic en {{Guardar cambios}} para crear la ficha de chofer.",
-            },
-            {
-              message:
-                "El empleado se creó, pero no se pudieron guardar las vacaciones: … Cargalas desde su ficha.",
-              fix: "El empleado ya existe: cargá los días con [[#cargar-saldo-vacaciones]].",
-            },
-            {
               message: "No tenés permiso para crear empleados.",
               fix: "Pedile el alta a alguien con permiso de escritura en Personal (ver [[#roles-y-permisos]]).",
             },
             {
               message: "No se pudo crear el empleado.",
-              fix: "Probá de nuevo; si sigue fallando, avisá al administrador.",
+              fix: "No se guardó nada (ni el empleado, ni su ficha de chofer, ni las vacaciones): probá de nuevo; si sigue fallando, avisá al administrador.",
             },
           ],
           related: ["editar-empleado", "cargar-saldo-vacaciones"],
@@ -246,10 +236,6 @@ export const hrPage: GuidePage = {
             "Pasar a la posición {{Chofer / Acompañante}} crea o reactiva su ficha de chofer; pasar de chofer a otra posición la desactiva (los viajes conservan su historia).",
           ],
           errors: [
-            {
-              message: "Se guardó el empleado, pero no su ficha de chofer: …",
-              fix: "Los datos del empleado quedaron guardados: volvé a guardar para actualizar la ficha de chofer.",
-            },
             {
               message: "No tenés permiso para editar empleados.",
               fix: "Pedile el cambio a alguien con permiso de escritura en Personal.",
@@ -1149,8 +1135,8 @@ export const hrPage: GuidePage = {
               fix: "Pedíselo a alguien con permiso de escritura en Personal.",
             },
             {
-              message: "No se pudo cargar el SAC proporcional.",
-              fix: "Los demás montos quedaron cargados: volvé a hacer clic en {{Cargar en la planilla}}.",
+              message: "No se pudo cargar la liquidación final.",
+              fix: "No se cargó ningún monto: volvé a hacer clic en {{Cargar en la planilla}}.",
             },
           ],
           related: ["dar-de-baja-empleado", "editar-planilla"],
@@ -2214,13 +2200,18 @@ export const hrPage: GuidePage = {
             "Hacé clic en {{Registrar}} (o {{Guardar}} si la celda ya tenía una excepción).",
           ],
           after: [
-            "La celda muestra el código del tipo. Un día tiene una sola marca: guardar sobre una existente la reemplaza.",
+            "La celda muestra el código del tipo. Un día tiene una sola marca: guardar sobre una cargada a mano la reemplaza; un día que viene de una licencia o un feriado no se reemplaza desde acá.",
             "Las ausencias injustificadas cuentan como días no trabajados para calcular las vacaciones (ver [[#vacaciones]]).",
           ],
           errors: [
             {
               message: "Sin permiso.",
               fix: "Pedíselo a alguien con permiso de escritura en Personal.",
+            },
+            {
+              message:
+                "Ese día lo carga una licencia o un feriado: cambialo desde su origen, no desde la asistencia.",
+              fix: "Cambiá o borrá la licencia ([[#borrar-licencia]]) y después cargá la excepción.",
             },
           ],
           related: ["borrar-excepcion-asistencia", "registrar-licencia"],
@@ -2248,6 +2239,11 @@ export const hrPage: GuidePage = {
             {
               message: "Sin permiso.",
               fix: "Pedíselo a alguien con permiso de escritura en Personal.",
+            },
+            {
+              message:
+                "No se borró: el día ya no está o lo carga una licencia o un feriado.",
+              fix: "Recargá la página: si el día viene de una licencia, borrala desde la licencia ([[#borrar-licencia]]).",
             },
           ],
           related: ["registrar-excepcion-asistencia", "borrar-licencia"],
