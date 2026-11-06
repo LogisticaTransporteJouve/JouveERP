@@ -109,6 +109,14 @@
 }
 
 @layer base {
+  /* Notebook screens (a 14"–16" laptop shows ~1280–1536 CSS px wide, more so
+   * with Windows at 125%) get the whole UI at 87.5%: every rem-based size
+   * scales with the root font size. Phones and wide monitors stay at 100%. */
+  @media (min-width: 768px) and (max-width: 1599.98px) {
+    html {
+      font-size: 87.5%;
+    }
+  }
   * {
     @apply border-border outline-ring/50;
   }
