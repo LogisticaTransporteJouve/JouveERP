@@ -966,6 +966,59 @@ INVOKER`, revocada de `public` y `anon`, ejecutable por `authenticated` y
     sin default) con índice único. Todas las filas quedan en NULL; un NULL
     nunca choca. Rollback: el código anterior no escribe la columna.
 
+- [ ] **Aprobar `20261106105000`** (#454, saldos de apertura en la antigüedad).
+      Solo `create or replace view public.v_aging_documents`: la vista de
+      `20261105231000` con el filtro de `20261105230100` de vuelta (las NC en
+      pesos sin origen hasta la fecha del saldo inicial no se reparten). Mismas
+      columnas; no toca filas. Rollback: el código anterior lee las mismas
+      columnas (vuelve a repartir esas NC, como hoy en producción).
+
+- [ ] **Aprobar `20261106111000` a `20261106111004`** (#452, escrituras
+      atómicas). Funciones nuevas o reemplazadas, sin tocar filas ni políticas:
+  - `111000` `change_shipment_status`: valida la transición (las del menú) y
+    escribe el historial en una transacción. Desde este código la base rechaza
+    una transición que el menú no ofrece.
+  - `111001` `increase_storage_tariffs`: cierra las tarifas viejas y crea las
+    nuevas juntas; repetir la misma fecha no aumenta dos veces.
+  - `111002` `set_task_assignees`, `create_task`, `create_recurring_task`,
+    `update_recurring_task`: asignados en una transacción (solo
+    `service_role`).
+  - `111003` revisión de propuestas del chat de IA en una transacción.
+  - `111004` mensaje de chat con sus menciones en una transacción.
+  - Rollback: el código anterior escribe paso a paso y no las llama.
+
+- [ ] **Aprobar `20261106112000` a `20261106112002`** (#456).
+  - `112000` `create_purchase_invoice` / `update_purchase_invoice`
+    (`SECURITY INVOKER`): cabecera e ítems en una transacción.
+  - `112001` `apply_final_settlement`, `set_vacation_opening`,
+    `create_employee`, `update_employee`, `terminate_employee`
+    (`SECURITY DEFINER`, validan `hr:write` adentro) y el trigger
+    `attendance_records_synced_row_guard`: **desde que se aplica, la base
+    rechaza editar a mano un día de asistencia que viene de una licencia o un
+    feriado** (la grilla ya lo mostraba de solo lectura).
+  - `112002` `reopen_accounting_period` (solo `service_role`): reabre y asienta
+    todos los pendientes en una transacción.
+  - Rollback: el código anterior no llama las funciones; el trigger de
+    asistencia queda y rechaza también a ese código si edita un día
+    sincronizado (lo esperado).
+
+- [ ] **Aprobar `20261106122854`** (un punto de venta por canal; decisión del
+      owner: el 1 en interno, el 3 en fiscal). Borra el POS 9001 (en
+      producción no numeró nada; si algo lo usara, solo lo deshabilita) y crea
+      el índice único parcial `sales_points_one_enabled_per_channel`. **Falla
+      si un canal tiene más de un POS habilitado**: corré antes, solo lectura
+      (lo esperado: ninguna fila):
+
+  ```sql
+  select channel_id, array_agg(numero order by numero) as habilitados
+    from public.sales_points
+   where is_enabled and channel_id is not null
+   group by channel_id
+  having count(*) > 1;
+  ```
+
+  Rollback: el código anterior ya aplicaba la misma regla antes de escribir.
+
 ## Aplicadas en el promote de `d71de85` (2026-11-05)
 
 Promovidas con el workflow completo (migraciones, sync de Inngest, deploy y
