@@ -43,7 +43,7 @@
 
 <ol class="steps"><li>En <a class="ref" href="flota.html#flota-choferes">Flota › Choferes</a>, en la fila del chofer, abrí el menú ⋯ y elegí <span class="ui" data-ui="Editar">Editar</span>.</li><li>Cambiá los datos. En un chofer propio, <span class="ui" data-ui="Nombre completo">Nombre completo</span> y <span class="ui" data-ui="CUIT">CUIT</span> no se pueden editar: se cambian en su legajo de <a class="ref" href="personal.html#empleados">Personal › Empleados</a>.</li><li>Hacé clic en <span class="ui" data-ui="Guardar">Guardar</span> (se habilita cuando cambiaste algo).</li></ol>
 <div class="block after"><h4>Qué pasa después</h4><ul><li>Los cambios se ven en los viajes, cargas y rendiciones del chofer.</li></ul></div>
-<div class="block errors"><h4>Si aparece un error</h4><dl><dt>“No tenés permiso para editar choferes.”</dt><dd>Pedíselo a alguien con el rol Operaciones, Admin u Owner.</dd><dt>“No se pudo actualizar el chofer.”</dt><dd>Volvé a intentar.</dd></dl></div>
+<div class="block errors"><h4>Si aparece un error</h4><dl><dt>“No tenés permiso para editar choferes.”</dt><dd>Pedíselo a alguien con el rol Operaciones, Admin u Owner.</dd><dt>“No se pudo actualizar el chofer.”</dt><dd>Volvé a intentar.</dd><dt>“El chofer cambió mientras lo editabas. Actualizá la página.”</dt><dd>Otra persona lo vinculó o desvinculó de un empleado: recargá y volvé a editarlo.</dd></dl></div>
 <p class="related">Relacionado: <a class="ref" href="flota.html#crear-chofer-contratado">Dar de alta un chofer contratado</a> · <a class="ref" href="flota.html#activar-desactivar-chofer">Desactivar o reactivar un chofer</a></p>
 </article>
 <article class="task" id="activar-desactivar-chofer">
@@ -51,7 +51,7 @@
 <p>Desactivar es la forma de dar de baja un chofer que ya tiene viajes o documentos.</p>
 <dl class="meta"><dt>Quién puede</dt><dd>Owner, Admin, Operaciones <span class="muted">(permiso <code class="perm">drivers:write</code>)</span></dd></dl>
 
-<ol class="steps"><li>En <a class="ref" href="flota.html#flota-choferes">Flota › Choferes</a>, en la fila del chofer, usá el interruptor <span class="ui" data-ui="Activo">Activo</span>.</li></ol>
+<ol class="steps"><li>En <a class="ref" href="flota.html#flota-choferes">Flota › Choferes</a>, en la fila del chofer, usá el interruptor <span class="ui" data-ui="Activo">Activo</span>. Solo en los contratados: el de un chofer propio queda deshabilitado, porque sigue a su legajo (se desactiva solo cuando el empleado deja la posición o se da de baja).</li></ol>
 <div class="block after"><h4>Qué pasa después</h4><ul><li>Un chofer inactivo deja de ofrecerse en viajes y documentos nuevos y sus documentos ya no generan tareas de vencimiento; su historia queda intacta.</li></ul></div>
 <div class="block errors"><h4>Si aparece un error</h4><dl><dt>“No se pudo cambiar el estado.”</dt><dd>Volvé a intentar.</dd></dl></div>
 <p class="related">Relacionado: <a class="ref" href="flota.html#borrar-chofer">Borrar un chofer</a></p>
@@ -72,7 +72,7 @@
 
 <dl class="meta"><dt>Quién puede</dt><dd>Owner, Admin, Operaciones <span class="muted">(permiso <code class="perm">drivers:write</code>)</span></dd></dl>
 
-<ol class="steps"><li>En <a class="ref" href="flota.html#flota-choferes">Flota › Choferes</a>, en la fila del chofer, abrí el menú ⋯ y elegí <span class="ui" data-ui="Borrar">Borrar</span>.</li><li>Confirmá con <span class="ui" data-ui="Borrar">Borrar</span>.</li></ol>
+<ol class="steps"><li>En <a class="ref" href="flota.html#flota-choferes">Flota › Choferes</a>, en la fila del chofer, abrí el menú ⋯ y elegí <span class="ui" data-ui="Borrar">Borrar</span> (solo en los contratados: un chofer propio se da de baja desde su legajo).</li><li>Confirmá con <span class="ui" data-ui="Borrar">Borrar</span>.</li></ol>
 <div class="block after"><h4>Qué pasa después</h4><ul><li>Se borra el chofer. Solo se puede borrar uno sin viajes, rendiciones ni documentos: si tiene alguno, el borrado falla y hay que desactivarlo.</li></ul></div>
 <div class="block errors"><h4>Si aparece un error</h4><dl><dt>“El chofer tiene viajes, documentos o rendiciones. Desactivalo en lugar de borrarlo.”</dt><dd>Usá el interruptor <span class="ui" data-ui="Activo">Activo</span> (<a class="ref" href="flota.html#activar-desactivar-chofer">Desactivar o reactivar un chofer</a>).</dd><dt>“No tenés permiso para borrar choferes.”</dt><dd>Pedíselo a alguien con el rol Operaciones, Admin u Owner.</dd></dl></div>
 <p class="related">Relacionado: <a class="ref" href="flota.html#activar-desactivar-chofer">Desactivar o reactivar un chofer</a></p>

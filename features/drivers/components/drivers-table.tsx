@@ -126,7 +126,13 @@ export function DriversTable({
         cell: ({ row }) => (
           <Switch
             checked={row.original.is_active}
-            disabled={!canWrite}
+            // An own driver's state follows its employee (legajo).
+            disabled={!canWrite || row.original.employee_id !== null}
+            title={
+              row.original.employee_id
+                ? "Chofer propio: se activa o desactiva desde su legajo."
+                : undefined
+            }
             onCheckedChange={(v) =>
               toggleMut.mutate(
                 { id: row.original.id, is_active: v },
@@ -170,7 +176,7 @@ export function DriversTable({
                       : "Vincular usuario"}
                   </DropdownMenuItem>
                 )}
-                {canWrite && (
+                {canWrite && row.original.employee_id === null && (
                   <DropdownMenuItem
                     className="text-destructive"
                     onClick={() => handleDelete(row.original)}
