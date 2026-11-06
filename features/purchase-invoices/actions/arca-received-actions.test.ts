@@ -271,15 +271,29 @@ describe("a voucher whose amounts did not read", () => {
     expect(createPurchase).not.toHaveBeenCalled();
   });
 
-  it("refuses a type the tray does not load", async () => {
-    voucherRow = unreadable();
-    voucherRow = { ...voucherRow, kind: null, letter: null, cbte_tipo: 201 };
+  it("loads a type the tray does not map with the kind and letter the person picks", async () => {
+    voucherRow = {
+      ...unreadable(),
+      status: "unsupported",
+      unreadable_reason: null,
+      kind: null,
+      letter: null,
+      cbte_tipo: 201,
+    };
+    updateValues.length = 0;
     const res = await createPurchaseInvoiceFromReceivedAction({
       voucherId: VOUCHER_ID,
       invoice,
     });
-    expect(res.ok).toBe(false);
-    expect(createPurchase).not.toHaveBeenCalled();
+    expect(res.ok).toBe(true);
+    expect(createPurchase).toHaveBeenCalled();
+    expect(updateValues).toContainEqual(
+      expect.objectContaining({
+        status: "confirmed",
+        kind: invoice.kind,
+        letter: invoice.letter,
+      }),
+    );
   });
 
   it("discards it, and restoring it sends it back to «No se pudieron leer»", async () => {

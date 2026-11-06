@@ -58,7 +58,7 @@ const EMPTY: Record<ReceivedVoucherStatus, string> = {
     "No hay comprobantes pendientes. Subí el archivo de Mis Comprobantes → Recibidos.",
   confirmed: "Todavía no se cargó ningún comprobante desde ARCA.",
   discarded: "No hay comprobantes descartados.",
-  unsupported: "No hay comprobantes de tipos que no se cargan desde acá.",
+  unsupported: "No hay comprobantes de tipos que no se cargan solos.",
   unreadable: "No hay comprobantes que no se hayan podido leer.",
 };
 
@@ -93,10 +93,11 @@ function AcceptDialog({
   onClose: () => void;
 }) {
   const submitCreate = useSubmitReceivedVoucher(voucher.id);
-  // ARCA's amounts did not read: the person types them from the invoice.
+  // ARCA's amounts did not read, or its type does not load by itself: the
+  // person types them from the invoice.
   const draft = useMemo<PurchaseInvoiceDraft>(
     () =>
-      voucher.status === "unreadable"
+      voucher.status === "unreadable" || voucher.status === "unsupported"
         ? {
             origin: "document",
             data: unreadableVoucherToDraft(voucher),
@@ -303,6 +304,18 @@ function VoucherTable({ status }: { status: ReceivedVoucherStatus }) {
               </div>
             );
           }
+          if (v.status === "unsupported") {
+            return (
+              <div className="flex justify-end gap-1">
+                {detail}
+                <Button size="sm" onClick={() => setAccepting(v)}>
+                  <PencilLine className="size-4" />
+                  Cargar a mano
+                </Button>
+                {discardButton(v)}
+              </div>
+            );
+          }
           if (v.status === "discarded") {
             return (
               <div className="flex justify-end gap-1">
@@ -349,8 +362,9 @@ function VoucherTable({ status }: { status: ReceivedVoucherStatus }) {
     <div className="space-y-3">
       {status === "unsupported" && (
         <p className="rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">
-          Facturas de crédito MiPyME (FCE) y tipo M: todavía no se cargan desde
-          acá; cargalas a mano.
+          Tipos que todavía no se cargan solos (por ejemplo, facturas de crédito
+          MiPyME): con «Cargar a mano» elegís la clase y la letra y cargás los
+          importes.
         </p>
       )}
       <DataTable

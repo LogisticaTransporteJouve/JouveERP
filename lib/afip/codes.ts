@@ -71,9 +71,10 @@ export function kindLetterForCbteTipo(
 
 /** Received vouchers the ERP loads as one of its kinds and letters while the
  *  purchase keeps the voucher's own AFIP code (purchase_invoices.cbte_tipo_afip)
- *  for the Libro IVA TXT: recibos (4, 9, 15) and liquidaciones (63, 64) as a
- *  factura of their letter, and the M vouchers (51, 52, 53), which discriminate
- *  IVA for the buyer as an A does. */
+ *  for the Libro IVA TXT: recibos (4, 9, 15), liquidaciones (63, 64) and
+ *  public-service liquidaciones (17, 18: electricity, gas…) as a factura of
+ *  their letter, and the M vouchers (51, 52, 53, 54), which discriminate IVA
+ *  for the buyer as an A does. */
 const PURCHASE_OWN_CODE_TIPOS: ReadonlyMap<
   number,
   { kind: InvoiceKind; letter: InvoiceLetter; label: string }
@@ -83,6 +84,23 @@ const PURCHASE_OWN_CODE_TIPOS: ReadonlyMap<
   [15, { kind: "factura", letter: "C", label: "Recibo C" }],
   [63, { kind: "factura", letter: "A", label: "Liquidación A" }],
   [64, { kind: "factura", letter: "B", label: "Liquidación B" }],
+  [
+    17,
+    {
+      kind: "factura",
+      letter: "A",
+      label: "Liquidación de servicios públicos A",
+    },
+  ],
+  [
+    18,
+    {
+      kind: "factura",
+      letter: "B",
+      label: "Liquidación de servicios públicos B",
+    },
+  ],
+  [54, { kind: "factura", letter: "A", label: "Recibo M" }],
   [51, { kind: "factura", letter: "A", label: "Factura M" }],
   [52, { kind: "nd", letter: "A", label: "Nota de débito M" }],
   [53, { kind: "nc", letter: "A", label: "Nota de crédito M" }],
