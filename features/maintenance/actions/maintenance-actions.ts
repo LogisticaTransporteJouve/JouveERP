@@ -14,6 +14,7 @@ import { paginateRange } from "@/lib/supabase/paginate";
 import {
   LINKED_VOUCHER_COST_REQUIRED,
   MaintenanceCreateSchema,
+  MaintenanceDeleteSchema,
   MaintenanceUpdateSchema,
   isMaintenanceKind,
   linkedVoucherWithoutCost,
@@ -153,7 +154,13 @@ export async function updateMaintenanceAction(
 
   const supabase = await createSupabaseClient();
   // The cost and the links may come one without the other (the dialog omits
-  // a link the user cannot see), so the rule is checked on the merged row.
+  // a link the user cannot see), so the rule is checked on the merged row,
+  // and the write is guarded on the values it was checked against.
+  let checked: {
+    cost: number | null;
+    purchase_invoice_id: string | null;
+    transaction_id: string | null;
+  } | null = null;
   if (
     rest.cost !== undefined ||
     rest.purchase_invoice_id !== undefined ||
@@ -188,8 +195,9 @@ export async function updateMaintenanceAction(
     ) {
       return { ok: false, error: LINKED_VOUCHER_COST_REQUIRED };
     }
+    checked = current;
   }
-  const { error } = await supabase
+  let update = supabase
     .from("maintenance_records")
     .update({
       ...(rest.vehicle_id !== undefined && { vehicle_id: rest.vehicle_id }),
@@ -211,6 +219,21 @@ export async function updateMaintenanceAction(
       ...costVoucherPatch(rest),
     })
     .eq("id", id);
+  if (checked) {
+    update =
+      checked.cost === null
+        ? update.is("cost", null)
+        : update.eq("cost", checked.cost);
+    update =
+      checked.purchase_invoice_id === null
+        ? update.is("purchase_invoice_id", null)
+        : update.eq("purchase_invoice_id", checked.purchase_invoice_id);
+    update =
+      checked.transaction_id === null
+        ? update.is("transaction_id", null)
+        : update.eq("transaction_id", checked.transaction_id);
+  }
+  const { data: updated, error } = await update.select("id");
   if (error) {
     logger.error("maintenance.update.failed", {
       userId: ctx.userId,
@@ -218,6 +241,14 @@ export async function updateMaintenanceAction(
       error,
     });
     return { ok: false, error: "No se pudo actualizar el mantenimiento." };
+  }
+  if (!updated || updated.length === 0) {
+    return {
+      ok: false,
+      error: checked
+        ? "El mantenimiento cambió mientras lo editabas. Recargá la página."
+        : "Mantenimiento no encontrado.",
+    };
   }
 
   await logAudit(
@@ -236,15 +267,21 @@ export async function deleteMaintenanceAction(input: {
   if (!userCan(ctx.access, "maintenance:write")) {
     return { ok: false, error: "No tenés permiso para borrar mantenimientos." };
   }
+  const parsed = MaintenanceDeleteSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Datos inválidos." };
   const supabase = await createSupabaseClient();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("maintenance_records")
     .delete()
-    .eq("id", input.id);
+    .eq("id", parsed.data.id)
+    .select("id");
   if (error) {
     logger.error("maintenance.delete.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo borrar el mantenimiento." };
   }
-  await logAudit("maintenance.deleted", ctx.userId, {}, input.id);
+  if (!data || data.length === 0) {
+    return { ok: false, error: "El mantenimiento ya no existe." };
+  }
+  await logAudit("maintenance.deleted", ctx.userId, {}, parsed.data.id);
   return { ok: true, data: undefined };
 }
