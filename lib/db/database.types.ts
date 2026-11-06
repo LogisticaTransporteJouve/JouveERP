@@ -9455,23 +9455,47 @@ export type Database = {
         }
         Returns: string
       }
-      confirm_driver_settlement: {
-        Args: { p_settlement_id: string; p_user_id: string }
-        Returns: string[]
-      }
+      confirm_driver_settlement:
+        | {
+            Args: { p_settlement_id: string; p_user_id: string }
+            Returns: string[]
+          }
+        | {
+            Args: {
+              p_expected_total: number
+              p_received_total: number
+              p_settlement_id: string
+              p_user_id: string
+            }
+            Returns: string[]
+          }
       confirm_freight_settlement: {
         Args: { p_settlement_id: string; p_user_id: string }
         Returns: number
       }
-      confirm_freight_settlement_document: {
-        Args: { p_settlement_id: string; p_user_id: string }
-        Returns: {
-          channel: string
-          numero: number
-          remito_number: number
-          remito_pos: number
-        }[]
-      }
+      confirm_freight_settlement_document:
+        | {
+            Args: { p_settlement_id: string; p_user_id: string }
+            Returns: {
+              channel: string
+              numero: number
+              remito_number: number
+              remito_pos: number
+            }[]
+          }
+        | {
+            Args: {
+              p_expected_total: number
+              p_settlement_id: string
+              p_user_id: string
+            }
+            Returns: {
+              channel: string
+              numero: number
+              remito_number: number
+              remito_pos: number
+            }[]
+          }
       create_ai_confirmation_revision: {
         Args: {
           p_action: string
