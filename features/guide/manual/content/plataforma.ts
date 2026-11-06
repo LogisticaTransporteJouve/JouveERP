@@ -18,6 +18,8 @@ export const platformPage: GuidePage = {
       intro: [
         "El sistema se abre en `/auth/login` y, una vez que entraste, en el dashboard. A la izquierda está la barra lateral con los módulos; arriba, el encabezado con la ruta de la pantalla, el botón **?** de ayuda y la campanita de notificaciones.",
         "Los botones que son solo un ícono muestran su nombre al pasar el mouse (o al llegar con el teclado). Ese es el nombre que usa esta guía: por ejemplo, el engranaje de un punto de venta es {{Configurar}}.",
+        "Un botón deshabilitado explica por qué al pasar el mouse sobre él (o al llegar con el teclado): por ejemplo, en un formulario de edición sin cambios, {{Guardar}} dice «No hay cambios para guardar.». Lo que dice es lo primero que hay que resolver para habilitarlo.",
+        "Los formularios se abren en un cuadro en el centro de la pantalla. Los largos (un viaje, un mantenimiento, una factura de compra) se acomodan en dos columnas en la computadora y en una sola en el celular; si igual hay que bajar, los botones de abajo ({{Cancelar}} y el de guardar) quedan siempre a la vista.",
       ],
       concepts: [
         {
@@ -33,7 +35,7 @@ export const platformPage: GuidePage = {
         {
           title: "El encabezado",
           body: [
-            "Muestra la sección y la pantalla donde estás (en el celular, solo la pantalla). En la computadora, el botón del extremo izquierdo esconde o muestra la barra lateral; en el celular, la barra lateral se abre con {{Más}}, abajo.",
+            "Muestra la sección y la pantalla donde estás (en el celular, solo la pantalla). El nombre de la sección es un link: lleva a la primera pantalla de esa sección que tu usuario puede ver (por ejemplo, {{Ventas}} lleva a {{Comprobantes}}). En la computadora, el botón del extremo izquierdo esconde o muestra la barra lateral; en el celular, la barra lateral se abre con {{Más}}, abajo.",
             "A la derecha, el botón **?** ({{Ayuda de esta pantalla}}) abre la sección de esta guía que explica la pantalla, y la campanita abre tus notificaciones (ver [[#notificaciones]]).",
           ],
         },
@@ -234,6 +236,7 @@ export const platformPage: GuidePage = {
         "Debajo, el bloque {{Hoy y esta semana}}, fijo: {{Vencimientos}} (las tareas abiertas del equipo vencidas o que vencen en los próximos 7 días; un clic abre la tarea), {{Viajes de hoy}} y {{Papeles por vencer}} (documentos de camiones, choferes y empleados vencidos o que vencen en 30 días). Cada recuadro aparece si podés ver su módulo.",
         "Después, las tarjetas (widgets) que cada usuario elige y ordena: {{Indicadores financieros}} ({{Caja ARS}}, {{Caja USD}}, {{Por cobrar}}, {{Por pagar}}), {{Operaciones}} (viajes en curso, cargas pendientes, pallets en depósito), {{Flujo de caja}}, {{Insights IA}}, {{Próximos vencimientos}} (cobros, pagos y documentos de los próximos 14 días) y {{Top deudores}}. Solo aparecen las tarjetas cuyos datos podés ver.",
         "Si no tenés ninguna tarjeta disponible, el dashboard muestra los accesos rápidos y te indica usar el menú lateral.",
+        "El dashboard usa todo el ancho de la pantalla. En {{Vencimientos}}, una fecha de otro año se muestra completa (dd/mm/aaaa).",
       ],
       concepts: [
         {

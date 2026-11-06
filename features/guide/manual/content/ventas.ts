@@ -355,7 +355,8 @@ export const salesPage: GuidePage = {
       permission: "clients:read",
       intro: [
         "Se abre haciendo clic en el nombre del cliente. Arriba muestra el CUIT y la condición de IVA (o «Sin CUIT · interno»). Tiene cuatro pestañas: {{Cuenta corriente}}, {{Datos}}, {{Tarifario}} (solo con el permiso de facturación de almacenaje) y {{Adjuntos}}.",
-        "{{Cuenta corriente}} muestra el saldo del cliente en su lado y sus movimientos, del más nuevo al más viejo: facturas, notas de crédito y débito, remitos internos, recibos, cheques recibidos sin recibo, cheques rechazados y el ajuste de saldo. Columnas: {{Fecha}}, {{Tipo}}, {{Documento}}, {{Debe}}, {{Haber}} y {{Acciones}}. Una factura saldada lleva la marca {{Pagada}}; una cobrada en parte, {{Parcial}} y lo que falta en el {{Debe}}.",
+        "{{Cuenta corriente}} muestra el saldo del cliente en su lado y sus movimientos, del más nuevo al más viejo: facturas, notas de crédito y débito, remitos internos, recibos, cheques recibidos sin recibo, cheques rechazados y el ajuste de saldo. Columnas: {{Fecha}}, {{Tipo}}, {{Documento}}, {{Debe}}, {{Haber}}, {{Saldo}} y {{Acciones}}. Una factura saldada lleva la marca {{Pagada}}; una cobrada en parte, {{Parcial}} y lo que falta en el {{Debe}}.",
+        "{{Saldo}} es el saldo acumulado después de cada movimiento, del lado del cliente (Ventas u Otras ventas) y por moneda. Sin ajuste de saldo, acumula desde el primer movimiento; con un ajuste de saldo en 0, antes del ajuste dice «—», en el ajuste es 0 y desde ahí acumula. Si el ajuste es distinto de 0, la columna no aparece: ese saldo no dice cuánto le toca a cada lado.",
         "El filtro de período achica la lista, pero el saldo de arriba siempre es el de todas las fechas. Si el cliente tiene movimientos en dólares, el saldo se muestra en pesos y en dólares por separado.",
         "Desde la cuenta corriente también se puede emitir un comprobante ({{Nuevo comprobante}} o {{Nuevo remito}}) o un recibo ({{Nuevo recibo}} o {{Nuevo recibo interno}}) con el cliente ya elegido.",
       ],
@@ -383,6 +384,7 @@ export const salesPage: GuidePage = {
               "Documento",
               "Debe",
               "Haber",
+              "Saldo",
               "Acciones",
             ],
             rows: [
@@ -392,6 +394,7 @@ export const salesPage: GuidePage = {
                 "~0001-00000045",
                 "",
                 "~$500.000,00",
+                "~$1.250.000,00",
                 "~👁 📄 ⬇",
               ],
               [
@@ -400,6 +403,7 @@ export const salesPage: GuidePage = {
                 "~A0003-00000123 · Parcial",
                 "~$1.750.000,00",
                 "",
+                "~$1.750.000,00",
                 "~👁 📄 ⬇",
               ],
             ],
@@ -716,7 +720,7 @@ export const salesPage: GuidePage = {
       permission: "invoices:read",
       intro: [
         "Desde {{Ventas}} se llama {{Comprobantes}} y lista facturas, notas de crédito y notas de débito fiscales. Desde {{Otras ventas}} se llama {{Remitos internos}}: no van a AFIP ni llevan IVA.",
-        "Columnas: {{Número}}, {{Cliente}}, {{Fecha}}, {{Total}}, {{Estado}} y {{Acciones}}. Filtros: búsqueda por cliente o número, período ({{Todas las fechas}}, {{Hoy}}, {{Este mes}}, {{Personalizado}}…), tipo ({{Todos los tipos}} o una combinación de {{Factura A}}, {{Factura B}}, {{Nota de Crédito}}, {{Nota de Débito}}) y estado. {{Lista}}, {{Por día}}, {{Por semana}} y {{Por mes}} agrupan las filas con un subtotal por grupo.",
+        "Columnas: {{Número}}, {{Cliente}}, {{Fecha}}, {{Total}}, {{Estado}} y {{Acciones}} (el ojo, {{Ver detalle}}, y el sobre para enviarlo por email; el PDF está en el detalle). Filtros: búsqueda por cliente o número, período ({{Todas las fechas}}, {{Hoy}}, {{Este mes}}, {{Personalizado}}…), tipo ({{Todos los tipos}} o una combinación de {{Factura A}}, {{Factura B}}, {{Nota de Crédito}}, {{Nota de Débito}}) y estado. {{Lista}}, {{Por día}}, {{Por semana}} y {{Por mes}} agrupan las filas con un subtotal por grupo.",
         "La lista se actualiza sola cuando otro usuario emite o cuando AFIP devuelve el CAE.",
       ],
       screens: [
@@ -753,14 +757,14 @@ export const salesPage: GuidePage = {
                 "~04/11/2026",
                 "~$1.210.000,00",
                 "~Emitido",
-                "~👁 📄 ⬇ ✉",
+                "~👁 ✉",
               ],
               [
                 "~NC0003-00000008",
                 "~Pérez Juan",
                 "~03/11/2026",
                 "~$60.500,00",
-                "~Emitiendo",
+                "~Esperando CAE",
                 "~👁",
               ],
             ],
@@ -771,10 +775,10 @@ export const salesPage: GuidePage = {
         {
           title: "Estados de un comprobante",
           body: [
-            "{{Borrador}}: guardado, esperando que el sistema lo procese. {{Emitiendo}}: se está pidiendo el CAE a AFIP (o el número, si es interno). Los dos se resuelven solos en segundos; el detalle se actualiza solo.",
+            "{{Borrador}}: guardado, esperando que el sistema lo procese. {{Esperando CAE}}: se está pidiendo el CAE a AFIP (o el número, si es interno). Los dos se resuelven solos en segundos; el detalle se actualiza solo.",
             "{{Emitido}}: tiene número y CAE (o número interno). Ya tiene PDF, cuenta en la cuenta corriente y el aging, y no se puede modificar.",
             "{{Fallido}}: AFIP lo rechazó o no se pudo emitir. No tiene número ni CAE y no cuenta para nada; el motivo está en {{Observaciones AFIP}} del detalle (ver [[#revisar-comprobante-fallido]]).",
-            "{{Cancelado}}: un remito interno anulado.",
+            "{{Cancelado}}: un remito interno anulado. Solo existe en {{Otras ventas}}: un comprobante fiscal con CAE no se cancela, se anula con una nota de crédito, por eso el filtro de estado de {{Ventas}} no lo ofrece.",
           ],
         },
         {
@@ -881,7 +885,7 @@ export const salesPage: GuidePage = {
             "Hacé clic en {{Guardar}}. Con {{Guardar y cargar otra}} (o Ctrl/⌘ + Enter) se emite y el formulario queda listo para otra factura.",
           ],
           after: [
-            "El aviso dice «Comprobante en cola — esperando CAE.» y se abre el detalle con el estado {{Borrador}} → {{Emitiendo}} → {{Emitido}}. AFIP asigna el número; mientras tanto se muestra el número esperado como «(provisorio, lo confirma AFIP)».",
+            "El aviso dice «Comprobante en cola — esperando CAE.» y se abre el detalle con el estado {{Borrador}} → {{Esperando CAE}} → {{Emitido}}. AFIP asigna el número; mientras tanto se muestra el número esperado como «(provisorio, lo confirma AFIP)».",
             "Con el CAE: el detalle muestra {{CAE}} y {{Vencimiento CAE}}, se habilita el {{PDF}} (con código QR), la factura suma a la cuenta corriente y al aging del cliente y se registra el asiento contable (Deudores por ventas al Debe; Ventas e IVA débito fiscal al Haber). Entra en el Libro IVA Ventas.",
             "Si AFIP la rechaza queda {{Fallido}}: ver [[#revisar-comprobante-fallido]].",
             "Un mismo formulario no emite dos veces aunque hagas doble clic.",
@@ -1066,8 +1070,8 @@ export const salesPage: GuidePage = {
           title: "Ver o descargar el PDF de un comprobante",
           permission: "invoices:read",
           steps: [
-            "En [[/invoices]], en la fila del comprobante emitido, hacé clic en {{Ver PDF}} para verlo o en {{Descargar PDF}} para bajarlo.",
-            "Desde el detalle del comprobante, el botón {{PDF}} lo abre en otra pestaña.",
+            "En [[/invoices]], en la fila del comprobante emitido, hacé clic en el ojo ({{Ver detalle}}).",
+            "En el detalle, el botón {{PDF}} lo abre en otra pestaña; desde ahí lo imprimís o lo bajás.",
           ],
           after: [
             "Solo los comprobantes {{Emitido}} tienen PDF. El fiscal lleva CAE y código QR de AFIP; el remito interno, la leyenda de documento no fiscal.",
@@ -1365,7 +1369,7 @@ export const salesPage: GuidePage = {
           ],
           after: [
             "El comprobante fallido queda en la lista con estado {{Fallido}}, sin número. Si facturaba una carga, una liquidación o un período de almacenaje, ese ítem vuelve a quedar para facturar.",
-            "Si AFIP no contestó (en lugar de rechazar), el comprobante queda {{Emitiendo}} y el sistema vuelve a consultar solo hasta resolverlo: no emitas otro mientras tanto, porque AFIP podría haberlo autorizado.",
+            "Si AFIP no contestó (en lugar de rechazar), el comprobante queda {{Esperando CAE}} y el sistema vuelve a consultar solo hasta resolverlo: no emitas otro mientras tanto, porque AFIP podría haberlo autorizado.",
             "Un punto de venta de contingencia (CAEA) necesita un CAEA vigente para la fecha: si no lo hay, falla con «No hay CAEA vigente para la fecha del comprobante — solicitalo desde AFIP admin antes de emitir por contingencia.»",
           ],
           keywords: [
@@ -1672,7 +1676,7 @@ export const salesPage: GuidePage = {
                 "~04/11/2026",
                 "~$500.000,00",
                 "~Emitido",
-                "~👁 📄 ⬇ ✉ ☑ ✎ ⊘",
+                "~👁 ✉ ☑ ✎ ⊘",
               ],
             ],
           },
@@ -2053,7 +2057,7 @@ export const salesPage: GuidePage = {
           title: "Descargar o enviar un recibo por email",
           permission: "receipts:read",
           steps: [
-            "En [[/receipts]], en la fila del recibo: {{Ver PDF}} lo muestra, {{Descargar PDF}} lo baja. En el detalle, el botón {{PDF}}.",
+            "En [[/receipts]], en la fila del recibo, hacé clic en el ojo ({{Ver recibo}}). En el detalle, el botón {{PDF}} lo abre en otra pestaña; desde ahí lo imprimís o lo bajás.",
             "Para mandarlo, hacé clic en el sobre ({{Enviar por email}}; pide el permiso `email:send` y el recibo no tiene que estar anulado), revisá {{Destinatario}}, {{Asunto}} y {{Mensaje (opcional)}} y hacé clic en {{Enviar}}.",
           ],
           errors: [
