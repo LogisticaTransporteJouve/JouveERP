@@ -3597,6 +3597,7 @@ export type Database = {
           {
             foreignKeyName: "freight_tariff_lines_version_id_fkey"
             columns: ["version_id"]
+            isOneToOne: false
             referencedRelation: "freight_tariff_versions"
             referencedColumns: ["id"]
           },
@@ -3637,6 +3638,7 @@ export type Database = {
           {
             foreignKeyName: "freight_tariff_lists_client_id_fkey"
             columns: ["client_id"]
+            isOneToOne: false
             referencedRelation: "clients"
             referencedColumns: ["id"]
           },
@@ -3677,6 +3679,7 @@ export type Database = {
           {
             foreignKeyName: "freight_tariff_versions_list_id_fkey"
             columns: ["list_id"]
+            isOneToOne: false
             referencedRelation: "freight_tariff_lists"
             referencedColumns: ["id"]
           },
