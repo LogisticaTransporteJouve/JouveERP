@@ -165,7 +165,7 @@ describe("userCan", () => {
     );
   });
 
-  it("monthly km readings are loaded by owner/admin/operations", () => {
+  it("km driven are seen and fetched by owner/admin/operations", () => {
     for (const role of ["owner", "admin", "operations"] as const) {
       expect(userCan(resolveAccess([role]), "fleet_km:read")).toBe(true);
       expect(userCan(resolveAccess([role]), "fleet_km:write")).toBe(true);
@@ -180,6 +180,21 @@ describe("userCan", () => {
     }
     const denied = resolveAccess(["operations"], ["fleet_km:read"]);
     expect(userCan(denied, "fleet_km:write")).toBe(false);
+  });
+
+  it("only owner and admin set the Strix user", () => {
+    for (const role of ["owner", "admin"] as const) {
+      expect(userCan(resolveAccess([role]), "fleet_km:admin")).toBe(true);
+    }
+    for (const role of [
+      "finance",
+      "operations",
+      "warehouse",
+      "driver",
+      "fiscal_reader",
+    ] as const) {
+      expect(userCan(resolveAccess([role]), "fleet_km:admin")).toBe(false);
+    }
   });
 
   it("the importer is for owner and admin only", () => {

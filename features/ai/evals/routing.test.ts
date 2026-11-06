@@ -442,31 +442,6 @@ vi.mock(
     getDriverSettlementAction: stub("getDriverSettlementAction"),
   }),
 );
-// The km proposal compares with the month's grid, which lists the truck.
-vi.mock("@/features/vehicle-km/actions/vehicle-km-actions", async (orig) => ({
-  ...(await orig<
-    typeof import("@/features/vehicle-km/actions/vehicle-km-actions")
-  >()),
-  getVehicleKmMonthAction: vi.fn(async ({ period }: { period: string }) => ({
-    ok: true,
-    data: {
-      period,
-      missing: 1,
-      rows: [
-        {
-          vehicle_id: EVAL_FIXTURES.truck.id,
-          patente: EVAL_FIXTURES.truck.patente,
-          alias: null,
-          vehicle_type: "camion",
-          is_active: true,
-          reading: null,
-          previous: null,
-          driven: null,
-        },
-      ],
-    },
-  })),
-}));
 vi.mock("@/features/pallets/actions/pallets-actions", async (orig) => ({
   ...(await orig<
     typeof import("@/features/pallets/actions/pallets-actions")

@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
 import { PageHeader } from "@/components/ui/page-header";
+import { VehicleKmDaysDialog } from "@/features/vehicle-km/components/vehicle-km-days-dialog";
 import { userCan, type Access } from "@/lib/auth/permissions";
 
 import {
@@ -31,6 +32,8 @@ import { VehicleDialog } from "./vehicle-dialog";
 export function VehiclesTable({ actorAccess }: { actorAccess: Access }) {
   // The permission every vehicle write action checks («Activo» included).
   const canWrite = userCan(actorAccess, "vehicles:write");
+  const canSeeKm = userCan(actorAccess, "fleet_km:read");
+  const [kmOf, setKmOf] = useState<Vehicle | null>(null);
   const { data: items } = useVehicles();
   const deleteMut = useDeleteVehicle();
   const toggleMut = useSetVehicleActive();
@@ -59,9 +62,21 @@ export function VehiclesTable({ actorAccess }: { actorAccess: Access }) {
       {
         accessorKey: "patente",
         header: "Patente",
-        cell: ({ row }) => (
-          <span className="font-mono font-medium">{row.original.patente}</span>
-        ),
+        cell: ({ row }) =>
+          canSeeKm ? (
+            <button
+              type="button"
+              className="font-mono font-medium underline-offset-4 hover:underline"
+              title="Ver los km de Strix"
+              onClick={() => setKmOf(row.original)}
+            >
+              {row.original.patente}
+            </button>
+          ) : (
+            <span className="font-mono font-medium">
+              {row.original.patente}
+            </span>
+          ),
       },
       {
         accessorKey: "alias",
@@ -153,7 +168,7 @@ export function VehiclesTable({ actorAccess }: { actorAccess: Access }) {
           ),
       },
     ];
-  }, [canWrite, confirm, deleteMut, toggleMut]);
+  }, [canWrite, canSeeKm, confirm, deleteMut, toggleMut]);
 
   return (
     <>
@@ -187,6 +202,15 @@ export function VehiclesTable({ actorAccess }: { actorAccess: Access }) {
           open={dialog !== null}
           onOpenChange={(o) => {
             if (!o) setDialog(null);
+          }}
+        />
+      )}
+
+      {kmOf && (
+        <VehicleKmDaysDialog
+          vehicle={{ id: kmOf.id, patente: kmOf.patente }}
+          onOpenChange={(o) => {
+            if (!o) setKmOf(null);
           }}
         />
       )}

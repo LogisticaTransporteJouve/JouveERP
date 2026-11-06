@@ -3,6 +3,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/lib/db/database.types";
+import { monthRanges } from "@/lib/date-range";
 import { logger } from "@/lib/logger";
 
 import {
@@ -74,26 +75,6 @@ const RETRIED: readonly ArcaRobotErrorCode[] = [
 
 const realSleep = (ms: number) =>
   new Promise<void>((resolve) => setTimeout(resolve, ms));
-
-/** The calendar months between from and to (YYYY-MM-DD), as [from, to]
- *  ranges clipped to the bounds. */
-export function monthRanges(from: string, to: string): [string, string][] {
-  const out: [string, string][] = [];
-  let [y, m] = from.split("-").map(Number) as [number, number];
-  for (;;) {
-    const first = `${y}-${String(m).padStart(2, "0")}-01`;
-    const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
-    const last = `${y}-${String(m).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
-    if (first > to) break;
-    out.push([first < from ? from : first, last > to ? to : last]);
-    m += 1;
-    if (m > 12) {
-      m = 1;
-      y += 1;
-    }
-  }
-  return out;
-}
 
 const SIGN_IN_CODES: readonly ArcaRobotErrorCode[] = [
   "SIGN_IN_REJECTED",

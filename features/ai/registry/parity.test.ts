@@ -268,12 +268,6 @@ const PARITY: Row[] = [
     gate: all("maintenance:write"),
   },
   {
-    tool: "proposeVehicleKm",
-    file: "features/vehicle-km/actions/vehicle-km-actions.ts",
-    fn: "saveVehicleKmReadingAction",
-    gate: all("fleet_km:write"),
-  },
-  {
     tool: "getTrips",
     file: "features/trips/actions/trips-actions.ts",
     fn: "listTripsAction",
@@ -312,7 +306,7 @@ const PARITY: Row[] = [
   {
     tool: "getVehicleKm",
     file: "features/vehicle-km/actions/vehicle-km-actions.ts",
-    fn: "getVehicleKmMonthAction",
+    fn: "getVehicleKmRangeAction",
     gate: all("fleet_km:read"),
   },
   {

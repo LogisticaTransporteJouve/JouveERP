@@ -6,6 +6,7 @@ import {
   type ColumnMapping,
 } from "@/lib/tables/columns";
 import type { TableLimits } from "@/lib/tables/csv";
+import { normalizePlate } from "@/lib/validation/plate";
 
 // Fuel statement import (roadmap 1.7): a YPF en Ruta or Axion Card statement
 // (CSV or XLSX) read into fuel loads. Neither provider's export format is
@@ -142,11 +143,6 @@ export function missingFields(mapping: FuelImportMapping): FuelImportField[] {
   return missing;
 }
 
-/** Patente or card as compared: uppercase letters and digits only. */
-export function normalizeCode(value: string): string {
-  return value.toUpperCase().replace(/[^0-9A-Z]/g, "");
-}
-
 export type ImportVehicle = {
   id: string;
   patente: string;
@@ -160,14 +156,14 @@ export function matchVehicle(
   row: { patente: string | null; card: string | null },
   vehicles: readonly ImportVehicle[],
 ): VehicleMatch | null {
-  const plate = row.patente ? normalizeCode(row.patente) : "";
+  const plate = row.patente ? normalizePlate(row.patente) : "";
   if (plate) {
-    const v = vehicles.find((x) => normalizeCode(x.patente) === plate);
+    const v = vehicles.find((x) => normalizePlate(x.patente) === plate);
     if (v) return { vehicleId: v.id, patente: v.patente };
   }
   const rawCard = row.card?.trim() ?? "";
   if (!rawCard) return null;
-  const card = normalizeCode(rawCard);
+  const card = normalizePlate(rawCard);
   const exact = vehicles.find((x) => x.fuel_card === card);
   if (exact) return { vehicleId: exact.id, patente: exact.patente };
   if (/[X*]/i.test(rawCard)) {

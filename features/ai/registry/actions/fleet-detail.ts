@@ -70,9 +70,9 @@ export const getVehicleUsage = defineAiAction({
   domain: "flota",
   permission: "trips:read",
   sideEffect: "read",
-  sources: ["trips", "ai_vehicle_activity", "vehicle_km_readings"],
+  sources: ["trips", "ai_vehicle_activity", "vehicle_km_daily"],
   description:
-    "Uso de UN vehículo (por patente, alias o UUID) en un rango de fechas. Los km RECORRIDOS son los del odómetro (km_recorridos: lectura mensual del último mes del rango menos la del mes anterior al primero; necesita permiso de km de flota): respondé '¿cuántos km hizo el camión X?' con ese número. Los km cargados en los viajes (trip_km) son la distancia declarada de cada viaje y se usan para el extra por km de los choferes; mencionalos solo como referencia o si no hay lecturas de odómetro, aclarando que son los de los viajes. Trae también los litros cargados (permiso de combustible) y quién lo manejó: cada chofer con sus viajes, km de viajes y primera y última fecha. Para '¿cuántos km hizo el camión X en octubre?' o '¿quién manejó el camión X el último mes?'.",
+    "Uso de UN vehículo (por patente, alias o UUID) en un rango de fechas. Los km RECORRIDOS son los del GPS de Strix (km_recorridos: suma de los km por día del rango; necesita permiso de km de flota): respondé '¿cuántos km hizo el camión X?' con ese número. Los km cargados en los viajes (trip_km) son la distancia declarada de cada viaje y se usan para el extra por km de los choferes; mencionalos solo como referencia o si no hay km de Strix, aclarando que son los de los viajes. Trae también los litros cargados (permiso de combustible) y quién lo manejó: cada chofer con sus viajes, km de viajes y primera y última fecha. Para '¿cuántos km hizo el camión X en octubre?' o '¿quién manejó el camión X el último mes?'.",
   input: z
     .object({
       vehicle: z
@@ -124,10 +124,10 @@ export const getVehicleUsage = defineAiAction({
         : Number(activity.fuel_liters);
     const notes: string[] = [];
     if (!userCan(ctx.access, "fleet_km:read")) {
-      notes.push("Km de odómetro omitidos: hace falta permiso de km de flota.");
+      notes.push("Km de Strix omitidos: hace falta permiso de km de flota.");
     } else if (odometer === null) {
       notes.push(
-        "Sin las dos lecturas mensuales de odómetro para ese rango: no hay km recorridos medidos; solo los km cargados en los viajes, que son una referencia.",
+        "Sin km de Strix para ese rango: no hay km recorridos medidos; solo los km cargados en los viajes, que son una referencia.",
       );
     }
     if (!userCan(ctx.access, "fuel:read")) {
@@ -147,8 +147,8 @@ export const getVehicleUsage = defineAiAction({
     return okResult(
       `${plate} ${input.from}→${input.to}: ` +
         (odometer === null
-          ? "km recorridos sin lecturas de odómetro"
-          : `${odometer.toLocaleString("es-AR")} km recorridos (odómetro)`) +
+          ? "km recorridos sin datos de Strix"
+          : `${odometer.toLocaleString("es-AR")} km recorridos (Strix)`) +
         ` · ${live.length} viajes con ${tripKm.toLocaleString("es-AR")} km cargados` +
         (liters === null ? "" : ` · ${liters.toLocaleString("es-AR")} L`) +
         ` · ${drivers.length} chofer(es): ${

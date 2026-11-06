@@ -200,7 +200,7 @@ describe("kmBasis", () => {
   it("prefers the odometer, then the trips' km, flagging trips without km", () => {
     expect(
       kmBasis({ odometer_km: 900, trip_km: 800, trips_without_km_count: 0 }),
-    ).toEqual({ km: 900, source: "odómetro" });
+    ).toEqual({ km: 900, source: "Strix" });
     expect(
       kmBasis({ odometer_km: null, trip_km: 800, trips_without_km_count: 2 }),
     ).toEqual({ km: 800, source: "viajes (incompleto)" });
@@ -515,7 +515,7 @@ describe("getVehicleEconomics", () => {
       expect.objectContaining({
         vehicle: "AA123BB",
         km_used: 1200,
-        km_source: "odómetro",
+        km_source: "Strix",
         liters_per_100km: 29.17,
         revenue_per_km_ars: 5,
         cost_per_km_ars: 2.17,

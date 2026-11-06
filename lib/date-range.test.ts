@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { dateToIso, isoToDate, todayIsoLocal } from "./date-range";
+import { dateToIso, isoToDate, monthRanges, todayIsoLocal } from "./date-range";
 
 describe("todayIsoLocal", () => {
   it("devuelve YYYY-MM-DD válido", () => {
@@ -50,5 +50,22 @@ describe("isoToDate", () => {
     expect(round?.getFullYear()).toBe(original.getFullYear());
     expect(round?.getMonth()).toBe(original.getMonth());
     expect(round?.getDate()).toBe(original.getDate());
+  });
+});
+
+describe("monthRanges", () => {
+  it("splits a range by calendar month, clipped to its bounds", () => {
+    expect(monthRanges("2026-09-15", "2026-11-04")).toEqual([
+      ["2026-09-15", "2026-09-30"],
+      ["2026-10-01", "2026-10-31"],
+      ["2026-11-01", "2026-11-04"],
+    ]);
+    expect(monthRanges("2026-12-20", "2027-01-10")).toEqual([
+      ["2026-12-20", "2026-12-31"],
+      ["2027-01-01", "2027-01-10"],
+    ]);
+    expect(monthRanges("2028-02-01", "2028-02-29")).toEqual([
+      ["2028-02-01", "2028-02-29"],
+    ]);
   });
 });

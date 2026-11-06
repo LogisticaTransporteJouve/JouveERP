@@ -305,8 +305,9 @@ export const ROUTE_GUIDES: readonly RouteGuide[] = [
   },
   {
     prefix: "/vehicle-km",
-    title: "Km mensual",
-    summary: "La lectura del odómetro de cada vehículo, una por mes.",
+    title: "Km recorridos",
+    summary:
+      "Los km de cada vehículo según Strix (GPS), por día y por rango de fechas.",
   },
   {
     prefix: "/maintenance",

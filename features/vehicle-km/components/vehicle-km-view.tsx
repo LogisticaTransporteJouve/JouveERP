@@ -1,217 +1,225 @@
 "use client";
 
-import { AlertTriangle, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { KeyRound, RefreshCw } from "lucide-react";
 import { Suspense, useState } from "react";
 import { toast } from "sonner";
 
-import { useConfirm } from "@/components/providers/confirm-provider";
+import { PeriodFilter } from "@/components/period-filter";
 import { Button } from "@/components/ui/button";
-import { IconButton } from "@/components/ui/icon-button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { MonthPicker } from "@/components/ui/month-picker";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
   TableCell,
+  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { formatArgentineDate, formatInteger, formatPeriod } from "@/lib/format";
+import { syncPhase } from "@/lib/afip/arca-sync-run";
+import { formatArgentineDate, formatInteger } from "@/lib/format";
+import { resolvePeriod, type PeriodSelection } from "@/lib/list-period";
+import { strixStatusText } from "@/lib/strix/sync-text";
 
-import { useDeleteKmReading, useVehicleKmMonth } from "../hooks/use-vehicle-km";
+import {
+  useRequestStrixSync,
+  useStrixStatus,
+  useVehicleKmRange,
+} from "../hooks/use-vehicle-km";
+import { kmPeriod } from "../lib/km-period";
 import type { VehicleKmRow } from "../schema";
 
-import { KmReadingDialog } from "./km-reading-dialog";
+import { StrixAccountDialog } from "./strix-account-dialog";
+import { VehicleKmDaysDialog } from "./vehicle-km-days-dialog";
 
-function KmMonthTable({
-  period,
-  canWrite,
+function KmRangeTable({
+  from,
+  to,
+  onOpen,
 }: {
-  period: string;
-  canWrite: boolean;
+  from: string;
+  to: string;
+  onOpen: (row: VehicleKmRow) => void;
 }) {
-  const { data } = useVehicleKmMonth(period);
-  const deleteMut = useDeleteKmReading();
-  const confirm = useConfirm();
-  const [editing, setEditing] = useState<VehicleKmRow | null>(null);
-
-  async function handleDelete(row: VehicleKmRow) {
-    if (!row.reading) return;
-    const ok = await confirm({
-      title: `Borrar el km de ${row.patente}`,
-      description: `Se borra la lectura de ${formatPeriod(period)}.`,
-      confirmLabel: "Borrar",
-      tone: "destructive",
-    });
-    if (!ok) return;
-    deleteMut.mutate(row.reading.id, {
-      onSuccess: () => toast.success("Lectura borrada."),
-      onError: (err) => toast.error(err.message),
-    });
+  const { data } = useVehicleKmRange(from, to);
+  if (data.rows.length === 0) {
+    return (
+      <p className="text-muted-foreground text-sm">
+        No hay vehículos activos que lleven km.
+      </p>
+    );
   }
+  return (
+    <div className="overflow-x-auto rounded-md border">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Vehículo</TableHead>
+            <TableHead className="text-right">Km recorridos</TableHead>
+            <TableHead className="text-right">Días con km</TableHead>
+            <TableHead className="text-right">Último día</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {data.rows.map((row) => (
+            <TableRow
+              key={row.vehicle_id}
+              className="cursor-pointer"
+              onClick={() => onOpen(row)}
+            >
+              <TableCell>
+                <button
+                  type="button"
+                  className="font-mono text-xs underline-offset-4 hover:underline"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpen(row);
+                  }}
+                >
+                  {row.patente}
+                </button>
+                {row.alias && (
+                  <span className="text-muted-foreground ml-2 text-xs">
+                    {row.alias}
+                  </span>
+                )}
+              </TableCell>
+              <TableCell className="text-right tabular-nums">
+                {formatInteger(row.km)}
+              </TableCell>
+              <TableCell className="text-right tabular-nums">
+                {row.days}
+              </TableCell>
+              <TableCell className="text-right text-sm">
+                {row.last_day ? formatArgentineDate(row.last_day) : "—"}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+        <TableFooter>
+          <TableRow>
+            <TableCell>Total</TableCell>
+            <TableCell className="text-right font-medium tabular-nums">
+              {formatInteger(data.total)}
+            </TableCell>
+            <TableCell colSpan={2} />
+          </TableRow>
+        </TableFooter>
+      </Table>
+    </div>
+  );
+}
+
+function StrixBar({
+  from,
+  to,
+  canWrite,
+  canAdmin,
+}: {
+  from: string;
+  to: string;
+  canWrite: boolean;
+  canAdmin: boolean;
+}) {
+  const status = useStrixStatus();
+  const request = useRequestStrixSync();
+  const [open, setOpen] = useState(false);
+  const s = status.data;
+  const busy =
+    !!s &&
+    ["waiting", "running"].includes(
+      syncPhase({ ...s.sync, result: null }, Date.now()),
+    );
 
   return (
-    <>
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3">
       <p className="text-muted-foreground text-sm">
-        {data.rows.length === 0
-          ? "No hay vehículos activos que lleven km."
-          : data.missing === 0
-            ? `Están cargados los km de los ${data.rows.length} vehículos.`
-            : `Faltan ${data.missing} de ${data.rows.length} vehículos.`}
+        {status.isError
+          ? status.error.message
+          : s
+            ? strixStatusText(s, Date.now())
+            : "Leyendo Strix…"}
       </p>
-      <div className="overflow-x-auto rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Vehículo</TableHead>
-              <TableHead className="text-right">Lectura anterior</TableHead>
-              <TableHead className="text-right">Km del mes</TableHead>
-              <TableHead className="text-right">Recorrido</TableHead>
-              <TableHead className="w-12" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {data.rows.map((row) => (
-              <TableRow key={row.vehicle_id}>
-                <TableCell>
-                  <span className="font-mono text-xs">{row.patente}</span>
-                  {row.alias && (
-                    <span className="text-muted-foreground ml-2 text-xs">
-                      {row.alias}
-                    </span>
-                  )}
-                </TableCell>
-                <TableCell className="text-right text-sm">
-                  {row.previous ? (
-                    <>
-                      {formatInteger(row.previous.km)}
-                      <span className="text-muted-foreground ml-1 text-xs">
-                        ({formatPeriod(row.previous.period)})
-                      </span>
-                    </>
-                  ) : (
-                    "—"
-                  )}
-                </TableCell>
-                <TableCell className="text-right text-sm">
-                  {row.reading ? (
-                    <>
-                      {formatInteger(row.reading.km)}
-                      <span className="text-muted-foreground ml-1 text-xs">
-                        {formatArgentineDate(row.reading.read_on)}
-                      </span>
-                    </>
-                  ) : canWrite ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setEditing(row)}
-                    >
-                      Cargar
-                    </Button>
-                  ) : (
-                    <span className="text-muted-foreground">Sin cargar</span>
-                  )}
-                </TableCell>
-                <TableCell className="text-right text-sm">
-                  {row.driven === null ? (
-                    "—"
-                  ) : row.driven < 0 ? (
-                    <span
-                      className="inline-flex items-center gap-1 font-medium"
-                      title="El km bajó respecto de la lectura anterior."
-                    >
-                      <AlertTriangle className="size-4" />
-                      {formatInteger(row.driven)} (bajó)
-                    </span>
-                  ) : (
-                    formatInteger(row.driven)
-                  )}
-                </TableCell>
-                <TableCell>
-                  {canWrite && row.reading && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <IconButton
-                          label={`Acciones de ${row.patente}`}
-                          variant="ghost"
-                        >
-                          <MoreHorizontal className="size-4" />
-                        </IconButton>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => setEditing(row)}>
-                          <Pencil className="size-4" />
-                          Editar
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-destructive"
-                          onClick={() => handleDelete(row)}
-                        >
-                          <Trash2 className="size-4" />
-                          Borrar
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  )}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+      <div className="flex gap-2">
+        {canAdmin && s && (
+          <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+            <KeyRound className="size-4" />
+            Usuario de Strix
+          </Button>
+        )}
+        {canWrite && (
+          <Button
+            size="sm"
+            disabled={!s || s.state !== "ok" || busy || request.isPending}
+            onClick={() =>
+              request.mutate(
+                { from, to },
+                {
+                  onSuccess: () => toast.success("Pedido a Strix enviado."),
+                  onError: (err) => toast.error(err.message),
+                },
+              )
+            }
+          >
+            <RefreshCw className={busy ? "size-4 animate-spin" : "size-4"} />
+            Traer de Strix
+          </Button>
+        )}
       </div>
-      <KmReadingDialog
-        period={period}
-        row={editing}
-        onOpenChange={(open) => {
-          if (!open) setEditing(null);
-        }}
-      />
-    </>
+      {open && s && (
+        <StrixAccountDialog status={s} open={open} onOpenChange={setOpen} />
+      )}
+    </div>
   );
 }
 
 export function VehicleKmView({
-  initialPeriod,
   canWrite,
+  canAdmin,
 }: {
-  initialPeriod: string;
   canWrite: boolean;
+  canAdmin: boolean;
 }) {
-  const [period, setPeriod] = useState(initialPeriod);
+  const [selection, setSelection] = useState<PeriodSelection>({
+    preset: "this_month",
+    from: null,
+    to: null,
+  });
+  const range = kmPeriod(resolvePeriod(selection));
+  const [opened, setOpened] = useState<VehicleKmRow | null>(null);
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Km mensual</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Km recorridos
+          </h1>
           <p className="text-muted-foreground text-sm">
-            El km del odómetro de cada vehículo, una vez por mes. Tareas lo
-            recuerda el día 1 y avisa el día 5 si falta.
+            Los km de cada vehículo según Strix (GPS), por día. Se traen solos
+            todos los días; hacé clic en una patente para ver el detalle.
           </p>
         </div>
-        <MonthPicker
-          aria-label="Mes"
-          className="w-44"
-          value={period}
-          max={initialPeriod}
-          onChange={(value) => {
-            if (/^\d{4}-\d{2}$/.test(value)) {
-              setPeriod(value);
-            }
+        <PeriodFilter value={selection} onChange={setSelection} />
+      </div>
+      <StrixBar
+        from={range.from}
+        to={range.to}
+        canWrite={canWrite}
+        canAdmin={canAdmin}
+      />
+      <Suspense fallback={<Skeleton className="h-64 w-full" />}>
+        <KmRangeTable from={range.from} to={range.to} onOpen={setOpened} />
+      </Suspense>
+      {opened && (
+        <VehicleKmDaysDialog
+          vehicle={{ id: opened.vehicle_id, patente: opened.patente }}
+          initial={selection}
+          onOpenChange={(o) => {
+            if (!o) setOpened(null);
           }}
         />
-      </div>
-      <Suspense fallback={<Skeleton className="h-64 w-full" />}>
-        <KmMonthTable period={period} canWrite={canWrite} />
-      </Suspense>
+      )}
     </div>
   );
 }
