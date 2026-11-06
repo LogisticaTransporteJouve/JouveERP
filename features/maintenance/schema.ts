@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { CostVoucherShape } from "@/lib/cost-vouchers";
+import { listWindowShape, UuidSchema } from "@/lib/validation/common";
 
 export const MAINTENANCE_KINDS = [
   "service",
@@ -142,3 +143,11 @@ export const MaintenanceUpdateSchema = z.object({
   notes: optionalText(2000),
   ...CostVoucherShape,
 });
+
+/** Optional filters of the maintenance list (by service_date); none = every
+ *  record. */
+export const MaintenanceListFilterSchema = z.object({
+  ...listWindowShape,
+  vehicleId: UuidSchema.nullish(),
+});
+export type MaintenanceListFilter = z.input<typeof MaintenanceListFilterSchema>;

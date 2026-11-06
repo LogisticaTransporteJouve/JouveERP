@@ -35,8 +35,7 @@ export type PageError = {
 export type Page<T> = { data: T[] | null; error: PageError | null };
 
 export type DrainResult<T> =
-  | { data: T[]; error: null }
-  | { data: null; error: PageError };
+  { data: T[]; error: null } | { data: null; error: PageError };
 
 /**
  * Fetches `[from, to]` windows until an empty page signals the end.
@@ -68,6 +67,20 @@ export async function paginateRange<T>(
     from += page.length;
   }
   return { data: rows, error: null };
+}
+
+/**
+ * Every row (drained with `paginateRange`) or, when `limit` is given, only the
+ * first `limit` rows in one request (capped at PAGE_SIZE, the server's own
+ * cap). A caller that must know whether more rows exist asks for one extra.
+ */
+export async function drainOrFirst<T>(
+  fetchPage: (from: number, to: number) => PromiseLike<Page<T>>,
+  limit?: number | null,
+): Promise<DrainResult<T>> {
+  if (limit === null || limit === undefined) return paginateRange(fetchPage);
+  const { data, error } = await fetchPage(0, Math.min(limit, PAGE_SIZE) - 1);
+  return error ? { data: null, error } : { data: data ?? [], error: null };
 }
 
 /** Splits `items` into consecutive slices of at most `size` (size ≥ 1). */

@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { listWindowShape, UuidSchema } from "@/lib/validation/common";
+
 export const TRIP_STATUSES = [
   "planned",
   "in_progress",
@@ -105,3 +107,11 @@ export const TripUpdateSchema = z.object({
   cost: optionalAmount,
   notes: optionalText(2000),
 });
+
+/** Optional filters of the trips list (by trip_date); none = every trip. */
+export const TripListFilterSchema = z.object({
+  ...listWindowShape,
+  vehicleId: UuidSchema.nullish(),
+  driverId: UuidSchema.nullish(),
+});
+export type TripListFilter = z.input<typeof TripListFilterSchema>;

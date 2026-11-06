@@ -84,8 +84,8 @@ describe("runTrips / runFuelLoads / runMaintenance / runFleetDocuments", () => {
     vi.mocked(listTripRevenueAction).mockResolvedValue({ ok: true, data: [] });
 
     expect((await runTrips(OPERATIONS)).summary).toContain("trips");
-    expect((await runFuelLoads()).summary).toContain("fuel");
-    expect((await runMaintenance()).summary).toContain("maintenance");
+    expect((await runFuelLoads(OPERATIONS)).summary).toContain("fuel");
+    expect((await runMaintenance(OPERATIONS)).summary).toContain("maintenance");
     expect((await runFleetDocuments()).summary).toContain("documents");
   });
 });
@@ -292,7 +292,7 @@ describe("runMaintenance cost", () => {
         ...m,
       })),
     });
-    const res = await runMaintenance();
+    const res = await runMaintenance(OPERATIONS);
     expect(res.ok).toBe(true);
     if (!res.ok) return;
     expect(res.summary).toBe(

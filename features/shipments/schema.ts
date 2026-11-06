@@ -1,7 +1,11 @@
 import { z } from "zod";
 
 import type { Database } from "@/lib/db/database.types";
-import { IsoDateSchema } from "@/lib/validation/common";
+import {
+  IsoDateSchema,
+  listWindowShape,
+  UuidSchema,
+} from "@/lib/validation/common";
 
 export const SHIPMENT_STATUSES = [
   "not_started",
@@ -219,3 +223,14 @@ export const ShipmentsSummaryInputSchema = z
 
 export type ShipmentsSummaryRow =
   Database["public"]["Functions"]["ai_shipments_summary"]["Returns"][number];
+
+/** Optional filters of the cargas list (dates on scheduled_date, so a carga
+ *  without one is left out of a dated filter); none = every carga. */
+export const ShipmentListFilterSchema = z.object({
+  ...listWindowShape,
+  clientId: UuidSchema.nullish(),
+  tripId: UuidSchema.nullish(),
+  status: z.enum(SHIPMENT_STATUSES).nullish(),
+  remito: z.string().trim().min(1).max(REMITO_NUMBER_MAX).nullish(),
+});
+export type ShipmentListFilter = z.input<typeof ShipmentListFilterSchema>;
