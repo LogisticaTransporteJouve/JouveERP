@@ -85,6 +85,27 @@ export type Database = {
         }
         Relationships: []
       }
+      accounting_settings: {
+        Row: {
+          fiscal_year_start_month: number
+          id: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          fiscal_year_start_month?: number
+          id?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          fiscal_year_start_month?: number
+          id?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       accounts: {
         Row: {
           created_at: string

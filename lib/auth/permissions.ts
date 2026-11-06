@@ -110,9 +110,11 @@ export const PERMISSIONS = [
   // The Strix user and password the km robot signs in with
   "fleet_km:admin",
 
-  // Accounting (Phase L)
+  // Accounting (Phase L). admin = the accounting settings (the month the
+  // fiscal year starts in): owner and admin.
   "accounting:read",
   "accounting:write",
+  "accounting:admin",
 
   // Resultado de gestión (roadmap 1.0): internal use, never fiscal_reader.
   // write = the account → bucket catalog.

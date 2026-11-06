@@ -253,6 +253,12 @@ export const ROUTE_GUIDES: readonly RouteGuide[] = [
     summary: "El dólar oficial de cada día; se baja solo del BCRA.",
   },
   {
+    prefix: "/accounting/settings",
+    title: "Configuración contable",
+    summary:
+      "El mes en que empieza el ejercicio: lo usan el EERR, el balance general y el resultado de gestión.",
+  },
+  {
     prefix: "/taxes",
     title: "Impuestos",
     summary:
