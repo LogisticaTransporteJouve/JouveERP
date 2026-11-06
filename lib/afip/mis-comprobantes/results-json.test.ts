@@ -229,6 +229,36 @@ describe("parseReceivedResults", () => {
     ]);
   });
 
+  it("reads a Factura M (51), ND M (52) and NC M (53) as letter A of their kind", () => {
+    const amounts = {
+      32: "21",
+      34: "100",
+      40: "100",
+      42: "0",
+      44: "0",
+      48: "21",
+      50: "121",
+    };
+    const out = parseReceivedResults({
+      estado: "ok",
+      datos: {
+        data: [
+          row({ ...base, ...amounts, 1: "51", 4: "150", 5: "150" }),
+          row({ ...base, ...amounts, 1: "52", 4: "151", 5: "151" }),
+          row({ ...base, ...amounts, 1: "53", 4: "152", 5: "152" }),
+        ],
+      },
+    });
+    if (typeof out === "string") throw new Error(out);
+    expect(
+      out.vouchers.map((v) => [v.cbte_tipo, v.kind, v.letter, v.imp_iva]),
+    ).toEqual([
+      [51, "factura", "A", 21],
+      [52, "nd", "A", 21],
+      [53, "nc", "A", 21],
+    ]);
+  });
+
   it("refuses an answer it does not recognise", () => {
     expect(parseReceivedResults({ estado: "error", datos: null })).toMatch(
       /formato que no se reconoce/,

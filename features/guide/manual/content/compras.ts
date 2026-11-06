@@ -1687,8 +1687,8 @@ export const purchasesPage: GuidePage = {
             "{{Cargadas}}: ya están en Compras. {{Ver compra}} abre la compra; si la compra se anuló dice {{Anulada}}.",
             "{{Descartadas}}: las que se decidió no cargar; {{Volver a pendientes}} las recupera.",
             "{{No se pudieron leer}}: comprobantes que ARCA lista pero cuyos importes no se pueden leer (ver «Cuando los importes de ARCA no suman el total»).",
-            "{{No soportados}}: facturas de crédito MiPyME (FCE) y tipo M, que todavía se cargan a mano.",
-            "Los recibos A, B y C y las liquidaciones A y B (por ejemplo, la liquidación mensual de comisiones y gastos de un banco) entran a {{Pendientes}} como una factura de su letra: se aceptan igual que una factura, y la compra guarda su código de ARCA para que el TXT del Libro IVA Digital los informe como lo que son.",
+            "{{No soportados}}: facturas de crédito MiPyME (FCE) y otros tipos que todavía se cargan a mano.",
+            "Los recibos A, B y C y las liquidaciones A y B (por ejemplo, la liquidación mensual de comisiones y gastos de un banco) entran a {{Pendientes}} como una factura de su letra: se aceptan igual que una factura, y la compra guarda su código de ARCA para que el TXT del Libro IVA Digital los informe como lo que son. Lo mismo con las facturas, notas de débito y notas de crédito M: entran como una A de su clase (discriminan IVA igual) y conservan su código 51, 52 o 53.",
           ],
         },
         {
