@@ -721,7 +721,7 @@ Estimaciones (supuestos, ajustables):
 
 ### Tope diario + medidor de gasto
 
-- **Tope: US$1,50/día/org** (`AI_DAILY_COST_CAP_USD` en
+- **Tope: US$10/día/org** (`AI_DAILY_COST_CAP_USD` en
   `features/ai/lib/chat-store.ts`; reemplazó al tope de 500K tokens, ≈ lo mismo
   a la tarifa de Sonnet 5.5). Cuenta el `cost_usd` de cada fila de `ai_usage`
   del día. Al alcanzarlo el chat devuelve 429 hasta el reset; las tareas de

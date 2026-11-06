@@ -25,11 +25,11 @@ const MAX_TITLE_LEN = 60;
  * Daily spend ceiling in USD (global, every AI call — chat, titles, Document
  * Intelligence, tool repair — summed from ai_usage.cost_usd) before AI entry
  * points block. The app shows it in pesos at the official dollar. It replaced
- * a 500K-token cap: a chat turn billed ~US$2.9 per million of the tokens that
- * cap counted (cache writes at $2.50, output at $10, cache reads apart), so
- * 500K tokens ≈ US$1.45, rounded to US$1.50.
+ * a 500K-token cap (≈ US$1.50). The owner raised it to US$10/day on
+ * 2026-11-07: with the leaner requests a question costs ~US$0.06–0.20, so
+ * US$1.50 stopped the whole company after a few questions.
  */
-export const AI_DAILY_COST_CAP_USD = 1.5;
+export const AI_DAILY_COST_CAP_USD = 10;
 
 /** Serialize a value (e.g. a UIMessage) to a jsonb-safe payload. */
 function toJson(value: unknown): Json {
