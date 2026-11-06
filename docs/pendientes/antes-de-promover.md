@@ -1019,6 +1019,35 @@ INVOKER`, revocada de `public` y `anon`, ejecutable por `authenticated` y
 
   Rollback: el código anterior ya aplicaba la misma regla antes de escribir.
 
+- [ ] **Aprobar `20261106130000`** (#459, borrador de comprobante atómico).
+      Función nueva `create_invoice_draft(jsonb, jsonb)`, solo `service_role`:
+      inserta el borrador y sus ítems en una transacción. No toca filas, tablas,
+      triggers ni `fail_itemless_invoice_drafts`, que sigue limpiando los
+      borradores sin ítems que ya existan. Rollback: el código anterior no la
+      llama.
+
+- [ ] **Aprobar `20261106131000` a `20261106131003`** (#460).
+  - `131000`: `suppliers.category_id` y `file_attachments.supplier_id` pasan a
+    `ON DELETE RESTRICT` (antes SET NULL y CASCADE). No modifica filas. Desde
+    que se aplica, borrar una categoría en uso o un proveedor con archivos lo
+    rechaza la base. Rollback: el código anterior ya traduce el 23503.
+  - `131001`: `create_pallets_bulk`, con la RLS de quien llama. No toca filas.
+  - `131002`: `create_loan_core` (interna); `create_loan` la usa con la misma
+    firma; `commit_import_run` de 10 argumentos y la de 9 queda como wrapper.
+    No toca filas. Pendiente: borrar el wrapper cuando el deploy quede firme.
+  - `131003`: `create_payroll_period` y `create_sac_period`; `seed_*` quedan
+    como wrappers con la misma firma. No toca filas.
+  - Rollback: el código anterior llama a las firmas viejas, que siguen.
+
+- [ ] **Aprobar `20261106132000` y `20261106132001`** (#461, confirmaciones de la
+      IA con el total esperado). Sobrecargas nuevas
+      `confirm_freight_settlement_document(uuid, uuid, numeric)` y
+      `confirm_driver_settlement(uuid, uuid, numeric, numeric)`, solo
+      `service_role`: confirman igual que las existentes y rechazan (deshaciendo
+      todo, incluido el número) si los totales cambiaron. No tocan filas ni las
+      funciones existentes. Rollback: el código anterior usa las de 2
+      argumentos.
+
 ## Aplicadas en el promote de `d71de85` (2026-11-05)
 
 Promovidas con el workflow completo (migraciones, sync de Inngest, deploy y
