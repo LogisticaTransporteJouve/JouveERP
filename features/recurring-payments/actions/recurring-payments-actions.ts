@@ -165,7 +165,7 @@ export async function updateRecurringPaymentAction(
   const { id, ...rest } = parsed.data;
 
   const supabase = await createSupabaseClient();
-  const { error } = await supabase
+  const { data: changed, error } = await supabase
     .from("recurring_payments")
     .update({
       ...(rest.description !== undefined && { description: rest.description }),
@@ -185,7 +185,8 @@ export async function updateRecurringPaymentAction(
       ...(rest.is_active !== undefined && { is_active: rest.is_active }),
       ...(rest.notes !== undefined && { notes: rest.notes }),
     })
-    .eq("id", id);
+    .eq("id", id)
+    .select("id");
 
   if (error) {
     logger.error("recurring_payments.update.failed", {
@@ -194,6 +195,9 @@ export async function updateRecurringPaymentAction(
       error,
     });
     return { ok: false, error: "No se pudo actualizar el pago recurrente." };
+  }
+  if (!changed || changed.length === 0) {
+    return { ok: false, error: "No se encontró el pago recurrente." };
   }
 
   await logAudit(
@@ -220,10 +224,11 @@ export async function setRecurringPaymentActiveAction(
   if (!parsed.success) return { ok: false, error: "Datos inválidos." };
 
   const supabase = await createSupabaseClient();
-  const { error } = await supabase
+  const { data: changed, error } = await supabase
     .from("recurring_payments")
     .update({ is_active: parsed.data.is_active })
-    .eq("id", parsed.data.id);
+    .eq("id", parsed.data.id)
+    .select("id");
 
   if (error) {
     logger.error("recurring_payments.toggle.failed", {
@@ -232,6 +237,9 @@ export async function setRecurringPaymentActiveAction(
       error,
     });
     return { ok: false, error: "No se pudo cambiar el estado." };
+  }
+  if (!changed || changed.length === 0) {
+    return { ok: false, error: "No se encontró el pago recurrente." };
   }
 
   await logAudit(
@@ -257,10 +265,11 @@ export async function deleteRecurringPaymentAction(input: {
   }
 
   const supabase = await createSupabaseClient();
-  const { error } = await supabase
+  const { data: changed, error } = await supabase
     .from("recurring_payments")
     .delete()
-    .eq("id", input.id);
+    .eq("id", input.id)
+    .select("id");
 
   if (error) {
     logger.error("recurring_payments.delete.failed", {
@@ -269,6 +278,9 @@ export async function deleteRecurringPaymentAction(input: {
       error,
     });
     return { ok: false, error: "No se pudo borrar el pago recurrente." };
+  }
+  if (!changed || changed.length === 0) {
+    return { ok: false, error: "No se encontró el pago recurrente." };
   }
 
   await logAudit("recurring_payment.deleted", ctx.userId, {}, input.id);

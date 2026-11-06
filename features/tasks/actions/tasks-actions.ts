@@ -410,7 +410,7 @@ export async function setTaskDueDateAction(
   const task = await loadWritableTask(ctx.access, parsed.data.id);
   if (!task.ok) return task;
 
-  const { error } = await getServiceClient()
+  const { data, error } = await getServiceClient()
     .from("tasks")
     .update({
       due_date: parsed.data.due_date,
@@ -418,10 +418,14 @@ export async function setTaskDueDateAction(
       due_date_locked: task.data.origin === "automatic",
       notified_stage: null,
     })
-    .eq("id", parsed.data.id);
+    .eq("id", parsed.data.id)
+    .select("id");
   if (error) {
     logger.error("tasks.due_date.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo cambiar el vencimiento." };
+  }
+  if (!data || data.length === 0) {
+    return { ok: false, error: "La tarea no existe." };
   }
 
   await logAudit(
@@ -473,39 +477,36 @@ export async function setTaskAssigneesAction(
   const invalid = await assigneesError(added);
   if (invalid) return { ok: false, error: invalid };
 
-  if (removed.length > 0) {
-    const { error } = await service
-      .from("task_assignees")
-      .delete()
-      .eq("task_id", parsed.data.id)
-      .in("user_id", removed);
-    if (error) {
-      logger.error("tasks.assignees.remove_failed", {
-        userId: ctx.userId,
-        error,
-      });
-      return { ok: false, error: "No se pudo reasignar la tarea." };
-    }
+  // Removals and additions in one transaction, against the set as it is
+  // when the task is locked.
+  const { data, error } = await service.rpc("set_task_assignees", {
+    p_task_id: parsed.data.id,
+    p_assignee_ids: parsed.data.assignee_ids,
+    p_actor: ctx.userId,
+  });
+  if (error) {
+    const guard = mapDbGuardError(error, {
+      slug: "tasks.assignees.rejected",
+      userId: ctx.userId,
+      id: parsed.data.id,
+    });
+    if (guard) return { ok: false, error: guard };
+    logger.error("tasks.assignees.failed", { userId: ctx.userId, error });
+    return { ok: false, error: "No se pudo reasignar la tarea." };
   }
-  if (added.length > 0) {
-    const { error } = await service.from("task_assignees").upsert(
-      added.map((user_id) => ({
-        task_id: parsed.data.id,
-        user_id,
-        assigned_by: ctx.userId,
-      })),
-      { onConflict: "task_id,user_id", ignoreDuplicates: true },
-    );
-    if (error) {
-      logger.error("tasks.assignees.add_failed", { userId: ctx.userId, error });
-      return { ok: false, error: "No se pudo reasignar la tarea." };
-    }
+  const changed = data?.[0];
+  // A concurrent reassignment already left the same set: nothing to audit.
+  if (
+    !changed ||
+    (changed.added.length === 0 && changed.removed.length === 0)
+  ) {
+    return { ok: true, data: undefined };
   }
 
   await logAudit(
     "task.assigned",
     ctx.userId,
-    { added, removed },
+    { added: changed.added, removed: changed.removed },
     parsed.data.id,
   );
   return { ok: true, data: undefined };

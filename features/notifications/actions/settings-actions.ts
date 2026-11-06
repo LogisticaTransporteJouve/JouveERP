@@ -6,6 +6,8 @@ import { requireUserContext } from "@/lib/auth/context";
 import type { ActionResult } from "@/lib/query/run-action";
 import { createClient } from "@/lib/supabase/server";
 
+import { failed } from "../lib/failed";
+
 export type NotificationSetting = {
   notification_type: string;
   enabled: boolean;
@@ -29,7 +31,13 @@ export async function getMyNotificationSettingsAction(): Promise<
   await requireUserContext();
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("get_my_notification_settings");
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    return failed(
+      "notifications.settings.read_failed",
+      error,
+      "No se pudieron cargar tus preferencias de avisos.",
+    );
+  }
   return { ok: true, data: data ?? [] };
 }
 
@@ -40,7 +48,10 @@ export async function upsertNotificationSettingAction(input: {
   await requireUserContext();
   const parsed = UpsertSettingInput.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? "Input inválido." };
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Input inválido.",
+    };
   }
   input = parsed.data;
   const supabase = await createClient();
@@ -48,6 +59,12 @@ export async function upsertNotificationSettingAction(input: {
     p_type: input.type,
     p_enabled: input.enabled,
   });
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    return failed(
+      "notifications.settings.save_failed",
+      error,
+      "No se pudo guardar la preferencia.",
+    );
+  }
   return { ok: true, data: { updated: true } };
 }

@@ -4,22 +4,12 @@ import { z } from "zod";
 
 import { requireUserContext } from "@/lib/auth/context";
 import { resolveAvatarUrl } from "@/lib/avatar-url";
-import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { createClient } from "@/lib/supabase/server";
 import { UuidSchema } from "@/lib/validation/common";
 
+import { failed } from "../lib/failed";
 import type { Notification } from "../types";
-
-/** A failed read or write: the database text goes to the log, not the UI. */
-function failed(
-  event: string,
-  error: unknown,
-  message: string,
-): { ok: false; error: string } {
-  logger.error(event, { error });
-  return { ok: false, error: message };
-}
 
 const ListNotificationsInput = z.object({
   filter: z.enum(["all", "unread"]).optional(),

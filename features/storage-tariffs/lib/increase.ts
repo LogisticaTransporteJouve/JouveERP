@@ -2,7 +2,8 @@
  * Whether "Aumentar %" raises this tariff at `validFrom`: active, not moved
  * to the client's tarifario (it is raised there), in force that day and
  * started before it (one starting on or after it is edited by hand). The
- * dialog's preview and increaseStorageTariffsAction share it.
+ * dialog's preview uses it; increase_storage_tariffs applies the same rule
+ * in SQL.
  */
 export function isRaisedByIncrease(
   t: {

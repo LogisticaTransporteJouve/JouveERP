@@ -73,43 +73,23 @@ export async function createRecurringTaskAction(
   const invalid = await assigneesError(parsed.data.assignee_ids);
   if (invalid) return { ok: false, error: invalid };
 
-  const service = getServiceClient();
-  const { data, error } = await service
-    .from("recurring_tasks")
-    .insert({
-      title: parsed.data.title,
-      description: parsed.data.description,
-      day_of_month: parsed.data.day_of_month,
-      created_by: ctx.userId,
-    })
-    .select("id")
-    .single();
-  if (error) {
+  // The recurrence and its assignees in one transaction.
+  const { data: id, error } = await getServiceClient().rpc(
+    "create_recurring_task",
+    {
+      p_actor: ctx.userId,
+      p_title: parsed.data.title,
+      p_description: parsed.data.description ?? undefined,
+      p_day_of_month: parsed.data.day_of_month,
+      p_assignee_ids: parsed.data.assignee_ids,
+    },
+  );
+  if (error || !id) {
     logger.error("recurring_tasks.create.failed", {
       userId: ctx.userId,
       error,
     });
     return { ok: false, error: "No se pudo crear la tarea recurrente." };
-  }
-
-  if (parsed.data.assignee_ids.length > 0) {
-    const { error: assignError } = await service
-      .from("recurring_task_assignees")
-      .insert(
-        parsed.data.assignee_ids.map((user_id) => ({
-          recurring_task_id: data.id,
-          user_id,
-        })),
-      );
-    if (assignError) {
-      // No occurrence exists yet: take the recurrence back.
-      await service.from("recurring_tasks").delete().eq("id", data.id);
-      logger.error("recurring_tasks.create.assign_failed", {
-        userId: ctx.userId,
-        error: assignError,
-      });
-      return { ok: false, error: "No se pudo crear la tarea recurrente." };
-    }
   }
 
   await logAudit(
@@ -120,10 +100,10 @@ export async function createRecurringTaskAction(
       day_of_month: parsed.data.day_of_month,
       assignee_ids: parsed.data.assignee_ids,
     },
-    data.id,
+    id,
   );
   await materializeNow(ctx.userId);
-  return { ok: true, data: { id: data.id } };
+  return { ok: true, data: { id } };
 }
 
 /** Changes apply to the occurrences still to come; created ones keep theirs. */
@@ -147,21 +127,25 @@ export async function updateRecurringTaskAction(
     if (invalid) return { ok: false, error: invalid };
   }
 
-  const service = getServiceClient();
-  const { data, error } = await service
-    .from("recurring_tasks")
-    .update({
-      ...(fields.title !== undefined && { title: fields.title }),
-      ...(fields.description !== undefined && {
-        description: fields.description,
-      }),
-      ...(fields.day_of_month !== undefined && {
-        day_of_month: fields.day_of_month,
-      }),
-      ...(fields.is_active !== undefined && { is_active: fields.is_active }),
-    })
-    .eq("id", id)
-    .select("id");
+  // The fields and the assignees in one transaction. Keys left out of the
+  // patch keep their value; a null description clears it.
+  const patch: Record<string, string | number | boolean | null> = {};
+  if (fields.title !== undefined) patch.title = fields.title;
+  if (fields.description !== undefined) {
+    patch.description = fields.description;
+  }
+  if (fields.day_of_month !== undefined) {
+    patch.day_of_month = fields.day_of_month;
+  }
+  if (fields.is_active !== undefined) patch.is_active = fields.is_active;
+  const { data: found, error } = await getServiceClient().rpc(
+    "update_recurring_task",
+    {
+      p_id: id,
+      p_patch: patch,
+      p_assignee_ids: assignee_ids,
+    },
+  );
   if (error) {
     logger.error("recurring_tasks.update.failed", {
       userId: ctx.userId,
@@ -169,35 +153,8 @@ export async function updateRecurringTaskAction(
     });
     return { ok: false, error: "No se pudo guardar la tarea recurrente." };
   }
-  if (!data || data.length === 0) {
+  if (!found) {
     return { ok: false, error: "La tarea recurrente no existe." };
-  }
-
-  if (assignee_ids) {
-    const { error: clearError } = await service
-      .from("recurring_task_assignees")
-      .delete()
-      .eq("recurring_task_id", id);
-    const { error: assignError } = clearError
-      ? { error: clearError }
-      : assignee_ids.length > 0
-        ? await service.from("recurring_task_assignees").insert(
-            assignee_ids.map((user_id) => ({
-              recurring_task_id: id,
-              user_id,
-            })),
-          )
-        : { error: null };
-    if (assignError) {
-      logger.error("recurring_tasks.assignees.failed", {
-        userId: ctx.userId,
-        error: assignError,
-      });
-      return {
-        ok: false,
-        error: "Se guardó la tarea pero no sus responsables. Reintentá.",
-      };
-    }
   }
 
   await logAudit(

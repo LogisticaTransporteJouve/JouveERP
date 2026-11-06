@@ -5,6 +5,7 @@ import { resolveAvatarUrl } from "@/lib/avatar-url";
 import type { ActionResult } from "@/lib/query/run-action";
 import { createClient } from "@/lib/supabase/server";
 
+import { chatActionError } from "../lib/action-error";
 import { CreateGroupSchema } from "../schema";
 import type { ChannelHeader, ChannelMember } from "../types";
 
@@ -14,7 +15,16 @@ export async function getOrCreateSelfChannelAction(): Promise<
   await requireUserContext();
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("get_or_create_self_channel");
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    return {
+      ok: false,
+      error: chatActionError(
+        "chat.self_channel.failed",
+        error,
+        "No se pudieron abrir tus notas.",
+      ),
+    };
+  }
   return { ok: true, data: { channelId: data } };
 }
 
@@ -26,7 +36,16 @@ export async function openOrCreateDmAction(
   const { data, error } = await supabase.rpc("open_or_create_dm", {
     p_other: otherUserId,
   });
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    return {
+      ok: false,
+      error: chatActionError(
+        "chat.dm.failed",
+        error,
+        "No se pudo abrir la conversación.",
+      ),
+    };
+  }
   return { ok: true, data: { channelId: data } };
 }
 
@@ -46,7 +65,16 @@ export async function createGroupAction(
     p_description: parsed.data.description ?? "",
     p_member_ids: parsed.data.memberIds,
   });
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    return {
+      ok: false,
+      error: chatActionError(
+        "chat.group.create_failed",
+        error,
+        "No se pudo crear el grupo.",
+      ),
+    };
+  }
   return { ok: true, data: { channelId: data } };
 }
 
@@ -61,21 +89,44 @@ export async function getChannelHeaderAction(
     .select("id, kind, name, description, created_by, created_at")
     .eq("id", channelId)
     .maybeSingle();
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    return {
+      ok: false,
+      error: chatActionError(
+        "chat.channel.read_failed",
+        error,
+        "No se pudo cargar la conversación.",
+      ),
+    };
+  }
   if (!channel) return { ok: false, error: "Canal no encontrado." };
 
   const { data: membersRows, error: memErr } = await supabase
     .from("chat_channel_members")
     .select("user_id, role")
     .eq("channel_id", channelId);
-  if (memErr) return { ok: false, error: memErr.message };
+  if (memErr) {
+    return {
+      ok: false,
+      error: chatActionError(
+        "chat.channel.members_read_failed",
+        memErr,
+        "No se pudo cargar la conversación.",
+      ),
+    };
+  }
 
   const memberIds = (membersRows ?? []).map((m) => m.user_id);
   // user_profiles select is open to authenticated via RLS.
   const { data: profiles } = await supabase
     .from("user_profiles")
     .select("user_id, first_name, last_name, avatar_path, avatar_color")
-    .in("user_id", memberIds.length > 0 ? memberIds : ["00000000-0000-0000-0000-000000000000"]);
+    .in(
+      "user_id",
+      memberIds.length > 0
+        ? memberIds
+        : ["00000000-0000-0000-0000-000000000000"],
+    );
 
   // Email can only be pulled from auth.users via an RPC; we reuse
   // list_chat_assignable_users for the other members + my own email
@@ -108,7 +159,8 @@ export async function getChannelHeaderAction(
   else {
     const other = members.find((m) => m.user_id !== ctx.userId);
     displayName = other
-      ? `${other.first_name ?? ""} ${other.last_name ?? ""}`.trim() || other.email
+      ? `${other.first_name ?? ""} ${other.last_name ?? ""}`.trim() ||
+        other.email
       : "DM";
   }
 
@@ -135,6 +187,15 @@ export async function markChannelReadAction(
   const { error } = await supabase.rpc("mark_chat_channel_read", {
     p_channel: channelId,
   });
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    return {
+      ok: false,
+      error: chatActionError(
+        "chat.channel.mark_read_failed",
+        error,
+        "No se pudo marcar como leída.",
+      ),
+    };
+  }
   return { ok: true, data: { marked: true } };
 }

@@ -299,13 +299,14 @@ export async function updateSupplierCategoryAction(
       return { ok: false, error: duplicateNameError(existing.data.name) };
     }
   }
-  const { error } = await supabase
+  const { data: changed, error } = await supabase
     .from("supplier_categories")
     .update({
       ...(rest.name !== undefined && { name: rest.name }),
       ...(rest.is_active !== undefined && { is_active: rest.is_active }),
     })
-    .eq("id", id);
+    .eq("id", id)
+    .select("id");
 
   if (error) {
     if (error.code === PG_UNIQUE_VIOLATION) {
@@ -319,6 +320,9 @@ export async function updateSupplierCategoryAction(
       error,
     });
     return { ok: false, error: "No se pudo actualizar la categoría." };
+  }
+  if (!changed || changed.length === 0) {
+    return { ok: false, error: "No se encontró la categoría." };
   }
 
   await logAudit("supplier_category.updated", ctx.userId, {}, id);

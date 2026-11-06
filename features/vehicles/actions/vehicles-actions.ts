@@ -157,7 +157,7 @@ export async function updateVehicleAction(
   const { id, ...rest } = parsed.data;
 
   const supabase = await createSupabaseClient();
-  const { error } = await supabase
+  const { data: changed, error } = await supabase
     .from("vehicles")
     .update({
       ...(rest.patente !== undefined && { patente: rest.patente }),
@@ -174,13 +174,17 @@ export async function updateVehicleAction(
       ...(rest.is_active !== undefined && { is_active: rest.is_active }),
       ...(rest.notes !== undefined && { notes: rest.notes }),
     })
-    .eq("id", id);
+    .eq("id", id)
+    .select("id");
   if (error) {
     if (error.code === PG_UNIQUE_VIOLATION) {
       return { ok: false, error: uniqueViolationMessage(error.message) };
     }
     logger.error("vehicles.update.failed", { userId: ctx.userId, id, error });
     return { ok: false, error: "No se pudo actualizar el vehículo." };
+  }
+  if (!changed || changed.length === 0) {
+    return { ok: false, error: "No se encontró el vehículo." };
   }
 
   await logAudit(
@@ -203,13 +207,17 @@ export async function setVehicleActiveAction(
   if (!parsed.success) return { ok: false, error: "Datos inválidos." };
 
   const supabase = await createSupabaseClient();
-  const { error } = await supabase
+  const { data: changed, error } = await supabase
     .from("vehicles")
     .update({ is_active: parsed.data.is_active })
-    .eq("id", parsed.data.id);
+    .eq("id", parsed.data.id)
+    .select("id");
   if (error) {
     logger.error("vehicles.toggle.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo cambiar el estado." };
+  }
+  if (!changed || changed.length === 0) {
+    return { ok: false, error: "No se encontró el vehículo." };
   }
 
   await logAudit(

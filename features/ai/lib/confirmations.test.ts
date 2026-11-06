@@ -8,6 +8,7 @@ type Response = { data: unknown; error: unknown };
 
 const calls: Call[] = [];
 const responses: Response[] = [];
+const rpcCalls: { fn: string; args: unknown }[] = [];
 
 function builder(): Record<string, unknown> {
   const call: Call = { op: "select", filters: [] };
@@ -39,7 +40,13 @@ function builder(): Record<string, unknown> {
 }
 
 vi.mock("@/lib/supabase/service", () => ({
-  getServiceClient: () => ({ from: () => builder() }),
+  getServiceClient: () => ({
+    from: () => builder(),
+    rpc: async (fn: string, args: unknown) => {
+      rpcCalls.push({ fn, args });
+      return responses.shift() ?? { data: null, error: null };
+    },
+  }),
 }));
 
 const {
@@ -81,6 +88,7 @@ const input = {
 beforeEach(() => {
   calls.length = 0;
   responses.length = 0;
+  rpcCalls.length = 0;
 });
 
 describe("claimConfirmation (compare-and-set)", () => {
@@ -106,107 +114,76 @@ describe("claimConfirmation (compare-and-set)", () => {
   });
 });
 
+// The supersede-then-insert rules run in create_ai_confirmation_revision
+// (supabase/tests/ai_confirmation_revision_test.sql); here, what the caller
+// sends and how it reads the refusals.
 describe("createConfirmationRevision", () => {
-  const pending = {
-    id: "c2",
-    action: "proposeExchangeRate",
-    revision: 2,
-    status: "pending",
-  };
-
-  it("supersedes the key's pending revision by id, then inserts the next one", async () => {
-    responses.push(
-      { data: pending, error: null },
-      { data: [{ id: "c2" }], error: null },
-      { data: { id: "c3", revision: 3 }, error: null },
-    );
+  it("stores the revision and its supersede in one call", async () => {
+    responses.push({ data: [{ id: "c3", revision: 3 }], error: null });
     const res = await createConfirmationRevision(
       "u1",
       "s1",
       input,
-      "assistant",
+      "user",
+      "c2",
     );
     expect(res).toEqual({ id: "c3", revision: 3 });
-    expect(calls[1]).toMatchObject({
-      op: "update",
-      payload: { status: "superseded" },
-    });
-    expect(calls[1]?.filters).toEqual([
-      ["user_id", "u1"],
-      ["id", "c2"],
-      ["action", "proposeExchangeRate"],
-      ["status", "pending"],
-    ]);
-    expect(calls[2]).toMatchObject({
-      op: "insert",
-      payload: {
-        user_id: "u1",
-        session_id: "s1",
-        revision: 3,
-        origin: "assistant",
+    expect(calls).toHaveLength(0);
+    expect(rpcCalls).toEqual([
+      {
+        fn: "create_ai_confirmation_revision",
+        args: {
+          p_user_id: "u1",
+          p_session_id: "s1",
+          p_tool_call_id: "call-2",
+          p_action: "proposeExchangeRate",
+          p_revision_key: "k1",
+          p_origin: "user",
+          p_draft: input.draft,
+          p_labels: {},
+          p_summary: [],
+          p_replaces: "c2",
+        },
       },
-    });
+    ]);
   });
 
-  it("inserts without superseding when the key's latest revision is decided", async () => {
-    responses.push(
-      { data: { ...pending, status: "confirmed" }, error: null },
-      { data: { id: "c3", revision: 3 }, error: null },
-    );
-    await createConfirmationRevision("u1", "s1", input, "assistant");
-    expect(calls.map((c) => c.op)).toEqual(["select", "insert"]);
-  });
-
-  it("refuses a re-proposal when a confirm claimed the pending revision first", async () => {
-    responses.push({ data: pending, error: null }, { data: [], error: null });
-    await expect(
-      createConfirmationRevision("u1", "s1", input, "assistant"),
-    ).rejects.toBeInstanceOf(ConcurrentRevisionError);
-    expect(calls.some((c) => c.op === "insert")).toBe(false);
-  });
-
-  it("refuses a user edit of a revision that is no longer pending (no reopening)", async () => {
-    // The edited row is still the latest, but a confirm moved it out of pending.
-    responses.push(
-      { data: { ...pending, status: "confirmed" }, error: null },
-      { data: [], error: null },
-    );
-    await expect(
-      createConfirmationRevision("u1", "s1", input, "user", "c2"),
-    ).rejects.toBeInstanceOf(ConcurrentRevisionError);
-    expect(calls.some((c) => c.op === "insert")).toBe(false);
-  });
-
-  it("refuses a user edit of a revision that a newer one replaced", async () => {
+  it("refuses when another decision got to the replaced revision first", async () => {
     responses.push({
-      data: { ...pending, id: "c5", revision: 5 },
-      error: null,
+      data: null,
+      error: { code: "P0001", hint: "ai_revision_concurrent", message: "x" },
     });
     await expect(
       createConfirmationRevision("u1", "s1", input, "user", "c2"),
     ).rejects.toBeInstanceOf(ConcurrentRevisionError);
-    expect(calls).toHaveLength(1);
   });
 
   it("refuses a revisionKey that belongs to another action", async () => {
     responses.push({
-      data: { ...pending, action: "proposeLeave" },
-      error: null,
+      data: null,
+      error: { code: "P0001", hint: "ai_revision_key_mismatch", message: "x" },
     });
     await expect(
       createConfirmationRevision("u1", "s1", input, "assistant"),
     ).rejects.toBeInstanceOf(RevisionKeyMismatchError);
-    expect(calls).toHaveLength(1);
   });
 
   it("reports a lost race on the one-pending index as a concurrent revision", async () => {
-    responses.push(
-      { data: null, error: null },
-      { data: null, error: { code: "23505", message: "duplicate" } },
-    );
+    responses.push({
+      data: null,
+      error: { code: "23505", message: "duplicate" },
+    });
     await expect(
       createConfirmationRevision("u1", "s1", input, "assistant"),
     ).rejects.toBeInstanceOf(ConcurrentRevisionError);
+  });
+
+  it("throws any other failure as it came", async () => {
+    const error = { code: "XX000", message: "boom" };
+    responses.push({ data: null, error });
+    await expect(
+      createConfirmationRevision("u1", "s1", input, "assistant"),
+    ).rejects.toBe(error);
   });
 });
 

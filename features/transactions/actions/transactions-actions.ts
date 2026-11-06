@@ -241,10 +241,7 @@ export async function createTransactionAction(
     });
     if (guardError) return { ok: false, error: guardError };
     logger.error("transactions.create.failed", { userId: ctx.userId, error });
-    return {
-      ok: false,
-      error: error.message ?? "No se pudo registrar el movimiento.",
-    };
+    return { ok: false, error: "No se pudo registrar el movimiento." };
   }
 
   await logAudit(
@@ -302,10 +299,7 @@ export async function createTransferAction(
       userId: ctx.userId,
       error,
     });
-    return {
-      ok: false,
-      error: error.message ?? "No se pudo registrar la transferencia.",
-    };
+    return { ok: false, error: "No se pudo registrar la transferencia." };
   }
 
   const row = Array.isArray(rows) ? rows[0] : rows;
@@ -379,7 +373,7 @@ export async function updateTransactionAction(
     };
   }
 
-  const { error } = await supabase
+  const { data: changed, error } = await supabase
     .from("transactions")
     .update({
       amount: data.amount,
@@ -394,7 +388,8 @@ export async function updateTransactionAction(
         cost_center_id: data.cost_center_id,
       }),
     })
-    .eq("id", data.id);
+    .eq("id", data.id)
+    .select("id");
 
   if (error) {
     const guardError = mapDbGuardError(error, {
@@ -409,6 +404,9 @@ export async function updateTransactionAction(
       error,
     });
     return { ok: false, error: "No se pudo actualizar el movimiento." };
+  }
+  if (!changed || changed.length === 0) {
+    return { ok: false, error: "No se encontró el movimiento." };
   }
 
   await logAudit(

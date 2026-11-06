@@ -34,7 +34,6 @@ import {
   isShipmentStatus,
   type Shipment,
   type ShipmentHistoryEntry,
-  type ShipmentStatus,
 } from "../schema";
 import { freightInvoiceDates } from "../lib/freight-invoice";
 
@@ -368,44 +367,26 @@ export async function changeShipmentStatusAction(
   const { id, status, comment, delivery_date, failure_reason, scheduled_date } =
     parsed.data;
 
-  const supabase = await createSupabaseClient();
-  const { data: current, error: readErr } = await supabase
-    .from("shipments")
-    .select("status")
-    .eq("id", id)
-    .maybeSingle();
-  if (readErr || !current) {
-    return { ok: false, error: "No se encontró la carga." };
-  }
-
   const today = todayInAR();
-  const patch: {
-    status: ShipmentStatus;
-    delivery_date?: string;
-    failure_reason?: string | null;
-    scheduled_date?: string;
-  } = { status };
-  if (status === "delivered") {
-    patch.delivery_date = delivery_date ?? today;
-  }
-  if (status === "cancelled" || status === "reprogrammed") {
-    patch.failure_reason = failure_reason ?? null;
-  }
-  if (status === "reprogrammed" && scheduled_date) {
-    patch.scheduled_date = scheduled_date;
-  }
-
-  const { error: updErr } = await supabase
-    .from("shipments")
-    .update(patch)
-    .eq("id", id);
+  // The guarded transition and its history row, in one transaction.
+  const supabase = await createSupabaseClient();
+  const { data: from, error } = await supabase.rpc("change_shipment_status", {
+    p_id: id,
+    p_status: status,
+    p_comment: comment ?? undefined,
+    p_delivery_date:
+      status === "delivered" ? (delivery_date ?? today) : undefined,
+    p_failure_reason: failure_reason ?? undefined,
+    p_scheduled_date: scheduled_date ?? undefined,
+  });
   // Out of cancelled, the carga takes its remito number back.
-  if (isRemitoTaken(updErr)) {
+  if (isRemitoTaken(error)) {
     return { ok: false, error: REMITO_TAKEN_ERROR };
   }
-  if (updErr) {
-    // A carga in a live liquidación or rendición keeps its status.
-    const guardError = mapDbGuardError(updErr, {
+  if (error) {
+    // Not found, a transition that no longer applies, or a carga in a live
+    // liquidación or rendición, which keeps its status.
+    const guardError = mapDbGuardError(error, {
       slug: "shipments.status.rejected",
       userId: ctx.userId,
       id,
@@ -413,31 +394,16 @@ export async function changeShipmentStatusAction(
     if (guardError) return { ok: false, error: guardError };
     logger.error("shipments.status.update_failed", {
       userId: ctx.userId,
-      error: updErr,
+      id,
+      error,
     });
     return { ok: false, error: "No se pudo cambiar el estado." };
-  }
-
-  const { error: histErr } = await supabase
-    .from("shipment_status_history")
-    .insert({
-      shipment_id: id,
-      old_status: current.status,
-      new_status: status,
-      comment: comment ?? null,
-      changed_by: ctx.userId,
-    });
-  if (histErr) {
-    logger.error("shipments.status.history_failed", {
-      userId: ctx.userId,
-      error: histErr,
-    });
   }
 
   await logAudit(
     "shipment.status_changed",
     ctx.userId,
-    { from: current.status, to: status },
+    { from, to: status },
     id,
   );
   return { ok: true, data: undefined };
