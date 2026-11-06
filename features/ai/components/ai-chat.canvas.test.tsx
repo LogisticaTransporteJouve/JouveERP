@@ -269,4 +269,53 @@ describe("AiChat artifact canvas", () => {
     view.rerender();
     expect(canvas()).not.toBeNull();
   });
+
+  it("lifts a markdown table out of the answer into the canvas, leaving a card", () => {
+    const view = chat();
+    transcript = [
+      turn("m1", [
+        {
+          type: "text",
+          text: "Te deben **$ 15.000,00**.\n\n**Deudores**\n\n| Cliente | Saldo |\n|---|---:|\n| Acme | $ 10.000,00 |\n| Beta | $ 5.000,00 |\n\nSegún `getClientAging`.",
+        },
+      ]),
+    ];
+    view.rerender();
+
+    const panel = within(canvas()!);
+    expect(panel.getByRole("heading", { name: "Deudores" })).toBeTruthy();
+    expect(panel.getByRole("cell", { name: "Acme" })).toBeTruthy();
+    expect(panel.getByText(/De la respuesta del asistente/)).toBeTruthy();
+    expect(panel.getByRole("button", { name: /Exportar/ })).toBeTruthy();
+    // No query behind it: «Fijar» shows, disabled with its reason.
+    const pin = panel.getByRole("button", { name: /Fijar/ });
+    expect(pin.hasAttribute("disabled")).toBe(true);
+
+    const card = screen.getByRole("button", { pressed: true });
+    expect(card.textContent).toMatch(/Deudores/);
+    expect(card.textContent).toMatch(/Tabla · 2 filas/);
+
+    // The answer keeps its text, without the table or the tool name.
+    const log = document.body.textContent ?? "";
+    expect(log).toContain("Te deben");
+    expect(log).toContain("Según Aging de clientes.");
+    expect(log).not.toContain("getClientAging");
+    expect(document.querySelector(".prose-ai table")).toBeNull();
+  });
+
+  it("on a narrow screen a lifted table covers the chat with «Volver al chat»", () => {
+    wide = false;
+    const view = chat();
+    transcript = [
+      turn("m1", [
+        { type: "text", text: "| Mes | Total |\n|---|---|\n| 2026-09 | 10 |" },
+      ]),
+    ];
+    view.rerender();
+    expect(canvas()).not.toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Volver al chat" }));
+    expect(canvas()).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /Mes/ }));
+    expect(canvas()).not.toBeNull();
+  });
 });

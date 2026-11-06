@@ -55,7 +55,7 @@ import { ArtifactCanvas, ArtifactChip } from "./artifact-canvas";
 import { ComposerAttachments, MessageAttachments } from "./chat-attachments";
 import { ProposalCard } from "./proposal-card";
 import { QuestionsCard } from "./questions-card";
-import { toolLabel } from "./tool-renderers";
+import { toolLabel } from "../lib/tool-labels";
 
 const SUGGESTIONS = [
   "¿Cómo viene la caja?",
@@ -395,7 +395,9 @@ export function AiChat({
                           live={busy && mi === shown.length - 1}
                         />
                       )}
-                      {segmentParts(m.parts, m.id).map((seg) =>
+                      {segmentParts(m.parts, m.id, {
+                        liftTables: m.role === "assistant",
+                      }).map((seg) =>
                         seg.kind === "card" ? (
                           renderCard(seg.part, seg.index)
                         ) : seg.kind === "attachments" ? (
@@ -555,7 +557,11 @@ function BubbleSegment({
     <div
       className={cn(
         "max-w-[85%] rounded-lg px-3 py-2 text-sm",
-        role === "user" ? "bg-primary text-primary-foreground" : "bg-muted",
+        // Only the user's bubble takes color; the answer is a light card on
+        // the white chat panel.
+        role === "user"
+          ? "bg-primary text-primary-foreground"
+          : "bg-card border",
       )}
     >
       {children}
