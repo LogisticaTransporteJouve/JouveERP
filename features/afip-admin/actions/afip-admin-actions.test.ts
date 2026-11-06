@@ -171,6 +171,21 @@ describe("configurePosAction", () => {
     ]);
   });
 
+  it("says so when another enable on the channel won the race (unique index)", async () => {
+    h.updateError = { code: "23505", message: "duplicate key value" };
+    const res = await configurePosAction({
+      numero: 7,
+      channel_id: "jouve_internal",
+      nickname: null,
+      is_enabled: false,
+    });
+    expect(res).toEqual({
+      ok: false,
+      error:
+        "El canal ya tiene otro POS habilitado. Deshabilitalo antes de habilitar otro.",
+    });
+  });
+
   it("does not show the database's message on another failure", async () => {
     h.updateError = { code: "XX000", message: "relation sales_points broke" };
     const res = await configurePosAction({
