@@ -518,7 +518,7 @@ export function SupplierAccountTab({
         data={visibleMovements}
         getRowId={(m) =>
           m.source_type === "opening_balance"
-            ? `opening-${m.movement_date}`
+            ? `opening-${m.currency}-${m.movement_date}`
             : `${m.source_type}-${m.source_id}`
         }
         emptyMessage={emptyMessage}

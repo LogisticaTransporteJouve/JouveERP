@@ -164,6 +164,7 @@ export function useSetClientOpeningBalance() {
       client_id: string;
       opening_date: string;
       target_balance: number;
+      target_balance_usd?: number | null;
       notes?: string | null;
     }) => runAction(() => setClientOpeningBalanceAction(input)),
     onSuccess: () => invalidateKeys(qc, OPENING_BALANCE_EFFECT_KEYS),

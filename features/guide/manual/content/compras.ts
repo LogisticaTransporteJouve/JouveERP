@@ -473,6 +473,11 @@ export const purchasesPage: GuidePage = {
                   value: "1.250.000,00",
                   marker: 3,
                 },
+                {
+                  label: "Saldo en dólares al corte (US$, opcional)",
+                  kind: "money",
+                  wide: true,
+                },
                 { label: "Notas (opcional)", kind: "textarea", wide: true },
               ],
               footer: [
@@ -485,17 +490,23 @@ export const purchasesPage: GuidePage = {
             "En la ficha del proveedor, pestaña {{Cuenta corriente}}, hacé clic en {{Ajustar saldo}}.",
             "En {{Fecha de corte}}, elegí la fecha a la que conocés la deuda real.",
             "En {{Saldo real al corte ($)}}, escribí cuánto le debían a esa fecha, en pesos (0 si no le debían nada; no puede ser negativo). Opcional: {{Notas (opcional)}}.",
+            "Si el proveedor tiene facturas en dólares, en {{Saldo en dólares al corte (US$, opcional)}} escribí cuántos dólares le debían a esa fecha (0 o más). Si lo dejás vacío, se vuelve a aplicar el saldo en dólares que ya tenía el ajuste; si no tenía, las facturas en dólares quedan como están.",
             "Hacé clic en {{Registrar}} (si ya había un ajuste, el botón dice {{Actualizar}} y el recuadro {{Registrado actualmente}} muestra el anterior).",
           ],
           after: [
             "El sistema calcula lo que figura abierto hasta la fecha de corte (facturas y notas de débito en pesos menos notas de crédito y órdenes de pago emitidas) y, si es más que el saldo que ingresaste, da por pagada la diferencia, empezando por las facturas más viejas. Esas facturas bajan en el aging y en la cuenta corriente. Si el saldo ingresado es igual o mayor que lo abierto, no da nada por pagado: el ajuste no agrega deuda.",
-            "En la cuenta corriente aparece una fila {{Ajuste de saldo}}, con un lápiz ({{Editar ajuste de saldo}}) y un tacho ({{Borrar ajuste de saldo}}) que solo puede usar el owner.",
+            "Con saldo en dólares, hace lo mismo con las facturas y notas de débito en dólares (menos sus notas de crédito y órdenes de pago), en dólares y aparte de los pesos.",
+            "En la cuenta corriente aparece una fila {{Ajuste de saldo}} por moneda ajustada: ahí el saldo de esa moneda pasa a ser el que ingresaste. Tiene un lápiz ({{Editar ajuste de saldo}}) y un tacho ({{Borrar ajuste de saldo}}) que solo puede usar el owner.",
             "Volver a registrarlo reemplaza el ajuste anterior y lo recalcula.",
           ],
           errors: [
             {
               message: "Ingresá un saldo válido (no negativo).",
               fix: "Escribí un importe de 0 o más.",
+            },
+            {
+              message: "Ingresá un saldo en dólares válido (no negativo).",
+              fix: "Escribí un importe de 0 o más, o dejá el campo vacío.",
             },
             {
               message: "Ingresá la fecha de corte.",
@@ -1981,7 +1992,7 @@ export const purchasesPage: GuidePage = {
             "Corre en segundo plano y el recuadro muestra en qué va: «Dando de alta los proveedores que faltan…», «Cargando los comprobantes como compras… N de M.» y «Fijando los saldos de apertura al 31/10/2026…». Mientras corre, el botón dice {{Cargando…}}.",
             "**Proveedores**: cada CUIT sin proveedor se da de alta del lado fiscal con la razón social, la condición de IVA y el domicilio fiscal del padrón de AFIP. Si el padrón no responde, toma el nombre que informa ARCA y la condición según la letra: A o B, responsable inscripto; C, monotributo. Sin canal, cuenta ni centro de costo por defecto.",
             "**Comprobantes**: se cargan igual que con {{Aceptar y cargar}} ([[#aceptar-comprobante-de-arca]]), primero las facturas y después las notas de débito y de crédito. El canal es el del proveedor, o el único canal fiscal activo; la cuenta y el centro de costo, los del proveedor (si no tiene, la compra va a la cuenta de compras). Si los importes de ARCA no suman el total, la diferencia va a no gravado (al neto en B y C). En dólares, toma la cotización de ARCA o la del día cargada en [[/accounting/exchange-rates]]. Cada NC o ND se vincula con una factura del mismo proveedor, letra y moneda, de fecha igual o anterior: la de igual total, o si no la última; una NC solo con una factura a la que le quede saldo para toda la nota.",
-            "**Saldos de apertura**: a cada proveedor con compras cargadas hasta el 31/10/2026 se le fija el saldo de apertura en 0 a esa fecha, como en [[#ajustar-saldo-proveedor]]: todo lo anterior queda cancelado y lo de noviembre en adelante queda como deuda abierta. Si el proveedor ya tenía un saldo de apertura, se reemplaza. Las compras en dólares no se cancelan (el saldo de apertura es en pesos): el resultado dice cuántas quedaron abiertas.",
+            "**Saldos de apertura**: a cada proveedor con compras cargadas hasta el 31/10/2026 se le fija el saldo de apertura en 0 a esa fecha, como en [[#ajustar-saldo-proveedor]]: todo lo anterior queda cancelado y lo de noviembre en adelante queda como deuda abierta. Si el proveedor ya tenía un saldo de apertura, se reemplaza. Las compras en dólares no se cancelan (este saldo de apertura es en pesos; si el proveedor ya tenía un saldo en dólares, se vuelve a aplicar): el resultado dice cuántas quedaron abiertas. Para cancelarlas, ajustá el saldo en dólares del proveedor ([[#ajustar-saldo-proveedor]]).",
             "Al terminar, el recuadro resume proveedores creados, comprobantes cargados, los que quedaron en {{Pendientes}} por motivo (NC/ND sin factura de origen, en dólares sin cotización, otros tributos sin reparto, con error) y los saldos de apertura fijados; {{Ver errores}} lista cada uno. Lo que quedó en {{Pendientes}} se acepta uno por uno.",
             "Si se corta, lo cargado hasta ahí queda: se puede volver a correr y sigue con lo que quedó pendiente.",
           ],
