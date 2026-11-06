@@ -212,7 +212,7 @@ const GUARDS = [
   "guard_supplier_cuit_closed_period",
   "guard_document_insert",
   "guard_loan_installment_payment",
-  "create_loan",
+  "create_loan_core",
   "guard_payment_order_line_cartera",
   "create_receipt",
   "update_receipt",

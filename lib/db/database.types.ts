@@ -9441,20 +9441,36 @@ export type Database = {
         Args: { p_account_id: string }
         Returns: Database["public"]["Enums"]["coa_system_role"]
       }
-      commit_import_run: {
-        Args: {
-          p_file_name: string
-          p_file_sha256: string
-          p_invalid_rows: number
-          p_kind: string
-          p_mapping: Json
-          p_rows: Json
-          p_skipped_rows: number
-          p_total_rows: number
-          p_user_id: string
-        }
-        Returns: string
-      }
+      commit_import_run:
+        | {
+            Args: {
+              p_file_name: string
+              p_file_sha256: string
+              p_invalid_rows: number
+              p_kind: string
+              p_mapping: Json
+              p_rows: Json
+              p_skipped_rows: number
+              p_total_rows: number
+              p_user_id: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_driver_position: string
+              p_file_name: string
+              p_file_sha256: string
+              p_invalid_rows: number
+              p_kind: string
+              p_mapping: Json
+              p_rows: Json
+              p_skipped_rows: number
+              p_total_rows: number
+              p_user_id: string
+            }
+            Returns: string
+          }
       confirm_driver_settlement: {
         Args: { p_settlement_id: string; p_user_id: string }
         Returns: string[]
@@ -9541,6 +9557,15 @@ export type Database = {
       }
       create_loan: {
         Args: { p_installments: Json; p_loan: Json }
+        Returns: string
+      }
+      create_loan_core: {
+        Args: {
+          p_created_by: string
+          p_import_run_id: string
+          p_installments: Json
+          p_loan: Json
+        }
         Returns: string
       }
       create_manual_check: {
