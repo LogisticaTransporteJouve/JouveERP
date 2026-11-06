@@ -151,7 +151,7 @@ function TaskList({ rows, today }: { rows: TodayTask[]; today: string }) {
               href={t.href}
               className="flex items-center gap-3 px-3 py-2 text-sm hover:bg-accent/50"
             >
-              <span className="w-14 shrink-0 font-mono text-xs text-muted-foreground">
+              <span className="shrink-0 whitespace-nowrap font-mono text-xs text-muted-foreground">
                 {t.due_date === today ? "Hoy" : formatArDateShort(t.due_date)}
               </span>
               <span className="min-w-0 flex-1 truncate">{t.title}</span>
@@ -227,7 +227,7 @@ function PaperList({ rows }: { rows: PendingPaper[] }) {
                     href={p.href}
                     className="flex items-center gap-3 px-3 py-2 text-sm hover:bg-accent/50"
                   >
-                    <span className="w-14 shrink-0 font-mono text-xs text-muted-foreground">
+                    <span className="shrink-0 whitespace-nowrap font-mono text-xs text-muted-foreground">
                       {formatArDateShort(p.expires_at)}
                     </span>
                     <span className="min-w-0 flex-1 truncate">

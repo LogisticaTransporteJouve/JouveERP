@@ -5,6 +5,11 @@ import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 
 import { DisabledHint, NO_CHANGES_REASON } from "@/components/disabled-hint";
+import {
+  FormColumn,
+  FormColumns,
+  WIDE_FORM_DIALOG,
+} from "@/components/form-columns";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -196,7 +201,7 @@ export function ChartAccountDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className={WIDE_FORM_DIALOG}>
         <DialogHeader>
           <DialogTitle>{isEdit ? "Editar cuenta" : "Nueva cuenta"}</DialogTitle>
           <DialogDescription>
@@ -208,197 +213,205 @@ export function ChartAccountDialog({
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            {!isEdit && (
-              <FormField
-                control={form.control}
-                name="parent_id"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Cuenta padre</FormLabel>
-                    <Select
-                      value={field.value ?? "__root"}
-                      onValueChange={(v) =>
-                        field.onChange(v === "__root" ? null : v)
-                      }
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Seleccionar padre…" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="__root">
-                          (sin padre — capítulo raíz)
-                        </SelectItem>
-                        {possibleParents.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>
-                            <span className="font-mono text-xs">{p.code}</span>{" "}
-                            {p.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormDescription className="text-xs">
-                      Sin padre = nivel 1 (capítulo). Con padre, el código se
-                      autogenera.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )}
-
-            <div className="grid grid-cols-3 gap-3">
-              <FormField
-                control={form.control}
-                name="code"
-                render={({ field }) => (
-                  <FormItem className="col-span-1">
-                    <FormLabel>Código</FormLabel>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        disabled={isEdit}
-                        placeholder="1.1.1"
-                        autoComplete="off"
-                        className="font-mono"
-                      />
-                    </FormControl>
-                    {codePreviewLevel !== null && !isEdit && (
-                      <FormDescription className="text-xs">
-                        Nivel {codePreviewLevel}
-                      </FormDescription>
+            <FormColumns>
+              <FormColumn>
+                {!isEdit && (
+                  <FormField
+                    control={form.control}
+                    name="parent_id"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Cuenta padre</FormLabel>
+                        <Select
+                          value={field.value ?? "__root"}
+                          onValueChange={(v) =>
+                            field.onChange(v === "__root" ? null : v)
+                          }
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Seleccionar padre…" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="__root">
+                              (sin padre — capítulo raíz)
+                            </SelectItem>
+                            {possibleParents.map((p) => (
+                              <SelectItem key={p.id} value={p.id}>
+                                <span className="font-mono text-xs">
+                                  {p.code}
+                                </span>{" "}
+                                {p.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormDescription className="text-xs">
+                          Sin padre = nivel 1 (capítulo). Con padre, el código
+                          se autogenera.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
                     )}
-                    <FormMessage />
-                  </FormItem>
+                  />
                 )}
-              />
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem className="col-span-2">
-                    <FormLabel>Nombre</FormLabel>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        placeholder="Ej: Caja general"
-                        autoComplete="off"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
 
-            <FormField
-              control={form.control}
-              name="account_type"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Tipo contable</FormLabel>
-                  <Select
-                    value={field.value}
-                    onValueChange={(v) => field.onChange(v as CoaAccountType)}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {COA_ACCOUNT_TYPES.map((t) => (
-                        <SelectItem key={t} value={t}>
-                          {COA_ACCOUNT_TYPE_LABEL[t]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                <div className="grid grid-cols-3 gap-3">
+                  <FormField
+                    control={form.control}
+                    name="code"
+                    render={({ field }) => (
+                      <FormItem className="col-span-1">
+                        <FormLabel>Código</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            disabled={isEdit}
+                            placeholder="1.1.1"
+                            autoComplete="off"
+                            className="font-mono"
+                          />
+                        </FormControl>
+                        {codePreviewLevel !== null && !isEdit && (
+                          <FormDescription className="text-xs">
+                            Nivel {codePreviewLevel}
+                          </FormDescription>
+                        )}
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem className="col-span-2">
+                        <FormLabel>Nombre</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            placeholder="Ej: Caja general"
+                            autoComplete="off"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
 
-            <FormField
-              control={form.control}
-              name="eerr_category"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Categoría EERR</FormLabel>
-                  <FormControl>
-                    <Input
-                      {...field}
-                      placeholder="Ej: gastos_operativos"
-                      autoComplete="off"
-                    />
-                  </FormControl>
-                  <FormDescription className="text-xs">
-                    Opcional. Agrupa la cuenta en el Estado de Resultados.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                <FormField
+                  control={form.control}
+                  name="account_type"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tipo contable</FormLabel>
+                      <Select
+                        value={field.value}
+                        onValueChange={(v) =>
+                          field.onChange(v as CoaAccountType)
+                        }
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {COA_ACCOUNT_TYPES.map((t) => (
+                            <SelectItem key={t} value={t}>
+                              {COA_ACCOUNT_TYPE_LABEL[t]}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </FormColumn>
+              <FormColumn>
+                <FormField
+                  control={form.control}
+                  name="eerr_category"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Categoría EERR</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          placeholder="Ej: gastos_operativos"
+                          autoComplete="off"
+                        />
+                      </FormControl>
+                      <FormDescription className="text-xs">
+                        Opcional. Agrupa la cuenta en el Estado de Resultados.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-            <FormField
-              control={form.control}
-              name="system_role"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Rol del sistema</FormLabel>
-                  <Select
-                    value={field.value}
-                    onValueChange={(v) =>
-                      field.onChange(v as CoaSystemRole | typeof NONE_ROLE)
-                    }
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value={NONE_ROLE}>(ninguno)</SelectItem>
-                      {COA_SYSTEM_ROLES.map((r) => (
-                        <SelectItem key={r} value={r}>
-                          {COA_SYSTEM_ROLE_LABEL[r]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormDescription className="text-xs">
-                    Asigna la cuenta como destino de un tipo de asiento
-                    automático (caja, IVA débito, etc.). Solo una cuenta activa
-                    puede tener un rol dado.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                <FormField
+                  control={form.control}
+                  name="system_role"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Rol del sistema</FormLabel>
+                      <Select
+                        value={field.value}
+                        onValueChange={(v) =>
+                          field.onChange(v as CoaSystemRole | typeof NONE_ROLE)
+                        }
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value={NONE_ROLE}>(ninguno)</SelectItem>
+                          {COA_SYSTEM_ROLES.map((r) => (
+                            <SelectItem key={r} value={r}>
+                              {COA_SYSTEM_ROLE_LABEL[r]}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormDescription className="text-xs">
+                        Asigna la cuenta como destino de un tipo de asiento
+                        automático (caja, IVA débito, etc.). Solo una cuenta
+                        activa puede tener un rol dado.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-            <FormField
-              control={form.control}
-              name="is_active"
-              render={({ field }) => (
-                <FormItem className="flex items-center justify-between rounded-md border px-3 py-2">
-                  <div className="space-y-0.5">
-                    <FormLabel className="cursor-pointer">Activa</FormLabel>
-                    <FormDescription className="text-xs">
-                      Las cuentas inactivas no aparecen en los pickers ni
-                      reciben asientos automáticos.
-                    </FormDescription>
-                  </div>
-                  <FormControl>
-                    <Switch
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-
+                <FormField
+                  control={form.control}
+                  name="is_active"
+                  render={({ field }) => (
+                    <FormItem className="flex items-center justify-between rounded-md border px-3 py-2">
+                      <div className="space-y-0.5">
+                        <FormLabel className="cursor-pointer">Activa</FormLabel>
+                        <FormDescription className="text-xs">
+                          Las cuentas inactivas no aparecen en los pickers ni
+                          reciben asientos automáticos.
+                        </FormDescription>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </FormColumn>
+            </FormColumns>
             <DialogFooter>
               <Button
                 type="button"

@@ -54,7 +54,7 @@ describe("navItemForPath with an href listed under both sides", () => {
     ["/receipts", "Recibos", "Recibos internos"],
     ["/aging", "Aging clientes", "Aging clientes"],
     ["/suppliers/categories", "Categorías", "Categorías"],
-    ["/purchases/x", "Compras", "Remitos de compra"],
+    ["/purchases/x", "Comprobantes", "Remitos de compra"],
     ["/payment-orders/x", "Órdenes de pago", "Órdenes de pago"],
     ["/aging-suppliers", "Aging proveedores", "Aging proveedores"],
   ])(

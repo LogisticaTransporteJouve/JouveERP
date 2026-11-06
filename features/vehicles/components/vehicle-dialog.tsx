@@ -7,6 +7,11 @@ import { toast } from "sonner";
 import { z } from "zod";
 
 import { DisabledHint, NO_CHANGES_REASON } from "@/components/disabled-hint";
+import {
+  FormColumn,
+  FormColumns,
+  WIDE_FORM_DIALOG,
+} from "@/components/form-columns";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -135,7 +140,7 @@ export function VehicleDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className={WIDE_FORM_DIALOG}>
         <DialogHeader>
           <DialogTitle>
             {isEdit ? "Editar vehículo" : "Nuevo vehículo"}
@@ -147,160 +152,168 @@ export function VehicleDialog({
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <FormField
-                control={form.control}
-                name="patente"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Patente</FormLabel>
-                    <FormControl>
-                      <Input {...field} placeholder="AB123CD" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="vehicle_type"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Tipo</FormLabel>
-                    <Select
-                      value={field.value}
-                      onValueChange={(v) => field.onChange(v as VehicleType)}
-                    >
+            <FormColumns>
+              <FormColumn>
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField
+                    control={form.control}
+                    name="patente"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Patente</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="AB123CD" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="vehicle_type"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Tipo</FormLabel>
+                        <Select
+                          value={field.value}
+                          onValueChange={(v) =>
+                            field.onChange(v as VehicleType)
+                          }
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {VEHICLE_TYPES.map((t) => (
+                              <SelectItem key={t} value={t}>
+                                {VEHICLE_TYPE_LABELS[t]}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <FormField
+                  control={form.control}
+                  name="alias"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Alias</FormLabel>
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
+                        <Input {...field} placeholder="Chasis 1" />
                       </FormControl>
-                      <SelectContent>
-                        {VEHICLE_TYPES.map((t) => (
-                          <SelectItem key={t} value={t}>
-                            {VEHICLE_TYPE_LABELS[t]}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-            <FormField
-              control={form.control}
-              name="alias"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Alias</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder="Chasis 1" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <div className="grid grid-cols-2 gap-3">
-              <FormField
-                control={form.control}
-                name="brand"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Marca</FormLabel>
-                    <FormControl>
-                      <Input {...field} placeholder="Scania" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="model"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Modelo</FormLabel>
-                    <FormControl>
-                      <Input {...field} placeholder="R450" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <FormField
-                control={form.control}
-                name="year"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Año</FormLabel>
-                    <FormControl>
-                      <Input {...field} type="number" placeholder="2020" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="capacity_kg"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Capacidad (kg)</FormLabel>
-                    <FormControl>
-                      <Input {...field} type="number" placeholder="30000" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-            <FormField
-              control={form.control}
-              name="fleet"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Flota</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder="Logística Jouve" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="fuel_card"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Tarjeta de combustible</FormLabel>
-                  <FormControl>
-                    <Input
-                      {...field}
-                      inputMode="numeric"
-                      placeholder="Número de YPF en Ruta o Axion Card"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="notes"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Notas</FormLabel>
-                  <FormControl>
-                    <Textarea {...field} rows={2} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField
+                    control={form.control}
+                    name="brand"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Marca</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="Scania" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="model"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Modelo</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="R450" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField
+                    control={form.control}
+                    name="year"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Año</FormLabel>
+                        <FormControl>
+                          <Input {...field} type="number" placeholder="2020" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="capacity_kg"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Capacidad (kg)</FormLabel>
+                        <FormControl>
+                          <Input {...field} type="number" placeholder="30000" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </FormColumn>
+              <FormColumn>
+                <FormField
+                  control={form.control}
+                  name="fleet"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Flota</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="Logística Jouve" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="fuel_card"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tarjeta de combustible</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          inputMode="numeric"
+                          placeholder="Número de YPF en Ruta o Axion Card"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="notes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Notas</FormLabel>
+                      <FormControl>
+                        <Textarea {...field} rows={2} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </FormColumn>
+            </FormColumns>
             <DialogFooter>
               <Button
                 type="button"

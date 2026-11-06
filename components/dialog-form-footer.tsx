@@ -1,5 +1,6 @@
 import { DisabledHint, NO_CHANGES_REASON } from "@/components/disabled-hint";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 /** The Cancel + submit row of a create/edit form dialog: both right-aligned,
  *  Cancel first; in edit mode submit stays disabled until the form is dirty. */
@@ -10,6 +11,7 @@ export function DialogFormFooter({
   createLabel,
   submitDisabledReason = null,
   onCancel,
+  className,
 }: {
   mode: "create" | "edit";
   isSaving: boolean;
@@ -19,13 +21,14 @@ export function DialogFormFooter({
    *  submit and the button explains it on hover. */
   submitDisabledReason?: string | null;
   onCancel: () => void;
+  className?: string;
 }) {
   const reason = isSaving
     ? null
     : (submitDisabledReason ??
       (mode === "edit" && !isDirty ? NO_CHANGES_REASON : null));
   return (
-    <div className="flex items-center justify-end gap-2">
+    <div className={cn("flex items-center justify-end gap-2", className)}>
       <Button
         type="button"
         variant="ghost"

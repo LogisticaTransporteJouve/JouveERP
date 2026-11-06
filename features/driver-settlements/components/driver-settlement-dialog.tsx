@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { DisabledHint } from "@/components/disabled-hint";
 import { MoneyInput } from "@/components/money-input";
+import { FormColumn, FormColumns } from "@/components/form-columns";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -247,7 +248,7 @@ export function DriverSettlementDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-3xl">
+      <DialogContent className="sm:max-w-5xl">
         <DialogHeader>
           <DialogTitle>
             {settlement ? "Editar rendición" : "Nueva rendición"} ·{" "}
@@ -259,226 +260,233 @@ export function DriverSettlementDialog({
             recibos.
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <FormColumns className="@2xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+          <FormColumn>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="ds-date">Fecha</Label>
+                <DatePicker id="ds-date" value={date} onChange={setDate} />
+              </div>
+            </div>
+
+            {accounts.isError && (
+              <p className="text-sm text-muted-foreground">
+                No se pudieron cargar las cuentas: {accounts.error.message}
+              </p>
+            )}
+
             <div className="space-y-2">
-              <Label htmlFor="ds-date">Fecha</Label>
-              <DatePicker id="ds-date" value={date} onChange={setDate} />
+              <Label htmlFor="ds-notes">Notas</Label>
+              <Textarea
+                id="ds-notes"
+                rows={2}
+                maxLength={1000}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+              />
             </div>
-          </div>
-
-          {accounts.isError && (
-            <p className="text-sm text-muted-foreground">
-              No se pudieron cargar las cuentas: {accounts.error.message}
-            </p>
-          )}
-
-          {rows.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              El chofer no tiene cargas contra entrega pendientes.
-            </p>
-          ) : (
-            <ul className="max-h-[50vh] divide-y overflow-y-auto rounded-md border">
-              {rows.map((r) => {
-                const rowDiff = settlementDifference(
-                  r.expected,
-                  rowReceived(r),
-                );
-                return (
-                  <li key={r.shipment_id} className="space-y-2 px-3 py-2">
-                    <label className="flex cursor-pointer items-start gap-3 text-sm">
-                      <Checkbox
-                        className="mt-0.5"
-                        checked={r.included}
-                        onCheckedChange={(v) =>
-                          update(r.shipment_id, { included: v === true })
-                        }
-                      />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate font-medium">
-                          {r.label}
-                        </span>
-                        <span className="block truncate text-xs text-muted-foreground">
-                          {r.detail}
-                        </span>
-                      </span>
-                      <span className="shrink-0 text-right tabular-nums">
-                        <span className="block">{formatMoney(r.expected)}</span>
-                        {r.included && rowDiff !== 0 && (
-                          <span className="block text-xs text-muted-foreground">
-                            Dif. {formatMoneySigned(rowDiff)}
+          </FormColumn>
+          <FormColumn>
+            {rows.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                El chofer no tiene cargas contra entrega pendientes.
+              </p>
+            ) : (
+              <ul className="max-h-[50vh] divide-y overflow-y-auto rounded-md border">
+                {rows.map((r) => {
+                  const rowDiff = settlementDifference(
+                    r.expected,
+                    rowReceived(r),
+                  );
+                  return (
+                    <li key={r.shipment_id} className="space-y-2 px-3 py-2">
+                      <label className="flex cursor-pointer items-start gap-3 text-sm">
+                        <Checkbox
+                          className="mt-0.5"
+                          checked={r.included}
+                          onCheckedChange={(v) =>
+                            update(r.shipment_id, { included: v === true })
+                          }
+                        />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate font-medium">
+                            {r.label}
                           </span>
-                        )}
-                      </span>
-                    </label>
-                    {r.included && (
-                      <div className="space-y-2 pl-7">
-                        {r.lines.map((l, index) => {
-                          const check = checkOf(l.account_id);
-                          return (
-                            <div
-                              key={l.key}
-                              className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_9rem_auto]"
-                            >
-                              <Select
-                                value={l.account_id}
-                                onValueChange={(v) =>
-                                  updateLine(r.shipment_id, l.key, {
-                                    account_id: v,
-                                  })
-                                }
+                          <span className="block truncate text-xs text-muted-foreground">
+                            {r.detail}
+                          </span>
+                        </span>
+                        <span className="shrink-0 text-right tabular-nums">
+                          <span className="block">
+                            {formatMoney(r.expected)}
+                          </span>
+                          {r.included && rowDiff !== 0 && (
+                            <span className="block text-xs text-muted-foreground">
+                              Dif. {formatMoneySigned(rowDiff)}
+                            </span>
+                          )}
+                        </span>
+                      </label>
+                      {r.included && (
+                        <div className="space-y-2 pl-7">
+                          {r.lines.map((l, index) => {
+                            const check = checkOf(l.account_id);
+                            return (
+                              <div
+                                key={l.key}
+                                className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_9rem_auto]"
                               >
-                                <SelectTrigger
-                                  className="w-full"
-                                  aria-label={`Cuenta del pago ${index + 1}`}
+                                <Select
+                                  value={l.account_id}
+                                  onValueChange={(v) =>
+                                    updateLine(r.shipment_id, l.key, {
+                                      account_id: v,
+                                    })
+                                  }
                                 >
-                                  <SelectValue placeholder="Cuenta" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {accountList.map((a) => (
-                                    <SelectItem key={a.id} value={a.id}>
-                                      {a.name}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <MoneyInput
-                                aria-label={`Importe del pago ${index + 1}`}
-                                placeholder="0 = no cobró"
-                                value={l.amount}
-                                onChange={(amount) =>
-                                  updateLine(r.shipment_id, l.key, { amount })
-                                }
-                              />
-                              <IconButton
-                                label={`Quitar el pago ${index + 1}`}
-                                type="button"
-                                variant="ghost"
-                                disabledReason={
-                                  r.lines.length === 1 && l.amount === ""
-                                    ? "No hay nada para quitar."
-                                    : null
-                                }
-                                disabled={
-                                  r.lines.length === 1 && l.amount === ""
-                                }
-                                onClick={() => removeLine(r, l.key)}
-                              >
-                                <Trash2 className="size-4" />
-                              </IconButton>
-                              {check && (
-                                <div className="grid grid-cols-1 gap-2 sm:col-span-3 sm:grid-cols-3">
-                                  <Input
-                                    aria-label="Número de cheque"
-                                    placeholder="N° de cheque"
-                                    maxLength={60}
-                                    value={l.check_number}
-                                    onChange={(e) =>
-                                      updateLine(r.shipment_id, l.key, {
-                                        check_number: e.target.value,
-                                      })
-                                    }
-                                  />
-                                  <DatePicker
-                                    aria-label="Fecha de pago del cheque"
-                                    value={l.check_due_date}
-                                    onChange={(value) =>
-                                      updateLine(r.shipment_id, l.key, {
-                                        check_due_date: value,
-                                      })
-                                    }
-                                    clearable
-                                  />
-                                  <Input
-                                    aria-label="Banco"
-                                    placeholder="Banco"
-                                    maxLength={120}
-                                    value={l.bank_name}
-                                    onChange={(e) =>
-                                      updateLine(r.shipment_id, l.key, {
-                                        bank_name: e.target.value,
-                                      })
-                                    }
-                                  />
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                          <DisabledHint
-                            reason={
-                              r.lines.length >= MAX_LINES
-                                ? `Hasta ${MAX_LINES} medios de pago por carga.`
-                                : null
-                            }
-                          >
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              disabled={r.lines.length >= MAX_LINES}
-                              onClick={() => addLine(r)}
+                                  <SelectTrigger
+                                    className="w-full"
+                                    aria-label={`Cuenta del pago ${index + 1}`}
+                                  >
+                                    <SelectValue placeholder="Cuenta" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {accountList.map((a) => (
+                                      <SelectItem key={a.id} value={a.id}>
+                                        {a.name}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <MoneyInput
+                                  aria-label={`Importe del pago ${index + 1}`}
+                                  placeholder="0 = no cobró"
+                                  value={l.amount}
+                                  onChange={(amount) =>
+                                    updateLine(r.shipment_id, l.key, { amount })
+                                  }
+                                />
+                                <IconButton
+                                  label={`Quitar el pago ${index + 1}`}
+                                  type="button"
+                                  variant="ghost"
+                                  disabledReason={
+                                    r.lines.length === 1 && l.amount === ""
+                                      ? "No hay nada para quitar."
+                                      : null
+                                  }
+                                  disabled={
+                                    r.lines.length === 1 && l.amount === ""
+                                  }
+                                  onClick={() => removeLine(r, l.key)}
+                                >
+                                  <Trash2 className="size-4" />
+                                </IconButton>
+                                {check && (
+                                  <div className="grid grid-cols-1 gap-2 sm:col-span-3 sm:grid-cols-3">
+                                    <Input
+                                      aria-label="Número de cheque"
+                                      placeholder="N° de cheque"
+                                      maxLength={60}
+                                      value={l.check_number}
+                                      onChange={(e) =>
+                                        updateLine(r.shipment_id, l.key, {
+                                          check_number: e.target.value,
+                                        })
+                                      }
+                                    />
+                                    <DatePicker
+                                      aria-label="Fecha de pago del cheque"
+                                      value={l.check_due_date}
+                                      onChange={(value) =>
+                                        updateLine(r.shipment_id, l.key, {
+                                          check_due_date: value,
+                                        })
+                                      }
+                                      clearable
+                                    />
+                                    <Input
+                                      aria-label="Banco"
+                                      placeholder="Banco"
+                                      maxLength={120}
+                                      value={l.bank_name}
+                                      onChange={(e) =>
+                                        updateLine(r.shipment_id, l.key, {
+                                          bank_name: e.target.value,
+                                        })
+                                      }
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                            <DisabledHint
+                              reason={
+                                r.lines.length >= MAX_LINES
+                                  ? `Hasta ${MAX_LINES} medios de pago por carga.`
+                                  : null
+                              }
                             >
-                              <Plus />
-                              Otro medio de pago
-                            </Button>
-                          </DisabledHint>
-                          <Input
-                            aria-label="Nota"
-                            className="sm:flex-1"
-                            placeholder={
-                              rowDiff !== 0 ? "Motivo de la diferencia" : "Nota"
-                            }
-                            maxLength={500}
-                            value={r.note}
-                            onChange={(e) =>
-                              update(r.shipment_id, { note: e.target.value })
-                            }
-                          />
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                disabled={r.lines.length >= MAX_LINES}
+                                onClick={() => addLine(r)}
+                              >
+                                <Plus />
+                                Otro medio de pago
+                              </Button>
+                            </DisabledHint>
+                            <Input
+                              aria-label="Nota"
+                              className="sm:flex-1"
+                              placeholder={
+                                rowDiff !== 0
+                                  ? "Motivo de la diferencia"
+                                  : "Nota"
+                              }
+                              maxLength={500}
+                              value={r.note}
+                              onChange={(e) =>
+                                update(r.shipment_id, { note: e.target.value })
+                              }
+                            />
+                          </div>
                         </div>
-                      </div>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
 
-          <div className="space-y-2">
-            <Label htmlFor="ds-notes">Notas</Label>
-            <Textarea
-              id="ds-notes"
-              rows={2}
-              maxLength={1000}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-            />
-          </div>
-
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 rounded-md border bg-muted/30 px-3 py-2 text-sm">
-            <div>
-              <span className="block text-xs text-muted-foreground">
-                A cobrar
-              </span>
-              <span className="tabular-nums">{formatMoney(expected)}</span>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 rounded-md border bg-muted/30 px-3 py-2 text-sm">
+              <div>
+                <span className="block text-xs text-muted-foreground">
+                  A cobrar
+                </span>
+                <span className="tabular-nums">{formatMoney(expected)}</span>
+              </div>
+              <div>
+                <span className="block text-xs text-muted-foreground">
+                  Entregado
+                </span>
+                <span className="tabular-nums">{formatMoney(received)}</span>
+              </div>
+              <div>
+                <span className="block text-xs text-muted-foreground">
+                  Diferencia
+                </span>
+                <span className="font-medium tabular-nums">
+                  {formatMoneySigned(difference)}
+                </span>
+              </div>
             </div>
-            <div>
-              <span className="block text-xs text-muted-foreground">
-                Entregado
-              </span>
-              <span className="tabular-nums">{formatMoney(received)}</span>
-            </div>
-            <div>
-              <span className="block text-xs text-muted-foreground">
-                Diferencia
-              </span>
-              <span className="font-medium tabular-nums">
-                {formatMoneySigned(difference)}
-              </span>
-            </div>
-          </div>
-        </div>
+          </FormColumn>
+        </FormColumns>
         <DialogFooter>
           <Button
             type="button"

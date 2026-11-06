@@ -7,6 +7,11 @@ import { toast } from "sonner";
 import { z } from "zod";
 
 import { DisabledHint, NO_CHANGES_REASON } from "@/components/disabled-hint";
+import {
+  FormColumn,
+  FormColumns,
+  WIDE_FORM_DIALOG,
+} from "@/components/form-columns";
 import { MoneyInput } from "@/components/money-input";
 import { Button } from "@/components/ui/button";
 import {
@@ -177,7 +182,7 @@ export function MaintenanceDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className={WIDE_FORM_DIALOG}>
         <DialogHeader>
           <DialogTitle>
             {isEdit ? "Editar mantenimiento" : "Nuevo mantenimiento"}
@@ -188,177 +193,189 @@ export function MaintenanceDialog({
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <FormField
-                control={form.control}
-                name="service_date"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Fecha</FormLabel>
-                    <FormControl>
-                      <DatePicker {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="kind"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Tipo</FormLabel>
-                    <Select value={field.value} onValueChange={field.onChange}>
+            <FormColumns>
+              <FormColumn>
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField
+                    control={form.control}
+                    name="service_date"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Fecha</FormLabel>
+                        <FormControl>
+                          <DatePicker {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="kind"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Tipo</FormLabel>
+                        <Select
+                          value={field.value}
+                          onValueChange={field.onChange}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {MAINTENANCE_KINDS.map((k) => (
+                              <SelectItem key={k} value={k}>
+                                {MAINTENANCE_KIND_LABELS[k]}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <FormField
+                  control={form.control}
+                  name="vehicle_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Vehículo</FormLabel>
+                      <Select
+                        value={field.value}
+                        onValueChange={field.onChange}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Seleccionar vehículo" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {vehicleOptions.map((v) => (
+                            <SelectItem key={v.id} value={v.id}>
+                              {v.patente}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Descripción</FormLabel>
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
+                        <Input
+                          {...field}
+                          placeholder="Cambio de aceite y filtros"
+                        />
                       </FormControl>
-                      <SelectContent>
-                        {MAINTENANCE_KINDS.map((k) => (
-                          <SelectItem key={k} value={k}>
-                            {MAINTENANCE_KIND_LABELS[k]}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-            <FormField
-              control={form.control}
-              name="vehicle_id"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Vehículo</FormLabel>
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccionar vehículo" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {vehicleOptions.map((v) => (
-                        <SelectItem key={v.id} value={v.id}>
-                          {v.patente}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Descripción</FormLabel>
-                  <FormControl>
-                    <Input
-                      {...field}
-                      placeholder="Cambio de aceite y filtros"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <div className="grid grid-cols-2 gap-3">
-              <FormField
-                control={form.control}
-                name="cost"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Costo</FormLabel>
-                    <FormControl>
-                      <MoneyInput {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="odometer_km"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Km</FormLabel>
-                    <FormControl>
-                      <MoneyInput {...field} decimals={KM_DECIMALS} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <FormField
-                control={form.control}
-                name="next_service_date"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Próx. service</FormLabel>
-                    <FormControl>
-                      <DatePicker {...field} clearable />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="next_service_km"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Próx. km</FormLabel>
-                    <FormControl>
-                      <MoneyInput {...field} decimals={KM_DECIMALS} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-            <FormField
-              control={form.control}
-              name="provider"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Proveedor</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder="Taller Pérez" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="notes"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Notas</FormLabel>
-                  <FormControl>
-                    <Textarea {...field} rows={2} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <CostVoucherFields
-              access={voucherAccess}
-              purchaseInvoiceId={purchaseInvoiceId}
-              transactionId={transactionId}
-              aroundDate={voucherDate}
-              onChange={(field, value) =>
-                form.setValue(field, value, { shouldDirty: true })
-              }
-              disabled={isSaving}
-            />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField
+                    control={form.control}
+                    name="cost"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Costo</FormLabel>
+                        <FormControl>
+                          <MoneyInput {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="odometer_km"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Km</FormLabel>
+                        <FormControl>
+                          <MoneyInput {...field} decimals={KM_DECIMALS} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField
+                    control={form.control}
+                    name="next_service_date"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Próx. service</FormLabel>
+                        <FormControl>
+                          <DatePicker {...field} clearable />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="next_service_km"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Próx. km</FormLabel>
+                        <FormControl>
+                          <MoneyInput {...field} decimals={KM_DECIMALS} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </FormColumn>
+              <FormColumn>
+                <FormField
+                  control={form.control}
+                  name="provider"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Proveedor</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="Taller Pérez" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="notes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Notas</FormLabel>
+                      <FormControl>
+                        <Textarea {...field} rows={2} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <CostVoucherFields
+                  access={voucherAccess}
+                  purchaseInvoiceId={purchaseInvoiceId}
+                  transactionId={transactionId}
+                  aroundDate={voucherDate}
+                  onChange={(field, value) =>
+                    form.setValue(field, value, { shouldDirty: true })
+                  }
+                  disabled={isSaving}
+                />
+              </FormColumn>
+            </FormColumns>
             <DialogFooter>
               <Button
                 type="button"

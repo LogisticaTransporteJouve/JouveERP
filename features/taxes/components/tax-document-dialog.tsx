@@ -5,6 +5,11 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { DisabledHint } from "@/components/disabled-hint";
+import {
+  FormColumn,
+  FormColumns,
+  WIDE_FORM_DIALOG,
+} from "@/components/form-columns";
 import { MoneyInput } from "@/components/money-input";
 import { Button } from "@/components/ui/button";
 import {
@@ -242,7 +247,7 @@ export function TaxDocumentDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-lg">
+      <DialogContent className={WIDE_FORM_DIALOG}>
         <DialogHeader>
           <DialogTitle>
             {doc ? "Editar impuesto" : "Nuevo impuesto"}
@@ -254,253 +259,263 @@ export function TaxDocumentDialog({
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div className="space-y-1">
-              <Label htmlFor="tax-kind">Tipo</Label>
-              <Select
-                value={form.kind}
-                onValueChange={(v) => {
-                  if (isTaxKind(v)) set("kind", v);
-                }}
-                disabled={readOnly}
-              >
-                <SelectTrigger id="tax-kind">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {TAX_KINDS.map((k) => (
-                    <SelectItem key={k} value={k}>
-                      {TAX_KIND_LABEL[k]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="tax-title">
-                {form.kind === "otro" ? "Nombre" : "Detalle (opcional)"}
-              </Label>
-              <Input
-                id="tax-title"
-                value={form.title}
-                maxLength={120}
-                placeholder={
-                  form.kind === "otro"
-                    ? "Bienes personales, tasa municipal…"
-                    : ""
-                }
-                disabled={readOnly}
-                onChange={(e) => set("title", e.target.value)}
-              />
-            </div>
-          </div>
-
-          {form.kind === "iibb" && (
-            <div className="space-y-1">
-              <Label htmlFor="tax-jurisdiction">Jurisdicción</Label>
-              <Input
-                id="tax-jurisdiction"
-                value={form.jurisdiction}
-                maxLength={60}
-                placeholder="Buenos Aires, CABA, Convenio Multilateral…"
-                disabled={readOnly}
-                onChange={(e) => set("jurisdiction", e.target.value)}
-              />
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div className="space-y-1">
-              <Label htmlFor="tax-period">Período</Label>
-              <MonthPicker
-                id="tax-period"
-                value={form.period}
-                disabled={readOnly}
-                onChange={(value) => {
-                  set("period", value);
-                  setEstimate(null);
-                }}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="tax-due">Vencimiento</Label>
-              <DatePicker
-                id="tax-due"
-                value={form.due_date}
-                disabled={readOnly}
-                onChange={(value) => set("due_date", value)}
-              />
-            </div>
-          </div>
-
-          <div className="space-y-1">
-            <Label htmlFor="tax-amount">Importe</Label>
-            <div className="flex gap-2">
-              <MoneyInput
-                id="tax-amount"
-                value={form.amount}
-                placeholder="Sin liquidar"
-                disabled={readOnly}
-                onChange={(amount) =>
-                  setForm((f) => ({ ...f, amount, amount_is_estimate: false }))
-                }
-              />
-              {form.kind === "iva" && !readOnly && canEstimate && (
-                <DisabledHint
-                  reason={!form.period ? "Elegí el período." : null}
-                >
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={runEstimate}
-                    disabled={estimateMut.isPending || !form.period}
+          <FormColumns>
+            <FormColumn>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <Label htmlFor="tax-kind">Tipo</Label>
+                  <Select
+                    value={form.kind}
+                    onValueChange={(v) => {
+                      if (isTaxKind(v)) set("kind", v);
+                    }}
+                    disabled={readOnly}
                   >
-                    {estimateMut.isPending ? (
-                      <Loader2 className="animate-spin" />
-                    ) : (
-                      <Calculator />
-                    )}
-                    Estimar
-                  </Button>
-                </DisabledHint>
+                    <SelectTrigger id="tax-kind">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TAX_KINDS.map((k) => (
+                        <SelectItem key={k} value={k}>
+                          {TAX_KIND_LABEL[k]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="tax-title">
+                    {form.kind === "otro" ? "Nombre" : "Detalle (opcional)"}
+                  </Label>
+                  <Input
+                    id="tax-title"
+                    value={form.title}
+                    maxLength={120}
+                    placeholder={
+                      form.kind === "otro"
+                        ? "Bienes personales, tasa municipal…"
+                        : ""
+                    }
+                    disabled={readOnly}
+                    onChange={(e) => set("title", e.target.value)}
+                  />
+                </div>
+              </div>
+
+              {form.kind === "iibb" && (
+                <div className="space-y-1">
+                  <Label htmlFor="tax-jurisdiction">Jurisdicción</Label>
+                  <Input
+                    id="tax-jurisdiction"
+                    value={form.jurisdiction}
+                    maxLength={60}
+                    placeholder="Buenos Aires, CABA, Convenio Multilateral…"
+                    disabled={readOnly}
+                    onChange={(e) => set("jurisdiction", e.target.value)}
+                  />
+                </div>
               )}
-            </div>
-            {form.amount_is_estimate && (
-              <p className="text-muted-foreground text-xs">
-                Estimado desde el libro IVA. Revisalo contra la DDJJ antes de
-                liquidar.
-              </p>
-            )}
-            {estimate && (
-              <div className="bg-muted/50 space-y-1 rounded-md border p-3 text-xs">
-                <p className="font-medium">
-                  Posición estimada de {formatPeriod(estimate.period)}
-                </p>
-                <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-0.5 tabular-nums">
-                  <dt>IVA débito ({estimate.ventas} comprobantes)</dt>
-                  <dd className="text-right font-mono">
-                    {formatMoney(estimate.debito)}
-                  </dd>
-                  <dt>IVA crédito ({estimate.compras} comprobantes)</dt>
-                  <dd className="text-right font-mono">
-                    − {formatMoney(estimate.credito)}
-                  </dd>
-                  <dt>Retenciones y percepciones de IVA sufridas</dt>
-                  <dd className="text-right font-mono">
-                    − {formatMoney(estimate.retenciones)}
-                  </dd>
-                  <dt>
-                    Saldo a favor de{" "}
-                    {formatPeriod(previousPeriod(estimate.period))}
-                  </dt>
-                  <dd className="text-right font-mono">
-                    − {formatMoney(estimate.saldo_anterior)}
-                  </dd>
-                  <dt className="font-medium">
-                    {estimate.saldo >= 0 ? "A pagar" : "Saldo a favor"}
-                  </dt>
-                  <dd className="text-right font-mono font-medium">
-                    {formatMoney(Math.abs(estimate.saldo))}
-                  </dd>
-                </dl>
-                {!estimate.saldo_anterior_known && (
-                  <p className="text-muted-foreground">
-                    No hay IVA cargado de{" "}
-                    {formatPeriod(previousPeriod(estimate.period))}: si la DDJJ
-                    dejó saldo a favor, restalo a mano.
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <Label htmlFor="tax-period">Período</Label>
+                  <MonthPicker
+                    id="tax-period"
+                    value={form.period}
+                    disabled={readOnly}
+                    onChange={(value) => {
+                      set("period", value);
+                      setEstimate(null);
+                    }}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="tax-due">Vencimiento</Label>
+                  <DatePicker
+                    id="tax-due"
+                    value={form.due_date}
+                    disabled={readOnly}
+                    onChange={(value) => set("due_date", value)}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="tax-amount">Importe</Label>
+                <div className="flex gap-2">
+                  <MoneyInput
+                    id="tax-amount"
+                    value={form.amount}
+                    placeholder="Sin liquidar"
+                    disabled={readOnly}
+                    onChange={(amount) =>
+                      setForm((f) => ({
+                        ...f,
+                        amount,
+                        amount_is_estimate: false,
+                      }))
+                    }
+                  />
+                  {form.kind === "iva" && !readOnly && canEstimate && (
+                    <DisabledHint
+                      reason={!form.period ? "Elegí el período." : null}
+                    >
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={runEstimate}
+                        disabled={estimateMut.isPending || !form.period}
+                      >
+                        {estimateMut.isPending ? (
+                          <Loader2 className="animate-spin" />
+                        ) : (
+                          <Calculator />
+                        )}
+                        Estimar
+                      </Button>
+                    </DisabledHint>
+                  )}
+                </div>
+                {form.amount_is_estimate && (
+                  <p className="text-muted-foreground text-xs">
+                    Estimado desde el libro IVA. Revisalo contra la DDJJ antes
+                    de liquidar.
                   </p>
                 )}
-                {estimate.percepciones_compras !== 0 && (
-                  <p className="text-muted-foreground">
-                    Se restan {formatMoney(estimate.percepciones_compras)} de
-                    percepciones de IVA de las compras.
-                  </p>
-                )}
-                {estimate.tributos_compras !== 0 && (
-                  <p className="text-muted-foreground">
-                    Las compras tienen además{" "}
-                    {formatMoney(estimate.tributos_compras)} de otros tributos
-                    que no se restan (IIBB, Ganancias y otros nacionales,
-                    municipales, internos y los que no se repartieron): si
-                    alguno es percepción de IVA, repartilo en la compra.
-                  </p>
+                {estimate && (
+                  <div className="bg-muted/50 space-y-1 rounded-md border p-3 text-xs">
+                    <p className="font-medium">
+                      Posición estimada de {formatPeriod(estimate.period)}
+                    </p>
+                    <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-0.5 tabular-nums">
+                      <dt>IVA débito ({estimate.ventas} comprobantes)</dt>
+                      <dd className="text-right font-mono">
+                        {formatMoney(estimate.debito)}
+                      </dd>
+                      <dt>IVA crédito ({estimate.compras} comprobantes)</dt>
+                      <dd className="text-right font-mono">
+                        − {formatMoney(estimate.credito)}
+                      </dd>
+                      <dt>Retenciones y percepciones de IVA sufridas</dt>
+                      <dd className="text-right font-mono">
+                        − {formatMoney(estimate.retenciones)}
+                      </dd>
+                      <dt>
+                        Saldo a favor de{" "}
+                        {formatPeriod(previousPeriod(estimate.period))}
+                      </dt>
+                      <dd className="text-right font-mono">
+                        − {formatMoney(estimate.saldo_anterior)}
+                      </dd>
+                      <dt className="font-medium">
+                        {estimate.saldo >= 0 ? "A pagar" : "Saldo a favor"}
+                      </dt>
+                      <dd className="text-right font-mono font-medium">
+                        {formatMoney(Math.abs(estimate.saldo))}
+                      </dd>
+                    </dl>
+                    {!estimate.saldo_anterior_known && (
+                      <p className="text-muted-foreground">
+                        No hay IVA cargado de{" "}
+                        {formatPeriod(previousPeriod(estimate.period))}: si la
+                        DDJJ dejó saldo a favor, restalo a mano.
+                      </p>
+                    )}
+                    {estimate.percepciones_compras !== 0 && (
+                      <p className="text-muted-foreground">
+                        Se restan {formatMoney(estimate.percepciones_compras)}{" "}
+                        de percepciones de IVA de las compras.
+                      </p>
+                    )}
+                    {estimate.tributos_compras !== 0 && (
+                      <p className="text-muted-foreground">
+                        Las compras tienen además{" "}
+                        {formatMoney(estimate.tributos_compras)} de otros
+                        tributos que no se restan (IIBB, Ganancias y otros
+                        nacionales, municipales, internos y los que no se
+                        repartieron): si alguno es percepción de IVA, repartilo
+                        en la compra.
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
-            )}
-          </div>
+            </FormColumn>
+            <FormColumn>
+              {form.kind === "iva" && (
+                <div className="space-y-1">
+                  <Label htmlFor="tax-credit-balance">
+                    Saldo a favor técnico para el mes siguiente
+                  </Label>
+                  <MoneyInput
+                    id="tax-credit-balance"
+                    value={form.credit_balance}
+                    placeholder="Sin saldo a favor"
+                    disabled={readOnly}
+                    onChange={(v) => set("credit_balance", v)}
+                  />
+                  <p className="text-muted-foreground text-xs">
+                    El que deja la DDJJ de este período. El estimado del mes
+                    siguiente lo descuenta. Si no hay nada que pagar, cargalo y
+                    después anulá el impuesto.
+                  </p>
+                </div>
+              )}
 
-          {form.kind === "iva" && (
-            <div className="space-y-1">
-              <Label htmlFor="tax-credit-balance">
-                Saldo a favor técnico para el mes siguiente
-              </Label>
-              <MoneyInput
-                id="tax-credit-balance"
-                value={form.credit_balance}
-                placeholder="Sin saldo a favor"
-                disabled={readOnly}
-                onChange={(v) => set("credit_balance", v)}
-              />
-              <p className="text-muted-foreground text-xs">
-                El que deja la DDJJ de este período. El estimado del mes
-                siguiente lo descuenta. Si no hay nada que pagar, cargalo y
-                después anulá el impuesto.
-              </p>
-            </div>
-          )}
+              <div className="space-y-1">
+                <Label htmlFor="tax-account">Cuenta contable del pago</Label>
+                <Select
+                  value={form.account_id}
+                  onValueChange={(v) => set("account_id", v)}
+                  disabled={readOnly}
+                >
+                  <SelectTrigger id="tax-account">
+                    <SelectValue placeholder="Elegí la cuenta" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NO_ACCOUNT}>Elegir después</SelectItem>
+                    {(accounts.data ?? []).map((a) => (
+                      <SelectItem key={a.id} value={a.id}>
+                        {a.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-muted-foreground text-xs">
+                  El pago debita esta cuenta (la deuda fiscal o el gasto) contra
+                  la caja o el banco. Hace falta para pagar.
+                </p>
+              </div>
 
-          <div className="space-y-1">
-            <Label htmlFor="tax-account">Cuenta contable del pago</Label>
-            <Select
-              value={form.account_id}
-              onValueChange={(v) => set("account_id", v)}
-              disabled={readOnly}
-            >
-              <SelectTrigger id="tax-account">
-                <SelectValue placeholder="Elegí la cuenta" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NO_ACCOUNT}>Elegir después</SelectItem>
-                {(accounts.data ?? []).map((a) => (
-                  <SelectItem key={a.id} value={a.id}>
-                    {a.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-muted-foreground text-xs">
-              El pago debita esta cuenta (la deuda fiscal o el gasto) contra la
-              caja o el banco. Hace falta para pagar.
-            </p>
-          </div>
+              <div className="space-y-1">
+                <Label htmlFor="tax-notes">Notas</Label>
+                <Textarea
+                  id="tax-notes"
+                  value={form.notes}
+                  maxLength={1000}
+                  rows={2}
+                  onChange={(e) => set("notes", e.target.value)}
+                />
+              </div>
 
-          <div className="space-y-1">
-            <Label htmlFor="tax-notes">Notas</Label>
-            <Textarea
-              id="tax-notes"
-              value={form.notes}
-              maxLength={1000}
-              rows={2}
-              onChange={(e) => set("notes", e.target.value)}
-            />
-          </div>
-
-          {doc && canAttach && (
-            <div className="space-y-1">
-              <Label>VEP, DDJJ y comprobantes</Label>
-              <AttachmentsZone
-                targetType="tax_document"
-                targetId={doc.id}
-                canWrite
-                canDelete
-              />
-            </div>
-          )}
-          {!doc && canAttach && (
-            <p className="text-muted-foreground text-xs">
-              Guardalo para adjuntar el VEP o la DDJJ.
-            </p>
-          )}
+              {doc && canAttach && (
+                <div className="space-y-1">
+                  <Label>VEP, DDJJ y comprobantes</Label>
+                  <AttachmentsZone
+                    targetType="tax_document"
+                    targetId={doc.id}
+                    canWrite
+                    canDelete
+                  />
+                </div>
+              )}
+              {!doc && canAttach && (
+                <p className="text-muted-foreground text-xs">
+                  Guardalo para adjuntar el VEP o la DDJJ.
+                </p>
+              )}
+            </FormColumn>
+          </FormColumns>
         </div>
 
         <DialogFooter>

@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 
+import { FormColumn, FormColumns } from "@/components/form-columns";
 import {
   useDefaultChannel,
   usePageIsFiscal,
@@ -15,6 +16,7 @@ import {
 } from "@/components/providers/scope-provider";
 import { ChannelsReadError } from "@/components/channels-read-error";
 import { DialogFormFooter } from "@/components/dialog-form-footer";
+import { DIALOG_STICKY_FOOTER } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
@@ -1325,7 +1327,7 @@ export function PurchaseInvoiceForm({
     />
   );
 
-  const footer = (
+  const footer = (className?: string) => (
     <DialogFormFooter
       mode={mode}
       isSaving={isSaving}
@@ -1333,6 +1335,7 @@ export function PurchaseInvoiceForm({
       createLabel={arcaLocked ? "Aceptar comprobante" : "Cargar factura"}
       submitDisabledReason={arcaGapPending ? ARCA_GAP_PENDING_MESSAGE : null}
       onCancel={() => (onCancel ? onCancel() : router.push("/purchases"))}
+      className={className}
     />
   );
 
@@ -1421,7 +1424,7 @@ export function PurchaseInvoiceForm({
                   {ARCA_GAP_PENDING_MESSAGE}
                 </p>
               )}
-              {footer}
+              {footer()}
             </div>
           </div>
         </form>
@@ -1433,133 +1436,141 @@ export function PurchaseInvoiceForm({
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
         {draftNotice}
-        {supplierField}
+        <FormColumns>
+          <FormColumn>
+            {supplierField}
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {channelField}
-          <FormField
-            control={form.control}
-            name="kind"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Tipo{aiMark("kind")}</FormLabel>
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <FormControl>
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {PURCHASE_INVOICE_KINDS.map((k) => (
-                      <SelectItem key={k} value={k}>
-                        {PURCHASE_INVOICE_KIND_LABEL[k]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {channelField}
+              <FormField
+                control={form.control}
+                name="kind"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tipo{aiMark("kind")}</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {PURCHASE_INVOICE_KINDS.map((k) => (
+                          <SelectItem key={k} value={k}>
+                            {PURCHASE_INVOICE_KIND_LABEL[k]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
 
-        {internalNotice}
-
-        <div
-          className={`grid gap-4 ${isInternalChannel ? "sm:grid-cols-3" : "sm:grid-cols-4"}`}
-        >
-          {!isInternalChannel && (
-            <FormField
-              control={form.control}
-              name="letter"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Letra{aiMark("letter")}</FormLabel>
-                  <Select
-                    value={field.value || "__none"}
-                    onValueChange={(v) =>
-                      field.onChange(v === "__none" ? "" : v)
-                    }
-                  >
-                    <FormControl>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="—" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {/* Fiscal purchases need a letter; only an old one
+            {internalNotice}
+          </FormColumn>
+          <FormColumn>
+            <div
+              className={`grid gap-4 ${isInternalChannel ? "sm:grid-cols-3" : "sm:grid-cols-4"}`}
+            >
+              {!isInternalChannel && (
+                <FormField
+                  control={form.control}
+                  name="letter"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Letra{aiMark("letter")}</FormLabel>
+                      <Select
+                        value={field.value || "__none"}
+                        onValueChange={(v) =>
+                          field.onChange(v === "__none" ? "" : v)
+                        }
+                      >
+                        <FormControl>
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="—" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {/* Fiscal purchases need a letter; only an old one
                             saved without it can stay that way. */}
-                      {mode === "edit" && !invoice?.letter && (
-                        <SelectItem value="__none">— Sin letra</SelectItem>
-                      )}
-                      {PURCHASE_INVOICE_LETTERS.map((l) => (
-                        <SelectItem key={l} value={l}>
-                          {l}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
+                          {mode === "edit" && !invoice?.letter && (
+                            <SelectItem value="__none">— Sin letra</SelectItem>
+                          )}
+                          {PURCHASE_INVOICE_LETTERS.map((l) => (
+                            <SelectItem key={l} value={l}>
+                              {l}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               )}
-            />
-          )}
-          <FormField
-            control={form.control}
-            name="punto_venta"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Punto de venta{aiMark("punto_venta")}</FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    type="number"
-                    inputMode="numeric"
-                    placeholder="3"
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="numero"
-            render={({ field }) => (
-              <FormItem className="sm:col-span-2">
-                <FormLabel>Número{aiMark("numero")}</FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    type="number"
-                    inputMode="numeric"
-                    placeholder="12345"
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+              <FormField
+                control={form.control}
+                name="punto_venta"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Punto de venta{aiMark("punto_venta")}</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        type="number"
+                        inputMode="numeric"
+                        placeholder="3"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="numero"
+                render={({ field }) => (
+                  <FormItem className="sm:col-span-2">
+                    <FormLabel>Número{aiMark("numero")}</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        type="number"
+                        inputMode="numeric"
+                        placeholder="12345"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
 
-        {duplicateNotice}
+            {duplicateNotice}
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <FormField
-            control={form.control}
-            name="fecha"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Fecha{aiMark("fecha")}</FormLabel>
-                <FormControl>
-                  <DatePicker value={field.value} onChange={field.onChange} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          {fchVtoPagoField}
-        </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="fecha"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Fecha{aiMark("fecha")}</FormLabel>
+                    <FormControl>
+                      <DatePicker
+                        value={field.value}
+                        onChange={field.onChange}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              {fchVtoPagoField}
+            </div>
+          </FormColumn>
+        </FormColumns>
 
         <div className="space-y-3 rounded-md border bg-muted/10 p-4">
           <FormField
@@ -1636,194 +1647,200 @@ export function PurchaseInvoiceForm({
           )}
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
-          <FormField
-            control={form.control}
-            name="imp_neto"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>
-                  Neto{aiMark("imp_neto")}
-                  {watchedWithItems && (
-                    <span className="ml-1 text-xs font-normal text-muted-foreground">
-                      (auto)
-                    </span>
-                  )}
-                </FormLabel>
-                <FormControl>
-                  <MoneyInput
-                    {...field}
-                    disabled={!breakdownKnown}
-                    readOnly={watchedWithItems}
-                    className={watchedWithItems ? "bg-muted/40" : undefined}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="imp_iva"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>
-                  IVA{aiMark("imp_iva")}
-                  {watchedWithItems && (
-                    <span className="ml-1 text-xs font-normal text-muted-foreground">
-                      (auto)
-                    </span>
-                  )}
-                </FormLabel>
-                <FormControl>
-                  <MoneyInput
-                    {...field}
-                    disabled={!breakdownKnown}
-                    readOnly={watchedWithItems}
-                    className={watchedWithItems ? "bg-muted/40" : undefined}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="imp_trib"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Otros tributos{aiMark("imp_trib")}</FormLabel>
-                <FormControl>
-                  <MoneyInput {...field} disabled={!breakdownKnown} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="imp_total"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>
-                  Total{aiMark("imp_total")}
-                  {watchedWithItems && (
-                    <span className="ml-1 text-xs font-normal text-muted-foreground">
-                      (auto)
-                    </span>
-                  )}
-                </FormLabel>
-                <FormControl>
-                  <MoneyInput
-                    {...field}
-                    disabled={!breakdownKnown}
-                    readOnly={watchedWithItems}
-                    className={
-                      watchedWithItems
-                        ? "bg-muted/40 font-semibold"
-                        : "font-semibold"
-                    }
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        {!breakdownKnown && (
-          <p className="text-xs text-muted-foreground">
-            {detailQuery.isError
-              ? `No se pudo leer el desglose de la factura: los importes${chargeKnown ? "" : " y «A cargo de empleado»"} no se pueden editar. Cerrá y volvé a abrirla para reintentar.`
-              : "Cargando el desglose de la factura…"}
-          </p>
-        )}
-
-        {showsExempt && (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
-            <FormField
-              control={form.control}
-              name="imp_no_gravado"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>No gravado</FormLabel>
-                  <FormControl>
-                    <MoneyInput {...field} disabled={!breakdownKnown} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="imp_op_exentas"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Exento</FormLabel>
-                  <FormControl>
-                    <MoneyInput {...field} disabled={!breakdownKnown} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-        )}
-        {tributesSplit}
-
-        {gapNotice}
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {accountField}
-          {costCenterField}
-        </div>
-
-        {employeeField}
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <FormField
-            control={form.control}
-            name="moneda"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Moneda{aiMark("moneda")}</FormLabel>
-                <Select
-                  value={field.value}
-                  onValueChange={field.onChange}
-                  disabled={watchedOriginId !== null}
-                >
-                  <FormControl>
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="PES">ARS — Peso</SelectItem>
-                    <SelectItem value="DOL">USD — Dólar</SelectItem>
-                  </SelectContent>
-                </Select>
-                {watchedOriginId !== null && (
-                  <FormDescription>La de la factura origen.</FormDescription>
+        <FormColumns>
+          <FormColumn>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="imp_neto"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      Neto{aiMark("imp_neto")}
+                      {watchedWithItems && (
+                        <span className="ml-1 text-xs font-normal text-muted-foreground">
+                          (auto)
+                        </span>
+                      )}
+                    </FormLabel>
+                    <FormControl>
+                      <MoneyInput
+                        {...field}
+                        disabled={!breakdownKnown}
+                        readOnly={watchedWithItems}
+                        className={watchedWithItems ? "bg-muted/40" : undefined}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
                 )}
-                <FormMessage />
-              </FormItem>
+              />
+              <FormField
+                control={form.control}
+                name="imp_iva"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      IVA{aiMark("imp_iva")}
+                      {watchedWithItems && (
+                        <span className="ml-1 text-xs font-normal text-muted-foreground">
+                          (auto)
+                        </span>
+                      )}
+                    </FormLabel>
+                    <FormControl>
+                      <MoneyInput
+                        {...field}
+                        disabled={!breakdownKnown}
+                        readOnly={watchedWithItems}
+                        className={watchedWithItems ? "bg-muted/40" : undefined}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="imp_trib"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Otros tributos{aiMark("imp_trib")}</FormLabel>
+                    <FormControl>
+                      <MoneyInput {...field} disabled={!breakdownKnown} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="imp_total"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      Total{aiMark("imp_total")}
+                      {watchedWithItems && (
+                        <span className="ml-1 text-xs font-normal text-muted-foreground">
+                          (auto)
+                        </span>
+                      )}
+                    </FormLabel>
+                    <FormControl>
+                      <MoneyInput
+                        {...field}
+                        disabled={!breakdownKnown}
+                        readOnly={watchedWithItems}
+                        className={
+                          watchedWithItems
+                            ? "bg-muted/40 font-semibold"
+                            : "font-semibold"
+                        }
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {!breakdownKnown && (
+              <p className="text-xs text-muted-foreground">
+                {detailQuery.isError
+                  ? `No se pudo leer el desglose de la factura: los importes${chargeKnown ? "" : " y «A cargo de empleado»"} no se pueden editar. Cerrá y volvé a abrirla para reintentar.`
+                  : "Cargando el desglose de la factura…"}
+              </p>
             )}
-          />
-          {cotizacionField}
-        </div>
 
-        {!isInternalChannel && (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {caeField}
-            {caeVtoField}
-          </div>
-        )}
+            {showsExempt && (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <FormField
+                  control={form.control}
+                  name="imp_no_gravado"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>No gravado</FormLabel>
+                      <FormControl>
+                        <MoneyInput {...field} disabled={!breakdownKnown} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="imp_op_exentas"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Exento</FormLabel>
+                      <FormControl>
+                        <MoneyInput {...field} disabled={!breakdownKnown} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            )}
+            {tributesSplit}
 
-        {ncNdBlock}
+            {gapNotice}
 
-        {notesField}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <FormField
+                control={form.control}
+                name="moneda"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Moneda{aiMark("moneda")}</FormLabel>
+                    <Select
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      disabled={watchedOriginId !== null}
+                    >
+                      <FormControl>
+                        <SelectTrigger className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="PES">ARS — Peso</SelectItem>
+                        <SelectItem value="DOL">USD — Dólar</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {watchedOriginId !== null && (
+                      <FormDescription>
+                        La de la factura origen.
+                      </FormDescription>
+                    )}
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              {cotizacionField}
+            </div>
 
-        {footer}
+            {!isInternalChannel && (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {caeField}
+                {caeVtoField}
+              </div>
+            )}
+          </FormColumn>
+          <FormColumn>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {accountField}
+              {costCenterField}
+            </div>
+
+            {employeeField}
+
+            {ncNdBlock}
+
+            {notesField}
+          </FormColumn>
+        </FormColumns>
+        {footer(DIALOG_STICKY_FOOTER)}
       </form>
     </Form>
   );

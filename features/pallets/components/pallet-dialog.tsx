@@ -7,6 +7,11 @@ import { toast } from "sonner";
 import { z } from "zod";
 
 import { DisabledHint, NO_CHANGES_REASON } from "@/components/disabled-hint";
+import {
+  FormColumn,
+  FormColumns,
+  WIDE_FORM_DIALOG,
+} from "@/components/form-columns";
 import { Button } from "@/components/ui/button";
 import { Combobox } from "@/components/ui/combobox";
 import {
@@ -157,7 +162,7 @@ export function PalletDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className={WIDE_FORM_DIALOG}>
         <DialogHeader>
           <DialogTitle>{isEdit ? "Editar pallet" : "Nuevo pallet"}</DialogTitle>
           <DialogDescription>
@@ -166,245 +171,257 @@ export function PalletDialog({
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="warehouse_id"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Depósito</FormLabel>
-                  <Select
-                    value={field.value}
-                    disabled={stockLocked}
-                    onValueChange={(v) => {
-                      field.onChange(v);
-                      // An area belongs to one warehouse.
-                      if (v !== field.value) form.setValue("area_id", "");
-                    }}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Elegí un depósito" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {warehouseOptions.map((w) => (
-                        <SelectItem key={w.id} value={w.id}>
-                          {w.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="area_id"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Área (opcional)</FormLabel>
-                  <FormControl>
-                    <AreaSelect
-                      areaOptions={areaOptions}
-                      warehouseId={warehouseId}
-                      value={field.value}
-                      onChange={field.onChange}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="client_id"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Cliente</FormLabel>
-                  <FormControl>
-                    <Combobox
-                      options={(clientOptions ?? []).map((c) => ({
-                        value: c.id,
-                        label: c.legal_name,
-                      }))}
-                      value={field.value}
-                      onChange={field.onChange}
-                      placeholder="Elegí un cliente"
-                      searchPlaceholder="Buscar cliente…"
-                      emptyText="Sin clientes."
-                    />
-                  </FormControl>
-                  <ClientOptionsReadError clientOptions={clientOptions} />
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="product_id"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Producto (opcional)</FormLabel>
-                  <Select
-                    value={field.value === "" ? NONE : field.value}
-                    onValueChange={(v) => field.onChange(v === NONE ? "" : v)}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Ninguno" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value={NONE}>Ninguno</SelectItem>
-                      {productOptions.map((p) => (
-                        <SelectItem key={p.id} value={p.id}>
-                          {p.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <div className="grid grid-cols-2 gap-3">
-              <FormField
-                control={form.control}
-                name="code"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Código</FormLabel>
-                    <FormControl>
-                      <Input {...field} placeholder="P-001" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="status"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Estado</FormLabel>
-                    <Select
-                      value={field.value}
-                      disabled={stockLocked}
-                      onValueChange={field.onChange}
-                    >
+            <FormColumns>
+              <FormColumn>
+                <FormField
+                  control={form.control}
+                  name="warehouse_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Depósito</FormLabel>
+                      <Select
+                        value={field.value}
+                        disabled={stockLocked}
+                        onValueChange={(v) => {
+                          field.onChange(v);
+                          // An area belongs to one warehouse.
+                          if (v !== field.value) form.setValue("area_id", "");
+                        }}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Elegí un depósito" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {warehouseOptions.map((w) => (
+                            <SelectItem key={w.id} value={w.id}>
+                              {w.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="area_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Área (opcional)</FormLabel>
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
+                        <AreaSelect
+                          areaOptions={areaOptions}
+                          warehouseId={warehouseId}
+                          value={field.value}
+                          onChange={field.onChange}
+                        />
                       </FormControl>
-                      <SelectContent>
-                        {PALLET_STATUSES.map((s) => (
-                          <SelectItem key={s} value={s}>
-                            {PALLET_STATUS_LABELS[s]}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="client_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Cliente</FormLabel>
+                      <FormControl>
+                        <Combobox
+                          options={(clientOptions ?? []).map((c) => ({
+                            value: c.id,
+                            label: c.legal_name,
+                          }))}
+                          value={field.value}
+                          onChange={field.onChange}
+                          placeholder="Elegí un cliente"
+                          searchPlaceholder="Buscar cliente…"
+                          emptyText="Sin clientes."
+                        />
+                      </FormControl>
+                      <ClientOptionsReadError clientOptions={clientOptions} />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="product_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Producto (opcional)</FormLabel>
+                      <Select
+                        value={field.value === "" ? NONE : field.value}
+                        onValueChange={(v) =>
+                          field.onChange(v === NONE ? "" : v)
+                        }
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Ninguno" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value={NONE}>Ninguno</SelectItem>
+                          {productOptions.map((p) => (
+                            <SelectItem key={p.id} value={p.id}>
+                              {p.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField
+                    control={form.control}
+                    name="code"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Código</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="P-001" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="status"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Estado</FormLabel>
+                        <Select
+                          value={field.value}
+                          disabled={stockLocked}
+                          onValueChange={field.onChange}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {PALLET_STATUSES.map((s) => (
+                              <SelectItem key={s} value={s}>
+                                {PALLET_STATUS_LABELS[s]}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </FormColumn>
+              <FormColumn>
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField
+                    control={form.control}
+                    name="lot_number"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Lote (opcional)</FormLabel>
+                        <FormControl>
+                          <Input {...field} maxLength={60} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="lot_expiry"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Vencimiento del lote</FormLabel>
+                        <FormControl>
+                          <DatePicker {...field} clearable />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <FormField
+                  control={form.control}
+                  name="quantity"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Cantidad</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          type="number"
+                          inputMode="decimal"
+                          step="0.01"
+                          disabled={stockLocked}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField
+                    control={form.control}
+                    name="entry_date"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Ingreso</FormLabel>
+                        <FormControl>
+                          <DatePicker {...field} disabled={stockLocked} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="exit_date"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Egreso (opcional)</FormLabel>
+                        <FormControl>
+                          <DatePicker
+                            {...field}
+                            disabled={stockLocked}
+                            clearable
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                {stockLocked && (
+                  <p className="text-muted-foreground text-xs">
+                    Depósito, estado, cantidad y fechas mueven stock: no tenés
+                    permiso para cambiarlos.
+                  </p>
                 )}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <FormField
-                control={form.control}
-                name="lot_number"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Lote (opcional)</FormLabel>
-                    <FormControl>
-                      <Input {...field} maxLength={60} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="lot_expiry"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Vencimiento del lote</FormLabel>
-                    <FormControl>
-                      <DatePicker {...field} clearable />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-            <FormField
-              control={form.control}
-              name="quantity"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Cantidad</FormLabel>
-                  <FormControl>
-                    <Input
-                      {...field}
-                      type="number"
-                      inputMode="decimal"
-                      step="0.01"
-                      disabled={stockLocked}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <div className="grid grid-cols-2 gap-3">
-              <FormField
-                control={form.control}
-                name="entry_date"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Ingreso</FormLabel>
-                    <FormControl>
-                      <DatePicker {...field} disabled={stockLocked} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="exit_date"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Egreso (opcional)</FormLabel>
-                    <FormControl>
-                      <DatePicker {...field} disabled={stockLocked} clearable />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-            {stockLocked && (
-              <p className="text-muted-foreground text-xs">
-                Depósito, estado, cantidad y fechas mueven stock: no tenés
-                permiso para cambiarlos.
-              </p>
-            )}
-            <FormField
-              control={form.control}
-              name="notes"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Notas</FormLabel>
-                  <FormControl>
-                    <Textarea {...field} rows={2} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                <FormField
+                  control={form.control}
+                  name="notes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Notas</FormLabel>
+                      <FormControl>
+                        <Textarea {...field} rows={2} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </FormColumn>
+            </FormColumns>
             <DialogFooter>
               <Button
                 type="button"

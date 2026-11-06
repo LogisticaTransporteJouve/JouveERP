@@ -167,6 +167,17 @@ describe("signInToStrix", () => {
     ]);
   });
 
+  it("lists the earlier reports of the last 90 days", async () => {
+    const server = strixServer();
+    const robot = await signInToStrix(
+      { username: "u", password: "p" },
+      { ...deps(server.fetch), now: () => 1_793_998_827_000 },
+    );
+    await robot.vehicles();
+    const list = server.calls.find((c) => c.url.includes("/lista/?_from="));
+    expect(list?.url).toMatch(/_from=1786222827000$/);
+  });
+
   it("names a refused password", async () => {
     const server = strixServer({ tokenStatus: 400 });
     await expect(
