@@ -1,5 +1,6 @@
 "use client";
 
+import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
 import { Lock, Plus } from "lucide-react";
 import { useState } from "react";
 
@@ -38,6 +39,14 @@ export function JournalList({
     fetchNextPage,
     isFetchingNextPage,
   } = useJournalEntries(filters);
+  // Loads the next page when the end of the list scrolls into view, like
+  // every other list.
+  const loadMoreRef = useIntersectionObserver<HTMLDivElement>(
+    () => {
+      if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
+    },
+    { rootMargin: "200px", enabled: hasNextPage && !isFetchingNextPage },
+  );
 
   return (
     <div className="space-y-4">
@@ -99,15 +108,11 @@ export function JournalList({
           </ul>
         )}
         {hasNextPage && (
-          <div className="border-t p-3 text-center">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => fetchNextPage()}
-              disabled={isFetchingNextPage}
-            >
-              {isFetchingNextPage ? "Cargando…" : "Cargar más"}
-            </Button>
+          <div
+            ref={loadMoreRef}
+            className="py-4 text-center text-xs text-muted-foreground"
+          >
+            Cargando más…
           </div>
         )}
       </div>
