@@ -17,7 +17,6 @@ export type ActivityStep = {
   /** Rows the query returned, when it returned a list (not counted for the
    *  artifact tools: their chart or table is shown in the answer). */
   rows: number | null;
-  sources: readonly string[];
   asOf: string | null;
   partial: boolean;
   /** The step's output, for the expandable preview. */
@@ -49,7 +48,6 @@ export function activitySteps(
       name: getToolName(part),
       filters: activityFilters(part.input),
       rows: null,
-      sources: [],
       asOf: null,
       partial: false,
       output: undefined,
@@ -73,7 +71,6 @@ export function activitySteps(
       rows: RENDER_TOOLS.includes(base.name)
         ? null
         : (resolveRows(result.data.data)?.length ?? null),
-      sources: result.data.meta?.sources ?? [],
       asOf: result.data.meta?.asOf ?? null,
       partial: result.data.meta?.partial ?? false,
       output: part.output,

@@ -9,6 +9,7 @@ import {
   type Artifact,
 } from "../artifacts/spec";
 
+import { answerChunks } from "./answer-text";
 import { artifactPartId } from "./chat-segments";
 
 export type ArtifactKind = Artifact["kind"];
@@ -19,7 +20,15 @@ export type ArtifactKind = Artifact["kind"];
 export type ArtifactEntry =
   | { id: string; status: "building"; kind: ArtifactKind }
   | { id: string; status: "error"; kind: ArtifactKind }
-  | { id: string; status: "ready"; kind: ArtifactKind; artifact: Artifact };
+  | {
+      id: string;
+      status: "ready";
+      kind: ArtifactKind;
+      artifact: Artifact;
+      /** A markdown table lifted out of the answer's text: no query behind
+       *  it, so it cannot be pinned. */
+      fromAnswer?: true;
+    };
 
 function toolKind(name: string): ArtifactKind | null {
   if (name === RENDER_CHART_TOOL) return "chart";
@@ -32,7 +41,8 @@ function toolKind(name: string): ArtifactKind | null {
  * The conversation's artifacts in transcript order, keyed by id. The render
  * tool call and the `data-artifact` part it emits share the tool call id, so
  * an artifact shows as building from the call's first chunk and as ready
- * once its part arrives.
+ * once its part arrives. A markdown table in an answer's text is lifted out
+ * as a ready table (`answerChunks`), keyed like its chat card.
  */
 export function artifactEntries(
   messages: readonly UIMessage[],
@@ -40,6 +50,19 @@ export function artifactEntries(
   const entries = new Map<string, ArtifactEntry>();
   for (const m of messages) {
     m.parts.forEach((part, index) => {
+      if (m.role === "assistant" && part.type === "text") {
+        for (const chunk of answerChunks(part.text, `${m.id}:${index}`)) {
+          if (chunk.kind !== "table") continue;
+          entries.set(chunk.id, {
+            id: chunk.id,
+            status: "ready",
+            kind: "table",
+            artifact: chunk.artifact,
+            fromAnswer: true,
+          });
+        }
+        return;
+      }
       if (part.type === ARTIFACT_PART) {
         const id = artifactPartId(m.id, part.id, index);
         const parsed = artifactSchema.safeParse(part.data);

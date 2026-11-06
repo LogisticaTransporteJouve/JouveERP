@@ -26,7 +26,7 @@ import { usePinAiArtifact } from "../hooks/use-ai-pins";
 import { ArtifactCalendar } from "./artifact-calendar";
 import { ArtifactChart } from "./artifact-chart";
 import { ArtifactTable } from "./artifact-table";
-import { toolLabel } from "./tool-renderers";
+import { toolLabel } from "../lib/tool-labels";
 
 export function exportArtifactCsv(artifact: Artifact) {
   const { fileName, csv } = artifactCsv(artifact);
@@ -146,7 +146,7 @@ export function ArtifactProvenance({ artifact }: { artifact: Artifact }) {
   const { meta } = artifact;
   return (
     <div className="text-muted-foreground space-y-0.5 text-xs">
-      <p title={meta.sources.join(", ")}>
+      <p>
         {toolLabel(artifact.source.action)} · al{" "}
         {formatArgentineDateTime(meta.asOf)}
         {artifact.kind !== "chart" &&
@@ -173,17 +173,20 @@ export function ArtifactProvenance({ artifact }: { artifact: Artifact }) {
  *  storing it, so only the query and its config are sent. */
 export function PinArtifactButton({
   artifact,
+  blockedReason = null,
 }: {
   artifact: PinnableArtifact;
+  /** Why this artifact cannot be pinned at all. */
+  blockedReason?: string | null;
 }) {
   const pin = usePinAiArtifact();
   const [pinned, setPinned] = useState(false);
   return (
-    <DisabledHint reason={pinned ? "Ya está fijado." : null}>
+    <DisabledHint reason={blockedReason ?? (pinned ? "Ya está fijado." : null)}>
       <Button
         variant="ghost"
         size="sm"
-        disabled={pin.isPending || pinned}
+        disabled={blockedReason !== null || pin.isPending || pinned}
         onClick={() =>
           pin.mutate(artifact, {
             onSuccess: () => {

@@ -13,7 +13,9 @@ import { cn } from "@/lib/utils";
 
 import type { ActivityStep } from "../lib/activity";
 
-import { ToolArtifact, toolLabel } from "./tool-renderers";
+import { toolLabel } from "../lib/tool-labels";
+
+import { ToolArtifact } from "./tool-renderers";
 
 function headerLabel(steps: readonly ActivityStep[], live: boolean): string {
   const running = steps.findLast((s) => s.status === "running");
@@ -24,7 +26,8 @@ function headerLabel(steps: readonly ActivityStep[], live: boolean): string {
 
 /**
  * The turn's tool calls in one collapsible block: what ran, how many rows,
- * from which sources and as of when, and whether the figures are partial.
+ * as of when, and whether the figures are partial (never the internal
+ * names of the queries or their tables).
  * Collapsed unless the user opens it; each step expands to a preview.
  */
 export function ActivityBlock({
@@ -42,7 +45,7 @@ export function ActivityBlock({
     <Collapsible
       open={open}
       onOpenChange={setOpen}
-      className="bg-muted/30 w-full max-w-[85%] rounded-md border text-xs"
+      className="bg-card w-full max-w-[85%] rounded-md border text-xs"
     >
       <CollapsibleTrigger className="text-muted-foreground hover:bg-muted/50 flex w-full items-center gap-2 rounded-md px-3 py-2 text-left">
         {live ? (
@@ -119,11 +122,6 @@ function ActivityRow({ step }: { step: ActivityStep }) {
         {summary}
       </summary>
       <div className="pl-5">
-        {step.sources.length > 0 && (
-          <p className="text-muted-foreground mt-1 font-mono text-[11px]">
-            {step.sources.join(", ")}
-          </p>
-        )}
         <ToolArtifact toolName={step.name} output={step.output} />
       </div>
     </details>

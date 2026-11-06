@@ -155,10 +155,24 @@ describe("capabilities summary", () => {
   it("lists one line per visible action, grouped by domain", () => {
     const summary = buildCapabilitiesSummary(resolveAccess(["operations"]));
     expect(summary).toContain("Flota y transporte:");
-    expect(summary).toContain("- getFleetMargin: Margen de flota");
+    expect(summary).toContain(
+      "- getFleetMargin («Margen de flota»): Margen de flota",
+    );
     const lines = summary.split("\n").filter((l) => l.startsWith("- "));
     expect(lines).toHaveLength(
       visibleAiActions(resolveAccess(["operations"])).length,
+    );
+  });
+
+  it("sends tables and comparisons to the panel only where artifacts are on", () => {
+    const access = resolveAccess(["finance"]);
+    const chat = buildCapabilitiesSummary(access, undefined, {
+      artifacts: true,
+    });
+    expect(chat).toContain("Nunca escribas una tabla en markdown");
+    expect(chat).toContain("hasta 5 líneas");
+    expect(buildCapabilitiesSummary(access)).not.toContain(
+      "Nunca escribas una tabla en markdown",
     );
   });
 

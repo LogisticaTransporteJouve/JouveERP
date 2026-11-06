@@ -36,6 +36,10 @@ import {
   exportArtifactXlsx,
 } from "./artifact-card";
 
+/** A table lifted from the answer's text has no query a pin could rerun. */
+const ANSWER_PIN_BLOCKED =
+  "Esta tabla salió del texto de la respuesta: para fijarla, pedile al asistente que la arme como tabla.";
+
 const KIND_LABEL: Record<ArtifactKind, string> = {
   chart: "Gráfico",
   table: "Tabla",
@@ -93,7 +97,11 @@ export function ArtifactCanvas({
             <>
               {/* A pin rebuilds charts and tables only. */}
               {entry.artifact.kind !== "calendar" && (
-                <PinArtifactButton key={entry.id} artifact={entry.artifact} />
+                <PinArtifactButton
+                  key={entry.id}
+                  artifact={entry.artifact}
+                  blockedReason={entry.fromAnswer ? ANSWER_PIN_BLOCKED : null}
+                />
               )}
               <ExportMenu artifact={entry.artifact} />
             </>
@@ -139,17 +147,37 @@ function CanvasBody({ entry }: { entry: ArtifactEntry }) {
       </CanvasMessage>
     );
   }
-  return <ReadyArtifact key={entry.id} artifact={entry.artifact} />;
+  return (
+    <ReadyArtifact
+      key={entry.id}
+      artifact={entry.artifact}
+      fromAnswer={entry.fromAnswer === true}
+    />
+  );
 }
 
-function ReadyArtifact({ artifact }: { artifact: Artifact }) {
+function ReadyArtifact({
+  artifact,
+  fromAnswer,
+}: {
+  artifact: Artifact;
+  fromAnswer: boolean;
+}) {
   const [asTable, setAsTable] = useState(artifact.kind === "table");
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-start gap-2">
         <div className="min-w-0 flex-1 space-y-1">
           <h2 className="text-base font-semibold">{artifact.title}</h2>
-          <ArtifactProvenance artifact={artifact} />
+          {fromAnswer ? (
+            <p className="text-muted-foreground text-xs">
+              De la respuesta del asistente ·{" "}
+              {artifact.kind === "table" &&
+                `${artifact.rows.length.toLocaleString("es-AR")} filas`}
+            </p>
+          ) : (
+            <ArtifactProvenance artifact={artifact} />
+          )}
         </div>
         {artifact.kind === "chart" && (
           <ChartTableToggle
@@ -255,8 +283,8 @@ export function ArtifactChip({
       onClick={onOpen}
       className={cn(
         "flex w-full max-w-sm items-center gap-3 rounded-md border p-3 text-left text-xs transition-colors",
-        "bg-muted/30 hover:bg-muted/60 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-2",
-        active && "bg-muted/60 border-foreground/20",
+        "bg-card hover:bg-muted/40 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-2",
+        active && "border-foreground/30",
       )}
     >
       <Icon className="text-muted-foreground size-4 shrink-0" />
