@@ -5,6 +5,9 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { cn } from "@/lib/utils";
+import { FormColumn, FormColumns } from "@/components/form-columns";
+import { DIALOG_STICKY_FOOTER } from "@/components/ui/dialog";
 import { MoneyInput } from "@/components/money-input";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -168,286 +171,306 @@ export function IssuedCheckForm({
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <FormField
-            control={form.control}
-            name="kind"
-            render={({ field }) => (
-              <FormItem className="space-y-1">
-                <FormLabel className="text-xs">Tipo</FormLabel>
-                <Select
-                  value={field.value}
-                  onValueChange={(v) => field.onChange(v as IssuedCheckKind)}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {ISSUED_CHECK_KINDS.map((k) => (
-                      <SelectItem key={k} value={k}>
-                        {ISSUED_CHECK_KIND_LABEL[k]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="check_number"
-            render={({ field }) => (
-              <FormItem className="space-y-1">
-                <FormLabel className="text-xs">Número</FormLabel>
-                <FormControl>
-                  <Input {...field} placeholder="12345678" />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="bank_name"
-            render={({ field }) => (
-              <FormItem className="space-y-1">
-                <FormLabel className="text-xs">Banco</FormLabel>
-                <FormControl>
-                  <Input {...field} placeholder="Banco Galicia" />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+        <FormColumns>
+          <FormColumn>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <FormField
+                control={form.control}
+                name="kind"
+                render={({ field }) => (
+                  <FormItem className="space-y-1">
+                    <FormLabel className="text-xs">Tipo</FormLabel>
+                    <Select
+                      value={field.value}
+                      onValueChange={(v) =>
+                        field.onChange(v as IssuedCheckKind)
+                      }
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {ISSUED_CHECK_KINDS.map((k) => (
+                          <SelectItem key={k} value={k}>
+                            {ISSUED_CHECK_KIND_LABEL[k]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="check_number"
+                render={({ field }) => (
+                  <FormItem className="space-y-1">
+                    <FormLabel className="text-xs">Número</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="12345678" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="bank_name"
+                render={({ field }) => (
+                  <FormItem className="space-y-1">
+                    <FormLabel className="text-xs">Banco</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Banco Galicia" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
 
-        <FormField
-          control={form.control}
-          name="bank_account_id"
-          render={({ field }) => (
-            <FormItem className="space-y-1">
-              <FormLabel className="text-xs">
-                Cuenta bancaria (chequera)
-              </FormLabel>
-              <Select
-                value={field.value}
-                disabled={orderLocked}
-                onValueChange={field.onChange}
-              >
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Elegir cuenta" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {bankAccounts.map((a) => (
-                    <SelectItem key={a.id} value={a.id}>
-                      {a.name} · {a.currency}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        {mode === "create" ? (
-          <FormField
-            control={form.control}
-            name="channel_id"
-            render={({ field }) => (
-              <FormItem className="space-y-1">
-                <FormLabel className="text-xs">Canal</FormLabel>
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Elegir canal" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {channels
-                      .filter((c) => c.is_active)
-                      .map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.name}
+            <FormField
+              control={form.control}
+              name="bank_account_id"
+              render={({ field }) => (
+                <FormItem className="space-y-1">
+                  <FormLabel className="text-xs">
+                    Cuenta bancaria (chequera)
+                  </FormLabel>
+                  <Select
+                    value={field.value}
+                    disabled={orderLocked}
+                    onValueChange={field.onChange}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Elegir cuenta" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {bankAccounts.map((a) => (
+                        <SelectItem key={a.id} value={a.id}>
+                          {a.name} · {a.currency}
                         </SelectItem>
                       ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        ) : (
-          <div className="space-y-1">
-            <p className="text-xs font-medium">Canal</p>
-            <p className="text-sm">
-              {check?.channel_id
-                ? (channels.find((c) => c.id === check.channel_id)?.name ??
-                  check.channel_id)
-                : "Sin canal"}
-            </p>
-          </div>
-        )}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <FormField
-            control={form.control}
-            name="issue_date"
-            render={({ field }) => (
-              <FormItem className="space-y-1">
-                <FormLabel className="text-xs">Fecha de emisión</FormLabel>
-                <FormControl>
-                  <DatePicker value={field.value} onChange={field.onChange} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
+            {mode === "create" ? (
+              <FormField
+                control={form.control}
+                name="channel_id"
+                render={({ field }) => (
+                  <FormItem className="space-y-1">
+                    <FormLabel className="text-xs">Canal</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Elegir canal" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {channels
+                          .filter((c) => c.is_active)
+                          .map((c) => (
+                            <SelectItem key={c.id} value={c.id}>
+                              {c.name}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            ) : (
+              <div className="space-y-1">
+                <p className="text-xs font-medium">Canal</p>
+                <p className="text-sm">
+                  {check?.channel_id
+                    ? (channels.find((c) => c.id === check.channel_id)?.name ??
+                      check.channel_id)
+                    : "Sin canal"}
+                </p>
+              </div>
             )}
-          />
-          <FormField
-            control={form.control}
-            name="due_date"
-            render={({ field }) => (
-              <FormItem className="space-y-1">
-                <FormLabel className="text-xs">Fecha de cobro</FormLabel>
-                <FormControl>
-                  <DatePicker value={field.value} onChange={field.onChange} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_140px]">
-          <FormField
-            control={form.control}
-            name="amount"
-            render={({ field }) => (
-              <FormItem className="space-y-1">
-                <FormLabel className="text-xs">Monto</FormLabel>
-                <FormControl>
-                  <MoneyInput
-                    {...field}
-                    placeholder="0,00"
-                    disabled={orderLocked}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="issue_date"
+                render={({ field }) => (
+                  <FormItem className="space-y-1">
+                    <FormLabel className="text-xs">Fecha de emisión</FormLabel>
+                    <FormControl>
+                      <DatePicker
+                        value={field.value}
+                        onChange={field.onChange}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="due_date"
+                render={({ field }) => (
+                  <FormItem className="space-y-1">
+                    <FormLabel className="text-xs">Fecha de cobro</FormLabel>
+                    <FormControl>
+                      <DatePicker
+                        value={field.value}
+                        onChange={field.onChange}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+          </FormColumn>
+          <FormColumn>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_140px]">
+              <FormField
+                control={form.control}
+                name="amount"
+                render={({ field }) => (
+                  <FormItem className="space-y-1">
+                    <FormLabel className="text-xs">Monto</FormLabel>
+                    <FormControl>
+                      <MoneyInput
+                        {...field}
+                        placeholder="0,00"
+                        disabled={orderLocked}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="currency"
+                render={({ field }) => (
+                  <FormItem className="space-y-1">
+                    <FormLabel className="text-xs">Moneda</FormLabel>
+                    <Select
+                      value={field.value}
+                      disabled={orderLocked}
+                      onValueChange={(v) =>
+                        field.onChange(v as IssuedCheckCurrency)
+                      }
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {ISSUED_CHECK_CURRENCIES.map((c) => (
+                          <SelectItem key={c} value={c}>
+                            {c}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            {orderLocked && (
+              <p className="text-muted-foreground text-xs">
+                El cheque está ligado a una orden de pago: el monto, la moneda y
+                la cuenta se cambian editando la orden de pago.
+              </p>
             )}
-          />
-          <FormField
-            control={form.control}
-            name="currency"
-            render={({ field }) => (
-              <FormItem className="space-y-1">
-                <FormLabel className="text-xs">Moneda</FormLabel>
-                <Select
-                  value={field.value}
-                  disabled={orderLocked}
-                  onValueChange={(v) =>
-                    field.onChange(v as IssuedCheckCurrency)
-                  }
-                >
+
+            <FormField
+              control={form.control}
+              name="supplier"
+              render={({ field }) => (
+                <FormItem className="space-y-1">
+                  <FormLabel className="text-xs">
+                    Beneficiario (proveedor)
+                  </FormLabel>
                   <FormControl>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
+                    {/* Treasury: a cheque goes to a supplier of either side. */}
+                    <SupplierPicker
+                      value={field.value}
+                      onChange={field.onChange}
+                      isFiscal={null}
+                    />
                   </FormControl>
-                  <SelectContent>
-                    {ISSUED_CHECK_CURRENCIES.map((c) => (
-                      <SelectItem key={c} value={c}>
-                        {c}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-        {orderLocked && (
-          <p className="text-muted-foreground text-xs">
-            El cheque está ligado a una orden de pago: el monto, la moneda y la
-            cuenta se cambian editando la orden de pago.
-          </p>
-        )}
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-        <FormField
-          control={form.control}
-          name="supplier"
-          render={({ field }) => (
-            <FormItem className="space-y-1">
-              <FormLabel className="text-xs">
-                Beneficiario (proveedor)
-              </FormLabel>
-              <FormControl>
-                {/* Treasury: a cheque goes to a supplier of either side. */}
-                <SupplierPicker
-                  value={field.value}
-                  onChange={field.onChange}
-                  isFiscal={null}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="beneficiary_name"
+                render={({ field }) => (
+                  <FormItem className="space-y-1">
+                    <FormLabel className="text-xs">
+                      Nombre del beneficiario (opcional)
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        placeholder="Si difiere del proveedor"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="beneficiary_cuit"
+                render={({ field }) => (
+                  <FormItem className="space-y-1">
+                    <FormLabel className="text-xs">
+                      CUIT beneficiario (opcional)
+                    </FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="30-12345678-9" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <FormField
+              control={form.control}
+              name="notes"
+              render={({ field }) => (
+                <FormItem className="space-y-1">
+                  <FormLabel className="text-xs">Notas</FormLabel>
+                  <FormControl>
+                    <Textarea rows={2} {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </FormColumn>
+        </FormColumns>
+        <div
+          className={cn(
+            "flex items-center justify-end gap-2",
+            DIALOG_STICKY_FOOTER,
           )}
-        />
-
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <FormField
-            control={form.control}
-            name="beneficiary_name"
-            render={({ field }) => (
-              <FormItem className="space-y-1">
-                <FormLabel className="text-xs">
-                  Nombre del beneficiario (opcional)
-                </FormLabel>
-                <FormControl>
-                  <Input {...field} placeholder="Si difiere del proveedor" />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="beneficiary_cuit"
-            render={({ field }) => (
-              <FormItem className="space-y-1">
-                <FormLabel className="text-xs">
-                  CUIT beneficiario (opcional)
-                </FormLabel>
-                <FormControl>
-                  <Input {...field} placeholder="30-12345678-9" />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        <FormField
-          control={form.control}
-          name="notes"
-          render={({ field }) => (
-            <FormItem className="space-y-1">
-              <FormLabel className="text-xs">Notas</FormLabel>
-              <FormControl>
-                <Textarea rows={2} {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <div className="flex items-center justify-end gap-2">
+        >
           <Button
             type="button"
             variant="ghost"

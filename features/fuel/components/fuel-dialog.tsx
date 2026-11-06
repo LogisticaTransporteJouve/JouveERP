@@ -6,6 +6,11 @@ import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import {
+  FormColumn,
+  FormColumns,
+  WIDE_FORM_DIALOG,
+} from "@/components/form-columns";
 import { MoneyInput } from "@/components/money-input";
 import { Button } from "@/components/ui/button";
 import {
@@ -172,7 +177,7 @@ export function FuelDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className={WIDE_FORM_DIALOG}>
         <DialogHeader>
           <DialogTitle>{isEdit ? "Editar carga" : "Nueva carga"}</DialogTitle>
           <DialogDescription>
@@ -181,165 +186,176 @@ export function FuelDialog({
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <FormField
-                control={form.control}
-                name="vehicle_id"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Vehículo</FormLabel>
-                    <Select value={field.value} onValueChange={field.onChange}>
+            <FormColumns>
+              <FormColumn>
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField
+                    control={form.control}
+                    name="vehicle_id"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Vehículo</FormLabel>
+                        <Select
+                          value={field.value}
+                          onValueChange={field.onChange}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Elegí un vehículo" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {vehicleOptions.map((v) => (
+                              <SelectItem key={v.id} value={v.id}>
+                                {v.patente}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="load_date"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Fecha</FormLabel>
+                        <FormControl>
+                          <DatePicker {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <FormField
+                  control={form.control}
+                  name="trip_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Viaje (opcional)</FormLabel>
+                      <Select
+                        value={field.value === "" ? NONE : field.value}
+                        onValueChange={(v) =>
+                          field.onChange(v === NONE ? "" : v)
+                        }
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Ninguno" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value={NONE}>Ninguno</SelectItem>
+                          {tripOptions.map((t) => (
+                            <SelectItem key={t.id} value={t.id}>
+                              {tripLabel(t)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField
+                    control={form.control}
+                    name="liters"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Litros</FormLabel>
+                        <FormControl>
+                          <MoneyInput {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="amount"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Importe</FormLabel>
+                        <FormControl>
+                          <MoneyInput {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField
+                    control={form.control}
+                    name="odometer_km"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Odómetro (km)</FormLabel>
+                        <FormControl>
+                          <MoneyInput {...field} decimals={ODOMETER_DECIMALS} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="station"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Estación</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="YPF" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </FormColumn>
+              <FormColumn>
+                <FormField
+                  control={form.control}
+                  name="card"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tarjeta</FormLabel>
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Elegí un vehículo" />
-                        </SelectTrigger>
+                        <Input {...field} />
                       </FormControl>
-                      <SelectContent>
-                        {vehicleOptions.map((v) => (
-                          <SelectItem key={v.id} value={v.id}>
-                            {v.patente}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="load_date"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Fecha</FormLabel>
-                    <FormControl>
-                      <DatePicker {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-            <FormField
-              control={form.control}
-              name="trip_id"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Viaje (opcional)</FormLabel>
-                  <Select
-                    value={field.value === "" ? NONE : field.value}
-                    onValueChange={(v) => field.onChange(v === NONE ? "" : v)}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Ninguno" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value={NONE}>Ninguno</SelectItem>
-                      {tripOptions.map((t) => (
-                        <SelectItem key={t.id} value={t.id}>
-                          {tripLabel(t)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <div className="grid grid-cols-2 gap-3">
-              <FormField
-                control={form.control}
-                name="liters"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Litros</FormLabel>
-                    <FormControl>
-                      <MoneyInput {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="amount"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Importe</FormLabel>
-                    <FormControl>
-                      <MoneyInput {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <FormField
-                control={form.control}
-                name="odometer_km"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Odómetro (km)</FormLabel>
-                    <FormControl>
-                      <MoneyInput {...field} decimals={ODOMETER_DECIMALS} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="station"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Estación</FormLabel>
-                    <FormControl>
-                      <Input {...field} placeholder="YPF" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-            <FormField
-              control={form.control}
-              name="card"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Tarjeta</FormLabel>
-                  <FormControl>
-                    <Input {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="notes"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Notas</FormLabel>
-                  <FormControl>
-                    <Textarea {...field} rows={2} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <CostVoucherFields
-              access={voucherAccess}
-              purchaseInvoiceId={purchaseInvoiceId}
-              transactionId={transactionId}
-              aroundDate={voucherDate}
-              onChange={(field, value) =>
-                form.setValue(field, value, { shouldDirty: true })
-              }
-              disabled={isSaving}
-            />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="notes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Notas</FormLabel>
+                      <FormControl>
+                        <Textarea {...field} rows={2} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <CostVoucherFields
+                  access={voucherAccess}
+                  purchaseInvoiceId={purchaseInvoiceId}
+                  transactionId={transactionId}
+                  aroundDate={voucherDate}
+                  onChange={(field, value) =>
+                    form.setValue(field, value, { shouldDirty: true })
+                  }
+                  disabled={isSaving}
+                />
+              </FormColumn>
+            </FormColumns>
             <DialogFooter>
               <Button
                 type="button"

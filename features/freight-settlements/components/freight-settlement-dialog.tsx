@@ -3,6 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import {
+  FormColumn,
+  FormColumns,
+  WIDE_FORM_DIALOG,
+} from "@/components/form-columns";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -186,7 +191,7 @@ export function FreightSettlementDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className={WIDE_FORM_DIALOG}>
         <DialogHeader>
           <DialogTitle>
             {settlement ? "Editar liquidación" : "Nueva liquidación"}
@@ -196,155 +201,159 @@ export function FreightSettlementDialog({
             flete o, si no tiene, con la tarifa de flete del cliente.
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label>Cliente</Label>
-            {settlement ? (
-              <p className="text-sm font-medium">{settlement.client_name}</p>
-            ) : (
-              <ClientPicker
-                value={client}
-                onChange={(c) => {
-                  setClient(c);
-                  setSelected(new Set());
-                }}
-                isFiscal={null}
-              />
-            )}
-          </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <FormColumns>
+          <FormColumn>
             <div className="space-y-2">
-              <Label htmlFor="fs-from">Desde</Label>
-              <DatePicker
-                id="fs-from"
-                value={periodStart}
-                onChange={setPeriodStart}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="fs-to">Hasta</Label>
-              <DatePicker
-                id="fs-to"
-                value={periodEnd}
-                onChange={setPeriodEnd}
-              />
-            </div>
-          </div>
-          {!periodValid && periodStart !== "" && periodEnd !== "" && (
-            <p className="text-sm text-muted-foreground">
-              El período termina antes de empezar.
-            </p>
-          )}
-
-          <div className="space-y-2">
-            <div className="flex items-center justify-between gap-2">
-              <Label>Cargas</Label>
-              {pickable.length > 0 && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() =>
-                    setSelected(
-                      picked.length === pickable.length
-                        ? new Set()
-                        : new Set(pickable.map((r) => r.shipment_id)),
-                    )
-                  }
-                >
-                  {picked.length === pickable.length ? "Ninguna" : "Todas"}
-                </Button>
+              <Label>Cliente</Label>
+              {settlement ? (
+                <p className="text-sm font-medium">{settlement.client_name}</p>
+              ) : (
+                <ClientPicker
+                  value={client}
+                  onChange={(c) => {
+                    setClient(c);
+                    setSelected(new Set());
+                  }}
+                  isFiscal={null}
+                />
               )}
             </div>
-            {!client ? (
-              <p className="text-sm text-muted-foreground">
-                Elegí un cliente para ver sus cargas.
-              </p>
-            ) : candidates.isLoading ? (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-2">
-                <Skeleton className="h-9 w-full" />
-                <Skeleton className="h-9 w-full" />
+                <Label htmlFor="fs-from">Desde</Label>
+                <DatePicker
+                  id="fs-from"
+                  value={periodStart}
+                  onChange={setPeriodStart}
+                />
               </div>
-            ) : candidates.isError ? (
+              <div className="space-y-2">
+                <Label htmlFor="fs-to">Hasta</Label>
+                <DatePicker
+                  id="fs-to"
+                  value={periodEnd}
+                  onChange={setPeriodEnd}
+                />
+              </div>
+            </div>
+            {!periodValid && periodStart !== "" && periodEnd !== "" && (
               <p className="text-sm text-muted-foreground">
-                No se pudieron cargar las cargas: {candidates.error.message}
-              </p>
-            ) : rows.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No hay cargas entregadas sin facturar del cliente en el período.
-              </p>
-            ) : (
-              <ul className="max-h-72 divide-y overflow-y-auto rounded-md border">
-                {rows.map((r) => {
-                  const disabled = r.amount === null;
-                  return (
-                    <li key={r.shipment_id}>
-                      <label className="flex cursor-pointer items-start gap-3 px-3 py-2 text-sm">
-                        <Checkbox
-                          className="mt-0.5"
-                          checked={selected.has(r.shipment_id)}
-                          disabled={disabled}
-                          onCheckedChange={(v) =>
-                            toggle(r.shipment_id, v === true)
-                          }
-                        />
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate font-medium">
-                            {route(r.origin, r.destination)}
-                          </span>
-                          <span className="block truncate text-xs text-muted-foreground">
-                            {r.service_date
-                              ? formatArgentineDate(r.service_date)
-                              : "Sin fecha"}
-                            {r.remito_number
-                              ? ` · Remito ${r.remito_number}`
-                              : ""}
-                            {r.price_source
-                              ? ` · ${FREIGHT_PRICE_SOURCE_LABELS[r.price_source]}`
-                              : ""}
-                          </span>
-                        </span>
-                        <span className="shrink-0 tabular-nums">
-                          {r.amount === null
-                            ? "Sin flete ni tarifa"
-                            : formatMoney(r.amount)}
-                        </span>
-                      </label>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-            {unpriced > 0 && (
-              <p className="text-xs text-muted-foreground">
-                {unpriced === 1
-                  ? "Una carga no tiene flete ni tarifa de flete vigente: cargá el flete en la carga o la tarifa en el cliente."
-                  : `${unpriced} cargas no tienen flete ni tarifa de flete vigente: cargá el flete en la carga o la tarifa en el cliente.`}
+                El período termina antes de empezar.
               </p>
             )}
-          </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="fs-notes">Notas</Label>
-            <Textarea
-              id="fs-notes"
-              rows={2}
-              maxLength={1000}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-            />
-          </div>
+            <div className="space-y-2">
+              <Label htmlFor="fs-notes">Notas</Label>
+              <Textarea
+                id="fs-notes"
+                rows={2}
+                maxLength={1000}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+              />
+            </div>
 
-          <div className="flex items-center justify-between rounded-md border bg-muted/30 px-3 py-2 text-sm">
-            <span className="text-muted-foreground">
-              {picked.length === 1 ? "1 carga" : `${picked.length} cargas`}
-            </span>
-            <span className="font-medium tabular-nums">
-              {formatMoney(total)}
-              {client?.is_fiscal ? " + IVA" : ""}
-            </span>
-          </div>
-        </div>
+            <div className="flex items-center justify-between rounded-md border bg-muted/30 px-3 py-2 text-sm">
+              <span className="text-muted-foreground">
+                {picked.length === 1 ? "1 carga" : `${picked.length} cargas`}
+              </span>
+              <span className="font-medium tabular-nums">
+                {formatMoney(total)}
+                {client?.is_fiscal ? " + IVA" : ""}
+              </span>
+            </div>
+          </FormColumn>
+          <FormColumn>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <Label>Cargas</Label>
+                {pickable.length > 0 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() =>
+                      setSelected(
+                        picked.length === pickable.length
+                          ? new Set()
+                          : new Set(pickable.map((r) => r.shipment_id)),
+                      )
+                    }
+                  >
+                    {picked.length === pickable.length ? "Ninguna" : "Todas"}
+                  </Button>
+                )}
+              </div>
+              {!client ? (
+                <p className="text-sm text-muted-foreground">
+                  Elegí un cliente para ver sus cargas.
+                </p>
+              ) : candidates.isLoading ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-9 w-full" />
+                  <Skeleton className="h-9 w-full" />
+                </div>
+              ) : candidates.isError ? (
+                <p className="text-sm text-muted-foreground">
+                  No se pudieron cargar las cargas: {candidates.error.message}
+                </p>
+              ) : rows.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No hay cargas entregadas sin facturar del cliente en el
+                  período.
+                </p>
+              ) : (
+                <ul className="max-h-72 divide-y overflow-y-auto rounded-md border">
+                  {rows.map((r) => {
+                    const disabled = r.amount === null;
+                    return (
+                      <li key={r.shipment_id}>
+                        <label className="flex cursor-pointer items-start gap-3 px-3 py-2 text-sm">
+                          <Checkbox
+                            className="mt-0.5"
+                            checked={selected.has(r.shipment_id)}
+                            disabled={disabled}
+                            onCheckedChange={(v) =>
+                              toggle(r.shipment_id, v === true)
+                            }
+                          />
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate font-medium">
+                              {route(r.origin, r.destination)}
+                            </span>
+                            <span className="block truncate text-xs text-muted-foreground">
+                              {r.service_date
+                                ? formatArgentineDate(r.service_date)
+                                : "Sin fecha"}
+                              {r.remito_number
+                                ? ` · Remito ${r.remito_number}`
+                                : ""}
+                              {r.price_source
+                                ? ` · ${FREIGHT_PRICE_SOURCE_LABELS[r.price_source]}`
+                                : ""}
+                            </span>
+                          </span>
+                          <span className="shrink-0 tabular-nums">
+                            {r.amount === null
+                              ? "Sin flete ni tarifa"
+                              : formatMoney(r.amount)}
+                          </span>
+                        </label>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+              {unpriced > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {unpriced === 1
+                    ? "Una carga no tiene flete ni tarifa de flete vigente: cargá el flete en la carga o la tarifa en el cliente."
+                    : `${unpriced} cargas no tienen flete ni tarifa de flete vigente: cargá el flete en la carga o la tarifa en el cliente.`}
+                </p>
+              )}
+            </div>
+          </FormColumn>
+        </FormColumns>
         <DialogFooter>
           <Button
             type="button"

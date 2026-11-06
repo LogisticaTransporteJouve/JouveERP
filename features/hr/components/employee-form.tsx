@@ -6,6 +6,9 @@ import { useEffect } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 
+import { cn } from "@/lib/utils";
+import { FormColumn, FormColumns } from "@/components/form-columns";
+import { DIALOG_STICKY_FOOTER } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -226,377 +229,393 @@ export function EmployeeForm({
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <FormField
-            control={form.control}
-            name="legal_name"
-            render={({ field }) => (
-              <FormItem className="sm:col-span-2">
-                <FormLabel>Apellido y nombre</FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    autoComplete="off"
-                    placeholder="Pérez, Juan"
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="position"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Posición</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Elegí una posición" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {positionOptions.map((p) => (
-                      <SelectItem key={p} value={p}>
-                        {p}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="pay_frequency"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Frecuencia de pago</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {PAY_FREQUENCIES.map((freq) => (
-                      <SelectItem key={freq} value={freq}>
-                        {PAY_FREQUENCY_LABEL[freq]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <FormField
-            control={form.control}
-            name="cuil"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>CUIL</FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    autoComplete="off"
-                    placeholder="20123456784"
-                  />
-                </FormControl>
-                <FormDescription>11 dígitos. Opcional.</FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="cbu"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>CBU</FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    autoComplete="off"
-                    placeholder="0000000000000000000000"
-                  />
-                </FormControl>
-                <FormDescription>
-                  22 dígitos. Opcional, pero requerido para pagar por
-                  transferencia.
-                </FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <FormField
-            control={form.control}
-            name="base_salary"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Sueldo base mensual</FormLabel>
-                <FormControl>
-                  <MoneyInput {...field} />
-                </FormControl>
-                <FormDescription>
-                  El sueldo pactado. Un chofer mensual lleva su sueldo acá;
-                  vacío solo para quien cobra semanal.
-                </FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="viatico_monthly"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Viático mensual</FormLabel>
-                <FormControl>
-                  <MoneyInput {...field} />
-                </FormControl>
-                <FormDescription>Default $20.000.</FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <FormField
-            control={form.control}
-            name="hire_date"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Fecha de ingreso</FormLabel>
-                <FormControl>
-                  <DatePicker {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="is_monotributo"
-            render={({ field }) => (
-              <FormItem className="flex flex-col">
-                <FormLabel>Monotributista</FormLabel>
-                <div className="flex items-center gap-2 pt-1">
-                  <FormControl>
-                    <Checkbox
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
-                  </FormControl>
-                  <span className="text-sm text-muted-foreground">
-                    Factura como monotributista (la factura se carga en
-                    Compras).
-                  </span>
-                </div>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        {isDriver && (
-          <div className="space-y-3 rounded-md border p-4">
-            <div>
-              <h3 className="text-sm font-medium">Datos de chofer</h3>
-              <p className="text-xs text-muted-foreground">
-                Aparece en Flota → Choferes para asignarle viajes.
-              </p>
-            </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <FormColumns>
+          <FormColumn>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <FormField
                 control={form.control}
-                name="license_number"
+                name="legal_name"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>N.º de licencia</FormLabel>
-                    <FormControl>
-                      <Input {...field} autoComplete="off" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="license_category"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Categoría</FormLabel>
-                    <FormControl>
-                      <Input {...field} autoComplete="off" placeholder="E1" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="driver_phone"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Teléfono</FormLabel>
-                    <FormControl>
-                      <Input {...field} autoComplete="off" inputMode="tel" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-          </div>
-        )}
-
-        <div className="space-y-3 rounded-md border p-4">
-          <div>
-            <h3 className="text-sm font-medium">Datos formales</h3>
-            <p className="text-xs text-muted-foreground">
-              Lo que figura en el recibo del liquidador. Opcional.
-            </p>
-          </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {(
-              [
-                ["convenio", "Convenio", "Ej. CCT 40/89 Camioneros"],
-                ["categoria", "Categoría", "Ej. 1.ª categoría"],
-                ["obra_social", "Obra social", ""],
-                ["art", "ART", ""],
-              ] as const
-            ).map(([name, label, placeholder]) => (
-              <FormField
-                key={name}
-                control={form.control}
-                name={name}
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{label}</FormLabel>
+                  <FormItem className="sm:col-span-2">
+                    <FormLabel>Apellido y nombre</FormLabel>
                     <FormControl>
                       <Input
                         {...field}
                         autoComplete="off"
-                        placeholder={placeholder}
+                        placeholder="Pérez, Juan"
                       />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-            ))}
+              <FormField
+                control={form.control}
+                name="position"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Posición</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Elegí una posición" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {positionOptions.map((p) => (
+                          <SelectItem key={p} value={p}>
+                            {p}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="pay_frequency"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Frecuencia de pago</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {PAY_FREQUENCIES.map((freq) => (
+                          <SelectItem key={freq} value={freq}>
+                            {PAY_FREQUENCY_LABEL[freq]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="cuil"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>CUIL</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        autoComplete="off"
+                        placeholder="20123456784"
+                      />
+                    </FormControl>
+                    <FormDescription>11 dígitos. Opcional.</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="cbu"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>CBU</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        autoComplete="off"
+                        placeholder="0000000000000000000000"
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      22 dígitos. Opcional, pero requerido para pagar por
+                      transferencia.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="base_salary"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Sueldo base mensual</FormLabel>
+                    <FormControl>
+                      <MoneyInput {...field} />
+                    </FormControl>
+                    <FormDescription>
+                      El sueldo pactado. Un chofer mensual lleva su sueldo acá;
+                      vacío solo para quien cobra semanal.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="viatico_monthly"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Viático mensual</FormLabel>
+                    <FormControl>
+                      <MoneyInput {...field} />
+                    </FormControl>
+                    <FormDescription>Default $20.000.</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="hire_date"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Fecha de ingreso</FormLabel>
+                    <FormControl>
+                      <DatePicker {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="is_monotributo"
+                render={({ field }) => (
+                  <FormItem className="flex flex-col">
+                    <FormLabel>Monotributista</FormLabel>
+                    <div className="flex items-center gap-2 pt-1">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                      <span className="text-sm text-muted-foreground">
+                        Factura como monotributista (la factura se carga en
+                        Compras).
+                      </span>
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {isDriver && (
+              <div className="space-y-3 rounded-md border p-4">
+                <div>
+                  <h3 className="text-sm font-medium">Datos de chofer</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Aparece en Flota → Choferes para asignarle viajes.
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <FormField
+                    control={form.control}
+                    name="license_number"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>N.º de licencia</FormLabel>
+                        <FormControl>
+                          <Input {...field} autoComplete="off" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="license_category"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Categoría</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            autoComplete="off"
+                            placeholder="E1"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="driver_phone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Teléfono</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            autoComplete="off"
+                            inputMode="tel"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+            )}
+          </FormColumn>
+          <FormColumn>
+            <div className="space-y-3 rounded-md border p-4">
+              <div>
+                <h3 className="text-sm font-medium">Datos formales</h3>
+                <p className="text-xs text-muted-foreground">
+                  Lo que figura en el recibo del liquidador. Opcional.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {(
+                  [
+                    ["convenio", "Convenio", "Ej. CCT 40/89 Camioneros"],
+                    ["categoria", "Categoría", "Ej. 1.ª categoría"],
+                    ["obra_social", "Obra social", ""],
+                    ["art", "ART", ""],
+                  ] as const
+                ).map(([name, label, placeholder]) => (
+                  <FormField
+                    key={name}
+                    control={form.control}
+                    name={name}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{label}</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            autoComplete="off"
+                            placeholder={placeholder}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                ))}
+                <FormField
+                  control={form.control}
+                  name="retribucion_formal"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Retribución formal</FormLabel>
+                      <FormControl>
+                        <MoneyInput {...field} />
+                      </FormControl>
+                      <FormDescription>
+                        Bruto del recibo. Solo informativo.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
+
+            {mode === "create" && canSetVacations && (
+              <div className="space-y-3 rounded-md border p-4">
+                <div>
+                  <h3 className="text-sm font-medium">Vacaciones</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Opcional. Si lo dejás vacío, el período nuevo se otorga solo
+                    el 1 de octubre.
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <FormField
+                    control={form.control}
+                    name="vacation_current_days"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>
+                          Días del período en curso ({vacationPeriod}-
+                          {vacationPeriod + 1})
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            inputMode="numeric"
+                            placeholder={
+                              suggestedDays !== null
+                                ? String(suggestedDays)
+                                : ""
+                            }
+                            autoComplete="off"
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          {suggestedDays !== null
+                            ? `Por antigüedad le corresponden ${suggestedDays} días (LCT art. 150).`
+                            : "Según la antigüedad: 14, 21, 28 o 35 días."}
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="vacation_previous_days"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>
+                          Días pendientes de años anteriores
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            inputMode="numeric"
+                            placeholder="0"
+                            autoComplete="off"
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Lo que le queda sin tomar de períodos anteriores. Se
+                          usa primero.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+            )}
+
             <FormField
               control={form.control}
-              name="retribucion_formal"
+              name="notes"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Retribución formal</FormLabel>
+                  <FormLabel>Notas</FormLabel>
                   <FormControl>
-                    <MoneyInput {...field} />
+                    <Textarea
+                      {...field}
+                      rows={3}
+                      placeholder="Cualquier dato relevante: convenio, observaciones, etc."
+                    />
                   </FormControl>
-                  <FormDescription>
-                    Bruto del recibo. Solo informativo.
-                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
             />
-          </div>
-        </div>
-
-        {mode === "create" && canSetVacations && (
-          <div className="space-y-3 rounded-md border p-4">
-            <div>
-              <h3 className="text-sm font-medium">Vacaciones</h3>
-              <p className="text-xs text-muted-foreground">
-                Opcional. Si lo dejás vacío, el período nuevo se otorga solo el
-                1 de octubre.
-              </p>
-            </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <FormField
-                control={form.control}
-                name="vacation_current_days"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>
-                      Días del período en curso ({vacationPeriod}-
-                      {vacationPeriod + 1})
-                    </FormLabel>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        inputMode="numeric"
-                        placeholder={
-                          suggestedDays !== null ? String(suggestedDays) : ""
-                        }
-                        autoComplete="off"
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      {suggestedDays !== null
-                        ? `Por antigüedad le corresponden ${suggestedDays} días (LCT art. 150).`
-                        : "Según la antigüedad: 14, 21, 28 o 35 días."}
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="vacation_previous_days"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Días pendientes de años anteriores</FormLabel>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        inputMode="numeric"
-                        placeholder="0"
-                        autoComplete="off"
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      Lo que le queda sin tomar de períodos anteriores. Se usa
-                      primero.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-          </div>
-        )}
-
-        <FormField
-          control={form.control}
-          name="notes"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Notas</FormLabel>
-              <FormControl>
-                <Textarea
-                  {...field}
-                  rows={3}
-                  placeholder="Cualquier dato relevante: convenio, observaciones, etc."
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <div className="flex justify-end gap-2">
+          </FormColumn>
+        </FormColumns>
+        <div className={cn("flex justify-end gap-2", DIALOG_STICKY_FOOTER)}>
           {onCancel && (
             <Button
               type="button"

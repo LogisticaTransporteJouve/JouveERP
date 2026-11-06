@@ -6,6 +6,11 @@ import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import {
+  FormColumn,
+  FormColumns,
+  WIDE_FORM_DIALOG,
+} from "@/components/form-columns";
 import { Button } from "@/components/ui/button";
 import { Combobox } from "@/components/ui/combobox";
 import {
@@ -140,7 +145,7 @@ export function BulkPalletDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className={WIDE_FORM_DIALOG}>
         <DialogHeader>
           <DialogTitle>Cargar varios pallets</DialogTitle>
           <DialogDescription>
@@ -150,224 +155,232 @@ export function BulkPalletDialog({
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="warehouse_id"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Depósito</FormLabel>
-                  <Select
-                    value={field.value}
-                    onValueChange={(v) => {
-                      field.onChange(v);
-                      // An area belongs to one warehouse.
-                      if (v !== field.value) form.setValue("area_id", "");
-                    }}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Elegí un depósito" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {warehouseOptions.map((w) => (
-                        <SelectItem key={w.id} value={w.id}>
-                          {w.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="area_id"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Área (opcional)</FormLabel>
-                  <FormControl>
-                    <AreaSelect
-                      areaOptions={areaOptions}
-                      warehouseId={warehouseId}
-                      value={field.value}
-                      onChange={field.onChange}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="client_id"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Cliente</FormLabel>
-                  <FormControl>
-                    <Combobox
-                      options={(clientOptions ?? []).map((c) => ({
-                        value: c.id,
-                        label: c.legal_name,
-                      }))}
-                      value={field.value}
-                      onChange={field.onChange}
-                      placeholder="Elegí un cliente"
-                      searchPlaceholder="Buscar cliente…"
-                      emptyText="Sin clientes."
-                    />
-                  </FormControl>
-                  <ClientOptionsReadError clientOptions={clientOptions} />
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="product_id"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Producto (opcional)</FormLabel>
-                  <Select
-                    value={field.value === "" ? NONE : field.value}
-                    onValueChange={(v) => field.onChange(v === NONE ? "" : v)}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Ninguno" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value={NONE}>Ninguno</SelectItem>
-                      {productOptions.map((p) => (
-                        <SelectItem key={p.id} value={p.id}>
-                          {p.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <div className="grid grid-cols-2 gap-3">
-              <FormField
-                control={form.control}
-                name="entry_date"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Fecha de ingreso</FormLabel>
-                    <FormControl>
-                      <DatePicker {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
+            <FormColumns>
+              <FormColumn>
+                <FormField
+                  control={form.control}
+                  name="warehouse_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Depósito</FormLabel>
+                      <Select
+                        value={field.value}
+                        onValueChange={(v) => {
+                          field.onChange(v);
+                          // An area belongs to one warehouse.
+                          if (v !== field.value) form.setValue("area_id", "");
+                        }}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Elegí un depósito" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {warehouseOptions.map((w) => (
+                            <SelectItem key={w.id} value={w.id}>
+                              {w.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="area_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Área (opcional)</FormLabel>
+                      <FormControl>
+                        <AreaSelect
+                          areaOptions={areaOptions}
+                          warehouseId={warehouseId}
+                          value={field.value}
+                          onChange={field.onChange}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="client_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Cliente</FormLabel>
+                      <FormControl>
+                        <Combobox
+                          options={(clientOptions ?? []).map((c) => ({
+                            value: c.id,
+                            label: c.legal_name,
+                          }))}
+                          value={field.value}
+                          onChange={field.onChange}
+                          placeholder="Elegí un cliente"
+                          searchPlaceholder="Buscar cliente…"
+                          emptyText="Sin clientes."
+                        />
+                      </FormControl>
+                      <ClientOptionsReadError clientOptions={clientOptions} />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="product_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Producto (opcional)</FormLabel>
+                      <Select
+                        value={field.value === "" ? NONE : field.value}
+                        onValueChange={(v) =>
+                          field.onChange(v === NONE ? "" : v)
+                        }
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Ninguno" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value={NONE}>Ninguno</SelectItem>
+                          {productOptions.map((p) => (
+                            <SelectItem key={p.id} value={p.id}>
+                              {p.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </FormColumn>
+              <FormColumn>
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField
+                    control={form.control}
+                    name="entry_date"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Fecha de ingreso</FormLabel>
+                        <FormControl>
+                          <DatePicker {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="quantity"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Cantidad por pallet</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            type="number"
+                            inputMode="decimal"
+                            step="0.01"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField
+                    control={form.control}
+                    name="count"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Cantidad de pallets</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            type="number"
+                            inputMode="numeric"
+                            min={1}
+                            max={500}
+                            placeholder="10"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="code_prefix"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Prefijo de código</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="PAL" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                {previewCount > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Se generarán {previewCount} código
+                    {previewCount === 1 ? "" : "s"} automáticos (ej.{" "}
+                    {prefix || "PAL"}-0001, {prefix || "PAL"}-0002 …)
+                    continuando la secuencia.
+                  </p>
                 )}
-              />
-              <FormField
-                control={form.control}
-                name="quantity"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Cantidad por pallet</FormLabel>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        type="number"
-                        inputMode="decimal"
-                        step="0.01"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <FormField
-                control={form.control}
-                name="count"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Cantidad de pallets</FormLabel>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        type="number"
-                        inputMode="numeric"
-                        min={1}
-                        max={500}
-                        placeholder="10"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="code_prefix"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Prefijo de código</FormLabel>
-                    <FormControl>
-                      <Input {...field} placeholder="PAL" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-            {previewCount > 0 && (
-              <p className="text-xs text-muted-foreground">
-                Se generarán {previewCount} código
-                {previewCount === 1 ? "" : "s"} automáticos (ej.{" "}
-                {prefix || "PAL"}-0001, {prefix || "PAL"}-0002 …) continuando la
-                secuencia.
-              </p>
-            )}
-            <div className="grid grid-cols-2 gap-3">
-              <FormField
-                control={form.control}
-                name="lot_number"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Lote (opcional)</FormLabel>
-                    <FormControl>
-                      <Input {...field} maxLength={60} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="lot_expiry"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Vencimiento del lote</FormLabel>
-                    <FormControl>
-                      <DatePicker {...field} clearable />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-            <FormField
-              control={form.control}
-              name="notes"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Notas (opcional)</FormLabel>
-                  <FormControl>
-                    <Textarea {...field} rows={2} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField
+                    control={form.control}
+                    name="lot_number"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Lote (opcional)</FormLabel>
+                        <FormControl>
+                          <Input {...field} maxLength={60} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="lot_expiry"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Vencimiento del lote</FormLabel>
+                        <FormControl>
+                          <DatePicker {...field} clearable />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <FormField
+                  control={form.control}
+                  name="notes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Notas (opcional)</FormLabel>
+                      <FormControl>
+                        <Textarea {...field} rows={2} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </FormColumn>
+            </FormColumns>
             <DialogFooter>
               <Button
                 type="button"
