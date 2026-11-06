@@ -17,7 +17,8 @@ export const assistantPage: GuidePage = {
       permission: "ai:chat",
       intro: [
         "El chat con el asistente. Le preguntás en tus palabras («¿cómo viene la caja?», «¿quién me debe más?») y responde con los datos que tu usuario puede ver en la app, con tablas y gráficos cuando ayudan. También le podés preguntar cómo se hace algo en el sistema.",
-        "A la izquierda, el historial de conversaciones ({{Nuevo chat}}, agrupadas en {{Hoy}}, {{Ayer}} y {{Anteriores}}); en el celular se abre con el botón de la izquierda del título. Arriba a la derecha, {{Fijados}} y el consumo de IA del día. Sobre el chat, las alertas del analista (Insights).",
+        "Arriba a la izquierda, {{Historial}} abre las conversaciones ({{Nuevo chat}}, agrupadas en {{Hoy}}, {{Ayer}} y {{Anteriores}}) y el lápiz ({{Nuevo chat}}) empieza una. Arriba a la derecha, {{Insights}} (las alertas del analista), {{Fijados}} y el consumo de IA del día.",
+        "El chat ocupa todo el ancho hasta que el asistente arma una tabla o un gráfico: se abre a la derecha del chat, en un panel propio, y en el mensaje queda una tarjeta con su título para volver a abrirlo. Se ve uno por vez; el más nuevo reemplaza al anterior. En pantallas angostas (celular, tablet) el panel tapa el chat y {{Volver al chat}} lo cierra.",
       ],
       concepts: [
         {
@@ -57,7 +58,11 @@ export const assistantPage: GuidePage = {
             {
               kind: "page",
               title: "Asistente IA",
-              actions: [{ label: "Fijados", variant: "ghost" }],
+              actions: [
+                { label: "Historial", variant: "ghost", marker: 1 },
+                { label: "Insights", variant: "ghost" },
+                { label: "Fijados", variant: "ghost" },
+              ],
               toolbar: [
                 {
                   label: "Escribí tu pregunta o adjuntá un archivo…",
@@ -69,12 +74,13 @@ export const assistantPage: GuidePage = {
             },
           ],
           steps: [
-            "Abrí [[/ai]] (el botón {{Asistente}} arriba de la barra lateral). Para una conversación nueva, hacé clic en {{Nuevo chat}}.",
+            "Abrí [[/ai]] (el botón {{Asistente}} arriba de la barra lateral). Para una conversación nueva, hacé clic en el lápiz ({{Nuevo chat}}) o en {{Historial}} › {{Nuevo chat}}.",
             "Escribí la pregunta en {{Escribí tu pregunta o adjuntá un archivo…}} y apretá Enter. En una conversación nueva también podés hacer clic en una sugerencia ({{¿Cómo viene la caja?}}, {{¿Quién me debe más?}}…).",
-            "Mientras trabaja, el asistente muestra «Pensando…» y las consultas que va haciendo. Después responde con texto, tablas o gráficos.",
+            "Mientras trabaja, el asistente muestra «Pensando…» y las consultas que va haciendo. Después responde con texto; si arma una tabla o un gráfico, se abre a la derecha del chat (mientras lo arma, el panel muestra un esqueleto gris).",
           ],
           after: [
             "La conversación queda guardada en el historial con un título, para retomarla después.",
+            "Cada tabla o gráfico deja en su mensaje una tarjeta con el título y la cantidad de filas o puntos: hacé clic en ella para volver a verlo en el panel.",
           ],
           errors: [
             {
@@ -255,13 +261,14 @@ export const assistantPage: GuidePage = {
           title: "Fijar o exportar una tabla o un gráfico",
           permission: "ai:chat",
           steps: [
-            "En una tabla o un gráfico de la respuesta, usá los botones de su encabezado:",
+            "Abrí la tabla o el gráfico en el panel de la derecha (si lo cerraste, hacé clic en su tarjeta en el mensaje).",
             {
-              text: "Elegí qué hacer:",
+              text: "Usá los botones del encabezado del panel:",
               substeps: [
                 "{{Fijar}}: lo guarda en [[/ai/pinned]] para volver a verlo con los datos al día.",
-                "{{CSV}} o {{Excel}}: descarga los datos.",
-                "En un gráfico, {{Tabla}} muestra los mismos datos como tabla ({{Gráfico}} vuelve).",
+                "{{Exportar}} › {{CSV}} o {{Excel}}: descarga los datos.",
+                "En un gráfico, {{Tabla}} (al lado del título) muestra los mismos datos como tabla ({{Gráfico}} vuelve).",
+                "{{Cerrar}} (la cruz) oculta el panel y el chat vuelve a ocupar todo el ancho; en pantallas angostas es {{Volver al chat}}.",
               ],
             },
           ],
@@ -280,8 +287,8 @@ export const assistantPage: GuidePage = {
           title: "Retomar o borrar una conversación",
           permission: "ai:chat",
           steps: [
-            "En el historial de [[/ai]], hacé clic en una conversación para retomarla.",
-            "Para borrarla, pasá el mouse sobre ella, hacé clic en el tacho ({{Borrar conversación}}) y confirmá con {{Borrar}}.",
+            "En [[/ai]], hacé clic en {{Historial}} (arriba a la izquierda) y elegí la conversación para retomarla. Si tenía tablas o gráficos, se abre con el último a la derecha.",
+            "Para borrarla, en {{Historial}} pasá el mouse sobre ella, hacé clic en el tacho ({{Borrar conversación}}) y confirmá con {{Borrar}}.",
           ],
           after: [
             "Se eliminan la conversación y todos sus mensajes; no se puede deshacer.",
@@ -293,7 +300,7 @@ export const assistantPage: GuidePage = {
           title: "Recalcular las alertas del analista",
           permission: "ai:admin",
           steps: [
-            "En [[/ai]], sobre el chat, en {{Insights}}, hacé clic en {{Recalcular}}.",
+            "En [[/ai]], hacé clic en {{Insights}} (arriba a la derecha) y, en la ventana, en {{Recalcular}}. {{Resolver con IA}} en una alerta abre un chat nuevo sobre ella.",
           ],
           after: [
             "El analista revisa los datos de nuevo y aparece «… insights recalculados.». Las alertas también se ven en el dashboard ([[#dashboard]]).",

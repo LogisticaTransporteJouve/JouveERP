@@ -24,6 +24,59 @@ import { ArtifactChart } from "./artifact-chart";
 import { ArtifactTable } from "./artifact-table";
 import { toolLabel } from "./tool-renderers";
 
+export function exportArtifactCsv(artifact: Artifact) {
+  const { fileName, csv } = artifactCsv(artifact);
+  downloadCsv(fileName, csv);
+}
+
+export async function exportArtifactXlsx(artifact: Artifact) {
+  try {
+    // Loaded on demand: the writer stays out of the chat's bundle.
+    const { buildXlsx } = await import("@/lib/export/xlsx");
+    const { fileName, sheet } = artifactXlsx(artifact);
+    downloadBlob(fileName, await buildXlsx(sheet));
+  } catch {
+    toast.error("No se pudo generar el Excel.");
+  }
+}
+
+/** Flips a chart to the table of its points and back. */
+export function ChartTableToggle({
+  asTable,
+  onToggle,
+}: {
+  asTable: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <Button variant="ghost" size="sm" onClick={onToggle}>
+      {asTable ? (
+        <BarChart3 className="size-3.5" />
+      ) : (
+        <Table2 className="size-3.5" />
+      )}
+      {asTable ? "Gráfico" : "Tabla"}
+    </Button>
+  );
+}
+
+/** The chart, or the table of the rows (also a chart's, when toggled). */
+export function ArtifactBody({
+  artifact,
+  asTable,
+  tableMaxHeight,
+}: {
+  artifact: Artifact;
+  asTable: boolean;
+  tableMaxHeight?: string;
+}) {
+  return artifact.kind === "chart" && !asTable ? (
+    <ArtifactChart artifact={artifact} />
+  ) : (
+    <ArtifactTable artifact={artifact} maxHeight={tableMaxHeight} />
+  );
+}
+
 /** A chart or table the assistant built from a server query: provenance
  *  line, chart/table toggle, CSV and Excel export of the rows on screen, and a slot
  *  for the pin or unpin control. */
@@ -37,22 +90,6 @@ export function ArtifactCard({
   const [asTable, setAsTable] = useState(artifact.kind === "table");
   const Icon = artifact.kind === "chart" ? BarChart3 : Table2;
 
-  function exportCsv() {
-    const { fileName, csv } = artifactCsv(artifact);
-    downloadCsv(fileName, csv);
-  }
-
-  async function exportXlsx() {
-    try {
-      // Loaded on demand: the writer stays out of the chat's bundle.
-      const { buildXlsx } = await import("@/lib/export/xlsx");
-      const { fileName, sheet } = artifactXlsx(artifact);
-      downloadBlob(fileName, await buildXlsx(sheet));
-    } catch {
-      toast.error("No se pudo generar el Excel.");
-    }
-  }
-
   return (
     <section className="bg-card w-full space-y-3 rounded-lg border p-3">
       <header className="flex flex-wrap items-start gap-2">
@@ -63,35 +100,31 @@ export function ArtifactCard({
         </div>
         <div className="flex items-center gap-1">
           {artifact.kind === "chart" && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setAsTable((v) => !v)}
-            >
-              {asTable ? (
-                <BarChart3 className="size-3.5" />
-              ) : (
-                <Table2 className="size-3.5" />
-              )}
-              {asTable ? "Gráfico" : "Tabla"}
-            </Button>
+            <ChartTableToggle
+              asTable={asTable}
+              onToggle={() => setAsTable((v) => !v)}
+            />
           )}
-          <Button variant="ghost" size="sm" onClick={exportCsv}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => exportArtifactCsv(artifact)}
+          >
             <Download className="size-3.5" />
             CSV
           </Button>
-          <Button variant="ghost" size="sm" onClick={exportXlsx}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => void exportArtifactXlsx(artifact)}
+          >
             <FileSpreadsheet className="size-3.5" />
             Excel
           </Button>
           {control}
         </div>
       </header>
-      {artifact.kind === "chart" && !asTable ? (
-        <ArtifactChart artifact={artifact} />
-      ) : (
-        <ArtifactTable artifact={artifact} />
-      )}
+      <ArtifactBody artifact={artifact} asTable={asTable} />
     </section>
   );
 }
