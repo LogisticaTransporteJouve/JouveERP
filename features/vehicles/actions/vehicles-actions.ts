@@ -13,6 +13,7 @@ import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { paginateRange } from "@/lib/supabase/paginate";
+import { UuidSchema } from "@/lib/validation/common";
 
 import {
   VehicleCreateSchema,
@@ -88,6 +89,29 @@ export async function listVehiclesAction(
     .filter((row): row is Vehicle => row !== null);
 
   return { ok: true, data: vehicles };
+}
+
+/** One vehicle, or null when the id matches none. */
+export async function getVehicleAction(
+  id: string,
+): Promise<ActionResult<Vehicle | null>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.access, "vehicles:read")) {
+    return { ok: false, error: "No tenés permiso para ver vehículos." };
+  }
+  const parsed = UuidSchema.safeParse(id);
+  if (!parsed.success) return { ok: true, data: null };
+  const supabase = await createSupabaseClient();
+  const { data, error } = await supabase
+    .from("vehicles")
+    .select(SELECT_COLUMNS)
+    .eq("id", parsed.data)
+    .maybeSingle();
+  if (error) {
+    logger.error("vehicles.get.failed", { userId: ctx.userId, id, error });
+    return { ok: false, error: "No se pudo cargar el vehículo." };
+  }
+  return { ok: true, data: data ? narrowVehicle(data) : null };
 }
 
 export async function createVehicleAction(

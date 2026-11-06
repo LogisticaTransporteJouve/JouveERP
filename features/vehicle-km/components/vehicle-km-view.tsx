@@ -1,11 +1,9 @@
 "use client";
 
-import { KeyRound, RefreshCw } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { Suspense, useState } from "react";
-import { toast } from "sonner";
 
 import { PeriodFilter } from "@/components/period-filter";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -16,21 +14,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { syncPhase } from "@/lib/afip/arca-sync-run";
 import { formatArgentineDate, formatInteger } from "@/lib/format";
 import { resolvePeriod, type PeriodSelection } from "@/lib/list-period";
-import { strixStatusText } from "@/lib/strix/sync-text";
 
-import {
-  useRequestStrixSync,
-  useStrixStatus,
-  useVehicleKmRange,
-} from "../hooks/use-vehicle-km";
+import { useVehicleKmRange } from "../hooks/use-vehicle-km";
 import { kmPeriod } from "../lib/km-period";
 import type { VehicleKmRow } from "../schema";
 
-import { StrixAccountDialog } from "./strix-account-dialog";
-import { VehicleKmDaysDialog } from "./vehicle-km-days-dialog";
+import { StrixBar } from "./strix-bar";
 
 function KmRangeTable({
   from,
@@ -110,69 +101,6 @@ function KmRangeTable({
   );
 }
 
-function StrixBar({
-  from,
-  to,
-  canWrite,
-  canAdmin,
-}: {
-  from: string;
-  to: string;
-  canWrite: boolean;
-  canAdmin: boolean;
-}) {
-  const status = useStrixStatus();
-  const request = useRequestStrixSync();
-  const [open, setOpen] = useState(false);
-  const s = status.data;
-  const busy =
-    !!s &&
-    ["waiting", "running"].includes(
-      syncPhase({ ...s.sync, result: null }, Date.now()),
-    );
-
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3">
-      <p className="text-muted-foreground text-sm">
-        {status.isError
-          ? status.error.message
-          : s
-            ? strixStatusText(s, Date.now())
-            : "Leyendo Strix…"}
-      </p>
-      <div className="flex gap-2">
-        {canAdmin && s && (
-          <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
-            <KeyRound className="size-4" />
-            Usuario de Strix
-          </Button>
-        )}
-        {canWrite && (
-          <Button
-            size="sm"
-            disabled={!s || s.state !== "ok" || busy || request.isPending}
-            onClick={() =>
-              request.mutate(
-                { from, to },
-                {
-                  onSuccess: () => toast.success("Pedido a Strix enviado."),
-                  onError: (err) => toast.error(err.message),
-                },
-              )
-            }
-          >
-            <RefreshCw className={busy ? "size-4 animate-spin" : "size-4"} />
-            Traer de Strix
-          </Button>
-        )}
-      </div>
-      {open && s && (
-        <StrixAccountDialog status={s} open={open} onOpenChange={setOpen} />
-      )}
-    </div>
-  );
-}
-
 export function VehicleKmView({
   canWrite,
   canAdmin,
@@ -186,7 +114,7 @@ export function VehicleKmView({
     to: null,
   });
   const range = kmPeriod(resolvePeriod(selection));
-  const [opened, setOpened] = useState<VehicleKmRow | null>(null);
+  const router = useRouter();
 
   return (
     <div className="space-y-4">
@@ -197,7 +125,8 @@ export function VehicleKmView({
           </h1>
           <p className="text-muted-foreground text-sm">
             Los km de cada vehículo según Strix (GPS), por día. Se traen solos
-            todos los días; hacé clic en una patente para ver el detalle.
+            todos los días; hacé clic en una patente para ver cada día y quién
+            manejó.
           </p>
         </div>
         <PeriodFilter value={selection} onChange={setSelection} />
@@ -209,17 +138,12 @@ export function VehicleKmView({
         canAdmin={canAdmin}
       />
       <Suspense fallback={<Skeleton className="h-64 w-full" />}>
-        <KmRangeTable from={range.from} to={range.to} onOpen={setOpened} />
-      </Suspense>
-      {opened && (
-        <VehicleKmDaysDialog
-          vehicle={{ id: opened.vehicle_id, patente: opened.patente }}
-          initial={selection}
-          onOpenChange={(o) => {
-            if (!o) setOpened(null);
-          }}
+        <KmRangeTable
+          from={range.from}
+          to={range.to}
+          onOpen={(row) => router.push(`/vehicles/${row.vehicle_id}`)}
         />
-      )}
+      </Suspense>
     </div>
   );
 }

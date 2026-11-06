@@ -4,5 +4,7 @@ export const vehicleKmKeys = {
     [...vehicleKmKeys.all, "range", from, to] as const,
   days: (vehicleId: string, from: string, to: string) =>
     [...vehicleKmKeys.all, "days", vehicleId, from, to] as const,
+  driverDays: (driverId: string, from: string, to: string) =>
+    [...vehicleKmKeys.all, "driver-days", driverId, from, to] as const,
   strix: () => [...vehicleKmKeys.all, "strix"] as const,
 };

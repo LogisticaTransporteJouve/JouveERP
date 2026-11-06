@@ -73,7 +73,12 @@ export function DriversTable({
         accessorKey: "full_name",
         header: "Nombre",
         cell: ({ row }) => (
-          <span className="font-medium">{row.original.full_name}</span>
+          <Link
+            href={`/drivers/${row.original.id}`}
+            className="font-medium underline-offset-4 hover:underline"
+          >
+            {row.original.full_name}
+          </Link>
         ),
       },
       {

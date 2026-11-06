@@ -17,6 +17,10 @@ export const KmDaysInputSchema = z
 
 export type KmDaysInput = z.infer<typeof KmDaysInputSchema>;
 
+export const DriverKmDaysInputSchema = z
+  .object({ driver_id: UuidSchema, from: IsoDateSchema, to: IsoDateSchema })
+  .refine((r) => r.from <= r.to, RANGE_ORDER);
+
 export const StrixCredentialsSchema = z.object({
   username: z
     .string()
@@ -32,6 +36,31 @@ export const StrixCredentialsSchema = z.object({
 export type StrixCredentialsInput = z.input<typeof StrixCredentialsSchema>;
 
 export type KmDay = { day: string; km: number };
+
+export type KmPerson = { id: string; full_name: string };
+
+/** A vehicle's day: its km by Strix (null when Strix has none) and who
+ *  drove it, by the day's trips. */
+export type VehicleKmDay = {
+  day: string;
+  km: number | null;
+  drivers: KmPerson[];
+};
+
+/** A driver's trip, with the km its vehicle did that whole day. */
+export type DriverKmTrip = {
+  trip_id: string;
+  day: string;
+  vehicle: { id: string; patente: string } | null;
+  route: string | null;
+  km: number | null;
+};
+
+export type DriverKmDays = {
+  trips: DriverKmTrip[];
+  /** Km of each vehicle-day once, however many trips share it. */
+  total: number;
+};
 
 export type VehicleKmRow = {
   vehicle_id: string;

@@ -2507,12 +2507,13 @@ export const fleetPage: GuidePage = {
       id: "flota-km-mensual",
       title: "Km recorridos",
       menuPath: "Flota › Km recorridos",
-      routes: ["/vehicle-km"],
+      routes: ["/vehicle-km", "/vehicles/[id]", "/drivers/[id]"],
       permission: "fleet_km:read",
       intro: [
         "Los km de cada vehículo según Strix Flotas (el GPS de los camiones), día por día. Arriba se eligen las fechas (por defecto, este mes) y la tabla muestra, para ese rango, {{Vehículo}}, {{Km recorridos}}, {{Días con km}} y {{Último día}}, con el total abajo.",
         "Los km se traen solos todos los días a la mañana (la última semana, para completar el día anterior). Cada patente de Strix se reconoce por la patente del vehículo: si Strix tiene una que no está cargada en [[/vehicles]], sus km no se guardan y la línea de estado la nombra. Llevan km los vehículos activos que no son acoplado ni semi.",
-        "Hacé clic en una patente para ver sus km de cada día; también desde [[/vehicles]].",
+        "Hacé clic en una patente (acá, en [[/vehicles]] o en [[/trips]]) para abrir la página del vehículo: sus km de cada día y el chofer que lo manejó, que sale de los viajes de ese día. Si un día no tiene viaje cargado, dice {{Sin viaje cargado}}.",
+        "Hacé clic en el chofer para abrir su página: sus viajes con el vehículo y los km que hizo ese día, y {{Ver legajo de RRHH}} si es empleado. Desde el legajo, {{Ver viajes y km}} vuelve a esa página.",
       ],
       screens: [
         {

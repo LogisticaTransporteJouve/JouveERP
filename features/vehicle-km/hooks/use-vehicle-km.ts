@@ -16,6 +16,7 @@ import {
   setStrixCredentialsAction,
 } from "../actions/strix-actions";
 import {
+  getDriverKmDaysAction,
   getVehicleKmDaysAction,
   getVehicleKmRangeAction,
 } from "../actions/vehicle-km-actions";
@@ -31,18 +32,21 @@ export function useVehicleKmRange(from: string, to: string) {
   });
 }
 
-export function useVehicleKmDays(
-  vehicleId: string | null,
-  from: string,
-  to: string,
-) {
-  return useQuery({
-    queryKey: vehicleKmKeys.days(vehicleId ?? "", from, to),
+export function useVehicleKmDays(vehicleId: string, from: string, to: string) {
+  return useSuspenseQuery({
+    queryKey: vehicleKmKeys.days(vehicleId, from, to),
     queryFn: () =>
       runAction(() =>
         getVehicleKmDaysAction({ vehicle_id: vehicleId, from, to }),
       ),
-    enabled: vehicleId !== null,
+  });
+}
+
+export function useDriverKmDays(driverId: string, from: string, to: string) {
+  return useSuspenseQuery({
+    queryKey: vehicleKmKeys.driverDays(driverId, from, to),
+    queryFn: () =>
+      runAction(() => getDriverKmDaysAction({ driver_id: driverId, from, to })),
   });
 }
 

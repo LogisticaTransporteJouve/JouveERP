@@ -53,6 +53,55 @@ export async function listDriversAction(
   return { ok: true, data: data ?? [] };
 }
 
+/** One driver, or null when the id matches none. */
+export async function getDriverAction(
+  id: string,
+): Promise<ActionResult<Driver | null>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.access, "drivers:read")) {
+    return { ok: false, error: "No tenés permiso para ver choferes." };
+  }
+  const parsed = IdSchema.safeParse({ id });
+  if (!parsed.success) return { ok: true, data: null };
+  const supabase = await createSupabaseClient();
+  const { data, error } = await supabase
+    .from("drivers")
+    .select(SELECT_COLUMNS)
+    .eq("id", parsed.data.id)
+    .maybeSingle();
+  if (error) {
+    logger.error("drivers.get.failed", { userId: ctx.userId, id, error });
+    return { ok: false, error: "No se pudo cargar el chofer." };
+  }
+  return { ok: true, data };
+}
+
+/** The driver an employee is, or null when the employee drives nothing. */
+export async function getDriverIdForEmployeeAction(
+  employeeId: string,
+): Promise<ActionResult<string | null>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.access, "drivers:read")) {
+    return { ok: false, error: "No tenés permiso para ver choferes." };
+  }
+  const parsed = IdSchema.safeParse({ id: employeeId });
+  if (!parsed.success) return { ok: true, data: null };
+  const supabase = await createSupabaseClient();
+  const { data, error } = await supabase
+    .from("drivers")
+    .select("id")
+    .eq("employee_id", parsed.data.id)
+    .order("is_active", { ascending: false })
+    .order("created_at")
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    logger.error("drivers.by_employee.failed", { userId: ctx.userId, error });
+    return { ok: false, error: "No se pudo leer el chofer." };
+  }
+  return { ok: true, data: data?.id ?? null };
+}
+
 export async function createDriverAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {

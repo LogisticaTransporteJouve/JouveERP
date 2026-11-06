@@ -78,7 +78,9 @@ const PAGE_TOOLS: Record<string, readonly string[]> = {
   "/accounting/exchange-rates": ["getExchangeRates"],
   // Flota
   "/drivers": ["getDrivers", "getDriverActivity"],
+  "/drivers/[id]": ["getDriverActivity", "getVehicleKm"],
   "/vehicles": ["getVehicles", "getVehicleEconomics", "getVehicleUsage"],
+  "/vehicles/[id]": ["getVehicleKm", "getVehicleUsage"],
   "/trips": ["getTrips"],
   "/trips/[id]": ["getTripDetail"],
   "/cargas": ["getShipments", "getShipmentsSummary"],
