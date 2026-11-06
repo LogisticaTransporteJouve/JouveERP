@@ -11,7 +11,6 @@ import { logAudit } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { mapDbGuardError } from "@/lib/db/guard-errors";
-import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { logger } from "@/lib/logger";
 import { getServiceClient } from "@/lib/supabase/service";
 
@@ -331,15 +330,6 @@ export async function configurePosAction(
     )
     .maybeSingle();
   if (update.error) {
-    // sales_points_one_enabled_per_channel: another enable on this channel
-    // won the race after the check above.
-    if (update.error.code === PG_UNIQUE_VIOLATION) {
-      return {
-        ok: false,
-        error:
-          "El canal ya tiene otro POS habilitado. Deshabilitalo antes de habilitar otro.",
-      };
-    }
     const guardError = mapDbGuardError(update.error, {
       slug: "afip.pos_configure.rejected",
       userId: ctx.userId,

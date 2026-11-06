@@ -1,27 +1,18 @@
 # 2026-11-06 — Escrituras: cheques, archivos, combustible, POS y choferes
 
-Migraciones: `20261106110000` (cheque cargado a mano en una sola función),
-`20261106110001` (clave de importación de combustible), `20261106110002` (un
-POS habilitado por canal).
+Migraciones: `20261106110000` (cheque cargado a mano en una sola función) y
+`20261106110001` (clave de importación de combustible).
 
 - [ ] **pgTAP sin correr en la sesión** (no había stack local):
-      `supabase/tests/create_manual_check_test.sql` y
-      `supabase/tests/sales_points_one_enabled_per_channel_test.sql` corren en
-      el job `database` de CI.
-- [ ] **POS habilitados de más.** Si un canal ya tiene más de un POS
-      habilitado, `20261106110002` deja habilitado el de número más bajo (el
-      que ya numeran recibos y órdenes de pago) y deshabilita los otros, con
-      un `NOTICE` por cada uno. Al emitir una factura en ese canal ya no se
-      ofrecen esos otros POS. Consulta de control antes de promover (solo
-      lectura; lo esperado es que no devuelva filas):
-
-      ```sql
-      select channel_id, array_agg(numero order by numero) as habilitados
-        from public.sales_points
-       where is_enabled and channel_id is not null
-       group by channel_id
-      having count(*) > 1;
-      ```
+      `supabase/tests/create_manual_check_test.sql` corre en el job
+      `database` de CI.
+- [ ] **Un POS habilitado por canal: la regla no es real.** El canal
+      interno tiene dos habilitados desde siempre: el 1 (recibos y órdenes de
+      pago) y el 9001 (remitos internos, `20261101190000`). Por eso no se
+      agregó un índice único en la base (habría deshabilitado el 9001). Pero
+      `configurePosAction` aplica esa regla al habilitar: hoy no deja volver a
+      habilitar el 1 o el 9001 si se deshabilita uno. Hay que decidir la regla
+      real (¿uno por tipo de comprobante?) y ajustar la acción.
 
 - [ ] **Importación de combustible: dos importaciones distintas a la vez.**
       La clave nueva hace idempotente la misma importación enviada dos veces

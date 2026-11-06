@@ -955,8 +955,8 @@ que agrega una migración suma su ítem al final de esta sección.
 
   - `docs/pendientes/2026-11-05-vencimiento-de-ventas-y-tareas.md`.
 
-- [ ] **Aprobar `20261106110000`, `20261106110001` y `20261106110002`**
-      (escrituras de cheques, combustible y POS).
+- [ ] **Aprobar `20261106110000` y `20261106110001`**
+      (escrituras de cheques y combustible).
   - `20261106110000`: función nueva `create_manual_check` (`SECURITY
 INVOKER`, revocada de `public` y `anon`, ejecutable por `authenticated` y
     `service_role`): inserta el cheque y su movimiento «recibido» en una
@@ -965,12 +965,6 @@ INVOKER`, revocada de `public` y `anon`, ejecutable por `authenticated` y
   - `20261106110001`: columna nueva `fuel_loads.import_key` (texto, nullable,
     sin default) con índice único. Todas las filas quedan en NULL; un NULL
     nunca choca. Rollback: el código anterior no escribe la columna.
-  - `20261106110002`: índice único parcial
-    `sales_points_one_enabled_per_channel`. **Puede tocar filas:** si un canal
-    tiene más de un POS habilitado, deja el de número más bajo y deshabilita
-    los otros. Consulta de control (solo lectura; lo esperado: ninguna fila)
-    en `docs/pendientes/2026-11-06-escrituras-cheques-archivos.md`. Rollback:
-    el código anterior aplica la misma regla antes de escribir.
 
 ## Aplicadas en el promote de `d71de85` (2026-11-05)
 
