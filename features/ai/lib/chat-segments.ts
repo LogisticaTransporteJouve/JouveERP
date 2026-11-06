@@ -17,6 +17,16 @@ export type ChatSegment =
   | { kind: "artifact"; data: unknown; id: string; index: number }
   | { kind: "attachments"; attachments: ChatAttachment[]; index: number };
 
+/** An artifact part's id: the render tool call's id (its chat card and the
+ *  canvas both key on it), or its place in the message when it has none. */
+export function artifactPartId(
+  messageId: string,
+  partId: string | undefined,
+  index: number,
+): string {
+  return partId ?? `${messageId}:${index}`;
+}
+
 export function isCardPart(part: ChatPart): boolean {
   if (!isToolUIPart(part)) return false;
   const name = getToolName(part);
@@ -25,7 +35,10 @@ export function isCardPart(part: ChatPart): boolean {
 
 /** Splits a message into segments in transcript order, so text written after
  *  a card or a chart renders after it. */
-export function segmentParts(parts: readonly ChatPart[]): ChatSegment[] {
+export function segmentParts(
+  parts: readonly ChatPart[],
+  messageId = "",
+): ChatSegment[] {
   const segments: ChatSegment[] = [];
   parts.forEach((part, index) => {
     if (isCardPart(part)) {
@@ -36,7 +49,7 @@ export function segmentParts(parts: readonly ChatPart[]): ChatSegment[] {
       segments.push({
         kind: "artifact",
         data: part.data,
-        id: part.id ?? String(index),
+        id: artifactPartId(messageId, part.id, index),
         index,
       });
       return;

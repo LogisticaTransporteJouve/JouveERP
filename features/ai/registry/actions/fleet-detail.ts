@@ -72,7 +72,7 @@ export const getVehicleUsage = defineAiAction({
   sideEffect: "read",
   sources: ["trips", "ai_vehicle_activity", "vehicle_km_readings"],
   description:
-    "Uso de UN vehículo (por patente, alias o UUID) en un rango de fechas: km recorridos según sus viajes no cancelados (y cuántos viajes no tienen km), km de odómetro (lectura mensual del último mes del rango menos la del mes anterior al primero; necesita permiso de km de flota), litros cargados (permiso de combustible) y quién lo manejó: cada chofer con sus viajes, km y primera y última fecha. Para '¿cuántos km hizo el camión X en octubre?' o '¿quién manejó el camión X el último mes?'.",
+    "Uso de UN vehículo (por patente, alias o UUID) en un rango de fechas. Los km RECORRIDOS son los del odómetro (km_recorridos: lectura mensual del último mes del rango menos la del mes anterior al primero; necesita permiso de km de flota): respondé '¿cuántos km hizo el camión X?' con ese número. Los km cargados en los viajes (trip_km) son la distancia declarada de cada viaje y se usan para el extra por km de los choferes; mencionalos solo como referencia o si no hay lecturas de odómetro, aclarando que son los de los viajes. Trae también los litros cargados (permiso de combustible) y quién lo manejó: cada chofer con sus viajes, km de viajes y primera y última fecha. Para '¿cuántos km hizo el camión X en octubre?' o '¿quién manejó el camión X el último mes?'.",
   input: z
     .object({
       vehicle: z
@@ -127,7 +127,7 @@ export const getVehicleUsage = defineAiAction({
       notes.push("Km de odómetro omitidos: hace falta permiso de km de flota.");
     } else if (odometer === null) {
       notes.push(
-        "Sin las dos lecturas mensuales de odómetro para ese rango: los km son los de los viajes.",
+        "Sin las dos lecturas mensuales de odómetro para ese rango: no hay km recorridos medidos; solo los km cargados en los viajes, que son una referencia.",
       );
     }
     if (!userCan(ctx.access, "fuel:read")) {
@@ -145,11 +145,11 @@ export const getVehicleUsage = defineAiAction({
       );
     }
     return okResult(
-      `${plate} ${input.from}→${input.to}: ${live.length} viajes · ` +
-        `${tripKm.toLocaleString("es-AR")} km de viajes` +
+      `${plate} ${input.from}→${input.to}: ` +
         (odometer === null
-          ? ""
-          : ` · ${odometer.toLocaleString("es-AR")} km de odómetro`) +
+          ? "km recorridos sin lecturas de odómetro"
+          : `${odometer.toLocaleString("es-AR")} km recorridos (odómetro)`) +
+        ` · ${live.length} viajes con ${tripKm.toLocaleString("es-AR")} km cargados` +
         (liters === null ? "" : ` · ${liters.toLocaleString("es-AR")} L`) +
         ` · ${drivers.length} chofer(es): ${
           drivers
@@ -162,6 +162,7 @@ export const getVehicleUsage = defineAiAction({
         vehicle: plate,
         from: input.from,
         to: input.to,
+        km_recorridos: odometer,
         trips: live.length,
         cancelled_trips: tripsRes.data.length - live.length,
         trip_km: tripKm,

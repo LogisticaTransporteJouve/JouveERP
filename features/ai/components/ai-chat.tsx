@@ -38,7 +38,7 @@ import {
   proposalToolOutputSchema,
   type AiConfirmation,
 } from "../lib/confirmation-schema";
-import { artifactSchema } from "../artifacts/spec";
+import { useArtifactCanvas } from "../hooks/use-artifact-canvas";
 import { activitySteps } from "../lib/activity";
 import { AiMarkdown } from "../lib/markdown";
 import { isCardPart, segmentParts, type ChatPart } from "../lib/chat-segments";
@@ -51,7 +51,7 @@ import {
 } from "../lib/questions";
 
 import { ActivityBlock } from "./activity-block";
-import { ArtifactCard, PinArtifactButton } from "./artifact-card";
+import { ArtifactCanvas, ArtifactChip } from "./artifact-canvas";
 import { ComposerAttachments, MessageAttachments } from "./chat-attachments";
 import { ProposalCard } from "./proposal-card";
 import { QuestionsCard } from "./questions-card";
@@ -175,6 +175,7 @@ export function AiChat({
   const cameraRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
 
+  const canvas = useArtifactCanvas(messages);
   const busy = status === "submitted" || status === "streaming";
   const waitingQuestion = pendingQuestionCall(messages);
   const waitingProposal = confirmations
@@ -291,205 +292,239 @@ export function AiChat({
     );
   }
 
+  function renderArtifact(id: string): ReactNode {
+    const entry = canvas.entries.get(id);
+    if (entry?.status !== "ready") {
+      return (
+        <p key={id} className="text-muted-foreground text-xs italic">
+          No se pudo mostrar el gráfico o la tabla.
+        </p>
+      );
+    }
+    return (
+      <ArtifactChip
+        key={id}
+        artifact={entry.artifact}
+        active={canvas.open && canvas.current?.id === id}
+        onOpen={() => canvas.show(id)}
+      />
+    );
+  }
+
   return (
-    <div
-      className="flex h-full flex-col gap-4"
-      onDragOver={(e) => {
-        if (!e.dataTransfer.types.includes("Files") || locked) return;
-        e.preventDefault();
-        setDragging(true);
-      }}
-      onDragLeave={(e) => {
-        const related = e.relatedTarget;
-        if (related instanceof Node && e.currentTarget.contains(related))
-          return;
-        setDragging(false);
-      }}
-      onDrop={(e) => {
-        if (!e.dataTransfer.types.includes("Files")) return;
-        e.preventDefault();
-        setDragging(false);
-        addFiles(e.dataTransfer.files);
-      }}
-    >
+    <div className="relative flex h-full gap-4">
       <div
         className={cn(
-          "flex-1 space-y-4 overflow-y-auto rounded-lg border bg-card p-4",
-          dragging && "border-dashed border-foreground/40",
+          "flex min-w-0 flex-1 flex-col gap-4",
+          // Below lg the canvas covers the chat: hidden, not just behind, so
+          // focus and screen readers stay on the canvas.
+          canvas.open && "max-lg:invisible lg:w-[45%] lg:flex-none",
         )}
-      >
-        {messages.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
-            <p className="text-muted-foreground text-sm">
-              Preguntame sobre cobranzas, caja, contabilidad o IVA. Si me pedís
-              registrar algo, te armo una propuesta para que la confirmes.
-            </p>
-            <div className="flex flex-wrap justify-center gap-2">
-              {SUGGESTIONS.map((s) => (
-                <Button
-                  key={s}
-                  variant="outline"
-                  size="sm"
-                  onClick={() => submit(s)}
-                >
-                  {s}
-                </Button>
-              ))}
-            </div>
-          </div>
-        ) : (
-          messages
-            .filter((m) => !isAnswersTurn(m))
-            .map((m, mi, shown) => {
-              const steps =
-                m.role === "assistant"
-                  ? activitySteps(m.parts, isCardPart)
-                  : [];
-              return (
-                <div
-                  key={m.id}
-                  className={cn(
-                    "flex flex-col gap-2",
-                    m.role === "user" ? "items-end" : "items-start",
-                  )}
-                >
-                  <span className="text-muted-foreground text-xs">
-                    {m.role === "user" ? "Vos" : "Asistente"}
-                  </span>
-                  {steps.length > 0 && (
-                    <ActivityBlock
-                      steps={steps}
-                      live={busy && mi === shown.length - 1}
-                    />
-                  )}
-                  {segmentParts(m.parts).map((seg) =>
-                    seg.kind === "card" ? (
-                      renderCard(seg.part, seg.index)
-                    ) : seg.kind === "attachments" ? (
-                      <MessageAttachments
-                        key={`a-${seg.index}`}
-                        attachments={seg.attachments}
-                      />
-                    ) : seg.kind === "artifact" ? (
-                      <ArtifactPart key={seg.id} data={seg.data} />
-                    ) : (
-                      <BubbleSegment
-                        key={`b-${seg.parts[0]?.index ?? 0}`}
-                        role={m.role}
-                      >
-                        {seg.parts.map(({ part, index }) =>
-                          renderText(m, part, index),
-                        )}
-                      </BubbleSegment>
-                    ),
-                  )}
-                </div>
-              );
-            })
-        )}
-        {status === "submitted" && (
-          <p className="text-muted-foreground text-xs italic">Pensando…</p>
-        )}
-      </div>
-
-      {atCap && (
-        <p className="text-muted-foreground text-center text-xs">
-          Se alcanzó el límite diario de consultas de IA. Volvé mañana.
-        </p>
-      )}
-      {!atCap && hint && (
-        <p className="text-muted-foreground text-center text-xs">{hint}</p>
-      )}
-
-      <ComposerAttachments
-        drafts={attachments.drafts}
-        onRemove={attachments.remove}
-      />
-
-      <form
-        onSubmit={(e) => {
+        onDragOver={(e) => {
+          if (!e.dataTransfer.types.includes("Files") || locked) return;
           e.preventDefault();
-          submit(input);
+          setDragging(true);
         }}
-        className="flex items-center gap-2"
+        onDragLeave={(e) => {
+          const related = e.relatedTarget;
+          if (related instanceof Node && e.currentTarget.contains(related))
+            return;
+          setDragging(false);
+        }}
+        onDrop={(e) => {
+          if (!e.dataTransfer.types.includes("Files")) return;
+          e.preventDefault();
+          setDragging(false);
+          addFiles(e.dataTransfer.files);
+        }}
       >
-        <IconButton
-          label="Adjuntar PDF, imagen o planilla"
-          type="button"
-          variant="outline"
-          disabled={locked}
-          onClick={() => pickerRef.current?.click()}
-          className="size-11 shrink-0 rounded-lg"
+        <div
+          className={cn(
+            "flex-1 overflow-y-auto rounded-lg border bg-card p-4",
+            dragging && "border-dashed border-foreground/40",
+          )}
         >
-          <Paperclip className="size-5" />
-        </IconButton>
-        {/* The wrapper hides it, also when disabled wraps it in a span. */}
-        <span className="hidden shrink-0 pointer-coarse:inline-flex">
-          <IconButton
-            label="Sacar una foto"
-            type="button"
-            variant="outline"
-            disabled={locked}
-            onClick={() => cameraRef.current?.click()}
-            className="size-11 rounded-lg"
+          <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col gap-4">
+            {messages.length === 0 ? (
+              <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
+                <p className="text-muted-foreground text-sm">
+                  Preguntame sobre cobranzas, caja, contabilidad o IVA. Si me
+                  pedís registrar algo, te armo una propuesta para que la
+                  confirmes.
+                </p>
+                <div className="flex flex-wrap justify-center gap-2">
+                  {SUGGESTIONS.map((s) => (
+                    <Button
+                      key={s}
+                      variant="outline"
+                      size="sm"
+                      onClick={() => submit(s)}
+                    >
+                      {s}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              messages
+                .filter((m) => !isAnswersTurn(m))
+                .map((m, mi, shown) => {
+                  const steps =
+                    m.role === "assistant"
+                      ? activitySteps(m.parts, isCardPart)
+                      : [];
+                  return (
+                    <div
+                      key={m.id}
+                      className={cn(
+                        "flex flex-col gap-2",
+                        m.role === "user" ? "items-end" : "items-start",
+                      )}
+                    >
+                      <span className="text-muted-foreground text-xs">
+                        {m.role === "user" ? "Vos" : "Asistente"}
+                      </span>
+                      {steps.length > 0 && (
+                        <ActivityBlock
+                          steps={steps}
+                          live={busy && mi === shown.length - 1}
+                        />
+                      )}
+                      {segmentParts(m.parts, m.id).map((seg) =>
+                        seg.kind === "card" ? (
+                          renderCard(seg.part, seg.index)
+                        ) : seg.kind === "attachments" ? (
+                          <MessageAttachments
+                            key={`a-${seg.index}`}
+                            attachments={seg.attachments}
+                          />
+                        ) : seg.kind === "artifact" ? (
+                          renderArtifact(seg.id)
+                        ) : (
+                          <BubbleSegment
+                            key={`b-${seg.parts[0]?.index ?? 0}`}
+                            role={m.role}
+                          >
+                            {seg.parts.map(({ part, index }) =>
+                              renderText(m, part, index),
+                            )}
+                          </BubbleSegment>
+                        ),
+                      )}
+                    </div>
+                  );
+                })
+            )}
+            {status === "submitted" && (
+              <p className="text-muted-foreground text-xs italic">Pensando…</p>
+            )}
+          </div>
+        </div>
+
+        <div className="mx-auto flex w-full max-w-3xl flex-col gap-3">
+          {atCap && (
+            <p className="text-muted-foreground text-center text-xs">
+              Se alcanzó el límite diario de consultas de IA. Volvé mañana.
+            </p>
+          )}
+          {!atCap && hint && (
+            <p className="text-muted-foreground text-center text-xs">{hint}</p>
+          )}
+
+          <ComposerAttachments
+            drafts={attachments.drafts}
+            onRemove={attachments.remove}
+          />
+
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              submit(input);
+            }}
+            className="flex items-center gap-2"
           >
-            <Camera className="size-5" />
-          </IconButton>
-        </span>
-        <input
-          ref={pickerRef}
-          type="file"
-          multiple
-          accept={CHAT_ATTACHMENT_ACCEPT}
-          className="hidden"
-          onChange={(e) => {
-            addFiles(e.target.files);
-            e.target.value = "";
-          }}
-        />
-        <input
-          ref={cameraRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          className="hidden"
-          onChange={(e) => {
-            addFiles(e.target.files);
-            e.target.value = "";
-          }}
-        />
-        <Input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onPaste={(e) => {
-            if (e.clipboardData.files.length === 0) return;
-            e.preventDefault();
-            addFiles(e.clipboardData.files);
-          }}
-          placeholder={
-            atCap
-              ? "Límite diario alcanzado"
-              : waitingQuestion
-                ? "Esperando tus respuestas en la tarjeta…"
-                : "Escribí tu pregunta o adjuntá un archivo…"
-          }
-          disabled={locked}
-          autoFocus
-          className="h-11 rounded-lg px-4 text-base shadow-none focus-visible:border-input focus-visible:ring-0 focus-visible:outline-none"
-        />
-        <IconButton
-          label="Enviar"
-          type="submit"
-          disabled={
-            locked ||
-            attachments.uploading ||
-            (!input.trim() && attachments.readyCount === 0)
-          }
-          className="size-11 shrink-0 rounded-lg"
-        >
-          <Send className="size-5" />
-        </IconButton>
-      </form>
+            <IconButton
+              label="Adjuntar PDF, imagen o planilla"
+              type="button"
+              variant="outline"
+              disabled={locked}
+              onClick={() => pickerRef.current?.click()}
+              className="size-11 shrink-0 rounded-lg"
+            >
+              <Paperclip className="size-5" />
+            </IconButton>
+            {/* The wrapper hides it, also when disabled wraps it in a span. */}
+            <span className="hidden shrink-0 pointer-coarse:inline-flex">
+              <IconButton
+                label="Sacar una foto"
+                type="button"
+                variant="outline"
+                disabled={locked}
+                onClick={() => cameraRef.current?.click()}
+                className="size-11 rounded-lg"
+              >
+                <Camera className="size-5" />
+              </IconButton>
+            </span>
+            <input
+              ref={pickerRef}
+              type="file"
+              multiple
+              accept={CHAT_ATTACHMENT_ACCEPT}
+              className="hidden"
+              onChange={(e) => {
+                addFiles(e.target.files);
+                e.target.value = "";
+              }}
+            />
+            <input
+              ref={cameraRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={(e) => {
+                addFiles(e.target.files);
+                e.target.value = "";
+              }}
+            />
+            <Input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onPaste={(e) => {
+                if (e.clipboardData.files.length === 0) return;
+                e.preventDefault();
+                addFiles(e.clipboardData.files);
+              }}
+              placeholder={
+                atCap
+                  ? "Límite diario alcanzado"
+                  : waitingQuestion
+                    ? "Esperando tus respuestas en la tarjeta…"
+                    : "Escribí tu pregunta o adjuntá un archivo…"
+              }
+              disabled={locked}
+              autoFocus
+              className="h-11 rounded-lg px-4 text-base shadow-none focus-visible:border-input focus-visible:ring-0 focus-visible:outline-none"
+            />
+            <IconButton
+              label="Enviar"
+              type="submit"
+              disabled={
+                locked ||
+                attachments.uploading ||
+                (!input.trim() && attachments.readyCount === 0)
+              }
+              className="size-11 shrink-0 rounded-lg"
+            >
+              <Send className="size-5" />
+            </IconButton>
+          </form>
+        </div>
+      </div>
+      {canvas.open && canvas.current && (
+        <ArtifactCanvas entry={canvas.current} onClose={canvas.close} />
+      )}
     </div>
   );
 }
@@ -510,29 +545,6 @@ function BubbleSegment({
     >
       {children}
     </div>
-  );
-}
-
-function ArtifactPart({ data }: { data: unknown }) {
-  const parsed = artifactSchema.safeParse(data);
-  if (!parsed.success) {
-    return (
-      <p className="text-muted-foreground text-xs italic">
-        No se pudo mostrar el gráfico o la tabla.
-      </p>
-    );
-  }
-  const artifact = parsed.data;
-  return (
-    <ArtifactCard
-      artifact={artifact}
-      control={
-        // A calendar shows in the chat only: pins rebuild charts and tables.
-        artifact.kind === "calendar" ? undefined : (
-          <PinArtifactButton artifact={artifact} />
-        )
-      }
-    />
   );
 }
 
