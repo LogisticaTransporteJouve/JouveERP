@@ -16,6 +16,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { PageHeader } from "@/components/ui/page-header";
 import { userCan, type Access } from "@/lib/auth/permissions";
 import type { CostVoucherAccess } from "@/lib/cost-vouchers";
 
@@ -148,26 +149,21 @@ export function MaintenanceTable({
 
   return (
     <>
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Mantenimientos
-          </h1>
-          <p className="text-muted-foreground text-sm">
-            Mantenimientos de la flota: service, reparaciones y próximos
-            vencimientos.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <ExportButton resource="maintenance" />
-          {canWrite && (
-            <Button onClick={() => setDialog({ mode: "create" })}>
-              <Plus />
-              Nuevo mantenimiento
-            </Button>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        title="Mantenimientos"
+        description="Mantenimientos de la flota: service, reparaciones y próximos vencimientos."
+        actions={
+          <>
+            <ExportButton resource="maintenance" />
+            {canWrite && (
+              <Button onClick={() => setDialog({ mode: "create" })}>
+                <Plus />
+                Nuevo mantenimiento
+              </Button>
+            )}
+          </>
+        }
+      />
 
       <DataTable
         columns={columns}

@@ -1397,7 +1397,7 @@ export function PurchaseInvoiceForm({
                   onChange={chooseArcaGap}
                 />
               )}
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {channelField}
                 {fchVtoPagoField}
                 {accountField}
@@ -1435,7 +1435,7 @@ export function PurchaseInvoiceForm({
         {draftNotice}
         {supplierField}
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {channelField}
           <FormField
             control={form.control}
@@ -1544,7 +1544,7 @@ export function PurchaseInvoiceForm({
 
         {duplicateNotice}
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <FormField
             control={form.control}
             name="fecha"
@@ -1636,7 +1636,7 @@ export function PurchaseInvoiceForm({
           )}
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
           <FormField
             control={form.control}
             name="imp_neto"
@@ -1740,7 +1740,7 @@ export function PurchaseInvoiceForm({
         )}
 
         {showsExempt && (
-          <div className="grid gap-4 sm:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
             <FormField
               control={form.control}
               name="imp_no_gravado"
@@ -1773,14 +1773,14 @@ export function PurchaseInvoiceForm({
 
         {gapNotice}
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {accountField}
           {costCenterField}
         </div>
 
         {employeeField}
 
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <FormField
             control={form.control}
             name="moneda"
@@ -1813,7 +1813,7 @@ export function PurchaseInvoiceForm({
         </div>
 
         {!isInternalChannel && (
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {caeField}
             {caeVtoField}
           </div>

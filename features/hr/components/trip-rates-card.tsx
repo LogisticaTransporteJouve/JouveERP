@@ -59,7 +59,7 @@ export function TripRatesCard({
           </Button>
         )}
       </div>
-      <dl className="mt-3 grid gap-x-6 gap-y-1 text-sm sm:grid-cols-3">
+      <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-1 text-sm sm:grid-cols-3">
         {FIELDS.map(([key, label]) => (
           <div key={key} className="flex items-center justify-between">
             <dt className="text-muted-foreground">{label}</dt>

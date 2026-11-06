@@ -233,7 +233,7 @@ export function ImportDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-3 sm:grid-cols-[14rem_1fr_auto] sm:items-end">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[14rem_1fr_auto] sm:items-end">
           <div className="space-y-1.5">
             <Label htmlFor="import-kind">Qué importar</Label>
             <Select
@@ -286,7 +286,7 @@ export function ImportDialog({
         </div>
 
         {kind && (needsAccount || needsChannel) && (
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {needsAccount && (
               <div className="min-w-0 space-y-1.5">
                 <Label htmlFor="import-account">

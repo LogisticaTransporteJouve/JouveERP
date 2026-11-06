@@ -163,7 +163,7 @@ export default async function ComprobanteDetailPage({
         </BreadcrumbList>
       </Breadcrumb>
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="space-y-1">
+        <div className="min-w-0 space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">
             {kindLabel}{" "}
             <span className="font-mono text-base text-muted-foreground">
@@ -218,7 +218,7 @@ export default async function ComprobanteDetailPage({
             </p>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <InvoiceJobStatus
             id={c.id}
             initialStatus={c.status as InvoiceStatus}
@@ -325,7 +325,7 @@ export default async function ComprobanteDetailPage({
       </div>
 
       {/* Cliente + emisor side by side */}
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="rounded-lg border bg-card p-4">
           <h2 className="text-sm font-medium">Cliente</h2>
           <dl className="mt-3 space-y-1 text-sm">
@@ -394,55 +394,57 @@ export default async function ComprobanteDetailPage({
         <div className="border-b px-4 py-3">
           <h2 className="text-sm font-medium">Ítems</h2>
         </div>
-        <table className="w-full text-sm">
-          <thead className="bg-muted/30 text-xs uppercase tracking-wide text-muted-foreground">
-            <tr>
-              <th className="px-4 py-2 text-left">Descripción</th>
-              <th className="px-4 py-2 text-right">Cant.</th>
-              <th className="px-4 py-2 text-right">
-                {isInternal ? "Precio final" : "P. Unit."}
-              </th>
-              {!isInternal && <th className="px-4 py-2 text-right">IVA</th>}
-              <th className="px-4 py-2 text-right">Subtotal</th>
-              {canIssue && <th className="px-4 py-2 text-left">Gestión</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {c.items.map((item) => (
-              <tr key={item.id} className="border-t">
-                <td className="px-4 py-2">{item.description}</td>
-                <td className="px-4 py-2 text-right font-mono">
-                  {formatARS(item.quantity)}
-                </td>
-                <td className="px-4 py-2 text-right font-mono">
-                  ${formatARS(itemUnitPrice(figures, item))}
-                </td>
-                {!isInternal && (
-                  <td className="px-4 py-2 text-right">
-                    {item.iva_rate_id !== null
-                      ? `${ivaRatePercent(item.iva_rate_id as IvaRateId)}%`
-                      : "—"}
-                  </td>
-                )}
-                <td className="px-4 py-2 text-right font-mono">
-                  ${formatARS(itemSubtotal(figures, item))}
-                </td>
-                {canIssue && (
-                  <td className="px-4 py-2">
-                    <RevenueKindSelect
-                      itemId={item.id}
-                      value={item.revenue_kind}
-                    />
-                  </td>
-                )}
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/30 text-xs uppercase tracking-wide text-muted-foreground">
+              <tr>
+                <th className="px-4 py-2 text-left">Descripción</th>
+                <th className="px-4 py-2 text-right">Cant.</th>
+                <th className="px-4 py-2 text-right">
+                  {isInternal ? "Precio final" : "P. Unit."}
+                </th>
+                {!isInternal && <th className="px-4 py-2 text-right">IVA</th>}
+                <th className="px-4 py-2 text-right">Subtotal</th>
+                {canIssue && <th className="px-4 py-2 text-left">Gestión</th>}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {c.items.map((item) => (
+                <tr key={item.id} className="border-t">
+                  <td className="px-4 py-2">{item.description}</td>
+                  <td className="px-4 py-2 text-right font-mono">
+                    {formatARS(item.quantity)}
+                  </td>
+                  <td className="px-4 py-2 text-right font-mono">
+                    ${formatARS(itemUnitPrice(figures, item))}
+                  </td>
+                  {!isInternal && (
+                    <td className="px-4 py-2 text-right">
+                      {item.iva_rate_id !== null
+                        ? `${ivaRatePercent(item.iva_rate_id as IvaRateId)}%`
+                        : "—"}
+                    </td>
+                  )}
+                  <td className="px-4 py-2 text-right font-mono">
+                    ${formatARS(itemSubtotal(figures, item))}
+                  </td>
+                  {canIssue && (
+                    <td className="px-4 py-2">
+                      <RevenueKindSelect
+                        itemId={item.id}
+                        value={item.revenue_kind}
+                      />
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Totals + AFIP card */}
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="rounded-lg border bg-card p-4">
           <h2 className="text-sm font-medium">Totales</h2>
           <dl className="mt-3 space-y-1 text-sm font-mono">

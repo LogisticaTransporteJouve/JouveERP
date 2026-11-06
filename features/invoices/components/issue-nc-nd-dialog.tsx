@@ -248,7 +248,7 @@ export function NcNdForm({
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-[180px_1fr]">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-[180px_1fr]">
         <div className="space-y-1">
           <Label className="text-xs">Fecha</Label>
           <DatePicker value={fecha} onChange={setFecha} />
@@ -289,7 +289,7 @@ export function NcNdForm({
           {items.map((it, idx) => (
             <div
               key={idx}
-              className="grid items-end gap-2 rounded-md border bg-card p-3 sm:grid-cols-[2fr_80px_120px_140px_auto]"
+              className="grid grid-cols-1 items-end gap-2 rounded-md border bg-card p-3 sm:grid-cols-[2fr_80px_120px_140px_auto]"
             >
               <div className="space-y-1">
                 <Label className="text-xs">Descripción</Label>
@@ -354,7 +354,7 @@ export function NcNdForm({
         </div>
       </div>
 
-      <div className="grid gap-3 rounded-md border bg-muted/30 p-3 text-sm sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 rounded-md border bg-muted/30 p-3 text-sm sm:grid-cols-3">
         <div>
           <div className="text-xs text-muted-foreground">Neto</div>
           <div className="font-mono">{formatNumber2(totals.imp_neto)}</div>

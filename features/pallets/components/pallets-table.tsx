@@ -27,6 +27,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { PageHeader } from "@/components/ui/page-header";
 
 import { useDeletePallet, usePallets } from "../hooks/use-pallets";
 import { PALLET_STATUS_LABELS, type Pallet } from "../schema";
@@ -325,35 +326,33 @@ export function PalletsTable({
 
   return (
     <>
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Pallets</h1>
-          <p className="text-muted-foreground text-sm">
-            Unidades físicas almacenadas por depósito y cliente.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {canMoveStock && selectedCount > 0 && (
-            <Button onClick={() => setDispatchOpen(true)}>
-              <Truck />
-              Despachar ({selectedCount})
-            </Button>
-          )}
-          <ExportButton resource="pallets" />
-          {canMoveStock && (
-            <>
-              <Button variant="outline" onClick={() => setBulkOpen(true)}>
-                <Layers />
-                Cargar varios
+      <PageHeader
+        title="Pallets"
+        description="Unidades físicas almacenadas por depósito y cliente."
+        actions={
+          <>
+            {canMoveStock && selectedCount > 0 && (
+              <Button onClick={() => setDispatchOpen(true)}>
+                <Truck />
+                Despachar ({selectedCount})
               </Button>
-              <Button onClick={() => setDialog({ mode: "create" })}>
-                <Plus />
-                Nuevo pallet
-              </Button>
-            </>
-          )}
-        </div>
-      </div>
+            )}
+            <ExportButton resource="pallets" />
+            {canMoveStock && (
+              <>
+                <Button variant="outline" onClick={() => setBulkOpen(true)}>
+                  <Layers />
+                  Cargar varios
+                </Button>
+                <Button onClick={() => setDialog({ mode: "create" })}>
+                  <Plus />
+                  Nuevo pallet
+                </Button>
+              </>
+            )}
+          </>
+        }
+      />
 
       <div className="flex items-center gap-2">
         <Combobox

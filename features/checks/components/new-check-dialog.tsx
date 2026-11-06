@@ -184,7 +184,7 @@ export function NewChequeDialog({
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
-            <div className="grid gap-3 sm:grid-cols-[140px_1fr_140px]">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-[140px_1fr_140px]">
               <FormField
                 control={form.control}
                 name="kind"
@@ -281,7 +281,7 @@ export function NewChequeDialog({
               )}
             />
 
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <FormField
                 control={form.control}
                 name="bank_name"
@@ -321,7 +321,7 @@ export function NewChequeDialog({
               />
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <FormField
                 control={form.control}
                 name="drawer_name"
@@ -354,7 +354,7 @@ export function NewChequeDialog({
               />
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <FormField
                 control={form.control}
                 name="issue_date"

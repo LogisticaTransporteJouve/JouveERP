@@ -118,7 +118,7 @@ export function PaymentLinesEditor({
                 key={idx}
                 className="space-y-2 rounded-md border bg-card p-3"
               >
-                <div className="grid items-end gap-2 sm:grid-cols-[2fr_1fr_1.5fr_auto]">
+                <div className="grid grid-cols-1 items-end gap-2 sm:grid-cols-[2fr_1fr_1.5fr_auto]">
                   <div className="space-y-1">
                     <Label className="text-xs">Cuenta</Label>
                     <Select
@@ -178,7 +178,7 @@ export function PaymentLinesEditor({
                     <div className="text-xs font-medium text-muted-foreground">
                       Datos del check
                     </div>
-                    <div className="grid gap-2 sm:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                       <div className="space-y-1">
                         <Label className="text-xs">Fecha de emisión</Label>
                         <DatePicker
@@ -198,7 +198,7 @@ export function PaymentLinesEditor({
                       <div className="text-xs font-normal text-muted-foreground">
                         Datos del firmante (opcional)
                       </div>
-                      <div className="grid gap-2 sm:grid-cols-[2fr_2fr_1fr]">
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-[2fr_2fr_1fr]">
                         <div className="space-y-1">
                           <Label className="text-xs">Banco</Label>
                           <Input

@@ -16,6 +16,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { PageHeader } from "@/components/ui/page-header";
 import { userCan, type Access } from "@/lib/auth/permissions";
 
 import {
@@ -145,26 +146,21 @@ export function CostCentersTable({ actorAccess }: { actorAccess: Access }) {
 
   return (
     <>
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Centros de costo
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Dimensión opcional para clasificar movimientos y reportar EERR por
-            flota / proyecto / obra.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <ExportButton resource="cost-centers" />
-          {canWrite && (
-            <Button onClick={() => setDialog({ mode: "create" })}>
-              <Plus />
-              Nuevo centro
-            </Button>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        title="Centros de costo"
+        description="Dimensión opcional para clasificar movimientos y reportar EERR por flota / proyecto / obra."
+        actions={
+          <>
+            <ExportButton resource="cost-centers" />
+            {canWrite && (
+              <Button onClick={() => setDialog({ mode: "create" })}>
+                <Plus />
+                Nuevo centro
+              </Button>
+            )}
+          </>
+        }
+      />
 
       <DataTable
         columns={columns}

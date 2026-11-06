@@ -143,9 +143,9 @@ export function PaymentLinesEditor({
 
   return (
     <div className="space-y-2">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <Label className="text-sm font-medium">Medios de pago</Label>
-        <div className="flex items-center gap-1">
+        <div className="flex flex-wrap items-center gap-1">
           <Button
             type="button"
             variant="outline"
@@ -234,7 +234,7 @@ export function PaymentLinesEditor({
               return (
                 <div
                   key={idx}
-                  className="grid items-end gap-2 rounded-md border bg-card p-3 sm:grid-cols-[2fr_1fr_1.5fr_auto]"
+                  className="grid grid-cols-1 items-end gap-2 rounded-md border bg-card p-3 sm:grid-cols-[2fr_1fr_1.5fr_auto]"
                 >
                   <div className="space-y-1">
                     <Label className="text-xs">Cuenta</Label>
@@ -356,7 +356,7 @@ export function PaymentLinesEditor({
                     <Trash2 className="size-4" />
                   </IconButton>
                 </div>
-                <div className="grid gap-2 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   <div className="space-y-1">
                     <Label className="text-xs">Tipo</Label>
                     <Select

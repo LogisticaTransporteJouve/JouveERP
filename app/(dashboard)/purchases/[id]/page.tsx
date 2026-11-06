@@ -253,7 +253,7 @@ export default async function PurchaseInvoiceDetailPage({
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="rounded-lg border bg-card p-4 lg:col-span-2">
           <h2 className="text-sm font-medium">Proveedor</h2>
           <dl className="mt-3 space-y-1 text-sm">

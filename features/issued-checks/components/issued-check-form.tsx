@@ -168,7 +168,7 @@ export function IssuedCheckForm({
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <FormField
             control={form.control}
             name="kind"
@@ -294,7 +294,7 @@ export function IssuedCheckForm({
           </div>
         )}
 
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <FormField
             control={form.control}
             name="issue_date"
@@ -323,7 +323,7 @@ export function IssuedCheckForm({
           />
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-[1fr_140px]">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_140px]">
           <FormField
             control={form.control}
             name="amount"
@@ -400,7 +400,7 @@ export function IssuedCheckForm({
           )}
         />
 
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <FormField
             control={form.control}
             name="beneficiary_name"

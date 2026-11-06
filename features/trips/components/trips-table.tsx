@@ -16,6 +16,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { PageHeader } from "@/components/ui/page-header";
 import { userCan, type Access } from "@/lib/auth/permissions";
 
 import { useDeleteTrip, useTrips } from "../hooks/use-trips";
@@ -174,20 +175,18 @@ export function TripsTable({
 
   return (
     <>
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Viajes</h1>
-          <p className="text-muted-foreground text-sm">
-            Viajes de la flota con chofer, vehículo y resultado.
-          </p>
-        </div>
-        {canWrite && (
-          <Button onClick={() => setDialog({ mode: "create" })}>
-            <Plus />
-            Nuevo viaje
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        title="Viajes"
+        description="Viajes de la flota con chofer, vehículo y resultado."
+        actions={
+          canWrite && (
+            <Button onClick={() => setDialog({ mode: "create" })}>
+              <Plus />
+              Nuevo viaje
+            </Button>
+          )
+        }
+      />
 
       <DataTable
         columns={columns}

@@ -71,7 +71,7 @@ export function SalesPointsPanel() {
           )}
           {cuit && <span className="font-mono text-xs">CUIT {cuit}</span>}
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button
             type="button"
             variant="outline"
@@ -139,7 +139,7 @@ function DiagnosticRow({ entry }: { entry: DiagnosticEntry }) {
   return (
     <li className="flex items-start gap-3 px-4 py-3 text-sm">
       <Icon className={`mt-0.5 size-4 shrink-0 ${tone}`} aria-hidden />
-      <div className="flex-1">
+      <div className="min-w-0 flex-1 break-words">
         <p className="font-medium">{entry.label}</p>
         <p className="mt-0.5 text-xs text-muted-foreground">{entry.message}</p>
       </div>

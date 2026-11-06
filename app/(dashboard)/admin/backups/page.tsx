@@ -26,7 +26,7 @@ export default async function BackupsPage() {
         </p>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <Card
           icon={<ShieldCheck className="size-5 text-muted-foreground" />}
           title="Política de retención"
