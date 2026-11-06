@@ -25,7 +25,10 @@ import { defineAiAction } from "../define";
 import { errResult, money, okResult, type AiRunResult } from "../result";
 
 export const INTERNAL_NOTE =
-  "Resultado de gestión: USO INTERNO (fiscal + interno). No es el EERR fiscal: para bancos, ARCA o cualquier tercero usar getIncomeStatement / getBalanceSheet.";
+  "Resultado de gestión: USO INTERNO (fiscal + interno). No es el estado de resultados fiscal: para bancos, ARCA o cualquier tercero se usan el estado de resultados y el balance contables.";
+
+export const INTERNAL_MODEL_NOTE =
+  "For banks, ARCA or any third party use getIncomeStatement / getBalanceSheet.";
 
 const ManagementPnlToolInputSchema = z
   .object({
@@ -170,6 +173,7 @@ export const getManagementPnL = defineAiAction({
         currency: "ARS",
         partial: capped,
         note: capped ? `${INTERNAL_NOTE} ${PNL_CAP_NOTE}` : INTERNAL_NOTE,
+        modelNote: INTERNAL_MODEL_NOTE,
       },
     );
   },
@@ -257,6 +261,7 @@ export const getManagementPnLDocuments = defineAiAction({
       {
         currency: "ARS",
         note: INTERNAL_NOTE,
+        modelNote: INTERNAL_MODEL_NOTE,
         partial: res.data.partial || shown.length < res.data.count,
       },
     );

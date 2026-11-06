@@ -216,7 +216,7 @@ export function defineAiAction<S extends z.ZodType>(
       });
       return errResult("La consulta devolvió datos con un formato inesperado.");
     }
-    const { partial, currency, exchangeRate, note, ...rest } = res;
+    const { partial, currency, exchangeRate, note, modelNote, ...rest } = res;
     return {
       ...rest,
       meta: {
@@ -226,6 +226,7 @@ export function defineAiAction<S extends z.ZodType>(
         ...(currency ? { currency } : {}),
         ...(exchangeRate ? { exchangeRate } : {}),
         ...(note ? { note } : {}),
+        ...(modelNote ? { modelNote } : {}),
       },
     };
   }

@@ -59,6 +59,60 @@ function xValue(value: unknown): string | null {
   return text.length > MAX_X ? `${text.slice(0, MAX_X - 1)}…` : text;
 }
 
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const DOCUMENT_DATE = /^(fecha|date|issue_date|invoice_date|fecha_emision)$/;
+const DOCUMENT_LABEL = /^(comprobante|documento|document)$/;
+const COUNTERPARTY: Record<string, string> = {
+  client_legal_name: "Cliente",
+  client_name: "Cliente",
+  cliente: "Cliente",
+  supplier_legal_name: "Proveedor",
+  supplier_name: "Proveedor",
+  proveedor: "Proveedor",
+  legal_name: "Razón social",
+};
+
+function isDateField(rows: readonly DataRow[], field: string): boolean {
+  let any = false;
+  for (const row of rows) {
+    const value = row[field];
+    if (value === null || value === undefined || value === "") continue;
+    if (typeof value !== "string" || !ISO_DATE.test(value)) return false;
+    any = true;
+  }
+  return any;
+}
+
+type DocumentFields = {
+  tick?: string;
+  detail: { field: string; label: string }[];
+};
+
+/**
+ * Rows that are documents (they carry a document date and `x` is not a date)
+ * get an axis labelled by that date and a tooltip naming the document, its
+ * counterparty and its date. A ranking keeps `x` on its axis.
+ */
+export function documentFields(
+  rows: readonly DataRow[],
+  fields: readonly string[],
+  x: string,
+  type: ChartConfig["type"],
+): DocumentFields {
+  const date = fields.find(
+    (f) => f !== x && DOCUMENT_DATE.test(f) && isDateField(rows, f),
+  );
+  if (!date || isDateField(rows, x)) return { detail: [] };
+  const label = fields.find((f) => f !== x && DOCUMENT_LABEL.test(f));
+  const party = fields.find((f) => f !== x && Object.hasOwn(COUNTERPARTY, f));
+  const detail = [
+    ...(label ? [{ field: label, label: "Comprobante" }] : []),
+    ...(party ? [{ field: party, label: COUNTERPARTY[party] ?? "" }] : []),
+    { field: date, label: "Fecha" },
+  ].slice(0, ARTIFACT_LIMITS.detail);
+  return { ...(type === "hbar" ? {} : { tick: date }), detail };
+}
+
 /** The series' common format; plain numbers when they differ. */
 function sharedFormat(fields: readonly string[]): ValueFormat {
   const formats = new Set(fields.map(numberFormat));
@@ -100,6 +154,7 @@ export function buildChartArtifact(
     }
   }
 
+  const { tick, detail } = documentFields(rows, fields, x, config.type);
   const seen = new Set<string>();
   let points: ChartArtifact["points"] = [];
   for (const row of rows) {
@@ -112,7 +167,15 @@ export function buildChartArtifact(
       };
     }
     seen.add(key);
-    points.push({ x: key, values: series.map((s) => toNumber(row[s.field])) });
+    const tickValue = tick ? xValue(row[tick]) : null;
+    points.push({
+      x: key,
+      values: series.map((s) => toNumber(row[s.field])),
+      ...(tickValue !== null ? { tick: tickValue } : {}),
+      ...(detail.length
+        ? { detail: detail.map((d) => xValue(row[d.field])) }
+        : {}),
+    });
   }
   if (points.length === 0) {
     return { ok: false, error: "The result has no rows to chart." };
@@ -156,6 +219,8 @@ export function buildChartArtifact(
     sort,
     ...(config.limit ? { limit: config.limit } : {}),
     valueFormat: config.valueFormat ?? sharedFormat(series.map((s) => s.field)),
+    ...(tick ? { tick } : {}),
+    ...(detail.length ? { detail } : {}),
   };
   return {
     ok: true,

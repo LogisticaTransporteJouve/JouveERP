@@ -19,6 +19,7 @@ import { downloadBlob } from "@/lib/export/download";
 import { formatArgentineDateTime } from "@/lib/format";
 
 import { artifactCsv, artifactXlsx } from "../artifacts/export";
+import { isPlainCaption } from "../artifacts/format";
 import type { Artifact, PinnableArtifact } from "../artifacts/spec";
 import { usePinAiArtifact } from "../hooks/use-ai-pins";
 
@@ -163,7 +164,7 @@ export function ArtifactProvenance({ artifact }: { artifact: Artifact }) {
           Se muestra hasta el límite de filas; hay más en la consulta.
         </p>
       )}
-      {meta.note && <p>{meta.note}</p>}
+      {meta.note && isPlainCaption(meta.note) && <p>{meta.note}</p>}
     </div>
   );
 }

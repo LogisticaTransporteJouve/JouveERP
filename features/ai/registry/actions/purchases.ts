@@ -244,7 +244,9 @@ export const getSupplierPurchasesSummary = defineAiAction({
       {
         currency: "ARS",
         partial: suppliers > res.data.length,
-        note: "Pagos en USD y deuda en moneda extranjera van aparte (paid_usd, open_foreign), sin convertir.",
+        note: "Lo pagado en dólares y la deuda en moneda extranjera van aparte, sin convertir a pesos.",
+        modelNote:
+          "paid_usd and open_foreign are in their own currency, never converted.",
       },
     );
   },

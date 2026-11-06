@@ -12,7 +12,10 @@ import {
 import {
   formatAxisValue,
   formatCategory,
+  formatTick,
   formatValue,
+  pointDetails,
+  tickIndices,
 } from "../artifacts/format";
 import type { ChartArtifact } from "../artifacts/spec";
 
@@ -130,16 +133,29 @@ function Tooltip({
   const point = artifact.points[index];
   if (!point) return null;
   const currency = artifact.meta.currency ?? "ARS";
+  const about = pointDetails(artifact, index);
   return (
     <div
-      className="bg-popover pointer-events-none absolute z-10 w-48 -translate-x-1/2 rounded-md border p-2 text-xs shadow-md"
+      className="bg-popover pointer-events-none absolute z-10 w-56 -translate-x-1/2 rounded-md border p-2 text-xs shadow-md"
       style={{
-        left: `clamp(6rem, ${leftPct}%, calc(100% - 6rem))`,
+        left: `clamp(7rem, ${leftPct}%, calc(100% - 7rem))`,
         top: topPct === undefined ? "0.25rem" : `${topPct}%`,
       }}
     >
       <p className="font-medium">{formatCategory(point.x)}</p>
-      <dl className="mt-1 space-y-0.5">
+      {about.length > 0 && (
+        <dl className="text-muted-foreground mt-1 space-y-0.5">
+          {about.map((d) => (
+            <div key={d.label} className="flex justify-between gap-2">
+              <dt className="shrink-0">{d.label}</dt>
+              <dd className="text-foreground truncate">{d.value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      <dl
+        className={`mt-1 space-y-0.5${about.length > 0 ? " border-t pt-1" : ""}`}
+      >
         {artifact.chart.series.map((s, i) => (
           <div
             key={s.field}
@@ -184,7 +200,10 @@ function pointLabel(artifact: ChartArtifact, index: number): string {
         `${s.label}: ${formatValue(point.values[i] ?? null, artifact.chart.valueFormat, currency)}`,
     )
     .join(", ");
-  return `${formatCategory(point.x)}: ${values}`;
+  const about = pointDetails(artifact, index)
+    .map((d) => `${d.label} ${d.value}`)
+    .join(", ");
+  return `${formatCategory(point.x)}${about ? ` (${about})` : ""}: ${values}`;
 }
 
 function ColumnsOrLines({ artifact }: ChartProps) {
@@ -206,11 +225,11 @@ function ColumnsOrLines({ artifact }: ChartProps) {
       2,
       Math.min(stacked ? 32 : 24, (slot * 0.7 - BAR_GAP * (k - 1)) / k),
     );
-    const labelEvery = Math.ceil(points.length / 10);
-    return { y, ticks, slot, barW, labelEvery };
+    const labelled = new Set(tickIndices(points.map((p) => p.tick ?? p.x)));
+    return { y, ticks, slot, barW, labelled };
   }, [points, chart.series.length, padL, stacked]);
 
-  const { y, ticks, slot, barW, labelEvery } = geo;
+  const { y, ticks, slot, barW, labelled } = geo;
   const zeroY = y(0);
   const cx = (i: number) => padL + i * slot + slot / 2;
   const k = stacked ? 1 : chart.series.length;
@@ -365,7 +384,7 @@ function ColumnsOrLines({ artifact }: ChartProps) {
 
         {points.map((p, i) => (
           <g key={p.x}>
-            {i % labelEvery === 0 && (
+            {labelled.has(i) && (
               <text
                 x={cx(i)}
                 y={vbH - PAD_B + 14}
@@ -374,7 +393,7 @@ function ColumnsOrLines({ artifact }: ChartProps) {
                 fill="currentColor"
                 fillOpacity={active === i ? 0.9 : 0.55}
               >
-                {clip(formatCategory(p.x), 14)}
+                {clip(formatTick(p.tick ?? p.x), 14)}
               </text>
             )}
             <rect

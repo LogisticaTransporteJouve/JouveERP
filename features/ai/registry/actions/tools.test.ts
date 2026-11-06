@@ -116,6 +116,9 @@ import {
   runLibroIvaVentas,
   runTrialBalance,
 } from "./accounting";
+import { buildChartArtifact } from "../../artifacts/build";
+import { isPlainCaption } from "../../artifacts/format";
+
 import { runChecks, runIssuedChecks } from "./cash";
 import { runTreasurySummary } from "./treasury";
 import { runAttendance } from "./hr";
@@ -560,6 +563,94 @@ describe("libro IVA totals", () => {
       },
     });
     expect(r.summary).toContain("sin discriminar (B/C, IVA incluido)");
+  });
+});
+
+describe("libro IVA captions and charts", () => {
+  it("ventas: the user caption is plain Spanish; the row rules go to the model only", async () => {
+    vi.mocked(listLibroIvaVentasAction).mockResolvedValue({
+      ok: true,
+      data: [ventaRow({ punto_venta: 3, numero: 22271 })],
+    });
+    const r = await runLibroIvaVentas({ period: "2026-11" });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.note).toContain("Importes en pesos");
+    expect(isPlainCaption(r.note ?? "")).toBe(true);
+    expect(r.modelNote).toContain("`totals`");
+    expect(r.data).toMatchObject({
+      rows: [{ comprobante: "A0003-00022271" }],
+    });
+  });
+
+  it("compras: the same split", async () => {
+    vi.mocked(listLibroIvaComprasAction).mockResolvedValue({
+      ok: true,
+      data: [compraRow({ numero: 7 })],
+    });
+    const r = await runLibroIvaCompras({ period: "2026-11" });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(isPlainCaption(r.note ?? "")).toBe(true);
+    expect(r.modelNote).toBeTruthy();
+    expect(r.data).toMatchObject({
+      rows: [{ comprobante: "A00001-00000007" }],
+    });
+  });
+
+  it("a chart by invoice number labels the axis by date and names the document on hover", async () => {
+    vi.mocked(listLibroIvaVentasAction).mockResolvedValue({
+      ok: true,
+      data: [
+        ventaRow({
+          fecha: "2026-11-03",
+          punto_venta: 3,
+          numero: 22271,
+          client_legal_name: "Acme SA",
+          neto: 1000,
+          iva: 210,
+        }),
+        ventaRow({
+          invoice_id: "f2",
+          fecha: "2026-11-04",
+          punto_venta: 3,
+          numero: 22276,
+          client_legal_name: "Beta SRL",
+          neto: 500,
+          iva: 105,
+        }),
+      ],
+    });
+    const r = await runLibroIvaVentas({ period: "2026-11" });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const built = buildChartArtifact(
+      {
+        type: "bar",
+        title: "IVA ventas 2026-11 por comprobante",
+        x: "numero",
+        series: [{ field: "neto" }, { field: "iva" }],
+      },
+      {
+        source: { action: "getLibroIvaVentas", input: { period: "2026-11" } },
+        rows: resolveRows(r.data, "rows") ?? [],
+        meta: { sources: [], asOf: "2026-11-06T12:00:00Z", partial: false },
+      },
+    );
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+    expect(built.value.chart.tick).toBe("fecha");
+    expect(built.value.chart.detail).toEqual([
+      { field: "comprobante", label: "Comprobante" },
+      { field: "client_legal_name", label: "Cliente" },
+      { field: "fecha", label: "Fecha" },
+    ]);
+    expect(built.value.points[0]).toEqual({
+      x: "22271",
+      values: [1000, 210],
+      tick: "2026-11-03",
+      detail: ["A0003-00022271", "Acme SA", "2026-11-03"],
+    });
   });
 });
 

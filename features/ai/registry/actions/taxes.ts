@@ -115,11 +115,11 @@ export async function runTaxDocuments(input: {
   });
 
   let ivaEstimate: IvaPositionEstimate | null = null;
-  let note: string | undefined;
+  let estimateError: string | undefined;
   if (input.ivaPeriod) {
     const est = await getIvaPositionEstimateAction({ period: input.ivaPeriod });
     if (est.ok) ivaEstimate = est.data;
-    else note = `IVA estimate not available: ${est.error}`;
+    else estimateError = est.error;
   }
 
   const parts = [
@@ -153,8 +153,10 @@ export async function runTaxDocuments(input: {
     },
     {
       currency: "ARS",
-      ...(note ? { note } : {}),
-      partial: note !== undefined,
+      ...(estimateError !== undefined
+        ? { note: `No se pudo estimar la posición de IVA: ${estimateError}` }
+        : {}),
+      partial: estimateError !== undefined,
     },
   );
 }

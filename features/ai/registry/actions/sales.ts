@@ -199,7 +199,9 @@ export const getClientSalesSummary = defineAiAction({
       {
         currency: "ARS",
         partial: clients > res.data.length,
-        note: "Cobrado en USD y deuda en moneda extranjera van aparte (collected_usd, open_foreign), sin convertir.",
+        note: "Lo cobrado en dólares y la deuda en moneda extranjera van aparte, sin convertir a pesos.",
+        modelNote:
+          "collected_usd and open_foreign are in their own currency, never converted.",
       },
     );
   },

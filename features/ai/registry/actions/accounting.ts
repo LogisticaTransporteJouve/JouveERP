@@ -122,9 +122,12 @@ export const getLedger = defineAiAction({
   run: (_ctx, input) => runLedger(input),
 });
 
-const LIBRO_IVA_CURRENCY_NOTE =
-  "Importes en pesos, a la cotización de cada comprobante; las columnas *_orig quedan en la moneda original. " +
-  "Las filas van por comprobante × alícuota, con las NC en positivo y los totales del comprobante repetidos en cada alícuota: las cifras del período son las de `totals` (NC restadas, cada comprobante una vez), no la suma de las filas.";
+/** The caption under a chart or table of a libro IVA, for an accountant. */
+const LIBRO_IVA_CAPTION =
+  "Importes en pesos, a la cotización de cada comprobante. Las notas de crédito figuran en positivo y un comprobante con varias alícuotas aparece una vez por alícuota; los totales del período restan las notas de crédito.";
+
+const LIBRO_IVA_MODEL_NOTE =
+  "Rows are document × rate with NCs positive; the period's figures are `totals`, never the sum of the rows. *_orig keep the original currency.";
 
 const LIBRO_IVA_ROWS_RULE =
   "Rows are one per document × rate: an NC (kind 'nc') comes as POSITIVE amounts, " +
@@ -184,12 +187,21 @@ export async function runLibroIvaVentas(input: {
       `IVA débito ${money(totals.iva)} · neto ${money(totals.neto)} · total ${money(totals.imp_total)} (NC subtracted).`,
     {
       rows: res.data.map((r) => ({
-        comprobante: `${formatInvoiceNumero(r.kind, r.letter, r.punto_venta, r.numero)} · ${r.client_legal_name}`,
+        comprobante: formatInvoiceNumero(
+          r.kind,
+          r.letter,
+          r.punto_venta,
+          r.numero,
+        ),
         ...r,
       })),
       totals,
     },
-    { currency: "ARS", note: LIBRO_IVA_CURRENCY_NOTE },
+    {
+      currency: "ARS",
+      note: LIBRO_IVA_CAPTION,
+      modelNote: LIBRO_IVA_MODEL_NOTE,
+    },
   );
 }
 
@@ -207,7 +219,9 @@ export const getLibroIvaVentas = defineAiAction({
     LIBRO_IVA_ROWS_RULE +
     " Amounts in ARS at each document's own exchange rate; *_orig, moneda and " +
     "cotizacion keep the original currency. `comprobante` is the readable " +
-    "document label (number · counterparty): use it as a chart's x axis.",
+    "document number (e.g. A0003-00022271): use it as a chart's x axis; the " +
+    "chart labels the axis with each document's date and shows the " +
+    "counterparty and date on hover.",
   input: z.object({
     period: z.string().describe("Period YYYY-MM, e.g. '2026-05'."),
   }),
@@ -229,12 +243,16 @@ export async function runLibroIvaCompras(input: {
       `IVA crédito ${money(totals.iva)} · neto ${money(totals.neto)} · sin discriminar (B/C, IVA incluido) ${money(totals.sin_discriminar)} · otros tributos ${money(totals.imp_trib)} · total ${money(totals.imp_total)} (NC subtracted).`,
     {
       rows: res.data.map((r) => ({
-        comprobante: `${formatInvoiceNumber(r)} · ${r.supplier_legal_name}`,
+        comprobante: formatInvoiceNumber(r),
         ...r,
       })),
       totals,
     },
-    { currency: "ARS", note: LIBRO_IVA_CURRENCY_NOTE },
+    {
+      currency: "ARS",
+      note: LIBRO_IVA_CAPTION,
+      modelNote: LIBRO_IVA_MODEL_NOTE,
+    },
   );
 }
 
@@ -255,7 +273,9 @@ export const getLibroIvaCompras = defineAiAction({
     LIBRO_IVA_ROWS_RULE +
     " Amounts in ARS at each document's own exchange rate; *_orig, moneda and " +
     "cotizacion keep the original currency. `comprobante` is the readable " +
-    "document label (number · counterparty): use it as a chart's x axis.",
+    "document number (e.g. A0003-00022271): use it as a chart's x axis; the " +
+    "chart labels the axis with each document's date and shows the " +
+    "counterparty and date on hover.",
   input: z.object({
     period: z.string().describe("Period YYYY-MM, e.g. '2026-05'."),
   }),

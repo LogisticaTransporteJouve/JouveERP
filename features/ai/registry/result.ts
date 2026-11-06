@@ -20,6 +20,7 @@ export type AiRunResult =
       currency?: string;
       exchangeRate?: { currency: string; rate: number; date: string };
       note?: string;
+      modelNote?: string;
     }
   | AiErrorResult;
 
@@ -35,7 +36,12 @@ export type AiToolMeta = {
   partial: boolean;
   currency?: string;
   exchangeRate?: { currency: string; rate: number; date: string };
+  /** A caption in plain Spanish for the user: the artifact shows it under a
+   *  chart or table built from this result. Never field names. */
   note?: string;
+  /** Guidance for the model only (field names, how to read the rows): the
+   *  UI never shows it. */
+  modelNote?: string;
 };
 
 /** What the model receives: the run result plus `meta` on success. */
@@ -48,6 +54,7 @@ type OkExtras = {
   currency?: string;
   exchangeRate?: { currency: string; rate: number; date: string };
   note?: string;
+  modelNote?: string;
 };
 
 export function okResult(
