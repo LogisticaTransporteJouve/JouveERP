@@ -16,6 +16,6 @@
 - [ ] Datos de un módulo oculto que otro módulo muestra (facturas/recibos en la
       cuenta del cliente y el aging, saldos de cuentas en tesorería, libro IVA):
       decidir si se filtran por el permiso del recurso.
-- [ ] Document Intelligence: el matching (`features/ai/document/store.ts`,
+- [x] Document Intelligence: el matching (`features/ai/document/store.ts`,
       `features/ai/reconciliation/gather.ts`) lee con service client sin filtrar
-      por el acceso de quien subió el documento.
+      por el acceso de quien subió el documento. — hecho: `matchForKind` corre cada comparación solo si quien subió puede leer su fuente (`features/ai/document/store.ts:241-308`).

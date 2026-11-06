@@ -17,10 +17,10 @@
       `storage_tariffs` (la del cliente, después la general) en lo que no
       cubre. USD al oficial del último día del período (o el anterior); sin
       cotización la preview lo marca y la factura no se emite.
-- [ ] Aprobar las migraciones `20261103080000_shipment_remito_number` y
+- [x] Aprobar las migraciones `20261103080000_shipment_remito_number` y
       `20261103080100_client_tariffs` junto con el deploy: sin ellas fallan
       el listado de cargas (columna `remito_number`), la pestaña Tarifario y la
-      facturación de almacenaje (lee `client_tariffs`).
+      facturación de almacenaje (lee `client_tariffs`). — hecho: aplicadas en producción (están en `production-latest`, `bbe08b38`).
 - [ ] Tarifas de cliente en `storage_tariffs` que no pasaron al tarifario
       (más de una fila activa, con fin de vigencia o un cliente que ya tenía
       tarifario): pasarlas a mano revisando cada una

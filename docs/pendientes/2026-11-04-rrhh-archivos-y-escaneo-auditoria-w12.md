@@ -23,16 +23,16 @@ Decisiones: `docs/decisions/2026-11-04-rrhh-archivos-y-escaneo-auditoria-w12.md`
       haya dejado borrar ni el blob ni la fila (finance quitando el último
       vínculo de un archivo que subió otro). Ninguna pantalla lo lee hoy; el
       barrido limpia ambos.
-- [ ] **Escaneo: una búsqueda de contraparte que falla** (error de la base en
+- [x] **Escaneo: una búsqueda de contraparte que falla** (error de la base en
       `matchDocument`) sigue mostrando «No se encontró el cliente/proveedor
       por CUIT». El marcador nuevo `counterparty_unchecked` cubre solo la
-      búsqueda que no se corrió por permisos.
+      búsqueda que no se corrió por permisos. — hecho: una búsqueda que falla en todos los reintentos guarda `lookup_failed` + `counterparty_unchecked` y la revisión dice «No se pudo verificar … la búsqueda falló» (`features/ai/document/store.ts:81-105`, `components/review-actions.tsx:103`).
 - [ ] **Escaneos guardados antes de este cambio** con un lector de quien
       escaneó que falló quedaron sin comparar y no tienen el marcador. Se
       arreglan volviendo a escanear.
-- [ ] **pgTAP sin correr en la sesión.**
+- [x] **pgTAP sin correr en la sesión.**
       `supabase/tests/payroll_period_posts_accounts_w12_test.sql` y
       `supabase/tests/files_storage_write_ceiling_w12_test.sql` se
       escribieron sin Supabase local. El segundo inserta y borra en
       `storage.objects` con SQL (pone `storage.allow_delete_query`); corre en
-      CI.
+      CI. — hecho: corre verde en el job `database` de CI (`main` en `e239ee7`).

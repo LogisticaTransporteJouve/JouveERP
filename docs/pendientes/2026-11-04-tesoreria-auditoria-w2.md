@@ -52,9 +52,9 @@
 - [x] Tesorería muestra las carteras de cheques en USD aparte.
 - [x] Deudas por cheques vendidos: todas las pendientes (sin tope de 200) y
       las últimas 100 pagadas (llegó con #348).
-- [ ] Aprobar las migraciones `20261104101000`–`20261104101400` con el
-      deploy.
-- [ ] No verificado contra una base real: migraciones y pgTAP
+- [x] Aprobar las migraciones `20261104101000`–`20261104101400` con el
+      deploy. — hecho: aplicadas en producción (están en `production-latest`, `bbe08b38`).
+- [x] No verificado contra una base real: migraciones y pgTAP
       (`check_journal_op_rate`, `account_frozen_after_movements`,
       `transfer_check_cartera`, `loan_usd_capital_fx`,
-      `supplier_rejected_checks`).
+      `supplier_rejected_checks`). — hecho: las migraciones están en producción (`production-latest`, `bbe08b38`) y su pgTAP corre verde en el job `database` de CI (`main` en `e239ee7`).

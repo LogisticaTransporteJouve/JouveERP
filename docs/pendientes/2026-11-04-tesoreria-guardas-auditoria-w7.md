@@ -29,11 +29,11 @@ Ver [la decisión](../decisions/2026-11-04-tesoreria-documentos-escritos-por-sus
       todo vacío pide «Monto requerido.», y un desglose que suma 0 dice que
       el monto tiene que ser mayor a 0. El servidor rechaza el monto 0 y un
       desglose que suma 0.
-- [ ] No verificado contra una base real: las cuatro migraciones y sus
+- [x] No verificado contra una base real: las cuatro migraciones y sus
       pgTAP. Son `treasury_document_guards` y los fixtures adaptados de
       `checks_channel`, `fx_difference`, `journal_document_entry`,
       `journal_reverse`, `receipt_retentions`, `otras_ventas_sides` y
-      `otras_ventas_settlement_freeze`.
+      `otras_ventas_settlement_freeze`. — hecho: las migraciones están en producción (`production-latest`, `bbe08b38`) y su pgTAP corre verde en el job `database` de CI (`main` en `e239ee7`).
 - [ ] Fuera de alcance: las asignaciones de recibos y OP
       (`receipt_allocations`, `payment_order_allocations`,
       `receipt_rejected_check_allocations`) siguen abiertas a escritura

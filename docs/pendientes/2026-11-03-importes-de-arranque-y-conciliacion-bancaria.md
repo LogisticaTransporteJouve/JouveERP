@@ -13,12 +13,12 @@
       falta (comisión, interés) con su cuenta de gasto. Saldo según extracto
       contra saldo según libros. Un movimiento conciliado no se edita ni se
       borra hasta desconciliarlo.
-- [ ] Aprobar las migraciones `20261103140000_bank_reconciliation` y
+- [x] Aprobar las migraciones `20261103140000_bank_reconciliation` y
       `20261103140100_import_opening_items` con el deploy (después de
       `20261103110000_import_runs`). Rollback: el código anterior no lee las
       tablas nuevas, saltea las corridas de tipos que no conoce y no las
       puede deshacer; el guard de conciliación sigue rechazando editar un
-      movimiento conciliado.
+      movimiento conciliado. — hecho: aplicadas en producción (están en `production-latest`, `bbe08b38`).
 - [ ] pgTAP verde en CI (stack fresco: `bank_reconciliation_test.sql`); sin verificar contra
       datos de producción. La UI no se probó en el navegador.
 - [ ] Cobranzas históricas (recibos de antes del go-live) **no** se importan:

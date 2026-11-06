@@ -13,8 +13,8 @@ Ver [la decisión](../decisions/2026-11-04-tesoreria-prestamos-y-almacenaje-audi
       mensaje de re-vínculo manda a los comprobantes del cliente.
 - [x] **El re-vínculo de una factura huérfana deja su `storage.invoiced`**
       con `relinked: true`.
-- [ ] No verificado contra una base real: las tres migraciones y el pgTAP
-      `treasury_loan_storage_w10`.
+- [x] No verificado contra una base real: las tres migraciones y el pgTAP
+      `treasury_loan_storage_w10`. — hecho: las migraciones están en producción (`production-latest`, `bbe08b38`) y su pgTAP corre verde en el job `database` de CI (`main` en `e239ee7`).
 - [ ] Sigue abierto, como en w9: `storage_billing_runs` acepta PATCH de su
       período y sus totales para owner, admin y finance, y un INSERT directo
       de una reserva.

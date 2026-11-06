@@ -8,14 +8,14 @@ corregido.
 
 ## Encabezados de migraciones mergeadas (w13 S7 F2)
 
-- [ ] **`20261104194200_purchase_nc_nd_follow_keeps_empty`** (líneas 16-17).
+- [x] **`20261104194200_purchase_nc_nd_follow_keeps_empty`** (líneas 16-17).
       Dice "older code writes the same columns; the older function refills,
       as before". Un rollback de código deja la función nueva, y
       `updatePurchaseInvoiceAction` de `production-latest` no manda
       `account_id` ni `cost_center_id`. El trigger
       `purchase_nc_nd_follow_factura` corre solo cuando cambian esas dos
-      columnas, así que no corre y no se rellena nada.
-- [ ] **`20261104194201_fleet_client_split_pending`** (líneas 21-22). Dice
+      columnas, así que no corre y no se rellena nada. — ya no aplica: `production-latest` (`bbe08b38`) ya tiene esa migración y su código: un rollback no vuelve al código que describe la nota.
+- [x] **`20261104194201_fleet_client_split_pending`** (líneas 21-22). Dice
       "older code reads the same columns by name; a client row may show
       more cargas still to invoice, which it already reads as 'not final'".
       El `ai_fleet_margin` de `production-latest` no tiene
@@ -23,7 +23,7 @@ corregido.
       `uninvoiced_*`, en `20261104160201`), y su código
       (`features/fleet-reports/actions/margin-actions.ts`,
       `features/ai/registry/actions/fleet.ts`) no la lee. Lee las demás
-      columnas por nombre: el rollback no cambia nada.
+      columnas por nombre: el rollback no cambia nada. — ya no aplica: `production-latest` (`bbe08b38`) ya tiene esa migración y su código: un rollback no vuelve al código que describe la nota.
 
 ## Consulta de control de `20261104194000` (w13 S7 F1)
 

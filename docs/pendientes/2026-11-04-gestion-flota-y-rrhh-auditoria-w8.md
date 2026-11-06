@@ -10,8 +10,8 @@
 - [x] «Viajes con margen negativo» no evalúa viajes con cargas sin facturar.
 - [x] Lecturas fallidas en vacaciones, extras de sueldo, detalle de préstamo
       y rendición de chofer.
-- [ ] **N/A en producción (base sin compras a 2026-11-04).** NC/ND ya
+- [x] **N/A en producción (base sin compras a 2026-11-04).** NC/ND ya
       cargadas con cuenta propia y sin centro, cuyo origen tiene centro:
       `20261104150200` no las toca. Si aparecen, se corrigen con
       «Recategorizar» desde la NC/ND. Para listarlas:
-      `select nc.id from public.purchase_invoices nc join public.purchase_invoices o on o.id = nc.invoice_origin_id where nc.kind in ('nc', 'nd') and nc.cost_center_id is null and o.cost_center_id is not null;`
+      `select nc.id from public.purchase_invoices nc join public.purchase_invoices o on o.id = nc.invoice_origin_id where nc.kind in ('nc', 'nd') and nc.cost_center_id is null and o.cost_center_id is not null;` — ya no aplica: N/A en producción, como dice el ítem; `150200` ya está en `production-latest`.

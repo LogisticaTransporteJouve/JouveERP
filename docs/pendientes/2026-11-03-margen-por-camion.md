@@ -1,10 +1,10 @@
 # Margen por camión (2026-11-03)
 
-- [ ] Aprobar la migración `20261104050000_vehicle_margin` junto con el
+- [x] Aprobar la migración `20261104050000_vehicle_margin` junto con el
       deploy: sin ella fallan la sección "Margen por camión", el vínculo en
       Centros de costo y `getVehicleEconomics` con permiso de gestión. Rollback:
       el código anterior no lee `cost_centers.vehicle_id` ni llama a
-      `get_vehicle_margin`.
+      `get_vehicle_margin`. — hecho: aplicada en producción (está en `production-latest`, `bbe08b38`).
 - [ ] Vincular cada camión con su centro en Contabilidad › Centros de costo
       (dato, no código).
 - [ ] Una carga de combustible que apunta solo al pago (OP) y no a la compra
