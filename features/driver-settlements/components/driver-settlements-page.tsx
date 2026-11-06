@@ -1,5 +1,6 @@
 "use client";
 
+import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
 import {
   CheckCircle2,
   Eye,
@@ -107,6 +108,14 @@ export function DriverSettlementsPage({
 }) {
   const { settlements, hasNextPage, fetchNextPage, isFetchingNextPage } =
     useDriverSettlements();
+  // Loads the next page when the end of the list scrolls into view, like
+  // every other list.
+  const loadMoreRef = useIntersectionObserver<HTMLDivElement>(
+    () => {
+      if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
+    },
+    { rootMargin: "200px", enabled: hasNextPage && !isFetchingNextPage },
+  );
   const { data: pending } = useCodPending();
   const confirmMut = useConfirmDriverSettlement();
   const cancelMut = useCancelDriverSettlement();
@@ -467,15 +476,11 @@ export function DriverSettlementsPage({
           </p>
         )}
         {hasNextPage && (
-          <div className="flex justify-center">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={isFetchingNextPage}
-              onClick={() => fetchNextPage()}
-            >
-              {isFetchingNextPage ? "Cargando…" : "Cargar más"}
-            </Button>
+          <div
+            ref={loadMoreRef}
+            className="py-4 text-center text-xs text-muted-foreground"
+          >
+            Cargando más…
           </div>
         )}
       </section>
