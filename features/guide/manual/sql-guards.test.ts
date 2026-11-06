@@ -26,6 +26,32 @@ describe("latestFunctionBodies", () => {
     expect(body).not.toContain("El período ya está cerrado");
   });
 
+  it("keeps each overload's last body: another argument list is another function", () => {
+    const overload = `create function public.close_period(p text, q numeric) returns void
+language plpgsql as $$
+begin
+  perform public.close_period(p);
+  raise exception 'El total cambió';
+end $$;`;
+    const body = latestFunctionBodies([
+      { name: "20260101_a.sql", sql: v1 },
+      { name: "20260103_c.sql", sql: overload },
+    ]).get("public.close_period");
+    expect(body).toContain("El período ya está cerrado");
+    expect(body).toContain("El total cambió");
+  });
+
+  it("drops the body of a dropped overload", () => {
+    const body = latestFunctionBodies([
+      { name: "20260101_a.sql", sql: v1 },
+      {
+        name: "20260104_d.sql",
+        sql: "drop function if exists public.close_period(text);",
+      },
+    ]).get("public.close_period");
+    expect(body ?? "").not.toContain("El período ya está cerrado");
+  });
+
   it("ignores comments", () => {
     const body = latestFunctionBodies([{ name: "a.sql", sql: v2 }]).get(
       "public.close_period",
