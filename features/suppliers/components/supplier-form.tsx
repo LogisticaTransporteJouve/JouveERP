@@ -189,43 +189,48 @@ export function SupplierForm({
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <FormField
-              control={form.control}
-              name="default_channel_id"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Canal</FormLabel>
-                  <Select
-                    value={field.value || "__none"}
-                    onValueChange={(v) =>
-                      field.onChange(v === "__none" ? "" : v)
-                    }
-                  >
-                    <FormControl>
-                      <SelectTrigger className="w-full min-w-0">
-                        <SelectValue placeholder="Ninguno" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent
-                      position="popper"
-                      side="bottom"
-                      avoidCollisions={false}
-                      align="start"
+            {/* With one channel on the supplier's side, a purchase already
+                starts on it: there is nothing to pick. None shows the field
+                with its read error. */}
+            {activeChannels.length !== 1 && (
+              <FormField
+                control={form.control}
+                name="default_channel_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Canal</FormLabel>
+                    <Select
+                      value={field.value || "__none"}
+                      onValueChange={(v) =>
+                        field.onChange(v === "__none" ? "" : v)
+                      }
                     >
-                      <SelectItem value="__none">Ninguno</SelectItem>
-                      {activeChannels.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.name}
-                          {c.is_fiscal ? " · fiscal" : " · interno"}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <ChannelsReadError inline />
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                      <FormControl>
+                        <SelectTrigger className="w-full min-w-0">
+                          <SelectValue placeholder="Ninguno" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent
+                        position="popper"
+                        side="bottom"
+                        avoidCollisions={false}
+                        align="start"
+                      >
+                        <SelectItem value="__none">Ninguno</SelectItem>
+                        {activeChannels.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name}
+                            {c.is_fiscal ? " · fiscal" : " · interno"}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <ChannelsReadError inline />
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             <FormField
               control={form.control}

@@ -41,7 +41,7 @@ vi.mock("@/components/ui/select", () => ({
 
 vi.mock("@/components/providers/scope-provider", () => ({
   usePageIsFiscal: () => true,
-  useScope: () => ({ channels: [] }),
+  useScope: () => ({ channels }),
 }));
 
 // The identity block is out of scope here: one field stands for the rest.
@@ -65,6 +65,13 @@ vi.mock("../hooks/use-suppliers", () => ({
 vi.mock("../actions/suppliers-actions", () => ({
   findSupplierByCuitAction: vi.fn(),
 }));
+
+let channels: {
+  id: string;
+  name: string;
+  is_active: boolean;
+  is_fiscal: boolean;
+}[] = [];
 
 type Category = { id: string; name: string };
 let categories: Category[] = [];
@@ -212,5 +219,19 @@ describe("SupplierForm · Nueva categoría", () => {
     expect(
       screen.getByText("Vence N días después de la fecha de la factura."),
     ).toBeTruthy();
+  });
+
+  it("hides the channel when the supplier's side has only one", () => {
+    channels = [
+      { id: "ch-f", name: "Fiscal", is_active: true, is_fiscal: true },
+      { id: "ch-i", name: "Interno", is_active: true, is_fiscal: false },
+    ];
+    try {
+      renderForm();
+      expect(screen.queryByText("Canal")).toBeNull();
+      expect(screen.getByText("Plazo de pago (días)")).toBeTruthy();
+    } finally {
+      channels = [];
+    }
   });
 });
