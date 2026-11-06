@@ -336,22 +336,55 @@ centrado muestra el resumen con **Aceptar / Descartar**. Nada se prepara en segu
 
 **Acciones proponibles** (todas sobre escrituras que ya existían):
 
-| Acción                          | Permisos                                                           | Escritura al aceptar                                                                                                           |
-| ------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
-| `proposeLeave`                  | `hr:write` + `hr:read`                                             | `lib/commands/create-leave.ts`                                                                                                 |
-| `proposeJournalEntry`           | `accounting:write` + `accounting:read`                             | `lib/commands/create-manual-journal-entry.ts`                                                                                  |
-| `proposeExchangeRate`           | `accounting:write`                                                 | `lib/commands/upsert-exchange-rate.ts`                                                                                         |
-| `proposeAiWorkflow`             | `ai:chat`                                                          | tarea IA recurrente                                                                                                            |
-| `proposeDocumentScan`           | `ai:chat` + `ai:read` + `files:write`                              | pipeline de Document Intelligence                                                                                              |
-| `proposeTask` (nueva)           | `tasks:write` + `tasks:read`                                       | `lib/commands/create-task.ts` (asignada a quien acepta)                                                                        |
-| `proposeClientTariff` (nueva)   | `storage_billing:issue` + `storage_billing:read` + `clients:read`  | `lib/commands/create-client-tariff.ts` (guard de superposición)                                                                |
-| `proposeBankMatches` (nueva)    | `transactions:write` + `transactions:read`                         | `lib/commands/match-bank-line.ts`: las sugerencias de Conciliación de una cuenta y período (hasta 30), cada línea por separado |
-| `proposeLateInterestNd` (nueva) | `invoices:issue` + `credit_debit_notes:issue` + `invoices:read`    | `lib/commands/issue-late-interest-nd.ts` con `issueFiscalInvoiceAction` inyectado                                              |
-| `proposeRecategorizeExpense`    | `transactions:write` + `purchase_invoices:write` + las dos `:read` | `lib/commands/recategorize-expense.ts` (`recategorize_expense`): cuenta de gasto y/o centro de costo de un egreso o una compra |
+| Acción                             | Permisos                                                                            | Escritura al aceptar                                                                                                                                                                           |
+| ---------------------------------- | ----------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `proposeLeave`                     | `hr:write` + `hr:read`                                                              | `lib/commands/create-leave.ts`                                                                                                                                                                 |
+| `proposeJournalEntry`              | `accounting:write` + `accounting:read`                                              | `lib/commands/create-manual-journal-entry.ts`                                                                                                                                                  |
+| `proposeExchangeRate`              | `accounting:write`                                                                  | `lib/commands/upsert-exchange-rate.ts`                                                                                                                                                         |
+| `proposeAiWorkflow`                | `ai:chat`                                                                           | tarea IA recurrente                                                                                                                                                                            |
+| `proposeDocumentScan`              | `ai:chat` + `ai:read` + `files:write`                                               | pipeline de Document Intelligence                                                                                                                                                              |
+| `proposeTask` (nueva)              | `tasks:write` + `tasks:read`                                                        | `lib/commands/create-task.ts` (asignada a quien acepta)                                                                                                                                        |
+| `proposeClientTariff` (nueva)      | `storage_billing:issue` + `storage_billing:read` + `clients:read`                   | `lib/commands/create-client-tariff.ts` (guard de superposición)                                                                                                                                |
+| `proposeBankMatches` (nueva)       | `transactions:write` + `transactions:read`                                          | `lib/commands/match-bank-line.ts`: las sugerencias de Conciliación de una cuenta y período (hasta 30), cada línea por separado                                                                 |
+| `proposeLateInterestNd` (nueva)    | `invoices:issue` + `credit_debit_notes:issue` + `invoices:read`                     | `lib/commands/issue-late-interest-nd.ts` con `issueFiscalInvoiceAction` inyectado                                                                                                              |
+| `proposeRecategorizeExpense`       | `transactions:write` + `purchase_invoices:write` + las dos `:read`                  | `lib/commands/recategorize-expense.ts` (`recategorize_expense`): cuenta de gasto y/o centro de costo de un egreso o una compra                                                                 |
+| `proposeTrip` (nueva)              | `trips:write`                                                                       | `lib/commands/create-trip.ts`                                                                                                                                                                  |
+| `proposeShipment` (nueva)          | `shipments:write`                                                                   | `lib/commands/create-shipment.ts` (remito único por cliente)                                                                                                                                   |
+| `proposeShipmentStatus` (nueva)    | `shipments:write` + `shipments:read`                                                | `lib/commands/change-shipment-status.ts` (`change_shipment_status`)                                                                                                                            |
+| `proposeFuelLoad` (nueva)          | `fuel:write`                                                                        | `lib/commands/create-fuel-load.ts`                                                                                                                                                             |
+| `proposeMaintenance` (nueva)       | `maintenance:write`                                                                 | `lib/commands/create-maintenance.ts`                                                                                                                                                           |
+| `proposeVehicleKm` (nueva)         | `fleet_km:write`                                                                    | `lib/commands/save-vehicle-km-reading.ts` (reemplaza la lectura del mes)                                                                                                                       |
+| `proposeFreightSettlement` (nueva) | `invoices:issue` + `invoices:read`                                                  | `lib/commands/save-freight-settlement.ts` (`save_freight_settlement`): borrador con las cargas entregadas con precio del cliente y período                                                     |
+| `proposeClient`                    | `clients:write` + `clients:read`                                                    | `lib/commands/save-client.ts` (`createClientRecord`): alta en Ventas (CUIT + IVA) u Otras ventas                                                                                               |
+| `proposeClientUpdate`              | `clients:write` + `clients:read`                                                    | `lib/commands/save-client.ts` (`updateClientRecord`): la ficha entera, rechazada si el cliente cambió desde la tarjeta                                                                         |
+| `proposeInvoice`                   | `invoices:issue` + `clients:read`                                                   | `lib/commands/issue-comprobante.ts`: factura (CAE) o remito interno, rechazada si cambió el CUIT o la condición de IVA                                                                         |
+| `proposeCreditDebitNote`           | `invoices:issue` + `credit_debit_notes:issue` + `invoices:read`                     | `lib/commands/issue-comprobante.ts`: NC/ND sobre un comprobante emitido (sin ítems, la NC acredita los del origen)                                                                             |
+| `proposeInvoiceEmail`              | `email:send` + `invoices:read`                                                      | `lib/commands/send-invoice-email.ts`: el PDF de un comprobante emitido, al email del cliente por defecto                                                                                       |
+| `proposeReceipt`                   | `receipts:write` + `receipts:read` + `clients:read` + `accounts:read`               | `lib/commands/create-receipt.ts` (`create_receipt`) con `listPendingComprobantesForClientAction` inyectado                                                                                     |
+| `proposePaymentOrder`              | `payment_orders:write` + `payment_orders:read` + `suppliers:read` + `accounts:read` | `lib/commands/create-payment-order.ts` (`create_payment_order`) con `listPendingInvoicesForSupplierAction` inyectado                                                                           |
+| `proposeCashMovement`              | `transactions:write` + `accounts:read`                                              | `lib/commands/create-transaction.ts`: ingreso o egreso manual de Caja                                                                                                                          |
+| `proposeTransfer`                  | `transactions:write` + `accounts:read`                                              | `lib/commands/create-transfer.ts` (`create_transfer`): las dos patas en una transacción                                                                                                        |
+| `proposeManualCheck`               | `cheques:write` + `transactions:write` + `accounts:read`                            | `lib/commands/create-manual-check.ts` (`create_manual_check`)                                                                                                                                  |
+| `proposeCheckDeposit`              | `cheques:write` + `transactions:write` + `cheques:read` + `accounts:read`           | `lib/commands/deposit-check.ts` (`deposit_check`)                                                                                                                                              |
+| `proposeIssuedCheck`               | `issued_checks:write` + `accounts:read`                                             | `lib/commands/create-issued-check.ts`                                                                                                                                                          |
+| `proposePurchaseInvoice`           | `purchase_invoices:write` + `purchase_invoices:read` + `suppliers:read`             | `lib/commands/create-purchase-invoice.ts` (`create_purchase_invoice`): la factura, NC o ND de proveedor que carga Compras › Nueva factura                                                      |
+| `proposeArcaPurchase`              | `purchase_invoices:write` + `purchase_invoices:read` + `suppliers:read`             | `lib/commands/accept-received-voucher.ts`: aceptar un comprobante de Compras › ARCA (vincula si ya estaba cargado)                                                                             |
+| `proposeSupplier`                  | `suppliers:write` + `suppliers:read`                                                | `lib/commands/create-supplier.ts`: alta de proveedor (Compras con CUIT u Otras compras)                                                                                                        |
+| `proposeSupplierUpdate`            | `suppliers:write` + `suppliers:read`                                                | `lib/commands/update-supplier.ts`: solo los campos que cambian                                                                                                                                 |
+| `proposeTaxDocument`               | `taxes:write` + `taxes:read`                                                        | `lib/commands/create-tax-document.ts`: un vencimiento de Impuestos                                                                                                                             |
+| `proposeTaxPayment`                | `taxes:write` + `transactions:write` + `taxes:read` + `accounts:read`               | `lib/commands/pay-tax-document.ts` (`pay_tax_document`): «Pagar» un impuesto abierto, con el egreso en Caja                                                                                    |
+| `proposeCreateEmployee`            | `hr:write` + `hr:read`                                                              | `lib/commands/create-employee.ts` (`create_employee`): alta con su ficha de chofer; los días de vacaciones solo con `hr:admin`                                                                 |
+| `proposeUpdateEmployee`            | `hr:write` + `hr:read`                                                              | `lib/commands/update-employee.ts` (`update_employee`): la tarjeta muestra cada cambio antes → después                                                                                          |
+| `proposePayrollPayment`            | `hr:write` + `transactions:write` + `hr:read` + `accounts:read`                     | `lib/commands/pay-payroll.ts`: un empleado como "Pagar", varios como "Pago masivo" (todos o ninguno); montos sugeridos por la planilla                                                         |
+| `proposeEmployeeAccountCash`       | `hr:write` + `transactions:write` + `hr:read` + `accounts:read`                     | `lib/commands/record-employee-account.ts` (`record_employee_account_cash`): adelanto o pago del empleado con su movimiento de Caja; el adelanto se descuenta en un mes salvo que diga la cuota |
+| `proposeEmployeeAccountMovement`   | `hr:write` + `hr:read`                                                              | `lib/commands/record-employee-account.ts`: cargo o pago manual en la cuenta corriente, sin Caja                                                                                                |
+| `proposeAttendance`                | `hr:write` + `hr:read`                                                              | `lib/commands/upsert-attendance.ts`: un día de un empleado, a mano; no propone sobre un día que carga una licencia o un feriado (y el guard lo rechaza igual)                                  |
+| `proposeLoanInstallmentPayment`    | `accounting:write` + `transactions:write` + `accounting:read` + `accounts:read`     | `lib/commands/pay-loan-installment.ts` (`pay_loan_installment`): la próxima cuota pendiente (o la que diga) por su monto, desde una cuenta en la moneda del préstamo                           |
 
 La ND por mora se **emite** al aceptar (con CAE en el canal fiscal), igual que "Generar ND" en
-Intereses por mora; la propuesta guarda el interés que mostró y, si el saldo cambió, no emite. Las
-dos últimas no tienen campos editables: un cambio invalidaría lo que el servidor vuelve a chequear.
+Intereses por mora; la propuesta guarda el interés que mostró y, si el saldo cambió, no emite.
+`proposeLateInterestNd` y `proposeRecategorizeExpense` no tienen campos editables: un cambio
+invalidaría lo que el servidor vuelve a chequear.
 Nueva lectura: `getLateInterestCandidates` (`invoices:read`).
 
 **Recategorizar** (`proposeRecategorizeExpense`): el modelo pasa el gasto (`source`
@@ -362,6 +395,78 @@ pregunta si hay más de uno. La tarjeta muestra antes → después y no tiene ca
 misma escritura que el Dialog "Recategorizar" de Caja y Compras: re-asienta, respeta el período
 cerrado y el dueño del movimiento, y sirve sobre un movimiento conciliado (el bloqueo no cubre
 esas columnas).
+
+**Flota y operaciones** (`features/ai/registry/actions/fleet-proposals.ts`): viaje, carga, cambio
+de estado de una carga, carga de combustible, mantenimiento y km mensual. El permiso es el del
+formulario; la patente, el chofer o el cliente se resuelven con la lectura de su módulo si el
+usuario la tiene (si no, el modelo pasa el id de otro resultado). La escritura usa el mismo cliente
+que la action: el del usuario (RLS) salvo los km, que van con el service client como en Km mensual.
+El cambio de estado relee la carga, solo ofrece las transiciones de la tabla de Cargas
+(`SHIPMENT_NEXT_STATUSES`) y pide el motivo para cancelar; la tarjeta de km compara con la lectura
+anterior y avisa si reemplaza la del mes. Los importes (flete, combustible, costo) son los que dijo
+el usuario. `listShipmentsAction` acepta filtrar por `id` (la carga del cambio de estado).
+
+**Liquidación de fletes** (`proposeFreightSettlement`): toma las cargas entregadas sin liquidar del
+cliente y período que tienen flete o tarifa (las que valoriza `listFreightSettlementCandidatesAction`)
+y deja la liquidación en borrador, como "Guardar" en el editor; la tarjeta muestra el total estimado
+y cuántas cargas quedan afuera por no tener precio. Confirmarla (número de Remito R) y facturarla
+siguen en la liquidación: confirmar re-valoriza dentro del RPC, y la propuesta no podría garantizar
+el total que mostró sin un total esperado en `confirm_freight_settlement_document`. Las rendiciones
+de choferes no tienen propuesta todavía.
+
+**Ventas** (`features/ai/registry/actions/sales-proposals.ts`). `issueFiscalInvoiceAction` quedó
+como gate + parse de `lib/commands/issue-comprobante.ts`, el mismo camino de toda emisión
+(formulario, remitos, almacenaje, fletes, mora). `proposeInvoice` resuelve el cliente por nombre o
+CUIT, el canal por su lado (Ventas / Otras ventas) y el punto de venta (pregunta si hay más de
+uno); arma la factura como el formulario (Servicios, fechas de servicio = fecha, letra por la
+condición de IVA, 21 % por defecto) y la tarjeta muestra ítems, neto, IVA y total calculados por
+el servidor. Cada propuesta lleva su `idempotency_key`: aceptar dos veces devuelve el mismo
+comprobante. Al aceptar se pasa la identidad fiscal que mostró la tarjeta y el comando no emite si
+el CUIT o la condición de IVA del cliente cambiaron. `proposeCreditDebitNote` toma el comprobante
+de origen de `getInvoices` / `getInvoiceDetail` (misma letra, punto de venta y moneda); el tope
+de saldo abierto de la NC lo sigue poniendo el comando. Editables: observaciones (y el motivo en
+NC/ND); los ítems y montos se cambian pidiéndoselo al asistente.
+
+**Tesorería** (`treasury-proposals.ts`, nombres por `treasury-refs.ts`). El modelo pasa el
+cliente o proveedor, el monto y la cuenta por nombre; `prepare` toma del servidor el número, la
+cotización USD cargada y los comprobantes abiertos, y reparte el monto del más viejo al más
+nuevo como «Automática». El borrador guarda ese reparto como imputación elegida: al aceptar,
+el comando la vuelve a chequear contra lo abierto en ese momento (el recibo con
+`allocationsIssue`, la OP con los guards de la base) y no emite si un comprobante ya no tiene
+ese saldo. Sin canal dicho, recibo y OP van al canal donde el cliente o proveedor tiene algo
+abierto (si son los dos o ninguno, pregunta); el resto pregunta siempre que haya dos canales
+(el depósito usa el del cheque). Un cobro con cheque pide los datos del cheque; la OP no paga
+con cheques (eso queda en la pantalla) y ni Caja ni la transferencia aceptan cuentas de
+cheques. Ninguna propone retenciones.
+
+**Cheques** (`checks-proposals.ts`): `proposeManualCheck` carga un cheque recibido a la cartera de
+su tipo (sin recibo: para que cancele deuda va por `proposeReceipt`), `proposeCheckDeposit`
+busca el cheque en cartera por número (y banco si hay varios) y lo deposita en una cuenta de su
+misma moneda, `proposeIssuedCheck` carga un cheque propio sobre una cuenta bancaria (el de una OP
+se carga desde la orden). Los pagos recurrentes no tienen una acción de «registrar el pago»: se
+pagan con una OP o un egreso de Caja.
+
+**Compras** (`proposePurchaseInvoice`, `proposeArcaPurchase`, `proposeSupplier`,
+`proposeSupplierUpdate`). `prepare` resuelve el proveedor (nombre o CUIT), el canal (el
+del proveedor, o `fiscal` / `interno`), la cuenta y el centro (los del proveedor en una
+factura) y, en una NC/ND, la factura de origen; aplica las reglas del formulario (letra
+en una compra fiscal, IVA en 0 en B y C, otros tributos como IIBB en una interna) y rechaza
+una compra ya cargada o un CUIT existente. Los importes son los que dice el usuario (o los
+de ARCA), nunca del modelo. En un comprobante de ARCA cuyos importes no suman el total, la
+diferencia va a donde **el usuario** diga ("Otros tributos" o "No gravado"): `prepare`
+pregunta y la tarjeta muestra lo elegido; el comando vuelve a comparar todo con ARCA al
+aceptar y, si alguien la cargó a mano mientras tanto, la vincula. La tarjeta de ARCA y la
+de editar proveedor no tienen campos editables (un cambio vuelve por el asistente). Las
+escrituras usan el cliente con la sesión del usuario, como el formulario: RLS y los
+triggers que firman con `auth.uid()` quedan igual. Nueva lectura: `getReceivedVoucherAction`
+(`purchase_invoices:write`).
+
+**Impuestos** (`proposeTaxDocument`, `proposeTaxPayment`). Cargar un vencimiento con su
+período, la cuenta contable por código o nombre (por defecto la habitual del tipo) y el
+importe solo si el usuario lo dio; pagar uno abierto (id de `getTaxDocuments`) desde una
+cuenta de caja o banco en pesos, por el importe del impuesto salvo que el usuario diga otro.
+El pago es el mismo `pay_tax_document` de «Pagar»: toma el impuesto con lock, así que uno ya
+pagado no se paga dos veces.
 
 **Cómo sumar una.** (1) Mover la escritura del server action de la feature a
 `lib/commands/<x>.ts` (sin gate propio; la action queda gate + parse + comando). (2) Spec en

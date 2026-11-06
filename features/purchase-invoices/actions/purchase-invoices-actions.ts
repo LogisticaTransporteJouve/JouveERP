@@ -3,17 +3,23 @@
 import { z } from "zod";
 
 import { logAudit } from "@/lib/actions/audit";
-import { ivaIsComputable } from "@/lib/afip/codes";
 import type { JsonValue } from "@/lib/actions/audit";
 import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
-import { round2 } from "@/lib/format";
 import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
 import { getServiceClient } from "@/lib/supabase/service";
+import {
+  NON_COMPUTABLE_DENIED,
+  carriesNonComputableAmounts,
+  createPurchaseInvoice,
+  itemsParam,
+  storedIva,
+  type LetterAmounts,
+} from "@/lib/commands/create-purchase-invoice";
 
 import type { SupplierIdentityJoin } from "@/features/suppliers/schema";
 
@@ -34,7 +40,6 @@ import {
   type PurchaseInvoice,
   type PurchaseInvoiceKind,
   type PurchaseInvoiceItem,
-  type PurchaseInvoiceItemInput,
   type PurchaseInvoiceLetter,
   type PurchaseIvaRateId,
   type PurchaseTotalParts,
@@ -42,46 +47,6 @@ import {
 
 const EMPLOYEE_CHARGE_DENIED =
   "No tenés permiso para cargar una compra a un empleado.";
-
-const NON_COMPUTABLE_DENIED =
-  "En facturas B y C el IVA, el exento y el no gravado van incluidos en el neto: cargá el IVA en 0 y, si hay ítems, con «Sin alícuota».";
-
-type LetterAmounts = {
-  channel_id: string;
-  letter: string | null;
-  imp_iva: number;
-  imp_no_gravado: number;
-  imp_op_exentas: number;
-};
-
-/** A fiscal B or C purchase books IVA, exento and no gravado inside the net
- *  (citi.ts declares IVA only for A). An old fiscal purchase without letter
- *  is left as it is. */
-async function carriesNonComputableAmounts(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  v: LetterAmounts,
-): Promise<boolean | { failed: unknown }> {
-  if (v.letter === null || ivaIsComputable(v.letter)) return false;
-  if (v.imp_iva + v.imp_no_gravado + v.imp_op_exentas === 0) return false;
-  const { data, error } = await supabase
-    .from("invoicing_channels")
-    .select("is_fiscal")
-    .eq("id", v.channel_id)
-    .maybeSingle();
-  if (error) return { failed: error };
-  return data?.is_fiscal === true;
-}
-
-/** The IVA the purchase stores after a save: with items,
- *  replace_purchase_invoice_items rewrites imp_iva as the sum of the lines,
- *  whatever the header sent. */
-function storedIva(
-  headerIva: number,
-  items: readonly { line_iva: number }[] | undefined,
-): number {
-  if (!items || items.length === 0) return headerIva;
-  return round2(items.reduce((a, it) => a + it.line_iva, 0));
-}
 
 function narrowRow(row: Record<string, unknown>): PurchaseInvoice | null {
   if (!isPurchaseInvoiceKind(row.kind)) return null;
@@ -460,116 +425,7 @@ export async function createPurchaseInvoiceAction(
     return { ok: false, error: EMPLOYEE_CHARGE_DENIED };
   }
 
-  const supabase = await createClient();
-
-  const nonComputable = await carriesNonComputableAmounts(supabase, {
-    channel_id: parsed.data.channel_id,
-    letter: parsed.data.letter ?? null,
-    imp_iva: storedIva(parsed.data.imp_iva, parsed.data.items),
-    imp_no_gravado: parsed.data.imp_no_gravado,
-    imp_op_exentas: parsed.data.imp_op_exentas,
-  });
-  if (typeof nonComputable === "object") {
-    logger.error("purchase_invoices.create.channel_failed", {
-      userId: ctx.userId,
-      error: nonComputable.failed,
-    });
-    return { ok: false, error: "No se pudo cargar la factura." };
-  }
-  if (nonComputable) return { ok: false, error: NON_COMPUTABLE_DENIED };
-
-  // An expense account (picked, a supplier default or AI-suggested) must be a
-  // postable leaf: guard_expense_account rejects any other with a message.
-  // The header and its items are one transaction: a refused item saves nothing.
-  const { data: createdId, error } = await supabase.rpc(
-    "create_purchase_invoice",
-    {
-      p_header: {
-        channel_id: parsed.data.channel_id,
-        account_id: parsed.data.account_id ?? null,
-        cost_center_id: parsed.data.cost_center_id ?? null,
-        charged_employee_id: parsed.data.charged_employee_id ?? null,
-        supplier_id: parsed.data.supplier_id,
-        kind: parsed.data.kind,
-        letter: parsed.data.letter ?? null,
-        punto_venta: parsed.data.punto_venta,
-        numero: parsed.data.numero,
-        fecha: parsed.data.fecha,
-        fch_vto_pago: parsed.data.fch_vto_pago ?? null,
-        imp_neto: parsed.data.imp_neto,
-        imp_iva: parsed.data.imp_iva,
-        imp_trib: parsed.data.imp_trib,
-        imp_no_gravado: parsed.data.imp_no_gravado,
-        imp_op_exentas: parsed.data.imp_op_exentas,
-        imp_perc_iva: parsed.data.imp_perc_iva,
-        imp_perc_nacionales: parsed.data.imp_perc_nacionales,
-        imp_perc_iibb: parsed.data.imp_perc_iibb,
-        imp_perc_municipales: parsed.data.imp_perc_municipales,
-        imp_impuestos_internos: parsed.data.imp_impuestos_internos,
-        imp_total: parsed.data.imp_total,
-        moneda: parsed.data.moneda,
-        cotizacion: parsed.data.cotizacion,
-        cae_proveedor: parsed.data.cae_proveedor ?? null,
-        cae_vto_proveedor: parsed.data.cae_vto_proveedor ?? null,
-        invoice_origin_id: parsed.data.invoice_origin_id ?? null,
-        motivo_nc_nd: parsed.data.motivo_nc_nd ?? null,
-        notes: parsed.data.notes ?? null,
-        created_by: ctx.userId,
-      },
-      p_items: itemsParam(parsed.data.items ?? []),
-    },
-  );
-
-  if (error || !createdId) {
-    if (error?.code === PG_UNIQUE_VIOLATION) {
-      return {
-        ok: false,
-        error:
-          "Ya cargaste esta factura del proveedor (mismo tipo / letra / PV / número).",
-      };
-    }
-    const guardError = mapDbGuardError(error, {
-      slug: "purchase_invoices.create.rejected",
-      userId: ctx.userId,
-    });
-    if (guardError) return { ok: false, error: guardError };
-    logger.error("purchase_invoices.create.failed", {
-      userId: ctx.userId,
-      supplier_id: parsed.data.supplier_id,
-      numero: parsed.data.numero,
-      error,
-    });
-    return { ok: false, error: "No se pudo cargar la factura." };
-  }
-  await logAudit(
-    "purchase_invoice.created",
-    ctx.userId,
-    {
-      supplier_id: parsed.data.supplier_id,
-      kind: parsed.data.kind,
-      numero: parsed.data.numero,
-      imp_total: parsed.data.imp_total,
-      items_count: parsed.data.items?.length ?? 0,
-      account_id: parsed.data.account_id ?? null,
-      cost_center_id: parsed.data.cost_center_id ?? null,
-      charged_employee_id: parsed.data.charged_employee_id ?? null,
-    },
-    createdId,
-  );
-  return { ok: true, data: { id: createdId } };
-}
-
-function itemsParam(items: PurchaseInvoiceItemInput[]) {
-  return items.map((it, idx) => ({
-    description: it.description,
-    quantity: it.quantity,
-    unit_price: it.unit_price,
-    iva_rate_id: it.iva_rate_id,
-    line_neto: it.line_neto,
-    line_iva: it.line_iva,
-    line_total: it.line_total,
-    sort_order: it.sort_order ?? idx,
-  }));
+  return createPurchaseInvoice(ctx.userId, parsed.data);
 }
 
 const CLOSED_PERIOD_ITEMS_MESSAGE =

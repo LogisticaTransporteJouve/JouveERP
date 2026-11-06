@@ -7,8 +7,13 @@ import { requireUserContext } from "@/lib/auth/context";
 import { readInvoicingChannels } from "@/lib/channels";
 import { round2, todayInAR } from "@/lib/format";
 import { userCan } from "@/lib/auth/permissions";
+import { changeShipmentStatus } from "@/lib/commands/change-shipment-status";
+import { createShipment } from "@/lib/commands/create-shipment";
+import {
+  REMITO_TAKEN_ERROR,
+  isRemitoTaken,
+} from "@/lib/commands/shipment-remito";
 import { mapDbGuardError } from "@/lib/db/guard-errors";
-import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { findSourceInvoiceSlot, invoiceIsVoid } from "@/lib/source-invoice-key";
@@ -100,20 +105,6 @@ async function narrowRows(
     .filter((row): row is Shipment => row !== null);
 }
 
-const REMITO_UNIQUE_INDEX = "shipments_client_remito_unique";
-const REMITO_TAKEN_ERROR =
-  "Ese número de remito ya está en otra carga del cliente.";
-
-/** The write hit the remito-per-client unique index. */
-function isRemitoTaken(
-  error: { code?: string | null; message?: string | null } | null,
-): boolean {
-  return (
-    error?.code === PG_UNIQUE_VIOLATION &&
-    (error.message ?? "").includes(REMITO_UNIQUE_INDEX)
-  );
-}
-
 /**
  * The live carga of the client that already holds this remito number (the
  * one being edited aside), or null: the form warns before saving. The DB
@@ -171,6 +162,7 @@ export async function listShipmentsAction(
     let query = supabase.from("shipments").select(SELECT_COLUMNS);
     if (f.from) query = query.gte("scheduled_date", f.from);
     if (f.to) query = query.lte("scheduled_date", f.to);
+    if (f.id) query = query.eq("id", f.id);
     if (f.clientId) query = query.eq("client_id", f.clientId);
     if (f.tripId) query = query.eq("trip_id", f.tripId);
     if (f.status) query = query.eq("status", f.status);
@@ -271,32 +263,7 @@ export async function createShipmentAction(
       error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
     };
   }
-  const supabase = await createSupabaseClient();
-  const { data, error } = await supabase
-    .from("shipments")
-    .insert({
-      client_id: parsed.data.client_id ?? null,
-      trip_id: parsed.data.trip_id ?? null,
-      channel_id: parsed.data.channel_id ?? null,
-      remito_number: parsed.data.remito_number ?? null,
-      origin: parsed.data.origin ?? null,
-      destination: parsed.data.destination ?? null,
-      description: parsed.data.description ?? null,
-      scheduled_date: parsed.data.scheduled_date ?? null,
-      freight_amount: parsed.data.freight_amount ?? null,
-      cod_amount: parsed.data.cod_amount ?? null,
-      notes: parsed.data.notes ?? null,
-      created_by: ctx.userId,
-    })
-    .select("id")
-    .single();
-  if (isRemitoTaken(error)) return { ok: false, error: REMITO_TAKEN_ERROR };
-  if (error) {
-    logger.error("shipments.create.failed", { userId: ctx.userId, error });
-    return { ok: false, error: "No se pudo crear la carga." };
-  }
-  await logAudit("shipment.created", ctx.userId, {}, data.id);
-  return { ok: true, data: { id: data.id } };
+  return createShipment(await createSupabaseClient(), ctx.userId, parsed.data);
 }
 
 export async function updateShipmentAction(
@@ -380,49 +347,11 @@ export async function changeShipmentStatusAction(
       error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
     };
   }
-  const { id, status, comment, delivery_date, failure_reason, scheduled_date } =
-    parsed.data;
-
-  const today = todayInAR();
-  // The guarded transition and its history row, in one transaction.
-  const supabase = await createSupabaseClient();
-  const { data: from, error } = await supabase.rpc("change_shipment_status", {
-    p_id: id,
-    p_status: status,
-    p_comment: comment ?? undefined,
-    p_delivery_date:
-      status === "delivered" ? (delivery_date ?? today) : undefined,
-    p_failure_reason: failure_reason ?? undefined,
-    p_scheduled_date: scheduled_date ?? undefined,
-  });
-  // Out of cancelled, the carga takes its remito number back.
-  if (isRemitoTaken(error)) {
-    return { ok: false, error: REMITO_TAKEN_ERROR };
-  }
-  if (error) {
-    // Not found, a transition that no longer applies, or a carga in a live
-    // liquidación or rendición, which keeps its status.
-    const guardError = mapDbGuardError(error, {
-      slug: "shipments.status.rejected",
-      userId: ctx.userId,
-      id,
-    });
-    if (guardError) return { ok: false, error: guardError };
-    logger.error("shipments.status.update_failed", {
-      userId: ctx.userId,
-      id,
-      error,
-    });
-    return { ok: false, error: "No se pudo cambiar el estado." };
-  }
-
-  await logAudit(
-    "shipment.status_changed",
+  return changeShipmentStatus(
+    await createSupabaseClient(),
     ctx.userId,
-    { from, to: status },
-    id,
+    parsed.data,
   );
-  return { ok: true, data: undefined };
 }
 
 export async function deleteShipmentAction(input: {

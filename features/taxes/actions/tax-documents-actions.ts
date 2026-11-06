@@ -3,6 +3,11 @@
 import { logAudit } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
+import {
+  DUPLICATE_TAX_DOCUMENT,
+  createTaxDocument,
+} from "@/lib/commands/create-tax-document";
+import { payTaxDocument } from "@/lib/commands/pay-tax-document";
 import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { ivaIsComputable } from "@/lib/afip/codes";
@@ -112,9 +117,6 @@ function narrowTaxDocument(row: TaxRow): TaxDocument | null {
 function firstIssue(error: { issues: { message: string }[] }): string {
   return error.issues[0]?.message ?? "Datos inválidos.";
 }
-
-const DUPLICATE_MESSAGE =
-  "Ya hay un impuesto de ese tipo y período (con la misma jurisdicción y nombre). Editá el existente o anulalo.";
 
 // ---------------------------------------------------------------------------
 // Reads
@@ -363,45 +365,7 @@ export async function createTaxDocumentAction(
   }
   const parsed = TaxDocumentCreateSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) };
-  const d = parsed.data;
-
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("tax_documents")
-    .insert({
-      kind: d.kind,
-      title: d.title,
-      jurisdiction: d.jurisdiction,
-      period: d.period,
-      due_date: d.due_date,
-      amount: d.amount,
-      amount_is_estimate: d.amount_is_estimate,
-      account_id: d.account_id,
-      credit_balance: d.credit_balance,
-      notes: d.notes,
-      created_by: ctx.userId,
-    })
-    .select("id")
-    .single();
-  if (error) {
-    if (error.code === PG_UNIQUE_VIOLATION) {
-      return { ok: false, error: DUPLICATE_MESSAGE };
-    }
-    const guardError = mapDbGuardError(error, {
-      slug: "tax_documents.create.rejected",
-      userId: ctx.userId,
-    });
-    if (guardError) return { ok: false, error: guardError };
-    logger.error("tax_documents.create.failed", { userId: ctx.userId, error });
-    return { ok: false, error: "No se pudo cargar el impuesto." };
-  }
-  await logAudit(
-    "tax_document.created",
-    ctx.userId,
-    { kind: d.kind, period: d.period, estimate: d.amount_is_estimate },
-    data.id,
-  );
-  return { ok: true, data: { id: data.id } };
+  return createTaxDocument(ctx.userId, parsed.data);
 }
 
 export async function updateTaxDocumentAction(
@@ -434,7 +398,7 @@ export async function updateTaxDocumentAction(
     .select("id");
   if (error) {
     if (error.code === PG_UNIQUE_VIOLATION) {
-      return { ok: false, error: DUPLICATE_MESSAGE };
+      return { ok: false, error: DUPLICATE_TAX_DOCUMENT };
     }
     const guardError = mapDbGuardError(error, {
       slug: "tax_documents.update.rejected",
@@ -514,37 +478,7 @@ export async function payTaxDocumentAction(
   }
   const parsed = PayTaxDocumentSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) };
-  const { id, paid_date, account_id, amount } = parsed.data;
-
-  const supabase = await createClient();
-  // One transaction: claims the open document (FOR UPDATE), books the
-  // outflow in the fiscal channel and posts it against the tax account.
-  const { data: transactionId, error } = await supabase.rpc(
-    "pay_tax_document",
-    {
-      p_tax_document_id: id,
-      p_paid_date: paid_date,
-      p_account_id: account_id,
-      p_amount: amount,
-    },
-  );
-  if (error) {
-    const guardError = mapDbGuardError(error, {
-      slug: "tax_documents.pay.rejected",
-      userId: ctx.userId,
-      id,
-    });
-    if (guardError) return { ok: false, error: guardError };
-    logger.error("tax_documents.pay.failed", { userId: ctx.userId, id, error });
-    return { ok: false, error: "No se pudo registrar el pago del impuesto." };
-  }
-  await logAudit(
-    "tax_document.paid",
-    ctx.userId,
-    { amount, transaction_id: transactionId },
-    id,
-  );
-  return { ok: true, data: { transactionId } };
+  return payTaxDocument(ctx.userId, parsed.data);
 }
 
 /**

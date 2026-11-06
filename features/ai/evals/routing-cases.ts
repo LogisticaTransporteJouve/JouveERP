@@ -36,9 +36,21 @@ export const EVAL_FIXTURES = {
   driver: { id: "00000000-0000-4000-8000-0000000000f2", name: "Juan Pérez" },
   bank: { id: "00000000-0000-4000-8000-0000000000f3", name: "Banco Galicia" },
   record: "00000000-0000-4000-8000-0000000000f4",
+  cash: { id: "00000000-0000-4000-8000-0000000000f5", name: "Caja" },
+  client: {
+    id: "00000000-0000-4000-8000-0000000000f6",
+    name: "Acme SA",
+    cuit: "30714637432",
+  },
+  supplier: { id: "00000000-0000-4000-8000-0000000000f7", name: "Gomería Sur" },
+  cartera: {
+    id: "00000000-0000-4000-8000-0000000000f8",
+    name: "Cheques en cartera",
+  },
+  employee: { id: "00000000-0000-4000-8000-0000000000f9", name: "Gómez Ana" },
 } as const;
 
-const { truck, driver, bank, record } = EVAL_FIXTURES;
+const { truck, driver, bank, record, cash } = EVAL_FIXTURES;
 
 export const ROUTING_CASES: RoutingCase[] = [
   {
@@ -317,6 +329,248 @@ export const ROUTING_CASES: RoutingCase[] = [
       },
     },
   },
+  {
+    id: "propose-trip",
+    question:
+      "Cargá un viaje para el 7 de noviembre de 2026 con el AB123CD y Juan Pérez, de Rosario a Córdoba.",
+    roles: ["operations"],
+    expect: {
+      tool: "proposeTrip",
+      input: {
+        trip_date: "2026-11-07",
+        vehicle: truck.patente,
+        driver: driver.name,
+      },
+    },
+    scriptedInput: {
+      trip_date: "2026-11-07",
+      vehicle: truck.patente,
+      driver: driver.name,
+      origin: "Rosario",
+      destination: "Córdoba",
+    },
+  },
+  {
+    id: "propose-shipment",
+    question:
+      "Creá una carga con remito R-2041 para el 10/11/2026, de Rosario a Rafaela, flete $350.000.",
+    roles: ["operations"],
+    expect: {
+      tool: "proposeShipment",
+      input: { remito_number: "R-2041", scheduled_date: "2026-11-10" },
+    },
+    scriptedInput: {
+      remito_number: "R-2041",
+      scheduled_date: "2026-11-10",
+      origin: "Rosario",
+      destination: "Rafaela",
+      freight_amount: 350_000,
+    },
+  },
+  // The status change reads the carga first; the offline stub refuses it,
+  // so the case checks it reaches that read with the id.
+  {
+    id: "propose-shipment-delivered",
+    question: `Marcá como entregada la carga ${record}.`,
+    roles: ["operations"],
+    expect: {
+      tool: "proposeShipmentStatus",
+      input: { shipment_id: record, status: "delivered" },
+    },
+    dispatch: { fn: "listShipmentsAction", args: { id: record } },
+  },
+  {
+    id: "propose-fuel-load",
+    question:
+      "Registrá una carga de combustible del AB123CD de hoy: 300 litros, $450.000.",
+    roles: ["operations"],
+    expect: {
+      tool: "proposeFuelLoad",
+      input: { vehicle: truck.patente, liters: 300, amount: 450_000 },
+    },
+  },
+  {
+    id: "propose-maintenance",
+    question:
+      "Al AB123CD le hicimos el service ayer en el taller Ruta 9, $180.000.",
+    roles: ["operations"],
+    expect: {
+      tool: "proposeMaintenance",
+      input: { vehicle: truck.patente, kind: "service" },
+    },
+    scriptedInput: {
+      vehicle: truck.patente,
+      kind: "service",
+      description: "Service",
+      provider: "Taller Ruta 9",
+      cost: 180_000,
+    },
+  },
+  {
+    id: "propose-vehicle-km",
+    question: "El AB123CD cerró octubre con 125.300 km.",
+    roles: ["operations"],
+    expect: {
+      tool: "proposeVehicleKm",
+      input: { vehicle: truck.patente, km: 125_300, period: "2026-10" },
+    },
+  },
+  // The draft reads the client's cargas first; the offline stub refuses.
+  {
+    id: "propose-freight-settlement",
+    question: `Armá la liquidación de fletes de octubre 2026 del cliente ${record}.`,
+    roles: ["finance"],
+    expect: {
+      tool: "proposeFreightSettlement",
+      input: {
+        client: record,
+        period_start: "2026-10-01",
+        period_end: "2026-10-31",
+      },
+    },
+    dispatch: {
+      fn: "listFreightSettlementCandidatesAction",
+      args: { client_id: record, period_start: "2026-10-01" },
+    },
+  },
+  {
+    id: "propose-client-internal",
+    question:
+      "Dá de alta en Otras ventas al cliente Juan Pérez, teléfono 11 5555-5555.",
+    roles: ["finance"],
+    expect: {
+      tool: "proposeClient",
+      input: { legal_name: "Juan Pérez", side: "otras_ventas" },
+    },
+    scriptedInput: {
+      legal_name: "Juan Pérez",
+      side: "otras_ventas",
+      phone: "11 5555-5555",
+    },
+  },
+  {
+    id: "propose-client-update",
+    question: "Cambiale el mail a Acme SA: ahora es pagos@acme.com.",
+    roles: ["finance"],
+    expect: {
+      tool: "proposeClientUpdate",
+      input: { client: "Acme SA", email: "pagos@acme.com" },
+    },
+  },
+  {
+    id: "propose-invoice",
+    question:
+      "Facturale a Acme SA un flete Rosario–Buenos Aires de $ 850.000 más IVA.",
+    roles: ["finance"],
+    expect: { tool: "proposeInvoice", input: { client: "Acme SA" } },
+    scriptedInput: {
+      client: "Acme SA",
+      items: [
+        { description: "Flete Rosario–Buenos Aires", unit_price: 850_000 },
+      ],
+    },
+  },
+  {
+    id: "propose-receipt",
+    question:
+      "Acme SA nos transfirió $100.000 al Banco Galicia, registrá el cobro.",
+    roles: ["finance"],
+    expect: {
+      tool: "proposeReceipt",
+      input: { client: "Acme SA", amount: 100_000, account: bank.name },
+    },
+  },
+  {
+    id: "propose-payment-order",
+    question:
+      "Haceme la orden de pago a Gomería Sur por $25.000 desde el Banco Galicia.",
+    roles: ["finance"],
+    expect: {
+      tool: "proposePaymentOrder",
+      input: { supplier: "Gomería Sur", amount: 25_000, account: bank.name },
+    },
+  },
+  {
+    id: "propose-cash-movement",
+    question:
+      "Cargá un egreso de $15.000 del Banco Galicia por comisiones bancarias, en el canal fiscal.",
+    roles: ["finance"],
+    expect: {
+      tool: "proposeCashMovement",
+      input: {
+        kind: "expense",
+        amount: 15_000,
+        account: bank.name,
+        channel: "fiscal",
+      },
+    },
+    scriptedInput: {
+      kind: "expense",
+      amount: 15_000,
+      account: bank.name,
+      channel: "fiscal",
+      description: "Comisiones bancarias",
+    },
+  },
+  {
+    id: "propose-transfer",
+    question: "Pasá $200.000 del Banco Galicia a la Caja, canal fiscal.",
+    roles: ["finance"],
+    expect: {
+      tool: "proposeTransfer",
+      input: {
+        from: bank.name,
+        to: cash.name,
+        amount: 200_000,
+        channel: "fiscal",
+      },
+    },
+  },
+  {
+    id: "propose-manual-check",
+    question:
+      "Cargá un cheque del Banco Macro Nº 12345 de Acme SA por $300.000 que se cobra el 20/11/2026, canal fiscal.",
+    roles: ["finance"],
+    expect: {
+      tool: "proposeManualCheck",
+      input: { check_number: "12345", amount: 300_000, due_date: "2026-11-20" },
+    },
+    scriptedInput: {
+      check_number: "12345",
+      bank: "Banco Macro",
+      drawer: "Acme SA",
+      amount: 300_000,
+      due_date: "2026-11-20",
+      channel: "fiscal",
+    },
+  },
+  {
+    id: "propose-check-deposit",
+    question: "Depositá el cheque 12345 en el Banco Galicia.",
+    roles: ["finance"],
+    expect: {
+      tool: "proposeCheckDeposit",
+      input: { check_number: "12345", account: bank.name },
+    },
+  },
+  {
+    id: "propose-issued-check",
+    question:
+      "Emití un cheque del Banco Galicia Nº 777 a Gomería Sur por $50.000 al 01/12/2026, fiscal.",
+    roles: ["finance"],
+    expect: {
+      tool: "proposeIssuedCheck",
+      input: { check_number: "777", account: bank.name, amount: 50_000 },
+    },
+    scriptedInput: {
+      check_number: "777",
+      account: bank.name,
+      beneficiary: "Gomería Sur",
+      amount: 50_000,
+      due_date: "2026-12-01",
+      channel: "fiscal",
+    },
+  },
   // The list read stops at the first refusal (the offline stub refuses),
   // so it reaches listTaxDocumentsAction once; its year is today's.
   {
@@ -491,11 +745,169 @@ export const ROUTING_CASES: RoutingCase[] = [
     },
   },
   {
+    id: "propose-purchase-invoice",
+    question:
+      "Cargá la factura A 0003-00000055 de Gomería Sur del 2/11/2026: neto 1.000, IVA 210, total 1.210.",
+    roles: ["finance"],
+    expect: {
+      tool: "proposePurchaseInvoice",
+      input: { supplier: "Gomería Sur", letter: "A", numero: 55 },
+    },
+    scriptedInput: {
+      supplier: "Gomería Sur",
+      letter: "A",
+      punto_venta: 3,
+      numero: 55,
+      fecha: "2026-11-02",
+      imp_neto: 1000,
+      imp_iva: 210,
+      imp_total: 1210,
+    },
+  },
+  {
+    id: "propose-supplier",
+    question:
+      "Dá de alta al proveedor Transportes Sur SRL, CUIT 30-71111111-1, responsable inscripto.",
+    roles: ["finance"],
+    expect: {
+      tool: "proposeSupplier",
+      input: { legal_name: "Transportes Sur SRL", cuit: "30-71111111-1" },
+    },
+    scriptedInput: {
+      legal_name: "Transportes Sur SRL",
+      cuit: "30-71111111-1",
+      iva_condition: "responsable_inscripto",
+    },
+  },
+  {
+    id: "propose-tax-document",
+    question:
+      "Cargá el anticipo de Ganancias de noviembre 2026, vence el 13/11/2026.",
+    roles: ["finance"],
+    expect: {
+      tool: "proposeTaxDocument",
+      input: { kind: "ganancias_anticipo", period: "2026-11" },
+    },
+    scriptedInput: {
+      kind: "ganancias_anticipo",
+      period: "2026-11",
+      due_date: "2026-11-13",
+    },
+  },
+  {
     id: "documents-pending",
     question: "¿Qué documentos escaneados faltan revisar?",
     roles: ["finance"],
     expect: { tool: "getDocumentExtractions", input: {} },
     dispatch: { fn: "listExtractionsAction", args: {} },
+  },
+  // RRHH proposals: finance has hr:write; the card waits for its Accept.
+  {
+    id: "propose-create-employee",
+    question:
+      "Dá de alta a Ramírez Pablo como chofer, entró el 2 de noviembre de 2026, sueldo base 750.000, mensual.",
+    roles: ["finance"],
+    expect: {
+      tool: "proposeCreateEmployee",
+      input: {
+        legal_name: "Ramírez Pablo",
+        position: "Chofer / Acompañante",
+        hire_date: "2026-11-02",
+        base_salary: 750000,
+      },
+    },
+  },
+  {
+    id: "propose-update-employee",
+    question: "Subile el sueldo base a Gómez Ana a 980.000.",
+    roles: ["finance"],
+    expect: {
+      tool: "proposeUpdateEmployee",
+      input: { employee: "Gómez Ana", base_salary: 980000 },
+    },
+  },
+  {
+    id: "propose-payroll-payment",
+    question:
+      "Pagale el sueldo de octubre 2026 a Gómez Ana por transferencia desde el Banco Galicia, canal interno.",
+    roles: ["finance"],
+    expect: {
+      tool: "proposePayrollPayment",
+      input: {
+        period: "2026-10",
+        method: "transferencia",
+        account: "Banco Galicia",
+        channel: "internal",
+      },
+    },
+    scriptedInput: {
+      period: "2026-10",
+      employees: ["Gómez Ana"],
+      method: "transferencia",
+      account: "Banco Galicia",
+      channel: "internal",
+    },
+  },
+  {
+    id: "propose-employee-advance",
+    question:
+      "Dale un adelanto de 150.000 a Gómez Ana desde el Banco Galicia, canal interno, que se descuente en 3 cuotas de 50.000.",
+    roles: ["finance"],
+    expect: {
+      tool: "proposeEmployeeAccountCash",
+      input: {
+        employee: "Gómez Ana",
+        kind: "advance",
+        amount: 150000,
+        installment_amount: 50000,
+      },
+    },
+    scriptedInput: {
+      employee: "Gómez Ana",
+      kind: "advance",
+      amount: 150000,
+      installment_amount: 50000,
+      account: "Banco Galicia",
+      channel: "internal",
+    },
+  },
+  {
+    id: "propose-employee-charge",
+    question:
+      "Cargale a Gómez Ana una deuda de 80.000 por el celular que rompió.",
+    roles: ["finance"],
+    expect: {
+      tool: "proposeEmployeeAccountMovement",
+      input: { employee: "Gómez Ana", kind: "charge", amount: 80000 },
+    },
+    scriptedInput: {
+      employee: "Gómez Ana",
+      kind: "charge",
+      amount: 80000,
+      description: "Celular roto",
+    },
+  },
+  {
+    id: "propose-attendance",
+    question: "Gómez Ana faltó sin aviso el 4 de noviembre de 2026, cargalo.",
+    roles: ["finance"],
+    expect: {
+      tool: "proposeAttendance",
+      input: {
+        employee: "Gómez Ana",
+        date: "2026-11-04",
+        kind: "absent_unjustified",
+      },
+    },
+  },
+  {
+    id: "propose-loan-installment",
+    question: "Pagá la cuota del leasing del Scania desde el Banco Galicia.",
+    roles: ["finance"],
+    expect: {
+      tool: "proposeLoanInstallmentPayment",
+      input: { loan: "Scania", account: "Banco Galicia" },
+    },
   },
 ];
 
@@ -509,6 +921,26 @@ export const DENIED_CASES: DeniedCase[] = [
       "getBankReconciliation",
       "getArcaReceivedVouchers",
     ],
+  },
+  {
+    id: "fleet-writes-finance",
+    question:
+      "Registrá una carga de combustible del AB123CD: 300 litros, $450.000.",
+    roles: ["finance"],
+    forbiddenTools: [
+      "proposeFuelLoad",
+      "proposeTrip",
+      "proposeShipment",
+      "proposeShipmentStatus",
+      "proposeMaintenance",
+      "proposeVehicleKm",
+    ],
+  },
+  {
+    id: "freight-settlement-operations",
+    question: "Armá la liquidación de fletes de Acme de octubre.",
+    roles: ["operations"],
+    forbiddenTools: ["proposeFreightSettlement", "getFreightSettlements"],
   },
   {
     id: "fleet-fiscal-reader",
@@ -558,10 +990,61 @@ export const DENIED_CASES: DeniedCase[] = [
     forbiddenTools: ["proposeLateInterestNd", "proposeTask"],
   },
   {
+    id: "invoice-operations",
+    question: "Facturale a Acme SA el flete de ayer y mandásela por mail.",
+    roles: ["operations"],
+    forbiddenTools: [
+      "proposeInvoice",
+      "proposeCreditDebitNote",
+      "proposeInvoiceEmail",
+      "proposeClient",
+      "proposeClientUpdate",
+    ],
+  },
+  {
+    id: "credit-note-fiscal-reader",
+    question: "Hacé una nota de crédito por la factura A0003-00000012.",
+    roles: ["fiscal_reader"],
+    forbiddenTools: ["proposeCreditDebitNote", "proposeInvoice"],
+  },
+  {
     id: "recategorize-operations",
     question: "Pasá el gasto de combustible de ayer al centro de costo FLOTA.",
     roles: ["operations"],
     forbiddenTools: ["proposeRecategorizeExpense", "getTransactions"],
+  },
+  {
+    id: "employee-salary-operations",
+    question: "Subile el sueldo a Gómez Ana a 980.000.",
+    roles: ["operations"],
+    forbiddenTools: ["proposeUpdateEmployee", "proposeCreateEmployee"],
+  },
+  {
+    id: "payroll-payment-operations",
+    question: "Pagá los sueldos de octubre por transferencia desde el Galicia.",
+    roles: ["operations"],
+    forbiddenTools: ["proposePayrollPayment", "getPayrollPeriodDetail"],
+  },
+  {
+    id: "employee-advance-operations",
+    question: "Dale un adelanto de 100.000 a Gómez Ana desde la caja.",
+    roles: ["operations"],
+    forbiddenTools: [
+      "proposeEmployeeAccountCash",
+      "proposeEmployeeAccountMovement",
+    ],
+  },
+  {
+    id: "attendance-warehouse",
+    question: "Cargale falta injustificada a Gómez Ana por ayer.",
+    roles: ["warehouse"],
+    forbiddenTools: ["proposeAttendance", "proposeLeave"],
+  },
+  {
+    id: "loan-installment-operations",
+    question: "Pagá la cuota del leasing del Scania.",
+    roles: ["operations"],
+    forbiddenTools: ["proposeLoanInstallmentPayment", "getLoans"],
   },
   {
     id: "taxes-operations",
@@ -570,10 +1053,57 @@ export const DENIED_CASES: DeniedCase[] = [
     forbiddenTools: ["getTaxDocuments"],
   },
   {
+    id: "purchases-operations",
+    question:
+      "Cargá la factura de Gomería Sur que vino de ARCA y cambiale el teléfono al proveedor.",
+    roles: ["operations"],
+    forbiddenTools: [
+      "proposePurchaseInvoice",
+      "proposeArcaPurchase",
+      "proposeSupplier",
+      "proposeSupplierUpdate",
+    ],
+  },
+  {
+    id: "tax-payment-operations",
+    question: "Pagá el IIBB de octubre desde el Banco Galicia.",
+    roles: ["operations"],
+    forbiddenTools: ["proposeTaxDocument", "proposeTaxPayment"],
+  },
+  {
+    id: "supplier-fiscal-reader",
+    question: "Dá de alta al proveedor Transportes Sur SRL.",
+    roles: ["fiscal_reader"],
+    forbiddenTools: ["proposeSupplier", "proposePurchaseInvoice"],
+  },
+  {
     id: "cash-operations",
     question: "¿Cómo estamos de caja hoy?",
     roles: ["operations"],
     forbiddenTools: ["getTreasurySummary", "getAccounts"],
+  },
+  {
+    id: "treasury-writes-operations",
+    question:
+      "Registrá el cobro de Acme SA por $100.000 y pagale $25.000 a Gomería Sur.",
+    roles: ["operations"],
+    forbiddenTools: [
+      "proposeReceipt",
+      "proposePaymentOrder",
+      "proposeCashMovement",
+      "proposeTransfer",
+    ],
+  },
+  {
+    id: "checks-operations",
+    question:
+      "Depositá el cheque 12345 en el Galicia y cargá el cheque propio 777.",
+    roles: ["operations"],
+    forbiddenTools: [
+      "proposeManualCheck",
+      "proposeCheckDeposit",
+      "proposeIssuedCheck",
+    ],
   },
 ];
 

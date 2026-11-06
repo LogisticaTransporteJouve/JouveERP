@@ -285,6 +285,24 @@ export type CreateComprobanteInput = z.infer<typeof CreateComprobanteSchema>;
 
 export const CancelInvoiceSchema = z.object({ id: z.string().uuid() });
 
+/** «Enviar por email» of an emitted comprobante. A blank body is no body. */
+export const SendInvoiceEmailSchema = z.object({
+  invoice_id: z.string().uuid(),
+  recipient: z.string().email("Email inválido."),
+  subject: z
+    .string()
+    .min(1, "Asunto requerido.")
+    .max(200, "Máx 200 caracteres."),
+  body: z
+    .string()
+    .max(4000, "Máx 4000 caracteres.")
+    .nullable()
+    .optional()
+    .transform((v) => (v && v.trim().length > 0 ? v : null)),
+});
+
+export type SendInvoiceEmailInput = z.input<typeof SendInvoiceEmailSchema>;
+
 /** Statuses an internal invoice can be cancelled from. A fiscal voucher with
  *  CAE is never cancelled: an NC compensates it. */
 export const INTERNAL_CANCELLABLE_STATUSES: readonly InvoiceStatus[] = [

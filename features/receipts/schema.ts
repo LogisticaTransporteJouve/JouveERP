@@ -318,6 +318,28 @@ export function isRetentionTaxType(value: unknown): value is RetentionTaxType {
   );
 }
 
+/** An issued comprobante (or a bounced check of an issued receipt) of a
+ *  client with how much is still outstanding: the "imputar" picker's rows and
+ *  what a new receipt's FIFO spreads over. */
+export type PendingComprobante = {
+  id: string;
+  /** `rejected_check`: a bounced check of an issued receipt (id = the
+   *  check), numbered with that receipt; `kind` is then "rejected_check". */
+  document_type: "invoice" | "rejected_check";
+  numero: number | null;
+  punto_venta: number;
+  letter: string | null;
+  kind: string;
+  fecha: string;
+  imp_total: number;
+  already_allocated: number;
+  outstanding: number;
+  /** The comprobante's moneda as a receipt currency (DOL → USD, else ARS). */
+  currency: "ARS" | "USD";
+  /** Rejected checks only. */
+  check_number: string | null;
+};
+
 /** Join row shape for `receipts ( status )` selected from another table. */
 export type ReceiptStatusJoin = { receipts: { status: string } | null };
 

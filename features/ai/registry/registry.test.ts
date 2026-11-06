@@ -41,6 +41,13 @@ const PAYROLL_TOOLS = [
   "getSalaryHistory",
   "getTripExtrasSuggestion",
   "getEmployees",
+  // Proposals that show salaries or pay them (hr:write).
+  "proposeCreateEmployee",
+  "proposeUpdateEmployee",
+  "proposePayrollPayment",
+  "proposeEmployeeAccountCash",
+  "proposeEmployeeAccountMovement",
+  "proposeAttendance",
 ];
 
 const ctx = (roles: Role[]) => ({ userId: "u1", access: resolveAccess(roles) });

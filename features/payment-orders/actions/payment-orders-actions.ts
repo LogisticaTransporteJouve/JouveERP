@@ -1,17 +1,17 @@
 "use server";
 
 import { logAudit } from "@/lib/actions/audit";
+import { loadChannelPos } from "@/lib/channel-pos";
+import { createPaymentOrder } from "@/lib/commands/create-payment-order";
 import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { mapDbGuardError } from "@/lib/db/guard-errors";
-import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { round2 } from "@/lib/format";
 import {
   allocateFifo,
   allocationsIssue,
   readEmbeddedStatus,
-  resolveAllocations,
 } from "@/lib/allocations";
 import {
   fetchUsdRateOnOrBefore,
@@ -41,12 +41,13 @@ import {
   toRejectedCheckAllocation,
   isPaymentOrderStatus,
   type PaymentOrderStatus,
-  type PaymentLineInput,
   type PaymentOrder,
   type PaymentOrderAllocateInput,
   type PaymentOrderAllocation,
   type PaymentOrderPaymentLine,
   type RejectedCheckAllocation,
+  type PendingPurchaseInvoice,
+  serializePaymentLine,
 } from "../schema";
 
 function narrowPaymentOrder(row: {
@@ -61,41 +62,6 @@ function narrowPaymentOrder(row: {
 
 const COLUMNS =
   "id, channel_id, punto_venta, numero, supplier_id, payment_date, total_amount, currency, cotizacion, notes, status, canceled_at, canceled_by, created_by, created_at, updated_at";
-
-function serializePaymentLine(line: PaymentLineInput) {
-  if (line.line_kind === "endorse_check") {
-    return {
-      line_kind: "endorse_check",
-      endorsed_check_id: line.endorsed_check_id,
-      amount: line.amount,
-      reference: line.reference ?? null,
-    };
-  }
-  if (line.line_kind === "issue_check") {
-    return {
-      line_kind: "issue_check",
-      account_id: line.account_id,
-      amount: line.amount,
-      reference: line.reference ?? null,
-      issued_check: {
-        kind: line.issued_check.kind,
-        check_number: line.issued_check.check_number,
-        bank_name: line.issued_check.bank_name,
-        due_date: line.issued_check.due_date,
-        issue_date: line.issued_check.issue_date ?? null,
-        beneficiary_name: line.issued_check.beneficiary_name ?? null,
-        beneficiary_cuit: line.issued_check.beneficiary_cuit ?? null,
-        notes: line.issued_check.notes ?? null,
-      },
-    };
-  }
-  return {
-    line_kind: "account",
-    account_id: line.account_id,
-    amount: line.amount,
-    reference: line.reference ?? null,
-  };
-}
 
 export async function listPaymentOrdersAction(input?: {
   offset?: number;
@@ -329,20 +295,6 @@ export async function getNextPaymentOrderNumeroAction(input: {
   };
 }
 
-export type PendingPurchaseInvoice = {
-  id: string;
-  numero: number;
-  punto_venta: number;
-  letter: string | null;
-  kind: string;
-  fecha: string;
-  imp_total: number;
-  already_allocated: number;
-  outstanding: number;
-  /** The purchase's moneda as an OP currency (DOL → USD, else ARS). */
-  currency: "ARS" | "USD";
-};
-
 /** Pending purchase invoices of a supplier on one channel: a payment order
  *  only settles invoices of its own channel (guard_payment_order_allocation
  *  enforces it). */
@@ -468,22 +420,6 @@ export async function listPendingInvoicesForSupplierAction(
   return { ok: true, data: pending };
 }
 
-async function loadChannelPos(
-  channelId: string,
-): Promise<{ punto_venta: number } | null> {
-  const supabase = await createSupabaseClient();
-  const { data, error } = await supabase
-    .from("sales_points")
-    .select("numero, channel_id, is_enabled")
-    .eq("channel_id", channelId)
-    .eq("is_enabled", true)
-    .order("numero", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-  if (error || !data) return null;
-  return { punto_venta: data.numero };
-}
-
 export async function createPaymentOrderAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string; numero: number; punto_venta: number }>> {
@@ -502,103 +438,11 @@ export async function createPaymentOrderAction(
       error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
     };
   }
-  const data = parsed.data;
-
-  const pos = await loadChannelPos(data.channel_id);
-  if (!pos) {
-    return {
-      ok: false,
-      error: `El canal ${data.channel_id} no tiene un punto de venta habilitado.`,
-    };
-  }
-
-  // FIFO over the pending purchases in the OP's currency, the picked ones
-  // (the DB guards check them), or nothing ("a cuenta").
-  let fifo: { purchase_invoice_id: string; amount_applied: number }[] = [];
-  const picked = data.allocations ?? [];
-  if (
-    data.allocation_mode === "fifo" ||
-    (data.allocation_mode === undefined && picked.length === 0)
-  ) {
-    const pendingRes = await listPendingInvoicesForSupplierAction(
-      data.supplier_id,
-      data.channel_id,
-    );
-    if (!pendingRes.ok) return pendingRes;
-    fifo = allocateFifo(
-      pendingRes.data.filter((c) => c.currency === data.currency),
-      data.total_amount,
-    ).map((a) => ({
-      purchase_invoice_id: a.document_id,
-      amount_applied: a.amount_applied,
-    }));
-  }
-  const resolved = resolveAllocations(data.allocation_mode, picked, () => fifo);
-  if ("issue" in resolved) return { ok: false, error: resolved.issue };
-  const allocations = resolved.allocations;
-
-  const supabase = await createSupabaseClient();
-  const { data: opId, error } = await supabase.rpc("create_payment_order", {
-    p_channel_id: data.channel_id,
-    p_punto_venta: pos.punto_venta,
-    p_numero: data.numero,
-    p_supplier_id: data.supplier_id,
-    p_payment_date: data.payment_date,
-    p_total_amount: data.total_amount,
-    p_currency: data.currency,
-    p_cotizacion: data.cotizacion ?? undefined,
-    p_notes: data.notes ?? "",
-    p_payment_lines: data.payment_lines.map(serializePaymentLine),
-    p_allocations: allocations.map((a) => ({
-      purchase_invoice_id: a.purchase_invoice_id,
-      amount_applied: a.amount_applied,
-    })),
-  });
-
-  if (error) {
-    const guardError = mapDbGuardError(error, {
-      slug: "payment_orders.create.rejected",
-      userId: ctx.userId,
-    });
-    if (guardError) return { ok: false, error: guardError };
-    if (error.code === PG_UNIQUE_VIOLATION) {
-      return {
-        ok: false,
-        error: `El número ${data.numero} ya existe para ese canal/POS.`,
-      };
-    }
-    logger.error("payment_orders.create.failed", {
-      userId: ctx.userId,
-      channel_id: data.channel_id,
-      numero: data.numero,
-      supplier_id: data.supplier_id,
-      error,
-    });
-    return {
-      ok: false,
-      error: "No se pudo crear la orden de pago.",
-    };
-  }
-
-  await logAudit(
-    "payment_order.created",
+  return createPaymentOrder(
     ctx.userId,
-    {
-      channel_id: data.channel_id,
-      numero: data.numero,
-      total_amount: data.total_amount,
-      supplier_id: data.supplier_id,
-    },
-    opId as string,
+    parsed.data,
+    listPendingInvoicesForSupplierAction,
   );
-  return {
-    ok: true,
-    data: {
-      id: opId as string,
-      numero: data.numero,
-      punto_venta: pos.punto_venta,
-    },
-  };
 }
 
 export async function updatePaymentOrderAction(

@@ -4,6 +4,7 @@ import { logAudit } from "@/lib/actions/audit";
 import type { JsonValue } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
+import { createMaintenance } from "@/lib/commands/create-maintenance";
 import { costVoucherDenied, costVoucherPatch } from "@/lib/cost-vouchers";
 import type { Database } from "@/lib/db/database.types";
 import { logger } from "@/lib/logger";
@@ -106,40 +107,7 @@ export async function createMaintenanceAction(
       error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
     };
   }
-  const voucherDenied = costVoucherDenied(ctx.access, parsed.data);
-  if (voucherDenied) return { ok: false, error: voucherDenied };
-
-  const supabase = await createSupabaseClient();
-  const { data, error } = await supabase
-    .from("maintenance_records")
-    .insert({
-      vehicle_id: parsed.data.vehicle_id,
-      service_date: parsed.data.service_date,
-      kind: parsed.data.kind,
-      description: parsed.data.description,
-      cost: parsed.data.cost ?? null,
-      odometer_km: parsed.data.odometer_km ?? null,
-      next_service_date: parsed.data.next_service_date ?? null,
-      next_service_km: parsed.data.next_service_km ?? null,
-      provider: parsed.data.provider ?? null,
-      notes: parsed.data.notes ?? null,
-      ...costVoucherPatch(parsed.data),
-      created_by: ctx.userId,
-    })
-    .select("id")
-    .single();
-  if (error) {
-    logger.error("maintenance.create.failed", { userId: ctx.userId, error });
-    return { ok: false, error: "No se pudo crear el mantenimiento." };
-  }
-
-  await logAudit(
-    "maintenance.created",
-    ctx.userId,
-    { service_date: parsed.data.service_date },
-    data.id,
-  );
-  return { ok: true, data: { id: data.id } };
+  return createMaintenance(await createSupabaseClient(), ctx, parsed.data);
 }
 
 export async function updateMaintenanceAction(

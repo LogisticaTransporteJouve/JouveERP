@@ -14,7 +14,7 @@ import {
 } from "@/lib/format";
 import { formatInvoiceNumber } from "@/features/purchase-invoices/schema";
 
-import type { PendingPurchaseInvoice } from "../actions/payment-orders-actions";
+import type { PendingPurchaseInvoice } from "../schema";
 import { usePendingPurchaseInvoices } from "../hooks/use-payment-orders";
 
 export type AllocationDraft = {

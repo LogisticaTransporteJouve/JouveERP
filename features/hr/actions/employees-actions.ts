@@ -1,26 +1,22 @@
 "use server";
 
-import { z } from "zod";
-
 import { logAudit } from "@/lib/actions/audit";
 import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
-import type { Database } from "@/lib/db/database.types";
 import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { logger } from "@/lib/logger";
-import { todayInAR } from "@/lib/format";
+import { createEmployee } from "@/lib/commands/create-employee";
+import { updateEmployee } from "@/lib/commands/update-employee";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
 import {
   readEmployeeDriver,
   type EmployeeDriver,
 } from "../lib/employee-driver";
-import { currentVacationPeriodYear } from "../lib/vacation-periods";
 import { paginateRange } from "@/lib/supabase/paginate";
 
 import {
-  DRIVER_POSITION,
   EmployeeCreateSchema,
   EmployeeReactivateSchema,
   EmployeeTerminateSchema,
@@ -183,28 +179,6 @@ export async function getEmployeeByIdAction(
 
 // ─── Mutations ───────────────────────────────────────────────────────────────
 
-/** The driver fields of the form, only those it sent (an absent key keeps
- *  the stored value). */
-function driverPayload(fields: {
-  license_number?: string | null;
-  license_category?: string | null;
-  driver_phone?: string | null;
-}): {
-  license_number?: string | null;
-  license_category?: string | null;
-  phone?: string | null;
-} {
-  return {
-    ...(fields.license_number !== undefined && {
-      license_number: fields.license_number,
-    }),
-    ...(fields.license_category !== undefined && {
-      license_category: fields.license_category,
-    }),
-    ...(fields.driver_phone !== undefined && { phone: fields.driver_phone }),
-  };
-}
-
 export async function createEmployeeAction(
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
@@ -218,87 +192,7 @@ export async function createEmployeeAction(
     const first = parsed.error.issues[0]?.message ?? "Datos inválidos.";
     return { ok: false, error: first };
   }
-
-  // Vacation days loaded with the employee: owner/admin only, like the
-  // balances' RLS; anyone else's figures are left out.
-  const loadsVacations =
-    (parsed.data.vacation_current_days != null ||
-      parsed.data.vacation_previous_days != null) &&
-    userCan(ctx.access, "hr:admin");
-  const currentDays = loadsVacations
-    ? (parsed.data.vacation_current_days ?? null)
-    : null;
-  const previousDays = loadsVacations
-    ? (parsed.data.vacation_previous_days ?? null)
-    : null;
-  const today = todayInAR();
-
-  // One transaction: the employee, its driver record (a driver position,
-  // Flota → Choferes) and its vacation days, or nothing.
-  const supabase = await createSupabaseClient();
-  const { data: id, error } = await supabase.rpc("create_employee", {
-    p_employee: {
-      legal_name: parsed.data.legal_name,
-      position: parsed.data.position ?? null,
-      cuil: parsed.data.cuil ?? null,
-      cbu: parsed.data.cbu ?? null,
-      pay_frequency: parsed.data.pay_frequency,
-      base_salary: parsed.data.base_salary ?? null,
-      viatico_monthly: parsed.data.viatico_monthly,
-      is_monotributo: parsed.data.is_monotributo,
-      hire_date: parsed.data.hire_date,
-      notes: parsed.data.notes ?? null,
-      convenio: parsed.data.convenio ?? null,
-      categoria: parsed.data.categoria ?? null,
-      obra_social: parsed.data.obra_social ?? null,
-      art: parsed.data.art ?? null,
-      retribucion_formal: parsed.data.retribucion_formal ?? null,
-      created_by: ctx.userId,
-    },
-    p_driver_position: DRIVER_POSITION,
-    p_driver: driverPayload(parsed.data),
-    p_current_days: currentDays ?? undefined,
-    p_previous_days: previousDays ?? undefined,
-    p_today: today,
-  });
-
-  if (error || !id) {
-    const guardError = mapDbGuardError(error, {
-      slug: "employees.create.rejected",
-      userId: ctx.userId,
-    });
-    if (guardError) return { ok: false, error: guardError };
-    logger.error("employees.create.failed", {
-      userId: ctx.userId,
-      legal_name: parsed.data.legal_name,
-      error,
-    });
-    return { ok: false, error: "No se pudo crear el empleado." };
-  }
-
-  await logAudit(
-    "employee.created",
-    ctx.userId,
-    {
-      legal_name: parsed.data.legal_name,
-      pay_frequency: parsed.data.pay_frequency,
-      base_salary: parsed.data.base_salary ?? null,
-    },
-    id,
-  );
-  if (loadsVacations) {
-    await logAudit(
-      "employee.vacation_balance_set",
-      ctx.userId,
-      {
-        period_year: currentVacationPeriodYear(today),
-        current_days: currentDays,
-        previous_days: previousDays,
-      },
-      id,
-    );
-  }
-  return { ok: true, data: { id } };
+  return createEmployee(ctx, parsed.data);
 }
 
 export async function updateEmployeeAction(
@@ -314,95 +208,8 @@ export async function updateEmployeeAction(
     const first = parsed.error.issues[0]?.message ?? "Datos inválidos.";
     return { ok: false, error: first };
   }
-
-  const { id, ...rest } = parsed.data;
-
-  type EmployeeUpdate = Database["public"]["Tables"]["employees"]["Update"];
-  const patch: EmployeeUpdate = {};
-  if (rest.legal_name !== undefined) patch.legal_name = rest.legal_name;
-  if (rest.position !== undefined) patch.position = rest.position ?? null;
-  if (rest.cuil !== undefined) patch.cuil = rest.cuil ?? null;
-  if (rest.cbu !== undefined) patch.cbu = rest.cbu ?? null;
-  if (rest.pay_frequency !== undefined)
-    patch.pay_frequency = rest.pay_frequency;
-  if (rest.base_salary !== undefined)
-    patch.base_salary = rest.base_salary ?? null;
-  if (rest.viatico_monthly !== undefined)
-    patch.viatico_monthly = rest.viatico_monthly;
-  if (rest.is_monotributo !== undefined)
-    patch.is_monotributo = rest.is_monotributo;
-  if (rest.hire_date !== undefined) patch.hire_date = rest.hire_date;
-  if (rest.notes !== undefined) patch.notes = rest.notes ?? null;
-  if (rest.convenio !== undefined) patch.convenio = rest.convenio ?? null;
-  if (rest.categoria !== undefined) patch.categoria = rest.categoria ?? null;
-  if (rest.obra_social !== undefined)
-    patch.obra_social = rest.obra_social ?? null;
-  if (rest.art !== undefined) patch.art = rest.art ?? null;
-  if (rest.retribucion_formal !== undefined)
-    patch.retribucion_formal = rest.retribucion_formal ?? null;
-
-  const driver = driverPayload(rest);
-  if (Object.keys(patch).length === 0 && Object.keys(driver).length === 0) {
-    return { ok: true, data: undefined };
-  }
-
-  // One transaction: the employee and its driver record, which follows it.
-  // Only a change away from the driver position deactivates the record:
-  // rows saved before the positions list (free text) keep their driver.
-  const supabase = await createSupabaseClient();
-  const { data: previous, error } = await supabase.rpc("update_employee", {
-    p_id: id,
-    p_patch: patch,
-    p_driver_position: DRIVER_POSITION,
-    p_driver: driver,
-  });
-  if (error) {
-    const guardError = mapDbGuardError(error, {
-      slug: "employees.update.rejected",
-      userId: ctx.userId,
-      id,
-    });
-    if (guardError) return { ok: false, error: guardError };
-    logger.error("employees.update.failed", { userId: ctx.userId, id, error });
-    return { ok: false, error: "No se pudo actualizar el empleado." };
-  }
-  const before = PreviousEmployeeSchema.safeParse(previous);
-  if (!before.success) {
-    return { ok: false, error: "El empleado no existe." };
-  }
-
-  // Granular audit: salary is the most sensitive field.
-  if (
-    rest.base_salary !== undefined &&
-    Number(before.data.base_salary ?? 0) !== Number(rest.base_salary ?? 0)
-  ) {
-    await logAudit(
-      "employee.salary_changed",
-      ctx.userId,
-      {
-        legal_name: before.data.legal_name,
-        from: before.data.base_salary,
-        to: rest.base_salary,
-      },
-      id,
-    );
-  } else {
-    await logAudit(
-      "employee.updated",
-      ctx.userId,
-      { fields: Object.keys(patch) },
-      id,
-    );
-  }
-
-  return { ok: true, data: undefined };
+  return updateEmployee(ctx.userId, parsed.data);
 }
-
-/** What update_employee returns: the row before the edit (null: not found). */
-const PreviousEmployeeSchema = z.object({
-  legal_name: z.string(),
-  base_salary: z.number().nullable(),
-});
 
 export async function terminateEmployeeAction(
   input: unknown,

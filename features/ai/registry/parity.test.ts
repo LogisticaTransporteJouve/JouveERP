@@ -3,8 +3,11 @@ import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { CHECK_CASH_PERMISSIONS } from "@/features/checks/lib/check-cash";
 import { EXPENSE_SOURCE_WRITE } from "@/features/cost-centers/schema";
 import { DUE_DATE_PERMISSIONS } from "@/features/dashboard/schema";
+import { HR_CASH_PERMISSIONS } from "@/features/hr/lib/hr-cash";
+import { LOAN_CASH_PERMISSIONS } from "@/features/loans/lib/loan-cash";
 import { TREASURY_PERMISSIONS, type Permission } from "@/lib/auth/permissions";
 
 const { AI_ACTIONS } = await import("./catalog");
@@ -154,7 +157,104 @@ const PARITY: Row[] = [
     gate: { anyOf: Object.values(EXPENSE_SOURCE_WRITE) },
     token: "EXPENSE_SOURCE_WRITE[",
   },
+  // RRHH proposals: the form's write gate (the token) plus the hr:read of
+  // prepare's employee search.
+  {
+    tool: "proposeCreateEmployee",
+    file: "features/hr/actions/employees-actions.ts",
+    fn: "createEmployeeAction",
+    gate: all("hr:write", "hr:read"),
+    token: '"hr:write"',
+  },
+  {
+    tool: "proposeUpdateEmployee",
+    file: "features/hr/actions/employees-actions.ts",
+    fn: "updateEmployeeAction",
+    gate: all("hr:write", "hr:read"),
+    token: '"hr:write"',
+  },
+  {
+    tool: "proposePayrollPayment",
+    file: "features/hr/actions/payroll-payments-actions.ts",
+    fn: "createPayrollPaymentAction",
+    gate: all(...HR_CASH_PERMISSIONS, "hr:read", "accounts:read"),
+    token: "HR_CASH_PERMISSIONS",
+  },
+  {
+    tool: "proposePayrollPayment",
+    file: "features/hr/actions/payroll-payments-actions.ts",
+    fn: "bulkCreatePayrollPaymentsAction",
+    gate: all(...HR_CASH_PERMISSIONS, "hr:read", "accounts:read"),
+    token: "HR_CASH_PERMISSIONS",
+  },
+  {
+    tool: "proposeEmployeeAccountCash",
+    file: "features/hr/actions/employee-account-actions.ts",
+    fn: "recordEmployeeAccountCashAction",
+    gate: all(...HR_CASH_PERMISSIONS, "hr:read", "accounts:read"),
+    token: "HR_CASH_PERMISSIONS",
+  },
+  {
+    tool: "proposeEmployeeAccountMovement",
+    file: "features/hr/actions/employee-account-actions.ts",
+    fn: "createManualMovementAction",
+    gate: all("hr:write", "hr:read"),
+    token: '"hr:write"',
+  },
+  {
+    tool: "proposeAttendance",
+    file: "features/hr/actions/attendance-actions.ts",
+    fn: "upsertAttendanceRecordAction",
+    gate: all("hr:write", "hr:read"),
+    token: '"hr:write"',
+  },
+  {
+    tool: "proposeLoanInstallmentPayment",
+    file: "features/loans/actions/loans-actions.ts",
+    fn: "payInstallmentAction",
+    gate: all(...LOAN_CASH_PERMISSIONS, ...TREASURY_PERMISSIONS),
+    token: "LOAN_CASH_PERMISSIONS",
+  },
+  {
+    tool: "proposeInvoiceEmail",
+    file: "features/invoices/actions/send-invoice-email.ts",
+    fn: "sendInvoiceByEmailAction",
+    gate: all("email:send", "invoices:read"),
+  },
   // Flota / depósito
+  // Fleet proposals: the form's gate alone; a plate, driver or client is
+  // resolved only when the user can read that module. proposeShipmentStatus
+  // also needs shipments:read (it reads the carga), so it has no row.
+  {
+    tool: "proposeTrip",
+    file: "features/trips/actions/trips-actions.ts",
+    fn: "createTripAction",
+    gate: all("trips:write"),
+  },
+  {
+    tool: "proposeShipment",
+    file: "features/shipments/actions/shipments-actions.ts",
+    fn: "createShipmentAction",
+    gate: all("shipments:write"),
+  },
+  {
+    tool: "proposeFuelLoad",
+    file: "features/fuel/actions/fuel-actions.ts",
+    fn: "createFuelLoadAction",
+    gate: all("fuel:write"),
+  },
+  {
+    tool: "proposeMaintenance",
+    file: "features/maintenance/actions/maintenance-actions.ts",
+    fn: "createMaintenanceAction",
+    gate: all("maintenance:write"),
+  },
+  {
+    tool: "proposeVehicleKm",
+    file: "features/vehicle-km/actions/vehicle-km-actions.ts",
+    fn: "saveVehicleKmReadingAction",
+    gate: all("fleet_km:write"),
+  },
   {
     tool: "getTrips",
     file: "features/trips/actions/trips-actions.ts",
@@ -311,5 +411,107 @@ describe("read tool permission = wrapped action's gate", () => {
       expect(tool.permissions).toEqual([]);
       expect(sorted(tool.anyOfPermissions)).toEqual(sorted(row.gate.anyOf));
     }
+  });
+});
+
+// A proposal's accept runs the same command as the page's server action, so
+// it needs at least that action's gate (plus the reads `prepare` uses): the
+// tool is never offered to a user the page would refuse.
+const PROPOSAL_PARITY: Row[] = [
+  {
+    tool: "proposeReceipt",
+    file: "features/receipts/actions/receipts-actions.ts",
+    fn: "createReceiptAction",
+    gate: all("receipts:write"),
+  },
+  {
+    tool: "proposePaymentOrder",
+    file: "features/payment-orders/actions/payment-orders-actions.ts",
+    fn: "createPaymentOrderAction",
+    gate: all("payment_orders:write"),
+  },
+  {
+    tool: "proposeCashMovement",
+    file: "features/transactions/actions/transactions-actions.ts",
+    fn: "createTransactionAction",
+    gate: all("transactions:write"),
+  },
+  {
+    tool: "proposeTransfer",
+    file: "features/transactions/actions/transactions-actions.ts",
+    fn: "createTransferAction",
+    gate: all("transactions:write"),
+  },
+  {
+    tool: "proposeManualCheck",
+    file: "features/checks/actions/checks-actions.ts",
+    fn: "createCheckAction",
+    gate: all(...CHECK_CASH_PERMISSIONS),
+    token: "CHECK_CASH_PERMISSIONS",
+  },
+  {
+    tool: "proposeCheckDeposit",
+    file: "features/checks/actions/checks-actions.ts",
+    fn: "depositCheckAction",
+    gate: all(...CHECK_CASH_PERMISSIONS),
+    token: "CHECK_CASH_PERMISSIONS",
+  },
+  {
+    tool: "proposeIssuedCheck",
+    file: "features/issued-checks/actions/issued-checks-actions.ts",
+    fn: "createIssuedCheckAction",
+    gate: all("issued_checks:write"),
+  },
+  {
+    tool: "proposePurchaseInvoice",
+    file: "features/purchase-invoices/actions/purchase-invoices-actions.ts",
+    fn: "createPurchaseInvoiceAction",
+    gate: all("purchase_invoices:write"),
+  },
+  {
+    tool: "proposeArcaPurchase",
+    file: "features/purchase-invoices/actions/arca-received-actions.ts",
+    fn: "createPurchaseInvoiceFromReceivedAction",
+    gate: all("purchase_invoices:write"),
+  },
+  {
+    tool: "proposeSupplier",
+    file: "features/suppliers/actions/suppliers-actions.ts",
+    fn: "createSupplierAction",
+    gate: all("suppliers:write"),
+  },
+  {
+    tool: "proposeSupplierUpdate",
+    file: "features/suppliers/actions/suppliers-actions.ts",
+    fn: "updateSupplierAction",
+    gate: all("suppliers:write"),
+  },
+  {
+    tool: "proposeTaxDocument",
+    file: "features/taxes/actions/tax-documents-actions.ts",
+    fn: "createTaxDocumentAction",
+    gate: all("taxes:write"),
+  },
+  {
+    tool: "proposeTaxPayment",
+    file: "features/taxes/actions/tax-documents-actions.ts",
+    fn: "payTaxDocumentAction",
+    gate: all("taxes:write", "transactions:write"),
+  },
+];
+
+describe("proposal permission covers the page action's gate", () => {
+  const byName = new Map(AI_ACTIONS.map((a) => [a.name, a]));
+
+  it.each(PROPOSAL_PARITY)("$tool ⊇ $fn", (row) => {
+    const tool = byName.get(row.tool);
+    expect(tool, `${row.tool} is not in the catalogue`).toBeDefined();
+    if (!tool || !("all" in row.gate)) return;
+    const body = actionBody(row.file, row.fn);
+    const tokens = row.token ? [row.token] : row.gate.all.map((p) => `"${p}"`);
+    for (const token of tokens) {
+      expect(body, `${row.fn} no longer checks ${token}`).toContain(token);
+    }
+    for (const p of row.gate.all) expect(tool.permissions).toContain(p);
   });
 });

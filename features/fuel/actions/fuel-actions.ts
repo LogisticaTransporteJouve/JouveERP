@@ -6,6 +6,7 @@ import { logAudit } from "@/lib/actions/audit";
 import type { JsonValue } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
+import { createFuelLoad } from "@/lib/commands/create-fuel-load";
 import { costVoucherDenied, costVoucherPatch } from "@/lib/cost-vouchers";
 import type { Database } from "@/lib/db/database.types";
 import { logger } from "@/lib/logger";
@@ -101,39 +102,7 @@ export async function createFuelLoadAction(
       error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
     };
   }
-  const voucherDenied = costVoucherDenied(ctx.access, parsed.data);
-  if (voucherDenied) return { ok: false, error: voucherDenied };
-
-  const supabase = await createSupabaseClient();
-  const { data, error } = await supabase
-    .from("fuel_loads")
-    .insert({
-      vehicle_id: parsed.data.vehicle_id,
-      trip_id: parsed.data.trip_id ?? null,
-      load_date: parsed.data.load_date,
-      liters: parsed.data.liters,
-      amount: parsed.data.amount,
-      odometer_km: parsed.data.odometer_km ?? null,
-      station: parsed.data.station ?? null,
-      card: parsed.data.card ?? null,
-      notes: parsed.data.notes ?? null,
-      ...costVoucherPatch(parsed.data),
-      created_by: ctx.userId,
-    })
-    .select("id")
-    .single();
-  if (error) {
-    logger.error("fuel.create.failed", { userId: ctx.userId, error });
-    return { ok: false, error: "No se pudo crear la carga." };
-  }
-
-  await logAudit(
-    "fuel_load.created",
-    ctx.userId,
-    { load_date: parsed.data.load_date },
-    data.id,
-  );
-  return { ok: true, data: { id: data.id } };
+  return createFuelLoad(await createSupabaseClient(), ctx, parsed.data);
 }
 
 /** No row matched: deleted meanwhile, or hidden by RLS. */

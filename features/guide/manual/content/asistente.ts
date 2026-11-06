@@ -31,7 +31,13 @@ export const assistantPage: GuidePage = {
         {
           title: "Qué puede proponer",
           body: [
-            "{{Crear tarea}}, {{Programar tarea de IA}}, {{Mandar a Documentos}} (un archivo adjunto al chat), {{Registrar licencia}}, {{Cargar asiento manual}}, {{Cargar cotización USD}}, {{Cargar tarifa del cliente}}, {{Conciliar extracto}}, {{Generar ND por mora}} y {{Recategorizar gasto}}. Para confirmar cada una necesitás el mismo permiso que para hacerla a mano.",
+            "{{Crear tarea}}, {{Programar tarea de IA}}, {{Mandar a Documentos}} (un archivo adjunto al chat), {{Registrar licencia}}, {{Cargar asiento manual}}, {{Cargar cotización USD}}, {{Cargar tarifa del cliente}}, {{Conciliar extracto}}, {{Generar ND por mora}} y {{Recategorizar gasto}}.",
+            "Flota y operaciones: {{Crear viaje}}, {{Crear carga}}, {{Cambiar estado de la carga}}, {{Registrar carga de combustible}}, {{Registrar mantenimiento}}, {{Cargar km del vehículo}} y {{Armar liquidación de fletes}} (queda en borrador).",
+            "Ventas: {{Dar de alta cliente}}, {{Editar cliente}}, {{Emitir comprobante}} (factura con CAE o remito interno), {{Emitir nota de crédito o débito}} y {{Enviar comprobante por email}}. Una factura o nota se emite al aceptar, igual que desde Comprobantes: el sistema calcula la letra, el IVA y el total.",
+            "Tesorería: {{Registrar cobro}}, {{Crear orden de pago}}, {{Registrar movimiento de caja}}, {{Registrar transferencia entre cuentas}}, {{Cargar cheque recibido}}, {{Depositar cheque}} y {{Emitir cheque propio}}.",
+            "Compras e impuestos: {{Cargar factura de compra}}, {{Cargar comprobante de ARCA}} (si los importes de ARCA no suman el total, te pregunta a dónde va la diferencia), {{Dar de alta proveedor}}, {{Editar proveedor}}, {{Cargar impuesto}} y {{Pagar impuesto}}.",
+            "Personal: {{Dar de alta un empleado}}, {{Editar empleado}}, {{Pagar sueldos}}, {{Movimiento de caja del empleado}} (adelanto o pago), {{Movimiento en la cuenta del empleado}}, {{Cargar asistencia}} y {{Pagar cuota de préstamo}}.",
+            "Para confirmar cada una necesitás el mismo permiso que para hacerla a mano.",
           ],
         },
         {

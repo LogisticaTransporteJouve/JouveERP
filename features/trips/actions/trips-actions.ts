@@ -4,6 +4,7 @@ import { logAudit } from "@/lib/actions/audit";
 import type { JsonValue } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
+import { createTrip } from "@/lib/commands/create-trip";
 import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
@@ -110,38 +111,7 @@ export async function createTripAction(
     };
   }
 
-  const supabase = await createSupabaseClient();
-  const { data, error } = await supabase
-    .from("trips")
-    .insert({
-      trip_date: parsed.data.trip_date,
-      driver_id: parsed.data.driver_id ?? null,
-      vehicle_id: parsed.data.vehicle_id ?? null,
-      channel_id: parsed.data.channel_id ?? null,
-      origin: parsed.data.origin ?? null,
-      destination: parsed.data.destination ?? null,
-      cargo_description: parsed.data.cargo_description ?? null,
-      status: parsed.data.status,
-      km: parsed.data.km ?? null,
-      revenue: parsed.data.revenue ?? null,
-      cost: parsed.data.cost ?? null,
-      notes: parsed.data.notes ?? null,
-      created_by: ctx.userId,
-    })
-    .select("id")
-    .single();
-  if (error) {
-    logger.error("trips.create.failed", { userId: ctx.userId, error });
-    return { ok: false, error: "No se pudo crear el viaje." };
-  }
-
-  await logAudit(
-    "trip.created",
-    ctx.userId,
-    { trip_date: parsed.data.trip_date },
-    data.id,
-  );
-  return { ok: true, data: { id: data.id } };
+  return createTrip(await createSupabaseClient(), ctx.userId, parsed.data);
 }
 
 export async function updateTripAction(input: unknown): Promise<ActionResult> {

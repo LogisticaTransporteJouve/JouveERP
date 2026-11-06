@@ -1,6 +1,7 @@
 "use server";
 
 import { logAudit } from "@/lib/actions/audit";
+import { createIssuedCheck } from "@/lib/commands/create-issued-check";
 import type { JsonValue } from "@/lib/actions/audit";
 import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
@@ -23,6 +24,7 @@ import { CHECK_CASH_DENIED_REASON } from "@/features/checks/lib/check-cash";
 
 import {
   ISSUED_CHECK_STATUSES,
+  PAYMENT_ORDER_LINK_ERROR,
   IssuedCheckCreateSchema,
   IssuedCheckTransitionSchema,
   IssuedCheckUpdateSchema,
@@ -42,9 +44,6 @@ function narrow(row: Record<string, unknown>): IssuedCheck | null {
   if (!isIssuedCheckCurrency(row.currency)) return null;
   return row as IssuedCheck;
 }
-
-const PAYMENT_ORDER_LINK_ERROR =
-  "Un cheque propio se liga a una orden de pago solo cargándolo desde la orden de pago.";
 
 const COLUMNS =
   "id, kind, check_number, bank_name, beneficiary_name, beneficiary_cuit, issue_date, due_date, amount, currency, bank_account_id, payment_order_id, channel_id, supplier_id, status, cashed_at, rejected_at, cancelled_at, cancelled_by, notes, created_by, created_at, updated_at";
@@ -139,60 +138,7 @@ export async function createIssuedCheckAction(
     };
   }
 
-  // A payment order's check is inserted by the order itself, as one of its
-  // lines; a check linked afterwards would never move the bank when cashed.
-  if (parsed.data.payment_order_id) {
-    return { ok: false, error: PAYMENT_ORDER_LINK_ERROR };
-  }
-
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("issued_checks")
-    .insert({
-      kind: parsed.data.kind,
-      check_number: parsed.data.check_number,
-      bank_name: parsed.data.bank_name,
-      beneficiary_name: parsed.data.beneficiary_name ?? null,
-      beneficiary_cuit: parsed.data.beneficiary_cuit ?? null,
-      issue_date: parsed.data.issue_date,
-      due_date: parsed.data.due_date,
-      amount: parsed.data.amount,
-      currency: parsed.data.currency,
-      bank_account_id: parsed.data.bank_account_id,
-      channel_id: parsed.data.channel_id,
-      supplier_id: parsed.data.supplier_id ?? null,
-      notes: parsed.data.notes ?? null,
-      created_by: ctx.userId,
-    })
-    .select("id")
-    .single();
-
-  if (error) {
-    if (error.code === PG_UNIQUE_VIOLATION) {
-      return {
-        ok: false,
-        error: "Ya cargaste un cheque con ese número del mismo banco.",
-      };
-    }
-    const guardError = mapDbGuardError(error, {
-      slug: "issued_checks.create.rejected",
-      userId: ctx.userId,
-    });
-    if (guardError) return { ok: false, error: guardError };
-    logger.error("issued_checks.create.failed", { userId: ctx.userId, error });
-    return { ok: false, error: "No se pudo cargar el cheque." };
-  }
-
-  await logAudit(
-    "issued_check.created",
-    ctx.userId,
-    {
-      check_number: parsed.data.check_number,
-      amount: parsed.data.amount,
-    },
-    data.id,
-  );
-  return { ok: true, data: { id: data.id } };
+  return createIssuedCheck(ctx.userId, parsed.data);
 }
 
 export async function updateIssuedCheckAction(

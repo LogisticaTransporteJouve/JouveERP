@@ -4,9 +4,9 @@ import { logAudit } from "@/lib/actions/audit";
 import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
-import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { logger } from "@/lib/logger";
 import { paginateRange } from "@/lib/supabase/paginate";
+import { upsertAttendance } from "@/lib/commands/upsert-attendance";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
 import {
@@ -117,46 +117,7 @@ export async function upsertAttendanceRecordAction(
     };
   }
 
-  // A day synced from a leave or a holiday is not overwritten: the guard on
-  // attendance_records refuses it (it is changed from its source).
-  const supabase = await createSupabaseClient();
-  const { data, error } = await supabase
-    .from("attendance_records")
-    .upsert(
-      {
-        employee_id: parsed.data.employee_id,
-        date: parsed.data.date,
-        kind: parsed.data.kind,
-        hours_lost: parsed.data.hours_lost ?? null,
-        notes: parsed.data.notes ?? null,
-        source: "manual",
-        created_by: ctx.userId,
-      },
-      { onConflict: "employee_id,date" },
-    )
-    .select("id")
-    .single();
-
-  if (error || !data) {
-    const guardError = mapDbGuardError(error, {
-      slug: "attendance.upsert.rejected",
-      userId: ctx.userId,
-    });
-    if (guardError) return { ok: false, error: guardError };
-    logger.error("attendance.upsert.failed", { userId: ctx.userId, error });
-    return { ok: false, error: "No se pudo guardar la asistencia." };
-  }
-  await logAudit(
-    "attendance.upserted",
-    ctx.userId,
-    {
-      employee_id: parsed.data.employee_id,
-      date: parsed.data.date,
-      kind: parsed.data.kind,
-    },
-    data.id,
-  );
-  return { ok: true, data: { id: data.id } };
+  return upsertAttendance(ctx.userId, parsed.data);
 }
 
 export async function deleteAttendanceRecordAction(
