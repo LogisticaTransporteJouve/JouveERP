@@ -135,7 +135,7 @@ function purchaseItems(scope: Exclude<FiscalFilter, "all">): NavItem[] {
     },
     {
       href: "/purchases",
-      label: scope === "internal" ? "Remitos de compra" : "Compras",
+      label: scope === "internal" ? "Remitos de compra" : "Comprobantes",
       icon: ShoppingCart,
       permission: "purchase_invoices:read",
       scope,
