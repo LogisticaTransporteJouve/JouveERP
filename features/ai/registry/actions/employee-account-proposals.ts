@@ -29,7 +29,7 @@ import {
   resolveTreasuryAccount,
 } from "./hr-refs";
 import { MAX_CANDIDATES, norm } from "./resolve-client";
-import { CHANNEL_SIDES, type Resolved } from "./treasury-refs";
+import type { Resolved } from "./treasury-refs";
 
 // The employee's cuenta corriente (ficha del empleado): an advance or the
 // employee's payment through a cash/bank account, or a charge or payment
