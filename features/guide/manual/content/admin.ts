@@ -406,8 +406,8 @@ export const adminPage: GuidePage = {
               ["~00003", "~Jouve fiscal", "~Jouve fiscal", "~Sí", "~Activo"],
               ["~00005", "~Sin asignar", "~—", "~No", "~Activo"],
               [
-                "~09001",
-                "~Remitos internos",
+                "~00001",
+                "~Interno Jouve",
                 "~Logística Jouve — Interno",
                 "~Sí",
                 "",
@@ -420,9 +420,9 @@ export const adminPage: GuidePage = {
         {
           title: "Punto de venta y canal",
           body: [
-            "Un punto de venta solo aparece para emitir comprobantes si está asociado a un canal fiscal y habilitado. Cada canal puede tener un solo punto de venta habilitado a la vez: el sistema numera con ese.",
+            "Un punto de venta solo aparece para emitir comprobantes si está asociado a un canal y habilitado. Cada canal tiene un solo punto de venta habilitado a la vez y numera todo con ese: facturas, remitos, NC/ND, recibos y órdenes de pago. Hoy son el 00003 en el canal fiscal y el 00001 en el interno.",
             "Un punto de venta que ya numeró comprobantes, recibos u órdenes de pago en su canal no se puede pasar a otro canal.",
-            "El punto 09001 (Remitos internos) es el del canal interno: numera remitos y recibos internos, no existe en AFIP y la sincronización no lo toca.",
+            "El punto 00001 del canal interno no existe en AFIP: la sincronización no lo toca.",
           ],
         },
         {
@@ -514,7 +514,7 @@ export const adminPage: GuidePage = {
           steps: [
             "En [[/admin/afip/puntos-de-venta]], en la fila del punto de venta, hacé clic en el ícono de engranaje ({{Configurar}}).",
             "En {{Alias}}, escribí un nombre para reconocerlo (opcional, hasta 120 caracteres).",
-            "En {{Canal}}, elegí el canal o {{Sin asignar}}. Un punto de venta de AFIP lista los canales fiscales activos; el 09001 (Remitos internos), los internos. El canal actual se ve aunque esté inactivo.",
+            "En {{Canal}}, elegí el canal o {{Sin asignar}}. Un punto de venta de AFIP lista los canales fiscales activos; uno que no está en AFIP (como el 00001), los internos. El canal actual se ve aunque esté inactivo.",
             "Tildá {{Habilitado para emitir desde JouveERP.}} para que aparezca en el formulario de comprobantes; destildalo para sacarlo.",
             "Hacé clic en {{Guardar}}. Se habilita solo si cambiaste algo.",
           ],
