@@ -76,21 +76,33 @@ export function TripsTable({
       {
         accessorKey: "driver",
         header: "Chofer",
-        cell: ({ row }) => (
-          <span className="text-sm">
-            {row.original.driver?.full_name ?? "—"}
-          </span>
-        ),
+        cell: ({ row }) =>
+          row.original.driver && row.original.driver_id ? (
+            <Link
+              href={`/drivers/${row.original.driver_id}`}
+              className="text-sm underline-offset-4 hover:underline"
+            >
+              {row.original.driver.full_name}
+            </Link>
+          ) : (
+            <span className="text-sm">—</span>
+          ),
         meta: { mobile: "secondary" },
       },
       {
         accessorKey: "vehicle",
         header: "Vehículo",
-        cell: ({ row }) => (
-          <span className="font-mono text-xs">
-            {row.original.vehicle?.patente ?? "—"}
-          </span>
-        ),
+        cell: ({ row }) =>
+          row.original.vehicle && row.original.vehicle_id ? (
+            <Link
+              href={`/vehicles/${row.original.vehicle_id}`}
+              className="font-mono text-xs underline-offset-4 hover:underline"
+            >
+              {row.original.vehicle.patente}
+            </Link>
+          ) : (
+            <span className="font-mono text-xs">—</span>
+          ),
         meta: { headerClassName: "w-32", mobile: "secondary" },
       },
       {

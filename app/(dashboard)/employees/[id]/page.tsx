@@ -1,6 +1,8 @@
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -9,6 +11,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
+import { getDriverIdForEmployeeAction } from "@/features/drivers/actions/drivers-actions";
 import { EmployeeDocumentsCard } from "@/features/employee-documents/components/employee-documents-card";
 import { getEmployeeByIdAction } from "@/features/hr/actions/employees-actions";
 import { EditEmployeeDialog } from "@/features/hr/components/edit-employee-dialog";
@@ -56,6 +59,10 @@ export default async function EmployeeDetailPage({
   const employee = result.data;
   const canWrite = userCan(ctx.access, "hr:write");
   const canMoveCash = userCanAll(ctx.access, HR_CASH_PERMISSIONS);
+  const driverRes = userCan(ctx.access, "drivers:read")
+    ? await getDriverIdForEmployeeAction(id)
+    : null;
+  const driverId = driverRes?.ok ? driverRes.data : null;
 
   return (
     <div className="space-y-6">
@@ -99,10 +106,19 @@ export default async function EmployeeDetailPage({
             )}
           </p>
         </div>
-        {canWrite && (
+        {(canWrite || driverId) && (
           <div className="flex items-center gap-2">
-            <EditEmployeeDialog employee={employee} />
-            <TerminateEmployeeDialog employee={employee} />
+            {driverId && (
+              <Button variant="outline" asChild>
+                <Link href={`/drivers/${driverId}`}>Ver viajes y km</Link>
+              </Button>
+            )}
+            {canWrite && (
+              <>
+                <EditEmployeeDialog employee={employee} />
+                <TerminateEmployeeDialog employee={employee} />
+              </>
+            )}
           </div>
         )}
       </div>
