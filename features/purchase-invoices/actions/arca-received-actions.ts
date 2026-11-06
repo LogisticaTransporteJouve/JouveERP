@@ -576,8 +576,8 @@ export async function createPurchaseInvoiceFromReceivedAction(input: {
     alreadyProcessed: BEING_LOADED,
     claimFailed: "No se pudo cargar el comprobante.",
   });
-  // A partial failure (createdId) still made the purchase: the
-  // purchase_invoices_link_received trigger linked the voucher to it.
+  // A failed create saved nothing (header and items are one transaction) and
+  // released the claim.
   if (!created.ok) return { ok: false, error: created.error };
 
   const { error: confirmError } = await supabase

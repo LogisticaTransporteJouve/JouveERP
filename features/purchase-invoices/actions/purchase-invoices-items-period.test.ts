@@ -8,10 +8,12 @@ const ITEMS_GUARD =
   "El período contable de la factura está cerrado: no se pueden cambiar datos que figuran en el Libro IVA Compras";
 
 let refused = false;
-let replaceError: Record<string, unknown> | null = null;
+let saveError: Record<string, unknown> | null = null;
+let saved: string | null = INVOICE_ID;
 const calls: string[] = [];
+const saveArgs: Array<Record<string, unknown>> = [];
 
-function from(table: string) {
+function from() {
   const builder = {
     select: () => builder,
     eq: () => builder,
@@ -28,20 +30,22 @@ function from(table: string) {
       },
       error: null,
     }),
-    update: () => {
-      calls.push(`update:${table}`);
-      return { eq: async () => ({ error: null }) };
-    },
   };
   return builder;
 }
 
-async function rpc(name: string) {
+async function rpc(name: string, args: Record<string, unknown>) {
   calls.push(`rpc:${name}`);
   if (name === "purchase_items_change_refused") {
     return { data: refused, error: null };
   }
-  return { data: null, error: replaceError };
+  if (name === "update_purchase_invoice") {
+    saveArgs.push(args);
+    return saveError
+      ? { data: null, error: saveError }
+      : { data: saved, error: null };
+  }
+  return { data: null, error: { message: `unexpected rpc ${name}` } };
 }
 
 const logAudit = vi.fn();
@@ -83,8 +87,10 @@ const edit = {
 
 beforeEach(() => {
   refused = false;
-  replaceError = null;
+  saveError = null;
+  saved = INVOICE_ID;
   calls.length = 0;
+  saveArgs.length = 0;
   logAudit.mockClear();
 });
 
@@ -101,29 +107,32 @@ describe("purchase edit in a closed period", () => {
     expect(logAudit).not.toHaveBeenCalled();
   });
 
-  it("saves the header and the items when the check passes", async () => {
+  it("saves the header and the items in one call when the check passes", async () => {
     const res = await updatePurchaseInvoiceAction(edit);
     expect(res).toEqual({ ok: true, data: undefined });
     expect(calls).toEqual([
       "rpc:purchase_items_change_refused",
-      "update:purchase_invoices",
-      "rpc:replace_purchase_invoice_items",
+      "rpc:update_purchase_invoice",
     ]);
+    expect(saveArgs[0]).toMatchObject({
+      p_id: INVOICE_ID,
+      p_patch: { notes: "Vence en dos pagos" },
+      p_items: [expect.objectContaining({ line_neto: 100000 })],
+    });
   });
 
-  it("audits the saved header and says so when the items step still refuses", async () => {
-    replaceError = { code: "55006", hint: "jouve_guard", message: ITEMS_GUARD };
+  it("saves nothing and audits nothing when the items step still refuses", async () => {
+    saveError = { code: "55006", hint: "jouve_guard", message: ITEMS_GUARD };
     const res = await updatePurchaseInvoiceAction(edit);
-    expect(res).toEqual({
-      ok: false,
-      error: `Se guardó la factura, pero no los ítems: ${ITEMS_GUARD}`,
-    });
-    expect(logAudit).toHaveBeenCalledWith(
-      "purchase_invoice.updated",
-      "u1",
-      { fields: ["notes"], items_saved: false },
-      INVOICE_ID,
-    );
+    expect(res).toEqual({ ok: false, error: ITEMS_GUARD });
+    expect(logAudit).not.toHaveBeenCalled();
+  });
+
+  it("refuses, without auditing, an edit of a purchase that is not there", async () => {
+    saved = null;
+    const res = await updatePurchaseInvoiceAction(edit);
+    expect(res).toEqual({ ok: false, error: "La factura no existe." });
+    expect(logAudit).not.toHaveBeenCalled();
   });
 
   it("does not check or touch the items when the edit leaves them out", async () => {
@@ -132,6 +141,7 @@ describe("purchase edit in a closed period", () => {
       notes: "Solo notas",
     });
     expect(res).toEqual({ ok: true, data: undefined });
-    expect(calls).toEqual(["update:purchase_invoices"]);
+    expect(calls).toEqual(["rpc:update_purchase_invoice"]);
+    expect(saveArgs[0]?.p_items).toBeUndefined();
   });
 });

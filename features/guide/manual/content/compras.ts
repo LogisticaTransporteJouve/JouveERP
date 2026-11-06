@@ -1072,10 +1072,6 @@ export const purchasesPage: GuidePage = {
               fix: "Usá una fecha de un mes abierto o pedí que reabran el período ([[#periodos-cerrados]]).",
             },
             {
-              message: "Factura cargada pero no se pudieron guardar los ítems.",
-              fix: "La factura quedó cargada con los totales: editala y volvé a cargar las líneas.",
-            },
-            {
               message: "No tenés permiso para cargar facturas de compra.",
               fix: "Pedíselo a alguien con el permiso (ver [[#roles-y-permisos]]).",
             },

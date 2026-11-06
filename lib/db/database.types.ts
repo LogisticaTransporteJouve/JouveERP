@@ -9512,6 +9512,10 @@ export type Database = {
         }
         Returns: string
       }
+      create_purchase_invoice: {
+        Args: { p_header: Json; p_items?: Json }
+        Returns: string
+      }
       create_receipt: {
         Args: {
           p_allocations: Json
@@ -10201,6 +10205,7 @@ export type Database = {
         Args: { p: Database["public"]["Tables"]["purchase_invoices"]["Row"] }
         Returns: number
       }
+      purchase_invoice_editable_fields: { Args: never; Returns: string[] }
       purchase_invoices_fiscal_without_letter: {
         Args: never
         Returns: {
@@ -10790,6 +10795,10 @@ export type Database = {
           p_total_amount: number
         }
         Returns: undefined
+      }
+      update_purchase_invoice: {
+        Args: { p_id: string; p_items?: Json; p_patch: Json }
+        Returns: string
       }
       update_receipt: {
         Args: {
