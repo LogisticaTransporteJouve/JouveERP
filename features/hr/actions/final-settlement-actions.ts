@@ -4,6 +4,7 @@ import { logAudit } from "@/lib/actions/audit";
 import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
+import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { logger } from "@/lib/logger";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
@@ -247,62 +248,34 @@ export async function applyFinalSettlementAction(
     };
   }
 
-  const { data: periodId, error: seedErr } = await supabase.rpc(
-    "seed_payroll_period",
-    { p_year: year, p_month: month },
+  // One transaction: the planilla (created when missing), the employee's line
+  // and its settlement extras are written together or not at all.
+  const { data: entryId, error } = await supabase.rpc(
+    "apply_final_settlement",
+    {
+      p_employee_id: v.employee_id,
+      p_year: year,
+      p_month: month,
+      p_sueldo_neto: v.prorated_salary,
+      p_vacaciones_monto: v.vacation_amount,
+      p_extra_prefix: EXTRA_PREFIX,
+      p_sac_amount: v.sac_amount,
+      p_sac_description: `${EXTRA_PREFIX} SAC proporcional (${formatPayrollPeriod(year, sacMonth(sac_half), "sac")})`,
+    },
   );
-  if (seedErr || !periodId) {
-    return {
-      ok: false,
-      error: seedErr?.message ?? `No se pudo abrir la planilla de ${label}.`,
-    };
-  }
-
-  const { data: entry, error: entryErr } = await supabase
-    .from("payroll_entries")
-    .upsert(
-      {
-        period_id: periodId,
-        employee_id: v.employee_id,
-        sueldo_neto: v.prorated_salary,
-        vacaciones_monto: v.vacation_amount,
-      },
-      { onConflict: "period_id,employee_id" },
-    )
-    .select("id")
-    .single();
-  if (entryErr || !entry) {
-    logger.error("payroll.final_settlement.entry_failed", {
+  if (error || !entryId) {
+    const guardError = mapDbGuardError(error, {
+      slug: "payroll.final_settlement.rejected",
       userId: ctx.userId,
-      error: entryErr,
+      id: v.employee_id,
     });
-    return {
-      ok: false,
-      error: entryErr?.message ?? "No se pudo cargar la liquidación final.",
-    };
-  }
-
-  const { error: delErr } = await supabase
-    .from("payroll_entry_extras")
-    .delete()
-    .eq("entry_id", entry.id)
-    .like("description", `${EXTRA_PREFIX}%`);
-  if (delErr) {
-    return { ok: false, error: "No se pudieron reemplazar los extras." };
-  }
-  if (v.sac_amount > 0) {
-    const { error: extraErr } = await supabase
-      .from("payroll_entry_extras")
-      .insert({
-        entry_id: entry.id,
-        amount: v.sac_amount,
-        description: `${EXTRA_PREFIX} SAC proporcional (${formatPayrollPeriod(year, sacMonth(sac_half), "sac")})`,
-        sort_order: 900,
-        created_by: ctx.userId,
-      });
-    if (extraErr) {
-      return { ok: false, error: "No se pudo cargar el SAC proporcional." };
-    }
+    if (guardError) return { ok: false, error: guardError };
+    logger.error("payroll.final_settlement.failed", {
+      userId: ctx.userId,
+      employeeId: v.employee_id,
+      error,
+    });
+    return { ok: false, error: "No se pudo cargar la liquidación final." };
   }
 
   await logAudit(
@@ -317,7 +290,7 @@ export async function applyFinalSettlementAction(
       vacation_amount: v.vacation_amount,
       sac_amount: v.sac_amount,
     },
-    entry.id,
+    entryId,
   );
   return { ok: true, data: { year, month } };
 }

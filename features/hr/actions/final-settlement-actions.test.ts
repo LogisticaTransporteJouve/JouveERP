@@ -41,22 +41,12 @@ function rowFor(table: string, f: Filters): Row | Row[] {
 
 function builder(table: string) {
   const filters: Filters = {};
-  let upserted: Row = null;
   const b = {
     select: () => b,
     eq: (col: string, value: unknown) => {
       filters[col] = value;
       return b;
     },
-    like: () => b,
-    delete: () => b,
-    insert: () => b,
-    upsert: (row: Record<string, unknown>) => {
-      entries[String(row.period_id)] = Number(row.sueldo_neto);
-      upserted = { id: `entry-${String(row.period_id)}` };
-      return b;
-    },
-    single: async () => ({ data: upserted, error: null }),
     maybeSingle: async () => ({ data: rowFor(table, filters), error: null }),
     then: (resolve: (v: { data: unknown; error: null }) => unknown) =>
       resolve({ data: rowFor(table, filters), error: null }),
@@ -78,10 +68,11 @@ vi.mock("@/lib/supabase/server", () => ({
       if (fn === "employee_salary_for_month") {
         return { data: salaryForMonth, error: null };
       }
-      if (fn === "seed_payroll_period") {
+      if (fn === "apply_final_settlement") {
         const key = `${String(args.p_year)}-${String(args.p_month)}`;
-        monthlyPeriods[key] ??= `mon-${key}`;
-        return { data: monthlyPeriods[key], error: null };
+        const periodId = (monthlyPeriods[key] ??= `mon-${key}`);
+        entries[periodId] = Number(args.p_sueldo_neto);
+        return { data: `entry-${periodId}`, error: null };
       }
       // The 2.º semestre suggestion, prorated to Dec 28: 500000 × 181/184.
       return { data: 491_847.83, error: null };

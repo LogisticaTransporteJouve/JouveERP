@@ -42,6 +42,8 @@ export const ProductUpdateSchema = z.object({
   notes: optionalText(2000),
 });
 
+export const ProductDeleteSchema = z.object({ id: z.string().uuid() });
+
 export const ProductToggleSchema = z.object({
   id: z.string().uuid(),
   is_active: z.boolean(),

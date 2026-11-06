@@ -884,7 +884,7 @@ export async function createReceiptAction(
     });
     return {
       ok: false,
-      error: error.message ?? "No se pudo crear el recibo.",
+      error: "No se pudo crear el recibo.",
     };
   }
 
@@ -996,7 +996,7 @@ export async function updateReceiptAction(
     });
     return {
       ok: false,
-      error: error.message ?? "No se pudo actualizar el recibo.",
+      error: "No se pudo actualizar el recibo.",
     };
   }
 

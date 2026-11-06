@@ -12,6 +12,7 @@ import { paginateRange } from "@/lib/supabase/paginate";
 
 import {
   ProductCreateSchema,
+  ProductDeleteSchema,
   ProductToggleSchema,
   ProductUpdateSchema,
   type Product,
@@ -119,7 +120,7 @@ export async function updateProductAction(
   const { id, ...rest } = parsed.data;
 
   const supabase = await createSupabaseClient();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("products")
     .update({
       ...(rest.client_id !== undefined && { client_id: rest.client_id }),
@@ -129,10 +130,14 @@ export async function updateProductAction(
       ...(rest.is_active !== undefined && { is_active: rest.is_active }),
       ...(rest.notes !== undefined && { notes: rest.notes }),
     })
-    .eq("id", id);
+    .eq("id", id)
+    .select("id");
   if (error) {
     logger.error("products.update.failed", { userId: ctx.userId, id, error });
     return { ok: false, error: "No se pudo actualizar el producto." };
+  }
+  if (!data || data.length === 0) {
+    return { ok: false, error: "El producto ya no existe." };
   }
 
   await logAudit(
@@ -155,13 +160,17 @@ export async function setProductActiveAction(
   if (!parsed.success) return { ok: false, error: "Datos inválidos." };
 
   const supabase = await createSupabaseClient();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("products")
     .update({ is_active: parsed.data.is_active })
-    .eq("id", parsed.data.id);
+    .eq("id", parsed.data.id)
+    .select("id");
   if (error) {
     logger.error("products.toggle.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo cambiar el estado." };
+  }
+  if (!data || data.length === 0) {
+    return { ok: false, error: "El producto ya no existe." };
   }
 
   await logAudit(
@@ -180,12 +189,21 @@ export async function deleteProductAction(input: {
   if (!userCan(ctx.access, "products:write")) {
     return { ok: false, error: "No tenés permiso para borrar productos." };
   }
+  const parsed = ProductDeleteSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Datos inválidos." };
   const supabase = await createSupabaseClient();
-  const { error } = await supabase.from("products").delete().eq("id", input.id);
+  const { data, error } = await supabase
+    .from("products")
+    .delete()
+    .eq("id", parsed.data.id)
+    .select("id");
   if (error) {
     logger.error("products.delete.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo borrar el producto." };
   }
-  await logAudit("product.deleted", ctx.userId, {}, input.id);
+  if (!data || data.length === 0) {
+    return { ok: false, error: "El producto ya no existe." };
+  }
+  await logAudit("product.deleted", ctx.userId, {}, parsed.data.id);
   return { ok: true, data: undefined };
 }
