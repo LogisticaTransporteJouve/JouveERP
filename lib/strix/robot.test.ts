@@ -58,14 +58,16 @@ const json = (body: unknown, status = 200) =>
     headers: { "content-type": "application/json" },
   });
 
-function strixServer(opts: { tokenStatus?: number; states?: string[] } = {}) {
+function strixServer(
+  opts: { tokenStatus?: number; tokenCode?: string; states?: string[] } = {},
+) {
   const states = [...(opts.states ?? ["EN CURSO", "FINALIZADO"])];
   const calls: { url: string; init: RequestInit }[] = [];
   const fetch = vi.fn(async (url: string, init: RequestInit) => {
     calls.push({ url, init });
     if (url.endsWith("/oauth/token")) {
       return opts.tokenStatus
-        ? json({ error: "invalid_grant" }, opts.tokenStatus)
+        ? json({ code: opts.tokenCode ?? "invalid_grant" }, opts.tokenStatus)
         : json({ access_token: TOKEN, expires_in: 3600 });
     }
     if (url.includes("/lista/?_from=")) return json(REPORTS);
@@ -81,6 +83,7 @@ function strixServer(opts: { tokenStatus?: number; states?: string[] } = {}) {
 
 const deps = (fetch: ReturnType<typeof strixServer>["fetch"]) => ({
   fetch,
+  clientAuth: "Y2xpZW50OnNlY3JldA==",
   sleep: async () => {},
   pollTimes: 5,
 });
@@ -169,6 +172,36 @@ describe("signInToStrix", () => {
     await expect(
       signInToStrix({ username: "u", password: "p" }, deps(server.fetch)),
     ).rejects.toMatchObject({ code: "SIGN_IN_REJECTED" });
+  });
+
+  it("sends Strix's app client with the sign-in", async () => {
+    const server = strixServer();
+    await signInToStrix({ username: "u", password: "p" }, deps(server.fetch));
+    const token = server.calls.find((c) => c.url.endsWith("/oauth/token"));
+    expect(new Headers(token?.init.headers).get("authorization")).toBe(
+      "Basic Y2xpZW50OnNlY3JldA==",
+    );
+  });
+
+  it("tells an unknown app apart from a refused password", async () => {
+    const server = strixServer({
+      tokenStatus: 401,
+      tokenCode: "invalid_client",
+    });
+    await expect(
+      signInToStrix({ username: "u", password: "p" }, deps(server.fetch)),
+    ).rejects.toMatchObject({ code: "CLIENT_REJECTED" });
+  });
+
+  it("does not sign in without the app client", async () => {
+    const server = strixServer();
+    await expect(
+      signInToStrix(
+        { username: "u", password: "p" },
+        { ...deps(server.fetch), clientAuth: "" },
+      ),
+    ).rejects.toMatchObject({ code: "CLIENT_REJECTED" });
+    expect(server.calls).toEqual([]);
   });
 
   it("stops waiting for a report that never finishes", async () => {

@@ -10,6 +10,8 @@ import type {
 const ERROR_TEXT: Record<string, string> = {
   SIGN_IN_REJECTED: "Strix rechazó el usuario o la clave",
   SIGN_IN_FAILED: "Strix no dejó entrar",
+  CLIENT_REJECTED:
+    "Strix no reconoce la app de JouveERP (falta o cambió STRIX_CLIENT_AUTH)",
   NO_VEHICLES:
     "Strix no tiene ningún informe «Kmts recorridos» del que tomar los vehículos (generá uno a mano en Strix)",
   REPORT_FAILED: "Strix no armó el informe",
