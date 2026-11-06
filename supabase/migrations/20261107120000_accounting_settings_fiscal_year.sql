@@ -11,7 +11,7 @@ SET LOCAL statement_timeout = '15min';
 -- Rollback: older code never reads this table (it hard-codes October).
 create table public.accounting_settings (
   id                      boolean primary key default true check (id),
-  fiscal_year_start_month smallint not null default 10
+  fiscal_year_start_month bigint not null default 10
     check (fiscal_year_start_month between 1 and 12),
   updated_at              timestamptz not null default now(),
   updated_by              uuid references auth.users (id) on delete set null

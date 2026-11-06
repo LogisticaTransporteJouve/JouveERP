@@ -1026,6 +1026,7 @@ export const accountingPage: GuidePage = {
       intro: [
         "Los saldos contables hasta el cierre de un período, calculados desde los asientos, en tres pestañas: {{Balance de saldos}}, {{Estado de Resultados}} y {{Balance General}}.",
         "Filtros: {{Período de corte}} (por defecto el mes actual), {{Desde (opcional)}} para ver solo los movimientos de un rango ({{Limpiar rango}} lo saca) y, si hay centros de costo, {{Centro de costo}}.",
+        "Atajos: {{Ejercicio actual}} pone el rango desde el primer mes del ejercicio en curso hasta el mes actual; {{Ejercicio anterior}}, el ejercicio anterior completo. Debajo de los filtros, una línea dice qué suma cada pestaña (por ejemplo, «resultados del ejercicio 2025/26 (oct 2025 – mar 2026)»).",
       ],
       screens: [
         {
@@ -1035,6 +1036,10 @@ export const accountingPage: GuidePage = {
             { label: "Período de corte", kind: "picker", value: "oct 2026" },
             { label: "Desde (opcional)", kind: "input" },
             { label: "Centro de costo", kind: "select", value: "Todos" },
+          ],
+          actions: [
+            { label: "Ejercicio actual", variant: "outline" },
+            { label: "Ejercicio anterior", variant: "outline" },
           ],
           tabs: {
             labels: [
@@ -1069,7 +1074,8 @@ export const accountingPage: GuidePage = {
         {
           title: "El ejercicio",
           body: [
-            "El año fiscal va de octubre a septiembre. En {{Balance General}}, el resultado se separa en {{Resultado del período}} (desde {{Desde (opcional)}} o, si está vacío, desde el octubre del ejercicio) y {{Resultados de períodos anteriores}}.",
+            "El ejercicio (año fiscal) empieza en el mes que se configura en [[/accounting/settings]]; en Jouve va de octubre a septiembre (por ejemplo, 01/10/2025 – 30/09/2026).",
+            "Sin {{Desde (opcional)}}, el {{Estado de Resultados}} suma desde el primer mes del ejercicio que contiene el {{Período de corte}} hasta el corte, y en {{Balance General}} el resultado se separa en {{Resultado del período}} (desde ese mismo mes) y {{Resultados de períodos anteriores}}. Las cuentas patrimoniales (activo, pasivo, patrimonio) siempre son acumuladas hasta el corte.",
           ],
         },
       ],
@@ -1104,12 +1110,12 @@ export const accountingPage: GuidePage = {
           title: "Ver el estado de resultados",
           permission: "accounting:read",
           steps: [
-            "En [[/accounting/balance]], elegí el {{Período de corte}} y, para ver un mes o un rango, {{Desde (opcional)}}.",
+            "En [[/accounting/balance]], elegí el {{Período de corte}} y, para ver un mes o un rango, {{Desde (opcional)}}. Para el ejercicio, usá {{Ejercicio actual}} o {{Ejercicio anterior}}.",
             "Abrí la pestaña {{Estado de Resultados}}.",
             "Revisá {{Ingresos}} y {{Gastos}}, agrupados por categoría EERR; hacé clic en una categoría para ver sus cuentas.",
           ],
           after: [
-            "Al pie, {{Resultado del período}} con la marca {{Ganancia}} o {{Pérdida}}. Sin {{Desde (opcional)}}, el resultado es el acumulado hasta el corte.",
+            "Al pie, {{Resultado del período}} con la marca {{Ganancia}} o {{Pérdida}}. Sin {{Desde (opcional)}}, el resultado es el del ejercicio hasta el corte (desde su primer mes); para ver el ejercicio anterior completo, usá {{Ejercicio anterior}}.",
           ],
           related: ["consultar-balance-de-saldos", "crear-cuenta-contable"],
           keywords: [
@@ -1151,7 +1157,7 @@ export const accountingPage: GuidePage = {
       permission: "management:read",
       intro: [
         "Fiscal + interno: ¿la operación deja plata? Es una vista para uso interno ({{Uso interno}}): no es el EERR fiscal y no se presenta a bancos, ARCA ni terceros (para eso, [[#balance-eerr]]). El contador externo no la ve.",
-        "Filtros: {{Año fiscal (oct–sep)}} (los últimos cinco), {{Base}} ({{Devengado}} o {{Percibido}}), {{Ajustado por inflación}} y {{Centro de costo}} ({{Todos}}, uno, o {{Sin centro}}). El recuadro {{Limitaciones de esta versión}} explica qué no se calcula todavía.",
+        "Filtros: {{Año fiscal}} (los últimos cinco, según el inicio del ejercicio de [[/accounting/settings]]), {{Base}} ({{Devengado}} o {{Percibido}}), {{Ajustado por inflación}} y {{Centro de costo}} ({{Todos}}, uno, o {{Sin centro}}). El recuadro {{Limitaciones de esta versión}} explica qué no se calcula todavía.",
         "La pantalla muestra, en orden: los indicadores ({{Margen operativo %}}, {{Resultado operativo (EBITDA aprox.)}} y {{Generación de caja}}, contra los mismos meses del año anterior), la {{Cascada del año fiscal}} con el {{Comparativo con el año anterior}}, la tabla {{Mes a mes}}, {{Por centro de costo}}, {{Margen por camión}}, {{Sin clasificar}} y {{Sueldos: pagado en el mes vs. liquidado del período}}.",
       ],
       screens: [
@@ -1159,7 +1165,7 @@ export const accountingPage: GuidePage = {
           kind: "page",
           title: "Resultado de gestión",
           toolbar: [
-            { label: "Año fiscal (oct–sep)", kind: "select", value: "2025/26" },
+            { label: "Año fiscal", kind: "select", value: "2025/26" },
             { label: "Base", kind: "select", value: "Devengado" },
             { label: "Ajustado por inflación", kind: "checkbox" },
             { label: "Centro de costo", kind: "select", value: "Todos" },
@@ -1219,7 +1225,7 @@ export const accountingPage: GuidePage = {
           permission: "management:read",
           steps: [
             "Entrá a [[/management]]. Al abrir muestra el año fiscal actual, en {{Devengado}} y sin ajuste por inflación.",
-            "Elegí {{Año fiscal (oct–sep)}}, {{Base}} y, si querés, marcá {{Ajustado por inflación}}.",
+            "Elegí {{Año fiscal}}, {{Base}} y, si querés, marcá {{Ajustado por inflación}}.",
             "Para ver un solo centro de costo, elegilo en {{Centro de costo}} (o hacé clic en su nombre en la tabla {{Por centro de costo}}): la cascada, los indicadores y el mes a mes pasan a ser de ese centro.",
             "En {{Mes a mes}}, elegí en {{Meses en}} si las columnas de los meses muestran {{Total}}, {{Fiscal}} o {{Interno}}. Las tres columnas finales siempre muestran los totales del año por lado.",
           ],
@@ -2529,6 +2535,87 @@ export const accountingPage: GuidePage = {
           ],
           related: ["exportar-centros-de-costo"],
           keywords: ["exportar dólar", "histórico cotizaciones"],
+        },
+      ],
+    },
+
+    // ── Configuración contable ────────────────────────────────────────────
+    {
+      id: "configuracion-contable",
+      title: "Configuración contable",
+      menuPath: "Contabilidad › Configuración contable",
+      routes: ["/accounting/settings"],
+      permission: "accounting:read",
+      intro: [
+        "Los datos de la empresa que usan los reportes contables. Por ahora, el {{Inicio del ejercicio}}: el mes en que empieza el año fiscal.",
+      ],
+      screens: [
+        {
+          kind: "page",
+          title: "Configuración contable",
+          subtitle: "Datos de la empresa que usan los reportes contables.",
+          actions: [{ label: "Cambiar", variant: "outline" }],
+        },
+      ],
+      concepts: [
+        {
+          title: "Qué usa el inicio del ejercicio",
+          body: [
+            "El {{Estado de Resultados}} y el {{Resultado del período}} del {{Balance General}} cuando {{Desde (opcional)}} está vacío, los atajos {{Ejercicio actual}} y {{Ejercicio anterior}} de [[/accounting/balance]], el {{Año fiscal}} de [[/management]] y el estado de resultados del asistente cuando se le pide «el ejercicio».",
+            "Un ejercicio se nombra por los años que abarca: con inicio en octubre, el ejercicio 2025/26 va del 01/10/2025 al 30/09/2026. Con inicio en enero, es el año calendario (por ejemplo, 2026).",
+          ],
+        },
+      ],
+      tasks: [
+        {
+          id: "cambiar-inicio-del-ejercicio",
+          title: "Cambiar el inicio del ejercicio",
+          permission: "accounting:admin",
+          screens: [
+            {
+              kind: "dialog",
+              title: "Inicio del ejercicio",
+              fields: [
+                {
+                  label: "Mes de inicio",
+                  kind: "select",
+                  value: "Octubre",
+                  wide: true,
+                  marker: 2,
+                },
+              ],
+              footer: [
+                { label: "Cancelar", variant: "ghost" },
+                { label: "Guardar", variant: "primary", marker: 3 },
+              ],
+            },
+          ],
+          steps: [
+            "En [[/accounting/settings]], hacé clic en {{Cambiar}}.",
+            "Elegí el {{Mes de inicio}}. Debajo se ve qué meses abarca el ejercicio.",
+            "Hacé clic en {{Guardar}}.",
+          ],
+          after: [
+            "Aparece {{Inicio del ejercicio guardado.}} y los reportes del ejercicio pasan a sumar desde ese mes. No se toca ningún asiento. El cambio queda en la auditoría.",
+          ],
+          errors: [
+            {
+              message:
+                "No tenés permiso para cambiar la configuración contable.",
+              fix: "Solo el dueño o un administrador lo cambia ([[#roles-y-permisos]]).",
+            },
+            {
+              message: "No se pudo guardar la configuración.",
+              fix: "Probá de nuevo.",
+            },
+          ],
+          related: ["ver-estado-de-resultados", "ver-balance-general"],
+          keywords: [
+            "ejercicio",
+            "año fiscal",
+            "cierre de ejercicio",
+            "octubre",
+          ],
         },
       ],
     },
