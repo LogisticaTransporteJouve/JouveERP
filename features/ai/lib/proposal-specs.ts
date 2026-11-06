@@ -131,7 +131,6 @@ import {
   TRIP_STATUSES,
   TripCreateSchema,
 } from "@/features/trips/schema";
-import { KmReadingSaveSchema } from "@/features/vehicle-km/schema";
 import { ivaRatePercent, MONEDA } from "@/lib/afip/codes";
 import {
   amountToInput,
@@ -988,77 +987,6 @@ export const maintenanceProposalSpec = defineProposalSpec({
     ...rowIf("Proveedor", d.provider),
     ...rowIf("Notas", d.notes),
   ],
-});
-
-/** Keys of the display labels a km-reading draft carries. */
-export const VEHICLE_KM_LABELS = {
-  previousKm: "km_previous",
-  previousPeriod: "km_previous_period",
-  current: "km_current",
-  unread: "km_unread",
-} as const;
-
-export const vehicleKmProposalSpec = defineProposalSpec({
-  title: "Cargar km del vehículo",
-  draft: KmReadingSaveSchema,
-  fields: [
-    { key: "km", label: "Km", kind: "number", decimals: 1 },
-    { key: "read_on", label: "Fecha de lectura", kind: "date" },
-    { key: "notes", label: "Notas", kind: "textarea" },
-  ],
-  confirmLabel: "Guardar km",
-  declineLabel: "Descartar",
-  summarize: (d, labels) => {
-    const previousPeriod = labels[VEHICLE_KM_LABELS.previousPeriod];
-    const previousKm = Number(labels[VEHICLE_KM_LABELS.previousKm]);
-    const current = labels[VEHICLE_KM_LABELS.current];
-    return [
-      { label: "Vehículo", value: labels[d.vehicle_id] ?? d.vehicle_id },
-      { label: "Mes", value: formatPeriod(d.period) },
-      { label: "Km", value: kmText(d.km) },
-      { label: "Fecha de lectura", value: formatArgentineDate(d.read_on) },
-      ...(previousPeriod && Number.isFinite(previousKm)
-        ? [
-            {
-              label: "Lectura anterior",
-              value: `${kmText(previousKm)} (${formatPeriod(previousPeriod)})`,
-            },
-            ...(d.km < previousKm
-              ? [
-                  {
-                    label: PROPOSAL_WARNING_LABEL,
-                    value:
-                      "El km es menor que el de la lectura anterior. Revisá el número antes de guardar.",
-                  },
-                ]
-              : [
-                  {
-                    label: "Recorridos",
-                    value: kmText(d.km - previousKm),
-                  },
-                ]),
-          ]
-        : []),
-      ...(labels[VEHICLE_KM_LABELS.unread]
-        ? [
-            {
-              label: PROPOSAL_WARNING_LABEL,
-              value:
-                "No se pudo leer la lectura anterior para compararla. Revisá el número antes de guardar.",
-            },
-          ]
-        : []),
-      ...(current
-        ? [
-            {
-              label: "Reemplaza",
-              value: `La lectura cargada de ese mes (${kmText(Number(current))})`,
-            },
-          ]
-        : []),
-      ...rowIf("Notas", d.notes),
-    ];
-  },
 });
 
 /** Keys of the display labels a liquidación draft carries (the client's id
@@ -2641,7 +2569,6 @@ export const PROPOSAL_SPECS: Readonly<Record<string, ProposalSpec>> = {
   proposeShipmentStatus: shipmentStatusProposalSpec,
   proposeFuelLoad: fuelLoadProposalSpec,
   proposeMaintenance: maintenanceProposalSpec,
-  proposeVehicleKm: vehicleKmProposalSpec,
   proposeFreightSettlement: freightSettlementProposalSpec,
   proposeFreightSettlementConfirm: freightSettlementConfirmProposalSpec,
   proposeStorageInvoice: storageInvoiceProposalSpec,

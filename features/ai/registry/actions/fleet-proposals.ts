@@ -16,7 +16,6 @@ import {
   SHIPMENT_TARGET_STATUSES,
 } from "@/features/shipments/schema";
 import { TRIP_STATUSES } from "@/features/trips/schema";
-import { getVehicleKmMonthAction } from "@/features/vehicle-km/actions/vehicle-km-actions";
 import { userCan } from "@/lib/auth/permissions";
 import { changeShipmentStatus } from "@/lib/commands/change-shipment-status";
 import { confirmFreightSettlement } from "@/lib/commands/confirm-freight-settlement";
@@ -26,7 +25,6 @@ import { createShipment } from "@/lib/commands/create-shipment";
 import { createTrip } from "@/lib/commands/create-trip";
 import { saveFreightSettlement } from "@/lib/commands/save-freight-settlement";
 import { REMITO_TAKEN_ERROR } from "@/lib/commands/shipment-remito";
-import { saveVehicleKmReading } from "@/lib/commands/save-vehicle-km-reading";
 import {
   formatArgentineDate,
   formatMoney,
@@ -34,19 +32,13 @@ import {
   todayInAR,
 } from "@/lib/format";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
-import { getServiceClient } from "@/lib/supabase/service";
-import {
-  IsoDateSchema,
-  PeriodSchema,
-  UuidSchema,
-} from "@/lib/validation/common";
+import { IsoDateSchema, UuidSchema } from "@/lib/validation/common";
 
 import {
   CANCEL_REASON_REQUIRED,
   FREIGHT_CONFIRM_LABELS,
   FREIGHT_SETTLEMENT_LABELS,
   SHIPMENT_STATUS_LABEL_KEYS,
-  VEHICLE_KM_LABELS,
   freightSettlementConfirmProposalSpec,
   freightSettlementProposalSpec,
   fuelLoadProposalSpec,
@@ -54,7 +46,6 @@ import {
   shipmentProposalSpec,
   shipmentStatusProposalSpec,
   tripProposalSpec,
-  vehicleKmProposalSpec,
   type ProposalLabels,
 } from "../../lib/proposal-specs";
 import { defineAiProposal, type AiPrepareResult } from "../propose";
@@ -408,72 +399,6 @@ export const proposeMaintenance = defineAiProposal({
   },
   execute: async (ctx, draft) =>
     createMaintenance(await createSupabaseClient(), ctx, draft),
-});
-
-// ─── Monthly km ──────────────────────────────────────────────────────────────
-
-export const proposeVehicleKm = defineAiProposal({
-  name: "proposeVehicleKm",
-  domain: "flota",
-  permission: "fleet_km:write",
-  sources: ["vehicle_km_readings", "vehicles"],
-  description:
-    "Propose loading a vehicle's monthly odometer reading (Km mensual) for " +
-    "the user to accept on a card: vehicle, km, reading date (default " +
-    "today) and month (YYYY-MM, default the reading's). It replaces that " +
-    "month's reading if there is one; the card compares it with the " +
-    "previous one. Writes nothing by itself.",
-  input: z.object({
-    vehicle: vehicleInput,
-    km: z.number().finite().min(0).max(KM_MAX),
-    read_on: IsoDateSchema.optional(),
-    period: PeriodSchema.optional(),
-    notes: z.string().trim().min(1).max(500).optional(),
-  }),
-  spec: vehicleKmProposalSpec,
-  prepare: async (ctx, input) => {
-    const vehicle = await resolveVehicle(ctx.access, input.vehicle);
-    if (!vehicle.ok) return refIssue("vehicle", vehicle.error);
-    const readOn = input.read_on ?? todayInAR();
-    const period = input.period ?? readOn.slice(0, 7);
-    const labels: ProposalLabels = labelOf(vehicle);
-    if (userCan(ctx.access, "fleet_km:read")) {
-      const month = await getVehicleKmMonthAction({ period });
-      if (!month.ok) {
-        labels[VEHICLE_KM_LABELS.unread] = "1";
-      } else {
-        const row = month.data.rows.find((r) => r.vehicle_id === vehicle.id);
-        if (!row) {
-          return {
-            kind: "error",
-            error:
-              "Ese vehículo no lleva lectura de km mensual (está inactivo o es un acoplado o semi).",
-          };
-        }
-        labels[vehicle.id] = row.patente;
-        if (row.previous) {
-          labels[VEHICLE_KM_LABELS.previousKm] = String(row.previous.km);
-          labels[VEHICLE_KM_LABELS.previousPeriod] = row.previous.period;
-        }
-        if (row.reading) {
-          labels[VEHICLE_KM_LABELS.current] = String(row.reading.km);
-        }
-      }
-    }
-    return {
-      kind: "draft",
-      draft: {
-        vehicle_id: vehicle.id,
-        period,
-        km: input.km,
-        read_on: readOn,
-        notes: input.notes ?? null,
-      },
-      labels,
-    };
-  },
-  execute: (ctx, draft) =>
-    saveVehicleKmReading(getServiceClient(), ctx.userId, draft),
 });
 
 // ─── Freight settlements ─────────────────────────────────────────────────────

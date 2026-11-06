@@ -1,53 +1,37 @@
 import { z } from "zod";
 
-import {
-  IsoDateSchema,
-  PeriodSchema,
-  UuidSchema,
-} from "@/lib/validation/common";
+import { IsoDateSchema, UuidSchema } from "@/lib/validation/common";
 
-/** Towed vehicles carry no odometer: the monthly reading and its reminder
- *  skip them (the same list as sync_automatic_tasks' vehicle_km source). */
-export const KM_EXEMPT_VEHICLE_TYPES = ["acoplado", "semi"] as const;
+const RANGE_ORDER = "La fecha desde no puede ser posterior a la fecha hasta.";
 
-export function needsKmReading(vehicleType: string): boolean {
-  return !(KM_EXEMPT_VEHICLE_TYPES as readonly string[]).includes(vehicleType);
-}
+/** A date range (inclusive), from before to. */
+export const KmRangeInputSchema = z
+  .object({ from: IsoDateSchema, to: IsoDateSchema })
+  .refine((r) => r.from <= r.to, RANGE_ORDER);
 
-/** numeric(10, 1) */
-const MAX_KM = 999_999_999;
+export type KmRangeInput = z.infer<typeof KmRangeInputSchema>;
 
-export const KmReadingSaveSchema = z.object({
-  vehicle_id: UuidSchema,
-  period: PeriodSchema,
-  km: z
-    .number({ message: "Ingresá los km." })
-    .finite("Ingresá los km.")
-    .min(0, "Los km no pueden ser negativos.")
-    .max(MAX_KM, "Km fuera de rango."),
-  read_on: IsoDateSchema,
-  notes: z
+export const KmDaysInputSchema = z
+  .object({ vehicle_id: UuidSchema, from: IsoDateSchema, to: IsoDateSchema })
+  .refine((r) => r.from <= r.to, RANGE_ORDER);
+
+export type KmDaysInput = z.infer<typeof KmDaysInputSchema>;
+
+export const StrixCredentialsSchema = z.object({
+  username: z
     .string()
     .trim()
-    .max(500, "Máx 500 caracteres.")
-    .nullish()
-    .transform((v) => (v ? v : null)),
+    .min(1, "Ingresá el usuario de Strix.")
+    .max(200, "Máx 200 caracteres."),
+  password: z
+    .string()
+    .max(200, "Máx 200 caracteres.")
+    .transform((v) => (v === "" ? null : v)),
 });
 
-export type KmReadingSaveInput = z.infer<typeof KmReadingSaveSchema>;
+export type StrixCredentialsInput = z.input<typeof StrixCredentialsSchema>;
 
-export const KmMonthInputSchema = z.object({ period: PeriodSchema });
-
-export const KmReadingDeleteSchema = z.object({ id: UuidSchema });
-
-export type KmReading = {
-  id: string;
-  vehicle_id: string;
-  period: string;
-  km: number;
-  read_on: string;
-  notes: string | null;
-};
+export type KmDay = { day: string; km: number };
 
 export type VehicleKmRow = {
   vehicle_id: string;
@@ -55,17 +39,17 @@ export type VehicleKmRow = {
   alias: string | null;
   vehicle_type: string;
   is_active: boolean;
-  /** This month's reading, if loaded. */
-  reading: KmReading | null;
-  /** The latest reading of an earlier month. */
-  previous: KmReading | null;
-  /** reading − previous; null unless both exist. */
-  driven: number | null;
+  /** Km driven in the range, by Strix. */
+  km: number;
+  /** Days with km in the range. */
+  days: number;
+  /** The last day with km in the range. */
+  last_day: string | null;
 };
 
-export type VehicleKmMonth = {
-  period: string;
+export type VehicleKmRange = {
+  from: string;
+  to: string;
   rows: VehicleKmRow[];
-  /** Active vehicles that need a reading and have none this month. */
-  missing: number;
+  total: number;
 };

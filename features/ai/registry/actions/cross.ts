@@ -490,15 +490,15 @@ function periodsOf(range: { from: string; to: string }): {
   };
 }
 
-/** The km a per-km figure divides by: the odometer when both readings are
- *  loaded, else the trips' km (incomplete when some trip has no km). */
+/** The km a per-km figure divides by: Strix's km when there are, else the
+ *  trips' km (incomplete when some trip has no km). */
 export function kmBasis(row: {
   odometer_km: number | null;
   trip_km: number;
   trips_without_km_count: number;
 }): { km: number | null; source: string | null } {
   if (row.odometer_km !== null && row.odometer_km > 0) {
-    return { km: row.odometer_km, source: "odómetro" };
+    return { km: row.odometer_km, source: "Strix" };
   }
   if (row.trip_km > 0) {
     return {
@@ -525,12 +525,12 @@ export const getVehicleEconomics = defineAiAction({
     "v_trip_revenue",
     "fuel_loads",
     "maintenance_records",
-    "vehicle_km_readings",
+    "vehicle_km_daily",
     "get_vehicle_margin",
     "cost_centers",
   ],
   description:
-    "Economía por camión/vehículo en un rango de fechas: viajes (no cancelados), km de viajes y de odómetro (lectura mensual del último mes menos la del mes anterior al primero), litros de combustible y litros cada 100 km, ingreso por flete, costo de viajes, combustible, mantenimiento, costo del centro de costo del camión (seguros, patentes, cubiertas y compras cargadas con ese centro, por meses completos), neto, margen % e ingreso y costo por km. uninvoiced_shipments cuenta sus cargas todavía sin facturar y uninvoiced_freight_ars es su flete (una carga por tarifa no tiene flete hasta facturarse, así que puede ser 0): no están en el ingreso, así que con uninvoiced_shipments > 0 ese neto no es definitivo y no es pérdida todavía. maintenance_without_cost cuenta los services sin costo cargado (no están en el mantenimiento). Cada parte necesita su permiso (cargas para ingresos y costos, combustible para litros, km de flota para el odómetro, gestión para el centro de costo): lo que falta se omite y se avisa. Trae aparte los viajes sin vehículo y el costo operativo que no es de ningún camión (no se reparte). Paginado (limit/offset).",
+    "Economía por camión/vehículo en un rango de fechas: viajes (no cancelados), km de viajes y del GPS de Strix (suma de los km por día del rango), litros de combustible y litros cada 100 km, ingreso por flete, costo de viajes, combustible, mantenimiento, costo del centro de costo del camión (seguros, patentes, cubiertas y compras cargadas con ese centro, por meses completos), neto, margen % e ingreso y costo por km. uninvoiced_shipments cuenta sus cargas todavía sin facturar y uninvoiced_freight_ars es su flete (una carga por tarifa no tiene flete hasta facturarse, así que puede ser 0): no están en el ingreso, así que con uninvoiced_shipments > 0 ese neto no es definitivo y no es pérdida todavía. maintenance_without_cost cuenta los services sin costo cargado (no están en el mantenimiento). Cada parte necesita su permiso (cargas para ingresos y costos, combustible para litros, km de flota para los km de Strix, gestión para el centro de costo): lo que falta se omite y se avisa. Trae aparte los viajes sin vehículo y el costo operativo que no es de ningún camión (no se reparte). Paginado (limit/offset).",
   input: FleetRangeInputSchema,
   run: async (ctx, input): Promise<AiRunResult> => {
     const range = { from: input.from, to: input.to };
@@ -689,7 +689,7 @@ export const getVehicleEconomics = defineAiAction({
     const omitted = [
       withMoney ? null : "ingresos y costos (permiso de cargas)",
       withFuel ? null : "litros (permiso de combustible)",
-      withKm ? null : "km de odómetro (permiso de km de flota)",
+      withKm ? null : "km de Strix (permiso de km de flota)",
     ].filter((x): x is string => x !== null);
     const notes = [VEHICLE_COSTS_NOTE];
     if (withMoney && !withCenters) notes.push(UNLINKED_VEHICLE_COSTS);
@@ -729,7 +729,7 @@ export const getVehicleEconomics = defineAiAction({
     const noOdometer = rows.filter((r) => r.odometer_km === null).length;
     if (withKm && noOdometer > 0) {
       notes.push(
-        `${noOdometer} vehículos sin las dos lecturas de odómetro: por km se usan los km de viajes (km_source).`,
+        `${noOdometer} vehículos sin km de Strix: por km se usan los km de viajes (km_source).`,
       );
     }
     if (!complete) {

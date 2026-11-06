@@ -100,9 +100,11 @@ export const PERMISSIONS = [
   "maintenance:write",
   "fleet_documents:read",
   "fleet_documents:write",
-  // Monthly odometer reading per vehicle (roadmap 1.6)
+  // Km driven per vehicle, from Strix Flotas (GPS)
   "fleet_km:read",
   "fleet_km:write",
+  // The Strix user and password the km robot signs in with
+  "fleet_km:admin",
 
   // Accounting (Phase L)
   "accounting:read",

@@ -13,6 +13,7 @@ import { aiWorkflowScheduler } from "@/lib/inngest/functions/ai-workflow-schedul
 import { aiWorkflowsReconcile } from "@/lib/inngest/functions/ai-workflows-reconcile";
 import { arcaIssuedSync } from "@/lib/inngest/functions/arca-issued-sync";
 import { arcaReceivedSync } from "@/lib/inngest/functions/arca-received-sync";
+import { strixKmSync } from "@/lib/inngest/functions/strix-km-sync";
 import { auditRetention } from "@/lib/inngest/functions/audit-retention";
 import { bcraExchangeRate } from "@/lib/inngest/functions/bcra-exchange-rate";
 import { caeaInform } from "@/lib/inngest/functions/caea-inform";
@@ -61,6 +62,7 @@ export const { GET, POST, PUT } = serve({
     caeaInform,
     arcaIssuedSync,
     arcaReceivedSync,
+    strixKmSync,
     aiWorkflowScheduler,
     aiWorkflowsReconcile,
     aiWorkflowRun,
