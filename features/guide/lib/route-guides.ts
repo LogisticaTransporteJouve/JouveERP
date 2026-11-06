@@ -394,6 +394,12 @@ export const ROUTE_GUIDES: readonly RouteGuide[] = [
     summary: "Los puntos de venta habilitados en ARCA y su canal.",
   },
   {
+    prefix: "/admin/accesos",
+    title: "Accesos",
+    summary:
+      "Los usuarios con los que JouveERP entra a ARCA (Mis Comprobantes) y a Strix (km de la flota).",
+  },
+  {
     prefix: "/admin/afip/preview-pdf",
     title: "Preview PDF",
     summary: "Cómo sale el PDF de un comprobante, sin emitirlo.",

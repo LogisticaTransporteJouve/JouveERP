@@ -136,7 +136,7 @@ export async function requestStrixKmSyncAction(
     return {
       ok: false,
       error:
-        "Falta cargar el usuario de Strix: lo carga un owner o admin con «Usuario de Strix».",
+        "Falta cargar el usuario de Strix: lo carga un owner o admin en Admin → Accesos.",
     };
   }
   if (status.state === "rejected") {
