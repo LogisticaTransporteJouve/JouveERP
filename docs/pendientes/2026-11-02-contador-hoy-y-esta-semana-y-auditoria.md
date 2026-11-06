@@ -14,9 +14,9 @@
       sensibles enmascarados, "Historial" en el detalle del comprobante,
       retención de 400 días (`audit-retention`), tool `getAuditEvents` y test
       de cobertura de `logAudit`.
-- [ ] Aprobar la migración `20261103030000_audit_log` junto con el deploy: sin
+- [x] Aprobar la migración `20261103030000_audit_log` junto con el deploy: sin
       ella fallan el filtro de acciones, el "Historial" no tiene índice y el
-      cron de retención falla.
+      cron de retención falla. — hecho: aplicada en producción (está en `production-latest`, `bbe08b38`).
 - [ ] Tile de km mensual en "Hoy y esta semana" (la tabla
       `vehicle_km_readings` ya está en `main`).
 - [ ] Un ZIP con todo el paquete (hoy son botones separados: no hay librería

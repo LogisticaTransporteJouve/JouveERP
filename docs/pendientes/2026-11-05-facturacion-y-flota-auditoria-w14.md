@@ -32,7 +32,7 @@ Ver [la decisión](../decisions/2026-11-05-facturacion-y-flota-auditoria-w14.md)
       por carga (antes `shipment_invoice_is_void`, con el mismo costo).
       `shipment_invoice_is_void` queda sin lectores en SQL: se puede borrar
       cuando ningún código que corra la necesite.
-- [ ] No verificado contra una base real: las tres migraciones y los pgTAP
+- [x] No verificado contra una base real: las tres migraciones y los pgTAP
       `fail_itemless_invoice_drafts`, `fleet_revenue_billed_share`,
       `list_totals_name_pattern` y `fleet_revenue_void_invoice` (sus cifras
-      con la NC parcial pasan de 100 a 58,68).
+      con la NC parcial pasan de 100 a 58,68). — hecho: las migraciones están en producción (`production-latest`, `bbe08b38`) y su pgTAP corre verde en el job `database` de CI (`main` en `e239ee7`).

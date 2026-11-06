@@ -3,7 +3,7 @@
 Decisión: `docs/decisions/2026-11-05-vencimiento-de-ventas-a-7-dias.md`.
 Migraciones: `20261105231000`, `20261105231001`.
 
-- [ ] **Guía: textos que dejaron de ser ciertos** (la guía es de otra sesión):
+- [x] **Guía: textos que dejaron de ser ciertos** (la guía es de otra sesión) — hecho: `features/guide/manual/content/ventas.ts:2140` y `plataforma.ts:410,442,631` (#448):
   - `features/guide/manual/content/ventas.ts`, aging: «Los días se cuentan
     desde el vencimiento de pago del comprobante (o desde su fecha, si no
     tiene)». Ahora: desde su vencimiento, que es 7 días después de la fecha

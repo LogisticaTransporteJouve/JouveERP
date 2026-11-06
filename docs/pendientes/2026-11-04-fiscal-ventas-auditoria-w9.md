@@ -17,6 +17,6 @@ Decisión: `docs/decisions/2026-11-04-importacion-arca-atomica-y-subtotal-neto-e
       ítems. Entra en el pendiente de w8 «Re-leer de ARCA las ventas ya
       importadas», que sigue sin aprobar. La consulta del ítem `160100` de
       `antes-de-promover.md` las cuenta.
-- [ ] **pgTAP sin correr en la sesión.**
+- [x] **pgTAP sin correr en la sesión.**
       `supabase/tests/arca_issued_import_atomic_test.sql` se escribió sin
-      Supabase local. Corre en CI.
+      Supabase local. Corre en CI. — hecho: corre verde en el job `database` de CI (`main` en `e239ee7`).

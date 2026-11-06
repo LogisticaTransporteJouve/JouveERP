@@ -18,11 +18,11 @@ import {
 import { defineAiProposal } from "../propose";
 
 import {
+  HrChannelInput,
   resolveChannel,
   resolveEmployee,
   resolveTreasuryAccount,
 } from "./hr-refs";
-import { CHANNEL_SIDES } from "./treasury-refs";
 
 // The employee's cuenta corriente (ficha del empleado): an advance or the
 // employee's payment through a cash/bank account, or a charge or payment
@@ -66,7 +66,7 @@ export const proposeEmployeeAccountCash = defineAiProposal({
       .min(1)
       .max(120)
       .describe("Cash or bank account, as the user said it."),
-    channel: z.enum(CHANNEL_SIDES),
+    channel: HrChannelInput,
     date: isoDate.optional().describe("Default today."),
     description: z.string().trim().max(200).optional(),
     installment_amount: money

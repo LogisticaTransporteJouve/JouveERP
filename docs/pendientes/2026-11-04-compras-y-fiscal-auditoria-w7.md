@@ -36,12 +36,12 @@
       mensaje en español; reabrir el período lo permite. Desvincular los
       comprobantes de ARCA ya confirmados cuando cambia el CUIT queda para la
       sesión de ARCA.
-- [ ] **El comentario de `20261104132100` quedó viejo** (ya mergeada, no se
+- [x] **El comentario de `20261104132100` quedó viejo** (ya mergeada, no se
       edita): dice que volver a guardar los mismos ítems pasa porque «el
       formulario de edición siempre los manda». Hasta esta auditoría el
       formulario recalculaba el IVA de cada ítem y una compra aceptada de ARCA
       no pasaba. Lo vigente está en este archivo y en
-      [la decisión](../decisions/2026-11-04-compras-edicion-en-periodo-cerrado-auditoria-w7.md).
-- [ ] No verificado contra una base real: las migraciones y sus pgTAP
+      [la decisión](../decisions/2026-11-04-compras-edicion-en-periodo-cerrado-auditoria-w7.md). — ya no aplica: nota sobre el comentario de una migración mergeada, que no se edita; lo vigente está en la decisión enlazada.
+- [x] No verificado contra una base real: las migraciones y sus pgTAP
       (`purchase_items_change_check_test.sql`,
-      `supplier_cuit_closed_period_test.sql`) no se corrieron acá.
+      `supplier_cuit_closed_period_test.sql`) no se corrieron acá. — hecho: las migraciones están en producción (`production-latest`, `bbe08b38`) y su pgTAP corre verde en el job `database` de CI (`main` en `e239ee7`).

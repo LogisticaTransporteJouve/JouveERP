@@ -9441,20 +9441,36 @@ export type Database = {
         Args: { p_account_id: string }
         Returns: Database["public"]["Enums"]["coa_system_role"]
       }
-      commit_import_run: {
-        Args: {
-          p_file_name: string
-          p_file_sha256: string
-          p_invalid_rows: number
-          p_kind: string
-          p_mapping: Json
-          p_rows: Json
-          p_skipped_rows: number
-          p_total_rows: number
-          p_user_id: string
-        }
-        Returns: string
-      }
+      commit_import_run:
+        | {
+            Args: {
+              p_file_name: string
+              p_file_sha256: string
+              p_invalid_rows: number
+              p_kind: string
+              p_mapping: Json
+              p_rows: Json
+              p_skipped_rows: number
+              p_total_rows: number
+              p_user_id: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_driver_position: string
+              p_file_name: string
+              p_file_sha256: string
+              p_invalid_rows: number
+              p_kind: string
+              p_mapping: Json
+              p_rows: Json
+              p_skipped_rows: number
+              p_total_rows: number
+              p_user_id: string
+            }
+            Returns: string
+          }
       confirm_driver_settlement:
         | {
             Args: { p_settlement_id: string; p_user_id: string }
@@ -9549,6 +9565,10 @@ export type Database = {
         }
         Returns: string
       }
+      create_invoice_draft: {
+        Args: { p_invoice: Json; p_items: Json }
+        Returns: string
+      }
       create_journal_entry: {
         Args: {
           p_accrual_period: string
@@ -9565,6 +9585,15 @@ export type Database = {
       }
       create_loan: {
         Args: { p_installments: Json; p_loan: Json }
+        Returns: string
+      }
+      create_loan_core: {
+        Args: {
+          p_created_by: string
+          p_import_run_id: string
+          p_installments: Json
+          p_loan: Json
+        }
         Returns: string
       }
       create_manual_check: {
@@ -9594,6 +9623,22 @@ export type Database = {
         }
         Returns: string
       }
+      create_pallets_bulk: {
+        Args: {
+          p_area_id?: string
+          p_client_id: string
+          p_code_prefix: string
+          p_count: number
+          p_entry_date: string
+          p_lot_expiry?: string
+          p_lot_number?: string
+          p_notes?: string
+          p_product_id?: string
+          p_quantity?: number
+          p_warehouse_id: string
+        }
+        Returns: number
+      }
       create_payment_order: {
         Args: {
           p_allocations: Json
@@ -9609,6 +9654,13 @@ export type Database = {
           p_total_amount: number
         }
         Returns: string
+      }
+      create_payroll_period: {
+        Args: { p_month: number; p_year: number }
+        Returns: {
+          created: boolean
+          period_id: string
+        }[]
       }
       create_purchase_invoice: {
         Args: { p_header: Json; p_items?: Json }
@@ -9640,6 +9692,13 @@ export type Database = {
           p_title: string
         }
         Returns: string
+      }
+      create_sac_period: {
+        Args: { p_half: number; p_year: number }
+        Returns: {
+          created: boolean
+          period_id: string
+        }[]
       }
       create_task: {
         Args: {

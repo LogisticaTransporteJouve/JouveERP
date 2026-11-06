@@ -28,6 +28,6 @@
       canal fiscal el IVA queda en anticipos y no en el costo. Ajustar
       `f_employee` a la parte que se le carga (`amount / imp_total` del
       cargo) sobre la definición de `20261104092000`.
-- [ ] No verificado contra una base real: las cuatro migraciones y los pgTAP
+- [x] No verificado contra una base real: las cuatro migraciones y los pgTAP
       `payroll_audit_fixes`, `driver_settlement_differences`,
-      `driver_settlements`, `employee_accounts`, `payroll_receipt_sac`.
+      `driver_settlements`, `employee_accounts`, `payroll_receipt_sac`. — hecho: las migraciones están en producción (`production-latest`, `bbe08b38`) y su pgTAP corre verde en el job `database` de CI (`main` en `e239ee7`).

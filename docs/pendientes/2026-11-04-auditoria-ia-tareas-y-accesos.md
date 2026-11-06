@@ -28,14 +28,14 @@
       permiso se lea fuera de la matriz.
 - Aprobación de `20261104096000` y `20261104096100`: en **Antes de
   promover**.
-- [ ] pgTAP verde en CI (stack fresco); sin verificar contra datos de
-      producción: las dos migraciones y el anti-join de tareas sin asignar.
+- [x] pgTAP verde en CI (stack fresco); sin verificar contra datos de
+      producción: las dos migraciones y el anti-join de tareas sin asignar. — hecho: las migraciones están en producción (`production-latest`, `bbe08b38`) y su pgTAP corre verde en el job `database` de CI (`main` en `e239ee7`).
 
-- [ ] Aprobar `20261104096000` (insights) y `20261104096100` (denegaciones de
+- [x] Aprobar `20261104096000` (insights) y `20261104096100` (denegaciones de
       permisos quitados) con el deploy. Sin la primera, el analista falla
-      (no existe el RPC) y las tarjetas quedan como estaban.
-- [ ] No verificado contra una base real: las dos migraciones, el pgTAP de
-      `regenerate_ai_insights` y el anti-join de tareas sin asignar.
+      (no existe el RPC) y las tarjetas quedan como estaban. — hecho: aplicadas en producción (están en `production-latest`, `bbe08b38`).
+- [x] No verificado contra una base real: las dos migraciones, el pgTAP de
+      `regenerate_ai_insights` y el anti-join de tareas sin asignar. — hecho: las migraciones están en producción (`production-latest`, `bbe08b38`) y su pgTAP corre verde en el job `database` de CI (`main` en `e239ee7`).
 
 ### Auditoría w2: IA, UI y adjuntos
 

@@ -242,9 +242,10 @@ jobs:
         run: supabase stop --no-backup
 
   # Every PR and push: the new-migration checks (scripts/check-migrations.sh)
-  # and their self-tests, then — only when the database surface changed — a
-  # fresh local stack with every migration applied, plpgsql_check, the types
-  # drift check, pgTAP and the PostgREST pentests. On PRs, the append-only check.
+  # and their self-tests, then — on every push to main, and on a PR only when
+  # the database surface changed — a fresh local stack with every migration
+  # applied, plpgsql_check, the types drift check, pgTAP and the PostgREST
+  # pentests. On PRs, the append-only check.
   database:
     name: database
     runs-on: ubuntu-latest
@@ -286,13 +287,20 @@ jobs:
           echo "BASE=$base" >> "$GITHUB_ENV"
           echo "BASE_LABEL=$label" >> "$GITHUB_ENV"
 
-      # The DB steps below only run when something they cover changed.
+      # On a PR the DB steps below only run when something they cover changed.
+      # A push to main always runs them: two PRs green on their own can break
+      # pgTAP once both land, and the push that lands the second may touch no
+      # database file.
       - name: Detect relevant changes
         id: changes
+        env:
+          EVENT_NAME: ${{ github.event_name }}
         run: |
           set -euo pipefail
           changed="$(git diff --name-only "${BASE}...HEAD")"
-          if printf '%s\n' "$changed" \
+          if [ "$EVENT_NAME" = "push" ]; then
+            echo "relevant=true" >> "$GITHUB_OUTPUT"
+          elif printf '%s\n' "$changed" \
             | grep -E '^(supabase/migrations/|supabase/tests/|supabase/seed\.sql$|tests/security/|tests/integration/_setup\.ts$|lib/auth/permissions\.ts$|lib/db/database\.types\.ts$|scripts/db-types.*\.sh$|scripts/supabase-cli-version$|\.github/workflows/ci\.yml$)' >/dev/null; then
             echo "relevant=true" >> "$GITHUB_OUTPUT"
           else

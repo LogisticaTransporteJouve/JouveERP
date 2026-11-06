@@ -18,7 +18,7 @@
 - [x] **Manual:** formato de cada planilla del importador y sección de
       Conciliación; servido en `/manual` con sesión iniciada; la guía del
       sidebar enlaza la sección de cada pantalla.
-- [ ] Aprobar las migraciones `20261104070000_import_more_fields` y
+- [x] Aprobar las migraciones `20261104070000_import_more_fields` y
       `20261104070100_bank_reconciliation_many_lines` con el deploy (después
       de las de 5.3/5.4; `promote-to-production.yml` las aplica antes del
       código). Sin la primera, la RPC vieja ignora las claves nuevas:
@@ -27,7 +27,7 @@
       hasta aplicarla. Sin la segunda falla "Conciliar con varias líneas".
       Rollback del código: llama a las mismas RPC con su firma; una
       conciliación partida sigue bloqueando su movimiento y el código viejo
-      la muestra contra una de sus líneas.
+      la muestra contra una de sus líneas. — hecho: aplicadas en producción (están en `production-latest`, `bbe08b38`).
 - [ ] pgTAP verde en CI (stack fresco: `import_more_fields_test.sql`,
       `bank_reconciliation_many_lines_test.sql`); sin verificar contra datos
       de producción. No se probaron en el navegador `/manual`

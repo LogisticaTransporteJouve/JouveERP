@@ -169,7 +169,9 @@ describe("routes", () => {
   });
 });
 
-describe("quotes from the app", () => {
+// Scanning the whole source takes seconds under a loaded runner (pre-push
+// runs the full suite in parallel).
+describe("quotes from the app", { timeout: 30_000 }, () => {
   it("every UI label the guide quotes exists in the code", () => {
     const labels = new Set([
       ...TEXTS.flatMap(quotedLabels),

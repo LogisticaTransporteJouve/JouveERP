@@ -14,21 +14,21 @@
       F931, monotributo, otro con nombre), período, vencimiento, importe
       (manual o estimado desde el libro IVA) y estado pendiente → liquidado
       → pagado / anulado; VEP o DDJJ como adjunto (`file_attachments.
-  tax_document_id`); lista y calendario; "Preparar el mes" copia los del
+tax_document_id`); lista y calendario; "Preparar el mes" copia los del
       mes anterior. **Pagar** (`pay_tax_document`) registra el egreso en el
       canal fiscal como movimiento con dueño y su asiento Debe cuenta del
       impuesto / Haber caja o banco; rechaza un período cerrado. Tareas
       automáticas 7 días antes del vencimiento (`sync_automatic_tasks`,
       cron `tasks-daily`). `taxes:read` (owner, admin, finance,
       fiscal_reader) y `taxes:write` (owner, admin, finance).
-- [ ] Aprobar las migraciones `20261103170000_tax_documents` y
+- [x] Aprobar las migraciones `20261103170000_tax_documents` y
       `20261103170100_user_guide_states` con el deploy (después de
       `20261103150000_ai_cross_queries`). Sin ellas falla `/taxes` y la guía
       del sidebar muestra solo la ayuda de la pantalla (la lectura del
       checklist falla). Rollback: el código anterior no lee las tablas
       nuevas; Caja (`v_transactions_tagged`) marca el pago de un impuesto con
       origen `tax_document` y la app vieja lo muestra como un movimiento con
-      dueño (no editable), que es lo correcto.
+      dueño (no editable), que es lo correcto. — hecho: aplicadas en producción (están en `production-latest`, `bbe08b38`).
 - [ ] pgTAP verde en CI (stack fresco: `tax_documents_test.sql`); sin verificar contra datos
       de producción. La UI (guía, impuestos, calendario) no se probó en el
       navegador.
@@ -42,9 +42,9 @@
       (`create_bank_statement_line_tax_payment`: `pay_tax_document` con la
       fecha, cuenta e importe de la línea, y la concilia). Un importe
       distinto al del impuesto pide confirmación y queda en las notas.
-- [ ] Aprobar la migración `20261103190000_tax_documents_link_movement` con
+- [x] Aprobar la migración `20261103190000_tax_documents_link_movement` con
       el deploy. Rollback: el código anterior no llama a los RPC nuevos; un
-      impuesto pagado así se ve como cualquier pagado.
+      impuesto pagado así se ve como cualquier pagado. — hecho: aplicada en producción (está en `production-latest`, `bbe08b38`).
 - [ ] pgTAP verde en CI (stack fresco: `tax_documents_link_test.sql`); sin verificar contra
       datos de producción. Los diálogos (vincular, "Pago de impuesto") no se
       probaron en el navegador.
@@ -110,11 +110,11 @@
       hub de archivos. En `/taxes`, el lector abre "Ver adjuntos".
 - [x] **Herramienta IA** `getTaxDocuments` (`taxes:read`): vencidos, por
       vencer, pagados en un mes, estimados y, a pedido, el estimado de IVA.
-- [ ] Aprobar las migraciones `20261104050100` a `20261104050400` con el
+- [x] Aprobar las migraciones `20261104050100` a `20261104050400` con el
       deploy. Rollback: el código anterior no llama a `undo_tax_document_
-    payment` ni lee las columnas nuevas; gestión percibido sigue en rubros
+  payment` ni lee las columnas nuevas; gestión percibido sigue en rubros
       que conoce; las policies nuevas solo agregan filas a un rol al que el
-      código viejo no le pide adjuntos.
+      código viejo no le pide adjuntos. — hecho: aplicadas en producción (están en `production-latest`, `bbe08b38`).
 - [ ] pgTAP verde en CI (stack fresco: `tax_documents_undo_test.sql`); sin verificar contra
       datos de producción. "Deshacer pago", el saldo a favor y "Ver adjuntos"
       no se probaron en el navegador; los casos de ruteo nuevos no se

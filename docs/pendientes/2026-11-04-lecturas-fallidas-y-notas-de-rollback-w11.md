@@ -8,17 +8,17 @@ Estas migraciones ya están en `main`. Su ítem «Aprobar» en
 [`antes-de-promover.md`](antes-de-promover.md) ya dice lo correcto. El
 encabezado del SQL no:
 
-- [ ] **`20261104170200_recategorize_keeps_empty_nc_nd`.** Dice "older code
+- [x] **`20261104170200_recategorize_keeps_empty_nc_nd`.** Dice "older code
       calls the same RPC". `recategorize_expense` se crea en
       `20261104060000`, después de `production-latest`, y ese código no
-      tiene «Recategorizar». El rollback no cambia nada.
-- [ ] **`20261104170201_fleet_pending_by_count`.** Dice que el
+      tiene «Recategorizar». El rollback no cambia nada. — ya no aplica: `production-latest` (`bbe08b38`) ya tiene esa migración y su código: un rollback no vuelve al código que describe la nota.
+- [x] **`20261104170201_fleet_pending_by_count`.** Dice que el
       `getVehicleEconomics` anterior listaría el grupo `none` como un
       vehículo. `production-latest` no tiene `getVehicleEconomics`. Su único
       lector de `ai_fleet_margin` es la herramienta del asistente
       `getFleetMargin` (`getFleetMarginAction`). Por vehículo, esa
       herramienta muestra una fila «Sin vehículo», y sus totales (grupos,
-      ingreso, neto) incluyen esos viajes. Es cosmético.
+      ingreso, neto) incluyen esos viajes. Es cosmético. — ya no aplica: `production-latest` (`bbe08b38`) ya tiene esa migración y su código: un rollback no vuelve al código que describe la nota.
 
 ## Sin verificar
 

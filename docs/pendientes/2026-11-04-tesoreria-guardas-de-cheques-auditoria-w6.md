@@ -27,9 +27,9 @@
       [la decisión](../decisions/2026-11-04-cheques-propios-e-importacion-de-cheques-piden-movimientos.md).
 - [x] **Editar cuota**: dejar el monto vacío ya no guarda una cuota de 0;
       pide «Monto requerido.».
-- [ ] No verificado contra una base real: la migración y sus pgTAP
+- [x] No verificado contra una base real: la migración y sus pgTAP
       (`check_insert_movements_guard` y los fixtures adaptados de
-      `checks_channel`, `rejected_check_receivable` y `otras_ventas_sides`).
+      `checks_channel`, `rejected_check_receivable` y `otras_ventas_sides`). — hecho: las migraciones están en producción (`production-latest`, `bbe08b38`) y su pgTAP corre verde en el job `database` de CI (`main` en `e239ee7`).
 - [ ] Fuera de alcance: un INSERT directo de un cheque manual todavía puede
       traer `import_run_id` de otra corrida, y entonces deshacer esa
       importación lo borra junto con su ingreso. No mueve plata de más, pero

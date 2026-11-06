@@ -25,5 +25,5 @@
       que no figuran en `payment_order_payment_lines` (cargados por la API
       antes de esta guarda). Producción no tiene OP, así que se espera
       ninguno.
-- [ ] No verificado contra una base real: las migraciones y sus pgTAP
-      (`check_edit_guards`, `checks_channel` adaptado).
+- [x] No verificado contra una base real: las migraciones y sus pgTAP
+      (`check_edit_guards`, `checks_channel` adaptado). — hecho: las migraciones están en producción (`production-latest`, `bbe08b38`) y su pgTAP corre verde en el job `database` de CI (`main` en `e239ee7`).
