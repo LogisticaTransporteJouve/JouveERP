@@ -38,7 +38,7 @@ select ok(
 
 select ok(
   not has_function_privilege('authenticated',
-        'public.apply_client_opening_balance_core(uuid, date, numeric, text, uuid, uuid)', 'execute')
+        'public.apply_client_opening_balance_core(uuid, date, numeric, text, uuid, uuid, numeric)', 'execute')
   and not has_function_privilege('authenticated',
         'public.import_run_outside_reference(text, uuid, text[])', 'execute'),
   'the internal helpers are not exposed'

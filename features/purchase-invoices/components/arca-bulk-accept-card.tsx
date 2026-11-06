@@ -77,7 +77,7 @@ function summary(p: BulkProgress): string[] {
   ];
   if (p.dolOpen > 0) {
     lines.push(
-      `${p.dolOpen} compras en dólares hasta el ${OPENING} siguen abiertas: el saldo de apertura es en pesos.`,
+      `${p.dolOpen} compras en dólares hasta el ${OPENING} siguen abiertas: este saldo de apertura es en pesos. Para cancelarlas, ajustá el saldo en dólares del proveedor.`,
     );
   }
   return lines;
@@ -172,7 +172,8 @@ function ConfirmDialog({
             compras hasta esa fecha: todo lo anterior queda cancelado, y lo de
             noviembre en adelante queda como deuda abierta. Si el proveedor ya
             tenía un saldo de apertura, se reemplaza. Las compras en dólares no
-            se cancelan: el saldo de apertura es en pesos.
+            se cancelan: este saldo de apertura es en pesos (el saldo en dólares
+            se ajusta desde la cuenta corriente del proveedor).
           </li>
         </ol>
         <p className="text-sm text-muted-foreground">

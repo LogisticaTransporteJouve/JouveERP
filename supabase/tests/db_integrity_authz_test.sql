@@ -272,7 +272,7 @@ select throws_ok(
 select ok(not has_function_privilege('anon', 'public.ai_usage_today()', 'execute'), 'anon cannot run ai_usage_today');
 select ok(not has_function_privilege('authenticated', 'public.ai_usage_today()', 'execute'), 'authenticated cannot run ai_usage_today');
 select ok(not has_function_privilege('anon', 'public.notification_type_enabled(uuid, text)', 'execute'), 'anon cannot run notification_type_enabled');
-select ok(not has_function_privilege('anon', 'public.apply_client_opening_balance(uuid, date, numeric, text)', 'execute'), 'anon cannot run apply_client_opening_balance');
+select ok(not has_function_privilege('anon', 'public.apply_client_opening_balance(uuid, date, numeric, text, numeric)', 'execute'), 'anon cannot run apply_client_opening_balance');
 select ok(not has_function_privilege('anon', 'public.list_chat_assignable_users()', 'execute'), 'anon cannot run list_chat_assignable_users');
 select is_empty(
   $$select c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace

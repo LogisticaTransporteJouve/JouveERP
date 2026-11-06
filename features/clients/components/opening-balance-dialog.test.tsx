@@ -62,4 +62,47 @@ describe("client OpeningBalanceDialog", () => {
       "Ingresá un saldo válido (no negativo).",
     );
   });
+  describe("dollar target", () => {
+    function openWithUsd(usd: number | null): HTMLInputElement {
+      existing = {
+        opening_date: "2026-10-31",
+        target_balance: 0,
+        total_settled: 0,
+        target_balance_usd: usd,
+        total_settled_usd: usd === null ? null : 0,
+        notes: null,
+      };
+      render(<OpeningBalanceDialog clientId="c1" prefill />);
+      fireEvent.click(screen.getByRole("button", { name: /Ajustar saldo/ }));
+      const input = screen.getByPlaceholderText("Sin ajustar");
+      if (!(input instanceof HTMLInputElement)) throw new Error("not an input");
+      fireEvent.click(screen.getByRole("button", { name: "Actualizar" }));
+      return input;
+    }
+
+    it("prefills and sends the dollar target", () => {
+      const input = openWithUsd(1500.5);
+      expect(input.value).toBe("1.500,50");
+      expect(setMutate.mock.calls[0]?.[0]).toMatchObject({
+        target_balance: 0,
+        target_balance_usd: 1500.5,
+      });
+    });
+
+    it("sends null when the dollar field is empty", () => {
+      const input = openWithUsd(null);
+      expect(input.value).toBe("");
+      expect(setMutate.mock.calls[0]?.[0]).toMatchObject({
+        target_balance_usd: null,
+      });
+    });
+
+    it("refuses a negative dollar target", () => {
+      openWithUsd(-10);
+      expect(setMutate).not.toHaveBeenCalled();
+      expect(toastError).toHaveBeenCalledWith(
+        "Ingresá un saldo en dólares válido (no negativo).",
+      );
+    });
+  });
 });

@@ -203,6 +203,7 @@ export function useSetSupplierOpeningBalance() {
       supplier_id: string;
       opening_date: string;
       target_balance: number;
+      target_balance_usd?: number | null;
       notes?: string | null;
     }) => runAction(() => setSupplierOpeningBalanceAction(input)),
     // Supplier account and aging nest under suppliersKeys; the payment

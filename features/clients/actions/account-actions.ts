@@ -31,6 +31,7 @@ const SetOpeningInput = z.object({
   client_id: UuidSchema,
   opening_date: IsoDateSchema,
   target_balance: NonNegativeAmountSchema,
+  target_balance_usd: NonNegativeAmountSchema.nullish(),
   notes: NotesSchema,
 });
 
@@ -58,7 +59,8 @@ export interface AccountMovement {
   signed_amount: number;
   /** Absolute value, useful when rendering "Debe" / "Haber" columns. */
   gross_amount: number;
-  /** The movement's currency; the opening balance is in pesos. */
+  /** The movement's currency; the opening balance has one row per currency
+   *  it fixes (pesos, and dollars when it has a dollar target). */
   currency: StatementCurrency;
   /** null for opening_balance — does not belong to any channel. */
   channel_id: string | null;
@@ -220,6 +222,7 @@ export async function getClientAccountAction(
     if (d.document_id) openByDocument.set(d.document_id, Number(d.open_amount));
   }
   const running = zeroBalances();
+  const openingTargets = new Map<StatementCurrency, number>();
   const movements: AccountMovement[] = [];
   for (const row of rows) {
     // Validate only the fields that are required for ALL source_types.
@@ -245,7 +248,8 @@ export async function getClientAccountAction(
     let gross = Number(row.gross_amount);
     if (row.source_type === "opening_balance") {
       // The balance "jumps" to the target. Effective signed = target - running.
-      const target = Number(row.signed_amount); // the view leaves target_balance here
+      const target = Number(row.signed_amount); // the view leaves the target here
+      openingTargets.set(currency, target);
       signed = round2(target - running[currency]);
       gross = Math.abs(signed);
     }
@@ -303,10 +307,6 @@ export async function getClientAccountAction(
     }
   }
 
-  // The opening balance has no channel: shown as its target, informative only.
-  const openingTarget = Number(
-    rows.find((r) => r.source_type === "opening_balance")?.signed_amount ?? 0,
-  );
   const scoped = movements.filter(
     (m) =>
       m.channel_is_fiscal === isFiscal || m.source_type === "opening_balance",
@@ -316,13 +316,16 @@ export async function getClientAccountAction(
   // 0 (each side starts at 0 there). An opening with another target does not
   // say how much of it is this side's, so the side shows no Saldo.
   const hasOpening = scoped.some((m) => m.source_type === "opening_balance");
-  const sideRunning = !hasOpening || openingTarget === 0;
+  const sideRunning =
+    !hasOpening || [...openingTargets.values()].every((t) => t === 0);
   let known = !hasOpening;
   const side = zeroBalances();
   const withBalance = scoped.map((m) => {
     if (m.source_type === "opening_balance") {
       known = sideRunning;
       for (const c of Object.keys(side) as (keyof typeof side)[]) side[c] = 0;
+      // The opening has no channel: shown as its target, informative only.
+      const openingTarget = openingTargets.get(m.currency) ?? 0;
       return {
         ...m,
         signed_amount: openingTarget,
@@ -352,6 +355,9 @@ export interface ClientOpeningBalance {
   opening_date: string;
   target_balance: number;
   total_settled: number;
+  /** null = the dollars are not adjusted. */
+  target_balance_usd: number | null;
+  total_settled_usd: number | null;
   notes: string | null;
   created_at: string;
   updated_at: string;
@@ -373,7 +379,7 @@ export async function getClientOpeningBalanceAction(
   const { data, error } = await supabase
     .from("client_opening_balances")
     .select(
-      "client_id, opening_date, target_balance, total_settled, notes, created_at, updated_at",
+      "client_id, opening_date, target_balance, total_settled, target_balance_usd, total_settled_usd, notes, created_at, updated_at",
     )
     .eq("client_id", clientId)
     .maybeSingle();
@@ -393,6 +399,12 @@ export async function getClientOpeningBalanceAction(
       opening_date: data.opening_date,
       target_balance: Number(data.target_balance),
       total_settled: Number(data.total_settled),
+      target_balance_usd:
+        data.target_balance_usd === null
+          ? null
+          : Number(data.target_balance_usd),
+      total_settled_usd:
+        data.total_settled_usd === null ? null : Number(data.total_settled_usd),
       notes: data.notes,
       created_at: data.created_at,
       updated_at: data.updated_at,
@@ -409,6 +421,9 @@ export async function setClientOpeningBalanceAction(input: {
   client_id: string;
   opening_date: string; // YYYY-MM-DD
   target_balance: number;
+  /** Omitted or null: the dollar target already set (if any) is applied
+   *  again; with none, the dollars are not adjusted. */
+  target_balance_usd?: number | null;
   notes?: string | null;
 }): Promise<ActionResult<void>> {
   const ctx = await requireUserContext();
@@ -434,6 +449,7 @@ export async function setClientOpeningBalanceAction(input: {
     p_opening_date: input.opening_date,
     p_target_balance: input.target_balance,
     p_notes: input.notes ?? undefined,
+    p_target_balance_usd: input.target_balance_usd ?? undefined,
   });
   if (error) {
     const guard = mapDbGuardError(error, {
@@ -455,6 +471,7 @@ export async function setClientOpeningBalanceAction(input: {
     {
       opening_date: input.opening_date,
       target_balance: input.target_balance,
+      target_balance_usd: input.target_balance_usd ?? null,
     },
     input.client_id,
   );

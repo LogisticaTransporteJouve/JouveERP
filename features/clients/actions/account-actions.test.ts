@@ -25,15 +25,19 @@ function from(table: string) {
   return builder;
 }
 
+const rpc = vi.fn(async (_fn: string, _args: Row) => ({ error: null }));
+let role: "finance" | "owner" = "finance";
+
 vi.mock("@/lib/auth/context", () => ({
   requireUserContext: async () => ({
     userId: "u1",
-    access: resolveAccess(["finance"]),
+    access: resolveAccess([role]),
   }),
 }));
 vi.mock("@/lib/supabase/server", () => ({
-  createClient: async () => ({ from }),
+  createClient: async () => ({ from, rpc }),
 }));
+vi.mock("@/lib/actions/audit", () => ({ logAudit: vi.fn() }));
 vi.mock("@/lib/supabase/paginate", () => ({
   paginateRange: async (
     page: (from: number, to: number) => Promise<{ data: Row[]; error: null }>,
@@ -43,7 +47,8 @@ vi.mock("@/lib/logger", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-const { getClientAccountAction } = await import("./account-actions");
+const { getClientAccountAction, setClientOpeningBalanceAction } =
+  await import("./account-actions");
 
 const CLIENT = "6f1c2b3a-4d5e-4f60-8a7b-9c0d1e2f3a4b";
 
@@ -274,5 +279,160 @@ describe("getClientAccountAction", () => {
       ["new1", 120],
       ["new2", 200],
     ]);
+  });
+});
+
+describe("dollar opening balance", () => {
+  function seedWithDollarOpening(usdTarget: number) {
+    seed();
+    db.v_client_account_movements = [
+      movement({
+        source_type: "invoice",
+        source_id: "u-old",
+        kind: "factura",
+        currency: "USD",
+        numero: 1,
+        movement_date: "2026-10-01",
+        signed_amount: 50,
+        gross_amount: 50,
+      }),
+      movement({
+        source_type: "invoice",
+        source_id: "p-old",
+        kind: "factura",
+        currency: "ARS",
+        numero: 2,
+        movement_date: "2026-10-02",
+        signed_amount: 1000,
+        gross_amount: 1000,
+      }),
+      movement({
+        source_type: "opening_balance",
+        source_id: null,
+        kind: "opening_balance",
+        currency: "ARS",
+        numero: null,
+        punto_venta: null,
+        movement_date: "2026-10-31",
+        signed_amount: 0,
+        gross_amount: 0,
+        channel_id: null,
+        channel_name: null,
+        channel_is_fiscal: null,
+      }),
+      movement({
+        source_type: "opening_balance",
+        source_id: null,
+        kind: "opening_balance",
+        currency: "USD",
+        numero: null,
+        punto_venta: null,
+        movement_date: "2026-10-31",
+        signed_amount: usdTarget,
+        gross_amount: usdTarget,
+        channel_id: null,
+        channel_name: null,
+        channel_is_fiscal: null,
+      }),
+      movement({
+        source_type: "invoice",
+        source_id: "u-new",
+        kind: "factura",
+        currency: "USD",
+        numero: 3,
+        movement_date: "2026-11-02",
+        signed_amount: 20,
+        gross_amount: 20,
+      }),
+    ];
+  }
+
+  it("jumps each currency's balance to its own target", async () => {
+    seedWithDollarOpening(10);
+    const res = await getClientAccountAction(CLIENT);
+    if (!res.ok) throw new Error(res.error);
+    expect(
+      res.data.movements.map((m) => [
+        m.source_id,
+        m.currency,
+        m.signed_amount,
+        m.balance,
+      ]),
+    ).toEqual([
+      ["u-old", "USD", 50, 50],
+      ["p-old", "ARS", 1000, 1000],
+      [null, "ARS", -1000, 0],
+      [null, "USD", -40, 10],
+      ["u-new", "USD", 20, 30],
+    ]);
+    expect(res.data.balances).toEqual({ ARS: 0, USD: 30 });
+  });
+
+  it("under a scope, each opening row shows its target and a non-zero dollar target leaves no Saldo", async () => {
+    seedWithDollarOpening(10);
+    const res = await getClientAccountAction(CLIENT, { isFiscal: true });
+    if (!res.ok) throw new Error(res.error);
+    expect(res.data.runningBalance).toBe(false);
+    expect(
+      res.data.movements
+        .filter((m) => m.source_type === "opening_balance")
+        .map((m) => [m.currency, m.signed_amount]),
+    ).toEqual([
+      ["ARS", 0],
+      ["USD", 10],
+    ]);
+  });
+
+  it("under a scope, openings at 0 in both currencies keep the Saldo", async () => {
+    seedWithDollarOpening(0);
+    const res = await getClientAccountAction(CLIENT, { isFiscal: true });
+    if (!res.ok) throw new Error(res.error);
+    expect(res.data.runningBalance).toBe(true);
+    expect(res.data.movements.at(-1)?.balance).toBe(20);
+  });
+});
+
+describe("setClientOpeningBalanceAction", () => {
+  const input = {
+    client_id: CLIENT,
+    opening_date: "2026-10-31",
+    target_balance: 0,
+  };
+
+  it("passes the dollar target to the RPC", async () => {
+    role = "owner";
+    rpc.mockClear();
+    const res = await setClientOpeningBalanceAction({
+      ...input,
+      target_balance_usd: 125.5,
+    });
+    expect(res.ok).toBe(true);
+    expect(rpc).toHaveBeenCalledWith("apply_client_opening_balance", {
+      p_client_id: CLIENT,
+      p_opening_date: "2026-10-31",
+      p_target_balance: 0,
+      p_notes: undefined,
+      p_target_balance_usd: 125.5,
+    });
+  });
+
+  it("leaves the dollar target out when there is none", async () => {
+    role = "owner";
+    rpc.mockClear();
+    await setClientOpeningBalanceAction({ ...input, target_balance_usd: null });
+    expect(rpc.mock.calls[0]?.[1]).toMatchObject({
+      p_target_balance_usd: undefined,
+    });
+  });
+
+  it("refuses a negative dollar target before the RPC", async () => {
+    role = "owner";
+    rpc.mockClear();
+    const res = await setClientOpeningBalanceAction({
+      ...input,
+      target_balance_usd: -1,
+    });
+    expect(res.ok).toBe(false);
+    expect(rpc).not.toHaveBeenCalled();
   });
 });
