@@ -6,8 +6,6 @@ import {
   listInvoicingChannelsAction,
   loadAfipAdminAction,
 } from "@/features/afip-admin/actions/afip-admin-actions";
-import { getArcaWebAccountAction } from "@/features/afip-admin/actions/arca-web-account-actions";
-import { ArcaWebAccountPanel } from "@/features/afip-admin/components/arca-web-account-panel";
 import { CaeaPanel } from "@/features/afip-admin/components/caea-panel";
 import { SalesPointsPanel } from "@/features/afip-admin/components/sales-points-panel";
 import { afipAdminKeys } from "@/features/afip-admin/lib/afip-admin-keys";
@@ -42,10 +40,6 @@ export default async function AfipSalesPointsPage() {
       queryKey: afipAdminKeys.channels(),
       queryFn: () => runAction(() => listInvoicingChannelsAction()),
     },
-    {
-      queryKey: afipAdminKeys.arcaWebAccount(),
-      queryFn: () => runAction(() => getArcaWebAccountAction()),
-    },
   ]);
 
   return (
@@ -64,7 +58,6 @@ export default async function AfipSalesPointsPage() {
       <Hydrate state={dehydratedState}>
         <Suspense fallback={<Loading />}>
           <SalesPointsPanel />
-          <ArcaWebAccountPanel />
           <CaeaPanel />
         </Suspense>
       </Hydrate>

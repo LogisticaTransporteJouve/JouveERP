@@ -95,8 +95,6 @@ export default async function VehicleDetailPage({
         <Hydrate state={dehydratedState}>
           <VehicleKmDays
             vehicleId={id}
-            canWrite={userCan(ctx.access, "fleet_km:write")}
-            canAdmin={userCan(ctx.access, "fleet_km:admin")}
             showDrivers={userCan(ctx.access, "trips:read")}
             linkDrivers={userCan(ctx.access, "drivers:read")}
           />

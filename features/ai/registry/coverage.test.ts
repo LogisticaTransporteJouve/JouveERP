@@ -138,6 +138,9 @@ const NO_TOOL: Record<string, string> = {
   "/profile": "the user's own profile",
   // A developer preview of a sample PDF; it holds no data.
   "/admin/afip/preview-pdf": "PDF preview tool",
+  // Which service users are set and whether they sign in: credentials, not
+  // business data for the assistant.
+  "/admin/accesos": "service users (credentials)",
   // Its read, verifyCuitAction, calls AFIP and writes padron_cache: the
   // ESLint fence lets only read actions cross features, so a tool needs a
   // read action in features/clients first.

@@ -370,6 +370,104 @@ export const adminPage: GuidePage = {
       ],
     },
 
+    // ── Accesos ────────────────────────────────────────────────────────────
+    {
+      id: "admin-accesos",
+      title: "Accesos",
+      menuPath: "Admin › Accesos",
+      routes: ["/admin/accesos"],
+      permission: "afip:admin",
+      intro: [
+        "Los usuarios con los que JouveERP entra solo a servicios externos, todos en un lugar. Cada bloque dice si funciona y cuándo entró por última vez, y {{Cambiar}} (o {{Configurar}} la primera vez) carga el usuario y la clave.",
+        "{{Usuario de ARCA para Mis Comprobantes}}: con el que se bajan los comprobantes recibidos a [[/purchases/arca]].",
+        "{{Usuario de Strix para los km de la flota}}: con el que se traen los km de cada vehículo a [[/vehicle-km]].",
+        "Las claves se guardan cifradas y no se vuelven a mostrar. Si un servicio rechaza la clave, JouveERP deja de intentar hasta que se vuelva a cargar acá.",
+      ],
+      tasks: [
+        {
+          id: "configurar-usuario-arca",
+          title: "Configurar el usuario de ARCA para Mis Comprobantes",
+          summary:
+            "El usuario con clave fiscal con el que el sistema baja de ARCA los comprobantes recibidos.",
+          permission: "afip:admin",
+          prerequisites: [
+            "Un usuario de ARCA al que DZ & Sons le delegó solo el servicio Mis Comprobantes.",
+          ],
+          screens: [
+            {
+              kind: "dialog",
+              title: "Usuario de ARCA para Mis Comprobantes",
+              description:
+                "Usá un usuario al que DZ & Sons le delegó solo el servicio Mis Comprobantes. La clave se guarda cifrada y no se vuelve a mostrar.",
+              fields: [
+                {
+                  label: "CUIT del usuario",
+                  kind: "input",
+                  value: "20-12345678-9",
+                  marker: 2,
+                },
+                {
+                  label: "Clave fiscal",
+                  kind: "input",
+                  value: "••••••••",
+                  marker: 3,
+                },
+              ],
+              footer: [
+                { label: "Cancelar", variant: "outline" },
+                { label: "Guardar", variant: "primary", marker: 4 },
+              ],
+            },
+          ],
+          steps: [
+            "En [[/admin/accesos]], en el bloque {{Usuario de ARCA para Mis Comprobantes}}, hacé clic en {{Configurar}} (o en {{Cambiar}} si ya hay uno).",
+            "En {{CUIT del usuario}}, escribí el CUIT de la persona que entra a ARCA.",
+            "En {{Clave fiscal}}, escribí su clave. Si solo cambiás el CUIT de un usuario que funciona, podés dejarla vacía para no cambiarla.",
+            "Hacé clic en {{Guardar}}.",
+          ],
+          after: [
+            "El sistema muestra {{Usuario de ARCA guardado.}} La clave se guarda cifrada y no se vuelve a mostrar.",
+            "El bloque muestra el estado: {{Sin configurar}}, funcionando con la fecha del último ingreso, o pausado si ARCA rechazó la clave o falló dos veces (en ese caso hay que volver a cargar la clave).",
+            "Queda registrado en [[/admin/audit]] como `afip.arca_web_credentials_saved`, sin la clave.",
+          ],
+          errors: [
+            {
+              message: "CUIT inválido.",
+              fix: "Revisá el CUIT.",
+            },
+            {
+              message: "Falta la clave.",
+              fix: "La primera vez hay que cargar la clave.",
+            },
+            {
+              message:
+                "JouveERP dejó de entrar a ARCA con esta clave: cargá la clave para volver a intentar.",
+              fix: "Escribí la clave actual (o la nueva, si la cambiaste en ARCA) y guardá.",
+            },
+            {
+              message: "La clave es demasiado larga.",
+              fix: "Revisá lo que escribiste en {{Clave fiscal}}.",
+            },
+            {
+              message: "No se pudo guardar el usuario de ARCA.",
+              fix: "Probá de nuevo en un rato.",
+            },
+            {
+              message: "No tenés permiso para configurar AFIP.",
+              fix: "Pedíselo a un owner o admin.",
+            },
+          ],
+          keywords: [
+            "clave fiscal",
+            "Mis Comprobantes",
+            "recibidos",
+            "robot ARCA",
+            "delegar servicio",
+          ],
+        },
+      ],
+    },
+
     // ── Puntos de venta AFIP ───────────────────────────────────────────────
     {
       id: "admin-puntos-de-venta",
@@ -378,11 +476,10 @@ export const adminPage: GuidePage = {
       routes: ["/admin/afip/puntos-de-venta"],
       permission: "afip:admin",
       intro: [
-        "La pantalla de configuración de AFIP/ARCA. Arriba muestra el ambiente ({{Producción}} u {{Homologación}}) y el CUIT con el que se factura, y tiene cinco bloques:",
+        "La pantalla de configuración de AFIP/ARCA. Arriba muestra el ambiente ({{Producción}} u {{Homologación}}) y el CUIT con el que se factura, y tiene cuatro bloques:",
         "{{Diagnóstico AFIP}}: las validaciones que tienen que pasar antes de emitir: {{Variables de entorno}}, {{Certificado}} (avisa cuando faltan menos de 30 días para que venza y cuando está vencido), el ticket de acceso a los servicios ({{WSAA — wsfe}} y el del padrón) y el estado del servidor de facturación ({{WSFEv1 — FEDummy}}).",
         "{{Puntos de venta}}: los puntos de venta que AFIP tiene habilitados para el CUIT, con {{Número}}, {{Alias}}, {{Canal}}, {{Habilitado}} y el estado en {{AFIP}} (activo o bloqueado y su tipo de emisión). AFIP solo devuelve los puntos de factura electrónica por web service (WSFEv1); los de Comprobantes en Línea u otros servicios no aparecen.",
         "{{Conciliación con ARCA}}: compara, por punto de venta y tipo de comprobante, el último número autorizado en ARCA contra lo que tiene el sistema.",
-        "{{Usuario de ARCA para Mis Comprobantes}}: el usuario con el que el sistema entra a ARCA para bajar los comprobantes recibidos.",
         "{{CAEA (contingencia)}}: el código anticipado por quincena para emitir con AFIP caído.",
       ],
       screens: [
@@ -589,87 +686,6 @@ export const adminPage: GuidePage = {
             "huecos de numeración",
             "último número",
             "ARCA",
-          ],
-        },
-        {
-          id: "configurar-usuario-arca",
-          title: "Configurar el usuario de ARCA para Mis Comprobantes",
-          summary:
-            "El usuario con clave fiscal con el que el sistema baja de ARCA los comprobantes recibidos.",
-          permission: "afip:admin",
-          prerequisites: [
-            "Un usuario de ARCA al que DZ & Sons le delegó solo el servicio Mis Comprobantes.",
-          ],
-          screens: [
-            {
-              kind: "dialog",
-              title: "Usuario de ARCA para Mis Comprobantes",
-              description:
-                "Usá un usuario al que DZ & Sons le delegó solo el servicio Mis Comprobantes. La clave se guarda cifrada y no se vuelve a mostrar.",
-              fields: [
-                {
-                  label: "CUIT del usuario",
-                  kind: "input",
-                  value: "20-12345678-9",
-                  marker: 2,
-                },
-                {
-                  label: "Clave fiscal",
-                  kind: "input",
-                  value: "••••••••",
-                  marker: 3,
-                },
-              ],
-              footer: [
-                { label: "Cancelar", variant: "outline" },
-                { label: "Guardar", variant: "primary", marker: 4 },
-              ],
-            },
-          ],
-          steps: [
-            "En [[/admin/afip/puntos-de-venta]], en el bloque {{Usuario de ARCA para Mis Comprobantes}}, hacé clic en {{Configurar}} (o en {{Cambiar}} si ya hay uno).",
-            "En {{CUIT del usuario}}, escribí el CUIT de la persona que entra a ARCA.",
-            "En {{Clave fiscal}}, escribí su clave. Si solo cambiás el CUIT de un usuario que funciona, podés dejarla vacía para no cambiarla.",
-            "Hacé clic en {{Guardar}}.",
-          ],
-          after: [
-            "El sistema muestra {{Usuario de ARCA guardado.}} La clave se guarda cifrada y no se vuelve a mostrar.",
-            "El bloque muestra el estado: {{Sin configurar}}, funcionando con la fecha del último ingreso, o pausado si ARCA rechazó la clave o falló dos veces (en ese caso hay que volver a cargar la clave).",
-            "Queda registrado en [[/admin/audit]] como `afip.arca_web_credentials_saved`, sin la clave.",
-          ],
-          errors: [
-            {
-              message: "CUIT inválido.",
-              fix: "Revisá el CUIT.",
-            },
-            {
-              message: "Falta la clave.",
-              fix: "La primera vez hay que cargar la clave.",
-            },
-            {
-              message:
-                "JouveERP dejó de entrar a ARCA con esta clave: cargá la clave para volver a intentar.",
-              fix: "Escribí la clave actual (o la nueva, si la cambiaste en ARCA) y guardá.",
-            },
-            {
-              message: "La clave es demasiado larga.",
-              fix: "Revisá lo que escribiste en {{Clave fiscal}}.",
-            },
-            {
-              message: "No se pudo guardar el usuario de ARCA.",
-              fix: "Probá de nuevo en un rato.",
-            },
-            {
-              message: "No tenés permiso para configurar AFIP.",
-              fix: "Pedíselo a un owner o admin.",
-            },
-          ],
-          keywords: [
-            "clave fiscal",
-            "Mis Comprobantes",
-            "recibidos",
-            "robot ARCA",
-            "delegar servicio",
           ],
         },
         {

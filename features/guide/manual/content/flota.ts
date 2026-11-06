@@ -2520,10 +2520,7 @@ export const fleetPage: GuidePage = {
           kind: "page",
           title: "Km recorridos",
           toolbar: [{ label: "Este mes", kind: "input" }],
-          actions: [
-            { label: "Usuario de Strix", variant: "outline" },
-            { label: "Traer de Strix", variant: "primary" },
-          ],
+          actions: [{ label: "Traer km", variant: "primary" }],
           table: {
             columns: ["Vehículo", "Km recorridos", "Días con km", "Último día"],
             rows: [
@@ -2539,8 +2536,8 @@ export const fleetPage: GuidePage = {
           title: "Traer los km de Strix de otras fechas",
           permission: "fleet_km:write",
           steps: [
-            "En [[/vehicle-km]], elegí las fechas arriba.",
-            "Hacé clic en {{Traer de Strix}}. La línea de estado muestra «Trayendo km de Strix…» mientras corre.",
+            "En [[/vehicle-km]], hacé clic en {{Traer km}}.",
+            "Elegí {{Desde}} y {{Hasta}} (vienen con las fechas de la pantalla) y hacé clic en {{Traer km}}. Trae todos los vehículos juntos; la línea de estado muestra «Trayendo km de Strix…» mientras corre.",
           ],
           after: [
             "Cuando termina, la tabla se actualiza y la línea de estado dice cuántos vehículos trajo, qué meses no se pudieron leer y qué patentes de Strix no están cargadas. Traer de nuevo un día lo reemplaza.",
@@ -2548,13 +2545,13 @@ export const fleetPage: GuidePage = {
           errors: [
             {
               message:
-                "Falta cargar el usuario de Strix: lo carga un owner o admin con «Usuario de Strix».",
+                "Falta cargar el usuario de Strix: lo carga un owner o admin en Admin → Accesos.",
               fix: "Pedíselo a un owner o admin.",
             },
             {
               message:
                 "JouveERP dejó de entrar a Strix con la clave guardada: un owner o admin tiene que volver a cargarla.",
-              fix: "Pedile a un owner o admin que cargue la clave en {{Usuario de Strix}}.",
+              fix: "Pedile a un owner o admin que cargue la clave en [[/admin/accesos]].",
             },
             {
               message: "No tenés permiso para traer km.",
@@ -2587,7 +2584,7 @@ export const fleetPage: GuidePage = {
             },
           ],
           steps: [
-            "En [[/vehicle-km]], hacé clic en {{Usuario de Strix}}.",
+            "En [[/admin/accesos]], en {{Usuario de Strix para los km de la flota}}, hacé clic en {{Cambiar}} (o {{Configurar}} la primera vez).",
             "Escribí el {{Usuario (email)}} y la {{Clave}} con que se entra a Strix Flotas. Para cambiar solo el usuario, dejá la clave vacía.",
             "Hacé clic en {{Guardar}}.",
           ],

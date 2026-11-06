@@ -20,8 +20,6 @@ import { resolvePeriod, type PeriodSelection } from "@/lib/list-period";
 import { useVehicleKmDays } from "../hooks/use-vehicle-km";
 import { kmPeriod } from "../lib/km-period";
 
-import { StrixBar } from "./strix-bar";
-
 function DaysTable({
   vehicleId,
   from,
@@ -109,14 +107,10 @@ function DaysTable({
 /** A vehicle's km per day (Strix) and who drove it (trips), by range. */
 export function VehicleKmDays({
   vehicleId,
-  canWrite,
-  canAdmin,
   showDrivers,
   linkDrivers,
 }: {
   vehicleId: string;
-  canWrite: boolean;
-  canAdmin: boolean;
   showDrivers: boolean;
   linkDrivers: boolean;
 }) {
@@ -138,12 +132,6 @@ export function VehicleKmDays({
         </div>
         <PeriodFilter value={selection} onChange={setSelection} />
       </div>
-      <StrixBar
-        from={range.from}
-        to={range.to}
-        canWrite={canWrite}
-        canAdmin={canAdmin}
-      />
       <Suspense fallback={<Skeleton className="h-64 w-full" />}>
         <DaysTable
           vehicleId={vehicleId}

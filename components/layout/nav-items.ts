@@ -22,6 +22,7 @@ import {
   HandCoins,
   History,
   IdCard,
+  KeyRound,
   Landmark,
   LayoutDashboard,
   LineChart,
@@ -505,6 +506,12 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         href: "/admin/afip/puntos-de-venta",
         label: "Puntos de venta",
         icon: Receipt,
+        permission: "afip:admin",
+      },
+      {
+        href: "/admin/accesos",
+        label: "Accesos",
+        icon: KeyRound,
         permission: "afip:admin",
       },
       {
