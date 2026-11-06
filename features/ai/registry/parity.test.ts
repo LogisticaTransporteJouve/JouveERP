@@ -449,6 +449,12 @@ const PROPOSAL_PARITY: Row[] = [
     gate: all("payment_orders:write"),
   },
   {
+    tool: "proposeTreasuryAccount",
+    file: "features/accounts/actions/accounts-actions.ts",
+    fn: "createAccountAction",
+    gate: all("accounts:write"),
+  },
+  {
     tool: "proposeCashMovement",
     file: "features/transactions/actions/transactions-actions.ts",
     fn: "createTransactionAction",

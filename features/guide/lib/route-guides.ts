@@ -119,7 +119,7 @@ export const ROUTE_GUIDES: readonly RouteGuide[] = [
   },
   {
     prefix: "/purchases",
-    title: "Compras",
+    title: "Comprobantes",
     summary:
       "Facturas de proveedores con su IVA, percepciones, rubro y centro de costo. Del lado interno son remitos de compra.",
   },

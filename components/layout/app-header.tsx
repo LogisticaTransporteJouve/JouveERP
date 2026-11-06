@@ -1,13 +1,16 @@
 "use client";
 
 import { CircleHelp } from "lucide-react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 
 import { useScope } from "@/components/providers/scope-provider";
+import type { Access } from "@/lib/auth/permissions";
 import {
   Breadcrumb,
   BreadcrumbItem,
+  BreadcrumbLink,
   BreadcrumbList,
   BreadcrumbPage,
   BreadcrumbSeparator,
@@ -17,15 +20,24 @@ import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { APP_WINDOW, MANUAL_WINDOW } from "@/lib/manual/windows";
 
-import { navItemForPath, navSectionForItem } from "./nav-items";
+import { canSee, navItemForPath, navSectionForItem } from "./nav-items";
 
 // Sticky over the scrolling canvas, on the canvas's own surface and hairline
 // so it reads as part of the card.
-export function AppHeader({ actions }: { actions: React.ReactNode }) {
+export function AppHeader({
+  actions,
+  userAccess,
+}: {
+  actions: React.ReactNode;
+  userAccess: Access;
+}) {
   const { fiscalFilter, locked } = useScope();
   const pathname = usePathname();
   const item = navItemForPath(pathname, fiscalFilter);
   const section = item ? navSectionForItem(item) : undefined;
+  // The section has no page of its own: its crumb opens the section's first
+  // screen the user may see (Ventas › Comprobantes).
+  const sectionHome = section?.items.find((i) => canSee(userAccess, i));
 
   // Names this tab so the guide's links back to the app land here instead
   // of replacing the guide.
@@ -48,7 +60,13 @@ export function AppHeader({ actions }: { actions: React.ReactNode }) {
               <>
                 {/* Only the page's own crumb shows on a phone. */}
                 <BreadcrumbItem className="hidden md:inline-flex">
-                  {section.label}
+                  {sectionHome && sectionHome.href !== pathname ? (
+                    <BreadcrumbLink asChild>
+                      <Link href={sectionHome.href}>{section.label}</Link>
+                    </BreadcrumbLink>
+                  ) : (
+                    section.label
+                  )}
                 </BreadcrumbItem>
                 <BreadcrumbSeparator className="hidden md:block" />
               </>

@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, Eye } from "lucide-react";
+import { Eye } from "lucide-react";
 import Link from "next/link";
 import { Suspense, useDeferredValue, useMemo } from "react";
 
@@ -29,11 +29,7 @@ import { useListParams } from "@/hooks/use-list-params";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime-invalidate";
 import type { Access } from "@/lib/auth/permissions";
 import { userCan } from "@/lib/auth/permissions";
-import {
-  buildPdfFilename,
-  formatArgentineDate,
-  formatNumber2,
-} from "@/lib/format";
+import { formatArgentineDate, formatNumber2 } from "@/lib/format";
 import { bucketOf, type ListGroup } from "@/lib/list-period";
 import { totalsByBucket } from "@/lib/list-totals";
 
@@ -61,17 +57,6 @@ import {
 } from "../schema";
 import { InvoiceTypeFilter } from "./invoice-type-filter";
 import { NewInvoiceDialog } from "./new-invoice-dialog";
-import { PdfViewerDialog } from "./pdf-viewer-dialog";
-
-function formatPdfFilename(row: InvoiceListItem): string {
-  const numero = formatInvoiceNumero(
-    row.kind,
-    row.letter,
-    row.punto_venta,
-    row.numero,
-  );
-  return buildPdfFilename(numero, row.client_legal_name);
-}
 
 const ANY = "__any__";
 
@@ -155,12 +140,6 @@ function buildInvoiceColumns(
       cell: ({ row }) => {
         const invoice = row.original;
         const hasPdf = invoice.status === "emitted";
-        const numero = formatInvoiceNumero(
-          invoice.kind,
-          invoice.letter,
-          invoice.punto_venta,
-          invoice.numero,
-        );
         return (
           <div className="flex items-center justify-end gap-1">
             <IconButton label="Ver detalle" asChild variant="ghost">
@@ -170,15 +149,6 @@ function buildInvoiceColumns(
             </IconButton>
             {hasPdf && (
               <>
-                <PdfViewerDialog id={invoice.id} label={numero} />
-                <IconButton label="Descargar PDF" asChild variant="ghost">
-                  <a
-                    href={`/api/invoices/${invoice.id}/pdf`}
-                    download={formatPdfFilename(invoice)}
-                  >
-                    <Download className="size-4" />
-                  </a>
-                </IconButton>
                 {canSendEmail && (
                   <SendByEmailDialog kind="invoice" id={invoice.id} />
                 )}
@@ -271,7 +241,11 @@ export function ComprobantesTable({
           </SelectTrigger>
           <SelectContent position="popper">
             <SelectItem value={ANY}>Cualquier estado</SelectItem>
-            {INVOICE_STATUSES.map((st) => (
+            {/* A fiscal comprobante with CAE is never cancelled: an NC
+                annuls it. «Cancelado» is the internal remitos' state. */}
+            {INVOICE_STATUSES.filter(
+              (st) => !(isFiscal === true && st === "cancelled"),
+            ).map((st) => (
               <SelectItem key={st} value={st}>
                 {INVOICE_STATUS_LABEL[st]}
               </SelectItem>

@@ -36,7 +36,7 @@ export function NewTransactionDialog({
           Nuevo movimiento
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+      <DialogContent className="sm:max-w-5xl">
         <DialogHeader>
           <DialogTitle>Nuevo movimiento</DialogTitle>
           <DialogDescription>

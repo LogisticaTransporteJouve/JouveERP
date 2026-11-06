@@ -91,6 +91,7 @@ export default async function DashboardLayout({
         <SidebarInset className="min-h-0 min-w-0 overflow-y-auto md:shadow-none md:ring-1 md:ring-border">
           <AppHeader
             actions={<NotificationBell currentUserId={ctx.userId} />}
+            userAccess={ctx.access}
           />
           <div className="min-w-0 flex-1 px-4 py-6 max-md:pb-24 sm:px-6 lg:px-8">
             <ChannelsReadError className="mb-4" />

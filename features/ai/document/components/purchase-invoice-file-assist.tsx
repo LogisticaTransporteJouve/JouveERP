@@ -146,7 +146,7 @@ function ScanToPurchaseInvoiceDraft({
         onFile={onFile}
         onError={setUploadError}
         fileType="documents"
-        className="border-none p-2"
+        className="border-none p-2 sm:flex-row sm:justify-center sm:text-left"
         placeholder="Completar desde archivo"
         description="Subí el PDF o sacale una foto a la factura: la IA completa el formulario y el archivo queda adjunto."
       />
