@@ -1076,6 +1076,20 @@ const AUDIT_ACTIONS: Record<string, Spec> = {
     say: (c) =>
       `cargó un asiento manual${quoted(c.p.description)} del ${shortDate(c.p.entry_date)} por ${money(c.p.total_debit) ?? "—"}`,
   },
+  "accounting_settings.updated": {
+    group: "settings",
+    say: (c) => {
+      const change = c.p.fiscal_year_start_month;
+      const to =
+        typeof change === "object" && change !== null && !Array.isArray(change)
+          ? num(change.to)
+          : null;
+      const month = to !== null ? MONTHS[to - 1] : undefined;
+      return month
+        ? `cambió el inicio del ejercicio contable a ${month}`
+        : "cambió el inicio del ejercicio contable";
+    },
+  },
   "accounting_period.closed": {
     group: "accounting",
     say: (c) =>
