@@ -1,5 +1,7 @@
 "use server";
 
+import { z } from "zod";
+
 import { logAudit } from "@/lib/actions/audit";
 import type { JsonValue } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
@@ -21,6 +23,8 @@ import {
   DriverUpdateSchema,
   type Driver,
 } from "../schema";
+
+const IdSchema = z.object({ id: z.string().uuid() });
 
 const SELECT_COLUMNS =
   "id, employee_id, user_id, full_name, cuit, license_number, license_category, phone, is_active, notes, created_at, updated_at";
@@ -93,6 +97,9 @@ export async function createDriverAction(
   return { ok: true, data: { id: data.id } };
 }
 
+/** No row matched: deleted meanwhile, or hidden by RLS. */
+const DRIVER_NOT_FOUND = "No se encontró el chofer. Actualizá la página.";
+
 export async function updateDriverAction(
   input: unknown,
 ): Promise<ActionResult> {
@@ -110,7 +117,7 @@ export async function updateDriverAction(
   const { id, ...rest } = parsed.data;
 
   const supabase = await createSupabaseClient();
-  const { error } = await supabase
+  const { data: changed, error } = await supabase
     .from("drivers")
     .update({
       ...(rest.full_name !== undefined && { full_name: rest.full_name }),
@@ -126,10 +133,14 @@ export async function updateDriverAction(
       ...(rest.is_active !== undefined && { is_active: rest.is_active }),
       ...(rest.notes !== undefined && { notes: rest.notes }),
     })
-    .eq("id", id);
+    .eq("id", id)
+    .select("id");
   if (error) {
     logger.error("drivers.update.failed", { userId: ctx.userId, id, error });
     return { ok: false, error: "No se pudo actualizar el chofer." };
+  }
+  if ((changed ?? []).length === 0) {
+    return { ok: false, error: DRIVER_NOT_FOUND };
   }
 
   await logAudit(
@@ -152,13 +163,17 @@ export async function setDriverActiveAction(
   if (!parsed.success) return { ok: false, error: "Datos inválidos." };
 
   const supabase = await createSupabaseClient();
-  const { error } = await supabase
+  const { data: changed, error } = await supabase
     .from("drivers")
     .update({ is_active: parsed.data.is_active })
-    .eq("id", parsed.data.id);
+    .eq("id", parsed.data.id)
+    .select("id");
   if (error) {
     logger.error("drivers.toggle.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo cambiar el estado." };
+  }
+  if ((changed ?? []).length === 0) {
+    return { ok: false, error: DRIVER_NOT_FOUND };
   }
 
   await logAudit(
@@ -170,15 +185,22 @@ export async function setDriverActiveAction(
   return { ok: true, data: undefined };
 }
 
-export async function deleteDriverAction(input: {
-  id: string;
-}): Promise<ActionResult> {
+export async function deleteDriverAction(
+  input: unknown,
+): Promise<ActionResult> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "drivers:write")) {
     return { ok: false, error: "No tenés permiso para borrar choferes." };
   }
+  const parsed = IdSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Chofer inválido." };
+  const { id } = parsed.data;
   const supabase = await createSupabaseClient();
-  const { error } = await supabase.from("drivers").delete().eq("id", input.id);
+  const { data: changed, error } = await supabase
+    .from("drivers")
+    .delete()
+    .eq("id", id)
+    .select("id");
   if (error) {
     if (error.code === PG_FOREIGN_KEY_VIOLATION) {
       return {
@@ -190,7 +212,10 @@ export async function deleteDriverAction(input: {
     logger.error("drivers.delete.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo borrar el chofer." };
   }
-  await logAudit("driver.deleted", ctx.userId, {}, input.id);
+  if ((changed ?? []).length === 0) {
+    return { ok: false, error: DRIVER_NOT_FOUND };
+  }
+  await logAudit("driver.deleted", ctx.userId, {}, id);
   return { ok: true, data: undefined };
 }
 
@@ -210,10 +235,11 @@ export async function linkDriverUserAction(
   if (!parsed.success) return { ok: false, error: "Datos inválidos." };
 
   const supabase = await createSupabaseClient();
-  const { error } = await supabase
+  const { data: changed, error } = await supabase
     .from("drivers")
     .update({ user_id: parsed.data.userId })
-    .eq("id", parsed.data.driverId);
+    .eq("id", parsed.data.driverId)
+    .select("id");
   if (error) {
     if (error.code === PG_UNIQUE_VIOLATION) {
       return {
@@ -227,6 +253,9 @@ export async function linkDriverUserAction(
       error,
     });
     return { ok: false, error: "No se pudo vincular el usuario." };
+  }
+  if ((changed ?? []).length === 0) {
+    return { ok: false, error: DRIVER_NOT_FOUND };
   }
 
   await logAudit(

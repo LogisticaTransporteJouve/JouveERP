@@ -51,6 +51,10 @@ export async function createExchangeRateAction(
   return upsertManualExchangeRate(ctx.userId, parsed.data);
 }
 
+/** No row matched: deleted meanwhile, or hidden by RLS. */
+const EXCHANGE_RATE_NOT_FOUND =
+  "No se encontró la cotización. Actualizá la página.";
+
 export async function deleteExchangeRateAction(
   input: unknown,
 ): Promise<ActionResult> {
@@ -61,10 +65,11 @@ export async function deleteExchangeRateAction(
   const parsed = ExchangeRateDeleteSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Inválido." };
   const supabase = await createClient();
-  const { error } = await supabase
+  const { data: changed, error } = await supabase
     .from("exchange_rates")
     .delete()
-    .eq("id", parsed.data.id);
+    .eq("id", parsed.data.id)
+    .select("id");
   if (error) {
     logger.error("exchange_rates.delete.failed", {
       userId: ctx.userId,
@@ -72,6 +77,9 @@ export async function deleteExchangeRateAction(
       error,
     });
     return { ok: false, error: "No se pudo borrar la cotización." };
+  }
+  if ((changed ?? []).length === 0) {
+    return { ok: false, error: EXCHANGE_RATE_NOT_FOUND };
   }
   await logAudit("exchange_rate.deleted", ctx.userId, {}, parsed.data.id);
   return { ok: true, data: undefined };

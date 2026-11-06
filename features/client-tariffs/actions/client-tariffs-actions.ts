@@ -173,14 +173,17 @@ export async function updateClientTariffAction(
   return { ok: true, data: undefined };
 }
 
-export async function deleteClientTariffAction(input: {
-  id: string;
-}): Promise<ActionResult> {
+export async function deleteClientTariffAction(
+  input: unknown,
+): Promise<ActionResult> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "storage_billing:issue")) {
     return { ok: false, error: "No tenés permiso para editar tarifarios." };
   }
-  const id = z.string().uuid().safeParse(input.id);
+  const id = z
+    .object({ id: z.string().uuid() })
+    .transform((v) => v.id)
+    .safeParse(input);
   if (!id.success) return { ok: false, error: "Tarifa inválida." };
 
   const supabase = getServiceClient();

@@ -145,6 +145,10 @@ export async function createChartAccountAction(
   return { ok: true, data: { id: data.id } };
 }
 
+/** No row matched: deleted meanwhile, or hidden by RLS. */
+const CHART_ACCOUNT_NOT_FOUND =
+  "No se encontró la cuenta. Actualizá la página.";
+
 export async function updateChartAccountAction(
   input: unknown,
 ): Promise<ActionResult> {
@@ -178,10 +182,11 @@ export async function updateChartAccountAction(
     return { ok: true, data: undefined };
   }
 
-  const { error } = await supabase
+  const { data: changed, error } = await supabase
     .from("chart_of_accounts")
     .update(update)
-    .eq("id", id);
+    .eq("id", id)
+    .select("id");
 
   if (error) {
     if (error.code === PG_UNIQUE_VIOLATION) {
@@ -198,6 +203,9 @@ export async function updateChartAccountAction(
       error,
     });
     return { ok: false, error: "No se pudo actualizar la cuenta." };
+  }
+  if ((changed ?? []).length === 0) {
+    return { ok: false, error: CHART_ACCOUNT_NOT_FOUND };
   }
 
   await logAudit("chart_account.updated", ctx.userId, {}, id);
@@ -238,10 +246,11 @@ export async function deleteChartAccountAction(
     };
   }
 
-  const { error } = await supabase
+  const { data: changed, error } = await supabase
     .from("chart_of_accounts")
     .delete()
-    .eq("id", parsed.data.id);
+    .eq("id", parsed.data.id)
+    .select("id");
 
   if (error) {
     if (error.code === PG_FOREIGN_KEY_VIOLATION) {
@@ -255,6 +264,9 @@ export async function deleteChartAccountAction(
       error,
     });
     return { ok: false, error: "No se pudo borrar la cuenta." };
+  }
+  if ((changed ?? []).length === 0) {
+    return { ok: false, error: CHART_ACCOUNT_NOT_FOUND };
   }
 
   await logAudit("chart_account.deleted", ctx.userId, {}, parsed.data.id);

@@ -67,7 +67,11 @@ describe("listCostCenterVehiclesAction", () => {
 
 describe("updateCostCenterAction", () => {
   it("links a truck and audits it", async () => {
-    update.mockReturnValue({ eq: async () => ({ error: null }) });
+    update.mockReturnValue({
+      eq: () => ({
+        select: async () => ({ data: [{ id: CENTER }], error: null }),
+      }),
+    });
     const res = await updateCostCenterAction({
       id: CENTER,
       vehicle_id: VEHICLE,
@@ -84,12 +88,15 @@ describe("updateCostCenterAction", () => {
 
   it("says a truck already has a center", async () => {
     update.mockReturnValue({
-      eq: async () => ({
-        error: {
-          code: "23505",
-          message:
-            'duplicate key value violates unique constraint "cost_centers_vehicle_unique"',
-        },
+      eq: () => ({
+        select: async () => ({
+          data: null,
+          error: {
+            code: "23505",
+            message:
+              'duplicate key value violates unique constraint "cost_centers_vehicle_unique"',
+          },
+        }),
       }),
     });
     const res = await updateCostCenterAction({
@@ -100,5 +107,18 @@ describe("updateCostCenterAction", () => {
       ok: false,
       error: "Ese camión ya está vinculado a otro centro de costo.",
     });
+  });
+
+  it("says the center is gone and audits nothing when no row matched", async () => {
+    update.mockReturnValue({
+      eq: () => ({ select: async () => ({ data: [], error: null }) }),
+    });
+    expect(
+      await updateCostCenterAction({ id: CENTER, vehicle_id: VEHICLE }),
+    ).toEqual({
+      ok: false,
+      error: "No se encontró el centro de costo. Actualizá la página.",
+    });
+    expect(logAudit).not.toHaveBeenCalled();
   });
 });

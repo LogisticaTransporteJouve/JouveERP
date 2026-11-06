@@ -160,6 +160,9 @@ export async function getAccountHasMovementsAction(
   return { ok: true, data };
 }
 
+/** No row matched: deleted meanwhile, or hidden by RLS. */
+const ACCOUNT_NOT_FOUND = "No se encontró la cuenta. Actualizá la página.";
+
 export async function updateAccountAction(
   input: unknown,
 ): Promise<ActionResult> {
@@ -177,7 +180,7 @@ export async function updateAccountAction(
   const { id, ...rest } = parsed.data;
 
   const supabase = await createSupabaseClient();
-  const { error } = await supabase
+  const { data: changed, error } = await supabase
     .from("accounts")
     .update({
       ...(rest.name !== undefined && { name: rest.name }),
@@ -188,7 +191,8 @@ export async function updateAccountAction(
       }),
       ...(rest.notes !== undefined && { notes: rest.notes ?? null }),
     })
-    .eq("id", id);
+    .eq("id", id)
+    .select("id");
 
   if (error) {
     if (error.code === PG_UNIQUE_VIOLATION) {
@@ -207,6 +211,9 @@ export async function updateAccountAction(
     if (guardError) return { ok: false, error: guardError };
     logger.error("accounts.update.failed", { userId: ctx.userId, id, error });
     return { ok: false, error: "No se pudo actualizar la cuenta." };
+  }
+  if ((changed ?? []).length === 0) {
+    return { ok: false, error: ACCOUNT_NOT_FOUND };
   }
 
   await logAudit(
@@ -232,10 +239,11 @@ export async function setAccountActiveAction(
   }
 
   const supabase = await createSupabaseClient();
-  const { error } = await supabase
+  const { data: changed, error } = await supabase
     .from("accounts")
     .update({ is_active: parsed.data.is_active })
-    .eq("id", parsed.data.id);
+    .eq("id", parsed.data.id)
+    .select("id");
 
   if (error) {
     logger.error("accounts.toggle_active.failed", {
@@ -245,6 +253,9 @@ export async function setAccountActiveAction(
       error,
     });
     return { ok: false, error: "No se pudo cambiar el estado de la cuenta." };
+  }
+  if ((changed ?? []).length === 0) {
+    return { ok: false, error: ACCOUNT_NOT_FOUND };
   }
 
   await logAudit(
@@ -341,15 +352,18 @@ export async function setAccountOpeningBalanceAction(
     p_notes: input.notes ?? undefined,
   });
   if (error) {
+    const guard = mapDbGuardError(error, {
+      slug: "accounts.opening.apply_rejected",
+      userId: ctx.userId,
+      id: input.account_id,
+    });
+    if (guard) return { ok: false, error: guard };
     logger.error("accounts.opening.apply_failed", {
       userId: ctx.userId,
       accountId: input.account_id,
       error,
     });
-    return {
-      ok: false,
-      error: error.message ?? "No se pudo aplicar el saldo de apertura.",
-    };
+    return { ok: false, error: "No se pudo aplicar el saldo de apertura." };
   }
   await logAudit(
     "account.opening_balance.applied",

@@ -1,5 +1,7 @@
 "use server";
 
+import { z } from "zod";
+
 import { logAudit } from "@/lib/actions/audit";
 import type { JsonValue } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
@@ -42,6 +44,8 @@ function narrowFuelLoad(row: FuelLoadSelectRow): FuelLoad {
     odometer_km: row.odometer_km === null ? null : Number(row.odometer_km),
   };
 }
+
+const IdSchema = z.object({ id: z.string().uuid() });
 
 const SELECT_COLUMNS =
   "id, vehicle_id, trip_id, load_date, liters, amount, odometer_km, station, card, notes, purchase_invoice_id, transaction_id, created_at, vehicle:vehicles(patente)";
@@ -121,6 +125,9 @@ export async function createFuelLoadAction(
   return { ok: true, data: { id: data.id } };
 }
 
+/** No row matched: deleted meanwhile, or hidden by RLS. */
+const FUEL_LOAD_NOT_FOUND = "No se encontró la carga. Actualizá la página.";
+
 export async function updateFuelLoadAction(
   input: unknown,
 ): Promise<ActionResult> {
@@ -140,7 +147,7 @@ export async function updateFuelLoadAction(
   const { id, ...rest } = parsed.data;
 
   const supabase = await createSupabaseClient();
-  const { error } = await supabase
+  const { data: changed, error } = await supabase
     .from("fuel_loads")
     .update({
       ...(rest.vehicle_id !== undefined && { vehicle_id: rest.vehicle_id }),
@@ -154,10 +161,14 @@ export async function updateFuelLoadAction(
       ...(rest.notes !== undefined && { notes: rest.notes }),
       ...costVoucherPatch(rest),
     })
-    .eq("id", id);
+    .eq("id", id)
+    .select("id");
   if (error) {
     logger.error("fuel.update.failed", { userId: ctx.userId, id, error });
     return { ok: false, error: "No se pudo actualizar la carga." };
+  }
+  if ((changed ?? []).length === 0) {
+    return { ok: false, error: FUEL_LOAD_NOT_FOUND };
   }
 
   await logAudit(
@@ -169,22 +180,29 @@ export async function updateFuelLoadAction(
   return { ok: true, data: undefined };
 }
 
-export async function deleteFuelLoadAction(input: {
-  id: string;
-}): Promise<ActionResult> {
+export async function deleteFuelLoadAction(
+  input: unknown,
+): Promise<ActionResult> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "fuel:write")) {
     return { ok: false, error: "No tenés permiso para borrar cargas." };
   }
+  const parsed = IdSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Carga inválida." };
+  const { id } = parsed.data;
   const supabase = await createSupabaseClient();
-  const { error } = await supabase
+  const { data: changed, error } = await supabase
     .from("fuel_loads")
     .delete()
-    .eq("id", input.id);
+    .eq("id", id)
+    .select("id");
   if (error) {
     logger.error("fuel.delete.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo borrar la carga." };
   }
-  await logAudit("fuel_load.deleted", ctx.userId, {}, input.id);
+  if ((changed ?? []).length === 0) {
+    return { ok: false, error: FUEL_LOAD_NOT_FOUND };
+  }
+  await logAudit("fuel_load.deleted", ctx.userId, {}, id);
   return { ok: true, data: undefined };
 }
