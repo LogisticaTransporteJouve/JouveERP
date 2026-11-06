@@ -10371,6 +10371,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      reopen_accounting_period: { Args: { p_period: string }; Returns: Json }
       replace_purchase_invoice_items: {
         Args: { p_invoice_id: string; p_items: Json }
         Returns: undefined
