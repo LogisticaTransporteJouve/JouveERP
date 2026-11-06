@@ -63,7 +63,13 @@ vi.mock("@/lib/auth/users", () => ({
   listUsersWithRoles: async () => [],
 }));
 vi.mock("@/lib/supabase/service", () => ({
-  getServiceClient: () => ({ from: (table: string) => builder(table) }),
+  getServiceClient: () => ({
+    from: (table: string) => builder(table),
+    rpc: async (fn: string, args: unknown) => {
+      calls.push({ table: fn, method: "rpc", args: [args] });
+      return results[fn]?.shift() ?? { data: null, error: null };
+    },
+  }),
 }));
 
 const {
@@ -424,64 +430,93 @@ describe("createTaskAction", () => {
     expect(calls).toHaveLength(0);
   });
 
-  it("creates a manual task with its assignees", async () => {
-    results.tasks = [{ data: { id: TASK_ID }, error: null }];
-    results.task_assignees = [{ data: null, error: null }];
+  it("creates a manual task with its assignees in one call", async () => {
+    results.create_task = [{ data: TASK_ID, error: null }];
     const res = await createTaskAction({
       title: "Llamar",
       due_date: "2026-11-09",
       assignee_ids: [USER_B],
     });
     expect(res).toEqual({ ok: true, data: { id: TASK_ID } });
-    expect(calledWith("tasks", "insert")[0]?.args[0]).toMatchObject({
-      origin: "manual",
-      created_by: USER_A,
+    expect(calledWith("create_task", "rpc")[0]?.args[0]).toEqual({
+      p_actor: USER_A,
+      p_title: "Llamar",
+      p_description: undefined,
+      p_due_date: "2026-11-09",
+      p_assignee_ids: [USER_B],
     });
-    expect(calledWith("task_assignees", "insert")[0]?.args[0]).toEqual([
-      { task_id: TASK_ID, user_id: USER_B, assigned_by: USER_A },
-    ]);
+    expect(calledWith("tasks", "insert")).toHaveLength(0);
+    expect(logAudit).toHaveBeenCalledWith(
+      "task.created",
+      USER_A,
+      expect.objectContaining({ assignee_ids: [USER_B] }),
+      TASK_ID,
+    );
   });
 
-  it("takes the task back when its assignees fail", async () => {
-    results.tasks = [{ data: { id: TASK_ID }, error: null }];
-    results.task_assignees = [{ data: null, error: { message: "fk" } }];
+  it("writes nothing and audits nothing when the call fails", async () => {
+    results.create_task = [{ data: null, error: { message: "fk" } }];
     const res = await createTaskAction({ title: "x", assignee_ids: [USER_B] });
-    expect(res.ok).toBe(false);
-    expect(calledWith("tasks", "delete")).toHaveLength(1);
+    expect(res).toEqual({ ok: false, error: "No se pudo crear la tarea." });
     expect(logAudit).not.toHaveBeenCalled();
   });
 });
 
+const manualTask = {
+  data: { id: TASK_ID, origin: "manual", kind: null, status: "open" },
+  error: null,
+};
+
 describe("setTaskAssigneesAction", () => {
-  it("removes and adds only the difference", async () => {
-    results.tasks = [
-      {
-        data: { id: TASK_ID, origin: "manual", kind: null, status: "open" },
-        error: null,
-      },
-    ];
-    results.task_assignees = [
-      { data: [{ user_id: USER_A }], error: null },
-      { data: null, error: null },
-      { data: null, error: null },
+  it("replaces the set in one call and audits what changed", async () => {
+    results.tasks = [manualTask];
+    results.task_assignees = [{ data: [{ user_id: USER_A }], error: null }];
+    results.set_task_assignees = [
+      { data: [{ added: [USER_B], removed: [USER_A] }], error: null },
     ];
     const res = await setTaskAssigneesAction({
       id: TASK_ID,
       assignee_ids: [USER_B],
     });
     expect(res.ok).toBe(true);
-    expect(calledWith("task_assignees", "in")[0]?.args).toEqual([
-      "user_id",
-      [USER_A],
-    ]);
-    expect(calledWith("task_assignees", "upsert")[0]?.args[0]).toEqual([
-      { task_id: TASK_ID, user_id: USER_B, assigned_by: USER_A },
-    ]);
+    expect(calledWith("set_task_assignees", "rpc")[0]?.args[0]).toEqual({
+      p_task_id: TASK_ID,
+      p_assignee_ids: [USER_B],
+      p_actor: USER_A,
+    });
+    expect(calledWith("task_assignees", "delete")).toHaveLength(0);
+    expect(calledWith("task_assignees", "upsert")).toHaveLength(0);
     expect(logAudit).toHaveBeenCalledWith(
       "task.assigned",
       USER_A,
       { added: [USER_B], removed: [USER_A] },
       TASK_ID,
     );
+  });
+
+  it("fails without auditing when the replace fails", async () => {
+    results.tasks = [manualTask];
+    results.task_assignees = [{ data: [{ user_id: USER_A }], error: null }];
+    results.set_task_assignees = [{ data: null, error: { message: "boom" } }];
+    const res = await setTaskAssigneesAction({
+      id: TASK_ID,
+      assignee_ids: [USER_B],
+    });
+    expect(res).toEqual({ ok: false, error: "No se pudo reasignar la tarea." });
+    expect(logAudit).not.toHaveBeenCalled();
+  });
+
+  it("audits nothing when a concurrent change already left the same set", async () => {
+    results.tasks = [manualTask];
+    results.task_assignees = [{ data: [{ user_id: USER_A }], error: null }];
+    results.set_task_assignees = [
+      { data: [{ added: [], removed: [] }], error: null },
+    ];
+    const res = await setTaskAssigneesAction({
+      id: TASK_ID,
+      assignee_ids: [USER_B],
+    });
+    expect(res.ok).toBe(true);
+    expect(logAudit).not.toHaveBeenCalled();
   });
 });

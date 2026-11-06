@@ -9540,6 +9540,26 @@ export type Database = {
         }
         Returns: string
       }
+      create_recurring_task: {
+        Args: {
+          p_actor: string
+          p_assignee_ids: string[]
+          p_day_of_month: number
+          p_description?: string
+          p_title: string
+        }
+        Returns: string
+      }
+      create_task: {
+        Args: {
+          p_actor: string
+          p_assignee_ids: string[]
+          p_description?: string
+          p_due_date?: string
+          p_title: string
+        }
+        Returns: string
+      }
       create_transfer: {
         Args: {
           p_account_from_id: string
@@ -10616,6 +10636,13 @@ export type Database = {
         Args: { p_line_id: string; p_reason: string; p_user_id: string }
         Returns: undefined
       }
+      set_task_assignees: {
+        Args: { p_actor: string; p_assignee_ids: string[]; p_task_id: string }
+        Returns: {
+          added: string[]
+          removed: string[]
+        }[]
+      }
       set_user_access: {
         Args: {
           p_actor: string
@@ -10821,6 +10848,10 @@ export type Database = {
           p_total_amount: number
         }
         Returns: undefined
+      }
+      update_recurring_task: {
+        Args: { p_assignee_ids?: string[]; p_id: string; p_patch: Json }
+        Returns: boolean
       }
       upsert_my_notification_setting: {
         Args: { p_enabled: boolean; p_type: string }
