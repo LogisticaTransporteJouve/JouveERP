@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, Eye } from "lucide-react";
+import { Eye } from "lucide-react";
 import Link from "next/link";
 import { Suspense, useDeferredValue, useMemo } from "react";
 
@@ -24,7 +24,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { PdfViewerDialog } from "@/features/invoices/components/pdf-viewer-dialog";
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
 import { useListParams } from "@/hooks/use-list-params";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime-invalidate";
@@ -155,12 +154,6 @@ function buildReceiptColumns({
             <IconButton label="Ver recibo" asChild variant="ghost">
               <Link href={`/receipts/${r.id}`}>
                 <Eye className="size-4" />
-              </Link>
-            </IconButton>
-            <PdfViewerDialog id={r.id} label={numero} kind="receipt" />
-            <IconButton label="Descargar PDF" asChild variant="ghost">
-              <Link href={`/api/receipts/${r.id}/pdf`}>
-                <Download className="size-4" />
               </Link>
             </IconButton>
             {canSendEmail && !isCanceled && (

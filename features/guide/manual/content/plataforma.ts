@@ -27,7 +27,6 @@ export const platformPage: GuidePage = {
             "Solo ves los módulos que tu usuario puede leer: si falta uno, es porque tu rol no lo trae o el owner te lo quitó (ver [[#roles-y-permisos]]).",
             "{{Ventas}} y {{Otras ventas}} (y lo mismo {{Compras}} y {{Otras compras}}) abren las mismas pantallas, una del lado fiscal y otra del interno: ver [[#canales-fiscal-interno]].",
             "El ítem {{Chat}} muestra un número con los mensajes sin leer.",
-            "Debajo de las secciones, el bloque {{Guía}} resume la pantalla en la que estás, con el link {{Ver los pasos en la guía}}, y muestra la lista {{Puesta en marcha}} cuando hay pasos de arranque. Se abre y se cierra con un clic y el sistema recuerda cómo lo dejaste.",
             "En el pie: {{Guía de uso}} (esta guía), {{Tema}} y tu usuario, con {{Perfil}} y {{Cerrar sesión}}.",
           ],
         },
