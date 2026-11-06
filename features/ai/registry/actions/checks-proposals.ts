@@ -23,9 +23,9 @@ import {
   activeChannels,
   channelFor,
   ChannelSideInput,
+  pickCarteraCheck,
   resolveAccount,
 } from "./treasury-refs";
-import { MAX_CANDIDATES, norm } from "./resolve-client";
 
 // Check proposals over the writes of Cheques and Cheques propios: load a
 // received check into a cartera, deposit one from the cartera, load one of
@@ -33,11 +33,6 @@ import { MAX_CANDIDATES, norm } from "./resolve-client";
 // cartera); accepting runs the same lib/commands write as the page.
 
 const amount = z.number().finite().positive().max(1_000_000_000_000);
-
-/** A check number as typed: digits only, no leading zeros. */
-function numberKey(text: string): string {
-  return text.replace(/\D/g, "").replace(/^0+/, "");
-}
 
 export const proposeManualCheck = defineAiProposal({
   name: "proposeManualCheck",
@@ -143,39 +138,14 @@ export const proposeCheckDeposit = defineAiProposal({
   prepare: async (_ctx, input) => {
     const res = await listEnCarteraChecksAction();
     if (!res.ok) return { kind: "error", error: res.error };
-    const key = numberKey(input.check_number);
-    const bank = input.bank ? norm(input.bank) : "";
-    const found = res.data.filter(
-      (c) =>
-        numberKey(c.check_number) === key &&
-        (!bank || norm(c.bank_name).includes(bank)),
+    const picked = pickCarteraCheck(
+      res.data,
+      input.check_number,
+      input.bank,
+      "bank",
     );
-    const check = found.length === 1 ? found[0] : undefined;
-    if (!check) {
-      return found.length === 0
-        ? {
-            kind: "error",
-            error: `No hay un cheque en cartera con el número ${input.check_number}.`,
-          }
-        : {
-            kind: "issues",
-            issues: [
-              {
-                field: "bank",
-                message: `Hay varios cheques en cartera con el número ${input.check_number}.`,
-              },
-            ],
-            candidates: [
-              {
-                field: "bank",
-                options: found.slice(0, MAX_CANDIDATES).map((c) => ({
-                  value: c.bank_name,
-                  label: `${c.bank_name} · ${c.drawer_name} · ${formatMoney(c.amount, c.currency)}`,
-                })),
-              },
-            ],
-          };
-    }
+    if (!picked.ok) return picked.result;
+    const check = picked.value;
     const account = await resolveAccount(
       input.account,
       "account",
@@ -221,7 +191,7 @@ export const proposeIssuedCheck = defineAiProposal({
     "Propose loading a check of our own (cheque propio, físico or e-cheq) " +
     "drawn on one of our bank accounts, for the user to accept on a card: " +
     "number, account, beneficiary, amount, due date. A check that pays a " +
-    "supplier's payment order is loaded from the order on the page. Writes " +
+    "supplier's payment order goes in proposePaymentOrder instead. Writes " +
     "nothing by itself.",
   input: z.object({
     kind: z.enum(ISSUED_CHECK_KINDS).optional().describe("Default 'fisico'."),

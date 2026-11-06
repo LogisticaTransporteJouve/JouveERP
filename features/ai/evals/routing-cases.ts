@@ -491,6 +491,56 @@ export const ROUTING_CASES: RoutingCase[] = [
     },
   },
   {
+    id: "propose-receipt-retention",
+    question:
+      "Acme SA nos pagó $98.000 al Banco Galicia y nos retuvo $2.000 de Ganancias, certificado 0001-00001234.",
+    roles: ["finance"],
+    expect: {
+      tool: "proposeReceipt",
+      input: { client: "Acme SA", amount: 98_000, account: bank.name },
+    },
+    scriptedInput: {
+      client: "Acme SA",
+      amount: 98_000,
+      account: bank.name,
+      retentions: [
+        {
+          tax_type: "ganancias",
+          certificate_number: "0001-00001234",
+          amount: 2000,
+        },
+      ],
+    },
+  },
+  {
+    id: "propose-receipt-email",
+    question: `Mandale por mail el recibo ${record} al cliente.`,
+    roles: ["finance"],
+    expect: { tool: "proposeReceiptEmail", input: { receipt_id: record } },
+  },
+  {
+    id: "propose-payment-order-checks",
+    question:
+      "Pagale a Gomería Sur con el cheque 12345 de la cartera y un cheque propio del Galicia Nº 777 por $50.000 al 30/11/2026.",
+    roles: ["finance"],
+    expect: {
+      tool: "proposePaymentOrder",
+      input: { supplier: "Gomería Sur" },
+    },
+    scriptedInput: {
+      supplier: "Gomería Sur",
+      endorse_checks: [{ number: "12345" }],
+      issue_checks: [
+        {
+          account: bank.name,
+          number: "777",
+          amount: 50_000,
+          due_date: "2026-11-30",
+        },
+      ],
+    },
+  },
+  {
     id: "propose-cash-movement",
     question:
       "Cargá un egreso de $15.000 del Banco Galicia por comisiones bancarias, en el canal fiscal.",
@@ -1089,6 +1139,7 @@ export const DENIED_CASES: DeniedCase[] = [
     roles: ["operations"],
     forbiddenTools: [
       "proposeReceipt",
+      "proposeReceiptEmail",
       "proposePaymentOrder",
       "proposeCashMovement",
       "proposeTransfer",

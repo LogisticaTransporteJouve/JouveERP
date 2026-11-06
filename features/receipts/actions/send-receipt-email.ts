@@ -1,45 +1,20 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-import { z } from "zod";
-
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
-import { sendComprobanteByEmail } from "@/lib/email/send-comprobante";
-import {
-  buildPdfFilename,
-  formatArDateShort,
-  formatNumber2,
-} from "@/lib/format";
+import { sendReceiptEmail } from "@/lib/commands/send-receipt-email";
 import { dbErrorMessage } from "@/lib/db/guard-errors";
-import { logger } from "@/lib/logger";
-import {
-  buildReceiptTemplateData,
-  renderReceiptPdf,
-} from "@/lib/pdf/receipt-render";
 import { getServiceClient } from "@/lib/supabase/service";
 
 import type { ClientLegalJoin } from "@/features/clients/schema";
 
-import { formatReceiptNumber } from "../schema";
+import {
+  formatReceiptNumber,
+  SendReceiptEmailSchema,
+  type SendReceiptEmailInput,
+} from "../schema";
 
 import type { ActionResult } from "@/lib/query/run-action";
-
-const SendReceiptEmailSchema = z.object({
-  receipt_id: z.string().uuid(),
-  recipient: z.string().email("Email inválido."),
-  subject: z
-    .string()
-    .min(1, "Asunto requerido.")
-    .max(200, "Máx 200 caracteres."),
-  body: z
-    .string()
-    .max(4000, "Máx 4000 caracteres.")
-    .optional()
-    .transform((v) => (v && v.trim().length > 0 ? v : null)),
-});
-
-export type SendReceiptEmailInput = z.input<typeof SendReceiptEmailSchema>;
 
 export async function sendReceiptByEmailAction(
   rawInput: SendReceiptEmailInput,
@@ -59,80 +34,7 @@ export async function sendReceiptByEmailAction(
       error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
     };
   }
-  const input = parsed.data;
-
-  const supabase = getServiceClient();
-  const { data: receipt, error: rErr } = await supabase
-    .from("receipts")
-    .select("id, status")
-    .eq("id", input.receipt_id)
-    .maybeSingle();
-  if (rErr) {
-    return {
-      ok: false,
-      error: dbErrorMessage(
-        rErr,
-        { slug: "receipts.email.read_failed", userId: ctx.userId },
-        "No se pudo leer el recibo.",
-      ),
-    };
-  }
-  if (!receipt) return { ok: false, error: "Recibo no encontrado." };
-  if (receipt.status !== "issued") {
-    return {
-      ok: false,
-      error: "Solo se pueden enviar recibos emitidos.",
-    };
-  }
-
-  // The template builder handles fetching all the necessary data.
-  let templateData;
-  let pdfBuffer;
-  try {
-    templateData = await buildReceiptTemplateData(input.receipt_id);
-    pdfBuffer = await renderReceiptPdf(templateData);
-  } catch (err) {
-    logger.error("send_receipt_email.pdf_failed", {
-      userId: ctx.userId,
-      receipt_id: input.receipt_id,
-      err: err instanceof Error ? err.message : String(err),
-    });
-    return { ok: false, error: "No se pudo generar el PDF." };
-  }
-
-  const numeroLabel = formatReceiptNumber(
-    templateData.punto_venta,
-    templateData.numero,
-  );
-  const fechaLabel = formatArDateShort(templateData.fecha);
-  const totalLabel = `$${formatNumber2(templateData.total_amount)}`;
-  const pdfFilename = buildPdfFilename(
-    numeroLabel,
-    templateData.receptor.legal_name,
-  );
-
-  const result = await sendComprobanteByEmail({
-    entity_type: "receipt",
-    entity_id: input.receipt_id,
-    recipient: input.recipient,
-    subject: input.subject,
-    body: input.body,
-    emisor_name: templateData.emisor.legal_name,
-    client_legal_name: templateData.receptor.legal_name,
-    numero_label: numeroLabel,
-    fecha: fechaLabel,
-    total_label: totalLabel,
-    pdf_buffer: pdfBuffer,
-    pdf_filename: pdfFilename,
-    sent_by: ctx.userId,
-  });
-
-  if (!result.ok) return result;
-
-  revalidatePath("/receipts");
-  revalidatePath(`/receipts/${input.receipt_id}`);
-
-  return { ok: true, data: { log_id: result.data.log_id } };
+  return sendReceiptEmail(ctx.userId, parsed.data);
 }
 
 export async function getReceiptEmailDefaultsAction(receiptId: string): Promise<

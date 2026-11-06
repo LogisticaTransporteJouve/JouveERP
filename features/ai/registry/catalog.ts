@@ -174,6 +174,7 @@ import {
   proposeCashMovement,
   proposePaymentOrder,
   proposeReceipt,
+  proposeReceiptEmail,
   proposeTransfer,
 } from "./actions/treasury-proposals";
 import { getTasks } from "./actions/tasks";
@@ -220,6 +221,7 @@ export const AI_ACTIONS: readonly AiAction[] = [
   proposeCreditDebitNote,
   proposeInvoiceEmail,
   proposeReceipt,
+  proposeReceiptEmail,
   getFreightSettlements,
   proposeFreightSettlement,
   // Compras / cuentas por pagar
