@@ -188,6 +188,9 @@
 /* Markdown rendering for AI assistant replies. Richer than .prose-chat:
  * headings and tables are allowed because the AI leans on them. Monocromo. */
 @layer components {
+  .prose-ai {
+    @apply break-words;
+  }
   .prose-ai p {
     @apply m-0;
   }
