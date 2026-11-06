@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { DisabledHint, firstReason } from "@/components/disabled-hint";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -353,13 +354,22 @@ export function FreightSettlementDialog({
           >
             Cancelar
           </Button>
-          <Button
-            type="button"
-            disabled={saveMut.isPending || picked.length === 0 || !periodValid}
-            onClick={onSubmit}
+          <DisabledHint
+            reason={firstReason(
+              [picked.length === 0, "Elegí al menos una carga."],
+              [!periodValid, "Completá un período válido."],
+            )}
           >
-            Guardar borrador
-          </Button>
+            <Button
+              type="button"
+              disabled={
+                saveMut.isPending || picked.length === 0 || !periodValid
+              }
+              onClick={onSubmit}
+            >
+              Guardar borrador
+            </Button>
+          </DisabledHint>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 
 import { ChannelsReadError } from "@/components/channels-read-error";
+import { DisabledHint, NO_CHANGES_REASON } from "@/components/disabled-hint";
 import { useScope } from "@/components/providers/scope-provider";
 import { MoneyInput } from "@/components/money-input";
 import { Button } from "@/components/ui/button";
@@ -391,12 +392,18 @@ export function TripDialog({
               >
                 Cancelar
               </Button>
-              <Button
-                type="submit"
-                disabled={isSaving || (isEdit && !form.formState.isDirty)}
+              <DisabledHint
+                reason={
+                  isEdit && !form.formState.isDirty ? NO_CHANGES_REASON : null
+                }
               >
-                {isEdit ? "Guardar" : "Crear"}
-              </Button>
+                <Button
+                  type="submit"
+                  disabled={isSaving || (isEdit && !form.formState.isDirty)}
+                >
+                  {isEdit ? "Guardar" : "Crear"}
+                </Button>
+              </DisabledHint>
             </DialogFooter>
           </form>
         </Form>

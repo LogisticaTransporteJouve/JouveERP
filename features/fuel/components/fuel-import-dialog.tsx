@@ -4,6 +4,7 @@ import { FileUp, Loader2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { DisabledHint } from "@/components/disabled-hint";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -227,19 +228,21 @@ export function FuelImportDialog({
               }}
             />
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={!file || busy}
-            onClick={() => read(null)}
-          >
-            {previewMut.isPending ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <FileUp className="size-4" />
-            )}
-            Leer archivo
-          </Button>
+          <DisabledHint reason={!file ? "Elegí un archivo." : null}>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={!file || busy}
+              onClick={() => read(null)}
+            >
+              {previewMut.isPending ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <FileUp className="size-4" />
+              )}
+              Leer archivo
+            </Button>
+          </DisabledHint>
         </div>
 
         {preview && mapping && (
@@ -404,15 +407,19 @@ export function FuelImportDialog({
           >
             Cancelar
           </Button>
-          <Button
-            type="button"
-            disabled={chosen.length === 0 || busy}
-            onClick={confirm}
+          <DisabledHint
+            reason={chosen.length === 0 ? "Elegí al menos una carga." : null}
           >
-            {confirmMut.isPending
-              ? "Importando…"
-              : `Importar ${chosen.length} ${chosen.length === 1 ? "carga" : "cargas"}`}
-          </Button>
+            <Button
+              type="button"
+              disabled={chosen.length === 0 || busy}
+              onClick={confirm}
+            >
+              {confirmMut.isPending
+                ? "Importando…"
+                : `Importar ${chosen.length} ${chosen.length === 1 ? "carga" : "cargas"}`}
+            </Button>
+          </DisabledHint>
         </DialogFooter>
       </DialogContent>
     </Dialog>

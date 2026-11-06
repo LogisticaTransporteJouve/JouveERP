@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { DisabledHint } from "@/components/disabled-hint";
 import { MoneyInput } from "@/components/money-input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -135,33 +136,37 @@ export function FreightTariffIncreaseDialog({
           <Button variant="ghost" onClick={onClose} disabled={apply.isPending}>
             Cancelar
           </Button>
-          <Button
-            disabled={apply.isPending || selected.size === 0}
-            onClick={() =>
-              apply.mutate(
-                {
-                  list_ids: [...selected],
-                  pct: parseArAmount(pct) ?? undefined,
-                  label,
-                  valid_from: validFrom,
-                  round_to: roundTo,
-                },
-                {
-                  onSuccess: (r) => {
-                    toast.success(
-                      r.created === 1
-                        ? "Aumento aplicado a 1 tarifario."
-                        : `Aumento aplicado a ${r.created} tarifarios.`,
-                    );
-                    onClose();
-                  },
-                  onError: (err) => toast.error(err.message),
-                },
-              )
-            }
+          <DisabledHint
+            reason={selected.size === 0 ? "Elegí al menos una lista." : null}
           >
-            {apply.isPending ? "Aplicando…" : "Aplicar"}
-          </Button>
+            <Button
+              disabled={apply.isPending || selected.size === 0}
+              onClick={() =>
+                apply.mutate(
+                  {
+                    list_ids: [...selected],
+                    pct: parseArAmount(pct) ?? undefined,
+                    label,
+                    valid_from: validFrom,
+                    round_to: roundTo,
+                  },
+                  {
+                    onSuccess: (r) => {
+                      toast.success(
+                        r.created === 1
+                          ? "Aumento aplicado a 1 tarifario."
+                          : `Aumento aplicado a ${r.created} tarifarios.`,
+                      );
+                      onClose();
+                    },
+                    onError: (err) => toast.error(err.message),
+                  },
+                )
+              }
+            >
+              {apply.isPending ? "Aplicando…" : "Aplicar"}
+            </Button>
+          </DisabledHint>
         </DialogFooter>
       </DialogContent>
     </Dialog>

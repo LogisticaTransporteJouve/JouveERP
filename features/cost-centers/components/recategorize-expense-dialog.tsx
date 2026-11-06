@@ -4,6 +4,7 @@ import { Tags } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { DisabledHint, NO_CHANGES_REASON } from "@/components/disabled-hint";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import {
@@ -155,13 +156,15 @@ function RecategorizeForm({
         >
           Cancelar
         </Button>
-        <Button
-          type="button"
-          onClick={onSubmit}
-          disabled={mutation.isPending || !input}
-        >
-          {mutation.isPending ? "Guardando…" : "Recategorizar"}
-        </Button>
+        <DisabledHint reason={!input ? NO_CHANGES_REASON : null}>
+          <Button
+            type="button"
+            onClick={onSubmit}
+            disabled={mutation.isPending || !input}
+          >
+            {mutation.isPending ? "Guardando…" : "Recategorizar"}
+          </Button>
+        </DisabledHint>
       </DialogFooter>
     </>
   );

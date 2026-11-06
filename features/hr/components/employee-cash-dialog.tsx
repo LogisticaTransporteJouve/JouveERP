@@ -5,6 +5,7 @@ import { Suspense, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { ChannelsReadError } from "@/components/channels-read-error";
+import { DisabledHint, firstReason } from "@/components/disabled-hint";
 import {
   useDefaultChannel,
   useScope,
@@ -374,12 +375,19 @@ function CashFormFields({
         >
           Cancelar
         </Button>
-        <Button
-          onClick={onSave}
-          disabled={mutation.isPending || !accountId || !channelId}
+        <DisabledHint
+          reason={firstReason(
+            [!accountId, "Elegí la cuenta."],
+            [!channelId, "Elegí el canal."],
+          )}
         >
-          {mutation.isPending ? "Guardando…" : "Registrar"}
-        </Button>
+          <Button
+            onClick={onSave}
+            disabled={mutation.isPending || !accountId || !channelId}
+          >
+            {mutation.isPending ? "Guardando…" : "Registrar"}
+          </Button>
+        </DisabledHint>
       </DialogFooter>
     </div>
   );

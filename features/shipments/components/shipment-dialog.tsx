@@ -7,6 +7,11 @@ import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import {
+  DisabledHint,
+  NO_CHANGES_REASON,
+  firstReason,
+} from "@/components/disabled-hint";
 import { MoneyInput } from "@/components/money-input";
 import { ReadError } from "@/components/read-error";
 import { Button } from "@/components/ui/button";
@@ -517,16 +522,26 @@ export function ShipmentDialog({
                 >
                   Cancelar
                 </Button>
-                <Button
-                  type="submit"
-                  disabled={
-                    isSaving ||
-                    remitoConflict !== null ||
-                    (isEdit && !form.formState.isDirty)
-                  }
+                <DisabledHint
+                  reason={firstReason(
+                    [
+                      remitoConflict !== null,
+                      "Ese remito ya está en otra carga del cliente.",
+                    ],
+                    [isEdit && !form.formState.isDirty, NO_CHANGES_REASON],
+                  )}
                 >
-                  {isEdit ? "Guardar" : "Crear"}
-                </Button>
+                  <Button
+                    type="submit"
+                    disabled={
+                      isSaving ||
+                      remitoConflict !== null ||
+                      (isEdit && !form.formState.isDirty)
+                    }
+                  >
+                    {isEdit ? "Guardar" : "Crear"}
+                  </Button>
+                </DisabledHint>
               </DialogFooter>
             </form>
           </Form>

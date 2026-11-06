@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { DisabledHint, firstReason } from "@/components/disabled-hint";
 import {
   useDefaultChannel,
   useScope,
@@ -208,15 +209,27 @@ export function CreateSalesInvoiceDialog({
           >
             Cancelar
           </Button>
-          <Button
-            type="button"
-            onClick={onSubmit}
-            disabled={
-              duplicate !== "none" || !channelId || !pos || create.isPending
-            }
+          <DisabledHint
+            reason={firstReason(
+              [
+                duplicate === "found",
+                "Ese comprobante ya está registrado en el sistema.",
+              ],
+              [duplicate === "unknown", DUPLICATE_UNKNOWN_MESSAGE],
+              [!channelId, "Elegí el canal."],
+              [!pos, "Elegí el punto de venta."],
+            )}
           >
-            Emitir factura
-          </Button>
+            <Button
+              type="button"
+              onClick={onSubmit}
+              disabled={
+                duplicate !== "none" || !channelId || !pos || create.isPending
+              }
+            >
+              Emitir factura
+            </Button>
+          </DisabledHint>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { DisabledHint } from "@/components/disabled-hint";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -16,12 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { UserAvatar } from "@/components/user-avatar";
 import { getDisplayName } from "@/lib/avatars";
@@ -59,17 +55,11 @@ export function NewChatDialog({ open, onOpenChange }: Props) {
           </TabsList>
 
           <TabsContent value="dm" className="pt-4">
-            <DmForm
-              open={open}
-              onDone={() => onOpenChange(false)}
-            />
+            <DmForm open={open} onDone={() => onOpenChange(false)} />
           </TabsContent>
 
           <TabsContent value="group" className="pt-4">
-            <GroupForm
-              open={open}
-              onDone={() => onOpenChange(false)}
-            />
+            <GroupForm open={open} onDone={() => onOpenChange(false)} />
           </TabsContent>
         </Tabs>
       </DialogContent>
@@ -135,7 +125,11 @@ function DmForm({ open, onDone }: { open: boolean; onDone: () => void }) {
                   />
                   <div className="min-w-0 flex-1 text-left">
                     <p className="truncate text-sm font-medium">
-                      {getDisplayName(user.first_name, user.last_name, user.email)}
+                      {getDisplayName(
+                        user.first_name,
+                        user.last_name,
+                        user.email,
+                      )}
                     </p>
                     <p className="truncate text-xs text-muted-foreground">
                       {user.email}
@@ -255,7 +249,11 @@ function GroupForm({ open, onDone }: { open: boolean; onDone: () => void }) {
                       />
                       <div className="min-w-0 flex-1 text-left">
                         <p className="truncate text-sm font-medium">
-                          {getDisplayName(user.first_name, user.last_name, user.email)}
+                          {getDisplayName(
+                            user.first_name,
+                            user.last_name,
+                            user.email,
+                          )}
                         </p>
                         <p className="truncate text-xs text-muted-foreground">
                           {user.email}
@@ -277,9 +275,16 @@ function GroupForm({ open, onDone }: { open: boolean; onDone: () => void }) {
         <Button onClick={onDone} variant="outline">
           Cancelar
         </Button>
-        <Button onClick={handleCreate} disabled={create.isPending || !name.trim()}>
-          {create.isPending ? "Creando…" : "Crear grupo"}
-        </Button>
+        <DisabledHint
+          reason={!name.trim() ? "Escribí un nombre para el grupo." : null}
+        >
+          <Button
+            onClick={handleCreate}
+            disabled={create.isPending || !name.trim()}
+          >
+            {create.isPending ? "Creando…" : "Crear grupo"}
+          </Button>
+        </DisabledHint>
       </DialogFooter>
     </div>
   );
@@ -289,7 +294,11 @@ function filterUsers(users: AssignableUser[], query: string): AssignableUser[] {
   const q = query.trim().toLowerCase();
   if (!q) return users;
   return users.filter((u) => {
-    const display = getDisplayName(u.first_name, u.last_name, u.email).toLowerCase();
+    const display = getDisplayName(
+      u.first_name,
+      u.last_name,
+      u.email,
+    ).toLowerCase();
     return display.includes(q) || u.email.toLowerCase().includes(q);
   });
 }

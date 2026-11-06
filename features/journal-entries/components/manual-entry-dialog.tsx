@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { ChannelsReadError } from "@/components/channels-read-error";
+import { DisabledHint, firstReason } from "@/components/disabled-hint";
 import { useScope } from "@/components/providers/scope-provider";
 import { MoneyInput } from "@/components/money-input";
 import { Button } from "@/components/ui/button";
@@ -110,6 +111,10 @@ export function ManualEntryDialog({
   const totalHaber = lines.reduce((a, l) => a + toNumber(l.credit), 0);
   const diff = Math.round((totalDebe - totalHaber) * 100) / 100;
   const balanced = diff === 0 && totalDebe > 0;
+  const unassignedLine = lines.some(
+    (l) =>
+      l.account_id === "" && (toNumber(l.debit) > 0 || toNumber(l.credit) > 0),
+  );
 
   function onSubmit() {
     create.mutate(
@@ -222,6 +227,11 @@ export function ManualEntryDialog({
                 label="Quitar línea"
                 type="button"
                 variant="ghost"
+                disabledReason={
+                  lines.length <= 2
+                    ? "Un asiento necesita al menos dos líneas."
+                    : null
+                }
                 disabled={lines.length <= 2}
                 onClick={() =>
                   setLines((prev) => prev.filter((_, idx) => idx !== i))
@@ -259,23 +269,31 @@ export function ManualEntryDialog({
           >
             Cancelar
           </Button>
-          <Button
-            type="button"
-            onClick={onSubmit}
-            disabled={
-              !balanced ||
-              descripcion.trim().length === 0 ||
-              !fecha ||
-              lines.some(
-                (l) =>
-                  l.account_id === "" &&
-                  (toNumber(l.debit) > 0 || toNumber(l.credit) > 0),
-              ) ||
-              create.isPending
-            }
+          <DisabledHint
+            reason={firstReason(
+              [!fecha, "Completá la fecha."],
+              [descripcion.trim().length === 0, "Escribí la descripción."],
+              [unassignedLine, "Elegí la cuenta de cada línea con importe."],
+              [
+                !balanced,
+                "El debe y el haber tienen que ser iguales y mayores a cero.",
+              ],
+            )}
           >
-            Crear asiento
-          </Button>
+            <Button
+              type="button"
+              onClick={onSubmit}
+              disabled={
+                !balanced ||
+                descripcion.trim().length === 0 ||
+                !fecha ||
+                unassignedLine ||
+                create.isPending
+              }
+            >
+              Crear asiento
+            </Button>
+          </DisabledHint>
         </DialogFooter>
       </DialogContent>
     </Dialog>

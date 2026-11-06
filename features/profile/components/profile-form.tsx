@@ -6,6 +6,7 @@ import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { DisabledHint, NO_CHANGES_REASON } from "@/components/disabled-hint";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -237,9 +238,16 @@ export function ProfileForm() {
         </section>
 
         <div className="flex justify-end">
-          <Button type="submit" disabled={isSaving || !form.formState.isDirty}>
-            {isSaving ? "Guardando…" : "Guardar cambios"}
-          </Button>
+          <DisabledHint
+            reason={!form.formState.isDirty ? NO_CHANGES_REASON : null}
+          >
+            <Button
+              type="submit"
+              disabled={isSaving || !form.formState.isDirty}
+            >
+              {isSaving ? "Guardando…" : "Guardar cambios"}
+            </Button>
+          </DisabledHint>
         </div>
       </form>
     </Form>

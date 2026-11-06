@@ -898,6 +898,11 @@ function NewInvoiceForm({
                             variant="ghost"
                             className="size-8"
                             onClick={() => removeItem(idx)}
+                            disabledReason={
+                              items.length <= (showSeguro ? 2 : 1)
+                                ? "Tiene que quedar al menos un ítem."
+                                : null
+                            }
                             disabled={items.length <= (showSeguro ? 2 : 1)}
                           >
                             <X />

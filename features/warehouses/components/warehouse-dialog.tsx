@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { DisabledHint, NO_CHANGES_REASON } from "@/components/disabled-hint";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -26,7 +27,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
-import { useCreateWarehouse, useUpdateWarehouse } from "../hooks/use-warehouses";
+import {
+  useCreateWarehouse,
+  useUpdateWarehouse,
+} from "../hooks/use-warehouses";
 import type { Warehouse } from "../schema";
 
 const FormSchema = z.object({
@@ -177,12 +181,18 @@ export function WarehouseDialog({
               >
                 Cancelar
               </Button>
-              <Button
-                type="submit"
-                disabled={isSaving || (isEdit && !form.formState.isDirty)}
+              <DisabledHint
+                reason={
+                  isEdit && !form.formState.isDirty ? NO_CHANGES_REASON : null
+                }
               >
-                {isEdit ? "Guardar" : "Crear"}
-              </Button>
+                <Button
+                  type="submit"
+                  disabled={isSaving || (isEdit && !form.formState.isDirty)}
+                >
+                  {isEdit ? "Guardar" : "Crear"}
+                </Button>
+              </DisabledHint>
             </DialogFooter>
           </form>
         </Form>

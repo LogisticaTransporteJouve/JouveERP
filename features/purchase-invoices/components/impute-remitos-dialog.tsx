@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { DisabledHint, firstReason } from "@/components/disabled-hint";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -210,12 +211,22 @@ export function ImputeRemitosDialog({
           >
             Cancelar
           </Button>
-          <Button
-            onClick={submit}
-            disabled={impute.isPending || chosen.length === 0 || overFactura}
+          <DisabledHint
+            reason={firstReason(
+              [chosen.length === 0, "Elegí al menos un remito."],
+              [
+                overFactura,
+                "Los remitos suman más que lo disponible en la factura.",
+              ],
+            )}
           >
-            {impute.isPending ? "Imputando…" : "Imputar"}
-          </Button>
+            <Button
+              onClick={submit}
+              disabled={impute.isPending || chosen.length === 0 || overFactura}
+            >
+              {impute.isPending ? "Imputando…" : "Imputar"}
+            </Button>
+          </DisabledHint>
         </DialogFooter>
       </DialogContent>
     </Dialog>

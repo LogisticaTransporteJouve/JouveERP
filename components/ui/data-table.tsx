@@ -398,6 +398,11 @@ export function DataTable<T extends RowData>({
             variant="outline"
             className="size-8"
             onClick={() => table.previousPage()}
+            disabledReason={
+              !table.getCanPreviousPage()
+                ? "Ya estás en la primera página."
+                : null
+            }
             disabled={!table.getCanPreviousPage()}
           >
             <ChevronLeft className="size-4" />
@@ -407,6 +412,9 @@ export function DataTable<T extends RowData>({
             variant="outline"
             className="size-8"
             onClick={() => table.nextPage()}
+            disabledReason={
+              !table.getCanNextPage() ? "Ya estás en la última página." : null
+            }
             disabled={!table.getCanNextPage()}
           >
             <ChevronRight className="size-4" />

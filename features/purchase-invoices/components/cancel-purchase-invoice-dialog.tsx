@@ -48,6 +48,11 @@ export function CancelPurchaseInvoiceDialog({
           label="Anular"
           variant="ghost"
           className="text-destructive hover:text-destructive"
+          disabledReason={
+            invoice.status === "cancelled"
+              ? "La factura ya está anulada."
+              : null
+          }
           disabled={invoice.status === "cancelled"}
         >
           <Ban className="size-4" />

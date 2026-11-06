@@ -333,6 +333,7 @@ function SortableWidget({
             variant="ghost"
             size="icon-sm"
             className="text-muted-foreground hover:text-foreground disabled:opacity-30"
+            disabledReason={!canMoveUp ? "Ya está primero." : null}
             disabled={!canMoveUp}
             onClick={onMoveUp}
           >
@@ -343,6 +344,7 @@ function SortableWidget({
             variant="ghost"
             size="icon-sm"
             className="text-muted-foreground hover:text-foreground disabled:opacity-30"
+            disabledReason={!canMoveDown ? "Ya está último." : null}
             disabled={!canMoveDown}
             onClick={onMoveDown}
           >

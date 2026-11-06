@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { ChannelsReadError } from "@/components/channels-read-error";
+import { DisabledHint, firstReason } from "@/components/disabled-hint";
 import { MoneyInput } from "@/components/money-input";
 import {
   useDefaultChannel,
@@ -331,18 +332,26 @@ export function CreateChequesDialog({
           >
             Cancelar
           </Button>
-          <Button
-            type="button"
-            onClick={onSubmit}
-            disabled={
-              createMut.isPending ||
-              rows.length === 0 ||
-              !carteraId ||
-              !channelId
-            }
+          <DisabledHint
+            reason={firstReason(
+              [rows.length === 0, "No hay cheques para crear."],
+              [!channelId, "Elegí el canal."],
+              [!carteraId, "Elegí la cuenta de cartera."],
+            )}
           >
-            Crear {rows.length} cheque{rows.length === 1 ? "" : "s"}
-          </Button>
+            <Button
+              type="button"
+              onClick={onSubmit}
+              disabled={
+                createMut.isPending ||
+                rows.length === 0 ||
+                !carteraId ||
+                !channelId
+              }
+            >
+              Crear {rows.length} cheque{rows.length === 1 ? "" : "s"}
+            </Button>
+          </DisabledHint>
         </DialogFooter>
       </DialogContent>
     </Dialog>

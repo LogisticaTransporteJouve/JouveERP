@@ -1331,7 +1331,7 @@ export function PurchaseInvoiceForm({
       isSaving={isSaving}
       isDirty={form.formState.isDirty}
       createLabel={arcaLocked ? "Aceptar comprobante" : "Cargar factura"}
-      submitDisabled={arcaGapPending}
+      submitDisabledReason={arcaGapPending ? ARCA_GAP_PENDING_MESSAGE : null}
       onCancel={() => (onCancel ? onCancel() : router.push("/purchases"))}
     />
   );

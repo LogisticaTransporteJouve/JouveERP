@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { DisabledHint } from "@/components/disabled-hint";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -146,13 +147,23 @@ export function IssueLateInterestDialog({
           <Button type="button" variant="outline" onClick={onClose}>
             Cancelar
           </Button>
-          <Button
-            type="button"
-            disabled={issueMut.isPending || !preview || preview.interest <= 0}
-            onClick={onSubmit}
+          <DisabledHint
+            reason={
+              !preview
+                ? "Ingresá una tasa mensual mayor a cero."
+                : preview.interest <= 0
+                  ? "No hay interés a cobrar para este comprobante."
+                  : null
+            }
           >
-            Generar ND
-          </Button>
+            <Button
+              type="button"
+              disabled={issueMut.isPending || !preview || preview.interest <= 0}
+              onClick={onSubmit}
+            >
+              Generar ND
+            </Button>
+          </DisabledHint>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { ChannelsReadError } from "@/components/channels-read-error";
+import { DisabledHint, firstReason } from "@/components/disabled-hint";
 import { useScope } from "@/components/providers/scope-provider";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -184,13 +185,20 @@ export function MatchLineDialog({
           <Button type="button" variant="ghost" onClick={close}>
             Cancelar
           </Button>
-          <Button
-            type="button"
-            disabled={selected.size === 0 || diff !== 0 || match.isPending}
-            onClick={submit}
+          <DisabledHint
+            reason={firstReason(
+              [selected.size === 0, "Elegí al menos un movimiento."],
+              [diff !== 0, "Lo elegido no suma el importe de la línea."],
+            )}
           >
-            {match.isPending ? "Conciliando…" : "Conciliar"}
-          </Button>
+            <Button
+              type="button"
+              disabled={selected.size === 0 || diff !== 0 || match.isPending}
+              onClick={submit}
+            >
+              {match.isPending ? "Conciliando…" : "Conciliar"}
+            </Button>
+          </DisabledHint>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -332,13 +340,20 @@ export function MatchMovementLinesDialog({
           <Button type="button" variant="ghost" onClick={close}>
             Cancelar
           </Button>
-          <Button
-            type="button"
-            disabled={selected.size === 0 || diff !== 0 || match.isPending}
-            onClick={submit}
+          <DisabledHint
+            reason={firstReason(
+              [selected.size === 0, "Elegí al menos una línea del extracto."],
+              [diff !== 0, "Lo elegido no suma el importe del movimiento."],
+            )}
           >
-            {match.isPending ? "Conciliando…" : "Conciliar"}
-          </Button>
+            <Button
+              type="button"
+              disabled={selected.size === 0 || diff !== 0 || match.isPending}
+              onClick={submit}
+            >
+              {match.isPending ? "Conciliando…" : "Conciliar"}
+            </Button>
+          </DisabledHint>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -389,25 +404,29 @@ export function IgnoreLineDialog({
           <Button type="button" variant="ghost" onClick={close}>
             Cancelar
           </Button>
-          <Button
-            type="button"
-            disabled={reason.trim() === "" || ignore.isPending}
-            onClick={() => {
-              if (!line) return;
-              ignore.mutate(
-                { line_id: line.id, reason },
-                {
-                  onSuccess: () => {
-                    toast.success("Línea marcada como que no corresponde.");
-                    close();
-                  },
-                  onError: (err) => toast.error(err.message),
-                },
-              );
-            }}
+          <DisabledHint
+            reason={reason.trim() === "" ? "Escribí el motivo." : null}
           >
-            {ignore.isPending ? "Guardando…" : "Marcar"}
-          </Button>
+            <Button
+              type="button"
+              disabled={reason.trim() === "" || ignore.isPending}
+              onClick={() => {
+                if (!line) return;
+                ignore.mutate(
+                  { line_id: line.id, reason },
+                  {
+                    onSuccess: () => {
+                      toast.success("Línea marcada como que no corresponde.");
+                      close();
+                    },
+                    onError: (err) => toast.error(err.message),
+                  },
+                );
+              }}
+            >
+              {ignore.isPending ? "Guardando…" : "Marcar"}
+            </Button>
+          </DisabledHint>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -653,15 +672,35 @@ export function CreateLineTransactionDialog({
           <Button type="button" variant="ghost" onClick={close}>
             Cancelar
           </Button>
-          <Button type="button" disabled={disabled} onClick={submit}>
-            {isTax
-              ? pending
-                ? "Registrando…"
-                : "Pagar y conciliar"
-              : pending
-                ? "Creando…"
-                : "Crear y conciliar"}
-          </Button>
+          <DisabledHint
+            reason={
+              isTax
+                ? firstReason(
+                    [taxDocumentId === "", "Elegí el impuesto."],
+                    [
+                      difference !== 0 && !confirmDifference,
+                      "Confirmá que registrás el pago con diferencia.",
+                    ],
+                  )
+                : firstReason(
+                    [channelId === "", "Elegí el canal."],
+                    [
+                      isDebit && expenseAccountId === "",
+                      "Elegí la cuenta de gasto.",
+                    ],
+                  )
+            }
+          >
+            <Button type="button" disabled={disabled} onClick={submit}>
+              {isTax
+                ? pending
+                  ? "Registrando…"
+                  : "Pagar y conciliar"
+                : pending
+                  ? "Creando…"
+                  : "Crear y conciliar"}
+            </Button>
+          </DisabledHint>
         </DialogFooter>
       </DialogContent>
     </Dialog>

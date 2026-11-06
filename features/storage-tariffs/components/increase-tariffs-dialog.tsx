@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { DisabledHint, firstReason } from "@/components/disabled-hint";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -119,13 +120,22 @@ export function IncreaseTariffsDialog({
           >
             Cancelar
           </Button>
-          <Button
-            type="button"
-            onClick={onSubmit}
-            disabled={!valid || affected.length === 0 || increaseMut.isPending}
+          <DisabledHint
+            reason={firstReason(
+              [!valid, "Ingresá un porcentaje válido y la fecha de vigencia."],
+              [affected.length === 0, "Ninguna tarifa cambia con ese aumento."],
+            )}
           >
-            Aplicar aumento
-          </Button>
+            <Button
+              type="button"
+              onClick={onSubmit}
+              disabled={
+                !valid || affected.length === 0 || increaseMut.isPending
+              }
+            >
+              Aplicar aumento
+            </Button>
+          </DisabledHint>
         </DialogFooter>
       </DialogContent>
     </Dialog>

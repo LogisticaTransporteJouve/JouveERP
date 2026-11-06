@@ -3,6 +3,11 @@
 import { useState } from "react";
 import { toast } from "sonner";
 
+import {
+  DisabledHint,
+  NO_CHANGES_REASON,
+  firstReason,
+} from "@/components/disabled-hint";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -92,17 +97,25 @@ export function StrixAccountDialog({
             >
               Cancelar
             </Button>
-            <Button
-              type="submit"
-              disabled={
-                save.isPending ||
-                !dirty ||
-                username.trim() === "" ||
-                (needsPassword && password === "")
-              }
+            <DisabledHint
+              reason={firstReason(
+                [!dirty, NO_CHANGES_REASON],
+                [username.trim() === "", "Ingresá el usuario."],
+                [needsPassword && password === "", "Ingresá la contraseña."],
+              )}
             >
-              {save.isPending ? "Guardando…" : "Guardar"}
-            </Button>
+              <Button
+                type="submit"
+                disabled={
+                  save.isPending ||
+                  !dirty ||
+                  username.trim() === "" ||
+                  (needsPassword && password === "")
+                }
+              >
+                {save.isPending ? "Guardando…" : "Guardar"}
+              </Button>
+            </DisabledHint>
           </DialogFooter>
         </form>
       </DialogContent>

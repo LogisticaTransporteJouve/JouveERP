@@ -4,6 +4,7 @@ import { KeyRound } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { DisabledHint } from "@/components/disabled-hint";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -132,12 +133,20 @@ function CredentialsDialog({
             >
               Cancelar
             </Button>
-            <Button
-              type="submit"
-              disabled={save.isPending || (needsPassword && password === "")}
+            <DisabledHint
+              reason={
+                needsPassword && password === ""
+                  ? "Ingresá la clave fiscal."
+                  : null
+              }
             >
-              {save.isPending ? "Guardando…" : "Guardar"}
-            </Button>
+              <Button
+                type="submit"
+                disabled={save.isPending || (needsPassword && password === "")}
+              >
+                {save.isPending ? "Guardando…" : "Guardar"}
+              </Button>
+            </DisabledHint>
           </DialogFooter>
         </form>
       </DialogContent>

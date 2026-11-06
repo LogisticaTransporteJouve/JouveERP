@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { DisabledHint } from "@/components/disabled-hint";
 import { useConfirm } from "@/components/providers/confirm-provider";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
@@ -233,13 +234,15 @@ export function ChannelSettingsDialog({
               Cerrar
             </Button>
             {iAmAdmin ? (
-              <Button
-                type="button"
-                onClick={handleSave}
-                disabled={update.isPending || !name.trim()}
-              >
-                {update.isPending ? "Guardando…" : "Guardar"}
-              </Button>
+              <DisabledHint reason={!name.trim() ? "Escribí un nombre." : null}>
+                <Button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={update.isPending || !name.trim()}
+                >
+                  {update.isPending ? "Guardando…" : "Guardar"}
+                </Button>
+              </DisabledHint>
             ) : null}
           </div>
         </DialogFooter>

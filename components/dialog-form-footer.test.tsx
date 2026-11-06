@@ -52,6 +52,17 @@ describe("DialogFormFooter", () => {
     expect((dirty.submit as HTMLButtonElement).disabled).toBe(false);
   });
 
+  it("explains a pristine edit form's disabled submit", () => {
+    const { submit } = renderFooter({ mode: "edit" });
+    expect(submit.parentElement?.dataset.slot).toBe("disabled-hint");
+  });
+
+  it("blocks submit with the form's own reason", () => {
+    const { submit } = renderFooter({ submitDisabledReason: "Falta algo." });
+    expect((submit as HTMLButtonElement).disabled).toBe(true);
+    expect(submit.parentElement?.dataset.slot).toBe("disabled-hint");
+  });
+
   it("disables both buttons while saving", () => {
     const { submit, cancel } = renderFooter({ isSaving: true });
     expect(submit.textContent).toBe("Guardando…");
