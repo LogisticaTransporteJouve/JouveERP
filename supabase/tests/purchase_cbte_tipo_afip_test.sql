@@ -54,7 +54,15 @@ select lives_ok(
 );
 
 select lives_ok(
-  $$select pg_temp.add(6, 'nd', 'A', 52)$$,
+  $$insert into public.purchase_invoices
+      (channel_id, supplier_id, kind, letter, punto_venta, numero, fecha,
+       imp_neto, imp_iva, imp_total, moneda, cotizacion, status, cbte_tipo_afip,
+       invoice_origin_id)
+    select 'jouve_fiscal', '00000000-0000-0000-0000-0000000c6101', 'nd', 'A',
+           63, 6, '2026-09-30', 100, 21, 121, 'PES', 1, 'received', 52, f.id
+      from public.purchase_invoices f
+     where f.supplier_id = '00000000-0000-0000-0000-0000000c6101'
+       and f.numero = 5$$,
   'an ND M is an ND A with code 52'
 );
 
@@ -66,10 +74,10 @@ select throws_ok(
 );
 
 select throws_ok(
-  $$select pg_temp.add(8, 'factura', 'B', 51)$$,
+  $$select pg_temp.add(8, 'factura', 'A', 52)$$,
   '23514',
   'new row for relation "purchase_invoices" violates check constraint "purchase_invoices_cbte_tipo_afip_check"',
-  'a Factura M is never a letter B'
+  'an ND M code is never on a factura'
 );
 
 select ok(
