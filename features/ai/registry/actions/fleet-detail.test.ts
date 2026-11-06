@@ -115,13 +115,15 @@ describe("getVehicleUsage", () => {
       trip_km: 500,
       trips_without_km: 1,
       odometer_km: 1500,
+      km_recorridos: 1500,
       fuel_liters: 420,
       drivers: [
         expect.objectContaining({ driver: "Pérez", trips: 2, km: 500 }),
         expect.objectContaining({ driver: "Gómez", trips: 1, km: 0 }),
       ],
     });
-    expect(res.summary).toContain("1.500 km de odómetro");
+    expect(res.summary).toContain("1.500 km recorridos (odómetro)");
+    expect(res.summary).toContain("500 km cargados");
   });
 
   it("names the candidates when a plate matches several vehicles", async () => {
