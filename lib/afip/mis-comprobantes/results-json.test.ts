@@ -78,6 +78,62 @@ describe("parseReceivedResults", () => {
     ]);
   });
 
+  it("reads ARCA's plain decimals one way: 12.345 is twelve, not twelve thousand", () => {
+    const out = parseReceivedResults({
+      estado: "ok",
+      datos: {
+        data: [
+          row({
+            ...base,
+            1: "1",
+            4: "130",
+            5: "130",
+            32: "21",
+            34: "100",
+            40: "100",
+            42: "0",
+            44: "0",
+            46: "12.345",
+            48: "21",
+            50: "133.345",
+          }),
+        ],
+      },
+    });
+    if (typeof out === "string") throw new Error(out);
+    expect(out.skippedByReason).toEqual({});
+    expect(out.vouchers[0]).toMatchObject({
+      imp_trib: 12.35,
+      imp_total: 133.35,
+    });
+  });
+
+  it("names the amounts of a row whose parts exceed its total", () => {
+    const out = parseReceivedResults({
+      estado: "ok",
+      datos: {
+        data: [
+          row({
+            ...base,
+            1: "1",
+            4: "131",
+            5: "131",
+            40: "100",
+            42: "-20",
+            44: "0",
+            48: "21",
+            50: "101",
+          }),
+        ],
+      },
+    });
+    if (typeof out === "string") throw new Error(out);
+    expect(out.skippedByReason).toEqual({ amount_over_total: 1 });
+    expect(out.skipped[0]!.ref).toMatch(
+      /00003-00000131 .*neto 100, no grav\. -20, exento 0, IVA 21, total 101$/,
+    );
+  });
+
   it("refuses an answer it does not recognise", () => {
     expect(parseReceivedResults({ estado: "error", datos: null })).toMatch(
       /formato que no se reconoce/,
