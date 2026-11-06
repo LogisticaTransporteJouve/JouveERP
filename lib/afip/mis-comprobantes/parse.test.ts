@@ -105,6 +105,28 @@ describe("parseReceivedExport", () => {
     });
   });
 
+  // PEISA ND A 00053-00000225 (2016): ARCA lists the whole net (gravado
+  // 200 + exento 52.122,9) as «neto gravado»; neto + IVA is the total.
+  it("reads a neto gravado that includes the exento as gravado minus exento", () => {
+    const out = parseReceivedExport(
+      "recibidos.csv",
+      csv(
+        '"29/01/2016";"2 - Nota de Débito A";"53";"225";"225";"";"80";"30579103163";"PEISA";"1";"$";"52322,9";"0";"52122,9";"0";"42";"52364,9"',
+        '"29/01/2016";"2 - Nota de Débito A";"53";"226";"226";"";"80";"30579103163";"PEISA";"1";"$";"52322,9";"0";"52122,9";"0";"42";"52500"',
+      ),
+    );
+    if (typeof out === "string") throw new Error(out);
+    expect(out.vouchers).toHaveLength(1);
+    expect(out.vouchers[0]).toMatchObject({
+      numero: 225,
+      imp_neto_gravado: 200,
+      imp_op_exentas: 52122.9,
+      imp_iva: 42,
+      imp_total: 52364.9,
+    });
+    expect(out.skippedByReason).toEqual({ amount_over_total: 1 });
+  });
+
   // The owner's ARCA export (2014, Facturas A): totals above their parts,
   // read as ARCA lists them; the person accepting says where the gap goes.
   it("keeps a voucher whose total is above its parts, as ARCA lists it", () => {
