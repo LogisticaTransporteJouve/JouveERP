@@ -211,8 +211,68 @@ describe("getClientAccountAction", () => {
     seed();
     const res = await getClientAccountAction(CLIENT, { isFiscal: true });
     if (!res.ok) throw new Error(res.error);
-    expect(res.data.runningBalance).toBe(false);
     expect(res.data.balances).toEqual({ ARS: 100, USD: 50 });
-    expect(res.data.movements.every((m) => m.balance === null)).toBe(true);
+    // No opening balance: the side's Saldo runs from its first movement.
+    expect(res.data.runningBalance).toBe(true);
+    expect(res.data.movements.every((m) => m.balance !== null)).toBe(true);
+  });
+
+  it("under a scope, the Saldo starts at a zero opening balance and is unknown before it", async () => {
+    seed();
+    db.v_client_account_movements = [
+      movement({
+        source_type: "invoice",
+        source_id: "old",
+        kind: "factura",
+        currency: "ARS",
+        numero: 1,
+        movement_date: "2026-10-01",
+        created_at: "2026-10-01T00:00:00Z",
+        signed_amount: 500,
+        gross_amount: 500,
+      }),
+      movement({
+        source_type: "opening_balance",
+        source_id: null,
+        kind: "ajuste",
+        currency: "ARS",
+        movement_date: "2026-11-01",
+        created_at: "2026-11-01T00:00:00Z",
+        signed_amount: 0,
+        gross_amount: 0,
+        channel_is_fiscal: null,
+      }),
+      movement({
+        source_type: "invoice",
+        source_id: "new1",
+        kind: "factura",
+        currency: "ARS",
+        numero: 2,
+        movement_date: "2026-11-03",
+        created_at: "2026-11-03T00:00:00Z",
+        signed_amount: 120,
+        gross_amount: 120,
+      }),
+      movement({
+        source_type: "invoice",
+        source_id: "new2",
+        kind: "factura",
+        currency: "ARS",
+        numero: 3,
+        movement_date: "2026-11-04",
+        created_at: "2026-11-04T00:00:00Z",
+        signed_amount: 80,
+        gross_amount: 80,
+      }),
+    ];
+    const res = await getClientAccountAction(CLIENT, { isFiscal: true });
+    if (!res.ok) throw new Error(res.error);
+    expect(res.data.runningBalance).toBe(true);
+    expect(res.data.movements.map((m) => [m.source_id, m.balance])).toEqual([
+      ["old", null],
+      [null, 0],
+      ["new1", 120],
+      ["new2", 200],
+    ]);
   });
 });

@@ -467,7 +467,7 @@ export function ClientAccountTab({
         hasUsd={movements.some((m) => m.currency === "USD")}
         count={movements.length}
         periodCount={range ? filteredMovements.length : null}
-        scopeLabel={runningBalance ? null : SCOPE_LABEL[fiscalFilter]}
+        scopeLabel={fiscalFilter === "all" ? null : SCOPE_LABEL[fiscalFilter]}
       />
 
       <ListToolbar

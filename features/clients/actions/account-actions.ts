@@ -311,21 +311,34 @@ export async function getClientAccountAction(
     (m) =>
       m.channel_is_fiscal === isFiscal || m.source_type === "opening_balance",
   );
+  // A side's running balance is known where the whole account's split is: from
+  // the start when there is no opening balance, or from an opening balance of
+  // 0 (each side starts at 0 there). An opening with another target does not
+  // say how much of it is this side's, so the side shows no Saldo.
+  const hasOpening = scoped.some((m) => m.source_type === "opening_balance");
+  const sideRunning = !hasOpening || openingTarget === 0;
+  let known = !hasOpening;
+  const side = zeroBalances();
+  const withBalance = scoped.map((m) => {
+    if (m.source_type === "opening_balance") {
+      known = sideRunning;
+      for (const c of Object.keys(side) as (keyof typeof side)[]) side[c] = 0;
+      return {
+        ...m,
+        signed_amount: openingTarget,
+        gross_amount: Math.abs(openingTarget),
+        balance: known ? 0 : null,
+      };
+    }
+    side[m.currency] = round2(side[m.currency] + m.signed_amount);
+    return { ...m, balance: known ? side[m.currency] : null };
+  });
   return {
     ok: true,
     data: {
-      movements: scoped.map((m) =>
-        m.source_type === "opening_balance"
-          ? {
-              ...m,
-              signed_amount: openingTarget,
-              gross_amount: Math.abs(openingTarget),
-              balance: null,
-            }
-          : { ...m, balance: null },
-      ),
+      movements: withBalance,
       balances: roundBalances(balances),
-      runningBalance: false,
+      runningBalance: sideRunning,
     },
   };
 }
