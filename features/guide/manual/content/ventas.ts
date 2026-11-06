@@ -488,8 +488,9 @@ export const salesPage: GuidePage = {
             "Agregá una nota si querés y hacé clic en {{Registrar}} (si ya había un ajuste, el botón dice {{Actualizar}} y lo reemplaza).",
           ],
           after: [
-            "El sistema calcula lo que figuraba abierto en pesos hasta la fecha de corte (facturas y notas de débito, menos notas de crédito y cobros) y, si es más que el saldo real, da por saldada la diferencia, aplicándola a las facturas más viejas primero. Si el saldo real es igual o mayor que lo abierto, no salda nada: el ajuste no agrega deuda.",
+            "El sistema calcula lo que figuraba abierto en pesos hasta la fecha de corte (facturas y notas de débito, menos las notas de crédito de esas facturas y los cobros) y, si es más que el saldo real, da por saldada la diferencia, aplicándola a las facturas más viejas primero. Si el saldo real es igual o mayor que lo abierto, no salda nada: el ajuste no agrega deuda.",
             "En la cuenta corriente aparece un movimiento {{Ajuste de saldo}}. Los comprobantes en dólares no entran en el ajuste.",
+            "Las notas de crédito en pesos sin factura de origen con fecha hasta el corte quedan dentro del ajuste: no saldan facturas posteriores. Las de dólares sí se siguen aplicando a las facturas en dólares abiertas, de la más vencida a la más nueva.",
             "Volver a registrarlo reemplaza el ajuste anterior completo.",
           ],
           errors: [
@@ -846,7 +847,7 @@ export const salesPage: GuidePage = {
               substeps: [
                 "{{Tipo}}: dejá {{Factura}}.",
                 "{{Canal}}: si hay un solo canal fiscal activo ya viene elegido.",
-                "{{Punto de venta}}: aparece solo si el canal tiene más de uno habilitado; si tiene uno, se usa ese. Si dice «Sin POS habilitados», hay que configurar uno antes.",
+                "Punto de venta: no se elige. Cada canal tiene un solo punto de venta habilitado y la factura sale por ese. Si dice «Sin POS habilitados», hay que configurar uno antes.",
                 "{{Fecha de emisión}}: hoy por defecto. AFIP la acepta hasta 10 días antes o después de hoy, y no puede ser anterior a la última factura de la misma letra en ese punto de venta.",
               ],
             },
@@ -881,7 +882,7 @@ export const salesPage: GuidePage = {
             },
             {
               message: "Elegí un punto de venta.",
-              fix: "Elegí el punto de venta, o configurá uno habilitado para el canal.",
+              fix: "El canal no tiene un punto de venta habilitado: configurá uno en [[/admin/afip/puntos-de-venta]].",
             },
             {
               message: "Cada ítem necesita una descripción.",
@@ -931,7 +932,7 @@ export const salesPage: GuidePage = {
             {
               message:
                 "Punto de venta … no está configurado o no pertenece a ….",
-              fix: "Elegí un punto de venta habilitado para el canal.",
+              fix: "Ese punto de venta ya no está habilitado para el canal: pedile a un owner o admin que lo revise en [[/admin/afip/puntos-de-venta]].",
             },
             {
               message: "No tenés permiso para emitir comprobantes.",
@@ -1478,7 +1479,7 @@ export const salesPage: GuidePage = {
           steps: [
             "En el detalle del remito interno, hacé clic en {{Facturar}}.",
             "En {{Cliente de Ventas}}, elegí el cliente fiscal.",
-            "Elegí el {{IVA}}: el precio del remito pasa a ser el neto y se le suma el IVA. Si hay varios puntos de venta, elegí el {{Punto de venta}}.",
+            "Elegí el {{IVA}}: el precio del remito pasa a ser el neto y se le suma el IVA. El punto de venta no se elige: es el único habilitado del canal fiscal.",
             "Revisá Neto, IVA y Total y hacé clic en {{Emitir factura}}.",
           ],
           after: [
@@ -2271,7 +2272,7 @@ export const salesPage: GuidePage = {
           steps: [
             "En [[/aging/mora]], elegí la fecha en {{Calcular hasta}}.",
             "En la fila del comprobante, abrí el menú ⋯ y elegí {{Generar ND}} (deshabilitado si no hay días para cobrar).",
-            "Revisá el período y el {{Interés (neto)}}. Podés cambiar la {{Tasa mensual (%)}} solo para esta nota y el {{Punto de venta}}.",
+            "Revisá el período y el {{Interés (neto)}}. Podés cambiar la {{Tasa mensual (%)}} solo para esta nota. El {{Punto de venta}} viene elegido: es el único habilitado del canal del comprobante.",
             "Hacé clic en {{Generar ND}}.",
           ],
           after: [
@@ -2321,7 +2322,7 @@ export const salesPage: GuidePage = {
           ],
           after: [
             "Se emite una nota de débito por comprobante, a la tasa del cliente o la general y en el punto de venta del comprobante. Si una falla, las demás siguen: la lista muestra «ND emitida.» o el motivo de cada una. {{Listo}} cierra.",
-            "Para cambiar la tasa o el punto de venta de uno, usá [[#generar-nd-mora]] en su fila.",
+            "Para cambiar la tasa de uno, usá [[#generar-nd-mora]] en su fila.",
           ],
           errors: [
             {

@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 
+import { ReadError } from "@/components/read-error";
 import {
   Select,
   SelectContent,
@@ -46,9 +47,10 @@ export function PosSelect({
   }
   if (pos.isError) {
     return (
-      <p className="text-sm text-muted-foreground">
-        No se pudieron cargar los puntos de venta.
-      </p>
+      <ReadError
+        message="No se pudieron cargar los puntos de venta."
+        onRetry={() => void pos.refetch()}
+      />
     );
   }
   if (options && options.length === 0) {

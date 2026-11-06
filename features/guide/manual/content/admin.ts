@@ -404,7 +404,7 @@ export const adminPage: GuidePage = {
             ],
             rows: [
               ["~00003", "~Jouve fiscal", "~Jouve fiscal", "~Sí", "~Activo"],
-              ["~00005", "~Sin asignar", "~—", "~No", "~Activo"],
+              ["~00010", "~Sin asignar", "~—", "~No", "~Activo"],
               [
                 "~00001",
                 "~Interno Jouve",
