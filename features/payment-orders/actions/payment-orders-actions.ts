@@ -576,7 +576,7 @@ export async function createPaymentOrderAction(
     });
     return {
       ok: false,
-      error: error.message ?? "No se pudo crear la orden de pago.",
+      error: "No se pudo crear la orden de pago.",
     };
   }
 
@@ -649,7 +649,7 @@ export async function updatePaymentOrderAction(
     });
     return {
       ok: false,
-      error: error.message ?? "No se pudo actualizar la OP.",
+      error: "No se pudo actualizar la OP.",
     };
   }
 

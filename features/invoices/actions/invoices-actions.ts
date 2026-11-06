@@ -20,7 +20,7 @@ import {
   userCan,
 } from "@/lib/auth/permissions";
 import type { Database } from "@/lib/db/database.types";
-import { mapDbGuardError } from "@/lib/db/guard-errors";
+import { dbErrorMessage, mapDbGuardError } from "@/lib/db/guard-errors";
 import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import { fiscalVoucherIssue } from "@/lib/afip/rules";
 import { getLastAuthorizedNumber } from "@/lib/afip/wsfev1";
@@ -647,7 +647,16 @@ export async function getInvoiceStatusAction(
     .eq("id", id)
     .maybeSingle();
 
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    return {
+      ok: false,
+      error: dbErrorMessage(
+        error,
+        { slug: "invoices.status.read_failed", userId: ctx.userId, id: id },
+        "No se pudo leer el comprobante.",
+      ),
+    };
+  }
   if (!data || (isFiscalOnly(ctx.access) && !data.channel?.is_fiscal)) {
     return { ok: false, error: `Comprobante ${id} no encontrado.` };
   }
@@ -777,7 +786,16 @@ export async function listInvoicesAction(
   }
 
   const { data, error } = await query;
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    return {
+      ok: false,
+      error: dbErrorMessage(
+        error,
+        { slug: "invoices.list.failed", userId: ctx.userId },
+        "No se pudieron cargar los comprobantes.",
+      ),
+    };
+  }
 
   const rows = (data ?? []) as Array<{
     id: string;
@@ -1123,7 +1141,16 @@ export async function listInvoicingChannelsAction(): Promise<
     .select("id, name, is_fiscal, is_active")
     .eq("is_active", true)
     .order("name");
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    return {
+      ok: false,
+      error: dbErrorMessage(
+        error,
+        { slug: "invoices.channels.read_failed", userId: ctx.userId },
+        "No se pudieron cargar los canales.",
+      ),
+    };
+  }
   return {
     ok: true,
     data: (data ?? []).map((c) => ({
@@ -1154,7 +1181,16 @@ export async function listEnabledPosAction(
     .eq("channel_id", channelId)
     .eq("is_enabled", true)
     .order("numero");
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    return {
+      ok: false,
+      error: dbErrorMessage(
+        error,
+        { slug: "invoices.pos.read_failed", userId: ctx.userId },
+        "No se pudieron cargar los puntos de venta.",
+      ),
+    };
+  }
   return {
     ok: true,
     data: (data ?? []).map((p) => ({
@@ -1183,10 +1219,12 @@ export async function regeneratePdfAction(
     const result = await generateAndPersistInvoicePdfHash(id);
     return { ok: true, data: { pdf_hash: result.pdfHash } };
   } catch (err) {
-    return {
-      ok: false,
-      error: err instanceof Error ? err.message : "Error generando PDF.",
-    };
+    logger.error("invoices.regenerate_pdf.failed", {
+      userId: ctx.userId,
+      id,
+      err: err instanceof Error ? err.message : String(err),
+    });
+    return { ok: false, error: "No se pudo generar el PDF." };
   }
 }
 

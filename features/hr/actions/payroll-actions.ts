@@ -4,7 +4,7 @@ import { logAudit } from "@/lib/actions/audit";
 import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
-import { mapDbGuardError } from "@/lib/db/guard-errors";
+import { dbErrorMessage, mapDbGuardError } from "@/lib/db/guard-errors";
 import type { Database } from "@/lib/db/database.types";
 import { logger } from "@/lib/logger";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
@@ -108,7 +108,14 @@ export async function getPayrollPeriodAction(
     .maybeSingle();
 
   if (periodErr) {
-    return { ok: false, error: periodErr.message };
+    return {
+      ok: false,
+      error: dbErrorMessage(
+        periodErr,
+        { slug: "payroll.period.read_failed", userId: ctx.userId },
+        "No se pudo cargar la planilla.",
+      ),
+    };
   }
 
   if (!periodRow) {
@@ -127,7 +134,14 @@ export async function getPayrollPeriodAction(
     .eq("period_id", period.id);
 
   if (entriesErr) {
-    return { ok: false, error: entriesErr.message };
+    return {
+      ok: false,
+      error: dbErrorMessage(
+        entriesErr,
+        { slug: "payroll.entries.read_failed", userId: ctx.userId },
+        "No se pudo cargar la planilla.",
+      ),
+    };
   }
 
   const employeeIds = (entries ?? [])
@@ -140,7 +154,14 @@ export async function getPayrollPeriodAction(
     .select("id, deudas_override, embargo_override")
     .eq("period_id", period.id);
   if (overridesErr) {
-    return { ok: false, error: overridesErr.message };
+    return {
+      ok: false,
+      error: dbErrorMessage(
+        overridesErr,
+        { slug: "payroll.overrides.read_failed", userId: ctx.userId },
+        "No se pudo cargar la planilla.",
+      ),
+    };
   }
   const overrideById = new Map((overrides ?? []).map((o) => [o.id, o]));
 
@@ -155,7 +176,14 @@ export async function getPayrollPeriodAction(
     );
 
   if (empErr) {
-    return { ok: false, error: empErr.message };
+    return {
+      ok: false,
+      error: dbErrorMessage(
+        empErr,
+        { slug: "payroll.employees.read_failed", userId: ctx.userId },
+        "No se pudo cargar la planilla.",
+      ),
+    };
   }
   const empById = new Map<
     string,
@@ -232,8 +260,14 @@ export async function seedPayrollPeriodAction(
   });
 
   if (error) {
-    logger.error("payroll.seed.failed", { userId: ctx.userId, error });
-    return { ok: false, error: error.message };
+    return {
+      ok: false,
+      error: dbErrorMessage(
+        error,
+        { slug: "payroll.seed.failed", userId: ctx.userId },
+        "No se pudo crear la planilla.",
+      ),
+    };
   }
   await logAudit(
     "payroll.period_created",
@@ -264,8 +298,14 @@ export async function seedSacPeriodAction(
   });
 
   if (error || !data) {
-    logger.error("payroll.seed_sac.failed", { userId: ctx.userId, error });
-    return { ok: false, error: error?.message ?? "No se pudo crear el SAC." };
+    return {
+      ok: false,
+      error: dbErrorMessage(
+        error,
+        { slug: "payroll.seed_sac.failed", userId: ctx.userId },
+        "No se pudo crear el SAC.",
+      ),
+    };
   }
   await logAudit(
     "payroll.sac_period_created",
@@ -292,8 +332,14 @@ export async function addMissingPayrollEntriesAction(
   });
 
   if (error) {
-    logger.error("payroll.fill.failed", { userId: ctx.userId, error });
-    return { ok: false, error: error.message };
+    return {
+      ok: false,
+      error: dbErrorMessage(
+        error,
+        { slug: "payroll.fill.failed", userId: ctx.userId },
+        "No se pudieron agregar los empleados.",
+      ),
+    };
   }
   const added = Number(data ?? 0);
   if (added > 0) {
@@ -438,12 +484,25 @@ export async function updatePayrollEntryAction(
   }
 
   const supabase = await createSupabaseClient();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("payroll_entries")
     .update(patch)
-    .eq("id", id);
+    .eq("id", id)
+    .select("id");
 
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    return {
+      ok: false,
+      error: dbErrorMessage(
+        error,
+        { slug: "payroll.entry_update.failed", userId: ctx.userId, id: id },
+        "No se pudo guardar la fila.",
+      ),
+    };
+  }
+  if (!data || data.length === 0) {
+    return { ok: false, error: "La fila ya no existe." };
+  }
   await logAudit(
     "payroll.entry_updated",
     ctx.userId,
@@ -476,7 +535,16 @@ export async function resetPayrollOverrideAction(
     )
     .eq("id", id)
     .select("id");
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    return {
+      ok: false,
+      error: dbErrorMessage(
+        error,
+        { slug: "payroll.entry_reset.failed", userId: ctx.userId, id: id },
+        "No se pudo guardar la fila.",
+      ),
+    };
+  }
   if (!data || data.length === 0) {
     return { ok: false, error: "La fila ya no existe." };
   }
@@ -510,7 +578,16 @@ export async function listPayrollEntryExtrasAction(
     .eq("entry_id", entryId)
     .order("sort_order");
 
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    return {
+      ok: false,
+      error: dbErrorMessage(
+        error,
+        { slug: "payroll.extras.read_failed", userId: ctx.userId },
+        "No se pudieron cargar los extras.",
+      ),
+    };
+  }
   return { ok: true, data: (data ?? []) as PayrollEntryExtra[] };
 }
 
@@ -552,7 +629,16 @@ export async function addPayrollEntryExtraAction(
     .select("id")
     .single();
 
-  if (error || !data) return { ok: false, error: error?.message ?? "Falló." };
+  if (error || !data) {
+    return {
+      ok: false,
+      error: dbErrorMessage(
+        error,
+        { slug: "payroll.extra_add.failed", userId: ctx.userId },
+        "No se pudo agregar el extra.",
+      ),
+    };
+  }
   await logAudit(
     "payroll.extra_added",
     ctx.userId,
@@ -583,7 +669,20 @@ export async function removePayrollEntryExtraAction(
     .eq("id", parsed.data.id)
     .select("id");
 
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    return {
+      ok: false,
+      error: dbErrorMessage(
+        error,
+        {
+          slug: "payroll.extra_remove.failed",
+          userId: ctx.userId,
+          id: parsed.data.id,
+        },
+        "No se pudo eliminar el extra.",
+      ),
+    };
+  }
   // A delete that matches no row (already gone, or blocked) must not report
   // success: the extra would keep adding to the total to pay.
   if (!data || data.length === 0) {

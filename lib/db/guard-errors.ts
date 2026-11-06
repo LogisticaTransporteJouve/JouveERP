@@ -29,3 +29,23 @@ export function mapDbGuardError(
   logger.warn(slug, { userId, id: id ?? null, code: error.code ?? null });
   return error.message;
 }
+
+/**
+ * The text to show for a failed database call: a guard's own Spanish message,
+ * or `fallback`. Any other error is logged (under `slug`) and never shown: its
+ * message is the database's, not the user's.
+ */
+export function dbErrorMessage(
+  error: DbError | null | undefined,
+  context: GuardContext,
+  fallback: string,
+): string {
+  const guard = mapDbGuardError(error, context);
+  if (guard) return guard;
+  logger.error(context.slug, {
+    userId: context.userId,
+    id: context.id ?? null,
+    error,
+  });
+  return fallback;
+}
