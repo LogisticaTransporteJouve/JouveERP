@@ -121,6 +121,7 @@ const TOOL_LABELS: Record<string, string> = {
   proposeCreditDebitNote: "Propuesta de NC/ND",
   proposeInvoiceEmail: "Propuesta de envío por email",
   proposeReceipt: "Propuesta de cobro",
+  proposeReceiptEmail: "Propuesta de envío de recibo",
   proposePaymentOrder: "Propuesta de orden de pago",
   proposeCashMovement: "Propuesta de movimiento de caja",
   proposeTransfer: "Propuesta de transferencia",

@@ -2,10 +2,12 @@ import { z } from "zod";
 
 import { listAccountsAction } from "@/features/accounts/actions/accounts-actions";
 import { ACCOUNT_TYPE_LABEL, type Account } from "@/features/accounts/schema";
+import type { EnCarteraCheck } from "@/features/checks/actions/checks-actions";
 import {
   readInvoicingChannels,
   type InvoicingChannelRow,
 } from "@/lib/channels";
+import { formatMoney } from "@/lib/format";
 import type { ScopeSide } from "@/lib/scope";
 
 import type { AiPrepareResult } from "../propose";
@@ -162,6 +164,50 @@ export function channelFor(
       (among.length ? among : channels).map((c) => ({
         value: c.is_fiscal ? "fiscal" : "internal",
         label: c.name,
+      })),
+    ),
+  };
+}
+
+/** A check number as typed: digits only, no leading zeros. */
+function checkNumberKey(text: string): string {
+  return text.replace(/\D/g, "").replace(/^0+/, "");
+}
+
+/** The cartera check with the number the user said (and bank, when the
+ *  number alone is ambiguous): an error when none has it, a question
+ *  offering the banks when several do. */
+export function pickCarteraCheck(
+  checks: readonly EnCarteraCheck[],
+  number: string,
+  bank: string | undefined,
+  field: string,
+): Resolved<EnCarteraCheck> {
+  const key = checkNumberKey(number);
+  const b = bank ? norm(bank) : "";
+  const found = checks.filter(
+    (c) =>
+      checkNumberKey(c.check_number) === key &&
+      (!b || norm(c.bank_name).includes(b)),
+  );
+  if (found.length === 1 && found[0]) return { ok: true, value: found[0] };
+  if (found.length === 0) {
+    return {
+      ok: false,
+      result: {
+        kind: "error",
+        error: `No hay un cheque en cartera con el número ${number}.`,
+      },
+    };
+  }
+  return {
+    ok: false,
+    result: ask(
+      field,
+      `Hay varios cheques en cartera con el número ${number}.`,
+      found.map((c) => ({
+        value: c.bank_name,
+        label: `${c.bank_name} · ${c.drawer_name} · ${formatMoney(c.amount, c.currency)}`,
       })),
     ),
   };

@@ -11,6 +11,7 @@ import {
   PAY_FREQUENCIES,
   type Employee,
 } from "@/features/hr/schema";
+import { userCan } from "@/lib/auth/permissions";
 import { createEmployee } from "@/lib/commands/create-employee";
 import { updateEmployee } from "@/lib/commands/update-employee";
 import { upsertAttendance } from "@/lib/commands/upsert-attendance";
@@ -70,6 +71,8 @@ function given(fields: Record<string, unknown>): Record<string, unknown> {
   );
 }
 
+const vacationDays = z.number().int().min(0).max(365).optional();
+
 /** Every employee field optional: an edit sends only what changes. */
 const EmployeeFieldsInput = z.object(employeeFields).partial();
 
@@ -83,7 +86,8 @@ export const proposeCreateEmployee = defineAiProposal({
     "Propose registering a new employee (alta de empleado) for the user to " +
     "accept on a card, with the fields of the employee form: name, position, " +
     "CUIL, CBU, pay frequency, base salary, monthly viático, hire date… " +
-    "Writes nothing by itself. Never invent a salary or a CUIL the user did " +
+    "and, for an HR admin, the vacation days to start with. Writes nothing " +
+    "by itself. Never invent a salary, a CUIL or vacation days the user did " +
     "not say.",
   input: EmployeeFieldsInput.extend({
     legal_name: z
@@ -93,9 +97,28 @@ export const proposeCreateEmployee = defineAiProposal({
       .max(120)
       .describe("Apellido y nombre."),
     hire_date: isoDate.describe("Fecha de ingreso, YYYY-MM-DD."),
+    vacation_current_days: vacationDays.describe(
+      "Días de vacaciones del período en curso; omit to leave them to the " +
+        "1/10 job.",
+    ),
+    vacation_previous_days: vacationDays.describe(
+      "Días de vacaciones pendientes de años anteriores, as one figure.",
+    ),
   }),
   spec: createEmployeeProposalSpec,
-  prepare: async (_ctx, input) => {
+  prepare: async (ctx, input) => {
+    // As the form: only an HR admin sees the vacation days fields.
+    if (
+      (input.vacation_current_days !== undefined ||
+        input.vacation_previous_days !== undefined) &&
+      !userCan(ctx.access, "hr:admin")
+    ) {
+      return {
+        kind: "error",
+        error:
+          "Solo un administrador de RRHH puede cargar los días de vacaciones del alta.",
+      };
+    }
     const cuil = input.cuil?.replace(/[^0-9]/g, "");
     if (cuil && cuil.length === 11) {
       const same = await resolveEmployee(cuil, { onlyActive: false });

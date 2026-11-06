@@ -221,6 +221,12 @@ const PARITY: Row[] = [
     fn: "sendInvoiceByEmailAction",
     gate: all("email:send", "invoices:read"),
   },
+  {
+    tool: "proposeReceiptEmail",
+    file: "features/receipts/actions/send-receipt-email.ts",
+    fn: "sendReceiptByEmailAction",
+    gate: all("email:send", "receipts:read"),
+  },
   // Flota / depósito
   // Fleet proposals: the form's gate alone; a plate, driver or client is
   // resolved only when the user can read that module. proposeShipmentStatus

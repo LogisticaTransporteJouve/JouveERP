@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { resolveAccess } from "@/lib/auth/permissions";
+import { resolveAccess, userCan } from "@/lib/auth/permissions";
 
 const searchEmployeesAction = vi.fn();
 const createEmployee = vi.fn();
@@ -83,6 +83,46 @@ describe("proposeCreateEmployee", () => {
     expect(res.summary).toContainEqual({
       label: "Sueldo base",
       value: expect.stringContaining("700.000"),
+    });
+  });
+
+  it("drafts the vacation days for an HR admin, as the form", async () => {
+    searchEmployeesAction.mockResolvedValue({
+      ok: true,
+      data: { employees: [], nextOffset: null },
+    });
+    const res = await proposeCreateEmployee.proposal?.prepareDraft(
+      { userId: "u1", access: resolveAccess(["owner"]) },
+      {
+        legal_name: "Gómez Ana",
+        hire_date: "2020-02-01",
+        vacation_current_days: 21,
+        vacation_previous_days: 4,
+      },
+    );
+    expect(res?.kind).toBe("draft");
+    if (res?.kind !== "draft") return;
+    expect(res.draft).toMatchObject({
+      vacation_current_days: 21,
+      vacation_previous_days: 4,
+    });
+    expect(res.summary).toContainEqual({
+      label: "Vacaciones del período en curso",
+      value: "21 días",
+    });
+  });
+
+  it("refuses the vacation days without hr:admin", async () => {
+    expect(userCan(ctx.access, "hr:admin")).toBe(false);
+    const res = await proposeCreateEmployee.proposal?.prepareDraft(ctx, {
+      legal_name: "Gómez Ana",
+      hire_date: "2026-11-02",
+      vacation_current_days: 14,
+    });
+    expect(res).toEqual({
+      kind: "error",
+      error:
+        "Solo un administrador de RRHH puede cargar los días de vacaciones del alta.",
     });
   });
 

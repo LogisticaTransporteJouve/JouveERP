@@ -96,7 +96,12 @@ import {
   PurchaseInvoiceCreateSchema,
   purchaseKindLabel,
 } from "@/features/purchase-invoices/schema";
-import { ReceiptCreateSchema } from "@/features/receipts/schema";
+import {
+  ReceiptCreateSchema,
+  RETENTION_KIND_LABEL,
+  RETENTION_TAX_TYPE_LABEL,
+  SendReceiptEmailSchema,
+} from "@/features/receipts/schema";
 import {
   SHIPMENT_STATUS_LABELS,
   SHIPMENT_TARGET_STATUSES,
@@ -1526,6 +1531,30 @@ export const invoiceEmailProposalSpec = defineProposalSpec({
   ],
 });
 
+export const receiptEmailProposalSpec = defineProposalSpec({
+  title: "Enviar recibo por email",
+  draft: SendReceiptEmailSchema,
+  fields: [
+    { key: "recipient", label: "Para", kind: "text" },
+    { key: "subject", label: "Asunto", kind: "text" },
+    { key: "body", label: "Mensaje", kind: "textarea" },
+  ],
+  confirmLabel: "Enviar",
+  declineLabel: "Descartar",
+  summarize: (d, labels) => [
+    { label: "Recibo", value: labels[d.receipt_id] ?? d.receipt_id },
+    ...rowIf("Cliente", labels[COMPROBANTE_LABELS.client]),
+    { label: "Para", value: d.recipient },
+    { label: "Asunto", value: d.subject },
+    ...rowIf("Mensaje", d.body),
+    {
+      label: "Qué pasa",
+      value:
+        "Se manda el PDF como con «Enviar por email» y queda registrado en el recibo.",
+    },
+  ],
+});
+
 // ─── Treasury ────────────────────────────────────────────────────────────────
 
 export const cashMovementProposalSpec = defineProposalSpec({
@@ -1654,11 +1683,15 @@ export const receiptProposalSpec = defineProposalSpec({
           ]
         : [],
     ),
+    ...d.retentions.map((r) => ({
+      label: `${RETENTION_KIND_LABEL[r.kind]} ${RETENTION_TAX_TYPE_LABEL[r.tax_type]}${r.jurisdiction ? ` ${r.jurisdiction}` : ""}`,
+      value: `${formatMoney(r.amount, d.currency)} · cert. ${r.certificate_number} del ${formatArgentineDate(r.certificate_date)}`,
+    })),
     ...(d.notes ? [{ label: "Notas", value: d.notes }] : []),
     {
       label: "Qué pasa",
       value:
-        "Se emite el recibo como en Recibos › Nuevo recibo: la plata entra en la cuenta, se imputa a esos comprobantes y se asienta. Si alguno ya no tiene ese saldo pendiente, no se emite.",
+        "Se emite el recibo como en Recibos › Nuevo recibo: la plata entra en la cuenta, las retenciones quedan con su certificado, se imputa a esos comprobantes y se asienta. Si alguno ya no tiene ese saldo pendiente, no se emite.",
     },
   ],
 });
@@ -1690,11 +1723,21 @@ export const paymentOrderProposalSpec = defineProposalSpec({
       labels,
       "Pagado desde",
     ),
+    ...d.payment_lines.flatMap((l) =>
+      l.line_kind === "issue_check"
+        ? [
+            {
+              label: `Cheque propio Nº ${l.issued_check.check_number}`,
+              value: `${ISSUED_CHECK_KIND_LABEL[l.issued_check.kind]} · ${l.issued_check.bank_name} · vence el ${formatArgentineDate(l.issued_check.due_date)}${l.issued_check.beneficiary_name ? ` · a ${l.issued_check.beneficiary_name}` : ""}`,
+            },
+          ]
+        : [],
+    ),
     ...(d.notes ? [{ label: "Notas", value: d.notes }] : []),
     {
       label: "Qué pasa",
       value:
-        "Se emite la orden de pago como en Órdenes de pago › Nueva: la plata sale de la cuenta, se imputa a esas facturas y se asienta. Si alguna ya no tiene ese saldo pendiente, no se emite.",
+        "Se emite la orden de pago como en Órdenes de pago › Nueva: la plata sale de la cuenta, los cheques endosados salen de la cartera, los propios quedan emitidos, se imputa a esas facturas y se asienta. Si alguna ya no tiene ese saldo pendiente o un cheque ya no está en cartera, no se emite.",
     },
   ],
 });
@@ -2262,6 +2305,22 @@ export const createEmployeeProposalSpec = defineProposalSpec({
         ? []
         : [{ label, value: text }];
     }),
+    ...(d.vacation_current_days != null
+      ? [
+          {
+            label: "Vacaciones del período en curso",
+            value: `${d.vacation_current_days} días`,
+          },
+        ]
+      : []),
+    ...(d.vacation_previous_days != null
+      ? [
+          {
+            label: "Vacaciones de años anteriores",
+            value: `${d.vacation_previous_days} días`,
+          },
+        ]
+      : []),
     ...(isDriverPosition(d.position)
       ? [
           {
@@ -2394,6 +2453,9 @@ export const employeeAccountCashProposalSpec = defineProposalSpec({
             },
           ]
         : []),
+      ...(d.plan_id
+        ? [{ label: "Imputa al plan", value: labels[d.plan_id] ?? d.plan_id }]
+        : []),
       ...(d.description
         ? [{ label: "Descripción", value: d.description }]
         : []),
@@ -2424,6 +2486,9 @@ export const employeeAccountMovementProposalSpec = defineProposalSpec({
     { label: "Fecha", value: formatArgentineDate(d.movement_date) },
     { label: "Importe", value: formatMoney(d.amount, d.currency) },
     { label: "A favor de", value: CREDITOR_LABEL[d.creditor] },
+    ...(d.plan_id
+      ? [{ label: "Plan", value: labels[d.plan_id] ?? d.plan_id }]
+      : []),
     { label: "Descripción", value: d.description },
     {
       label: "Qué pasa",
@@ -2544,6 +2609,7 @@ export const PROPOSAL_SPECS: Readonly<Record<string, ProposalSpec>> = {
   proposeInvoice: invoiceProposalSpec,
   proposeCreditDebitNote: creditDebitNoteProposalSpec,
   proposeInvoiceEmail: invoiceEmailProposalSpec,
+  proposeReceiptEmail: receiptEmailProposalSpec,
   proposeCashMovement: cashMovementProposalSpec,
   proposeTransfer: transferProposalSpec,
   proposeReceipt: receiptProposalSpec,

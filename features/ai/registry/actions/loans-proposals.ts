@@ -86,8 +86,9 @@ export const proposeLoanInstallmentPayment = defineAiProposal({
   description:
     "Propose paying an installment (cuota) of a loan or leasing for the user " +
     "to accept on a card: the next pending cuota unless the user names its " +
-    "number, for its scheduled amount, from an account in the loan's " +
-    "currency. Writes nothing by itself.",
+    "number, for its scheduled amount unless the user says another one (not " +
+    "for a cuota with a desglose, paid for its amount), from an account in " +
+    "the loan's currency. Writes nothing by itself.",
   input: z.object({
     loan: z
       .string()
@@ -108,6 +109,13 @@ export const proposeLoanInstallmentPayment = defineAiProposal({
       .max(120)
       .describe("Cash or bank account to pay from, as the user said it."),
     paid_date: isoDate.optional().describe("Default today."),
+    amount: z
+      .number()
+      .finite()
+      .positive()
+      .max(1_000_000_000_000)
+      .optional()
+      .describe("What was actually paid, when it differs from the cuota."),
   }),
   spec: loanInstallmentPaymentProposalSpec,
   prepare: async (_ctx, input) => {
@@ -138,6 +146,22 @@ export const proposeLoanInstallmentPayment = defineAiProposal({
         ],
       };
     }
+    // As the loan page: a cuota with a desglose is paid for its amount.
+    if (
+      input.amount !== undefined &&
+      cuota.split !== null &&
+      input.amount !== cuota.amount
+    ) {
+      return {
+        kind: "issues",
+        issues: [
+          {
+            field: "amount",
+            message: `La cuota ${cuota.number} tiene desglose: se paga por su monto (${formatMoney(cuota.amount, loan.currency)}). Para cambiarlo, editá la cuota.`,
+          },
+        ],
+      };
+    }
     // As the loan page: an active account in the loan's currency that moves
     // money (not a check cartera).
     const account = await resolveTreasuryAccount(
@@ -158,7 +182,7 @@ export const proposeLoanInstallmentPayment = defineAiProposal({
         id: cuota.id,
         paid_date: input.paid_date ?? todayInAR(),
         account_id: account.value.id,
-        amount: cuota.amount,
+        amount: input.amount ?? cuota.amount,
       },
       labels: {
         [LOAN_INSTALLMENT_LABELS.loan]: loanLabel(loan),

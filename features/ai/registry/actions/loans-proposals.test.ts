@@ -109,6 +109,46 @@ describe("proposeLoanInstallmentPayment", () => {
     });
   });
 
+  it("pays a different amount when the user says it, as the dialog", async () => {
+    const res = await proposeLoanInstallmentPayment.proposal?.prepareDraft(
+      ctx,
+      { loan: "scania", account: "galicia", amount: 262_500.5 },
+    );
+    expect(res).toMatchObject({
+      kind: "draft",
+      draft: { id: C2, amount: 262_500.5 },
+    });
+  });
+
+  it("keeps a cuota with a desglose at its amount", async () => {
+    getLoanAction.mockResolvedValue({
+      ok: true,
+      data: {
+        ...loan,
+        installments: [
+          {
+            ...cuota(C2, 2, "pendiente"),
+            split: {
+              capital: 200000,
+              interest: 40000,
+              iva: 10000,
+              perception: 0,
+              other: 0,
+            },
+          },
+        ],
+      },
+    });
+    const res = await proposeLoanInstallmentPayment.proposal?.prepareDraft(
+      ctx,
+      { loan: "scania", account: "galicia", amount: 260000 },
+    );
+    expect(res).toMatchObject({
+      kind: "issues",
+      issues: [{ field: "amount" }],
+    });
+  });
+
   it("refuses a cuota already paid", async () => {
     const res = await proposeLoanInstallmentPayment.proposal?.prepareDraft(
       ctx,

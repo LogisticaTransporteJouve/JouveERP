@@ -7,6 +7,7 @@ const listAccountsAction = vi.fn();
 const readInvoicingChannels = vi.fn();
 const recordEmployeeAccountCash = vi.fn();
 const createEmployeeAccountMovement = vi.fn();
+const getEmployeeAccountAction = vi.fn();
 
 vi.mock("@/features/hr/actions/employees-actions", () => ({
   searchEmployeesAction,
@@ -15,6 +16,9 @@ vi.mock("@/features/accounts/actions/accounts-actions", () => ({
   listAccountsAction,
 }));
 vi.mock("@/lib/channels", () => ({ readInvoicingChannels }));
+vi.mock("@/features/hr/actions/employee-account-actions", () => ({
+  getEmployeeAccountAction,
+}));
 vi.mock("@/lib/commands/record-employee-account", () => ({
   recordEmployeeAccountCash,
   createEmployeeAccountMovement,
@@ -27,6 +31,30 @@ const ctx = { userId: "u1", access: resolveAccess(["finance"]) };
 const EMP = "00000000-0000-4000-8000-000000000001";
 const CAJA = "00000000-0000-4000-8000-0000000000a1";
 const CARTERA = "00000000-0000-4000-8000-0000000000a2";
+const CELULAR = "00000000-0000-4000-8000-0000000000b1";
+const UNIFORME = "00000000-0000-4000-8000-0000000000b2";
+const SALDADO = "00000000-0000-4000-8000-0000000000b3";
+
+const plan = (
+  id: string,
+  description: string,
+  remaining: number,
+  status = "activo",
+) => ({
+  id,
+  employee_id: EMP,
+  description,
+  currency: "ARS",
+  total: 100000,
+  installment_amount: 20000,
+  start_month: "2026-10-01",
+  status,
+  creditor: "empresa",
+  creditor_name: null,
+  notes: null,
+  paid: 100000 - remaining,
+  remaining,
+});
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -55,6 +83,19 @@ beforeEach(() => {
         is_active: true,
       },
     ],
+  });
+  getEmployeeAccountAction.mockResolvedValue({
+    ok: true,
+    data: {
+      balances: [],
+      movements: [],
+      movements_partial: false,
+      plans: [
+        plan(CELULAR, "Adelanto celular", 60000),
+        plan(UNIFORME, "Uniforme", 0, "condonado"),
+        plan(SALDADO, "Adelanto saldado", 0, "cancelado"),
+      ],
+    },
   });
   readInvoicingChannels.mockResolvedValue({
     ok: true,
@@ -178,6 +219,44 @@ describe("proposeEmployeeAccountCash", () => {
     expect(none).toMatchObject({ draft: { installment_amount: null } });
   });
 
+  it("applies the employee's payment to the plan the user named", async () => {
+    const res = await proposeEmployeeAccountCash.proposal?.prepareDraft(ctx, {
+      ...advance,
+      kind: "payment",
+      amount: 20000,
+      plan: "celular",
+    });
+    expect(res).toMatchObject({
+      kind: "draft",
+      draft: { plan_id: CELULAR, installment_amount: null },
+    });
+    if (res?.kind !== "draft") return;
+    expect(res.summary).toContainEqual({
+      label: "Imputa al plan",
+      value: "Adelanto celular",
+    });
+  });
+
+  it("offers only plans with something left, and none to an advance", async () => {
+    const saldado = await proposeEmployeeAccountCash.proposal?.prepareDraft(
+      ctx,
+      { ...advance, kind: "payment", plan: "saldado" },
+    );
+    expect(saldado).toMatchObject({
+      kind: "issues",
+      issues: [{ field: "plan" }],
+      candidates: [{ field: "plan", options: [{ value: "Adelanto celular" }] }],
+    });
+    const onAdvance = await proposeEmployeeAccountCash.proposal?.prepareDraft(
+      ctx,
+      { ...advance, plan: "celular" },
+    );
+    expect(onAdvance).toMatchObject({
+      kind: "issues",
+      issues: [{ field: "plan" }],
+    });
+  });
+
   it("never opens a plan on the employee's payment", async () => {
     const res = await proposeEmployeeAccountCash.proposal?.prepareDraft(ctx, {
       ...advance,
@@ -203,6 +282,32 @@ describe("proposeEmployeeAccountMovement", () => {
     expect(res).toMatchObject({
       kind: "draft",
       draft: { currency: "ARS", creditor: "empresa", plan_id: null },
+    });
+  });
+
+  it("charges to a plan of its currency that is not forgiven", async () => {
+    const res = await proposeEmployeeAccountMovement.proposal?.prepareDraft(
+      ctx,
+      {
+        employee: "Gómez Ana",
+        kind: "payment",
+        amount: 10000,
+        description: "Pago en mano",
+        plan: "adelanto saldado",
+      },
+    );
+    expect(res).toMatchObject({ kind: "draft", draft: { plan_id: SALDADO } });
+    const forgiven =
+      await proposeEmployeeAccountMovement.proposal?.prepareDraft(ctx, {
+        employee: "Gómez Ana",
+        kind: "charge",
+        amount: 10000,
+        description: "Uniforme",
+        plan: "uniforme",
+      });
+    expect(forgiven).toMatchObject({
+      kind: "issues",
+      issues: [{ field: "plan" }],
     });
   });
 

@@ -260,6 +260,24 @@ export const ReceiptAllocateSchema = z
     path: ["allocations"],
   });
 
+/** «Enviar por email» of an issued receipt: the dialog and the assistant. */
+export const SendReceiptEmailSchema = z.object({
+  receipt_id: z.string().uuid(),
+  recipient: z.string().email("Email inválido."),
+  subject: z
+    .string()
+    .min(1, "Asunto requerido.")
+    .max(200, "Máx 200 caracteres."),
+  body: z
+    .string()
+    .max(4000, "Máx 4000 caracteres.")
+    .nullable()
+    .optional()
+    .transform((v) => (v && v.trim().length > 0 ? v : null)),
+});
+
+export type SendReceiptEmailInput = z.input<typeof SendReceiptEmailSchema>;
+
 export type ReceiptCreateInput = z.infer<typeof ReceiptCreateSchema>;
 export type ReceiptUpdateInput = z.infer<typeof ReceiptUpdateSchema>;
 export type ReceiptCancelInput = z.infer<typeof ReceiptCancelSchema>;

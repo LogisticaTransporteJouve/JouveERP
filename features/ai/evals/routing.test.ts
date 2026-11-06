@@ -275,6 +275,25 @@ vi.mock("@/features/receipts/actions/receipts-actions", async (orig) => ({
   >()),
   listPendingComprobantesForClientAction: openInFiscal,
   getNextReceiptNumeroAction: nextNumero,
+  getReceiptByIdAction: vi.fn(async () => ({
+    ok: true,
+    data: { receipt: { id: EVAL_FIXTURES.record, status: "issued" } },
+  })),
+}));
+vi.mock("@/features/receipts/actions/send-receipt-email", async (orig) => ({
+  ...(await orig<
+    typeof import("@/features/receipts/actions/send-receipt-email")
+  >()),
+  getReceiptEmailDefaultsAction: vi.fn(async () => ({
+    ok: true,
+    data: {
+      recipient: "pagos@acme.com",
+      subject: "Recibo X0001-00000001",
+      numero_label: "X0001-00000001",
+      client_legal_name: EVAL_FIXTURES.client.name,
+      last_sent_at: null,
+    },
+  })),
 }));
 vi.mock(
   "@/features/payment-orders/actions/payment-orders-actions",
