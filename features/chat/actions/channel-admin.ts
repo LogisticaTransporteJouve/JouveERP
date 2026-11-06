@@ -6,6 +6,8 @@ import { requireUserContext } from "@/lib/auth/context";
 import type { ActionResult } from "@/lib/query/run-action";
 import { createClient } from "@/lib/supabase/server";
 
+import { chatActionError } from "../lib/action-error";
+
 const UpdateChannelSchema = z.object({
   channelId: z.string().uuid(),
   name: z.string().trim().min(1, "Nombre requerido.").max(60),
@@ -28,7 +30,16 @@ export async function updateChannelAction(
     p_name: parsed.data.name,
     p_description: parsed.data.description ?? "",
   });
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    return {
+      ok: false,
+      error: chatActionError(
+        "chat.channel.update_failed",
+        error,
+        "No se pudo actualizar el grupo.",
+      ),
+    };
+  }
   return { ok: true, data: { updated: true } };
 }
 
@@ -51,7 +62,16 @@ export async function addChannelMembersAction(
     p_channel: parsed.data.channelId,
     p_user_ids: parsed.data.userIds,
   });
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    return {
+      ok: false,
+      error: chatActionError(
+        "chat.members.add_failed",
+        error,
+        "No se pudieron sumar las personas.",
+      ),
+    };
+  }
   return { ok: true, data: { added: data ?? 0 } };
 }
 
@@ -67,7 +87,16 @@ export async function removeChannelMemberAction(input: {
     .delete()
     .eq("channel_id", input.channelId)
     .eq("user_id", input.userId);
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    return {
+      ok: false,
+      error: chatActionError(
+        "chat.members.remove_failed",
+        error,
+        "No se pudo quitar a la persona.",
+      ),
+    };
+  }
   return { ok: true, data: { removed: true } };
 }
 
@@ -81,7 +110,16 @@ export async function leaveChannelAction(
     .delete()
     .eq("channel_id", channelId)
     .eq("user_id", ctx.userId);
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    return {
+      ok: false,
+      error: chatActionError(
+        "chat.channel.leave_failed",
+        error,
+        "No se pudo salir de la conversación.",
+      ),
+    };
+  }
   return { ok: true, data: { removed: true } };
 }
 
@@ -96,6 +134,15 @@ export async function toggleChannelMuteAction(input: {
     .update({ is_muted: input.muted })
     .eq("channel_id", input.channelId)
     .eq("user_id", ctx.userId);
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    return {
+      ok: false,
+      error: chatActionError(
+        "chat.channel.mute_failed",
+        error,
+        "No se pudo cambiar el silencio.",
+      ),
+    };
+  }
   return { ok: true, data: { muted: input.muted } };
 }

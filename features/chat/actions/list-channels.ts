@@ -5,6 +5,7 @@ import { resolveAvatarUrl } from "@/lib/avatar-url";
 import type { ActionResult } from "@/lib/query/run-action";
 import { createClient } from "@/lib/supabase/server";
 
+import { chatActionError } from "../lib/action-error";
 import type { ChannelListItem } from "../types";
 
 export async function listChannelsAction(): Promise<
@@ -14,7 +15,16 @@ export async function listChannelsAction(): Promise<
   const supabase = await createClient();
 
   const { data, error } = await supabase.rpc("list_chat_channels_for_user");
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    return {
+      ok: false,
+      error: chatActionError(
+        "chat.channels.list_failed",
+        error,
+        "No se pudieron cargar las conversaciones.",
+      ),
+    };
+  }
 
   const items: ChannelListItem[] = (data ?? []).map((row) => ({
     id: row.id,

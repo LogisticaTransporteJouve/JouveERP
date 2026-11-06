@@ -10646,6 +10646,24 @@ export type Database = {
         }
         Returns: string
       }
+      send_chat_message: {
+        Args: {
+          p_body: string
+          p_channel_id: string
+          p_mention_ids: string[]
+          p_reply_to_id?: string
+        }
+        Returns: {
+          body: string
+          channel_id: string
+          created_at: string
+          deleted_at: string
+          edited_at: string
+          id: string
+          reply_to_message_id: string
+          sender_id: string
+        }[]
+      }
       set_arca_web_credentials: {
         Args: { p_cuit: string; p_password?: string; p_user_id: string }
         Returns: undefined
