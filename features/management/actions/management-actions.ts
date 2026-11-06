@@ -5,6 +5,7 @@ import { requireUserContext } from "@/lib/auth/context";
 import { userCan, userCanAll } from "@/lib/auth/permissions";
 import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { fiscalYearMonths, periodEnd } from "@/lib/fiscal-year";
+import { readFiscalYearStartMonth } from "@/lib/fiscal-year-settings";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { PAGE_SIZE, type Page, type PageError } from "@/lib/supabase/paginate";
@@ -156,6 +157,8 @@ export type ManagementAccount = {
 };
 
 export type ManagementReport = {
+  /** Month the fiscal year starts in (accounting_settings). */
+  fiscalYearStartMonth: number;
   months: string[];
   rows: ManagementRow[];
   previousRows: ManagementRow[];
@@ -236,8 +239,9 @@ async function readAccounts(
   });
 }
 
-/** The screen's data: a fiscal year (Oct–Sep) month by month, the previous
- *  one for the comparison, the payroll control and the account catalog. */
+/** The screen's data: a fiscal year (from the configured start month) month
+ *  by month, the previous one for the comparison, the payroll control and the
+ *  account catalog. */
 export async function getManagementReportAction(
   input: unknown,
 ): Promise<ActionResult<ManagementReport>> {
@@ -249,8 +253,10 @@ export async function getManagementReportAction(
   if (!parsed.success) return { ok: false, error: "Datos inválidos." };
   const { fiscalYear, basis, inflation } = parsed.data;
 
-  const months = fiscalYearMonths(fiscalYear);
-  const previousMonths = fiscalYearMonths(fiscalYear - 1);
+  const startMonth = await readFiscalYearStartMonth(ctx.userId);
+  if (!startMonth.ok) return startMonth;
+  const months = fiscalYearMonths(fiscalYear, startMonth.data);
+  const previousMonths = fiscalYearMonths(fiscalYear - 1, startMonth.data);
   const from = months[0]!;
   const to = months[11]!;
 
@@ -283,6 +289,7 @@ export async function getManagementReportAction(
   return {
     ok: true,
     data: {
+      fiscalYearStartMonth: startMonth.data,
       months,
       rows: rows.rows,
       previousRows: previousRows.rows,

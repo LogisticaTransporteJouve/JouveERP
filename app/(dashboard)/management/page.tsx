@@ -7,6 +7,7 @@ import type { ManagementReportInput } from "@/features/management/schema";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { fiscalYearOf } from "@/lib/fiscal-year";
+import { readFiscalYearStartMonth } from "@/lib/fiscal-year-settings";
 import { todayInAR } from "@/lib/format";
 import { Hydrate } from "@/lib/query/hydrate";
 import { prefetchQueries } from "@/lib/query/prefetch";
@@ -20,8 +21,10 @@ export default async function ManagementRoute() {
     redirect("/dashboard");
   }
 
+  const startMonth = await readFiscalYearStartMonth(ctx.userId);
+  if (!startMonth.ok) throw new Error(startMonth.error);
   const input: ManagementReportInput = {
-    fiscalYear: fiscalYearOf(todayInAR().slice(0, 7)),
+    fiscalYear: fiscalYearOf(todayInAR().slice(0, 7), startMonth.data),
     basis: "accrual",
     inflation: false,
   };
@@ -36,6 +39,7 @@ export default async function ManagementRoute() {
     <Hydrate state={dehydratedState}>
       <ManagementPage
         initialInput={input}
+        fiscalYearStartMonth={startMonth.data}
         canEdit={userCan(ctx.access, "management:write")}
       />
     </Hydrate>

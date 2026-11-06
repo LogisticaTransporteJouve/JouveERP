@@ -19,7 +19,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { downloadCsv, toCsv } from "@/lib/export/csv";
 import { downloadBlob } from "@/lib/export/download";
-import { fiscalYearLabel } from "@/lib/fiscal-year";
+import { fiscalYearLabel, fiscalYearMonthsLabel } from "@/lib/fiscal-year";
 import { formatNumber2, todayInAR } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -79,9 +79,11 @@ function kpiVariance(kpi: Kpi): string {
 
 export function ManagementPage({
   initialInput,
+  fiscalYearStartMonth,
   canEdit,
 }: {
   initialInput: ManagementReportInput;
+  fiscalYearStartMonth: number;
   canEdit: boolean;
 }) {
   const [input, setInput] = useState(initialInput);
@@ -107,7 +109,9 @@ export function ManagementPage({
 
       <div className="flex flex-wrap items-end gap-4">
         <div className="space-y-1">
-          <Label className="text-xs">Año fiscal (oct–sep)</Label>
+          <Label className="text-xs">
+            Año fiscal ({fiscalYearMonthsLabel(fiscalYearStartMonth)})
+          </Label>
           <Select
             value={String(input.fiscalYear)}
             onValueChange={(v) => setInput({ ...input, fiscalYear: Number(v) })}
@@ -118,7 +122,7 @@ export function ManagementPage({
             <SelectContent position="popper">
               {years.map((fy) => (
                 <SelectItem key={fy} value={String(fy)}>
-                  {fiscalYearLabel(fy)}
+                  {fiscalYearLabel(fy, fiscalYearStartMonth)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -261,7 +265,7 @@ function ManagementReportView({
       costCenter === ALL_COST_CENTERS
         ? "Todos los centros"
         : centerLabel(costCenter === NO_COST_CENTER ? null : costCenter);
-    const title = `Resultado de gestión ${fiscalYearLabel(input.fiscalYear)}`;
+    const title = `Resultado de gestión ${fiscalYearLabel(input.fiscalYear, data.fiscalYearStartMonth)}`;
     const subtitle = `${MANAGEMENT_BASIS_LABEL[input.basis]}${
       input.inflation ? " ajustado por inflación" : ""
     } · ${scope} · meses en ${SIDE_LABEL[sideView]}`;

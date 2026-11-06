@@ -197,6 +197,21 @@ describe("userCan", () => {
     }
   });
 
+  it("the accounting settings are for owner and admin only", () => {
+    for (const role of ["owner", "admin"] as const) {
+      expect(userCan(resolveAccess([role]), "accounting:admin")).toBe(true);
+    }
+    for (const role of [
+      "finance",
+      "operations",
+      "warehouse",
+      "driver",
+      "fiscal_reader",
+    ] as const) {
+      expect(userCan(resolveAccess([role]), "accounting:admin")).toBe(false);
+    }
+  });
+
   it("the importer is for owner and admin only", () => {
     for (const role of ["owner", "admin"] as const) {
       expect(userCan(resolveAccess([role]), "imports:read")).toBe(true);
