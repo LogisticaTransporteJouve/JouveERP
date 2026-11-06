@@ -254,7 +254,7 @@ export async function updateSupplierAction(
   const { id, ...rest } = parsed.data;
 
   const supabase = await createSupabaseClient();
-  const { error } = await supabase
+  const { data: changed, error } = await supabase
     .from("suppliers")
     .update({
       ...(rest.cuit !== undefined && { cuit: rest.cuit }),
@@ -288,7 +288,8 @@ export async function updateSupplierAction(
         default_cost_center_id: rest.default_cost_center_id ?? null,
       }),
     })
-    .eq("id", id);
+    .eq("id", id)
+    .select("id");
 
   if (error) {
     if (error.code === PG_UNIQUE_VIOLATION) {
@@ -302,6 +303,9 @@ export async function updateSupplierAction(
     if (guardError) return { ok: false, error: guardError };
     logger.error("suppliers.update.failed", { userId: ctx.userId, id, error });
     return { ok: false, error: "No se pudo actualizar el proveedor." };
+  }
+  if (!changed || changed.length === 0) {
+    return { ok: false, error: "No se encontró el proveedor." };
   }
 
   await logAudit(
@@ -399,7 +403,11 @@ export async function deleteSupplierAction(id: string): Promise<ActionResult> {
 
   // RLS blocks DELETE; we use service-role after validating permissions and refs.
   const service = getServiceClient();
-  const { error } = await service.from("suppliers").delete().eq("id", id);
+  const { data: changed, error } = await service
+    .from("suppliers")
+    .delete()
+    .eq("id", id)
+    .select("id");
 
   if (error) {
     if (error.code === PG_FOREIGN_KEY_VIOLATION) {
@@ -411,6 +419,9 @@ export async function deleteSupplierAction(id: string): Promise<ActionResult> {
     }
     logger.error("suppliers.delete.failed", { userId: ctx.userId, id, error });
     return { ok: false, error: "No se pudo eliminar el proveedor." };
+  }
+  if (!changed || changed.length === 0) {
+    return { ok: false, error: "No se encontró el proveedor." };
   }
 
   await logAudit("supplier.deleted", ctx.userId, {}, id);
@@ -431,10 +442,11 @@ export async function setSupplierActiveAction(
   }
 
   const supabase = await createSupabaseClient();
-  const { error } = await supabase
+  const { data: changed, error } = await supabase
     .from("suppliers")
     .update({ is_active: parsed.data.is_active })
-    .eq("id", parsed.data.id);
+    .eq("id", parsed.data.id)
+    .select("id");
 
   if (error) {
     logger.error("suppliers.toggle_active.failed", {
@@ -444,6 +456,9 @@ export async function setSupplierActiveAction(
       error,
     });
     return { ok: false, error: "No se pudo cambiar el estado del proveedor." };
+  }
+  if (!changed || changed.length === 0) {
+    return { ok: false, error: "No se encontró el proveedor." };
   }
 
   await logAudit(

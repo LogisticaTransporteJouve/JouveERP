@@ -4,16 +4,20 @@ import { requireUserContext } from "@/lib/auth/context";
 import { resolveAvatarUrl } from "@/lib/avatar-url";
 import { inngest } from "@/lib/inngest/client";
 import { NOTIFICATIONS_DISPATCH } from "@/lib/inngest/events";
+import { PG_UNIQUE_VIOLATION } from "@/lib/db/pg-error-codes";
 import type { ActionResult } from "@/lib/query/run-action";
 import { createClient } from "@/lib/supabase/server";
 
 import { CHAT_MESSAGES_PAGE_SIZE } from "../keys";
+import { chatActionError } from "../lib/action-error";
 import {
   EditMessageSchema,
   SendMessageSchema,
   ToggleReactionSchema,
 } from "../schema";
 import type { Message, MessagesPage, Reaction } from "../types";
+
+const SEND_FAILED = "No se pudo enviar el mensaje.";
 
 type MessageJoin = {
   id: string;
@@ -42,7 +46,10 @@ export async function listMessagesAction(input: {
   const ctx = await requireUserContext();
   const supabase = await createClient();
 
-  const limit = Math.min(Math.max(input.limit ?? CHAT_MESSAGES_PAGE_SIZE, 1), 200);
+  const limit = Math.min(
+    Math.max(input.limit ?? CHAT_MESSAGES_PAGE_SIZE, 1),
+    200,
+  );
 
   let query = supabase
     .from("chat_messages")
@@ -58,7 +65,16 @@ export async function listMessagesAction(input: {
   }
 
   const { data: rows, error } = await query;
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    return {
+      ok: false,
+      error: chatActionError(
+        "chat.messages.list_failed",
+        error,
+        "No se pudieron cargar los mensajes.",
+      ),
+    };
+  }
 
   const messageRows: MessageJoin[] = rows ?? [];
   const hasMore = messageRows.length > limit;
@@ -118,7 +134,9 @@ export async function listMessagesAction(input: {
     const replyRow = m.reply_to_message_id
       ? replyMap.get(m.reply_to_message_id)
       : undefined;
-    const replyProfile = replyRow ? profileMap.get(replyRow.sender_id) : undefined;
+    const replyProfile = replyRow
+      ? profileMap.get(replyRow.sender_id)
+      : undefined;
     return {
       id: m.id,
       channel_id: m.channel_id,
@@ -128,13 +146,16 @@ export async function listMessagesAction(input: {
       sender_email: emailMap.get(m.sender_id) ?? null,
       sender_avatar_path: profile?.avatar_path ?? null,
       sender_avatar_color: profile?.avatar_color ?? null,
-      sender_avatar_url: resolveAvatarUrl(supabase, profile?.avatar_path ?? null),
+      sender_avatar_url: resolveAvatarUrl(
+        supabase,
+        profile?.avatar_path ?? null,
+      ),
       reply_to_message_id: m.reply_to_message_id,
       reply_to_body: replyRow?.body ?? null,
       reply_to_sender_first_name: replyProfile?.first_name ?? null,
       reply_to_sender_last_name: replyProfile?.last_name ?? null,
       reply_to_sender_email: replyRow
-        ? emailMap.get(replyRow.sender_id) ?? null
+        ? (emailMap.get(replyRow.sender_id) ?? null)
         : null,
       reply_to_deleted: replyRow ? replyRow.deleted_at !== null : false,
       body: m.body,
@@ -169,28 +190,26 @@ export async function sendMessageAction(
     return { ok: false, error: firstIssue?.message ?? "Datos inválidos." };
   }
 
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("chat_messages")
-    .insert({
-      channel_id: parsed.data.channelId,
-      sender_id: ctx.userId,
-      body: parsed.data.body,
-      reply_to_message_id: parsed.data.replyToId ?? null,
-    })
-    .select("id, channel_id, sender_id, reply_to_message_id, body, edited_at, deleted_at, created_at")
-    .single();
-  if (error || !data) return { ok: false, error: error?.message ?? "Error" };
-
-  // Insert mentions (best-effort). If it fails, the message is already in
-  // the DB — don't abort the operation; the user will see it anyway.
+  // The message and its mentions in one transaction: a mention that fails
+  // takes the message back instead of going unnotified.
   const mentions = (parsed.data.mentionUserIds ?? []).filter(
     (id) => id !== ctx.userId,
   );
-  if (mentions.length > 0) {
-    await supabase.from("chat_message_mentions").insert(
-      mentions.map((user_id) => ({ message_id: data.id, user_id })),
-    );
+  const supabase = await createClient();
+  const { data: rows, error } = await supabase.rpc("send_chat_message", {
+    p_channel_id: parsed.data.channelId,
+    p_body: parsed.data.body,
+    p_mention_ids: mentions,
+    p_reply_to_id: parsed.data.replyToId ?? undefined,
+  });
+  const data = rows?.[0];
+  if (error || !data) {
+    return {
+      ok: false,
+      error: error
+        ? chatActionError("chat.messages.send_failed", error, SEND_FAILED)
+        : SEND_FAILED,
+    };
   }
 
   // Fire push dispatch via Inngest. Idempotent by message_id —
@@ -248,7 +267,16 @@ export async function editMessageAction(
     .update({ body: parsed.data.body, edited_at: new Date().toISOString() })
     .eq("id", parsed.data.messageId)
     .eq("sender_id", ctx.userId);
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    return {
+      ok: false,
+      error: chatActionError(
+        "chat.messages.edit_failed",
+        error,
+        "No se pudo editar el mensaje.",
+      ),
+    };
+  }
   return { ok: true, data: { updated: true } };
 }
 
@@ -262,7 +290,16 @@ export async function deleteMessageAction(
     .update({ deleted_at: new Date().toISOString(), body: "" })
     .eq("id", messageId)
     .eq("sender_id", ctx.userId);
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    return {
+      ok: false,
+      error: chatActionError(
+        "chat.messages.delete_failed",
+        error,
+        "No se pudo borrar el mensaje.",
+      ),
+    };
+  }
   return { ok: true, data: { deleted: true } };
 }
 
@@ -282,7 +319,16 @@ export async function listReactionsAction(
     .select("id")
     .eq("channel_id", channelId)
     .limit(500); // cap sufficient for an active chat
-  if (msgErr) return { ok: false, error: msgErr.message };
+  if (msgErr) {
+    return {
+      ok: false,
+      error: chatActionError(
+        "chat.reactions.list_failed",
+        msgErr,
+        "No se pudieron cargar las reacciones.",
+      ),
+    };
+  }
 
   const ids = (messages ?? []).map((m) => m.id);
   if (ids.length === 0) return { ok: true, data: [] };
@@ -291,7 +337,16 @@ export async function listReactionsAction(
     .from("chat_message_reactions")
     .select("message_id, user_id, emoji, created_at")
     .in("message_id", ids);
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    return {
+      ok: false,
+      error: chatActionError(
+        "chat.reactions.list_failed",
+        error,
+        "No se pudieron cargar las reacciones.",
+      ),
+    };
+  }
 
   return { ok: true, data: data ?? [] };
 }
@@ -319,7 +374,16 @@ export async function toggleReactionAction(
       .eq("message_id", parsed.data.messageId)
       .eq("user_id", ctx.userId)
       .eq("emoji", parsed.data.emoji);
-    if (error) return { ok: false, error: error.message };
+    if (error) {
+      return {
+        ok: false,
+        error: chatActionError(
+          "chat.reactions.remove_failed",
+          error,
+          "No se pudo quitar la reacción.",
+        ),
+      };
+    }
     return { ok: true, data: { state: "removed" } };
   }
 
@@ -328,6 +392,16 @@ export async function toggleReactionAction(
     user_id: ctx.userId,
     emoji: parsed.data.emoji,
   });
-  if (error) return { ok: false, error: error.message };
+  // A second click that raced the first finds the reaction already there.
+  if (error && error.code !== PG_UNIQUE_VIOLATION) {
+    return {
+      ok: false,
+      error: chatActionError(
+        "chat.reactions.add_failed",
+        error,
+        "No se pudo agregar la reacción.",
+      ),
+    };
+  }
   return { ok: true, data: { state: "added" } };
 }

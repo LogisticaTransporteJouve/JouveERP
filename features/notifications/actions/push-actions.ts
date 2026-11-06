@@ -6,6 +6,8 @@ import { requireUserContext } from "@/lib/auth/context";
 import type { ActionResult } from "@/lib/query/run-action";
 import { createClient } from "@/lib/supabase/server";
 
+import { failed } from "../lib/failed";
+
 const SubscribePushInput = z.object({
   endpoint: z.string().url("Endpoint inválido.").max(2000),
   p256dh: z.string().min(1).max(500),
@@ -22,7 +24,10 @@ export async function subscribePushAction(input: {
   const ctx = await requireUserContext();
   const parsed = SubscribePushInput.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? "Input inválido." };
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Input inválido.",
+    };
   }
   input = parsed.data;
   const supabase = await createClient();
@@ -30,20 +35,24 @@ export async function subscribePushAction(input: {
   // upsert by endpoint (unique). If the browser regenerates the subscription
   // with a new endpoint, another row is inserted — the cleanup of the old one
   // happens when the server attempts to send and receives a 410.
-  const { error } = await supabase
-    .from("push_subscriptions")
-    .upsert(
-      {
-        user_id: ctx.userId,
-        endpoint: input.endpoint,
-        p256dh: input.p256dh,
-        auth_key: input.auth,
-        user_agent: input.userAgent ?? null,
-        last_seen_at: new Date().toISOString(),
-      },
-      { onConflict: "endpoint" },
+  const { error } = await supabase.from("push_subscriptions").upsert(
+    {
+      user_id: ctx.userId,
+      endpoint: input.endpoint,
+      p256dh: input.p256dh,
+      auth_key: input.auth,
+      user_agent: input.userAgent ?? null,
+      last_seen_at: new Date().toISOString(),
+    },
+    { onConflict: "endpoint" },
+  );
+  if (error) {
+    return failed(
+      "notifications.push.subscribe_failed",
+      error,
+      "No se pudieron activar las notificaciones en este dispositivo.",
     );
-  if (error) return { ok: false, error: error.message };
+  }
   return { ok: true, data: { subscribed: true } };
 }
 
@@ -62,6 +71,12 @@ export async function unsubscribePushAction(
     .delete()
     .eq("user_id", ctx.userId)
     .eq("endpoint", endpoint);
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    return failed(
+      "notifications.push.unsubscribe_failed",
+      error,
+      "No se pudieron desactivar las notificaciones en este dispositivo.",
+    );
+  }
   return { ok: true, data: { unsubscribed: true } };
 }

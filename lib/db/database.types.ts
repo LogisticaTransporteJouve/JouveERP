@@ -9282,6 +9282,17 @@ export type Database = {
         Returns: undefined
       }
       capture_aging_snapshot: { Args: never; Returns: string }
+      change_shipment_status: {
+        Args: {
+          p_comment?: string
+          p_delivery_date?: string
+          p_failure_reason?: string
+          p_id: string
+          p_scheduled_date?: string
+          p_status: string
+        }
+        Returns: string
+      }
       checks_channel_mismatches: {
         Args: never
         Returns: {
@@ -9458,6 +9469,24 @@ export type Database = {
           remito_pos: number
         }[]
       }
+      create_ai_confirmation_revision: {
+        Args: {
+          p_action: string
+          p_draft: Json
+          p_labels: Json
+          p_origin: string
+          p_replaces?: string
+          p_revision_key: string
+          p_session_id: string
+          p_summary: Json
+          p_tool_call_id: string
+          p_user_id: string
+        }
+        Returns: {
+          id: string
+          revision: number
+        }[]
+      }
       create_bank_statement_line_tax_payment: {
         Args: {
           p_allow_difference?: boolean
@@ -9554,6 +9583,26 @@ export type Database = {
           p_recibo_date: string
           p_retentions: Json
           p_total_amount: number
+        }
+        Returns: string
+      }
+      create_recurring_task: {
+        Args: {
+          p_actor: string
+          p_assignee_ids: string[]
+          p_day_of_month: number
+          p_description?: string
+          p_title: string
+        }
+        Returns: string
+      }
+      create_task: {
+        Args: {
+          p_actor: string
+          p_assignee_ids: string[]
+          p_description?: string
+          p_due_date?: string
+          p_title: string
         }
         Returns: string
       }
@@ -9838,6 +9887,13 @@ export type Database = {
           p_user_id: string
         }
         Returns: string[]
+      }
+      increase_storage_tariffs: {
+        Args: { p_percent: number; p_valid_from: string }
+        Returns: {
+          skipped: number
+          updated: number
+        }[]
       }
       invoice_effective_due_date: {
         Args: { p_fch_vto_pago: string; p_fecha: string }
@@ -10621,6 +10677,24 @@ export type Database = {
         }
         Returns: string
       }
+      send_chat_message: {
+        Args: {
+          p_body: string
+          p_channel_id: string
+          p_mention_ids: string[]
+          p_reply_to_id?: string
+        }
+        Returns: {
+          body: string
+          channel_id: string
+          created_at: string
+          deleted_at: string
+          edited_at: string
+          id: string
+          reply_to_message_id: string
+          sender_id: string
+        }[]
+      }
       set_arca_web_credentials: {
         Args: { p_cuit: string; p_password?: string; p_user_id: string }
         Returns: undefined
@@ -10628,6 +10702,13 @@ export type Database = {
       set_bank_statement_line_ignored: {
         Args: { p_line_id: string; p_reason: string; p_user_id: string }
         Returns: undefined
+      }
+      set_task_assignees: {
+        Args: { p_actor: string; p_assignee_ids: string[]; p_task_id: string }
+        Returns: {
+          added: string[]
+          removed: string[]
+        }[]
       }
       set_user_access: {
         Args: {
@@ -10864,6 +10945,10 @@ export type Database = {
           p_total_amount: number
         }
         Returns: undefined
+      }
+      update_recurring_task: {
+        Args: { p_assignee_ids?: string[]; p_id: string; p_patch: Json }
+        Returns: boolean
       }
       upsert_my_notification_setting: {
         Args: { p_enabled: boolean; p_type: string }

@@ -125,7 +125,7 @@ export async function updateWarehouseAction(
   const { id, ...rest } = parsed.data;
 
   const supabase = await createSupabaseClient();
-  const { error } = await supabase
+  const { data: changed, error } = await supabase
     .from("warehouses")
     .update({
       ...(rest.name !== undefined && { name: rest.name }),
@@ -136,10 +136,14 @@ export async function updateWarehouseAction(
       ...(rest.is_active !== undefined && { is_active: rest.is_active }),
       ...(rest.notes !== undefined && { notes: rest.notes }),
     })
-    .eq("id", id);
+    .eq("id", id)
+    .select("id");
   if (error) {
     logger.error("warehouses.update.failed", { userId: ctx.userId, id, error });
     return { ok: false, error: "No se pudo actualizar el depósito." };
+  }
+  if (!changed || changed.length === 0) {
+    return { ok: false, error: "No se encontró el depósito." };
   }
 
   await logAudit(
@@ -162,13 +166,17 @@ export async function setWarehouseActiveAction(
   if (!parsed.success) return { ok: false, error: "Datos inválidos." };
 
   const supabase = await createSupabaseClient();
-  const { error } = await supabase
+  const { data: changed, error } = await supabase
     .from("warehouses")
     .update({ is_active: parsed.data.is_active })
-    .eq("id", parsed.data.id);
+    .eq("id", parsed.data.id)
+    .select("id");
   if (error) {
     logger.error("warehouses.toggle.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo cambiar el estado." };
+  }
+  if (!changed || changed.length === 0) {
+    return { ok: false, error: "No se encontró el depósito." };
   }
 
   await logAudit(
@@ -188,13 +196,17 @@ export async function deleteWarehouseAction(input: {
     return { ok: false, error: "No tenés permiso para borrar depósitos." };
   }
   const supabase = await createSupabaseClient();
-  const { error } = await supabase
+  const { data: changed, error } = await supabase
     .from("warehouses")
     .delete()
-    .eq("id", input.id);
+    .eq("id", input.id)
+    .select("id");
   if (error) {
     logger.error("warehouses.delete.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo borrar el depósito." };
+  }
+  if (!changed || changed.length === 0) {
+    return { ok: false, error: "No se encontró el depósito." };
   }
   await logAudit("warehouse.deleted", ctx.userId, {}, input.id);
   return { ok: true, data: undefined };

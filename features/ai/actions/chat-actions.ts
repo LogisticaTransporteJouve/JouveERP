@@ -86,10 +86,11 @@ export async function deleteAiSessionAction(
   }
 
   const supabase = await createSupabaseClient();
-  const { error } = await supabase
+  const { data: changed, error } = await supabase
     .from("ai_chat_sessions")
     .delete()
-    .eq("id", sessionId);
+    .eq("id", sessionId)
+    .select("id");
 
   if (error) {
     logger.error("ai.sessions.delete.failed", {
@@ -98,6 +99,9 @@ export async function deleteAiSessionAction(
       error,
     });
     return { ok: false, error: "No se pudo borrar la conversación." };
+  }
+  if (!changed || changed.length === 0) {
+    return { ok: false, error: "No se encontró la conversación." };
   }
 
   await logAudit("ai.session.deleted", ctx.userId, {}, sessionId);

@@ -340,10 +340,13 @@ export async function dispatchPalletsBulkAction(
       error: blockedErr,
     });
   }
-  await logAudit("pallet.bulk_dispatched", ctx.userId, {
-    count: dispatched,
-    blocked: blocked ?? 0,
-  });
+  // Nothing left the deposit (all blocked or already out): nothing to audit.
+  if (dispatched > 0) {
+    await logAudit("pallet.bulk_dispatched", ctx.userId, {
+      count: dispatched,
+      blocked: blocked ?? 0,
+    });
+  }
   return { ok: true, data: { dispatched, blocked: blocked ?? 0 } };
 }
 
@@ -387,7 +390,7 @@ export async function updatePalletAction(
       return { ok: false, error: NO_STOCK_MOVEMENTS };
     }
   }
-  const { error } = await supabase
+  const { data: changed, error } = await supabase
     .from("pallets")
     .update({
       ...(rest.warehouse_id !== undefined && {
@@ -405,7 +408,8 @@ export async function updatePalletAction(
       ...(rest.lot_number !== undefined && { lot_number: rest.lot_number }),
       ...(rest.lot_expiry !== undefined && { lot_expiry: rest.lot_expiry }),
     })
-    .eq("id", id);
+    .eq("id", id)
+    .select("id");
   if (error) {
     const known = palletWriteError(
       error,
@@ -416,6 +420,9 @@ export async function updatePalletAction(
     if (known) return { ok: false, error: known };
     logger.error("pallets.update.failed", { userId: ctx.userId, id, error });
     return { ok: false, error: "No se pudo actualizar el pallet." };
+  }
+  if (!changed || changed.length === 0) {
+    return { ok: false, error: "No se encontró el pallet." };
   }
 
   await logAudit(
@@ -435,7 +442,11 @@ export async function deletePalletAction(input: {
     return { ok: false, error: "No tenés permiso para borrar pallets." };
   }
   const supabase = await createSupabaseClient();
-  const { error } = await supabase.from("pallets").delete().eq("id", input.id);
+  const { data: changed, error } = await supabase
+    .from("pallets")
+    .delete()
+    .eq("id", input.id)
+    .select("id");
   if (error) {
     const guard = mapDbGuardError(error, {
       slug: "pallets.delete.rejected",
@@ -445,6 +456,9 @@ export async function deletePalletAction(input: {
     if (guard) return { ok: false, error: guard };
     logger.error("pallets.delete.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo borrar el pallet." };
+  }
+  if (!changed || changed.length === 0) {
+    return { ok: false, error: "No se encontró el pallet." };
   }
   await logAudit("pallet.deleted", ctx.userId, {}, input.id);
   return { ok: true, data: undefined };

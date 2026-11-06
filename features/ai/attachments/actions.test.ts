@@ -236,4 +236,14 @@ describe("discardChatAttachmentAction", () => {
       FILE_ID,
     );
   });
+
+  it("returns a refusal instead of throwing when the delete fails", async () => {
+    vi.mocked(store.deleteDraftAttachment).mockRejectedValueOnce(
+      new Error("rpc down"),
+    );
+    expect(await discardChatAttachmentAction(FILE_ID)).toEqual({
+      ok: false,
+      error: "No se pudo quitar el archivo.",
+    });
+  });
 });
