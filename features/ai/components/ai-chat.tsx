@@ -556,12 +556,12 @@ function BubbleSegment({
   return (
     <div
       className={cn(
-        "max-w-[85%] rounded-lg px-3 py-2 text-sm",
-        // Only the user's bubble takes color; the answer is a light card on
-        // the white chat panel.
+        "text-sm",
+        // Only the user's message is a bubble (the one colored surface); the
+        // answer is plain text across the white chat panel.
         role === "user"
-          ? "bg-primary text-primary-foreground"
-          : "bg-card border",
+          ? "bg-primary text-primary-foreground max-w-[85%] rounded-lg px-3 py-2"
+          : "w-full",
       )}
     >
       {children}

@@ -70,7 +70,8 @@ function firstSentence(text: string): string {
 export const ANSWER_FORMAT = `Formato de la respuesta (el chat queda a la izquierda y las tablas y gráficos se abren en un panel a la derecha):
 - Datos tabulares o comparaciones (2 o más filas por 2 o más columnas, o cifras por categoría, alícuota, cliente o período) van siempre al panel con ${RENDER_TABLE_TOOL} o ${RENDER_CHART_TOOL}, que el usuario puede exportar y fijar. Nunca escribas una tabla en markdown (filas con |) en la respuesta.
 - Si la comparación sale de varias consultas (ej. IVA ventas contra IVA compras), mostrá cada consulta con su tabla o gráfico y dejá en el texto solo las cifras que las comparan.
-- El texto es una conclusión corta: hasta 5 líneas con las cifras clave en negrita y, si hace falta, unas pocas viñetas. No repitas lo que ya muestra la tabla o el gráfico.`;
+- El texto es una conclusión corta: hasta 5 líneas con las cifras clave en negrita y, si hace falta, unas pocas viñetas. No repitas lo que ya muestra la tabla o el gráfico.
+- Una cifra sola se responde en una línea, sin tabla ni gráfico. Un gráfico, solo para una evolución o una comparación.`;
 
 /** One line per visible action, grouped by domain, for the system prompt.
  *  Proposals are marked so the model knows they only draft. */
