@@ -148,7 +148,7 @@ export async function updateTripAction(input: unknown): Promise<ActionResult> {
   const { id, ...rest } = parsed.data;
 
   const supabase = await createSupabaseClient();
-  const { error } = await supabase
+  const { data: changed, error } = await supabase
     .from("trips")
     .update({
       ...(rest.trip_date !== undefined && { trip_date: rest.trip_date }),
@@ -166,7 +166,8 @@ export async function updateTripAction(input: unknown): Promise<ActionResult> {
       ...(rest.cost !== undefined && { cost: rest.cost }),
       ...(rest.notes !== undefined && { notes: rest.notes }),
     })
-    .eq("id", id);
+    .eq("id", id)
+    .select("id");
   if (error) {
     // A trip with cargas in a live rendición keeps its driver.
     const guardError = mapDbGuardError(error, {
@@ -177,6 +178,9 @@ export async function updateTripAction(input: unknown): Promise<ActionResult> {
     if (guardError) return { ok: false, error: guardError };
     logger.error("trips.update.failed", { userId: ctx.userId, id, error });
     return { ok: false, error: "No se pudo actualizar el viaje." };
+  }
+  if (!changed || changed.length === 0) {
+    return { ok: false, error: "No se encontró el viaje." };
   }
 
   await logAudit(

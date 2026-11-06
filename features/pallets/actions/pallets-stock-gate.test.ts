@@ -35,7 +35,11 @@ vi.mock("@/lib/supabase/server", () => ({
         maybeSingle: async () => ({ data: stored, error: null }),
         update: (patch: unknown) => {
           updates.push(patch);
-          return { eq: async () => ({ error: null }) };
+          return {
+            eq: () => ({
+              select: async () => ({ data: [{ id: ID }], error: null }),
+            }),
+          };
         },
       };
       return b;

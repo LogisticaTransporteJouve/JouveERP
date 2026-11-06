@@ -379,7 +379,7 @@ export async function updateTransactionAction(
     };
   }
 
-  const { error } = await supabase
+  const { data: changed, error } = await supabase
     .from("transactions")
     .update({
       amount: data.amount,
@@ -409,6 +409,9 @@ export async function updateTransactionAction(
       error,
     });
     return { ok: false, error: "No se pudo actualizar el movimiento." };
+  }
+  if (!changed || changed.length === 0) {
+    return { ok: false, error: "No se encontró el movimiento." };
   }
 
   await logAudit(
