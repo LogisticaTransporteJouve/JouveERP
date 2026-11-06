@@ -2,7 +2,9 @@
 
 Decisiones: `docs/decisions/2026-11-04-rrhh-archivos-y-escaneo-auditoria-w12.md`.
 
-- [ ] **Blobs sin fila en `files`.** Si el alta de la fila falla después de
+- [x] **Blobs sin fila en `files`.** (Resuelto: `writeFileBlobAndRow` y
+      `discardStoredFile` borran el blob con el cliente de servicio, y
+      `discardStoredFile` solo lo borra si la fila se fue.) Si el alta de la fila falla después de
       subir el blob (`storeUploadedFile`, `scanDocumentAction`) o
       `discardStoredFile` borra la fila antes que el blob, el `remove` del
       cliente del usuario no lo encuentra: el DELETE de storage filtra por
@@ -16,7 +18,8 @@ Decisiones: `docs/decisions/2026-11-04-rrhh-archivos-y-escaneo-auditoria-w12.md`
       consulta de control de `antes-de-promover.md` devuelve alguna, el
       barrido de huérfanos podría borrar el blob de la fila vigente al borrar
       la otra. `delete_orphan_files` no mira si otra fila nombra la misma key.
-- [ ] **`detachFileAction` responde `deletedBlob: true`** aunque la RLS no
+- [x] **`detachFileAction` responde `deletedBlob: true`** (Resuelto: usa
+      `removeUnlinkedFile` y responde lo que de verdad borró.) aunque la RLS no
       haya dejado borrar ni el blob ni la fila (finance quitando el último
       vínculo de un archivo que subió otro). Ninguna pantalla lo lee hoy; el
       barrido limpia ambos.

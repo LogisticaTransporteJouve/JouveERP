@@ -1807,7 +1807,7 @@ export const treasuryPage: GuidePage = {
               fix: "Creá una cuenta de cartera en [[/accounts]].",
             },
             {
-              message: "Ya existe un check … para ….",
+              message: "Ya existe un cheque … para ….",
               fix: "Ese cheque ya está cargado: buscalo en la lista.",
             },
             {

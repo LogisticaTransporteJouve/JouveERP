@@ -79,6 +79,9 @@ export function FuelImportDialog({
   const [preview, setPreview] = useState<FuelImportPreview | null>(null);
   const [mapping, setMapping] = useState<FuelImportMapping | null>(null);
   const [selected, setSelected] = useState<ReadonlySet<number>>(new Set());
+  // One per statement read: a double click or retry of the same import is
+  // added once (the server skips rows whose import key exists).
+  const [importKey, setImportKey] = useState("");
 
   function reset() {
     setFile(null);
@@ -96,6 +99,7 @@ export function FuelImportDialog({
     previewMut.mutate(formData, {
       onSuccess: (data) => {
         setPreview(data);
+        setImportKey(crypto.randomUUID());
         setMapping(data.mapping);
         setSelected(
           new Set(
@@ -144,7 +148,7 @@ export function FuelImportDialog({
         : [],
     );
     confirmMut.mutate(
-      { provider, rows },
+      { provider, import_key: importKey, rows },
       {
         onSuccess: ({ inserted, skipped }) => {
           toast.success(

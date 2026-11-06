@@ -38,11 +38,6 @@ export async function isLinkedFile(fileId: string): Promise<boolean | null> {
   return reads.some((r) => (r.count ?? 0) > 0);
 }
 
-/** True when something still points at the file; a failed lookup keeps it. */
-export async function isFileStillReferenced(fileId: string): Promise<boolean> {
-  return (await isLinkedFile(fileId)) ?? true;
-}
-
 /**
  * Whether the file is a Document Intelligence scan (an extraction reads it),
  * whoever scanned it; null when the lookup fails. Service role, because the

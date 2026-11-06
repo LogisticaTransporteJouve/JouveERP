@@ -3563,6 +3563,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          import_key: string | null
           liters: number
           load_date: string
           notes: string | null
@@ -3580,6 +3581,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          import_key?: string | null
           liters: number
           load_date: string
           notes?: string | null
@@ -3597,6 +3599,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          import_key?: string | null
           liters?: number
           load_date?: string
           notes?: string | null
@@ -9538,6 +9541,24 @@ export type Database = {
       }
       create_loan: {
         Args: { p_installments: Json; p_loan: Json }
+        Returns: string
+      }
+      create_manual_check: {
+        Args: {
+          p_amount: number
+          p_bank_name: string
+          p_cartera_account_id: string
+          p_channel_id: string
+          p_check_number: string
+          p_currency: string
+          p_drawer_cuit?: string
+          p_drawer_name: string
+          p_due_date: string
+          p_issue_date: string
+          p_kind: string
+          p_notes?: string
+          p_source_client_id?: string
+        }
         Returns: string
       }
       create_manual_journal_entry: {

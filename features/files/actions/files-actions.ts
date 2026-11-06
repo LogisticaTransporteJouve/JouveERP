@@ -11,10 +11,8 @@ import {
   ATTACHMENT_WRITE_PERMISSION,
   canChangeAttachments,
 } from "@/lib/files/attachment-targets";
-import {
-  isDocumentScanFile,
-  isFileStillReferenced,
-} from "@/lib/files/references";
+import { isDocumentScanFile } from "@/lib/files/references";
+import { removeUnlinkedFile } from "@/lib/files/remove-unlinked";
 import { discardStoredFile, storeUploadedFile } from "@/lib/files/store";
 import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
@@ -300,9 +298,10 @@ export async function getSignedFileUrlAction(
 }
 
 // ─── detachFileAction ────────────────────────────────────────────────────────
-// Removes the attachment row; if no other attachments reference the file,
-// also removes the blob + the registry row. The orphan sweep cron is the
-// safety net for crashes mid-flow.
+// Removes the attachment row; then, if nothing links the file any more,
+// removeUnlinkedFile deletes its row and bytes (delete_orphan_files re-checks
+// every link inside the delete). The orphan sweep is the safety net when that
+// cleanup fails.
 
 export async function detachFileAction(
   attachmentId: string,
@@ -318,8 +317,6 @@ export async function detachFileAction(
 
   const supabase = await createClient();
 
-  // Two-step lookup keeps the join out of the type inference path. Cheap
-  // — both rows are tiny and the same supabase client is reused.
   const { data: attRow, error: loadErr } = await supabase
     .from("file_attachments")
     .select(
@@ -327,7 +324,15 @@ export async function detachFileAction(
     )
     .eq("id", parsed.data)
     .maybeSingle();
-  if (loadErr || !attRow) {
+  if (loadErr) {
+    logger.error("files.detach.load_failed", {
+      userId: ctx.userId,
+      attachmentId: parsed.data,
+      error: loadErr,
+    });
+    return { ok: false, error: "No se pudo leer el adjunto. Reintentá." };
+  }
+  if (!attRow) {
     return { ok: false, error: "Adjunto no encontrado." };
   }
 
@@ -340,15 +345,6 @@ export async function detachFileAction(
     return { ok: false, error: "No tenés permiso para modificar archivos." };
   }
 
-  const { data: fileRow, error: fileLookupErr } = await supabase
-    .from("files")
-    .select("bucket, bucket_path")
-    .eq("id", attRow.file_id)
-    .maybeSingle();
-  if (fileLookupErr) {
-    return { ok: false, error: fileLookupErr.message };
-  }
-
   // RLS lets only the link's creator or owner/admin delete it; any other
   // caller deletes no row, which is not a detach.
   const { data: deleted, error: delErr } = await supabase
@@ -357,7 +353,12 @@ export async function detachFileAction(
     .eq("id", parsed.data)
     .select("id");
   if (delErr) {
-    return { ok: false, error: delErr.message };
+    logger.error("files.detach.failed", {
+      userId: ctx.userId,
+      attachmentId: parsed.data,
+      error: delErr,
+    });
+    return { ok: false, error: "No se pudo quitar el adjunto." };
   }
   if ((deleted ?? []).length === 0) {
     return { ok: false, error: "Solo quien lo adjuntó o un admin lo quita." };
@@ -375,13 +376,10 @@ export async function detachFileAction(
     attRow[ATTACHMENT_FK_COLUMN[target]] ?? undefined,
   );
 
-  if (fileRow && !(await isFileStillReferenced(attRow.file_id))) {
-    await supabase.storage.from(fileRow.bucket).remove([fileRow.bucket_path]);
-    await supabase.from("files").delete().eq("id", attRow.file_id);
-    return { ok: true, data: { deletedBlob: true } };
-  }
-
-  return { ok: true, data: { deletedBlob: false } };
+  // The detach is done; deleting the file is cleanup, and says only what
+  // really happened (a failure is logged and left to the orphan sweep).
+  const deletedBlob = await removeUnlinkedFile(attRow.file_id);
+  return { ok: true, data: { deletedBlob } };
 }
 
 // ─── listAttachmentsAction ───────────────────────────────────────────────────

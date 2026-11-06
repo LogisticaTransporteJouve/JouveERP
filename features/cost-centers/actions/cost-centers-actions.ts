@@ -121,6 +121,10 @@ export async function createCostCenterAction(
   return { ok: true, data: { id: data.id } };
 }
 
+/** No row matched: deleted meanwhile, or hidden by RLS. */
+const COST_CENTER_NOT_FOUND =
+  "No se encontró el centro de costo. Actualizá la página.";
+
 export async function updateCostCenterAction(
   input: unknown,
 ): Promise<ActionResult> {
@@ -141,16 +145,20 @@ export async function updateCostCenterAction(
   };
   if (Object.keys(update).length === 0) return { ok: true, data: undefined };
   const supabase = await createClient();
-  const { error } = await supabase
+  const { data: changed, error } = await supabase
     .from("cost_centers")
     .update(update)
-    .eq("id", id);
+    .eq("id", id)
+    .select("id");
   if (error) {
     if (error.code === PG_UNIQUE_VIOLATION) {
       return { ok: false, error: uniqueViolationMessage(error.message) };
     }
     logger.error("cost_centers.update.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo actualizar." };
+  }
+  if ((changed ?? []).length === 0) {
+    return { ok: false, error: COST_CENTER_NOT_FOUND };
   }
   await logAudit("cost_center.updated", ctx.userId, update, id);
   return { ok: true, data: undefined };
@@ -166,10 +174,11 @@ export async function deleteCostCenterAction(
   const parsed = CostCenterDeleteSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Inválido." };
   const supabase = await createClient();
-  const { error } = await supabase
+  const { data: changed, error } = await supabase
     .from("cost_centers")
     .delete()
-    .eq("id", parsed.data.id);
+    .eq("id", parsed.data.id)
+    .select("id");
   if (error) {
     if (error.code === PG_FOREIGN_KEY_VIOLATION) {
       return {
@@ -180,6 +189,9 @@ export async function deleteCostCenterAction(
     }
     logger.error("cost_centers.delete.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudo borrar (¿en uso?)." };
+  }
+  if ((changed ?? []).length === 0) {
+    return { ok: false, error: COST_CENTER_NOT_FOUND };
   }
   await logAudit("cost_center.deleted", ctx.userId, {}, parsed.data.id);
   return { ok: true, data: undefined };

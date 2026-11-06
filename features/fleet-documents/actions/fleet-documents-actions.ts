@@ -18,6 +18,7 @@ import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { paginateRange } from "@/lib/supabase/paginate";
 
 import {
+  DeleteFleetDocumentSchema,
   FleetDocumentCreateSchema,
   FleetDocumentFileSchema,
   FleetDocumentUpdateSchema,
@@ -76,6 +77,8 @@ async function attachedFileId(
 
 const FILE_REMOVED = "fleet_document.file_removed";
 const NO_FILE_PERMISSION = "No tenés permiso para adjuntar archivos.";
+/** No row matched: deleted meanwhile, or hidden by RLS. */
+const DOC_NOT_FOUND = "No se encontró la documentación. Actualizá la página.";
 
 const SELECT_COLUMNS =
   "id, vehicle_id, driver_id, kind, number, issued_at, expires_at, notes, attachment_file_id, created_at, updated_at, vehicle:vehicles(patente), driver:drivers(full_name)";
@@ -200,7 +203,7 @@ export async function updateFleetDocumentAction(
     const fileError = await linkableFileError(supabase, nextFileId);
     if (fileError) return { ok: false, error: fileError };
   }
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from("fleet_documents")
     .update({
       ...(rest.vehicle_id !== undefined && { vehicle_id: rest.vehicle_id }),
@@ -208,13 +211,19 @@ export async function updateFleetDocumentAction(
       ...(rest.kind !== undefined && { kind: rest.kind }),
       ...(rest.number !== undefined && { number: rest.number }),
       ...(rest.issued_at !== undefined && { issued_at: rest.issued_at }),
-      ...(rest.expires_at !== undefined && { expires_at: rest.expires_at }),
+      // A new expiry date may alert again: the cron skips a document
+      // notified within its cooldown (employee documents do the same).
+      ...(rest.expires_at !== undefined && {
+        expires_at: rest.expires_at,
+        notified_at: null,
+      }),
       ...(rest.notes !== undefined && { notes: rest.notes }),
       ...(rest.attachment_file_id !== undefined && {
         attachment_file_id: rest.attachment_file_id,
       }),
     })
-    .eq("id", id);
+    .eq("id", id)
+    .select("id");
   if (error) {
     const guardError = mapDbGuardError(error, {
       slug: "fleet_documents.update.rejected",
@@ -229,6 +238,7 @@ export async function updateFleetDocumentAction(
     });
     return { ok: false, error: "No se pudo actualizar la documentación." };
   }
+  if ((updated ?? []).length === 0) return { ok: false, error: DOC_NOT_FOUND };
 
   await logAudit(
     "fleet_document.updated",
@@ -246,18 +256,21 @@ export async function updateFleetDocumentAction(
   return { ok: true, data: undefined };
 }
 
-export async function deleteFleetDocumentAction(input: {
-  id: string;
-}): Promise<ActionResult> {
+export async function deleteFleetDocumentAction(
+  input: unknown,
+): Promise<ActionResult> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "fleet_documents:write")) {
     return { ok: false, error: "No tenés permiso para borrar documentación." };
   }
+  const parsedId = DeleteFleetDocumentSchema.safeParse(input);
+  if (!parsedId.success) return { ok: false, error: "Documento inválido." };
+  const { id } = parsedId.data;
   const supabase = await createSupabaseClient();
   const { data: deleted, error } = await supabase
     .from("fleet_documents")
     .delete()
-    .eq("id", input.id)
+    .eq("id", id)
     .select("attachment_file_id");
   if (error) {
     logger.error("fleet_documents.delete.failed", {
@@ -266,11 +279,12 @@ export async function deleteFleetDocumentAction(input: {
     });
     return { ok: false, error: "No se pudo borrar la documentación." };
   }
-  await logAudit("fleet_document.deleted", ctx.userId, {}, input.id);
+  if ((deleted ?? []).length === 0) return { ok: false, error: DOC_NOT_FOUND };
+  await logAudit("fleet_document.deleted", ctx.userId, {}, id);
   await removeReplacedFile({
     userId: ctx.userId,
     auditEvent: FILE_REMOVED,
-    documentId: input.id,
+    documentId: id,
     previousFileId: deleted?.[0]?.attachment_file_id ?? null,
     nextFileId: null,
   });

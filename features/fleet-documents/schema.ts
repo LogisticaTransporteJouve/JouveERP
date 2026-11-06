@@ -123,3 +123,7 @@ export const FleetDocumentUpdateSchema = z
 export const FleetDocumentFileSchema = z.object({
   documentId: z.string().uuid(),
 });
+
+export const DeleteFleetDocumentSchema = z.object({
+  id: z.string().uuid(),
+});

@@ -4,6 +4,9 @@ import { type Role, resolveAccess } from "@/lib/auth/permissions";
 
 let roles: Role[] = ["finance"];
 let updateError: unknown = null;
+/** Rows the update matched. */
+let updatedRows: { id: string }[] = [];
+const logAudit = vi.fn();
 const rpc = vi.fn();
 
 vi.mock("@/lib/auth/context", () => ({
@@ -15,24 +18,64 @@ vi.mock("@/lib/auth/context", () => ({
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({
     from: () => ({
-      update: () => ({ eq: async () => ({ error: updateError }) }),
+      update: () => ({
+        eq: () => ({
+          select: async () => ({
+            data: updateError ? null : updatedRows,
+            error: updateError,
+          }),
+        }),
+      }),
     }),
   }),
 }));
 vi.mock("@/lib/supabase/service", () => ({
   getServiceClient: () => ({ rpc }),
 }));
-vi.mock("@/lib/actions/audit", () => ({ logAudit: vi.fn() }));
+vi.mock("@/lib/actions/audit", () => ({ logAudit }));
 
-const { getAccountHasMovementsAction, updateAccountAction } =
-  await import("./accounts-actions");
+const {
+  getAccountHasMovementsAction,
+  setAccountActiveAction,
+  updateAccountAction,
+} = await import("./accounts-actions");
 
 const ID = "00000000-0000-4000-8000-000000000001";
 
 beforeEach(() => {
   roles = ["finance"];
   updateError = null;
+  updatedRows = [{ id: ID }];
   rpc.mockReset();
+  logAudit.mockReset();
+});
+
+describe("an account that is gone (no row matched)", () => {
+  const notFound = {
+    ok: false,
+    error: "No se encontró la cuenta. Actualizá la página.",
+  };
+
+  it("an edit says so and audits nothing", async () => {
+    updatedRows = [];
+    expect(await updateAccountAction({ id: ID, name: "Caja" })).toEqual(
+      notFound,
+    );
+    expect(logAudit).not.toHaveBeenCalled();
+  });
+
+  it("a deactivation says so and audits nothing", async () => {
+    updatedRows = [];
+    expect(await setAccountActiveAction({ id: ID, is_active: false })).toEqual(
+      notFound,
+    );
+    expect(logAudit).not.toHaveBeenCalled();
+  });
+
+  it("an edit that matched audits it", async () => {
+    expect((await updateAccountAction({ id: ID, name: "Caja" })).ok).toBe(true);
+    expect(logAudit).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("updateAccountAction", () => {

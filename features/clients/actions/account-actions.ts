@@ -7,6 +7,7 @@ import { logAudit } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { round2 } from "@/lib/format";
+import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { logger } from "@/lib/logger";
 import {
   readEmbeddedStatus,
@@ -422,15 +423,18 @@ export async function setClientOpeningBalanceAction(input: {
     p_notes: input.notes ?? undefined,
   });
   if (error) {
+    const guard = mapDbGuardError(error, {
+      slug: "clients.opening.apply_rejected",
+      userId: ctx.userId,
+      id: input.client_id,
+    });
+    if (guard) return { ok: false, error: guard };
     logger.error("clients.opening.apply_failed", {
       userId: ctx.userId,
       clientId: input.client_id,
       error,
     });
-    return {
-      ok: false,
-      error: error.message ?? "No se pudo aplicar el saldo de apertura.",
-    };
+    return { ok: false, error: "No se pudo aplicar el saldo de apertura." };
   }
   await logAudit(
     "client.opening_balance.applied",
