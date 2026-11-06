@@ -62,10 +62,42 @@ function prepare(input: Record<string, unknown>) {
 }
 
 describe("proposeRecategorizeExpense", () => {
-  it("is offered only with both write permissions", () => {
-    expect(proposeRecategorizeExpense.permissions).toEqual(
-      expect.arrayContaining(["transactions:write", "purchase_invoices:write"]),
+  it("is offered with the write of either source, like the manual action", () => {
+    expect(proposeRecategorizeExpense.permissions).toEqual([]);
+    expect(proposeRecategorizeExpense.anyOfPermissions).toEqual([
+      "transactions:write",
+      "purchase_invoices:write",
+    ]);
+  });
+
+  it("refuses, in prepare and execute, the source the user cannot write", async () => {
+    // A finance user denied purchase_invoices:write keeps transactions:write.
+    const noPurchases = {
+      userId: "u1",
+      access: resolveAccess(["finance"], ["purchase_invoices:write"]),
+    };
+    const prepared = await proposeRecategorizeExpense.proposal?.prepareDraft(
+      noPurchases,
+      { source: "purchase_invoices", id: TX, cost_center: "FLOTA" },
     );
+    expect(prepared).toEqual({
+      kind: "error",
+      error: expect.stringContaining("facturas de compra"),
+    });
+    expect(getExpenseCostTagsAction).not.toHaveBeenCalled();
+
+    const executed = await proposeRecategorizeExpense.proposal?.executeDraft(
+      noPurchases,
+      { source: "purchase_invoices", id: TX, cost_center_id: FLEET },
+    );
+    expect(executed?.ok).toBe(false);
+    expect(recategorizeExpense).not.toHaveBeenCalled();
+
+    const own = await proposeRecategorizeExpense.proposal?.prepareDraft(
+      noPurchases,
+      { source: "transactions", id: TX, cost_center: "FLOTA" },
+    );
+    expect(own?.kind).toBe("draft");
   });
 
   it("resolves the account by exact name and the center by code", async () => {

@@ -1,7 +1,6 @@
 import { tool } from "ai";
 import { z } from "zod";
 
-import type { Permission } from "@/lib/auth/permissions";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 
@@ -17,6 +16,7 @@ import {
   toPermissions,
   type AiAction,
   type AiActionContext,
+  type AiActionDefinition,
   type AiDomain,
   type AiPreparedProposal,
   type AiProposalOutcome,
@@ -70,8 +70,10 @@ type AiProposalDefinition<I extends z.ZodObject, D extends z.ZodType> = {
   /** What the model fills in (names, codes, dates); `prepare` resolves it. */
   input: I;
   /** The same permissions the manual form's server action checks, plus the
-   *  reads `prepare` needs. Required to expose, to propose and to confirm. */
-  permission: Permission | readonly Permission[];
+   *  reads `prepare` needs. Required to expose, to propose and to confirm;
+   *  `{ anyOf }` when the form's gate depends on the record (then `prepare`
+   *  and `execute` check the one the record needs). */
+  permission: AiActionDefinition<z.ZodType>["permission"];
   sources: readonly string[];
   spec: TypedProposalSpec<D>;
   prepare: (
