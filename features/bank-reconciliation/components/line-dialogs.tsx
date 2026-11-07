@@ -454,8 +454,10 @@ export function CreateLineTransactionDialog({
   const createTax = useCreateLineTaxPayment();
   const { channels } = useScope();
   const active = channels.filter((c) => c.is_active);
+  // A bank movement goes to the books: the fiscal channel unless picked.
+  const fiscalChannel = active.find((c) => c.is_fiscal)?.id ?? "";
   const [mode, setMode] = useState<CreateMode>("manual");
-  const [channelId, setChannelId] = useState("");
+  const [channelId, setChannelId] = useState(fiscalChannel);
   const [expenseAccountId, setExpenseAccountId] = useState("");
   const [costCenterId, setCostCenterId] = useState("");
   const [description, setDescription] = useState<string | null>(null);
@@ -474,7 +476,7 @@ export function CreateLineTransactionDialog({
 
   function close() {
     setMode("manual");
-    setChannelId("");
+    setChannelId(fiscalChannel);
     setExpenseAccountId("");
     setCostCenterId("");
     setDescription(null);

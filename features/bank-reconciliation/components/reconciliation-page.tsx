@@ -67,6 +67,12 @@ import {
 import type { ReconciliationGates } from "../lib/gates";
 import { isMonth, monthRange } from "../lib/month";
 
+/** Lists read newest first, as everywhere in the app; the action returns them
+ *  in the bank's order, which the balances need. */
+function newestFirst<T>(rows: readonly T[]): T[] {
+  return [...rows].reverse();
+}
+
 export function ReconciliationPage({
   today,
   initialMonth,
@@ -440,7 +446,7 @@ function ReconciliationBody({
                   </TableCell>
                 </TableRow>
               )}
-              {data.lines.map((line) => (
+              {newestFirst(data.lines).map((line) => (
                 <TableRow key={line.id}>
                   <TableCell className="align-top text-sm whitespace-nowrap">
                     {formatArgentineDate(line.line_date)}
@@ -598,7 +604,7 @@ function ReconciliationBody({
                   </TableCell>
                 </TableRow>
               )}
-              {unmatchedInPeriod.map((m) => (
+              {newestFirst(unmatchedInPeriod).map((m) => (
                 <TableRow key={m.id}>
                   <TableCell className="text-sm whitespace-nowrap">
                     {formatArgentineDate(m.transaction_date)}
