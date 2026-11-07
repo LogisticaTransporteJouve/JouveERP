@@ -13,6 +13,16 @@ function norm(text: string): string {
   return text.toUpperCase().replace(/\s+/g, " ").trim();
 }
 
+const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/** Whether a normalized description has the pattern as whole words: «IVA»
+ *  is Galicia's IVA line, not the «IVA» inside «RIVADAVIA». */
+function hasWords(description: string, pattern: string): boolean {
+  return new RegExp(`(^|[^A-Z0-9])${escapeRegExp(pattern)}($|[^A-Z0-9])`).test(
+    description,
+  );
+}
+
 /** The code that says what a line is. Among the codes of its bank code,
  *  the one whose text the description contains (the longest wins), else the
  *  one for the whole code. A bank whose statement has no code (Provincia)
@@ -27,7 +37,7 @@ export function findBankCode(
     let best: BankStatementCode | null = null;
     for (const c of candidates) {
       const pattern = norm(c.description_pattern);
-      if (pattern !== "" && !description.includes(pattern)) continue;
+      if (pattern !== "" && !hasWords(description, pattern)) continue;
       if (!best || pattern.length > norm(best.description_pattern).length) {
         best = c;
       }
@@ -420,17 +430,170 @@ export function detectBankPreset(
   lines: readonly Pick<StatementLine, "bank_code" | "description">[],
 ): BankCodePreset | null {
   const macro = new Set(MACRO_CODES.map((c) => c.bank_code));
-  const provincia = PROVINCIA_CODES.map((c) => norm(c.description_pattern));
-  let macroHits = 0;
-  let provinciaHits = 0;
+  const byText = (["provincia", "galicia"] as const).map((preset) => ({
+    preset,
+    patterns: PRESET_CODES[preset].map((c) => norm(c.description_pattern)),
+  }));
+  const hits = new Map<BankCodePreset, number>();
+  const add = (p: BankCodePreset) => hits.set(p, (hits.get(p) ?? 0) + 1);
   for (const l of lines) {
     if (l.bank_code) {
-      if (macro.has(l.bank_code)) macroHits++;
-    } else {
-      const d = norm(l.description);
-      if (provincia.some((p) => d.includes(p))) provinciaHits++;
+      if (macro.has(l.bank_code)) add("macro");
+      continue;
+    }
+    const d = norm(l.description);
+    for (const { preset, patterns } of byText) {
+      if (patterns.some((p) => hasWords(d, p))) add(preset);
     }
   }
-  if (macroHits < 2 && provinciaHits < 2) return null;
-  return macroHits >= provinciaHits ? "macro" : "provincia";
+  let best: BankCodePreset | null = null;
+  for (const [preset, n] of hits) {
+    if (n >= 2 && (!best || n > (hits.get(best) ?? 0))) best = preset;
+  }
+  return best;
 }
+
+/** Banco Galicia has no code either: its concepts, as the home banking
+ *  export («Descripción») writes them. A cheque discount comes as a credit
+ *  with its interest, IVA, percepción and taxes in lines of their own. */
+export const GALICIA_CODES: readonly PresetCode[] = [
+  {
+    bank_code: "",
+    description_pattern: "IMP. DEB. LEY 25413",
+    kind: "tax",
+    account: { code: "5.4.3" },
+    label: "Impuesto a los débitos (Ley 25.413)",
+  },
+  {
+    bank_code: "",
+    description_pattern: "IMP. CRE. LEY 25413",
+    kind: "tax",
+    account: { code: "5.4.3" },
+    label: "Impuesto a los créditos (Ley 25.413)",
+  },
+  {
+    bank_code: "",
+    description_pattern: "ING. BRUTOS S/ CRED",
+    kind: "tax",
+    account: { role: "percepciones_iibb_pagadas" },
+    label: "Recaudación IIBB sobre créditos (ARBA)",
+  },
+  {
+    bank_code: "",
+    description_pattern: "IMP. ING. BRUTOS",
+    kind: "tax",
+    account: { role: "percepciones_iibb_pagadas" },
+    label: "IIBB del descuento de cheques",
+  },
+  {
+    bank_code: "",
+    description_pattern: "INTERES NOMINAL",
+    kind: "bank_fee",
+    account: { role: "intereses_pagados" },
+    label: "Interés del descuento de cheques",
+  },
+  {
+    bank_code: "",
+    description_pattern: "IVA",
+    kind: "tax",
+    account: { role: "iva_credito" },
+    label: "IVA del descuento de cheques",
+  },
+  {
+    bank_code: "",
+    description_pattern: "PERCEP. IVA",
+    kind: "tax",
+    account: { role: "percepciones_iva_pagadas" },
+    label: "Percepción de IVA",
+  },
+  {
+    bank_code: "",
+    description_pattern: "IMPUESTO DE SELLOS",
+    kind: "tax",
+    account: null,
+    label: "Impuesto de sellos",
+  },
+  {
+    bank_code: "",
+    description_pattern: "COM. DEPOSITO DE CHEQUE",
+    kind: "bank_fee",
+    account: { code: "5.4.2" },
+    label: "Comisión por depósito de cheque",
+  },
+  {
+    bank_code: "",
+    description_pattern: "TRANSFERENCIA DE TERCEROS",
+    kind: "receipt",
+    account: null,
+    label: "Transferencia recibida",
+  },
+  {
+    bank_code: "",
+    description_pattern: "CREDITO TRANSFERENCIA COELSA",
+    kind: "receipt",
+    account: null,
+    label: "Transferencia recibida",
+  },
+  {
+    bank_code: "",
+    description_pattern: "TRANSFERENCIAS CASH PROVEEDORES",
+    kind: "receipt",
+    account: null,
+    label: "Transferencia recibida",
+  },
+  {
+    bank_code: "",
+    description_pattern: "SERVICIO PAGO A PROVEEDORES",
+    kind: "receipt",
+    account: null,
+    label: "Transferencia recibida",
+  },
+  {
+    bank_code: "",
+    description_pattern: "CUOTA DE PRESTAMO",
+    kind: "loan",
+    account: null,
+    label: "Cuota de préstamo",
+  },
+  {
+    bank_code: "",
+    description_pattern: "COMISION",
+    kind: "bank_fee",
+    account: { code: "5.4.2" },
+    label: "Comisión del banco",
+  },
+  {
+    bank_code: "",
+    description_pattern: "SERVICIO TERMINAL PAYWAY",
+    kind: "bank_fee",
+    account: { code: "5.4.2" },
+    label: "Terminal Payway",
+  },
+  {
+    bank_code: "",
+    description_pattern: "INTERESES SOBRE SALDOS DEUDORES",
+    kind: "bank_fee",
+    account: { role: "intereses_pagados" },
+    label: "Intereses por saldo deudor",
+  },
+  {
+    bank_code: "",
+    description_pattern: "TRF INMED PROVEED",
+    kind: "payment",
+    account: null,
+    label: "Pago a proveedor",
+  },
+  {
+    bank_code: "",
+    description_pattern: "PAGO DE SERVICIOS",
+    kind: "payment",
+    account: null,
+    label: "Pago de servicios",
+  },
+];
+
+export const PRESET_CODES: Record<BankCodePreset, readonly PresetCode[]> = {
+  macro: MACRO_CODES,
+  provincia: PROVINCIA_CODES,
+  galicia: GALICIA_CODES,
+};

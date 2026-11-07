@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { BankStatementCode, StatementClient } from "../schema";
 import {
+  GALICIA_CODES,
   PROVINCIA_CODES,
   counterpartyOf,
   detectBankPreset,
@@ -357,5 +358,42 @@ describe("counterpartyOf", () => {
     expect(
       counterpartyOf("TRANSF DE VALDEZ, MONICA ADRIA (23207269824) VAR VARIOS"),
     ).toEqual({ cuit: "23207269824", name: "VALDEZ, MONICA ADRIA" });
+  });
+});
+
+describe("Banco Galicia's codes", () => {
+  const codes = GALICIA_CODES.map((c, i) =>
+    code({
+      id: `g${i}`,
+      bank_code: "",
+      description_pattern: c.description_pattern,
+      kind: c.kind,
+      label: c.label,
+    }),
+  );
+  const labelOf = (description: string) =>
+    findBankCode({ bank_code: null, description }, codes)?.label ?? null;
+
+  it("reads each concept by its whole words", () => {
+    expect(labelOf("Iva")).toBe("IVA del descuento de cheques");
+    expect(labelOf("Percep. Iva")).toBe("Percepción de IVA");
+    expect(labelOf("Ing. Brutos S/ Cred · LEY 12837-BS.AS.")).toBe(
+      "Recaudación IIBB sobre créditos (ARBA)",
+    );
+    expect(
+      labelOf("Transferencia De Terceros · RIVADAVIA SRL · 30711111118"),
+    ).toBe("Transferencia recibida");
+    expect(labelOf("Trf Inmed Proveed · RIVAS JUAN · VARIOS")).toBe(
+      "Pago a proveedor",
+    );
+  });
+
+  it("knows a Galicia statement", () => {
+    expect(
+      detectBankPreset([
+        { bank_code: null, description: "Imp. Deb. Ley 25413 Gral." },
+        { bank_code: null, description: "Ing. Brutos S/ Cred" },
+      ]),
+    ).toBe("galicia");
   });
 });
