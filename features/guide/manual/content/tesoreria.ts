@@ -1251,25 +1251,10 @@ export const treasuryPage: GuidePage = {
           screens: [
             {
               kind: "dialog",
-              title: "Importar planilla",
+              title: "Subir extracto",
               description:
-                "Subí un .xlsx (primera hoja) o .csv con una fila de títulos. Nada se guarda hasta que confirmes; las filas con error quedan afuera y las que ya están cargadas se saltean.",
-              fields: [
-                {
-                  label: "Qué importar",
-                  kind: "select",
-                  value: "Extracto bancario",
-                  marker: 1,
-                },
-                { label: "Archivo", kind: "input", marker: 2 },
-                {
-                  label: "Cuenta del extracto",
-                  kind: "select",
-                  value: "Banco Galicia ARS · Cuenta bancaria · ARS",
-                  marker: 1,
-                  wide: true,
-                },
-              ],
+                "Subí el .csv o .xlsx que bajaste del banco. Las líneas que ya estaban cargadas se saltean.",
+              fields: [{ label: "Archivo", kind: "input", marker: 2 }],
               footer: [
                 { label: "Cancelar", variant: "outline" },
                 { label: "~Importar 43 filas", variant: "primary", marker: 5 },
@@ -1277,16 +1262,15 @@ export const treasuryPage: GuidePage = {
             },
           ],
           steps: [
-            "En [[/accounts]], hacé clic en el nombre de la cuenta del banco y, en la pestaña {{Extracto}}, en {{Subir extracto}}. Se abre {{Importar planilla}} con {{Extracto bancario}} y la cuenta ya elegidos. (También sirve [[/treasury/reconciliation]] con la {{Cuenta}} elegida.)",
-            "En {{Archivo}}, elegí la planilla y hacé clic en {{Leer archivo}}. Todavía no se guarda nada.",
+            "En [[/accounts]], hacé clic en el nombre de la cuenta del banco y, en la pestaña {{Extracto}}, en {{Subir extracto}}. (También sirve [[/treasury/reconciliation]] con la {{Cuenta}} elegida.)",
+            "En {{Archivo}}, elegí la planilla. Se lee sola y todavía no se guarda nada: arriba del botón dice cuántas filas están listas, cuántas ya estaban cargadas y cuántas tienen error.",
             {
-              text: "Revisá {{Columnas}}: cada dato muestra de qué columna de la planilla lo lee (las reconoce por el título, como «Fecha», «Concepto», «Débito», «Crédito» o «Saldo»).",
+              text: "Si falta una columna o alguna fila tiene error, aparecen {{Columnas}} y la tabla de filas para corregirlo.",
               substeps: [
-                "Si alguna está mal o falta, elegila en su lista (o {{No está}}) y hacé clic en {{Volver a leer con estas columnas}}.",
+                "Cada dato muestra de qué columna lo lee (las reconoce por el título, como «Fecha», «Concepto», «Débito», «Crédito» o «Saldo»). Si alguna está mal o falta, elegila en su lista (o {{No está}}) y hacé clic en {{Volver a leer con estas columnas}}.",
                 "Hacen falta {{Fecha}}, {{Descripción}} y el importe: {{Importe}} con signo, o {{Débito}} y {{Crédito}} si el banco los separa.",
               ],
             },
-            "Revisá la vista previa: arriba dice cuántas filas están listas, cuántas ya estaban cargadas y cuántas tienen error; cada fila muestra su estado ({{Lista}}, {{Completa el código}}, {{Ya existe}} o {{Con error}}) y el motivo.",
             "Hacé clic en el botón «Importar … filas» (cuenta solo las listas; si el archivo trae el código del banco de líneas que ya estaban cargadas sin él, dice también «y completar … códigos»).",
             "Elegí el {{Mes}} del extracto para ver sus líneas.",
           ],
