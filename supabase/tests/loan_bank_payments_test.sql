@@ -42,7 +42,8 @@ select is(
         'interest', 80, 'late_interest', 5, 'iva', 17.85,
         'iva_perception', 12.15, 'iibb_perception', 6.5)
     ),
-    '2026-01-01'
+    '2026-01-01',
+    null
   ),
   '{"booked": 1, "inserted": 2}'::jsonb,
   'both receipts are stored; only the one of the year closed is booked'
@@ -85,7 +86,8 @@ select is(
         'interest', 80, 'late_interest', 5, 'iva', 17.85,
         'iva_perception', 12.15, 'iibb_perception', 6.5)
     ),
-    '2026-01-01'
+    '2026-01-01',
+    null
   ),
   '{"booked": 0, "inserted": 0}'::jsonb,
   'loading the same receipt again adds nothing'

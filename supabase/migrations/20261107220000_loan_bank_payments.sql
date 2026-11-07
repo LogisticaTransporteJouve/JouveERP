@@ -25,6 +25,7 @@ create table public.loan_bank_payments (
   loan_id uuid not null references public.loans (id) on delete restrict,
   receipt_number text not null check (char_length(receipt_number) between 1 and 40),
   paid_date date not null,
+  -- squawk-ignore prefer-bigint-over-int
   installment_number integer not null check (installment_number > 0),
   total numeric(14, 2) not null check (total > 0),
   capital numeric(14, 2) not null default 0 check (capital >= 0),
@@ -59,8 +60,7 @@ revoke insert, update, delete on public.loan_bank_payments from anon, authentica
 
 alter table public.loans
   -- squawk-ignore adding-foreign-key-constraint
-  add column opening_journal_entry_id uuid
-    references public.journal_entries (id) on delete set null;
+  add column opening_journal_entry_id uuid references public.journal_entries (id) on delete set null;
 
 -- A loan's receipts and its opening debt are journal sources too.
 alter table public.journal_entries
@@ -77,7 +77,8 @@ alter table public.journal_entries
 create or replace function public.record_loan_bank_payments(
   p_loan_id uuid,
   p_payments jsonb,
-  p_book_from date
+  p_book_from date,
+  p_user_id uuid
 )
 returns jsonb
 language plpgsql
@@ -129,7 +130,7 @@ begin
       coalesce(v_payment.late_interest, 0), coalesce(v_payment.iva, 0),
       coalesce(v_payment.iva_perception, 0),
       coalesce(v_payment.iibb_perception, 0),
-      auth.uid()
+      p_user_id
     )
     on conflict (loan_id, receipt_number) do nothing
     returning id into v_id;
@@ -199,10 +200,9 @@ begin
 end;
 $$;
 
-revoke all on function public.record_loan_bank_payments(uuid, jsonb, date)
-  from public, anon;
-grant execute on function public.record_loan_bank_payments(uuid, jsonb, date)
-  to authenticated;
+-- Called by the app's gated action with the service role.
+revoke all on function public.record_loan_bank_payments(uuid, jsonb, date, uuid)
+  from public, anon, authenticated;
 
 create or replace function public.book_loan_opening(
   p_loan_id uuid,
@@ -311,5 +311,5 @@ begin
 end;
 $$;
 
-revoke all on function public.book_loan_opening(uuid, date) from public, anon;
-grant execute on function public.book_loan_opening(uuid, date) to authenticated;
+revoke all on function public.book_loan_opening(uuid, date)
+  from public, anon, authenticated;
