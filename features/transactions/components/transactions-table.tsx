@@ -172,28 +172,45 @@ function useTransactionColumns(
           cellClassName: "max-w-[260px] truncate text-sm",
           mobile: "primary",
         },
-        cell: ({ row }) => (
-          <>
-            {row.original.description ?? (
-              <span className="text-muted-foreground">—</span>
-            )}
-            {row.original.counterparty_legal_name && (
-              <span className="block text-xs text-muted-foreground">
-                {row.original.counterparty_legal_name}
-              </span>
-            )}
-            {row.original.reconciled && (
-              <Badge
-                variant="outline"
-                className="mt-0.5 gap-1 text-xs font-normal"
-                title="Conciliado con el extracto: se desconcilia en Tesorería › Conciliación"
-              >
-                <Link2 className="size-3" />
-                Conciliado
-              </Badge>
-            )}
-          </>
-        ),
+        cell: ({ row }) => {
+          const tx = row.original;
+          const client = tx.counterparty_legal_name;
+          // A receipt reads as the money it is: who paid and how; the
+          // receipt's number goes below.
+          const title =
+            tx.receipt_id && client
+              ? `${tx.account_type === "bank" ? "Transferencia" : "Cobro"} de ${client}`
+              : tx.description;
+          const detail = tx.receipt_id && client ? tx.description : client;
+          return (
+            <>
+              {title ?? <span className="text-muted-foreground">—</span>}
+              {detail && (
+                <span className="block text-xs text-muted-foreground">
+                  {detail}
+                </span>
+              )}
+              {tx.bank_description && tx.bank_description !== title && (
+                <span
+                  className="block truncate text-xs text-muted-foreground"
+                  title="Lo que dice el extracto del banco"
+                >
+                  Banco: {tx.bank_description}
+                </span>
+              )}
+              {row.original.reconciled && (
+                <Badge
+                  variant="outline"
+                  className="mt-0.5 gap-1 text-xs font-normal"
+                  title="Conciliado con el extracto: se desconcilia en Tesorería › Conciliación"
+                >
+                  <Link2 className="size-3" />
+                  Conciliado
+                </Badge>
+              )}
+            </>
+          );
+        },
       },
       ...(["debit", "credit"] as const).map((side) => ({
         id: side,

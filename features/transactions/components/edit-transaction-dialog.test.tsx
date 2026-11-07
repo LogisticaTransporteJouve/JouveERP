@@ -55,6 +55,7 @@ const TX: TransactionListItem = {
   source_document: null,
   reconciled: false,
   balance_after: null,
+  bank_description: null,
 };
 
 function amountField(): HTMLInputElement {

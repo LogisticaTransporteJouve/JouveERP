@@ -1,7 +1,6 @@
 "use client";
 
 import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
-import Link from "next/link";
 
 import { ReadError } from "@/components/read-error";
 import { Badge } from "@/components/ui/badge";
@@ -127,14 +126,6 @@ export function TreasuryPage({
               </p>
             </div>
           )}
-
-          <p className="text-sm text-muted-foreground">
-            El saldo de cada cuenta está en{" "}
-            <Link href="/accounts" className="underline">
-              Cuentas
-            </Link>
-            .
-          </p>
         </>
       )}
     </div>

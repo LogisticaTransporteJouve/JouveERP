@@ -22,7 +22,7 @@ export const treasuryPage: GuidePage = {
       intro: [
         "La foto de la liquidez de hoy, de todos los canales juntos (fiscal e interno). Los saldos se calculan en vivo: saldo inicial de cada cuenta más sus movimientos de Caja hasta hoy, y el cambio se compara con el cierre del mes anterior.",
         "Arriba están las tarjetas {{Total ARS líquido}} y {{Total USD líquido}} (bancos, efectivo, billeteras e inversiones; la de dólares muestra además su equivalente en pesos a la última cotización cargada), {{Cheques en cartera ARS}} (con cuántos acreditan en 7 días o menos) y, si hay, {{Cheques en cartera USD}}. Si hay cheques en pesos que vencen en los próximos 7 días aparece el aviso {{Próximos a acreditarse (≤ 7 días)}}.",
-        "El saldo de cada cuenta está en [[/accounts]].",
+        "Debajo está la tabla {{Cuentas}}, con el saldo actual de cada una (ver [[#cuentas]]).",
         "Si tenés permiso para ver cheques y hay cheques vendidos sin vencer o rechazados sin pagar al comprador, abajo aparece el bloque {{Cheques vendidos}} con el {{Pasivo contingente (vendidos sin vencer)}} y la {{Deuda con compradores (rechazados sin debitar)}}; {{Ver cheques}} lleva a [[/checks]].",
       ],
       screens: [
@@ -70,7 +70,7 @@ export const treasuryPage: GuidePage = {
           summary:
             "Cada cuenta tiene su página con sus movimientos, el saldo después de cada uno y, en un banco, su extracto.",
           permission: "transactions:read",
-          steps: ["En [[/accounts]], hacé clic en el nombre de la cuenta."],
+          steps: ["En [[/treasury]], hacé clic en el nombre de la cuenta."],
           after: [
             "Se abre la cuenta en {{Movimientos}}, con el mes actual: {{Debe}}, {{Haber}} y {{Saldo}} de cada movimiento. El período se cambia con el filtro de fecha.",
           ],
@@ -353,12 +353,12 @@ export const treasuryPage: GuidePage = {
     {
       id: "cuentas",
       title: "Cuentas",
-      menuPath: "Tesorería › Cuentas",
+      menuPath: "Tesorería › Resumen › Cuentas",
       routes: ["/accounts", "/accounts/[id]"],
       permission: "accounts:read",
       intro: [
         "El padrón de cajas, bancos, billeteras, inversiones y carteras de cheques. Cada movimiento de Caja, recibo, orden de pago o cheque pasa por una de estas cuentas.",
-        "La tabla muestra {{Nombre}} (con las notas debajo; el nombre abre la cuenta, con sus {{Movimientos}} y, en un banco, su {{Extracto}}), {{Tipo}}, {{Moneda}}, {{Saldo actual}}, {{Cambio del mes}} (contra el cierre del mes anterior), {{Último mov.}}, {{Estado}} ({{Activa}} o {{Inactiva}}) y {{Acciones}}. Los saldos se ven con permiso para ver tesorería.",
+        "La tabla muestra {{Nombre}} (con las notas debajo; el nombre abre la cuenta, con sus {{Movimientos}} y, en un banco, su {{Extracto}}), {{Tipo}}, {{Moneda}}, {{Saldo actual}}, {{Cambio del mes}} (contra el cierre del mes anterior), {{Último mov.}} y {{Acciones}} (una cuenta inactiva se ve atenuada). Los saldos se ven con permiso para ver tesorería.",
       ],
       screens: [
         {
@@ -376,7 +376,6 @@ export const treasuryPage: GuidePage = {
               "Saldo actual",
               "Cambio del mes",
               "Último mov.",
-              "Estado",
               "Acciones",
             ],
             rows: [
@@ -387,7 +386,6 @@ export const treasuryPage: GuidePage = {
                 "$ 0,00",
                 "—",
                 "—",
-                "Activa",
                 "",
               ],
               [
@@ -397,7 +395,6 @@ export const treasuryPage: GuidePage = {
                 "$ 0,00",
                 "—",
                 "—",
-                "Activa",
                 "",
               ],
             ],
@@ -460,7 +457,7 @@ export const treasuryPage: GuidePage = {
             },
           ],
           steps: [
-            "En [[/accounts]], hacé clic en {{Nueva cuenta}}.",
+            "En [[/treasury]], hacé clic en {{Nueva cuenta}}.",
             "En {{Nombre}}, escribí cómo la vas a reconocer (al menos 2 letras).",
             "Elegí el {{Tipo}} y la {{Moneda}} (ARS o USD). Pensalo bien: cuando la cuenta tenga movimientos no se cambian.",
             "Si querés, cargá el {{Saldo inicial}} (acepta negativos) y {{Notas}}.",
@@ -497,7 +494,7 @@ export const treasuryPage: GuidePage = {
           title: "Editar una cuenta",
           permission: "accounts:write",
           steps: [
-            "En [[/accounts]], en la fila de la cuenta, hacé clic en el lápiz ({{Editar}}).",
+            "En [[/treasury]], en la fila de la cuenta, hacé clic en el lápiz ({{Editar}}).",
             "Cambiá {{Nombre}} o {{Notas}}. {{Tipo}}, {{Moneda}} y {{Saldo inicial}} solo se pueden cambiar si la cuenta todavía no tiene movimientos; si los tiene, aparecen bloqueados con la aclaración.",
             "Hacé clic en {{Guardar cambios}} (se habilita cuando cambiaste algo).",
           ],
@@ -535,7 +532,7 @@ export const treasuryPage: GuidePage = {
             "Una cuenta que ya no se usa se desactiva en vez de borrarse: conserva su historia.",
           permission: "accounts:write",
           steps: [
-            "En [[/accounts]], en la fila de la cuenta, hacé clic en el botón de encendido ({{Desactivar}}; en una inactiva dice {{Reactivar}}).",
+            "En [[/treasury]], en la fila de la cuenta, hacé clic en el botón de encendido ({{Desactivar}}; en una inactiva dice {{Reactivar}}).",
           ],
           after: [
             "Una cuenta inactiva se ve atenuada en la lista, deja de figurar en [[/treasury]] y no se ofrece para cargar movimientos, cobros ni pagos. Sus movimientos anteriores quedan.",
@@ -583,7 +580,7 @@ export const treasuryPage: GuidePage = {
             },
           ],
           steps: [
-            "En [[/accounts]], en la fila de la cuenta, hacé clic en {{Ajustar saldo}} (si ya tiene un ajuste dice {{Editar saldo}}).",
+            "En [[/treasury]], en la fila de la cuenta, hacé clic en {{Ajustar saldo}} (si ya tiene un ajuste dice {{Editar saldo}}).",
             "Elegí la {{Fecha de ajuste}} y escribí el {{Saldo real al corte}} (por ejemplo, el del extracto a esa fecha; acepta negativos).",
             "En una caja de efectivo o una cartera de cheques, elegí en {{Canal de imputación}} el canal al que va el ajuste (no hay uno por defecto). En un banco, una billetera o una inversión no se elige: va al canal fiscal. Si querés, agregá {{Notas (opcional)}}.",
             "Hacé clic en {{Registrar}} (o {{Actualizar}} si ya había un ajuste).",
@@ -628,7 +625,7 @@ export const treasuryPage: GuidePage = {
             "Que la cuenta tenga un ajuste cargado ([[#ajustar-saldo-cuenta]]).",
           ],
           steps: [
-            "En [[/accounts]], en la fila de la cuenta, hacé clic en {{Editar saldo}}.",
+            "En [[/treasury]], en la fila de la cuenta, hacé clic en {{Editar saldo}}.",
             "Abajo a la izquierda, hacé clic en {{Borrar}}.",
             "Confirmá en el aviso {{Borrar el saldo de apertura}}.",
           ],
@@ -1232,7 +1229,7 @@ export const treasuryPage: GuidePage = {
             },
           ],
           steps: [
-            "En [[/accounts]], hacé clic en el nombre de la cuenta del banco y, en la pestaña {{Extracto}}, en {{Subir extracto}}. (También sirve [[/treasury/reconciliation]] con la {{Cuenta}} elegida.)",
+            "En [[/treasury]], hacé clic en el nombre de la cuenta del banco y, en la pestaña {{Extracto}}, en {{Subir extracto}}. (También sirve [[/treasury/reconciliation]] con la {{Cuenta}} elegida.)",
             "{{Desde}} y {{Hasta}} vienen con el mes elegido en {{Mes}}: las líneas con fecha fuera de ese período no se importan. Cambialos si el extracto es de otro período.",
             "En {{Archivo}}, elegí la planilla. Se lee sola y todavía no se guarda nada: arriba del botón dice cuántas filas están listas, cuántas ya estaban cargadas y cuántas tienen error.",
             {
@@ -1733,7 +1730,7 @@ export const treasuryPage: GuidePage = {
             {
               message:
                 "Configurá una cuenta de cartera primero (Cheques físicos o e-cheq).",
-              fix: "Creá una cuenta de cartera en [[/accounts]].",
+              fix: "Creá una cuenta de cartera en [[/treasury]].",
             },
             {
               message: "Ya existe un cheque … para ….",

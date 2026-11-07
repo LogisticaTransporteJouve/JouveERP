@@ -2126,7 +2126,7 @@ export const fleetPage: GuidePage = {
             {
               message:
                 "No hay una cuenta de efectivo en pesos activa para registrar el faltante.",
-              fix: "Activá o creá una caja en pesos en [[/accounts]].",
+              fix: "Activá o creá una caja en pesos en [[/treasury]].",
             },
             {
               message:

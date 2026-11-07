@@ -25,6 +25,9 @@ export default async function CuentasPage() {
   if (!userCan(ctx.access, "accounts:read")) {
     redirect("/dashboard");
   }
+  // The accounts live in Tesorería › Resumen; this page stays for whoever
+  // can see accounts but not the treasury totals.
+  if (userCanAll(ctx.access, TREASURY_PERMISSIONS)) redirect("/treasury");
 
   // Shared (React cache) with the dashboard layout's channel read.
   const channelsData = await getActiveInvoicingChannels();

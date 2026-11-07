@@ -59,6 +59,8 @@ export interface TransactionListItem extends Transaction {
    *  database refuses deleting it or changing its amount, dates, account or
    *  kind until the line is unmatched. */
   reconciled: boolean;
+  /** What the bank wrote on the statement line it is matched with. */
+  bank_description: string | null;
   /** The account's balance right after this movement (in the list's order),
    *  only when the list is filtered by one account; null otherwise. */
   balance_after: number | null;
@@ -98,7 +100,7 @@ export async function listTransactionsAction(
       // No `count`: the page uses the limit + 1 trick for "has more" and never
       // exposes a total, and count=exact re-ran the whole filtered scan on
       // every page.
-      `${SELECT_COLUMNS}, channel_name, channel_is_fiscal, account_name, account_type, source_document, counterparty_client:clients!transactions_counterparty_client_id_fkey ( legal_name ), bank_statement_matches ( line_id )`,
+      `${SELECT_COLUMNS}, channel_name, channel_is_fiscal, account_name, account_type, source_document, counterparty_client:clients!transactions_counterparty_client_id_fkey ( legal_name ), bank_statement_matches ( line_id, bank_statement_lines ( description ) )`,
     )
     .order("transaction_date", { ascending: false })
     .order("created_at", { ascending: false })
@@ -142,7 +144,12 @@ export async function listTransactionsAction(
     account_type: string;
     counterparty_client: { legal_name: string } | null;
     source_document: string | null;
-    bank_statement_matches: { line_id: string }[] | null;
+    bank_statement_matches:
+      | {
+          line_id: string;
+          bank_statement_lines: { description: string } | null;
+        }[]
+      | null;
   };
 
   const rows = data ?? [];
@@ -162,6 +169,9 @@ export async function listTransactionsAction(
         counterparty_legal_name: tagged.counterparty_client?.legal_name ?? null,
         source_document: tagged.source_document,
         reconciled: (tagged.bank_statement_matches?.length ?? 0) > 0,
+        bank_description:
+          tagged.bank_statement_matches?.[0]?.bank_statement_lines
+            ?.description ?? null,
         balance_after: null as number | null,
       };
     })

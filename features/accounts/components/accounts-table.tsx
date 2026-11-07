@@ -150,20 +150,6 @@ export function AccountsTable({
           ] satisfies ColumnDef<Account>[])
         : []),
       {
-        accessorKey: "is_active",
-        header: "Estado",
-        cell: ({ row }) =>
-          row.original.is_active ? (
-            <span className="text-sm text-muted-foreground dark:text-muted-foreground">
-              Activa
-            </span>
-          ) : (
-            <span className="text-sm text-muted-foreground opacity-60">
-              Inactiva
-            </span>
-          ),
-      },
-      {
         id: "actions",
         header: "Acciones",
         enableSorting: false,

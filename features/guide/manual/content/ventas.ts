@@ -1707,7 +1707,7 @@ export const salesPage: GuidePage = {
           permission: ["receipts:write", "accounts:read"],
           prerequisites: [
             "Un punto de venta habilitado para el canal.",
-            "Las cuentas donde entra la plata (banco, caja, cartera de cheques) en [[/accounts]].",
+            "Las cuentas donde entra la plata (banco, caja, cartera de cheques) en [[/treasury]].",
             "Cargar retenciones pide además el permiso `retentions:write`.",
           ],
           screens: [
