@@ -24,6 +24,7 @@ import {
   ignoreLineAction,
   listReconciliationAccountsAction,
   matchLineAction,
+  matchLineToReceiptAction,
   matchLinesToMovementAction,
   restoreLineAction,
   unmatchLineAction,
@@ -34,6 +35,7 @@ import type {
   CreateLineTransactionInput,
   IgnoreLineInput,
   MatchLineInput,
+  MatchLineToReceiptInput,
   MatchLinesToMovementInput,
 } from "../schema";
 
@@ -69,6 +71,12 @@ function useReconciliationMutation<I, O>(fn: (input: I) => Promise<O>) {
 export function useMatchLine() {
   return useReconciliationMutation((input: MatchLineInput) =>
     runAction(() => matchLineAction(input)),
+  );
+}
+
+export function useMatchLineToReceipt() {
+  return useReconciliationMutation((input: MatchLineToReceiptInput) =>
+    runAction(() => matchLineToReceiptAction(input)),
   );
 }
 

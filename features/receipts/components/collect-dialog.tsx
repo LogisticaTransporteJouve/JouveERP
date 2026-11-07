@@ -39,6 +39,7 @@ export function CollectDialog({
   canEditRetentions,
   defaultOpen = false,
   fromBankLine,
+  onCreated,
 }: {
   side?: ScopeSide;
   initialClient?: PickedClient | null;
@@ -55,6 +56,8 @@ export function CollectDialog({
     account_id: string;
     channel_id?: string;
   };
+  /** Runs with the new receipt's id once it is issued. */
+  onCreated?: (receiptId: string) => void;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const [side, setSide] = useState<ScopeSide>(fixedSide ?? "fiscal");
@@ -93,6 +96,7 @@ export function CollectDialog({
               initialAllocations={initialAllocations}
               canEditRetentions={canEditRetentions}
               fromBankLine={fromBankLine}
+              onCreated={onCreated}
               onDone={() => setOpen(false)}
             />
           </Suspense>
@@ -108,6 +112,7 @@ function CollectForm({
   initialAllocations,
   canEditRetentions,
   fromBankLine,
+  onCreated,
   onDone,
 }: {
   side: ScopeSide;
@@ -120,6 +125,7 @@ function CollectForm({
     account_id: string;
     channel_id?: string;
   };
+  onCreated?: (receiptId: string) => void;
   onDone: () => void;
 }) {
   const { channels } = useScope();
@@ -141,7 +147,10 @@ function CollectForm({
         initialAllocations={initialAllocations}
         canEditRetentions={canEditRetentions}
         fromBankLine={fromBankLine}
-        onSuccess={onDone}
+        onSuccess={(id) => {
+          onCreated?.(id);
+          onDone();
+        }}
         onCancel={onDone}
       />
     </PageSideProvider>

@@ -63,6 +63,12 @@ export const MatchLineSchema = z.object({
 });
 export type MatchLineInput = z.infer<typeof MatchLineSchema>;
 
+export const MatchLineToReceiptSchema = z.object({
+  line_id: lineId,
+  receipt_id: z.string().uuid(),
+});
+export type MatchLineToReceiptInput = z.infer<typeof MatchLineToReceiptSchema>;
+
 /** Several lines against one movement (the bank split it): their amounts add
  *  up to the movement's signed amount. */
 export const MatchLinesToMovementSchema = z.object({

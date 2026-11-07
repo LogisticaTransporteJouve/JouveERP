@@ -30,7 +30,10 @@ import { ChartAccountDialog } from "@/features/chart-of-accounts/components/char
 import { useChartOfAccounts } from "@/features/chart-of-accounts/hooks/use-chart-of-accounts";
 import { CollectDialog } from "@/features/receipts/components/collect-dialog";
 
-import { useCreateLineTransaction } from "../hooks/use-reconciliation";
+import {
+  useCreateLineTransaction,
+  useMatchLineToReceipt,
+} from "../hooks/use-reconciliation";
 import {
   useDeleteBankStatementCode,
   usePresetBankStatementCodes,
@@ -95,6 +98,7 @@ export function LineProposalView({
   onConfigure: (draft: CodeDraft) => void;
 }) {
   const create = useCreateLineTransaction();
+  const matchToReceipt = useMatchLineToReceipt();
   const fiscal = useFiscalChannel();
   if (!proposal) return null;
 
@@ -147,6 +151,19 @@ export function LineProposalView({
               account_id: accountId,
               channel_id: fiscal || undefined,
             }}
+            onCreated={(receiptId) =>
+              matchToReceipt.mutate(
+                { line_id: line.id, receipt_id: receiptId },
+                {
+                  onSuccess: () =>
+                    toast.success("Línea conciliada con el recibo."),
+                  onError: (err) =>
+                    toast.error(
+                      `El recibo se emitió pero la línea no se concilió: ${err.message}`,
+                    ),
+                },
+              )
+            }
             trigger={
               <Button type="button" size="sm" variant="outline" className="h-7">
                 <FileText className="size-3.5" />
