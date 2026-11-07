@@ -34,6 +34,7 @@
     "seed:dev": "node scripts/seed-dev-user.mjs",
     "seed:all": "node scripts/seed-everything.mjs",
     "db:reset": "supabase db reset && node scripts/seed-everything.mjs",
+    "db:load-prod": "bash scripts/load-prod-data-local.sh",
     "db:restamp": "bash scripts/dev/restamp-migrations.sh",
     "prepare": "node .husky/install.mjs"
   },
