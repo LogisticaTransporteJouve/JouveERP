@@ -1,5 +1,6 @@
 "use server";
 
+import { isCardLineUndefined } from "@/features/card-statements/schema";
 import { isIvaCondition } from "@/features/clients/schema";
 import { logAudit } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
@@ -319,8 +320,6 @@ async function readCardStatements(
     .order("due_date")
     .limit(50);
   if (error) return null;
-  // What settle_card_statement refuses: a line without its account or
-  // employee, or one marked «no corresponde».
   const undefinedOf = (
     lines: {
       currency: string;
@@ -330,22 +329,18 @@ async function readCardStatements(
     }[],
     currency: "ARS" | "USD",
   ) =>
-    lines.filter(
-      (l) =>
-        l.currency === currency &&
-        (l.treatment === "ignore" ||
-          (l.treatment === "expense" && !l.chart_account_id) ||
-          (l.treatment === "advance" && !l.employee_id)),
-    ).length;
+    lines.filter((l) => l.currency === currency && isCardLineUndefined(l))
+      .length;
   return data.map((s) => ({
     undefined_ars: undefinedOf(s.lines, "ARS"),
     undefined_usd: undefinedOf(s.lines, "USD"),
     id: s.id,
     label: `${s.brand} ${s.account_number} cierre ${s.close_date.split("-").reverse().join("/")}`,
+    close_date: s.close_date,
     due_date: s.due_date,
     total_ars: Number(s.total_ars),
     total_usd: Number(s.total_usd),
-    ars_pending: s.paid_ars_on === null,
+    ars_pending: Number(s.total_ars) > 0 && s.paid_ars_on === null,
     usd_pending: Number(s.total_usd) > 0 && s.paid_usd_on === null,
   }));
 }

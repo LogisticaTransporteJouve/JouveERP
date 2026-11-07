@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 import { Combobox } from "@/components/ui/combobox";
 import {
   Select,
@@ -23,7 +25,8 @@ export type Destination = {
 };
 
 /** What a purchase (or a card's purchases) is: a company expense with its
- *  account, a salary advance with its employee, or nothing. */
+ *  account or a salary advance with its employee. An advance is saved once
+ *  its employee is picked. */
 export function DestinationPicker({
   value,
   onChange,
@@ -31,6 +34,7 @@ export function DestinationPicker({
   employees,
   allowAdvance = true,
   disabled,
+  employeesHidden,
 }: {
   value: Destination;
   onChange: (d: Destination) => void;
@@ -38,23 +42,38 @@ export function DestinationPicker({
   employees: { id: string; name: string }[];
   allowAdvance?: boolean;
   disabled?: boolean;
+  /** Shown instead of the employees when the user may not see them. */
+  employeesHidden?: boolean;
 }) {
-  // «No corresponde» stays readable on an old line but is not offered: the
-  // bank charged it, so the payment has to book it somewhere.
+  const [draft, setDraft] = useState<CardTreatment | null>(null);
+  const shown = draft ?? value.treatment;
+  // The bank charged every line, so the payment books each somewhere.
   const treatments = CARD_TREATMENTS.filter(
     (t) =>
       (allowAdvance || t !== "advance" || value.treatment === "advance") &&
+      // «No corresponde» stays readable on an old line but is not offered.
       (t !== "ignore" || value.treatment === "ignore"),
   );
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Select
-        value={value.treatment}
+        value={shown}
         disabled={disabled}
-        onValueChange={(v) =>
-          isCardTreatment(v) &&
-          onChange({ treatment: v, chart_account_id: null, employee_id: null })
-        }
+        onValueChange={(v) => {
+          if (!isCardTreatment(v)) return;
+          if (v === "advance" && value.treatment !== "advance") {
+            setDraft(v);
+            return;
+          }
+          setDraft(null);
+          if (v !== value.treatment) {
+            onChange({
+              treatment: v,
+              chart_account_id: null,
+              employee_id: null,
+            });
+          }
+        }}
       >
         <SelectTrigger className="h-8 w-44" aria-label="Qué es">
           <SelectValue />
@@ -67,7 +86,7 @@ export function DestinationPicker({
           ))}
         </SelectContent>
       </Select>
-      {value.treatment === "expense" && (
+      {shown === "expense" && (
         <Combobox
           className="h-8 w-64"
           disabled={disabled}
@@ -83,12 +102,27 @@ export function DestinationPicker({
           }))}
         />
       )}
-      {value.treatment === "advance" && (
+      {shown === "advance" && employeesHidden && (
+        <span className="text-xs text-muted-foreground">
+          {value.employee_id
+            ? "Adelanto a un empleado (sin permiso para ver Personal)"
+            : "Sin permiso para ver empleados"}
+        </span>
+      )}
+      {shown === "advance" && !employeesHidden && (
         <Combobox
           className="h-8 w-64"
-          disabled={disabled}
-          value={value.employee_id ?? ""}
-          onChange={(id) => onChange({ ...value, employee_id: id || null })}
+          disabled={disabled || !allowAdvance}
+          value={draft ? "" : (value.employee_id ?? "")}
+          onChange={(id) => {
+            if (!id) return;
+            setDraft(null);
+            onChange({
+              treatment: "advance",
+              chart_account_id: null,
+              employee_id: id,
+            });
+          }}
           placeholder="Elegí el empleado"
           searchPlaceholder="Buscar empleado…"
           emptyText="No hay empleados: dalo de alta en Personal."

@@ -958,7 +958,7 @@ export const treasuryPage: GuidePage = {
             },
             {
               message:
-                "No se puede editar monto, fecha, cuenta, tipo o canal de un movimiento generado por un documento (sueldo, préstamo, cheque, saldo inicial, impuesto o cuenta corriente de un empleado): editá el documento de origen",
+                "No se puede editar monto, fecha, cuenta, tipo o canal de un movimiento generado por un documento (sueldo, préstamo, cheque, saldo inicial, impuesto, cuenta corriente de un empleado o resumen de tarjeta): editá el documento de origen",
               fix: "Corregí el sueldo, la cuota, el cheque, el saldo inicial, el impuesto o el movimiento del empleado desde su pantalla.",
             },
             {
@@ -2556,9 +2556,9 @@ export const treasuryPage: GuidePage = {
           id: "cargar-resumen-tarjeta",
           title: "Cargar un resumen y definir qué es cada consumo",
           permission: [
-            "transactions:read",
-            "transactions:write",
+            "accounting:read",
             "accounts:read",
+            "transactions:write",
           ],
           steps: [
             "En [[/card-statements]], hacé clic en {{Subir resumen}} y elegí el PDF que bajás del home banking.",
@@ -2575,9 +2575,10 @@ export const treasuryPage: GuidePage = {
           id: "pagar-resumen-tarjeta",
           title: "Pagar el resumen desde el extracto",
           permission: [
-            "transactions:read",
-            "transactions:write",
+            "accounting:read",
             "accounts:read",
+            "transactions:write",
+            "taxes:write",
           ],
           prerequisites: [
             "El resumen cargado, con todos sus consumos y cargos definidos.",
@@ -2589,6 +2590,8 @@ export const treasuryPage: GuidePage = {
           ],
           after: [
             "En la cuenta del banco, con la fecha del débito, queda un egreso por cada cuenta contable y un adelanto por cada empleado (en su cuenta corriente), y la línea del extracto queda conciliada con ellos.",
+            "Si el resumen tiene adelantos de sueldo, pagarlo pide también el permiso de escritura de Personal.",
+            "Si pagaste con el débito equivocado, en el resumen deshacé el pago de los pesos (o de los dólares) y confirmá con {{Deshacer pago}}: borra sus egresos y adelantos con sus asientos, la línea del extracto vuelve a pendiente y los consumos se pueden cambiar otra vez.",
           ],
           keywords: ["pago tarjeta", "visa", "debito automatico"],
         },
@@ -2936,7 +2939,7 @@ export const treasuryPage: GuidePage = {
             "La cuota pasa a {{Pagada}} con su fecha e importe, y se registra el egreso en Caja con su asiento (ver «Qué asientos hace un préstamo»). Ese egreso se corrige desde el préstamo, no desde Caja.",
             "Cuando se paga la última cuota, el préstamo pasa a {{Cancelado}}.",
             "Si el banco ya debitó la cuota, es más rápido desde el extracto: en la pestaña {{Extracto}} de la cuenta, la línea del débito (en Macro, código 361) muestra la cuota que paga y el botón {{Pagar cuota}}. Paga la cuota con la fecha y el importe de la línea, desde la cuenta del extracto, y deja la línea conciliada. Aparece si el préstamo tiene esa {{Cuenta de débito}} y una cuota pendiente que vence hasta 31 días antes o después, por el mismo importe o con hasta un 10 % de diferencia. Si el importe no coincide (el banco cobró interés por días, punitorios o impuestos), {{Pagar cuota}} abre el desglose: Capital, Intereses, Intereses exceso (punitorios), IVA e Impuestos; cargalo como el detalle de la cuota del home banking, tiene que sumar el débito, y hacé clic en {{Pagar y conciliar}}.",
-            "Una transferencia entre cuentas de la empresa (por ejemplo «Transf Inmed Cp» a DZ & Sons, o «Transf. Ctas Propias») muestra a qué cuenta fue o de cuál vino: elegila y {{Registrar transferencia}} la registra en las dos cuentas y concilia la línea; la de la otra cuenta se concilia sola si su extracto ya está cargado, o queda sugerida cuando lo subas.",
+            "Una transferencia entre cuentas de la empresa (por ejemplo «Transf Inmed Cp» a DZ & Sons, o «Transf. Ctas Propias») muestra a qué cuenta fue o de cuál vino: elegila y {{Registrar transferencia}} la registra en las dos cuentas y concilia la línea; la de la otra cuenta se concilia sola si su extracto ya está cargado y tiene una sola línea igual (mismo importe, hasta 3 días de diferencia); si no, queda sugerida y la conciliás desde ahí.",
             "En Banco Provincia el extracto no trae código: las líneas se reconocen por el texto del concepto (por ejemplo «PAGO CUOTA DE PRESTAMO», «IMPUESTO DEBITO - LEY 25413», «RETENCION ARBA»). Una transferencia con el CUIT de la empresa se propone como transferencia entre cuentas propias. Galicia tampoco trae código y se lee igual, por el texto («Imp. Deb. Ley 25413», «Ing. Brutos S/ Cred», el interés, el IVA y los sellos de un descuento de cheques, «Transferencia De Terceros»). La primera vez que se sube un extracto de Macro, Provincia o Galicia a una cuenta sin códigos, los del banco se cargan solos. Una transferencia recibida muestra {{Crear recibo}}: con el cliente ya elegido si su CUIT está en la línea; si no (por ejemplo, un cliente interno, que no tiene CUIT), elegí el lado y el cliente, o crealo con {{Nuevo}}.",
           ],
           errors: [

@@ -33,19 +33,13 @@ import {
   useSetCardLines,
   useUnsettleCardStatement,
 } from "../hooks/use-card-statements";
-import type { CardStatementDetail, CardStatementLine } from "../schema";
+import {
+  isCardLineUndefined,
+  type CardStatementDetail,
+  type CardStatementLine,
+} from "../schema";
 
 import { DestinationPicker, type Destination } from "./destination-picker";
-
-/** What the payment refuses: a line without its account or employee, or
- *  one marked «no corresponde» (the bank charged it anyway). */
-function missing(l: CardStatementLine): boolean {
-  return (
-    l.treatment === "ignore" ||
-    (l.treatment === "expense" && !l.chart_account_id) ||
-    (l.treatment === "advance" && !l.employee_id)
-  );
-}
 
 export function CardStatementDetailView({
   id,
@@ -88,7 +82,14 @@ function Detail({
   canWrite: boolean;
   canAdvance: boolean;
 }) {
-  const { statement: st, lines, holders, accounts, employees } = data;
+  const {
+    statement: st,
+    lines,
+    holders,
+    accounts,
+    employees,
+    employees_hidden,
+  } = data;
   const setLines = useSetCardLines();
   const setHolder = useSetCardHolder();
   const del = useDeleteCardStatement();
@@ -100,7 +101,7 @@ function Detail({
     ] as const
   ).filter(([, on]) => on !== null);
   const locked = st.status === "pagado";
-  const pending = lines.filter(missing).length;
+  const pending = lines.filter(isCardLineUndefined).length;
   const cards = [
     ...new Set(lines.flatMap((l) => (l.card_last4 ? [l.card_last4] : []))),
   ];
@@ -136,8 +137,9 @@ function Detail({
             value={l}
             accounts={accounts}
             employees={employees}
+            employeesHidden={employees_hidden}
             allowAdvance={canAdvance && l.source === "purchase"}
-            disabled={!canWrite || locked || l.paid}
+            disabled={!canWrite || locked || l.paid || setLines.isPending}
             onChange={(d) => applyLine(l, d)}
           />
         </TableCell>
@@ -275,6 +277,7 @@ function Detail({
                     value={h}
                     accounts={accounts}
                     employees={employees}
+                    employeesHidden={employees_hidden}
                     allowAdvance={canAdvance}
                     disabled={!canWrite || locked || setHolder.isPending}
                     onChange={(d) =>

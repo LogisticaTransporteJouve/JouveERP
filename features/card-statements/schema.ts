@@ -20,12 +20,32 @@ export function isCardTreatment(v: unknown): v is CardTreatment {
     typeof v === "string" && (CARD_TREATMENTS as readonly string[]).includes(v)
   );
 }
+
+/** What settle_card_statement refuses to pay: a line without its account
+ *  or employee, or one marked «no corresponde» (the bank charged it). */
+export function isCardLineUndefined(l: {
+  treatment: string;
+  chart_account_id: string | null;
+  employee_id: string | null;
+}): boolean {
+  return (
+    l.treatment === "ignore" ||
+    (l.treatment === "expense" && !l.chart_account_id) ||
+    (l.treatment === "advance" && !l.employee_id)
+  );
+}
 export function isCardStatementStatus(v: unknown): v is CardStatementStatus {
   return v === "pendiente" || v === "pagado";
 }
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
-const money = z.number().finite().min(-1e12).max(1e12);
+// Cents, rounded as numeric(18,2) rounds (half away from zero): the sums
+// checked here are the stored ones.
+const toCents = (n: number) =>
+  (Math.sign(n) * Math.round(Math.abs(n) * 100)) / 100;
+const amount = z.number().finite().min(-1e12).max(1e12);
+const money = amount.transform(toCents);
+const total = amount.min(0).transform(toCents);
 
 /** A statement as the PDF reader returns it, plus the account that pays it. */
 export const CreateCardStatementSchema = z.object({
@@ -35,8 +55,8 @@ export const CreateCardStatementSchema = z.object({
     account_number: z.string().trim().min(1).max(40).nullable(),
     close_date: isoDate,
     due_date: isoDate,
-    total_ars: money.min(0),
-    total_usd: money.min(0),
+    total_ars: total,
+    total_usd: total,
     cards: z
       .array(
         z.object({
@@ -180,4 +200,6 @@ export type CardStatementDetail = {
   holders: CardHolder[];
   accounts: { id: string; code: string; name: string }[];
   employees: { id: string; name: string }[];
+  /** No Personal read: the employees of advances are not shown. */
+  employees_hidden: boolean;
 };

@@ -1,3 +1,4 @@
+import { addDaysIso } from "@/lib/date-range";
 import { isValidCuit } from "@/lib/validation/cuit";
 
 import type {
@@ -258,7 +259,7 @@ export function proposeLine(
       ready: false,
       missing: check
         ? null
-        : "No hay un cheque en cartera con este número e importe: cargalo (Cheques › Cargar e-cheq de Galicia).",
+        : "No hay un cheque en cartera con este número e importe: cargalo (Cheques recibidos › Cargar e-cheq de Galicia).",
     };
   }
   if (code.kind === "card_payment") {
@@ -294,7 +295,7 @@ export function proposeLine(
       ready: false,
       missing: found
         ? null
-        : "No hay cheques vendidos que sumen este crédito: registrá el descuento en Cheques › Vender (con el comprobante del banco).",
+        : "No hay cheques vendidos que sumen este crédito: registrá el descuento en Cheques recibidos › Vender con comprobante.",
     };
   }
   if (code.kind === "loan") {
@@ -736,29 +737,28 @@ export function findSaleTransfers(
 }
 
 /** The card statement a payment debit pays: the pesos of one whose total
- *  is the debit, or the dollars of the closest one due within 45 days when
- *  the debit says it is in dollars. */
+ *  is the debit; else the dollars of one debited between its close and a
+ *  few days past its due date. The bank debits the dollars on their own,
+ *  converted at its rate, so that amount matches no total; Galicia writes
+ *  the same text on both debits («Pago Visa Empresa»). */
 export function findCardStatement(
   line: Pick<StatementLine, "amount" | "line_date" | "description">,
   statements: readonly StatementCardStatement[],
 ): { statement: StatementCardStatement; currency: "ARS" | "USD" } | null {
   const debit = Math.round(-line.amount * 100);
-  // The dollars come as their own debit, which says so («SALDO EN USD
-  // COTIZACION …»): its amount is the bank's conversion, so it cannot match
-  // a total and is told apart by its text only.
-  if (/USD|DOLAR/i.test(line.description)) {
-    const days = (s: StatementCardStatement) =>
-      Math.abs(Date.parse(s.due_date) - Date.parse(line.line_date)) /
-      86_400_000;
-    const usd = statements
-      .filter((s) => s.usd_pending && days(s) <= 45)
-      .sort((a, b) => days(a) - days(b))[0];
-    return usd ? { statement: usd, currency: "USD" } : null;
-  }
   const ars = statements.find(
     (s) => s.ars_pending && Math.round(s.total_ars * 100) === debit,
   );
-  return ars ? { statement: ars, currency: "ARS" } : null;
+  if (ars) return { statement: ars, currency: "ARS" };
+  const usd = statements
+    .filter(
+      (s) =>
+        s.usd_pending &&
+        line.line_date >= s.close_date &&
+        line.line_date <= addDaysIso(s.due_date, 10),
+    )
+    .sort((a, b) => a.due_date.localeCompare(b.due_date))[0];
+  return usd ? { statement: usd, currency: "USD" } : null;
 }
 
 /** The cartera cheque a deposit credit is: the number the bank writes in the

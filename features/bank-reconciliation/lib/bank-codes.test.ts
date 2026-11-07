@@ -458,65 +458,49 @@ describe("findSaleTransfers", () => {
 describe("findCardStatement", () => {
   const visa = {
     id: "v1",
-    label: "VISA 0627785090 cierre 29/10/2026",
+    label: "VISA 0600000001 cierre 29/10/2026",
+    close_date: "2026-10-29",
     due_date: "2026-11-11",
-    total_ars: 9524333.3,
-    total_usd: 8.04,
+    total_ars: 1250000.5,
+    total_usd: 10,
     ars_pending: true,
     usd_pending: true,
     undefined_ars: 0,
     undefined_usd: 0,
   };
+  // Galicia writes the same text on the pesos and the dollars debits.
+  const debit = (amount: number, line_date = "2026-11-11") => ({
+    amount,
+    line_date,
+    description: "Pago Visa Empresa · DEBITO AUTOMATICO AL VENCIMIENTO",
+  });
 
   it("pays the pesos with the debit of their total", () => {
-    expect(
-      findCardStatement(
-        {
-          amount: -9524333.3,
-          line_date: "2026-11-11",
-          description: "Pago Visa Empresa",
-        },
-        [visa],
-      ),
-    ).toEqual({ statement: visa, currency: "ARS" });
+    expect(findCardStatement(debit(-1250000.5), [visa])).toEqual({
+      statement: visa,
+      currency: "ARS",
+    });
   });
 
-  it("pays the dollars with the debit the bank converted", () => {
-    expect(
-      findCardStatement(
-        {
-          amount: -12362.4,
-          line_date: "2026-11-11",
-          description: "Pago Visa Empresa · SALDO EN USD COTIZACION 1530,00",
-        },
-        [visa],
-      )?.currency,
-    ).toBe("USD");
+  it("takes the other debit of the payment as the dollars", () => {
+    expect(findCardStatement(debit(-15376.12), [visa])?.currency).toBe("USD");
   });
 
-  it("never takes a small peso debit as the dollars", () => {
+  it("never takes a debit before the close as this statement's dollars", () => {
     expect(
-      findCardStatement(
-        {
-          amount: -12301.2,
-          line_date: "2026-11-11",
-          description: "Pago Visa Empresa",
-        },
-        [visa],
-      ),
+      findCardStatement(debit(-15376.12, "2026-10-13"), [visa]),
     ).toBeNull();
   });
 
-  it("finds nothing for another amount in pesos", () => {
+  it("never takes a debit long past the due date as its dollars", () => {
     expect(
-      findCardStatement(
-        {
-          amount: -5000000,
-          line_date: "2026-11-11",
-          description: "Pago Visa Empresa",
-        },
-        [visa],
-      ),
+      findCardStatement(debit(-15376.12, "2026-12-01"), [visa]),
+    ).toBeNull();
+  });
+
+  it("finds nothing once the dollars are paid and the pesos do not match", () => {
+    expect(
+      findCardStatement(debit(-15376.12), [{ ...visa, usd_pending: false }]),
     ).toBeNull();
   });
 });

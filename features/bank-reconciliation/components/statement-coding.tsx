@@ -268,7 +268,10 @@ export function LineProposalView({
       )}
       {gates.canTreasuryWrite && proposal.card && cardUndefined > 0 && (
         <span className="text-muted-foreground text-xs">
-          Faltan {cardUndefined} consumos por definir en Tesorería › Tarjetas.
+          {cardUndefined === 1
+            ? "Falta 1 consumo o cargo"
+            : `Faltan ${cardUndefined} consumos o cargos`}{" "}
+          por definir en Tesorería › Tarjetas.
         </span>
       )}
       {gates.canTreasuryWrite && proposal.card && (
@@ -887,7 +890,8 @@ function NewChartAccount({ onClose }: { onClose: () => void }) {
 }
 
 /** A line between two accounts of the company: pick the other one, and the
- *  transfer is booked and reconciled on both statements. */
+ *  transfer is booked and reconciled here, and on the other statement when
+ *  it is loaded with one line of the same amount. */
 function OwnTransfer({
   line,
   accountId,
@@ -897,7 +901,8 @@ function OwnTransfer({
   accountId: string;
   canReadAccounts: boolean;
 }) {
-  const { accounts } = useAccountOptions(canReadAccounts);
+  const { accounts, error, pending, retry } =
+    useAccountOptions(canReadAccounts);
   const transfer = useTransferFromLine();
   const [other, setOther] = useState("");
   const own = accounts.find((a) => a.id === accountId);
@@ -937,11 +942,13 @@ function OwnTransfer({
           transfer.mutate(
             { line_id: line.id, other_account_id: other },
             {
-              onSuccess: ({ other_matched }) =>
+              onSuccess: ({ other }) =>
                 toast.success(
-                  other_matched
+                  other === "matched"
                     ? "Transferencia registrada y conciliada en las dos cuentas."
-                    : "Transferencia registrada. La otra cuenta la concilia cuando cargues su extracto.",
+                    : other === "several"
+                      ? "Transferencia registrada. En la otra cuenta conciliala desde sus sugerencias."
+                      : "Transferencia registrada. La otra cuenta la concilia cuando cargues su extracto.",
                 ),
               onError: (err) => toast.error(err.message),
             },
@@ -951,6 +958,25 @@ function OwnTransfer({
         <Check className="size-3.5" />
         Registrar transferencia
       </Button>
+      {pending && accounts.length === 0 && (
+        <span className="text-xs text-muted-foreground">Leyendo cuentas…</span>
+      )}
+      {error && (
+        <span className="text-xs text-muted-foreground">
+          {error}
+          {retry && (
+            <Button
+              type="button"
+              variant="link"
+              size="sm"
+              className="h-auto px-1"
+              onClick={retry}
+            >
+              Reintentar
+            </Button>
+          )}
+        </span>
+      )}
     </div>
   );
 }

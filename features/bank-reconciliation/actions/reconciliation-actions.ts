@@ -15,7 +15,7 @@ import {
 } from "@/lib/auth/permissions";
 import { CHECK_CASH_PERMISSIONS } from "@/features/checks/lib/check-cash";
 import { LOAN_CASH_PERMISSIONS } from "@/features/loans/lib/loan-cash";
-import { cardPartDenied } from "@/lib/cards/card-permissions";
+import { readCardPartDenied } from "@/lib/cards/card-part-access";
 import { createTransfer } from "@/lib/commands/create-transfer";
 import { creditCheck } from "@/lib/commands/credit-check";
 import { depositCheck } from "@/lib/commands/deposit-check";
@@ -63,14 +63,14 @@ import {
 
 const READ_DENIED = "No tenés permiso para ver la conciliación.";
 const WRITE_DENIED = "No tenés permiso para conciliar.";
-const NO_FISCAL_CHANNEL = "No hay un canal fiscal activo.";
 const cents = (n: number) => Math.round(n * 100);
 
 /** The fiscal channel a bank line's movement goes to (the company has one). */
 async function fiscalChannel(
   service: ReturnType<typeof getServiceClient>,
-): Promise<string | null> {
-  const { data } = await service
+  userId: string,
+): Promise<ActionResult<string>> {
+  const { data, error } = await service
     .from("invoicing_channels")
     .select("id")
     .eq("is_fiscal", true)
@@ -78,7 +78,13 @@ async function fiscalChannel(
     .order("id")
     .limit(1)
     .maybeSingle();
-  return data?.id ?? null;
+  if (error) {
+    logger.error("reconciliation.channel.read_failed", { userId, error });
+    return { ok: false, error: "No se pudo leer el canal fiscal." };
+  }
+  return data
+    ? { ok: true, data: data.id }
+    : { ok: false, error: "No hay un canal fiscal activo." };
 }
 
 /** Rows one page reads; past this the period has to be narrowed. */
@@ -482,12 +488,12 @@ export async function depositCheckFromLineAction(
       .select("amount, check_number")
       .eq("id", d.check_id)
       .maybeSingle(),
-    fiscalChannel(service),
+    fiscalChannel(service, ctx.userId),
   ]);
   if (line.error || !line.data || check.error || !check.data) {
     return { ok: false, error: "No se encontró la línea o el cheque." };
   }
-  if (!channel) return { ok: false, error: NO_FISCAL_CHANNEL };
+  if (!channel.ok) return channel;
   const l = line.data;
   if (l.status !== "open" || Number(l.amount) <= 0) {
     return {
@@ -502,7 +508,7 @@ export async function depositCheckFromLineAction(
     check_id: d.check_id,
     account_id: l.account_id,
     event_date: l.line_date,
-    channel_id: channel,
+    channel_id: channel.data,
     description: `Depósito cheque ${check.data.check_number}`,
   });
   if (!deposit.success) return { ok: false, error: "Datos inválidos." };
@@ -554,7 +560,7 @@ export async function depositCheckFromLineAction(
  *  with the other leg when its statement is loaded. */
 export async function transferFromLineAction(
   input: unknown,
-): Promise<ActionResult<{ other_matched: boolean }>> {
+): Promise<ActionResult<{ other: "matched" | "none" | "several" }>> {
   const ctx = await requireUserContext();
   if (!userCanAll(ctx.access, TREASURY_WRITE_PERMISSIONS)) {
     return { ok: false, error: WRITE_DENIED };
@@ -575,14 +581,19 @@ export async function transferFromLineAction(
       .eq("id", d.line_id)
       .maybeSingle(),
     service.from("accounts").select("id, currency"),
-    fiscalChannel(service),
+    fiscalChannel(service, ctx.userId),
   ]);
   if (line.error || !line.data) {
     return { ok: false, error: "La línea del extracto ya no existe." };
   }
-  if (accounts.error)
+  if (accounts.error) {
+    logger.error("reconciliation.transfer.read_failed", {
+      userId: ctx.userId,
+      error: accounts.error,
+    });
     return { ok: false, error: "No se pudieron leer las cuentas." };
-  if (!channel) return { ok: false, error: NO_FISCAL_CHANNEL };
+  }
+  if (!channel.ok) return channel;
   const l = line.data;
   if (l.status !== "open") {
     return { ok: false, error: "La línea ya está resuelta." };
@@ -599,39 +610,56 @@ export async function transferFromLineAction(
   const outgoing = Number(l.amount) < 0;
 
   // A transfer already booked between the two accounts (a retry after a
-  // failed match, or one loaded by hand) is this one: reuse it.
+  // failed match, one loaded by hand, or one booked from the other
+  // account's line, up to 3 days apart) is this one: reuse the closest.
   const legs = await service
     .from("transactions")
-    .select("id, transfer_pair_id, bank_statement_matches ( id )")
+    .select(
+      "id, transaction_date, transfer_pair_id, bank_statement_matches ( id )",
+    )
     .eq("account_id", l.account_id)
     .eq("kind", outgoing ? "transfer_out" : "transfer_in")
     .eq("amount", amount)
-    .eq("transaction_date", l.line_date)
+    .gte("transaction_date", addDaysIso(l.line_date, -3))
+    .lte("transaction_date", addDaysIso(l.line_date, 3))
     .not("transfer_pair_id", "is", null)
     .limit(20);
-  if (legs.error)
+  const free = (legs.data ?? []).filter(
+    (leg) => leg.bank_statement_matches.length === 0,
+  );
+  const pairs =
+    free.length > 0
+      ? await service
+          .from("transactions")
+          .select("id")
+          .eq("account_id", d.other_account_id)
+          .in(
+            "id",
+            free.flatMap((leg) => leg.transfer_pair_id ?? []),
+          )
+      : { data: [] as { id: string }[], error: null };
+  if (legs.error || pairs.error) {
+    logger.error("reconciliation.transfer.read_failed", {
+      userId: ctx.userId,
+      error: legs.error ?? pairs.error,
+    });
     return { ok: false, error: "No se pudieron leer los movimientos." };
-  let mine: string | null = null;
-  let theirs: string | null = null;
-  for (const leg of legs.data) {
-    if (leg.bank_statement_matches.length > 0 || !leg.transfer_pair_id)
-      continue;
-    const pair = await service
-      .from("transactions")
-      .select("id, account_id")
-      .eq("id", leg.transfer_pair_id)
-      .maybeSingle();
-    if (pair.data?.account_id === d.other_account_id) {
-      mine = leg.id;
-      theirs = pair.data.id;
-      break;
-    }
   }
+  const theirSide = new Set(pairs.data.map((p) => p.id));
+  const away = (date: string) =>
+    Math.abs(Date.parse(date) - Date.parse(l.line_date));
+  const reuse = free
+    .filter(
+      (leg) => leg.transfer_pair_id && theirSide.has(leg.transfer_pair_id),
+    )
+    .sort((a, b) => away(a.transaction_date) - away(b.transaction_date))[0];
+  let mine: string | null = reuse?.id ?? null;
+  let theirs: string | null = reuse?.transfer_pair_id ?? null;
   if (!mine || !theirs) {
     const draft = TransferCreateSchema.safeParse({
       account_from_id: outgoing ? l.account_id : d.other_account_id,
       account_to_id: outgoing ? d.other_account_id : l.account_id,
-      channel_id: channel,
+      channel_id: channel.data,
       amount,
       currency: own.currency,
       transaction_date: l.line_date,
@@ -674,15 +702,23 @@ export async function transferFromLineAction(
     .gte("line_date", addDaysIso(l.line_date, -3))
     .lte("line_date", addDaysIso(l.line_date, 3))
     .limit(2);
-  let otherMatched = false;
-  if (!opposite.error && opposite.data.length === 1) {
-    const res = await matchBankLine(ctx.userId, {
-      line_id: opposite.data[0]!.id,
-      transaction_ids: [theirs],
+  if (opposite.error) {
+    logger.error("reconciliation.transfer.opposite_failed", {
+      userId: ctx.userId,
+      error: opposite.error,
     });
-    otherMatched = res.ok;
   }
-  return { ok: true, data: { other_matched: otherMatched } };
+  if (opposite.error || opposite.data.length !== 1) {
+    return {
+      ok: true,
+      data: { other: opposite.data?.length ? "several" : "none" },
+    };
+  }
+  const res = await matchBankLine(ctx.userId, {
+    line_id: opposite.data[0]!.id,
+    transaction_ids: [theirs],
+  });
+  return { ok: true, data: { other: res.ok ? "matched" : "several" } };
 }
 
 /** Pays a card statement (its pesos or its dollars) with the bank's debit:
@@ -699,31 +735,23 @@ export async function payCardStatementFromLineAction(
   if (!parsed.success) return { ok: false, error: "Datos inválidos." };
   const d = parsed.data;
   const service = getServiceClient();
-  const lines = await service
-    .from("card_statement_lines")
-    .select("treatment, chart_account_id")
-    .eq("statement_id", d.statement_id)
-    .eq("currency", d.currency);
-  const taxes = await service
-    .from("chart_of_accounts")
-    .select("id")
-    .in("system_role", [...BANK_TAX_ROLES]);
-  if (lines.error || taxes.error) {
-    return { ok: false, error: "No se pudo leer el resumen." };
-  }
-  const denied = cardPartDenied(
+  const access = await readCardPartDenied(
+    service,
     ctx.access,
-    lines.data,
-    new Set(taxes.data.map((t) => t.id)),
+    { statement_id: d.statement_id, currency: d.currency },
+    BANK_TAX_ROLES,
+    ctx.userId,
   );
+  if (!access.ok) return { ok: false, error: "No se pudo leer el resumen." };
+  const denied = access.denied;
   if (denied) return { ok: false, error: denied };
-  const channel = await fiscalChannel(service);
-  if (!channel) return { ok: false, error: NO_FISCAL_CHANNEL };
+  const channel = await fiscalChannel(service, ctx.userId);
+  if (!channel.ok) return channel;
   const { data, error } = await service.rpc("settle_card_statement", {
     p_statement_id: d.statement_id,
     p_line_id: d.line_id,
     p_currency: d.currency,
-    p_channel_id: channel,
+    p_channel_id: channel.data,
     p_user_id: ctx.userId,
   });
   if (error || data === null) {

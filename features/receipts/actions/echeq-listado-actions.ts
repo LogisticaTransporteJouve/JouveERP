@@ -143,7 +143,11 @@ async function prepare(formData: FormData): Promise<
 
   const rows: EcheqListadoRow[] = toLoad.map((c) => {
     const client_id = clientByCuit.get(c.client_cuit) ?? null;
-    const issue = loaded.has(`${digits(c.check_number)}|${c.amount.toFixed(2)}`)
+    const key = `${digits(c.check_number)}|${c.amount.toFixed(2)}`;
+    const repeated = loaded.has(key);
+    // A cheque listed twice is loaded once.
+    loaded.add(key);
+    const issue = repeated
       ? "Ya está cargado."
       : !cartera.data
         ? "No hay una cartera de e-cheq activa."
@@ -198,7 +202,10 @@ export async function importEcheqListadoAction(
   for (const row of preview.rows) {
     if (row.issue !== null || !row.client_id) continue;
     const next = await getNextReceiptNumeroAction({ channel_id: channel });
-    if (!next.ok) return next;
+    if (!next.ok) {
+      failed.push(`${row.check_number} y los que siguen: ${next.error}`);
+      break;
+    }
     const input = ReceiptCreateSchema.safeParse({
       channel_id: channel,
       numero: next.data.next,

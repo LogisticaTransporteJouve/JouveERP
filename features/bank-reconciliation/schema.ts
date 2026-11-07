@@ -423,6 +423,7 @@ export type PayCardFromLineInput = z.infer<typeof PayCardFromLineSchema>;
 export type StatementCardStatement = {
   id: string;
   label: string;
+  close_date: string;
   due_date: string;
   total_ars: number;
   total_usd: number;

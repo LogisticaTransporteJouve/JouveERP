@@ -15,7 +15,8 @@ SET LOCAL statement_timeout = '15min';
 --   3. bank_statement_codes takes 'card_payment' (Galicia: «Pago Visa
 --      Empresa») and 'check_deposit', settle_card_statement and its undo
 --      unsettle_card_statement (service role; the action gates on
---      transactions:write): pays the statement with the bank's debits of the
+--      transactions:write, plus Personal's and Impuestos' writes for the
+--      advances and tax lines of the part): pays the statement with the bank's debits of the
 --      payment ("Pago Visa Empresa"). On the bank account, on the payment
 --      date, one expense per chart account and one advance per employee
 --      (with its employee account movement), the USD purchases at the rate
@@ -78,7 +79,7 @@ create table public.card_statements (
   usd_rate         numeric(18, 4) check (usd_rate is null or usd_rate > 0),
   created_by       uuid references auth.users (id) on delete set null,
   created_at       timestamptz not null default now(),
-  check ((status = 'pagado') = (paid_ars_on is not null and (total_usd = 0 or paid_usd_on is not null)))
+  check ((status = 'pagado') = ((total_ars = 0 or paid_ars_on is not null) and (total_usd = 0 or paid_usd_on is not null)))
 );
 
 comment on table public.card_statements is
@@ -300,7 +301,7 @@ begin
   if v_st.id is null then
     raise exception 'El resumen no existe' using errcode = 'P0002', hint = 'jouve_guard';
   end if;
-  if (p_currency = 'ARS' and v_st.paid_ars_on is not null)
+  if (p_currency = 'ARS' and (v_st.paid_ars_on is not null or v_st.total_ars = 0))
      or (p_currency = 'USD' and (v_st.paid_usd_on is not null or v_st.total_usd = 0)) then
     raise exception 'Esa parte del resumen ya está pagada o no existe'
       using errcode = '55006', hint = 'jouve_guard';
@@ -318,6 +319,31 @@ begin
   end if;
   v_paid := -v_line.amount;
 
+  if p_currency = 'ARS' then
+    v_total := v_st.total_ars;
+    if round(v_paid, 2) <> round(v_total, 2) then
+      raise exception 'El débito es de % y el resumen en pesos de %', v_paid, v_total
+        using errcode = '23514', hint = 'jouve_guard';
+    end if;
+  else
+    -- What the bank took for the dollars is the rate it applied; far from
+    -- the day's rate the debit is not these dollars.
+    v_rate := round(v_paid / v_st.total_usd, 4);
+    v_total := v_paid;
+    if abs(v_rate / nullif(public.get_exchange_rate('USD', v_line.line_date), 0) - 1) > 0.25 then
+      raise exception 'El débito da un dólar a %, lejos de la cotización del día: no es el pago de los dólares del resumen', v_rate
+        using errcode = '23514', hint = 'jouve_guard';
+    end if;
+  end if;
+
+  v_label := v_st.brand || ' ' || v_st.account_number || ' cierre ' || to_char(v_st.close_date, 'DD/MM/YYYY');
+
+  -- The lines as they are now: an edit of one after this point waits.
+  perform 1 from public.card_statement_lines
+   where statement_id = v_st.id and currency = p_currency
+   order by id
+     for update;
+
   if exists (
     select 1 from public.card_statement_lines
      where statement_id = v_st.id and currency = p_currency
@@ -327,25 +353,6 @@ begin
     raise exception 'Hay consumos o cargos sin cuenta contable o adelantos sin empleado'
       using errcode = '23514', hint = 'jouve_guard';
   end if;
-
-  if p_currency = 'ARS' then
-    v_total := v_st.total_ars;
-    if round(v_paid, 2) <> round(v_total, 2) then
-      raise exception 'El débito es de % y el resumen en pesos de %', v_paid, v_total
-        using errcode = '23514', hint = 'jouve_guard';
-    end if;
-  else
-    -- What the bank took for the dollars is the rate it applied.
-    v_rate := round(v_paid / v_st.total_usd, 4);
-    v_total := v_paid;
-  end if;
-
-  v_label := v_st.brand || ' ' || v_st.account_number || ' cierre ' || to_char(v_st.close_date, 'DD/MM/YYYY');
-
-  -- The lines as they are now: an edit of one after this point waits.
-  perform 1 from public.card_statement_lines
-   where statement_id = v_st.id and currency = p_currency
-     for update;
 
   -- The dollars of the purchases are the statement's dollars: a gap would
   -- end up inside one purchase below.
@@ -362,7 +369,7 @@ begin
   drop table if exists card_amounts;
   create temporary table card_amounts on commit drop as
     select l.id, l.treatment, l.chart_account_id, l.employee_id,
-           case when p_currency = 'USD' then round(l.amount * v_rate, 2) else l.amount end as ars,
+           case when p_currency = 'USD' then round(l.amount * v_paid / v_st.total_usd, 2) else l.amount end as ars,
            l.amount
       from public.card_statement_lines l
      where l.statement_id = v_st.id and l.currency = p_currency;
@@ -380,6 +387,15 @@ begin
     raise exception 'Hay consumos marcados como «no corresponde»: el banco los cobró igual, imputalos a una cuenta o a un empleado'
       using errcode = '23514', hint = 'jouve_guard';
   end if;
+  -- A movement is positive: a refund alone in its account (or employee)
+  -- has nothing to net against.
+  if exists (
+    select 1 from card_amounts where treatment in ('expense', 'advance')
+     group by treatment, chart_account_id, employee_id having sum(ars) <= 0
+  ) then
+    raise exception 'Una cuenta o un empleado del resumen queda en cero o negativo (una devolución sola): imputala a la cuenta o al empleado de su consumo'
+      using errcode = '23514', hint = 'jouve_guard';
+  end if;
 
   for r in
     select chart_account_id, sum(ars) as total, count(*) as n
@@ -387,9 +403,6 @@ begin
      where treatment = 'expense'
      group by chart_account_id
   loop
-    if r.total <= 0 then
-      continue;
-    end if;
     insert into public.transactions (
       account_id, channel_id, kind, amount, currency, transaction_date,
       accrual_month, description, expense_account_id, created_by
@@ -413,9 +426,6 @@ begin
      where a.treatment = 'advance'
      group by a.employee_id, e.legal_name
   loop
-    if r.total <= 0 then
-      continue;
-    end if;
     insert into public.transactions (
       account_id, channel_id, kind, amount, currency, transaction_date,
       accrual_month, description, created_by
@@ -451,7 +461,7 @@ begin
          paid_usd_on = case when p_currency = 'USD' then v_line.line_date else paid_usd_on end,
          usd_rate    = coalesce(v_rate, usd_rate),
          status      = case
-                         when (p_currency = 'ARS' or paid_ars_on is not null)
+                         when (total_ars = 0 or p_currency = 'ARS' or paid_ars_on is not null)
                           and (total_usd = 0 or p_currency = 'USD' or paid_usd_on is not null)
                          then 'pagado' else 'pendiente' end
    where id = v_st.id;
@@ -548,3 +558,86 @@ select c.id, 'operating_cost', 'impuestos'
   from public.chart_of_accounts c
  where c.code = '5.4.4' and c.name = 'Impuesto de sellos'
 on conflict (chart_of_accounts_id) do nothing;
+
+------------------------------------------------------------------------------
+-- 5. A card payment's movements belong to the statement
+------------------------------------------------------------------------------
+-- Same as 20261103170000 plus card_statement_lines: they are undone with
+-- «Deshacer pago», not edited or deleted from Tesorería.
+create or replace function public.guard_transaction_owned_by_document()
+
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_stack text;
+  v_owner text;
+begin
+  get diagnostics v_stack = pg_context;
+  if pg_trigger_depth() > 1
+     or v_stack ~ 'function (public\.)?(update_receipt|update_payment_order|apply_account_opening_balance|clear_account_opening_balance|undo_import_run)\(' then
+    return case when tg_op = 'DELETE' then old else new end;
+  end if;
+
+  if tg_op = 'UPDATE' then
+    if (old.rejected_check_id is not null
+        or old.manual_check_id is not null
+        or old.check_sale_id is not null
+        or exists (select 1 from public.payroll_payments where transaction_id = old.id)
+        or exists (select 1 from public.loan_installments where transaction_id = old.id)
+        or exists (select 1 from public.loans where disbursement_transaction_id = old.id)
+        or exists (select 1 from public.check_movements where transaction_id = old.id)
+        or exists (select 1 from public.account_opening_balances where adjustment_transaction_id = old.id)
+        or exists (select 1 from public.employee_account_movements where transaction_id = old.id)
+        or exists (select 1 from public.tax_documents where payment_transaction_id = old.id)
+        or exists (select 1 from public.card_statement_lines where transaction_id = old.id))
+       and (new.amount           is distinct from old.amount
+         or new.transaction_date is distinct from old.transaction_date
+         or new.accrual_month    is distinct from old.accrual_month
+         or new.account_id       is distinct from old.account_id
+         or new.kind             is distinct from old.kind
+         or new.channel_id       is distinct from old.channel_id
+         or new.check_sale_id    is distinct from old.check_sale_id) then
+      raise exception
+        'No se puede editar monto, fecha, cuenta, tipo o canal de un movimiento generado por un documento (sueldo, préstamo, cheque, saldo inicial, impuesto, cuenta corriente de un empleado o resumen de tarjeta): editá el documento de origen'
+        using errcode = '55006', hint = 'jouve_guard';
+    end if;
+    return new;
+  end if;
+
+  v_owner := case
+    when old.receipt_id is not null then 'un recibo'
+    when old.payment_order_id is not null then 'una orden de pago'
+    when old.invoice_id is not null then 'un comprobante'
+    when old.issued_check_id is not null then 'el cobro de un cheque propio'
+    when old.rejected_check_id is not null then 'un cheque rechazado'
+    when old.manual_check_id is not null then 'un cheque cargado a mano'
+    when old.check_sale_id is not null then 'una venta de cheques'
+    when exists (select 1 from public.loan_installments where transaction_id = old.id)
+      then 'una cuota de préstamo'
+    when exists (select 1 from public.loans where disbursement_transaction_id = old.id)
+      then 'el desembolso de un préstamo'
+    when exists (select 1 from public.payroll_payments where transaction_id = old.id)
+      then 'un pago de sueldo'
+    when exists (select 1 from public.check_movements where transaction_id = old.id)
+      then 'un movimiento de cheque'
+    when exists (select 1 from public.account_opening_balances where adjustment_transaction_id = old.id)
+      then 'un saldo inicial de cuenta'
+    when exists (select 1 from public.employee_account_movements where transaction_id = old.id)
+      then 'la cuenta corriente de un empleado'
+    when exists (select 1 from public.tax_documents where payment_transaction_id = old.id)
+      then 'el pago de un impuesto'
+    when exists (select 1 from public.card_statement_lines where transaction_id = old.id)
+      then 'el pago de un resumen de tarjeta'
+  end;
+  if v_owner is not null then
+    raise exception
+      'No se puede borrar un movimiento generado por %: anulá o editá el documento de origen', v_owner
+      using errcode = '55006', hint = 'jouve_guard';
+  end if;
+  return old;
+end;
+$$;
+revoke all on function public.guard_transaction_owned_by_document() from public, anon, authenticated;
