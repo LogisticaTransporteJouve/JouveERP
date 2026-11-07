@@ -17,6 +17,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { LIST_FORM_DIALOG } from "@/components/form-columns";
 import { useAccountsList } from "@/features/accounts/hooks/use-accounts";
 import type { PickedSupplier } from "@/features/suppliers/components/supplier-picker";
 import type { ScopeSide } from "@/lib/scope";
@@ -57,7 +58,7 @@ export function PayDialog({
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
+      <DialogContent className={LIST_FORM_DIALOG}>
         <DialogHeader>
           <DialogTitle>Pagar a proveedor</DialogTitle>
           <DialogDescription>

@@ -12,6 +12,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { LIST_FORM_DIALOG } from "@/components/form-columns";
 import type { Account } from "@/features/accounts/schema";
 import type { PickedSupplier } from "@/features/suppliers/components/supplier-picker";
 
@@ -40,7 +41,7 @@ export function NewPaymentOrderDialog({
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
+      <DialogContent className={LIST_FORM_DIALOG}>
         <DialogHeader>
           <DialogTitle>Nueva orden de pago</DialogTitle>
           <DialogDescription>

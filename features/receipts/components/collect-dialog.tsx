@@ -17,6 +17,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { LIST_FORM_DIALOG } from "@/components/form-columns";
 import { useAccountsList } from "@/features/accounts/hooks/use-accounts";
 import type { PickedClient } from "@/features/invoices/components/client-picker";
 import type { ScopeSide } from "@/lib/scope";
@@ -60,7 +61,7 @@ export function CollectDialog({
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
+      <DialogContent className={LIST_FORM_DIALOG}>
         <DialogHeader>
           <DialogTitle>Cobrar a cliente</DialogTitle>
           <DialogDescription>

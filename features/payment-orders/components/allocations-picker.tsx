@@ -3,6 +3,8 @@
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { useState } from "react";
 
+import { cn } from "@/lib/utils";
+import { FIT_LIST, FIT_LIST_SECTION } from "@/components/form-columns";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { MoneyInput } from "@/components/money-input";
@@ -106,7 +108,7 @@ export function AllocationsPicker({
   );
 
   return (
-    <div className="space-y-2">
+    <div className={cn("space-y-2", FIT_LIST_SECTION)}>
       <div className="flex items-center justify-between">
         <Label className="text-sm font-medium">Imputar a facturas</Label>
         <Button
@@ -131,9 +133,9 @@ export function AllocationsPicker({
         </Button>
       </div>
       {collapsed ? null : (
-        <div className="rounded-md border">
+        <div className={cn("rounded-md border", FIT_LIST)}>
           <table className="w-full text-sm">
-            <thead className="bg-muted/40 text-xs">
+            <thead className="sticky top-0 z-10 bg-muted text-xs">
               <tr>
                 <th className="w-8 px-2 py-1.5"></th>
                 <th className="px-2 py-1.5 text-left">Comprobante</th>

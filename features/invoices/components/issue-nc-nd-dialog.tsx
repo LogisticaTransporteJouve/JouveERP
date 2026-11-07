@@ -17,6 +17,13 @@ import {
   DialogTrigger,
   DIALOG_STICKY_FOOTER,
 } from "@/components/ui/dialog";
+import {
+  FIT_LIST,
+  FIT_LIST_SECTION,
+  LIST_FORM,
+  LIST_FORM_DIALOG,
+  ListFormColumns,
+} from "@/components/form-columns";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { MoneyInput } from "@/components/money-input";
@@ -242,155 +249,174 @@ export function NcNdForm({
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-5">
-      <div className="rounded-md border bg-muted/30 p-3 text-sm">
-        <div className="text-xs text-muted-foreground">Asociada a</div>
-        <div className="font-mono text-sm">
-          {origin.letter} {origin.client.legal_name}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-[180px_1fr]">
-        <div className="space-y-1">
-          <Label className="text-xs">Fecha</Label>
-          <DatePicker value={fecha} onChange={setFecha} />
-        </div>
-        {isForeign && (
-          <div className="space-y-1">
-            <Label className="text-xs">Cotización {origin.moneda}</Label>
-            <MoneyInput
-              aria-label={`Cotización ${origin.moneda}`}
-              decimals={COTIZACION_DECIMALS}
-              value={cotizacion}
-              onChange={setCotizacion}
-            />
-          </div>
-        )}
-        <div className="space-y-1">
-          <Label className="text-xs">Motivo</Label>
-          <Input
-            value={motivo}
-            onChange={(e) => setMotivo(e.target.value)}
-            placeholder={
-              kind === "nc"
-                ? "Ej. devolución de servicios prestados"
-                : "Ej. diferencia de tarifa"
-            }
-          />
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <Label className="text-sm font-medium">Ítems</Label>
-          <Button type="button" variant="outline" size="sm" onClick={addItem}>
-            Agregar ítem
-          </Button>
-        </div>
-        <div className="space-y-2">
-          {items.map((it, idx) => (
-            <div
-              key={idx}
-              className="grid grid-cols-1 items-end gap-2 rounded-md border bg-card p-3 sm:grid-cols-[2fr_80px_120px_140px_auto]"
-            >
-              <div className="space-y-1">
-                <Label className="text-xs">Descripción</Label>
-                <Input
-                  value={it.description}
-                  onChange={(e) =>
-                    updateItem(idx, { description: e.target.value })
-                  }
-                />
+    <form onSubmit={onSubmit} className={LIST_FORM}>
+      <ListFormColumns
+        left={
+          <>
+            <div className="rounded-md border bg-muted/30 p-3 text-sm">
+              <div className="text-xs text-muted-foreground">Asociada a</div>
+              <div className="font-mono text-sm">
+                {origin.letter} {origin.client.legal_name}
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Cant.</Label>
-                <MoneyInput
-                  aria-label="Cantidad"
-                  decimals={ITEM_DECIMALS}
-                  value={it.quantity}
-                  onChange={(quantity) => updateItem(idx, { quantity })}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Precio unitario</Label>
-                <MoneyInput
-                  aria-label="Precio unitario"
-                  decimals={ITEM_DECIMALS}
-                  value={it.unit_price}
-                  onChange={(unit_price) => updateItem(idx, { unit_price })}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">IVA</Label>
-                <Select
-                  value={String(it.iva_rate_id)}
-                  onValueChange={(v) =>
-                    updateItem(idx, {
-                      iva_rate_id: Number(v) as IvaRateId,
-                    })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent position="popper">
-                    {IVA_RATE_OPTIONS.map((r) => (
-                      <SelectItem key={r.value} value={String(r.value)}>
-                        {ivaRatePercent(r.value)}%
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <IconButton
-                label="Quitar ítem"
-                type="button"
-                variant="ghost"
-                onClick={() => removeItem(idx)}
-                disabledReason={
-                  items.length === 1
-                    ? "Tiene que quedar al menos un ítem."
-                    : null
-                }
-                disabled={items.length === 1}
-              >
-                ×
-              </IconButton>
             </div>
-          ))}
-        </div>
-      </div>
 
-      <div className="grid grid-cols-1 gap-3 rounded-md border bg-muted/30 p-3 text-sm sm:grid-cols-3">
-        <div>
-          <div className="text-xs text-muted-foreground">Neto</div>
-          <div className="font-mono">{formatNumber2(totals.imp_neto)}</div>
-        </div>
-        <div>
-          <div className="text-xs text-muted-foreground">IVA</div>
-          <div className="font-mono">{formatNumber2(totals.imp_iva)}</div>
-        </div>
-        <div>
-          <div className="text-xs text-muted-foreground">Total</div>
-          <div className="font-mono font-semibold">
-            {formatNumber2(totals.imp_total)}
-          </div>
-        </div>
-      </div>
+            <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-[180px_1fr]">
+              <div className="space-y-1">
+                <Label className="text-xs">Fecha</Label>
+                <DatePicker value={fecha} onChange={setFecha} />
+              </div>
+              {isForeign && (
+                <div className="space-y-1">
+                  <Label className="text-xs">Cotización {origin.moneda}</Label>
+                  <MoneyInput
+                    aria-label={`Cotización ${origin.moneda}`}
+                    decimals={COTIZACION_DECIMALS}
+                    value={cotizacion}
+                    onChange={setCotizacion}
+                  />
+                </div>
+              )}
+              <div className="space-y-1">
+                <Label className="text-xs">Motivo</Label>
+                <Input
+                  value={motivo}
+                  onChange={(e) => setMotivo(e.target.value)}
+                  placeholder={
+                    kind === "nc"
+                      ? "Ej. devolución de servicios prestados"
+                      : "Ej. diferencia de tarifa"
+                  }
+                />
+              </div>
+            </div>
 
-      <div className="space-y-1">
-        <Label htmlFor="nc-nd-notes" className="text-xs">
-          Observaciones (opcional)
-        </Label>
-        <Textarea
-          id="nc-nd-notes"
-          rows={2}
-          maxLength={NOTES_MAX_LENGTH}
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          placeholder="Notas internas; no se envían a AFIP ni van al PDF."
-        />
-      </div>
+            <div className="space-y-1">
+              <Label htmlFor="nc-nd-notes" className="text-xs">
+                Observaciones (opcional)
+              </Label>
+              <Textarea
+                id="nc-nd-notes"
+                rows={2}
+                className="min-h-0"
+                maxLength={NOTES_MAX_LENGTH}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Notas internas; no se envían a AFIP ni van al PDF."
+              />
+            </div>
+          </>
+        }
+        right={
+          <>
+            <div className={cn("space-y-2", FIT_LIST_SECTION)}>
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium">Ítems</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={addItem}
+                >
+                  Agregar ítem
+                </Button>
+              </div>
+              <div className={cn("space-y-2", FIT_LIST)}>
+                {items.map((it, idx) => (
+                  <div
+                    key={idx}
+                    className="grid grid-cols-1 items-end gap-2 rounded-md border bg-card p-3 sm:grid-cols-[2fr_80px_120px_140px_auto]"
+                  >
+                    <div className="space-y-1">
+                      <Label className="text-xs">Descripción</Label>
+                      <Input
+                        value={it.description}
+                        onChange={(e) =>
+                          updateItem(idx, { description: e.target.value })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Cant.</Label>
+                      <MoneyInput
+                        aria-label="Cantidad"
+                        decimals={ITEM_DECIMALS}
+                        value={it.quantity}
+                        onChange={(quantity) => updateItem(idx, { quantity })}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Precio unitario</Label>
+                      <MoneyInput
+                        aria-label="Precio unitario"
+                        decimals={ITEM_DECIMALS}
+                        value={it.unit_price}
+                        onChange={(unit_price) =>
+                          updateItem(idx, { unit_price })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">IVA</Label>
+                      <Select
+                        value={String(it.iva_rate_id)}
+                        onValueChange={(v) =>
+                          updateItem(idx, {
+                            iva_rate_id: Number(v) as IvaRateId,
+                          })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent position="popper">
+                          {IVA_RATE_OPTIONS.map((r) => (
+                            <SelectItem key={r.value} value={String(r.value)}>
+                              {ivaRatePercent(r.value)}%
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <IconButton
+                      label="Quitar ítem"
+                      type="button"
+                      variant="ghost"
+                      onClick={() => removeItem(idx)}
+                      disabledReason={
+                        items.length === 1
+                          ? "Tiene que quedar al menos un ítem."
+                          : null
+                      }
+                      disabled={items.length === 1}
+                    >
+                      ×
+                    </IconButton>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-2 rounded-md border bg-muted/30 p-3 text-sm sm:grid-cols-3 lg:mt-auto">
+              <div>
+                <div className="text-xs text-muted-foreground">Neto</div>
+                <div className="font-mono">
+                  {formatNumber2(totals.imp_neto)}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">IVA</div>
+                <div className="font-mono">{formatNumber2(totals.imp_iva)}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">Total</div>
+                <div className="font-mono font-semibold">
+                  {formatNumber2(totals.imp_total)}
+                </div>
+              </div>
+            </div>
+          </>
+        }
+      />
 
       <div
         className={cn(
@@ -442,7 +468,7 @@ export function IssueNcNdDialog({
           Emitir {kind === "nc" ? "NC" : "ND"}
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
+      <DialogContent className={LIST_FORM_DIALOG}>
         <DialogHeader>
           <DialogTitle>{KIND_LABEL[kind]}</DialogTitle>
           <DialogDescription>{KIND_BLURB[kind]}</DialogDescription>

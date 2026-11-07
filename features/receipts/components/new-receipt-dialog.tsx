@@ -13,6 +13,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { LIST_FORM_DIALOG } from "@/components/form-columns";
 import type { Account } from "@/features/accounts/schema";
 import type { PickedClient } from "@/features/invoices/components/client-picker";
 
@@ -45,7 +46,7 @@ export function NewReceiptDialog({
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
+      <DialogContent className={LIST_FORM_DIALOG}>
         <DialogHeader>
           <DialogTitle>
             {isFiscalPage ? "Nuevo recibo" : "Nuevo recibo interno"}
