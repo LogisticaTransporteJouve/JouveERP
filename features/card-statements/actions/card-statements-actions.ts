@@ -118,7 +118,11 @@ export async function getCardStatementAction(
     .eq("id", id)
     .maybeSingle();
   if (st.error) {
-    logger.error("cards.read_failed", { userId: ctx.userId, error: st.error });
+    logger.error("cards.read_failed", {
+      userId: ctx.userId,
+      statementId: id,
+      error: st.error,
+    });
     return { ok: false, error: "No se pudo leer el resumen." };
   }
   if (!st.data) return { ok: false, error: "No se encontró el resumen." };
@@ -447,6 +451,7 @@ function paidParts(st: {
 async function assertEditable(
   service: Service,
   statementId: string,
+  userId: string,
 ): Promise<{ error: string } | { paid: ("ARS" | "USD")[] }> {
   const { data, error } = await service
     .from("card_statements")
@@ -454,7 +459,7 @@ async function assertEditable(
     .eq("id", statementId)
     .maybeSingle();
   if (error) {
-    logger.error("cards.read_failed", { statementId, error });
+    logger.error("cards.read_failed", { userId, statementId, error });
     return { error: "No se pudo leer el resumen." };
   }
   if (!data) return { error: "No se encontró el resumen." };
@@ -482,7 +487,7 @@ export async function setCardLinesAction(
     return { ok: false, error: ADVANCE_DENIED };
   }
   const service = getServiceClient();
-  const editable = await assertEditable(service, d.statement_id);
+  const editable = await assertEditable(service, d.statement_id, ctx.userId);
   if ("error" in editable) return { ok: false, error: editable.error };
   let update = service
     .from("card_statement_lines")
@@ -540,7 +545,11 @@ export async function setCardHolderAction(
     .eq("id", d.statement_id)
     .maybeSingle();
   if (st.error) {
-    logger.error("cards.read_failed", { userId: ctx.userId, error: st.error });
+    logger.error("cards.read_failed", {
+      userId: ctx.userId,
+      statementId: d.statement_id,
+      error: st.error,
+    });
     return { ok: false, error: "No se pudo leer el resumen." };
   }
   if (!st.data) return { ok: false, error: "No se encontró el resumen." };
@@ -553,7 +562,7 @@ export async function setCardHolderAction(
   const hrWrite = userCan(ctx.access, "hr:write");
   let holderUpdate = service
     .from("card_holders")
-    .update({ ...values, updated_at: new Date().toISOString() })
+    .update(values)
     .eq("account_number", st.data.account_number)
     .eq("last4", d.last4);
   if (!hrWrite) holderUpdate = holderUpdate.neq("treatment", "advance");

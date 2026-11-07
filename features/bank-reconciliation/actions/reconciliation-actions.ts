@@ -502,8 +502,10 @@ export async function depositCheckFromLineAction(
   }
   // A cheque is deposited in its own channel (deposit_check refuses
   // another); one without a channel goes to the fiscal channel.
-  if (!check.data.channel_id && !channel.ok) return channel;
-  const channelId = check.data.channel_id ?? (channel.ok ? channel.data : "");
+  let channelId: string;
+  if (check.data.channel_id) channelId = check.data.channel_id;
+  else if (channel.ok) channelId = channel.data;
+  else return channel;
   const l = line.data;
   if (l.status !== "open" || Number(l.amount) <= 0) {
     return {
