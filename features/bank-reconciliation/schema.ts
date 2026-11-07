@@ -231,6 +231,7 @@ export const BANK_CODE_KINDS = [
   "ignore",
   "check_sale",
   "card_payment",
+  "check_deposit",
 ] as const;
 export type BankCodeKind = (typeof BANK_CODE_KINDS)[number];
 
@@ -244,6 +245,7 @@ export const BANK_CODE_KIND_LABEL: Record<BankCodeKind, string> = {
   ignore: "No corresponde",
   check_sale: "Descuento de cheques",
   card_payment: "Pago de tarjeta",
+  check_deposit: "Depósito de cheque",
 };
 
 export function isBankCodeKind(value: unknown): value is BankCodeKind {
@@ -398,6 +400,7 @@ export type StatementCoding = {
    *  no line explains yet: a discount credit is reconciled with them. */
   check_sale_transfers?: StatementCheckSaleTransfer[];
   card_statements?: StatementCardStatement[];
+  cartera_checks?: StatementCarteraCheck[];
 };
 
 /** A line that moves money to or from another account of the company:
@@ -426,6 +429,23 @@ export type StatementCardStatement = {
   ars_pending: boolean;
   usd_pending: boolean;
 };
+
+/** A cheque in a cartera: a deposit credit of its amount takes it to the bank. */
+export type StatementCarteraCheck = {
+  id: string;
+  check_number: string;
+  amount: number;
+  due_date: string;
+  drawer_name: string;
+};
+
+export const DepositCheckFromLineSchema = z.object({
+  line_id: z.string().uuid(),
+  check_id: z.string().uuid(),
+});
+export type DepositCheckFromLineInput = z.infer<
+  typeof DepositCheckFromLineSchema
+>;
 
 export type StatementCheckSaleTransfer = {
   id: string;

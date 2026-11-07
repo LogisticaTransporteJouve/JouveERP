@@ -39,6 +39,7 @@ import {
   useMatchLineToReceipt,
   usePayCardFromLine,
   useTransferFromLine,
+  useDepositCheckFromLine,
   usePayLoanFromLine,
 } from "../hooks/use-reconciliation";
 import {
@@ -94,6 +95,7 @@ export function useLineProposals(
             coding.data.company_cuit,
             coding.data.check_sale_transfers ?? [],
             coding.data.card_statements ?? [],
+            coding.data.cartera_checks ?? [],
           ),
         );
       }
@@ -159,6 +161,7 @@ export function LineProposalView({
   const payLoan = usePayLoanFromLine();
   const matchLine = useMatchLine();
   const payCard = usePayCardFromLine();
+  const depositCheck = useDepositCheckFromLine();
   const [splitting, setSplitting] = useState(false);
   const fiscal = useFiscalChannel();
   if (!proposal) return null;
@@ -227,6 +230,28 @@ export function LineProposalView({
         >
           <Check className="size-3.5" />
           Pagar cuota {proposal.installment.number}
+        </Button>
+      )}
+      {gates.canWrite && proposal.cartera_check && (
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-7"
+          disabled={depositCheck.isPending}
+          onClick={() =>
+            depositCheck.mutate(
+              { line_id: line.id, check_id: proposal.cartera_check!.id },
+              {
+                onSuccess: () =>
+                  toast.success("Cheque depositado, acreditado y conciliado."),
+                onError: (err) => toast.error(err.message),
+              },
+            )
+          }
+        >
+          <Check className="size-3.5" />
+          Depositar cheque {proposal.cartera_check.check_number}
         </Button>
       )}
       {gates.canWrite && proposal.kind === "transfer" && (

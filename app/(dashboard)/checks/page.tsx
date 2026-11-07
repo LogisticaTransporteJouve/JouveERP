@@ -6,6 +6,7 @@ import { accountsKeys } from "@/features/accounts/lib/accounts-keys";
 import { listChecksAction } from "@/features/checks/actions/checks-actions";
 import { CheckSalesSection } from "@/features/checks/components/check-sales-section";
 import { ChequesTable } from "@/features/checks/components/checks-table";
+import { EcheqListadoDialog } from "@/features/receipts/components/echeq-listado-dialog";
 import {
   CHECK_CASH_DENIED_REASON,
   CHECK_CASH_PERMISSIONS,
@@ -61,6 +62,11 @@ export default async function ChequesPage() {
             depositar / endosar / rechazar → acreditar.
           </p>
         </div>
+        {userCanAll(ctx.access, [
+          "receipts:write",
+          "cheques:write",
+          "transactions:write",
+        ]) && <EcheqListadoDialog />}
       </div>
       <Hydrate state={dehydratedState}>
         <Suspense fallback={<Loading />}>

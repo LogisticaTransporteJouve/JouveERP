@@ -133,14 +133,16 @@ revoke all on table public.card_statement_lines from public, anon;
 ------------------------------------------------------------------------------
 -- 3. Paying a statement
 ------------------------------------------------------------------------------
--- A bank code for the debit that pays a card ("Pago Visa Empresa").
+-- A bank code for the debit that pays a card ("Pago Visa Empresa"), and one
+-- for the credit of a cartera cheque deposited in the bank (Galicia: «G. de
+-- Echeq Q<n>»).
 alter table public.bank_statement_codes
   -- squawk-ignore ban-drop-constraint
   drop constraint bank_statement_codes_kind_check,
   -- squawk-ignore constraint-missing-not-valid
   add constraint bank_statement_codes_kind_check check (kind in (
     'tax', 'bank_fee', 'receipt', 'payment', 'transfer', 'loan', 'ignore',
-    'check_sale', 'card_payment'
+    'check_sale', 'card_payment', 'check_deposit'
   ));
 
 create or replace function public.guard_transaction_expense_account()

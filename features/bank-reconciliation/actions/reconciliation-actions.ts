@@ -11,6 +11,8 @@ import {
 } from "@/lib/auth/permissions";
 import { LOAN_CASH_PERMISSIONS } from "@/features/loans/lib/loan-cash";
 import { createTransfer } from "@/lib/commands/create-transfer";
+import { depositCheck } from "@/lib/commands/deposit-check";
+import { createClient as createSessionClient } from "@/lib/supabase/server";
 import { payLoanInstallment } from "@/lib/commands/pay-loan-installment";
 import {
   matchBankLine,
@@ -41,6 +43,7 @@ import {
   MatchLineToReceiptSchema,
   PayCardFromLineSchema,
   TransferFromLineSchema,
+  DepositCheckFromLineSchema,
   PayLoanFromLineSchema,
   MatchLinesToMovementSchema,
   ReconciliationQuerySchema,
@@ -430,6 +433,98 @@ export async function matchLineToReceiptAction(
 
 /** Pays a loan cuota with a bank debit line and reconciles them: the cuota's
  *  outflow goes to the line's account on its date, for its amount. */
+/** A cartera cheque the bank credited: deposited into the line's account on
+ *  its date, credited, and the line reconciled with the bank's side. */
+export async function depositCheckFromLineAction(
+  input: unknown,
+): Promise<ActionResult<{ line_id: string }>> {
+  const ctx = await requireUserContext();
+  if (
+    !userCanAll(ctx.access, TREASURY_PERMISSIONS) ||
+    !userCan(ctx.access, "cheques:write")
+  ) {
+    return { ok: false, error: "No tenés permiso para depositar cheques." };
+  }
+  const parsed = DepositCheckFromLineSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Datos inválidos." };
+  const d = parsed.data;
+  const service = getServiceClient();
+  const [line, check, channel] = await Promise.all([
+    service
+      .from("bank_statement_lines")
+      .select("account_id, line_date, amount, status")
+      .eq("id", d.line_id)
+      .maybeSingle(),
+    service
+      .from("checks")
+      .select("amount, status, check_number")
+      .eq("id", d.check_id)
+      .maybeSingle(),
+    service
+      .from("invoicing_channels")
+      .select("id")
+      .eq("is_fiscal", true)
+      .eq("is_active", true)
+      .limit(1)
+      .maybeSingle(),
+  ]);
+  if (line.error || !line.data || check.error || !check.data || !channel.data) {
+    return { ok: false, error: "No se encontró la línea o el cheque." };
+  }
+  const l = line.data;
+  if (l.status !== "open" || Number(l.amount) <= 0) {
+    return {
+      ok: false,
+      error: "La línea ya está resuelta o no es un crédito.",
+    };
+  }
+  if (
+    Math.round(Number(check.data.amount) * 100) !==
+    Math.round(Number(l.amount) * 100)
+  ) {
+    return { ok: false, error: "El cheque no es del importe de la línea." };
+  }
+  const deposited = await depositCheck(ctx.userId, {
+    check_id: d.check_id,
+    account_id: l.account_id,
+    event_date: l.line_date,
+    channel_id: channel.data.id,
+    description: `Depósito cheque ${check.data.check_number}`,
+  });
+  if (!deposited.ok) return deposited;
+  const session = await createSessionClient();
+  const credited = await session.rpc("credit_check", {
+    p_check_id: d.check_id,
+    p_event_date: l.line_date,
+    p_notes: "Acreditado según el extracto del banco",
+  });
+  if (credited.error) {
+    logger.error("reconciliation.check_credit_failed", {
+      userId: ctx.userId,
+      error: credited.error,
+    });
+  }
+  // The deposit's movement is the cartera's side; the bank's is its pair.
+  const movement = await service
+    .from("check_movements")
+    .select("transaction:transactions ( transfer_pair_id )")
+    .eq("id", deposited.data.movement_id)
+    .maybeSingle();
+  const tx = movement.data?.transaction;
+  const pair = (Array.isArray(tx) ? tx[0] : tx)?.transfer_pair_id ?? null;
+  if (!pair) {
+    return {
+      ok: false,
+      error:
+        "Se depositó el cheque, pero no se encontró su movimiento en el banco para conciliar.",
+    };
+  }
+  return matchBankLine(ctx.userId, {
+    line_id: d.line_id,
+    transaction_ids: [pair],
+  });
+}
+
 /** A transfer between two accounts of the company, from one of its statement
  *  lines: both legs on the line's date, this line reconciled with its leg,
  *  and the other account's opposite line (same amount, up to 3 days apart)

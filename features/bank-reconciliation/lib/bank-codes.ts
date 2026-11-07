@@ -4,6 +4,7 @@ import type {
   BankCodeKind,
   BankCodePreset,
   StatementCardStatement,
+  StatementCarteraCheck,
   StatementCheckSaleTransfer,
   BankStatementCode,
   StatementClient,
@@ -106,6 +107,8 @@ export type LineProposal = {
   /** The transfers of a cheque sale a discount credit is: the cheques of
    *  one «N° de préstamo», summing the line. */
   sale_transfers?: StatementCheckSaleTransfer[];
+  /** The cartera cheque a deposit credit is. */
+  cartera_check?: StatementCarteraCheck;
   /** The card statement (and which part) a card payment debit pays. */
   card?: { statement: StatementCardStatement; currency: "ARS" | "USD" };
   /** Can be accepted in one click: a tax or fee with its account. */
@@ -175,6 +178,7 @@ export function proposeLine(
   companyCuit: string | null = null,
   saleTransfers: readonly StatementCheckSaleTransfer[] = [],
   cardStatements: readonly StatementCardStatement[] = [],
+  carteraChecks: readonly StatementCarteraCheck[] = [],
 ): LineProposal {
   const code = findBankCode(line, codes);
   // Money from or to the company itself: a transfer between its accounts,
@@ -237,6 +241,24 @@ export function proposeLine(
       missing: client
         ? null
         : "Ningún cliente tiene el CUIT de la línea: elegilo o crealo en el recibo.",
+    };
+  }
+  if (code.kind === "check_deposit") {
+    const check =
+      line.amount > 0 ? findCarteraCheck(line, carteraChecks) : null;
+    return {
+      kind: "check_deposit",
+      code,
+      label: check
+        ? `Depósito del cheque ${check.check_number} de ${check.drawer_name}`
+        : label,
+      client: null,
+      installment: null,
+      cartera_check: check ?? undefined,
+      ready: false,
+      missing: check
+        ? null
+        : "No hay un cheque en cartera con este número e importe: cargalo (Cheques › Cargar e-cheq de Galicia).",
     };
   }
   if (code.kind === "card_payment") {
@@ -602,6 +624,20 @@ export const GALICIA_CODES: readonly PresetCode[] = [
   },
   {
     bank_code: "",
+    description_pattern: "G.DE ECHEQ",
+    kind: "check_deposit",
+    account: null,
+    label: "Depósito de e-cheq",
+  },
+  {
+    bank_code: "",
+    description_pattern: "G. DE ECHEQ",
+    kind: "check_deposit",
+    account: null,
+    label: "Depósito de e-cheq",
+  },
+  {
+    bank_code: "",
     description_pattern: "TRANSF. CTAS PROPIAS",
     kind: "transfer",
     account: null,
@@ -723,4 +759,22 @@ export function findCardStatement(
     return { statement: usd, currency: "USD" };
   }
   return null;
+}
+
+/** The cartera cheque a deposit credit is: the number the bank writes in the
+ *  line («G.de Echeq Q10365334», «G. De Echeq Galicia Q 1763») and its
+ *  amount; by the amount alone when only one cheque has it. */
+export function findCarteraCheck(
+  line: Pick<StatementLine, "amount" | "description">,
+  checks: readonly StatementCarteraCheck[],
+): StatementCarteraCheck | null {
+  const cents = Math.round(line.amount * 100);
+  const same = checks.filter((c) => Math.round(c.amount * 100) === cents);
+  const digits = (s: string) => s.replace(/\D/g, "").replace(/^0+/, "");
+  const numbers = [
+    ...line.description.matchAll(/(?:Q|Nro\.?)\s*0*(\d{3,})/gi),
+  ].map((m) => digits(m[1]!));
+  const byNumber = same.find((c) => numbers.includes(digits(c.check_number)));
+  if (byNumber) return byNumber;
+  return same.length === 1 ? same[0]! : null;
 }

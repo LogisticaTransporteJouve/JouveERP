@@ -7,6 +7,7 @@ import {
   counterpartyOf,
   detectBankPreset,
   findCardStatement,
+  findCarteraCheck,
   findSaleTransfers,
   findLoanInstallment,
   suggestLoanSplit,
@@ -486,6 +487,42 @@ describe("findCardStatement", () => {
         },
         [visa],
       ),
+    ).toBeNull();
+  });
+});
+
+describe("findCarteraCheck", () => {
+  const c = (id: string, check_number: string, amount: number) => ({
+    id,
+    check_number,
+    amount,
+    due_date: "2026-10-09",
+    drawer_name: "CLIENTE",
+  });
+  const cartera = [
+    c("a", "10365334", 4612),
+    c("b", "00001763", 649643),
+    c("c", "99", 4612),
+  ];
+
+  it("finds the deposited cheque by the number the bank writes", () => {
+    expect(
+      findCarteraCheck(
+        { amount: 4612, description: "G.de Echeq   Q10365334 Bol38694344" },
+        cartera,
+      )?.id,
+    ).toBe("a");
+    expect(
+      findCarteraCheck(
+        { amount: 649643, description: "G. De Echeq Galicia Q    1763" },
+        cartera,
+      )?.id,
+    ).toBe("b");
+  });
+
+  it("does not guess between cheques of the same amount", () => {
+    expect(
+      findCarteraCheck({ amount: 4612, description: "Deposito" }, cartera),
     ).toBeNull();
   });
 });

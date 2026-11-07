@@ -27,6 +27,7 @@ import {
   type PostingAccount,
   type StatementCoding,
   type StatementCardStatement,
+  type StatementCarteraCheck,
   type StatementCheckSaleTransfer,
   type StatementLoanInstallment,
 } from "../schema";
@@ -240,11 +241,12 @@ export async function getStatementCodingAction(
     loanInstallments = read;
   }
 
-  const [saleTransfers, cardStatements] = await Promise.all([
+  const [saleTransfers, cardStatements, carteraChecks] = await Promise.all([
     readCheckSaleTransfers(service, account_id),
     readCardStatements(service, account_id),
+    readCarteraChecks(service),
   ]);
-  if (!saleTransfers || !cardStatements) {
+  if (!saleTransfers || !cardStatements || !carteraChecks) {
     logger.error("reconciliation.coding.check_sales_failed", {
       userId: ctx.userId,
       account_id,
@@ -266,8 +268,30 @@ export async function getStatementCodingAction(
       company_cuit: company.data?.cuit ?? null,
       check_sale_transfers: saleTransfers,
       card_statements: cardStatements,
+      cartera_checks: carteraChecks,
     },
   };
+}
+
+/** The cheques in a cartera, ARS: a deposit credit takes one to the bank. */
+async function readCarteraChecks(
+  service: Service,
+): Promise<StatementCarteraCheck[] | null> {
+  const { data, error } = await service
+    .from("checks")
+    .select("id, check_number, amount, due_date, drawer_name")
+    .eq("status", "en_cartera")
+    .eq("currency", "ARS")
+    .order("due_date")
+    .limit(2000);
+  if (error) return null;
+  return data.map((c) => ({
+    id: c.id,
+    check_number: c.check_number,
+    amount: Number(c.amount),
+    due_date: c.due_date,
+    drawer_name: c.drawer_name,
+  }));
 }
 
 /** The card statements this account pays with a part not paid yet. */
