@@ -1,6 +1,11 @@
 "use client";
 
-import { HandCoins } from "lucide-react";
+import {
+  CalendarClock,
+  HandCoins,
+  Wallet,
+  type LucideIcon,
+} from "lucide-react";
 import { Suspense, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -49,6 +54,12 @@ const TITLE: Record<CashKind, string> = {
   payment: "Pago del empleado",
 };
 
+const ICON: Record<CashKind, LucideIcon> = {
+  advance: Wallet,
+  loan: CalendarClock,
+  payment: HandCoins,
+};
+
 const DESCRIPTION: Record<CashKind, string> = {
   advance:
     "Sale de la cuenta elegida y va a la cuenta corriente del empleado (no es un gasto). Se descuenta entero en la planilla del mes de la fecha.",
@@ -79,12 +90,13 @@ export function EmployeeCashDialog({
   trigger?: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  const Icon = ICON[kind];
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {trigger ?? (
           <Button variant="outline">
-            <HandCoins className="size-4" />
+            <Icon className="size-4" />
             {TITLE[kind]}
           </Button>
         )}
