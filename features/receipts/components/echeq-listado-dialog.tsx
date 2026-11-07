@@ -1,5 +1,6 @@
 "use client";
 
+import { todayInAR } from "@/lib/format";
 import { useQueryClient } from "@tanstack/react-query";
 import { FileUp } from "lucide-react";
 import { useState } from "react";
@@ -35,10 +36,10 @@ import {
 
 /** The first day of last month: a statement is closed a month at a time. */
 const firstOfLastMonth = () => {
-  const d = new Date();
-  d.setUTCDate(1);
-  d.setUTCMonth(d.getUTCMonth() - 1);
-  return d.toISOString().slice(0, 10);
+  const [y, m] = todayInAR().split("-").map(Number);
+  const month = m === 1 ? 12 : m! - 1;
+  const year = m === 1 ? y! - 1 : y!;
+  return `${year}-${String(month).padStart(2, "0")}-01`;
 };
 
 /** Loads the eCheqs of Banco Galicia's «Listado de cheques recibidos» as
@@ -84,7 +85,11 @@ export function EcheqListadoDialog() {
           `Se cargaron ${res.data.created}; fallaron: ${res.data.failed.join(" · ")}`,
         );
       } else {
-        toast.success(`Se cargaron ${res.data.created} cobros con e-cheq.`);
+        toast.success(
+          res.data.created === 1
+            ? "Se cargó 1 cobro con e-cheq."
+            : `Se cargaron ${res.data.created} cobros con e-cheq.`,
+        );
       }
       close();
     } catch {
@@ -189,7 +194,9 @@ export function EcheqListadoDialog() {
               disabled={busy || preview.ready === 0}
               onClick={() => void load()}
             >
-              Cargar {preview.ready} cobros
+              {preview.ready === 1
+                ? "Cargar 1 cobro"
+                : `Cargar ${preview.ready} cobros`}
             </Button>
           ) : (
             <Button disabled={busy || !file} onClick={() => void read()}>

@@ -240,7 +240,10 @@ export function parseCardStatement(
     if (ars !== c.total_ars || usd !== c.total_usd) {
       return {
         ok: false,
-        error: `Los consumos leídos de la tarjeta ${c.last4} no suman su total (${ars} / ${c.total_ars}): revisalo a mano.`,
+        error:
+          ars !== c.total_ars
+            ? `Los consumos en pesos de la tarjeta ${c.last4} suman ${ars} y su total dice ${c.total_ars}: revisalo a mano.`
+            : `Los consumos en dólares de la tarjeta ${c.last4} suman ${usd} y su total dice ${c.total_usd}: revisalo a mano.`,
       };
     }
   }

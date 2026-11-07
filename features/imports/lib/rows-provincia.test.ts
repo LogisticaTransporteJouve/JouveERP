@@ -94,7 +94,7 @@ describe("Banco Provincia's statement", () => {
 // cheque still in process («Pendiente») at the end.
 const GALICIA_CSV = [
   "Fecha;Descripción;Origen;Débitos;Créditos;Grupo de Conceptos;Concepto;Número de Terminal;Observaciones Cliente;Número de Comprobante;Leyendas Adicionales 1;Leyendas Adicionales 2;Leyendas Adicionales 3;Leyendas Adicionales 4;Tipo de Movimiento;Saldo",
-  "2026-10-07T00:00:00.000Z;Transferencia De Terceros;;0;33813.75;;;TIFN0000;;;PEREZ/JUAN CARLOS;20111111112;0170011420000000231394;;Imputado;3037630.31",
+  "2026-10-07T00:00:00.000Z;Transferencia De Terceros;;0;33813.75;;;TIFN0000;;;PEREZ/JUAN CARLOS;20111111112;0000000000000000000001;;Imputado;3037630.31",
   "2026-10-07T00:00:00.000Z;Ing. Brutos S/ Cred;;439.58;0;;;;;;LEY 12837-BS.AS.;;;;Imputado;3037190.73",
   "2026-11-12T00:00:00.000Z;Cheque Depositado En Proceso;;0;1231153;;;;;;;;;;Pendiente;10445889.51",
 ].join("\n");

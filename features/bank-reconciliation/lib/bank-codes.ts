@@ -78,8 +78,8 @@ export function cuitsIn(description: string): string[] {
 
 /** Who sent a transfer, as the line says it: the first valid CUIT and the
  *  name around it («TRANSF DE ANDINO OUTFITTERS SO (33718235559) VAR» →
- *  «ANDINO OUTFITTERS SO»; «CR.TRAN. 30708978554 ELECTRA MERCEDES» →
- *  «ELECTRA MERCEDES»). Null when the line names no one. */
+ *  «ANDINO OUTFITTERS SO»; «CR.TRAN. 30111111118 CLIENTE UNO» →
+ *  «CLIENTE UNO»). Null when the line names no one. */
 export function counterpartyOf(
   description: string,
 ): { cuit: string | null; name: string } | null {

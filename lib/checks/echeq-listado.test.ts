@@ -94,7 +94,7 @@ const row = (
   "",
   "",
   "COOPERATIVA LIBRADORA",
-  "30545705911",
+  "30222222229",
   "2111",
   from,
   fromCuit,
@@ -114,7 +114,7 @@ const ROWS = [
   row(
     "70755332",
     "CLIENTE UNO SRL",
-    "30708978554",
+    "30111111118",
     "2027-01-03",
     "1433696.6",
     "En custodia",
@@ -131,7 +131,7 @@ const ROWS = [
   row(
     "00001700",
     "CLIENTE UNO SRL",
-    "30708978554",
+    "30111111118",
     "2026-09-03",
     "1000",
     "Pagado",
@@ -140,7 +140,7 @@ const ROWS = [
   row(
     "00001701",
     "CLIENTE UNO SRL",
-    "30708978554",
+    "30111111118",
     "2026-10-20",
     "2000",
     "Rechazado",
@@ -155,9 +155,9 @@ describe("parseEcheqListado", () => {
     expect(r.cheques[0]).toEqual({
       check_number: "70755332",
       client_name: "CLIENTE UNO SRL",
-      client_cuit: "30708978554",
+      client_cuit: "30111111118",
       drawer_name: "COOPERATIVA LIBRADORA",
-      drawer_cuit: "30545705911",
+      drawer_cuit: "30222222229",
       bank_name: "BANCO MACRO S.A.",
       issue_date: "2026-10-01",
       due_date: "2027-01-03",
@@ -172,7 +172,7 @@ describe("parseEcheqListado", () => {
     if (!r.ok) throw new Error(r.error);
     expect(r.cheques[1]).toMatchObject({
       client_name: "COOPERATIVA LIBRADORA",
-      client_cuit: "30545705911",
+      client_cuit: "30222222229",
       received_date: "2026-10-01",
     });
   });

@@ -49,4 +49,8 @@ describe("statementAddsUp", () => {
   it("refuses dollars that are not its purchases", () => {
     expect(statementAddsUp(statement(4))).toBe(false);
   });
+
+  it("refuses pesos that are not its purchases and charges", () => {
+    expect(statementAddsUp({ ...statement(5), total_ars: 1200 })).toBe(false);
+  });
 });

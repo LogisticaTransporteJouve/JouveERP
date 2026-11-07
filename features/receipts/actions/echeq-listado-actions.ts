@@ -100,7 +100,13 @@ async function prepare(formData: FormData): Promise<
   }
   const parsed = parseEcheqListado(table.rows, company.data?.cuit ?? "");
   if (!parsed.ok) return parsed;
-  const toLoad = echeqsToLoad(parsed.cheques, from);
+  // In the order they were received: receipts are numbered and pay the
+  // client's oldest comprobantes in that order.
+  const toLoad = echeqsToLoad(parsed.cheques, from).sort(
+    (a, b) =>
+      a.received_date.localeCompare(b.received_date) ||
+      a.check_number.localeCompare(b.check_number),
+  );
 
   const cuits = [...new Set(toLoad.map((c) => c.client_cuit).filter(Boolean))];
   // A cheque may be stored as the listado writes it, without its zeros or

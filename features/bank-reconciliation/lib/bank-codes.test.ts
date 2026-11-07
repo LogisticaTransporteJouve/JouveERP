@@ -223,7 +223,7 @@ describe("a bank with no code (Provincia)", () => {
     expect(kindOf("TRANSF DE QUIMSA SRL (30708529636) FAC 000300022272")).toBe(
       "receipt",
     );
-    expect(kindOf("CR.TRAN. 30708978554 ELECTRA MERCEDES")).toBe("receipt");
+    expect(kindOf("CR.TRAN. 30111111118 CLIENTE UNO")).toBe("receipt");
     expect(
       kindOf("COMISION MANTENIM. PERIODO DESDE 28-09-2026 HASTA 28-10-2026"),
     ).toBe("bank_fee");
@@ -354,9 +354,9 @@ describe("counterpartyOf", () => {
     expect(
       counterpartyOf("TRANSF DE ANDINO OUTFITTERS SO (33718235559) VAR"),
     ).toEqual({ cuit: "33718235559", name: "ANDINO OUTFITTERS SO" });
-    expect(counterpartyOf("CR.TRAN. 30708978554 ELECTRA MERCEDES")).toEqual({
-      cuit: "30708978554",
-      name: "ELECTRA MERCEDES",
+    expect(counterpartyOf("CR.TRAN. 30111111118 CLIENTE UNO")).toEqual({
+      cuit: "30111111118",
+      name: "CLIENTE UNO",
     });
     expect(
       counterpartyOf("TRANSF DE VALDEZ, MONICA ADRIA (23207269824) VAR VARIOS"),
@@ -417,7 +417,7 @@ describe("Banco Galicia's codes", () => {
 });
 
 describe("findSaleTransfers", () => {
-  // Galicia's operation 0002420838 of 03/11: six cheques sold, one credit
+  // Galicia's operation 0001234567 of 03/11: six cheques sold, one credit
   // per «N° de préstamo» (2059 and 5473 share one).
   const t = (id: string, amount: number) => ({
     id,

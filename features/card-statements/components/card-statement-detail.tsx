@@ -270,7 +270,8 @@ function Detail({
                   Tarjeta {last4} · {h?.holder ?? "—"}
                 </p>
                 <p className="text-muted-foreground text-xs">
-                  {own.length} consumos · {formatMoney(ars, "ARS")}
+                  {own.length === 1 ? "1 consumo" : `${own.length} consumos`} ·{" "}
+                  {formatMoney(ars, "ARS")}
                   {usd > 0 && ` + ${formatMoney(usd, "USD")}`}
                 </p>
               </div>
@@ -298,7 +299,9 @@ function Detail({
                           onSuccess: ({ updated }) =>
                             updated > 0 &&
                             toast.success(
-                              `Aplicado a ${updated} consumos de la tarjeta ${last4}.`,
+                              updated === 1
+                                ? `Aplicado a 1 consumo de la tarjeta ${last4}.`
+                                : `Aplicado a ${updated} consumos de la tarjeta ${last4}.`,
                             ),
                           onError: (e) => toast.error(e.message),
                         },
