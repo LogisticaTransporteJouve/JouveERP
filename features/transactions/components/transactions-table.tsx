@@ -258,6 +258,20 @@ function useTransactionColumns(
           );
         },
       })),
+      {
+        id: "balance_after",
+        header: "Saldo",
+        enableSorting: false,
+        meta: {
+          align: "right",
+          cellClassName: "font-mono text-sm text-muted-foreground",
+          mobile: "secondary",
+        },
+        cell: ({ row }) =>
+          row.original.balance_after === null
+            ? null
+            : formatMoney(row.original.balance_after, row.original.currency),
+      },
       ...(canEdit || canDelete
         ? [
             {
@@ -393,9 +407,9 @@ export function TransactionsTable({
   });
   const columns = useMemo(
     () =>
-      fixedAccountId
-        ? allColumns.filter((c) => c.id !== "account_name")
-        : allColumns,
+      allColumns.filter((c) =>
+        fixedAccountId ? c.id !== "account_name" : c.id !== "balance_after",
+      ),
     [allColumns, fixedAccountId],
   );
 

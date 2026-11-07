@@ -38,8 +38,8 @@ export default async function CuentasPage() {
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">Cuentas</h1>
           <p className="text-sm text-muted-foreground">
-            Caja, bancos, billeteras, inversiones y cheques en cartera. Los
-            movimientos y saldos en vivo se agregan en una fase posterior.
+            Caja, bancos, billeteras, inversiones y cheques en cartera. Entrá a
+            una cuenta para ver sus movimientos y su extracto.
           </p>
         </div>
       </div>

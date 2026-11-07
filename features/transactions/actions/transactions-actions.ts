@@ -9,6 +9,7 @@ import { userCan } from "@/lib/auth/permissions";
 import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { logger } from "@/lib/logger";
 import { applyFiscalFilter } from "@/lib/supabase/fiscal-filter";
+import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
 import {
@@ -58,6 +59,9 @@ export interface TransactionListItem extends Transaction {
    *  database refuses deleting it or changing its amount, dates, account or
    *  kind until the line is unmatched. */
   reconciled: boolean;
+  /** The account's balance right after this movement (in the list's order),
+   *  only when the list is filtered by one account; null otherwise. */
+  balance_after: number | null;
 }
 
 export interface TransactionListPage {
@@ -158,14 +162,63 @@ export async function listTransactionsAction(
         counterparty_legal_name: tagged.counterparty_client?.legal_name ?? null,
         source_document: tagged.source_document,
         reconciled: (tagged.bank_statement_matches?.length ?? 0) > 0,
+        balance_after: null as number | null,
       };
     })
     .filter((item): item is TransactionListItem => item !== null);
+
+  if (filters.account_id && items.length > 0) {
+    const balances = await accountRunningBalances(supabase, filters.account_id);
+    if (balances) {
+      for (const item of items) {
+        item.balance_after = balances.get(item.id) ?? null;
+      }
+    } else {
+      logger.error("transactions.list.balance_failed", {
+        userId: ctx.userId,
+        account_id: filters.account_id,
+      });
+    }
+  }
 
   return {
     ok: true,
     data: { items, nextOffset: hasMore ? offset + limit : null },
   };
+}
+
+/** Each movement's running balance in the account: opening balance plus every
+ *  movement up to it, in the same order the list shows (reversed). */
+async function accountRunningBalances(
+  supabase: Awaited<ReturnType<typeof createSupabaseClient>>,
+  accountId: string,
+): Promise<Map<string, number> | null> {
+  const [account, movements] = await Promise.all([
+    supabase
+      .from("accounts")
+      .select("opening_balance")
+      .eq("id", accountId)
+      .maybeSingle(),
+    paginateRange((from, to) =>
+      supabase
+        .from("transactions")
+        .select("id, kind, amount")
+        .eq("account_id", accountId)
+        .order("transaction_date", { ascending: true })
+        .order("created_at", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to),
+    ),
+  ]);
+  if (account.error || !account.data || movements.error) return null;
+  let cents = Math.round(Number(account.data.opening_balance) * 100);
+  const balances = new Map<string, number>();
+  for (const m of movements.data) {
+    const delta = Math.round(Number(m.amount) * 100);
+    cents += m.kind === "expense" || m.kind === "transfer_out" ? -delta : delta;
+    balances.set(m.id, cents / 100);
+  }
+  return balances;
 }
 
 // ---------------------------------------------------------------------------

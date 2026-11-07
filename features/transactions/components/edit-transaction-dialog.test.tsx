@@ -54,6 +54,7 @@ const TX: TransactionListItem = {
   counterparty_legal_name: null,
   source_document: null,
   reconciled: false,
+  balance_after: null,
 };
 
 function amountField(): HTMLInputElement {

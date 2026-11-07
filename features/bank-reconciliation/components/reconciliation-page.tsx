@@ -45,7 +45,12 @@ import {
 import { ACCOUNT_TYPE_LABEL, isAccountType } from "@/features/accounts/schema";
 import { ImportDialog } from "@/features/imports/components/import-dialog";
 import { useListParams } from "@/hooks/use-list-params";
-import { formatArgentineDate, formatMoneySigned } from "@/lib/format";
+import {
+  formatArgentineDate,
+  formatMoney,
+  formatMoneySigned,
+} from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 import {
   useAcceptSuggestions,
@@ -469,7 +474,8 @@ function ReconciliationBody({
               <TableRow>
                 <TableHead className="w-28">Fecha</TableHead>
                 <TableHead>Descripción</TableHead>
-                <TableHead className="text-right">Importe</TableHead>
+                <TableHead className="text-right">Debe</TableHead>
+                <TableHead className="text-right">Haber</TableHead>
                 <TableHead className="text-right">Saldo</TableHead>
                 <TableHead>Estado</TableHead>
                 {canWrite && <TableHead className="w-12" />}
@@ -479,7 +485,7 @@ function ReconciliationBody({
               {data.lines.length === 0 && (
                 <TableRow>
                   <TableCell
-                    colSpan={canWrite ? 6 : 5}
+                    colSpan={canWrite ? 7 : 6}
                     className="text-muted-foreground text-center text-sm"
                   >
                     No hay líneas de extracto importadas para este mes.
@@ -530,9 +536,11 @@ function ReconciliationBody({
                       />
                     ))}
                   </TableCell>
-                  <TableCell className="text-right align-top tabular-nums">
-                    {money(line.amount)}
-                  </TableCell>
+                  <DebitCreditCells
+                    amount={line.amount}
+                    currency={currency}
+                    className="align-top"
+                  />
                   <TableCell className="text-muted-foreground text-right align-top tabular-nums">
                     {line.balance === null ? "—" : money(line.balance)}
                   </TableCell>
@@ -653,7 +661,8 @@ function ReconciliationBody({
               <TableRow>
                 <TableHead className="w-28">Fecha</TableHead>
                 <TableHead>Descripción</TableHead>
-                <TableHead className="text-right">Importe</TableHead>
+                <TableHead className="text-right">Debe</TableHead>
+                <TableHead className="text-right">Haber</TableHead>
                 {canWrite && <TableHead className="w-12" />}
               </TableRow>
             </TableHeader>
@@ -661,7 +670,7 @@ function ReconciliationBody({
               {unmatchedInPeriod.length === 0 && (
                 <TableRow>
                   <TableCell
-                    colSpan={canWrite ? 4 : 3}
+                    colSpan={canWrite ? 5 : 4}
                     className="text-muted-foreground text-center text-sm"
                   >
                     Todos los movimientos del mes están conciliados.
@@ -676,9 +685,10 @@ function ReconciliationBody({
                   <TableCell className="text-sm">
                     {m.description || "(sin descripción)"}
                   </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {money(m.signed_amount)}
-                  </TableCell>
+                  <DebitCreditCells
+                    amount={m.signed_amount}
+                    currency={currency}
+                  />
                   {canWrite && (
                     <TableCell className="text-right">
                       <IconButton
@@ -787,5 +797,28 @@ function SuggestionInline({
         Conciliar
       </Button>
     </span>
+  );
+}
+
+/** A signed amount as the books read it: money in on Debe, money out on Haber. */
+function DebitCreditCells({
+  amount,
+  currency,
+  className,
+}: {
+  amount: number;
+  currency: string;
+  className?: string;
+}) {
+  const cell = cn("text-right tabular-nums", className);
+  return (
+    <>
+      <TableCell className={cell}>
+        {amount > 0 ? formatMoney(amount, currency) : ""}
+      </TableCell>
+      <TableCell className={cell}>
+        {amount < 0 ? formatMoney(-amount, currency) : ""}
+      </TableCell>
+    </>
   );
 }
