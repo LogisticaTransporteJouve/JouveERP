@@ -4,6 +4,7 @@ import { Pencil, Wallet } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 import { toast } from "sonner";
 
+import { ChannelsReadError } from "@/components/channels-read-error";
 import { MoneyInput } from "@/components/money-input";
 import { useConfirm } from "@/components/providers/confirm-provider";
 import { useScope } from "@/components/providers/scope-provider";
@@ -193,6 +194,7 @@ export function AccountOpeningBalanceDialog({
             </div>
           </div>
 
+          {fixedChannel !== null && <ChannelsReadError inline />}
           {fixedChannel === null && (
             <div className="space-y-1">
               <Label className="text-xs">Canal de imputación</Label>

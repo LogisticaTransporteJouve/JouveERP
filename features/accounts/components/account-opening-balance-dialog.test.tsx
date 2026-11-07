@@ -12,6 +12,9 @@ vi.mock("sonner", () => ({
 vi.mock("@/components/providers/confirm-provider", () => ({
   useConfirm: () => vi.fn(),
 }));
+vi.mock("@/components/channels-read-error", () => ({
+  ChannelsReadError: () => null,
+}));
 vi.mock("@/components/providers/scope-provider", () => ({
   useScope: () => ({
     channels: [
