@@ -14,7 +14,7 @@ import type { ActionResult } from "@/lib/query/run-action";
 import { fetchInChunks } from "@/lib/supabase/paginate";
 import { getServiceClient } from "@/lib/supabase/service";
 
-import { MACRO_CODES, PROVINCIA_CODES, cuitsIn } from "../lib/bank-codes";
+import { PRESET_CODES, cuitsIn } from "../lib/bank-codes";
 import {
   BANK_TAX_ROLES,
   DeleteBankStatementCodeSchema,
@@ -394,7 +394,7 @@ export async function presetBankStatementCodesAction(
   const byRole = new Map<string, string>(
     chart.data.flatMap((a) => (a.system_role ? [[a.system_role, a.id]] : [])),
   );
-  const preset_codes = preset === "provincia" ? PROVINCIA_CODES : MACRO_CODES;
+  const preset_codes = PRESET_CODES[preset];
   const rows = preset_codes.map((c) => ({
     account_id,
     bank_code: c.bank_code,

@@ -325,13 +325,14 @@ export const DeleteBankStatementCodeSchema = z.object({
   id: z.string().uuid(),
 });
 
-export const BANK_CODE_PRESETS = ["macro", "provincia"] as const;
+export const BANK_CODE_PRESETS = ["macro", "provincia", "galicia"] as const;
 export const BANK_CODE_PRESET_LABEL: Record<
   (typeof BANK_CODE_PRESETS)[number],
   string
 > = {
   macro: "Banco Macro",
   provincia: "Banco Provincia",
+  galicia: "Banco Galicia",
 };
 export type BankCodePreset = (typeof BANK_CODE_PRESETS)[number];
 
