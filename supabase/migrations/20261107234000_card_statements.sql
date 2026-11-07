@@ -51,6 +51,10 @@ comment on table public.card_holders is
 create index card_holders_employee_idx on public.card_holders (employee_id);
 create index card_holders_chart_account_idx on public.card_holders (chart_account_id);
 
+create trigger card_holders_set_updated_at
+  before update on public.card_holders
+  for each row execute function public.set_updated_at();
+
 alter table public.card_holders enable row level security;
 
 create policy "card_holders select"

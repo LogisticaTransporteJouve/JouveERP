@@ -500,13 +500,10 @@ export async function depositCheckFromLineAction(
   if (!line.data || !check.data) {
     return { ok: false, error: "No se encontró la línea o el cheque." };
   }
-  // A cheque that came with a receipt keeps its channel (as «Depositar» in
-  // Cheques does); one loaded without it goes to the fiscal channel.
-  const channelId = check.data.channel_id ?? (channel.ok ? channel.data : null);
-  if (!channelId)
-    return channel.ok
-      ? { ok: false, error: "No hay un canal fiscal activo." }
-      : channel;
+  // A cheque is deposited in its own channel (deposit_check refuses
+  // another); one without a channel goes to the fiscal channel.
+  if (!check.data.channel_id && !channel.ok) return channel;
+  const channelId = check.data.channel_id ?? (channel.ok ? channel.data : "");
   const l = line.data;
   if (l.status !== "open" || Number(l.amount) <= 0) {
     return {

@@ -453,7 +453,11 @@ async function assertEditable(
     .select("status, paid_ars_on, paid_usd_on")
     .eq("id", statementId)
     .maybeSingle();
-  if (error || !data) return { error: "No se encontró el resumen." };
+  if (error) {
+    logger.error("cards.read_failed", { statementId, error });
+    return { error: "No se pudo leer el resumen." };
+  }
+  if (!data) return { error: "No se encontró el resumen." };
   if (data.status === "pagado")
     return { error: "El resumen ya está pagado: no se cambia." };
   return { paid: paidParts(data) };
@@ -535,8 +539,11 @@ export async function setCardHolderAction(
     .select("account_number, status, paid_ars_on, paid_usd_on")
     .eq("id", d.statement_id)
     .maybeSingle();
-  if (st.error || !st.data)
-    return { ok: false, error: "No se encontró el resumen." };
+  if (st.error) {
+    logger.error("cards.read_failed", { userId: ctx.userId, error: st.error });
+    return { ok: false, error: "No se pudo leer el resumen." };
+  }
+  if (!st.data) return { ok: false, error: "No se encontró el resumen." };
   const values = {
     treatment: d.treatment,
     chart_account_id: d.treatment === "expense" ? d.chart_account_id : null,

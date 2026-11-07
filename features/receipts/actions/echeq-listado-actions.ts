@@ -44,7 +44,10 @@ export type EcheqListadoPreview = {
 
 const digits = (s: string) => s.replace(/\D/g, "").replace(/^0+/, "");
 
-async function prepare(formData: FormData): Promise<
+async function prepare(
+  formData: FormData,
+  userId: string,
+): Promise<
   | { ok: false; error: string }
   | {
       ok: true;
@@ -94,13 +97,16 @@ async function prepare(formData: FormData): Promise<
   if (company.error || channel.error || cartera.error || !channel.data) {
     if (company.error || channel.error || cartera.error) {
       logger.error("receipts.echeq_listado.read_failed", {
+        userId,
         error: company.error ?? channel.error ?? cartera.error,
       });
     }
     return {
       ok: false,
       error:
-        "No se pudo leer la empresa, el canal fiscal o la cartera de e-cheq.",
+        company.error || channel.error || cartera.error
+          ? "No se pudo leer la empresa, el canal fiscal o la cartera de e-cheq."
+          : "No hay un canal fiscal activo.",
     };
   }
   const parsed = parseEcheqListado(table.rows, company.data?.cuit ?? "");
@@ -141,6 +147,7 @@ async function prepare(formData: FormData): Promise<
   ]);
   if (clients.error || checks.error) {
     logger.error("receipts.echeq_listado.read_failed", {
+      userId,
       error: clients.error ?? checks.error,
     });
     return {
@@ -193,7 +200,7 @@ export async function previewEcheqListadoAction(
   if (!userCanAll(ctx.access, PERMISSIONS)) {
     return { ok: false, error: "Sin permiso para cargar cobros con cheques." };
   }
-  const prepared = await prepare(formData);
+  const prepared = await prepare(formData, ctx.userId);
   if (!prepared.ok) return prepared;
   return { ok: true, data: prepared.preview };
 }
@@ -208,7 +215,7 @@ export async function importEcheqListadoAction(
   if (!userCanAll(ctx.access, PERMISSIONS)) {
     return { ok: false, error: "Sin permiso para cargar cobros con cheques." };
   }
-  const prepared = await prepare(formData);
+  const prepared = await prepare(formData, ctx.userId);
   if (!prepared.ok) return prepared;
   const { preview, channel, cartera } = prepared;
   if (!cartera)
