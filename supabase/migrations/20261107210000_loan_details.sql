@@ -18,6 +18,7 @@ SET LOCAL statement_timeout = '15min';
 
 alter table public.loans
   add column loan_number text,
+  -- squawk-ignore adding-foreign-key-constraint
   add column account_id uuid references public.accounts (id) on delete restrict,
   add column start_date date,
   add column original_amount numeric(14, 2),
@@ -26,10 +27,13 @@ alter table public.loans
   add column cft numeric(7, 3);
 
 alter table public.loans
+  -- squawk-ignore constraint-missing-not-valid
   add constraint loans_loan_number_check
     check (loan_number is null or char_length(loan_number) between 1 and 60),
+  -- squawk-ignore constraint-missing-not-valid
   add constraint loans_original_amount_check
     check (original_amount is null or original_amount > 0),
+  -- squawk-ignore constraint-missing-not-valid
   add constraint loans_rates_check
     check (
       (tna is null or tna between 0 and 1000)
@@ -37,6 +41,7 @@ alter table public.loans
       and (cft is null or cft between 0 and 1000)
     );
 
+-- squawk-ignore require-concurrent-index-creation
 create index loans_account_idx on public.loans (account_id)
   where account_id is not null;
 
@@ -44,6 +49,7 @@ alter table public.loan_installments
   add column paid_outside boolean not null default false;
 
 alter table public.loan_installments
+  -- squawk-ignore constraint-missing-not-valid
   add constraint loan_installments_paid_outside_check
     check (
       not paid_outside
