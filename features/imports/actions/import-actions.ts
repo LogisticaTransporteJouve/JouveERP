@@ -450,7 +450,48 @@ async function existingKeys(
             .in("source_hash", chunk),
         HASH_CHUNK_SIZE,
       );
-      return res.error ? null : new Set(res.data.map((l) => l.source_hash));
+      if (res.error) return null;
+      const existing = new Set(res.data.map((l) => l.source_hash));
+      // A bank rewrites a line's text between downloads (Galicia adds a
+      // «Leyenda» later): the same day, amount and running balance is the
+      // same line, whatever its description now says.
+      const pending = rows.filter(
+        (r) =>
+          r.key &&
+          !existing.has(r.key) &&
+          typeof r.payload?.balance === "number",
+      );
+      const dates = pending.flatMap((r) =>
+        typeof r.payload?.line_date === "string" ? [r.payload.line_date] : [],
+      );
+      if (dates.length === 0) return existing;
+      const loaded = await service
+        .from("bank_statement_lines")
+        .select("line_date, amount, balance")
+        .eq("account_id", accountId)
+        .not("balance", "is", null)
+        .gte(
+          "line_date",
+          dates.reduce((a, b) => (a < b ? a : b)),
+        )
+        .lte(
+          "line_date",
+          dates.reduce((a, b) => (a > b ? a : b)),
+        )
+        .limit(20000);
+      if (loaded.error) return null;
+      const triple = (date: unknown, amount: unknown, balance: unknown) =>
+        `${String(date)}|${Number(amount).toFixed(2)}|${Number(balance).toFixed(2)}`;
+      const seen = new Set(
+        loaded.data.map((l) => triple(l.line_date, l.amount, l.balance)),
+      );
+      for (const r of pending) {
+        const p = r.payload;
+        if (r.key && p && seen.has(triple(p.line_date, p.amount, p.balance))) {
+          existing.add(r.key);
+        }
+      }
+      return existing;
     }
   }
 }
