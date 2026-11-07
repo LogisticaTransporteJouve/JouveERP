@@ -10,6 +10,7 @@ import { ChannelsReadError } from "@/components/channels-read-error";
 import { MoneyInput } from "@/components/money-input";
 import { useScope } from "@/components/providers/scope-provider";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -28,6 +29,7 @@ import {
 } from "@/components/ui/form";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -41,7 +43,8 @@ import { useAccountOptions } from "@/features/accounts/hooks/use-accounts";
 import { formatArgentineDate, formatMoney, parseArAmount } from "@/lib/format";
 import { generateInstallments } from "@/lib/loans/amortization";
 import {
-  frenchPlan,
+  fixedCapitalPlan,
+  frenchPlanWith,
   parseBankPlan,
   type PlanInstallment,
 } from "@/lib/loans/bank-plan";
@@ -93,9 +96,12 @@ const DEFAULTS: FormValues = {
   notes: "",
 };
 
-/** How the cuotas are set: the bank's plan pasted, the French system from
- *  the TNA, or equal parts of the capital. */
-type PlanMode = "bank" | "french" | "equal";
+/** How the cuotas are set: the bank's plan pasted, the French system or
+ *  fixed capital (German) from the TNA, or equal parts of the capital. */
+type PlanMode = "bank" | "french" | "fixed" | "equal";
+const PLAN_MODES: readonly PlanMode[] = ["bank", "french", "fixed", "equal"];
+const isPlanMode = (v: string): v is PlanMode =>
+  PLAN_MODES.some((m) => m === v);
 
 const rateOrNull = (v: string) => (v === "" ? null : parseArAmount(v));
 
@@ -118,24 +124,32 @@ export function LoanDialog({
   });
   const [mode, setMode] = useState<PlanMode>("bank");
   const [planText, setPlanText] = useState("");
+  const [byDays, setByDays] = useState(false);
+  const [separateInterest, setSeparateInterest] = useState(false);
+  const [paidRaw, setPaidRaw] = useState("");
 
   useEffect(() => {
     if (!open) return;
     form.reset(DEFAULTS);
     setMode("bank");
     setPlanText("");
+    setByDays(false);
+    setSeparateInterest(false);
+    setPaidRaw("");
   }, [open, form]);
 
-  const [currency, principalRaw, tnaRaw, countRaw, firstDue] = useWatch({
-    control: form.control,
-    name: [
-      "currency",
-      "principal",
-      "tna",
-      "installments_count",
-      "first_due_date",
-    ],
-  });
+  const [currency, principalRaw, tnaRaw, countRaw, firstDue, startDate] =
+    useWatch({
+      control: form.control,
+      name: [
+        "currency",
+        "principal",
+        "tna",
+        "installments_count",
+        "first_due_date",
+        "start_date",
+      ],
+    });
 
   const bankAccounts = accounts.filter(
     (a) =>
@@ -157,20 +171,43 @@ export function LoanDialog({
     if (!principal || !Number.isInteger(count) || count < 1 || !firstDue) {
       return null;
     }
-    if (mode === "french") {
+    const paidCount = Math.max(0, Math.trunc(Number(paidRaw) || 0));
+    if (mode === "french" || mode === "fixed") {
       const tna = rateOrNull(tnaRaw);
-      return tna === null ? null : frenchPlan(principal, tna, count, firstDue);
+      if (tna === null) return null;
+      const options = {
+        interestByDays: byDays,
+        startDate: startDate || null,
+        paidCount,
+      };
+      return mode === "french"
+        ? frenchPlanWith(principal, tna, count, firstDue, options)
+        : fixedCapitalPlan(principal, tna, count, firstDue, {
+            ...options,
+            separateInterest,
+          });
     }
-    return generateInstallments(principal, count, firstDue).map((g) => ({
+    return generateInstallments(principal, count, firstDue).map((g, i) => ({
       ...g,
       capital: g.amount,
       interest: 0,
       iva: 0,
       perception: 0,
       other: 0,
-      paid: false,
+      paid: i < paidCount,
     }));
-  }, [mode, pasted, principalRaw, countRaw, firstDue, tnaRaw]);
+  }, [
+    mode,
+    pasted,
+    principalRaw,
+    countRaw,
+    firstDue,
+    tnaRaw,
+    byDays,
+    separateInterest,
+    paidRaw,
+    startDate,
+  ]);
 
   function onSubmit(values: FormValues) {
     if (!plan) {
@@ -403,15 +440,12 @@ export function LoanDialog({
                 <p className="text-sm font-medium">Plan de cuotas</p>
                 <Tabs
                   value={mode}
-                  onValueChange={(v) =>
-                    setMode(v === "french" || v === "equal" ? v : "bank")
-                  }
+                  onValueChange={(v) => setMode(isPlanMode(v) ? v : "bank")}
                 >
                   <TabsList>
                     <TabsTrigger value="bank">Pegar del banco</TabsTrigger>
-                    <TabsTrigger value="french">
-                      Calcular con la TNA
-                    </TabsTrigger>
+                    <TabsTrigger value="french">Francés (TNA)</TabsTrigger>
+                    <TabsTrigger value="fixed">Capital fijo (TNA)</TabsTrigger>
                     <TabsTrigger value="equal">Cuotas iguales</TabsTrigger>
                   </TabsList>
                 </Tabs>
@@ -430,38 +464,85 @@ export function LoanDialog({
                   )}
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-3 sm:max-w-md">
-                  <FormField
-                    control={form.control}
-                    name="installments_count"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Cuotas</FormLabel>
-                        <FormControl>
-                          <Input
-                            {...field}
-                            type="number"
-                            inputMode="numeric"
-                            min={1}
+                <div className="space-y-3">
+                  <div className="grid grid-cols-3 gap-3 sm:max-w-lg">
+                    <FormField
+                      control={form.control}
+                      name="installments_count"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Cuotas</FormLabel>
+                          <FormControl>
+                            <Input
+                              {...field}
+                              type="number"
+                              inputMode="numeric"
+                              min={1}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="first_due_date"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>1ª cuota</FormLabel>
+                          <FormControl>
+                            <DatePicker {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <div className="space-y-2">
+                      <Label htmlFor="loan-paid-count">Ya pagadas</Label>
+                      <Input
+                        id="loan-paid-count"
+                        type="number"
+                        inputMode="numeric"
+                        min={0}
+                        value={paidRaw}
+                        onChange={(e) => setPaidRaw(e.target.value)}
+                        placeholder="0"
+                      />
+                    </div>
+                  </div>
+                  {(mode === "french" || mode === "fixed") && (
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id="loan-by-days"
+                          checked={byDays}
+                          onCheckedChange={(v) => setByDays(v === true)}
+                        />
+                        <Label htmlFor="loan-by-days" className="font-normal">
+                          Interés por días reales (saldo × TNA × días / 365,
+                          desde la fecha de alta)
+                        </Label>
+                      </div>
+                      {mode === "fixed" && (
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            id="loan-separate-interest"
+                            checked={separateInterest}
+                            onCheckedChange={(v) =>
+                              setSeparateInterest(v === true)
+                            }
                           />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="first_due_date"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>1ª cuota</FormLabel>
-                        <FormControl>
-                          <DatePicker {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                          <Label
+                            htmlFor="loan-separate-interest"
+                            className="font-normal"
+                          >
+                            Interés en cuota aparte (el banco lista capital e
+                            interés como dos cuotas)
+                          </Label>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
               {plan && (

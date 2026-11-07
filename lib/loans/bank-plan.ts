@@ -121,3 +121,107 @@ export function frenchPlan(
   }
   return out;
 }
+
+export type PlanOptions = {
+  /** Interest on the balance × TNA × the days since the previous due date
+   *  / 365 (Banco Provincia) instead of TNA / 12. */
+  interestByDays?: boolean;
+  /** The day the loan was granted: the first period's days start there. */
+  startDate?: string | null;
+  /** Interest as its own cuota on the same due date (Banco Provincia lists
+   *  capital and interest as separate cuotas). */
+  separateInterest?: boolean;
+  /** The first cuotas, already paid when the loan is loaded. */
+  paidCount?: number;
+};
+
+function daysBetween(from: string, to: string): number {
+  return Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000);
+}
+
+/** Fixed capital (German system): the same capital every month and the
+ *  interest on what is still owed. */
+export function fixedCapitalPlan(
+  principal: number,
+  tnaPercent: number,
+  count: number,
+  firstDueDate: string,
+  options: PlanOptions = {},
+): PlanInstallment[] {
+  const capitalEach = round2(principal / count);
+  const rows: Omit<PlanInstallment, "number" | "paid">[] = [];
+  let balance = principal;
+  let previous = options.startDate ?? addMonthsClamped(firstDueDate, -1);
+  for (let n = 1; n <= count; n++) {
+    const due = addMonthsClamped(firstDueDate, n - 1);
+    const interest = options.interestByDays
+      ? round2(
+          ((balance * tnaPercent) / 100) * (daysBetween(previous, due) / 365),
+        )
+      : round2((balance * tnaPercent) / 100 / 12);
+    const capital = n === count ? round2(balance) : capitalEach;
+    balance = round2(balance - capital);
+    previous = due;
+    const parts = { iva: 0, perception: 0, other: 0 };
+    if (options.separateInterest) {
+      rows.push({
+        due_date: due,
+        amount: capital,
+        capital,
+        interest: 0,
+        ...parts,
+      });
+      rows.push({
+        due_date: due,
+        amount: interest,
+        capital: 0,
+        interest,
+        ...parts,
+      });
+    } else {
+      rows.push({
+        due_date: due,
+        amount: round2(capital + interest),
+        capital,
+        interest,
+        ...parts,
+      });
+    }
+  }
+  return numbered(rows, options.paidCount ?? 0);
+}
+
+/** French system with options: interest by days, cuotas already paid. The
+ *  capital follows the plan at TNA / 12, as the banks print it. */
+export function frenchPlanWith(
+  principal: number,
+  tnaPercent: number,
+  count: number,
+  firstDueDate: string,
+  options: PlanOptions = {},
+): PlanInstallment[] {
+  const base = frenchPlan(principal, tnaPercent, count, firstDueDate);
+  let balance = principal;
+  let previous = options.startDate ?? addMonthsClamped(firstDueDate, -1);
+  const rows = base.map((p) => {
+    const interest = options.interestByDays
+      ? round2(
+          ((balance * tnaPercent) / 100) *
+            (daysBetween(previous, p.due_date) / 365),
+        )
+      : p.interest;
+    balance = round2(balance - p.capital);
+    previous = p.due_date;
+    return { ...p, interest, amount: round2(p.capital + interest) };
+  });
+  return numbered(rows, options.paidCount ?? 0);
+}
+
+function numbered(
+  rows: readonly Omit<PlanInstallment, "number" | "paid">[],
+  paidCount: number,
+): PlanInstallment[] {
+  return rows
+    .filter((r) => r.amount > 0)
+    .map((r, i) => ({ ...r, number: i + 1, paid: i < paidCount }));
+}
