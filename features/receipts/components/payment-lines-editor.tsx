@@ -120,14 +120,14 @@ export function PaymentLinesEditor({
                 key={idx}
                 className="space-y-2 rounded-md border bg-card p-3"
               >
-                <div className="grid grid-cols-1 items-end gap-2 sm:grid-cols-[2fr_1fr_1.5fr_auto]">
-                  <div className="space-y-1">
+                <div className="grid grid-cols-1 items-start gap-2 sm:grid-cols-[2fr_1fr_1.5fr_auto]">
+                  <div className="min-w-0 space-y-1">
                     <Label className="text-xs">Cuenta</Label>
                     <Select
                       value={line.account_id}
                       onValueChange={(v) => onAccountChange(idx, v)}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="w-full">
                         <SelectValue placeholder="Elegir cuenta" />
                       </SelectTrigger>
                       <SelectContent position="popper">
@@ -142,7 +142,7 @@ export function PaymentLinesEditor({
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="space-y-1">
+                  <div className="min-w-0 space-y-1">
                     <Label className="text-xs">Monto</Label>
                     <MoneyInput
                       placeholder="0,00"
@@ -150,7 +150,7 @@ export function PaymentLinesEditor({
                       onChange={(amount) => update(idx, { amount })}
                     />
                   </div>
-                  <div className="space-y-1">
+                  <div className="min-w-0 space-y-1">
                     <Label className="text-xs">
                       {isCheck
                         ? "Nro de check"
@@ -169,6 +169,7 @@ export function PaymentLinesEditor({
                     label="Quitar línea"
                     type="button"
                     variant="ghost"
+                    className="sm:mt-5"
                     onClick={() => remove(idx)}
                   >
                     <Trash2 className="size-4" />

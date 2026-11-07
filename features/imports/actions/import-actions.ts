@@ -75,6 +75,8 @@ export type ImportPreview = {
   truncated: boolean;
   /** Earlier runs of this same file (same SHA-256). */
   previousRuns: { id: string; created_at: string; status: ImportRunStatus }[];
+  /** Statement lines left out for being outside the chosen period. */
+  outsidePeriod: number;
 };
 
 type Prepared = Omit<ImportPreview, "rows"> & { rows: BuiltRow[] };
@@ -441,6 +443,30 @@ async function existingKeys(
   }
 }
 
+/** The loaded statement lines of the file that have no bank code yet: an
+ *  import of the same file with its code fills them. */
+async function statementLinesWithoutCode(
+  rows: readonly BuiltRow[],
+  lookups: ImportLookups,
+): Promise<Set<string> | null> {
+  const accountId = lookups.account?.id;
+  if (!accountId) return new Set();
+  const hashes = rows.flatMap((r) =>
+    r.key && r.payload && typeof r.payload.bank_code === "string"
+      ? [r.key]
+      : [],
+  );
+  const res = await fetchInChunks(hashes, (chunk) =>
+    getServiceClient()
+      .from("bank_statement_lines")
+      .select("source_hash")
+      .eq("account_id", accountId)
+      .is("bank_code", null)
+      .in("source_hash", chunk),
+  );
+  return res.error ? null : new Set(res.data.map((l) => l.source_hash));
+}
+
 /** Reads the uploaded file and builds every row. Writes nothing. */
 async function prepare(
   ctx: UserContext,
@@ -464,6 +490,8 @@ async function prepare(
     mapping: mappingInput,
     account_id: optional("account_id"),
     channel_id: optional("channel_id"),
+    date_from: optional("date_from"),
+    date_to: optional("date_to"),
   });
   if (!parsed.success) return { error: "Datos inválidos." };
   const { kind } = parsed.data;
@@ -537,6 +565,7 @@ async function prepare(
     mapping,
     truncated: table.truncated,
     previousRuns,
+    outsidePeriod: 0,
   };
   const missing = missingRequired(kind, mapping);
   if (missing.length > 0) {
@@ -544,7 +573,7 @@ async function prepare(
       ...base,
       missing,
       rows: [],
-      counts: { ready: 0, duplicate: 0, invalid: 0 },
+      counts: { ready: 0, fill: 0, duplicate: 0, invalid: 0 },
     };
   }
 
@@ -571,8 +600,37 @@ async function prepare(
     });
     return { error: "No se pudo revisar qué ya está cargado." };
   }
-  const rows = markDuplicates(built, existing, kindHasStrictKeys(kind));
-  return { ...base, missing, rows, counts: countRows(rows) };
+  const fillable =
+    kind === "bank_statement"
+      ? await statementLinesWithoutCode(built, lookups)
+      : new Set<string>();
+  if (!fillable) {
+    logger.error("imports.prepare.fillable_failed", {
+      userId: ctx.userId,
+      kind,
+    });
+    return { error: "No se pudo revisar qué ya está cargado." };
+  }
+  const marked = markDuplicates(
+    built,
+    existing,
+    kindHasStrictKeys(kind),
+    fillable,
+  );
+  const { date_from, date_to } = parsed.data;
+  const inPeriod = (r: BuiltRow) => {
+    const date = r.payload?.line_date;
+    if (kind !== "bank_statement" || typeof date !== "string") return true;
+    return (!date_from || date >= date_from) && (!date_to || date <= date_to);
+  };
+  const rows = marked.filter(inPeriod);
+  return {
+    ...base,
+    missing,
+    rows,
+    counts: countRows(rows),
+    outsidePeriod: marked.length - rows.length,
+  };
 }
 
 /** Reads the file and shows each row as it would import: ready, already
@@ -595,13 +653,17 @@ export async function previewImportAction(
 export type ImportCommitResult = {
   runId: string;
   inserted: number;
+  /** Statement lines already loaded that only got their bank code; null when
+   *  the run could not be read back. */
+  filled: number | null;
   skipped: number;
   invalid: number;
 };
 
 /** Reads the file again (the client never sends rows) and imports the ready
  *  rows in one transaction. Rows with errors are left out and counted; a row
- *  already loaded is skipped, so importing the same file twice adds nothing. */
+ *  already loaded is skipped, so importing the same file twice adds nothing
+ *  (a statement line loaded without its bank code gets the code). */
 export async function commitImportAction(
   formData: FormData,
 ): Promise<ActionResult<ImportCommitResult>> {
@@ -622,7 +684,9 @@ export async function commitImportAction(
     };
   }
   const payloads = prepared.rows.flatMap((r) =>
-    r.status === "ready" && r.payload ? [r.payload] : [],
+    (r.status === "ready" || r.status === "fill") && r.payload
+      ? [r.payload]
+      : [],
   );
   if (payloads.length === 0) {
     return { ok: false, error: "No hay filas nuevas para importar." };
@@ -658,7 +722,7 @@ export async function commitImportAction(
 
   const run = await service
     .from("import_runs")
-    .select("inserted_rows, skipped_rows, invalid_rows")
+    .select("inserted_rows, filled_rows, skipped_rows, invalid_rows")
     .eq("id", runId)
     .single();
   if (run.error) {
@@ -670,7 +734,8 @@ export async function commitImportAction(
   }
   const result: ImportCommitResult = {
     runId,
-    inserted: run.data?.inserted_rows ?? payloads.length,
+    inserted: run.data?.inserted_rows ?? prepared.counts.ready,
+    filled: run.data?.filled_rows ?? null,
     skipped: run.data?.skipped_rows ?? prepared.counts.duplicate,
     invalid: run.data?.invalid_rows ?? prepared.counts.invalid,
   };
@@ -682,6 +747,7 @@ export async function commitImportAction(
       file_name: prepared.fileName,
       file_sha256: prepared.fileSha256,
       inserted: result.inserted,
+      filled: result.filled,
       skipped: result.skipped,
       invalid: result.invalid,
     },
@@ -748,6 +814,7 @@ export type ImportRunRow = {
   file_name: string;
   total_rows: number;
   inserted_rows: number;
+  filled_rows: number;
   skipped_rows: number;
   invalid_rows: number;
   created_at: string;
@@ -768,7 +835,7 @@ export async function listImportRunsAction(): Promise<
   const { data, error } = await service
     .from("import_runs")
     .select(
-      "id, kind, status, file_name, total_rows, inserted_rows, skipped_rows, invalid_rows, created_at, created_by, undone_at, undone_by",
+      "id, kind, status, file_name, total_rows, inserted_rows, filled_rows, skipped_rows, invalid_rows, created_at, created_by, undone_at, undone_by",
     )
     .order("created_at", { ascending: false })
     .order("id")
@@ -808,6 +875,7 @@ export async function listImportRunsAction(): Promise<
         file_name: r.file_name,
         total_rows: r.total_rows,
         inserted_rows: r.inserted_rows,
+        filled_rows: r.filled_rows,
         skipped_rows: r.skipped_rows,
         invalid_rows: r.invalid_rows,
         created_at: r.created_at,

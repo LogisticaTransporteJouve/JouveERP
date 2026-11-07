@@ -1,16 +1,6 @@
 "use client";
 
-import {
-  ArrowDownCircle,
-  ArrowLeftRight,
-  ArrowUpCircle,
-  Link2,
-  MoreHorizontal,
-  Pencil,
-  Tags,
-  Trash2,
-  X,
-} from "lucide-react";
+import { Link2, MoreHorizontal, Pencil, Tags, Trash2, X } from "lucide-react";
 import Link from "next/link";
 import {
   Suspense,
@@ -72,7 +62,6 @@ import {
   isReconciledFilter,
   isTransactionKind,
   type TransactionFilters,
-  type TransactionKind,
 } from "../schema";
 import { EditTransactionDialog } from "./edit-transaction-dialog";
 import {
@@ -91,20 +80,6 @@ const ANY_KIND = "__any_kind__";
 const ANY_RECONCILED = "__any_reconciled__";
 
 // Money formatter centralizado en lib/format (formatMoney).
-
-const KIND_TONE: Record<TransactionKind, string> = {
-  income: "bg-muted text-muted-foreground dark:text-muted-foreground",
-  expense: "bg-muted text-foreground dark:text-foreground",
-  transfer_in: "bg-muted text-muted-foreground dark:text-muted-foreground",
-  transfer_out: "bg-muted text-muted-foreground dark:text-muted-foreground",
-};
-
-const KIND_ICON: Record<TransactionKind, typeof ArrowUpCircle> = {
-  income: ArrowDownCircle,
-  expense: ArrowUpCircle,
-  transfer_in: ArrowLeftRight,
-  transfer_out: ArrowLeftRight,
-};
 
 type RowActions = {
   canEdit: boolean;
@@ -164,33 +139,15 @@ function useTransactionColumns(
         ),
       },
       {
-        id: "kind",
-        header: "Tipo",
-        enableSorting: false,
-        meta: { headerClassName: "w-36", mobile: "secondary" },
-        cell: ({ row }) => {
-          const Icon = KIND_ICON[row.original.kind];
-          return (
-            <Badge
-              variant="secondary"
-              className={`gap-1 ${KIND_TONE[row.original.kind]}`}
-            >
-              <Icon className="size-3" />
-              {TRANSACTION_KIND_LABEL[row.original.kind]}
-            </Badge>
-          );
-        },
-      },
-      {
         id: "account_name",
         header: "Cuenta",
         enableSorting: false,
         meta: { mobile: "secondary" },
         cell: ({ row }) => (
           <Link
-            href={`/transactions?account=${row.original.account_id}`}
+            href={`/accounts/${row.original.account_id}`}
             className="text-sm hover:underline"
-            title="Filtrar por esta cuenta"
+            title="Ver la cuenta"
           >
             {row.original.account_name}
           </Link>
@@ -215,56 +172,79 @@ function useTransactionColumns(
           cellClassName: "max-w-[260px] truncate text-sm",
           mobile: "primary",
         },
-        cell: ({ row }) => (
-          <>
-            {row.original.description ?? (
-              <span className="text-muted-foreground">—</span>
-            )}
-            {row.original.counterparty_legal_name && (
-              <span className="block text-xs text-muted-foreground">
-                {row.original.counterparty_legal_name}
-              </span>
-            )}
-            {row.original.reconciled && (
-              <Badge
-                variant="outline"
-                className="mt-0.5 gap-1 text-xs font-normal"
-                title="Conciliado con el extracto: se desconcilia en Tesorería › Conciliación"
-              >
-                <Link2 className="size-3" />
-                Conciliado
-              </Badge>
-            )}
-          </>
-        ),
+        cell: ({ row }) => {
+          const tx = row.original;
+          const client = tx.counterparty_legal_name;
+          // A receipt reads as the money it is: who paid and how; the
+          // receipt's number goes below.
+          const title =
+            tx.receipt_id && client
+              ? `${tx.account_type === "bank" ? "Transferencia" : "Cobro"} de ${client}`
+              : tx.description;
+          const detail = tx.receipt_id && client ? tx.description : client;
+          return (
+            <>
+              {title ?? <span className="text-muted-foreground">—</span>}
+              {detail && (
+                <span className="block text-xs text-muted-foreground">
+                  {detail}
+                </span>
+              )}
+              {tx.bank_description && tx.bank_description !== title && (
+                <span
+                  className="block truncate text-xs text-muted-foreground"
+                  title="Lo que dice el extracto del banco"
+                >
+                  Banco: {tx.bank_description}
+                </span>
+              )}
+              {row.original.reconciled && (
+                <Badge
+                  variant="outline"
+                  className="mt-0.5 gap-1 text-xs font-normal"
+                  title="Conciliado con el extracto: se desconcilia en Tesorería › Conciliación"
+                >
+                  <Link2 className="size-3" />
+                  Conciliado
+                </Badge>
+              )}
+            </>
+          );
+        },
       },
-      {
-        id: "amount",
-        header: "Monto",
+      ...(["debit", "credit"] as const).map((side) => ({
+        id: side,
+        header: side === "debit" ? "Debe" : "Haber",
         enableSorting: false,
         meta: {
-          align: "right",
+          align: "right" as const,
           cellClassName: "font-mono text-sm",
-          mobile: "primary",
+          mobile: "primary" as const,
         },
-        cell: ({ row }) => {
+        cell: ({ row }: { row: { original: TransactionListItem } }) => {
           const isOutflow =
             row.original.kind === "expense" ||
             row.original.kind === "transfer_out";
-          const sign = isOutflow ? -1 : 1;
-          return (
-            <span
-              className={
-                isOutflow
-                  ? "text-foreground dark:text-foreground"
-                  : "text-muted-foreground dark:text-muted-foreground"
-              }
-            >
-              {sign < 0 ? "-" : "+"}
-              {formatMoney(Number(row.original.amount), row.original.currency)}
-            </span>
+          if (isOutflow !== (side === "credit")) return null;
+          return formatMoney(
+            Number(row.original.amount),
+            row.original.currency,
           );
         },
+      })),
+      {
+        id: "balance_after",
+        header: "Saldo",
+        enableSorting: false,
+        meta: {
+          align: "right",
+          cellClassName: "font-mono text-sm text-muted-foreground",
+          mobile: "secondary",
+        },
+        cell: ({ row }) =>
+          row.original.balance_after === null
+            ? null
+            : formatMoney(row.original.balance_after, row.original.currency),
       },
       ...(canEdit || canDelete
         ? [
@@ -324,14 +304,29 @@ export function TransactionsTable({
   channels,
   actorAccess,
   initialParams,
+  fixedAccountId,
 }: {
   channels: ChannelOption[];
   actorAccess: Access;
   initialParams: TransactionListParams;
+  /** Shown inside an account's page: always that account, and no account
+   *  or reconciliation filter (the statement tab reconciles). */
+  fixedAccountId?: string;
 }) {
+  const defaults = useMemo(
+    () =>
+      fixedAccountId
+        ? {
+            ...DEFAULT_TRANSACTION_LIST_PARAMS,
+            accountId: fixedAccountId,
+            period: { preset: "this_month" as const, from: null, to: null },
+          }
+        : DEFAULT_TRANSACTION_LIST_PARAMS,
+    [fixedAccountId],
+  );
   const { params, committed, update, reset, isFiltered } = useListParams({
     initial: initialParams,
-    defaults: DEFAULT_TRANSACTION_LIST_PARAMS,
+    defaults,
     toUrl: transactionListParamsToUrl,
   });
   const isFiscal = useScopeIsFiscal();
@@ -381,13 +376,20 @@ export function TransactionsTable({
     [confirm, deleteMut],
   );
 
-  const columns = useTransactionColumns({
+  const allColumns = useTransactionColumns({
     canEdit: canWrite,
     canDelete,
     onEdit: setEditing,
     onRecategorize,
     onDelete,
   });
+  const columns = useMemo(
+    () =>
+      allColumns.filter((c) =>
+        fixedAccountId ? c.id !== "account_name" : c.id !== "balance_after",
+      ),
+    [allColumns, fixedAccountId],
+  );
 
   // Realtime: any transaction insert/update/delete invalidates every
   // filter combo so saldos and movements stay in sync across tabs.
@@ -411,6 +413,7 @@ export function TransactionsTable({
             )}
             {canPay && <PayDialog />}
             {canAdvance && <EmployeeCashDialog kind="advance" />}
+            {canAdvance && <EmployeeCashDialog kind="loan" />}
             {canWrite && canPickAccount && (
               <NewTransactionDialog
                 channels={channels}
@@ -437,7 +440,7 @@ export function TransactionsTable({
           value={params.period}
           onChange={(period) => update({ period })}
         />
-        {canPickAccount && (
+        {canPickAccount && !fixedAccountId && (
           <AccountFilter
             value={params.accountId ?? ANY_ACCOUNT}
             onChange={(v) =>
@@ -463,24 +466,26 @@ export function TransactionsTable({
             ))}
           </SelectContent>
         </Select>
-        <Select
-          value={params.reconciled ?? ANY_RECONCILED}
-          onValueChange={(v) =>
-            update({ reconciled: isReconciledFilter(v) ? v : null })
-          }
-        >
-          <SelectTrigger className="w-[200px]" aria-label="Conciliación">
-            <SelectValue placeholder="Conciliación" />
-          </SelectTrigger>
-          <SelectContent position="popper">
-            <SelectItem value={ANY_RECONCILED}>Conciliados o no</SelectItem>
-            {RECONCILED_FILTERS.map((r) => (
-              <SelectItem key={r} value={r}>
-                {RECONCILED_FILTER_LABEL[r]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {!fixedAccountId && (
+          <Select
+            value={params.reconciled ?? ANY_RECONCILED}
+            onValueChange={(v) =>
+              update({ reconciled: isReconciledFilter(v) ? v : null })
+            }
+          >
+            <SelectTrigger className="w-[200px]" aria-label="Conciliación">
+              <SelectValue placeholder="Conciliación" />
+            </SelectTrigger>
+            <SelectContent position="popper">
+              <SelectItem value={ANY_RECONCILED}>Conciliados o no</SelectItem>
+              {RECONCILED_FILTERS.map((r) => (
+                <SelectItem key={r} value={r}>
+                  {RECONCILED_FILTER_LABEL[r]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </ListToolbar>
 
       <div className="mt-4">

@@ -1,12 +1,13 @@
 "use client";
 
-import { FileUp, Info, Loader2 } from "lucide-react";
-import { Suspense, useState } from "react";
+import { Info, Loader2 } from "lucide-react";
+import { Suspense, useEffect, useEffectEvent, useState } from "react";
 import { toast } from "sonner";
 
 import { ChannelsReadError } from "@/components/channels-read-error";
 import { DisabledHint, firstReason } from "@/components/disabled-hint";
 import { useScope } from "@/components/providers/scope-provider";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAccountsList } from "@/features/accounts/hooks/use-accounts";
@@ -23,6 +24,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -91,17 +93,23 @@ function AccountSelect({
   kind,
   value,
   onChange,
+  disabled,
 }: {
   kind: ImportKind;
   value: string;
   onChange: (id: string) => void;
+  disabled?: boolean;
 }) {
   const { data: accounts } = useAccountsList();
   const options = accounts.filter(
     (a) => a.is_active && accountFits(kind, a.type),
   );
   return (
-    <Select value={value || undefined} onValueChange={onChange}>
+    <Select
+      value={value || undefined}
+      onValueChange={onChange}
+      disabled={disabled}
+    >
       <SelectTrigger id="import-account" className="w-full min-w-0">
         <SelectValue placeholder="Elegí la cuenta" />
       </SelectTrigger>
@@ -116,11 +124,21 @@ function AccountSelect({
   );
 }
 
+function commitLabel(ready: number, fill: number): string {
+  const rows = `Importar ${ready} ${ready === 1 ? "fila" : "filas"}`;
+  const codes = `${fill} ${fill === 1 ? "código" : "códigos"}`;
+  if (fill === 0) return rows;
+  if (ready === 0) return `Completar ${codes}`;
+  return `${rows} y completar ${codes}`;
+}
+
 export function ImportDialog({
   open,
   onOpenChange,
   kinds,
   canReadAccounts,
+  fixedAccountId,
+  defaultPeriod,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -128,6 +146,10 @@ export function ImportDialog({
   kinds: readonly ImportKind[];
   /** accounts:read, to list the accounts of checks and statements. */
   canReadAccounts: boolean;
+  /** Opened from an account: its statement goes to that account only. */
+  fixedAccountId?: string;
+  /** A statement's period to start with: lines outside it are left out. */
+  defaultPeriod?: { from: string; to: string };
 }) {
   const previewMut = usePreviewImport();
   const commitMut = useCommitImport();
@@ -137,8 +159,10 @@ export function ImportDialog({
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [mapping, setMapping] = useState<ImportMapping | null>(null);
-  const [accountId, setAccountId] = useState("");
+  const [accountId, setAccountId] = useState(fixedAccountId ?? "");
   const [channelId, setChannelId] = useState("");
+  const [dateFrom, setDateFrom] = useState(defaultPeriod?.from ?? "");
+  const [dateTo, setDateTo] = useState(defaultPeriod?.to ?? "");
 
   function reset() {
     setFile(null);
@@ -159,6 +183,10 @@ export function ImportDialog({
     if (withMapping) data.set("mapping", JSON.stringify(withMapping));
     if (needsAccount) data.set("account_id", accountId);
     if (needsChannel) data.set("channel_id", channelId);
+    if (kind === "bank_statement") {
+      if (dateFrom) data.set("date_from", dateFrom);
+      if (dateTo) data.set("date_to", dateTo);
+    }
     return data;
   }
 
@@ -177,17 +205,28 @@ export function ImportDialog({
     });
   }
 
+  // The file is read as soon as it and its targets are chosen.
+  const readChosenFile = useEffectEvent(() => read(null));
+  useEffect(() => {
+    if (file && kind && targetsReady) readChosenFile();
+  }, [file, kind, accountId, channelId, targetsReady, dateFrom, dateTo]);
+
   function commit() {
     const data = formData(mapping);
     if (!data) return;
     commitMut.mutate(data, {
-      onSuccess: ({ inserted, skipped, invalid }) => {
+      onSuccess: ({ inserted, filled, skipped, invalid }) => {
         const extra = [
+          filled
+            ? `${filled} ${filled === 1 ? "código completado" : "códigos completados"}`
+            : null,
           skipped > 0 ? `${skipped} ya estaban` : null,
           invalid > 0 ? `${invalid} con error quedaron afuera` : null,
         ].filter(Boolean);
         toast.success(
-          `Se importaron ${inserted} filas${extra.length > 0 ? ` (${extra.join("; ")})` : ""}.`,
+          inserted === 0 && filled
+            ? `Se completó el código del banco en ${filled} ${filled === 1 ? "línea" : "líneas"} ya cargadas.`
+            : `Se importaron ${inserted} filas${extra.length > 0 ? ` (${extra.join("; ")})` : ""}.`,
         );
         reset();
         onOpenChange(false);
@@ -206,12 +245,18 @@ export function ImportDialog({
   const busy = previewMut.isPending || commitMut.isPending;
   const fields = kind ? IMPORT_FIELDS[kind] : [];
   const ready = preview?.counts.ready ?? 0;
+  const fill = preview?.counts.fill ?? 0;
   // The commit reads the file with the mapping it sends: one the user changed
   // after the preview has to be read again first.
   const mappingChanged =
     !!preview &&
     !!mapping &&
     JSON.stringify(mapping) !== JSON.stringify(preview.mapping);
+  /** Opened from an account: upload and import, nothing else to choose.
+   *  The columns and rows show only when something needs fixing. */
+  const simple = fixedAccountId !== undefined;
+  const needsReview =
+    !!preview && (preview.missing.length > 0 || preview.counts.invalid > 0);
   const committedBefore = preview?.previousRuns.find(
     (r) => r.status === "committed",
   );
@@ -226,22 +271,29 @@ export function ImportDialog({
     >
       <DialogContent className="sm:max-w-5xl">
         <DialogHeader>
-          <DialogTitle>Importar planilla</DialogTitle>
+          <DialogTitle>
+            {simple ? "Subir extracto" : "Importar planilla"}
+          </DialogTitle>
           <DialogDescription>
-            Subí un .xlsx (primera hoja) o .csv con una fila de títulos. Nada se
-            guarda hasta que confirmes; las filas con error quedan afuera y las
-            que ya están cargadas se saltean.
+            {simple
+              ? "Subí el .csv o .xlsx que bajaste del banco. Las líneas que ya estaban cargadas se saltean."
+              : "Subí un .xlsx (primera hoja) o .csv con una fila de títulos. Nada se guarda hasta que confirmes; las filas con error quedan afuera y las que ya están cargadas se saltean."}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[14rem_1fr_auto] sm:items-end">
-          <div className="space-y-1.5">
+        <div
+          className={cn(
+            "grid grid-cols-1 gap-3 sm:items-end",
+            !simple && "sm:grid-cols-[14rem_1fr]",
+          )}
+        >
+          <div className={cn("space-y-1.5", simple && "hidden")}>
             <Label htmlFor="import-kind">Qué importar</Label>
             <Select
               value={kind ?? undefined}
               onValueChange={(v) => {
                 if (isImportKind(v)) setKind(v);
-                setAccountId("");
+                setAccountId(fixedAccountId ?? "");
                 setPreview(null);
                 setMapping(null);
               }}
@@ -270,36 +322,40 @@ export function ImportDialog({
                 setMapping(null);
               }}
             />
-          </div>
-          <DisabledHint
-            reason={firstReason(
-              [!file, "Elegí un archivo."],
-              [!kind, "Elegí qué vas a importar."],
-              [
-                !targetsReady,
-                needsAccount && accountId === ""
-                  ? "Elegí la cuenta."
-                  : "Elegí el canal.",
-              ],
+            {previewMut.isPending && (
+              <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
+                <Loader2 className="size-3.5 animate-spin" />
+                Leyendo el archivo…
+              </p>
             )}
-          >
-            <Button
-              type="button"
-              variant="outline"
-              disabled={!file || !kind || !targetsReady || busy}
-              onClick={() => read(null)}
-            >
-              {previewMut.isPending ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <FileUp className="size-4" />
-              )}
-              Leer archivo
-            </Button>
-          </DisabledHint>
+          </div>
+          {kind === "bank_statement" && (
+            <div className="grid grid-cols-2 gap-3 sm:col-span-full sm:max-w-md">
+              <div className="min-w-0 space-y-1.5">
+                <Label htmlFor="import-date-from">Desde</Label>
+                <DatePicker
+                  id="import-date-from"
+                  value={dateFrom || null}
+                  onChange={setDateFrom}
+                  max={dateTo || undefined}
+                  clearable
+                />
+              </div>
+              <div className="min-w-0 space-y-1.5">
+                <Label htmlFor="import-date-to">Hasta</Label>
+                <DatePicker
+                  id="import-date-to"
+                  value={dateTo || null}
+                  onChange={setDateTo}
+                  min={dateFrom || undefined}
+                  clearable
+                />
+              </div>
+            </div>
+          )}
         </div>
 
-        {kind && (needsAccount || needsChannel) && (
+        {kind && !simple && (needsAccount || needsChannel) && (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {needsAccount && (
               <div className="min-w-0 space-y-1.5">
@@ -313,6 +369,7 @@ export function ImportDialog({
                     <AccountSelect
                       kind={kind}
                       value={accountId}
+                      disabled={fixedAccountId !== undefined}
                       onChange={(id) => {
                         setAccountId(id);
                         setPreview(null);
@@ -355,7 +412,7 @@ export function ImportDialog({
           </div>
         )}
 
-        {kind && !preview && (
+        {kind && !preview && !simple && (
           <div className="text-muted-foreground space-y-1 text-sm">
             <p>{KIND_NOTES[kind]}</p>
             <p>
@@ -379,7 +436,7 @@ export function ImportDialog({
           </div>
         )}
 
-        {preview && mapping && (
+        {preview && mapping && (!simple || needsReview) && (
           <div className="space-y-2">
             <p className="text-sm font-medium">Columnas</p>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -453,64 +510,74 @@ export function ImportDialog({
         {preview && preview.missing.length === 0 && (
           <div className="space-y-2">
             <p className="text-muted-foreground text-sm">
-              {preview.counts.ready} listas · {preview.counts.duplicate} ya
-              cargadas · {preview.counts.invalid} con error
+              {preview.counts.ready} listas ·{" "}
+              {fill > 0 && `${fill} completan el código del banco · `}
+              {preview.counts.duplicate} ya cargadas · {preview.counts.invalid}{" "}
+              con error
+              {preview.outsidePeriod > 0 &&
+                ` · ${preview.outsidePeriod} fuera del período`}
               {preview.truncated &&
                 " · el archivo tiene más de 5000 filas o celdas muy largas: dividilo para importarlo"}
             </p>
-            <div className="max-h-96 overflow-auto rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-14">Fila</TableHead>
-                    <TableHead>Registro</TableHead>
-                    <TableHead>Estado</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {preview.rows.map((r) => (
-                    <TableRow key={r.line}>
-                      <TableCell className="text-muted-foreground align-top text-xs">
-                        {r.line}
-                      </TableCell>
-                      <TableCell className="align-top">
-                        <span className="text-sm">{r.label}</span>
-                        {r.detail && (
-                          <span className="text-muted-foreground block text-xs">
-                            {r.detail}
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell className="align-top text-sm">
-                        <span
-                          className={r.status === "ready" ? "" : "font-medium"}
-                        >
-                          {IMPORT_ROW_STATUS_LABELS[r.status]}
-                        </span>
-                        {[...r.errors, ...r.warnings].map((m) => (
-                          <span
-                            key={m}
-                            className="text-muted-foreground block text-xs"
-                          >
-                            {m}
-                          </span>
-                        ))}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {preview.rows.length === 0 && (
+            {(!simple || needsReview) && (
+              <div className="max-h-96 overflow-auto rounded-md border">
+                <Table>
+                  <TableHeader>
                     <TableRow>
-                      <TableCell
-                        colSpan={3}
-                        className="text-muted-foreground text-center text-sm"
-                      >
-                        El archivo no tiene filas debajo de los títulos.
-                      </TableCell>
+                      <TableHead className="w-14">Fila</TableHead>
+                      <TableHead>Registro</TableHead>
+                      <TableHead>Estado</TableHead>
                     </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </div>
+                  </TableHeader>
+                  <TableBody>
+                    {preview.rows.map((r) => (
+                      <TableRow key={r.line}>
+                        <TableCell className="text-muted-foreground align-top text-xs">
+                          {r.line}
+                        </TableCell>
+                        <TableCell className="align-top">
+                          <span className="text-sm">{r.label}</span>
+                          {r.detail && (
+                            <span className="text-muted-foreground block text-xs">
+                              {r.detail}
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell className="align-top text-sm">
+                          <span
+                            className={
+                              r.status === "ready" || r.status === "fill"
+                                ? ""
+                                : "font-medium"
+                            }
+                          >
+                            {IMPORT_ROW_STATUS_LABELS[r.status]}
+                          </span>
+                          {[...r.errors, ...r.warnings].map((m) => (
+                            <span
+                              key={m}
+                              className="text-muted-foreground block text-xs"
+                            >
+                              {m}
+                            </span>
+                          ))}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {preview.rows.length === 0 && (
+                      <TableRow>
+                        <TableCell
+                          colSpan={3}
+                          className="text-muted-foreground text-center text-sm"
+                        >
+                          El archivo no tiene filas debajo de los títulos.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
           </div>
         )}
 
@@ -542,7 +609,7 @@ export function ImportDialog({
                       mappingChanged,
                       "Cambiaste las columnas: volvé a leer el archivo.",
                     ],
-                    [ready === 0, "No hay filas listas para importar."],
+                    [ready + fill === 0, "No hay filas listas para importar."],
                   )
             }
           >
@@ -553,14 +620,12 @@ export function ImportDialog({
                 preview.missing.length > 0 ||
                 preview.truncated ||
                 mappingChanged ||
-                ready === 0 ||
+                ready + fill === 0 ||
                 busy
               }
               onClick={commit}
             >
-              {commitMut.isPending
-                ? "Importando…"
-                : `Importar ${ready} ${ready === 1 ? "fila" : "filas"}`}
+              {commitMut.isPending ? "Importando…" : commitLabel(ready, fill)}
             </Button>
           </DisabledHint>
         </DialogFooter>

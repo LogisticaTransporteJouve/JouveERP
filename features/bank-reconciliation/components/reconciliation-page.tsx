@@ -8,10 +8,10 @@ import {
   Link2,
   MoreHorizontal,
   Plus,
+  Settings2,
   Undo2,
   Unlink,
 } from "lucide-react";
-import Link from "next/link";
 import { Suspense, useState } from "react";
 import { toast } from "sonner";
 
@@ -43,7 +43,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ACCOUNT_TYPE_LABEL, isAccountType } from "@/features/accounts/schema";
-import { formatArgentineDate, formatMoneySigned } from "@/lib/format";
+import { ImportDialog } from "@/features/imports/components/import-dialog";
+import { useListParams } from "@/hooks/use-list-params";
+import {
+  formatArgentineDate,
+  formatMoney,
+  formatMoneySigned,
+} from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 import {
   useAcceptSuggestions,
@@ -63,92 +70,146 @@ import {
   MatchLineDialog,
   MatchMovementLinesDialog,
 } from "./line-dialogs";
+import type { ReconciliationGates } from "../lib/gates";
+import {
+  AcceptReadyButton,
+  BankCodesDialog,
+  LineProposalView,
+  useLineProposals,
+  type CodeDraft,
+} from "./statement-coding";
+import { isMonth, monthRange } from "../lib/month";
 
-function monthRange(month: string): { from: string; to: string } {
-  const [y, m] = month.split("-").map(Number);
-  const last = new Date(Date.UTC(y ?? 2000, m ?? 1, 0)).getUTCDate();
-  return {
-    from: `${month}-01`,
-    to: `${month}-${String(last).padStart(2, "0")}`,
-  };
+/** Lists read newest first, as everywhere in the app; the action returns them
+ *  in the bank's order, which the balances need. */
+function newestFirst<T>(rows: readonly T[]): T[] {
+  return [...rows].reverse();
 }
 
 export function ReconciliationPage({
   today,
-  canWrite,
-  canPayTaxes,
-  canImport,
+  initialMonth,
+  gates,
 }: {
   /** The Argentine today, YYYY-MM-DD. */
   today: string;
-  /** transactions:write: match, unmatch, ignore, create. */
-  canWrite: boolean;
-  /** taxes:write too: a debit line can be booked as a tax payment. */
-  canPayTaxes: boolean;
-  /** May import statements (imports:write + transactions:write). */
-  canImport: boolean;
+  /** The month in the URL (`?month=YYYY-MM`), if any. */
+  initialMonth: string | null;
+  gates: ReconciliationGates;
 }) {
   const [accountId, setAccountId] = useState("");
-  const [month, setMonth] = useState(today.slice(0, 7));
-  const { from, to } = monthRange(month);
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Conciliación bancaria
-          </h1>
-          <p className="text-muted-foreground max-w-2xl text-sm">
-            Las líneas del extracto de una cuenta contra sus movimientos de
-            Caja, por mes. Un movimiento conciliado no se edita ni se borra
-            hasta desconciliar su línea.
-          </p>
-        </div>
-        {canImport && (
-          <Button asChild variant="outline">
-            <Link href="/admin/imports">
-              <FileUp className="size-4" />
-              Importar extracto
-            </Link>
-          </Button>
-        )}
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          Conciliación bancaria
+        </h1>
+        <p className="text-muted-foreground max-w-2xl text-sm">
+          Las líneas del extracto de una cuenta contra sus movimientos de Caja,
+          por mes. Un movimiento conciliado no se edita ni se borra hasta
+          desconciliar su línea.
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,20rem)_12rem]">
-        <div className="min-w-0 space-y-1.5">
-          <Label htmlFor="recon-account">Cuenta</Label>
-          <Suspense fallback={<Skeleton className="h-9 w-full" />}>
-            <AccountPicker value={accountId} onChange={setAccountId} />
-          </Suspense>
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="recon-month">Mes</Label>
-          <MonthPicker
-            id="recon-month"
-            value={month}
-            onChange={(value) => {
-              if (/^\d{4}-\d{2}$/.test(value)) setMonth(value);
-            }}
-          />
-        </div>
+      <div className="max-w-80 min-w-0 space-y-1.5">
+        <Label htmlFor="recon-account">Cuenta</Label>
+        <Suspense fallback={<Skeleton className="h-9 w-full" />}>
+          <AccountPicker value={accountId} onChange={setAccountId} />
+        </Suspense>
       </div>
 
       {accountId ? (
-        <Suspense fallback={<Skeleton className="h-96 w-full" />}>
-          <ReconciliationBody
-            accountId={accountId}
-            from={from}
-            to={to}
-            canWrite={canWrite}
-            canPayTaxes={canPayTaxes}
-          />
-        </Suspense>
+        <AccountStatement
+          accountId={accountId}
+          today={today}
+          initialMonth={initialMonth}
+          gates={gates}
+        />
       ) : (
         <p className="text-muted-foreground text-sm">
           Elegí la cuenta que querés conciliar.
         </p>
       )}
+    </div>
+  );
+}
+
+type MonthParams = { month: string };
+
+function monthToUrl(params: MonthParams): Record<string, string | null> {
+  return { month: params.month };
+}
+
+/** One account's statement for a month: its lines against the account's
+ *  movements, and the upload of a new statement into that account. */
+export function AccountStatement({
+  accountId,
+  today,
+  initialMonth,
+  gates,
+}: {
+  accountId: string;
+  /** The Argentine today, YYYY-MM-DD. */
+  today: string;
+  /** The month in the URL (`?month=YYYY-MM`), if any. */
+  initialMonth: string | null;
+  gates: ReconciliationGates;
+}) {
+  const currentMonth = today.slice(0, 7);
+  const { params, update } = useListParams<MonthParams>({
+    initial: { month: initialMonth ?? currentMonth },
+    defaults: { month: currentMonth },
+    toUrl: monthToUrl,
+  });
+  const [importOpen, setImportOpen] = useState(false);
+  const { from, to } = monthRange(params.month);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="w-48 space-y-1.5">
+          <Label htmlFor="recon-month">Mes</Label>
+          <MonthPicker
+            id="recon-month"
+            value={params.month}
+            onChange={(value) => {
+              if (isMonth(value)) update({ month: value });
+            }}
+          />
+        </div>
+        {gates.canImport && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setImportOpen(true)}
+          >
+            <FileUp className="size-4" />
+            Subir extracto
+          </Button>
+        )}
+      </div>
+
+      {gates.canImport && (
+        <ImportDialog
+          key={`${accountId}-${from}`}
+          open={importOpen}
+          onOpenChange={setImportOpen}
+          kinds={["bank_statement"]}
+          canReadAccounts={gates.canReadAccounts}
+          fixedAccountId={accountId}
+          defaultPeriod={{ from, to }}
+        />
+      )}
+
+      <Suspense fallback={<Skeleton className="h-96 w-full" />}>
+        <ReconciliationBody
+          accountId={accountId}
+          from={from}
+          to={to}
+          gates={gates}
+        />
+      </Suspense>
     </div>
   );
 }
@@ -192,16 +253,17 @@ function ReconciliationBody({
   accountId,
   from,
   to,
-  canWrite,
-  canPayTaxes,
+  gates,
 }: {
   accountId: string;
   from: string;
   to: string;
-  canWrite: boolean;
-  canPayTaxes: boolean;
+  gates: ReconciliationGates;
 }) {
+  const { canWrite, canPayTaxes } = gates;
   const { data } = useReconciliation(accountId, from, to);
+  const { proposals } = useLineProposals(accountId, from, to, data.lines);
+  const [codes, setCodes] = useState<{ draft: CodeDraft | null } | null>(null);
   const accept = useAcceptSuggestions();
   const unmatch = useUnmatchLine();
   const restore = useRestoreLine();
@@ -214,6 +276,9 @@ function ReconciliationBody({
   const s = data.summary;
   const lineById = new Map(data.lines.map((l) => [l.id, l]));
   const movementById = new Map(data.movements.map((m) => [m.id, m]));
+  const suggestionByLine = new Map(
+    data.suggestions.map((sg) => [sg.line_id, sg]),
+  );
   const free = data.movements.filter((m) => m.line_ids.length === 0);
   const unmatchedInPeriod = free.filter(
     (m) => m.transaction_date >= from && m.transaction_date <= to,
@@ -374,14 +439,44 @@ function ReconciliationBody({
       )}
 
       <section className="space-y-2">
-        <h2 className="text-base font-semibold">Extracto</h2>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-base font-semibold">Extracto</h2>
+          <div className="flex flex-wrap gap-2">
+            {canWrite && (
+              <AcceptReadyButton lines={data.lines} proposals={proposals} />
+            )}
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => setCodes({ draft: null })}
+            >
+              <Settings2 className="size-4" />
+              Códigos del banco
+            </Button>
+          </div>
+        </div>
+        {codes && (
+          <BankCodesDialog
+            accountId={accountId}
+            from={from}
+            to={to}
+            gates={gates}
+            open
+            onOpenChange={(o) => {
+              if (!o) setCodes(null);
+            }}
+            initialDraft={codes.draft}
+          />
+        )}
         <div className="overflow-x-auto rounded-md border">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead className="w-28">Fecha</TableHead>
                 <TableHead>Descripción</TableHead>
-                <TableHead className="text-right">Importe</TableHead>
+                <TableHead className="text-right">Debe</TableHead>
+                <TableHead className="text-right">Haber</TableHead>
                 <TableHead className="text-right">Saldo</TableHead>
                 <TableHead>Estado</TableHead>
                 {canWrite && <TableHead className="w-12" />}
@@ -391,14 +486,14 @@ function ReconciliationBody({
               {data.lines.length === 0 && (
                 <TableRow>
                   <TableCell
-                    colSpan={canWrite ? 6 : 5}
+                    colSpan={canWrite ? 7 : 6}
                     className="text-muted-foreground text-center text-sm"
                   >
                     No hay líneas de extracto importadas para este mes.
                   </TableCell>
                 </TableRow>
               )}
-              {data.lines.map((line) => (
+              {newestFirst(data.lines).map((line) => (
                 <TableRow key={line.id}>
                   <TableCell className="align-top text-sm whitespace-nowrap">
                     {formatArgentineDate(line.line_date)}
@@ -408,8 +503,32 @@ function ReconciliationBody({
                     {line.reference && (
                       <span className="text-muted-foreground block text-xs">
                         Ref. {line.reference}
+                        {line.bank_code ? ` · Cód. ${line.bank_code}` : ""}
                       </span>
                     )}
+                    {line.status === "open" &&
+                      canWrite &&
+                      suggestionByLine.has(line.id) && (
+                        <SuggestionInline
+                          movement={movementById.get(
+                            suggestionByLine.get(line.id)!.transaction_id,
+                          )}
+                          pending={accept.isPending}
+                          onAccept={() =>
+                            acceptAll([suggestionByLine.get(line.id)!])
+                          }
+                        />
+                      )}
+                    {line.status === "open" &&
+                      !(canWrite && suggestionByLine.has(line.id)) && (
+                        <LineProposalView
+                          line={line}
+                          proposal={proposals.get(line.id)}
+                          accountId={accountId}
+                          gates={gates}
+                          onConfigure={(draft) => setCodes({ draft })}
+                        />
+                      )}
                     {line.transaction_ids.map((id) => (
                       <MatchedMovement
                         key={id}
@@ -418,9 +537,11 @@ function ReconciliationBody({
                       />
                     ))}
                   </TableCell>
-                  <TableCell className="text-right align-top tabular-nums">
-                    {money(line.amount)}
-                  </TableCell>
+                  <DebitCreditCells
+                    amount={line.amount}
+                    currency={currency}
+                    className="align-top"
+                  />
                   <TableCell className="text-muted-foreground text-right align-top tabular-nums">
                     {line.balance === null ? "—" : money(line.balance)}
                   </TableCell>
@@ -541,7 +662,8 @@ function ReconciliationBody({
               <TableRow>
                 <TableHead className="w-28">Fecha</TableHead>
                 <TableHead>Descripción</TableHead>
-                <TableHead className="text-right">Importe</TableHead>
+                <TableHead className="text-right">Debe</TableHead>
+                <TableHead className="text-right">Haber</TableHead>
                 {canWrite && <TableHead className="w-12" />}
               </TableRow>
             </TableHeader>
@@ -549,14 +671,14 @@ function ReconciliationBody({
               {unmatchedInPeriod.length === 0 && (
                 <TableRow>
                   <TableCell
-                    colSpan={canWrite ? 4 : 3}
+                    colSpan={canWrite ? 5 : 4}
                     className="text-muted-foreground text-center text-sm"
                   >
                     Todos los movimientos del mes están conciliados.
                   </TableCell>
                 </TableRow>
               )}
-              {unmatchedInPeriod.map((m) => (
+              {newestFirst(unmatchedInPeriod).map((m) => (
                 <TableRow key={m.id}>
                   <TableCell className="text-sm whitespace-nowrap">
                     {formatArgentineDate(m.transaction_date)}
@@ -564,9 +686,10 @@ function ReconciliationBody({
                   <TableCell className="text-sm">
                     {m.description || "(sin descripción)"}
                   </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {money(m.signed_amount)}
-                  </TableCell>
+                  <DebitCreditCells
+                    amount={m.signed_amount}
+                    currency={currency}
+                  />
                   {canWrite && (
                     <TableCell className="text-right">
                       <IconButton
@@ -645,5 +768,58 @@ function MatchedMovement({
         ? ` · partido en ${movement.line_ids.length} líneas`
         : ""}
     </span>
+  );
+}
+
+/** An open line that already has a matching movement: accept it here instead
+ *  of creating another one. */
+function SuggestionInline({
+  movement,
+  pending,
+  onAccept,
+}: {
+  movement: { description: string | null } | undefined;
+  pending: boolean;
+  onAccept: () => void;
+}) {
+  if (!movement) return null;
+  return (
+    <span className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+      Coincide con {movement.description || "un movimiento"}
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        className="h-7"
+        disabled={pending}
+        onClick={onAccept}
+      >
+        <Check className="size-3.5" />
+        Conciliar
+      </Button>
+    </span>
+  );
+}
+
+/** A signed amount as the books read it: money in on Debe, money out on Haber. */
+function DebitCreditCells({
+  amount,
+  currency,
+  className,
+}: {
+  amount: number;
+  currency: string;
+  className?: string;
+}) {
+  const cell = cn("text-right tabular-nums", className);
+  return (
+    <>
+      <TableCell className={cell}>
+        {amount > 0 ? formatMoney(amount, currency) : ""}
+      </TableCell>
+      <TableCell className={cell}>
+        {amount < 0 ? formatMoney(-amount, currency) : ""}
+      </TableCell>
+    </>
   );
 }

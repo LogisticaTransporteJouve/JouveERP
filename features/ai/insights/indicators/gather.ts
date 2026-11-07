@@ -332,6 +332,7 @@ async function bankMatchHint(
         amount: l.amount,
         balance: null,
         reference: l.reference,
+        bank_code: null,
         status: "open" as const,
         ignore_reason: null,
         transaction_ids: [],

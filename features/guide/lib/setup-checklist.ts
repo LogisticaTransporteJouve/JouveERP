@@ -33,7 +33,7 @@ export const SETUP_ITEMS: readonly SetupItem[] = [
     label: "Cuentas de caja y banco",
     description:
       "Alta de cada cuenta bancaria, caja y billetera con su moneda. Las de cheques se usan para la cartera.",
-    href: "/accounts",
+    href: "/treasury",
     permission: "accounts:write",
   },
   {
@@ -64,8 +64,8 @@ export const SETUP_ITEMS: readonly SetupItem[] = [
     key: "opening_balances",
     label: "Saldos iniciales",
     description:
-      "Saldo de arranque de cada cuenta (en Cuentas) y de cada cliente y proveedor (en su ficha, pestaña Cuenta corriente) a la fecha de corte.",
-    href: "/accounts",
+      "Saldo de arranque de cada cuenta (en Tesorería) y de cada cliente y proveedor (en su ficha, pestaña Cuenta corriente) a la fecha de corte.",
+    href: "/treasury",
     permission: "opening_balances:write",
   },
   {

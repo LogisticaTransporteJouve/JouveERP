@@ -9,6 +9,7 @@ import {
 import { useMemo } from "react";
 
 import { agingKeys } from "@/features/aging/lib/aging-keys";
+import { reconciliationKeys } from "@/features/bank-reconciliation/lib/reconciliation-keys";
 import { checksKeys } from "@/features/checks/lib/checks-keys";
 import { clientsKeys } from "@/features/clients/lib/clients-keys";
 import { driverSettlementsKeys } from "@/features/driver-settlements/lib/driver-settlements-keys";
@@ -163,6 +164,8 @@ const RECEIPT_EFFECT_KEYS = [
   ...LEDGER_KEYS,
   // A rendición lists its receipts and whether they were cancelled.
   driverSettlementsKeys.all,
+  // A receipt made from a statement line shows there as a match.
+  reconciliationKeys.all,
 ] as const;
 
 export function useCreateReceipt() {

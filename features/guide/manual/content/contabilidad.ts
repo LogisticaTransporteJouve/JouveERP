@@ -1025,7 +1025,7 @@ export const accountingPage: GuidePage = {
       permission: "accounting:read",
       intro: [
         "Los saldos contables hasta el cierre de un período, calculados desde los asientos, en tres pestañas: {{Balance de saldos}}, {{Estado de Resultados}} y {{Balance General}}.",
-        "Filtros: {{Período de corte}} (por defecto el mes actual), {{Desde (opcional)}} para ver solo los movimientos de un rango ({{Limpiar rango}} lo saca) y, si hay centros de costo, {{Centro de costo}}.",
+        "Filtros: {{Período de corte}} (por defecto el mes actual), {{Desde (opcional)}} para ver solo los movimientos de un rango ({{Limpiar rango}} lo saca).",
         "Atajos: {{Ejercicio actual}} pone el rango desde el primer mes del ejercicio en curso hasta el mes actual; {{Ejercicio anterior}}, el ejercicio anterior completo. Debajo de los filtros, una línea dice qué suma cada pestaña (por ejemplo, «resultados del ejercicio 2025/26 (oct 2025 – mar 2026)»).",
       ],
       screens: [
@@ -1035,7 +1035,6 @@ export const accountingPage: GuidePage = {
           toolbar: [
             { label: "Período de corte", kind: "picker", value: "oct 2026" },
             { label: "Desde (opcional)", kind: "input" },
-            { label: "Centro de costo", kind: "select", value: "Todos" },
           ],
           actions: [
             { label: "Ejercicio actual", variant: "outline" },
@@ -1086,7 +1085,7 @@ export const accountingPage: GuidePage = {
           permission: "accounting:read",
           steps: [
             "Entrá a [[/accounting/balance]] y elegí el {{Período de corte}}.",
-            "Opcional: elegí {{Desde (opcional)}} para ver solo los movimientos del rango, o un {{Centro de costo}}.",
+            "Opcional: elegí {{Desde (opcional)}} para ver solo los movimientos del rango.",
             "En la pestaña {{Balance de saldos}}, revisá el aviso de arriba: {{Balance balanceado}} si Σ Debe = Σ Haber, o {{Balance DESBALANCEADO}} con la diferencia.",
           ],
           after: [
@@ -1157,8 +1156,8 @@ export const accountingPage: GuidePage = {
       permission: "management:read",
       intro: [
         "Fiscal + interno: ¿la operación deja plata? Es una vista para uso interno ({{Uso interno}}): no es el EERR fiscal y no se presenta a bancos, ARCA ni terceros (para eso, [[#balance-eerr]]). El contador externo no la ve.",
-        "Filtros: {{Año fiscal}} (los últimos cinco, según el inicio del ejercicio de [[/accounting/settings]]), {{Base}} ({{Devengado}} o {{Percibido}}), {{Ajustado por inflación}} y {{Centro de costo}} ({{Todos}}, uno, o {{Sin centro}}). El recuadro {{Limitaciones de esta versión}} explica qué no se calcula todavía.",
-        "La pantalla muestra, en orden: los indicadores ({{Margen operativo %}}, {{Resultado operativo (EBITDA aprox.)}} y {{Generación de caja}}, contra los mismos meses del año anterior), la {{Cascada del año fiscal}} con el {{Comparativo con el año anterior}}, la tabla {{Mes a mes}}, {{Por centro de costo}}, {{Margen por camión}}, {{Sin clasificar}} y {{Sueldos: pagado en el mes vs. liquidado del período}}.",
+        "Filtros: {{Año fiscal}} (los últimos cinco, según el inicio del ejercicio de [[/accounting/settings]]), {{Base}} ({{Devengado}} o {{Percibido}}) y {{Ajustado por inflación}}. El recuadro {{Limitaciones de esta versión}} explica qué no se calcula todavía.",
+        "La pantalla muestra, en orden: los indicadores ({{Margen operativo %}}, {{Resultado operativo (EBITDA aprox.)}} y {{Generación de caja}}, contra los mismos meses del año anterior), la {{Cascada del año fiscal}} con el {{Comparativo con el año anterior}}, la tabla {{Mes a mes}}, {{Margen por camión}}, {{Sin clasificar}} y {{Sueldos: pagado en el mes vs. liquidado del período}}.",
       ],
       screens: [
         {
@@ -1168,7 +1167,6 @@ export const accountingPage: GuidePage = {
             { label: "Año fiscal", kind: "select", value: "2025/26" },
             { label: "Base", kind: "select", value: "Devengado" },
             { label: "Ajustado por inflación", kind: "checkbox" },
-            { label: "Centro de costo", kind: "select", value: "Todos" },
           ],
           stats: [
             { label: "Margen operativo %", value: "~18,40 %" },
@@ -1226,7 +1224,6 @@ export const accountingPage: GuidePage = {
           steps: [
             "Entrá a [[/management]]. Al abrir muestra el año fiscal actual, en {{Devengado}} y sin ajuste por inflación.",
             "Elegí {{Año fiscal}}, {{Base}} y, si querés, marcá {{Ajustado por inflación}}.",
-            "Para ver un solo centro de costo, elegilo en {{Centro de costo}} (o hacé clic en su nombre en la tabla {{Por centro de costo}}): la cascada, los indicadores y el mes a mes pasan a ser de ese centro.",
             "En {{Mes a mes}}, elegí en {{Meses en}} si las columnas de los meses muestran {{Total}}, {{Fiscal}} o {{Interno}}. Las tres columnas finales siempre muestran los totales del año por lado.",
           ],
           after: [
@@ -1262,12 +1259,12 @@ export const accountingPage: GuidePage = {
             "Hacé clic en un documento para abrirlo (solo si tenés acceso a su módulo).",
           ],
           after: [
-            "Respeta el filtro de centro de costo. Los importes son nominales aunque esté marcado {{Ajustado por inflación}}. Si hay muchos documentos se ven los 500 de mayor importe.",
+            "Los importes son nominales aunque esté marcado {{Ajustado por inflación}}. Si hay muchos documentos se ven los 500 de mayor importe.",
           ],
           errors: [
             {
               message: "No se pudo leer el detalle.",
-              fix: "Cerrá el diálogo y probá de nuevo; si son demasiados documentos, elegí un mes o un centro de costo.",
+              fix: "Cerrá el diálogo y probá de nuevo; si son demasiados documentos, elegí un mes.",
             },
           ],
           related: ["consultar-resultado-de-gestion"],
@@ -1278,7 +1275,7 @@ export const accountingPage: GuidePage = {
           title: "Exportar la tabla mes a mes",
           permission: "management:read",
           steps: [
-            "En [[/management]], dejá los filtros como querés exportarlos (año, base, inflación, centro y {{Meses en}}).",
+            "En [[/management]], dejá los filtros como querés exportarlos (año, base, inflación y {{Meses en}}).",
             "En el encabezado de {{Mes a mes}}, hacé clic en {{CSV}} o en {{Excel}}.",
           ],
           after: [
@@ -1363,11 +1360,11 @@ export const accountingPage: GuidePage = {
           permission: "management:read",
           steps: [
             "En [[/management]], bajá hasta {{Margen por camión}}.",
-            "Cada fila es un camión: viajes, ingreso, costo de viajes, combustible, mantenimiento, lo cargado con el centro de costo del camión, neto y margen.",
+            "Cada fila es un camión: viajes, ingreso, costo de viajes, combustible, mantenimiento, neto y margen.",
           ],
           after: [
             "Siempre es el año fiscal completo, devengado y sin ajuste por inflación, aunque arriba se haya elegido otra base.",
-            "Un camión sin centro de costo vinculado solo lleva sus viajes, combustible y mantenimiento: vinculalo en [[#editar-centro-de-costo]]. Los costos de centros que no son de un camión van aparte, sin repartir.",
+            "Lo que no es de un camión va aparte, sin repartir.",
             "Si un camión tiene cargas sin facturar, su neto dice «pendiente de facturar»: no es definitivo.",
           ],
           errors: [
@@ -1376,231 +1373,8 @@ export const accountingPage: GuidePage = {
               fix: "Actualizá la página.",
             },
           ],
-          related: ["editar-centro-de-costo", "consultar-resultado-de-gestion"],
+          related: ["consultar-resultado-de-gestion"],
           keywords: ["rentabilidad por camión", "margen camión", "flota"],
-        },
-      ],
-    },
-
-    // ── Centros de costo ──────────────────────────────────────────────────
-    {
-      id: "centros-de-costo",
-      title: "Centros de costo",
-      menuPath: "Contabilidad › Centros de costo",
-      routes: ["/accounting/cost-centers"],
-      permission: "accounting:read",
-      intro: [
-        "Una dimensión opcional para clasificar movimientos y ver el estado de resultados por flota, proyecto u obra. El centro se elige al cargar compras, egresos y otros documentos; [[/accounting/balance]] y [[/management]] filtran por él.",
-        "La tabla muestra {{Código}}, {{Nombre}}, {{Descripción}}, {{Camión}} vinculado y {{Estado}} ({{Activo}} o {{Inactivo}}).",
-      ],
-      screens: [
-        {
-          kind: "page",
-          title: "Centros de costo",
-          actions: [
-            { label: "Exportar", variant: "outline" },
-            { label: "Nuevo centro", variant: "primary" },
-          ],
-          table: {
-            columns: ["Código", "Nombre", "Descripción", "Camión", "Estado"],
-            rows: [
-              ["~FLOTA", "~Flota de camiones", "—", "—", "~Activo"],
-              ["~CAM-AB123CD", "~Scania AB123CD", "—", "~AB123CD", "~Activo"],
-            ],
-            rowMenu: true,
-          },
-        },
-      ],
-      tasks: [
-        {
-          id: "crear-centro-de-costo",
-          title: "Crear un centro de costo",
-          permission: "accounting:write",
-          screens: [
-            {
-              kind: "dialog",
-              title: "Nuevo centro de costo",
-              description:
-                "Dimensión contable para clasificar gastos e ingresos por flota, proyecto u obra.",
-              fields: [
-                {
-                  label: "Código",
-                  kind: "input",
-                  value: "CAM-AB123CD",
-                  marker: 2,
-                },
-                {
-                  label: "Nombre",
-                  kind: "input",
-                  value: "Scania AB123CD",
-                  marker: 2,
-                },
-                {
-                  label: "Descripción",
-                  kind: "textarea",
-                  wide: true,
-                  marker: 2,
-                },
-                {
-                  label: "Camión",
-                  kind: "select",
-                  value: "AB123CD",
-                  marker: 2,
-                },
-                { label: "Activo", kind: "switch", value: "Sí", marker: 2 },
-              ],
-              footer: [
-                { label: "Cancelar", variant: "ghost" },
-                { label: "Crear", variant: "primary", marker: 3 },
-              ],
-            },
-          ],
-          steps: [
-            "En [[/accounting/cost-centers]], hacé clic en {{Nuevo centro}}.",
-            {
-              text: "Completá los datos:",
-              substeps: [
-                "{{Código}}: al menos 2 caracteres, solo mayúsculas, números, `_` y `-` (lo que escribís pasa solo a mayúsculas). No se puede cambiar después.",
-                "{{Nombre}}: obligatorio, al menos 2 caracteres.",
-                "{{Descripción}}: opcional.",
-                "{{Camión}}: {{Sin camión}} o el camión cuyo costo representa. Lo cargado con este centro cuenta como costo de ese camión en el margen por camión de Gestión. Un centro por camión.",
-                "{{Activo}}: prendido por defecto.",
-              ],
-            },
-            "Hacé clic en {{Crear}}.",
-          ],
-          after: [
-            "El centro queda disponible para elegir al cargar documentos y en los filtros de balance y gestión.",
-          ],
-          errors: [
-            {
-              message: "Solo MAYÚSCULAS, números, _ y -.",
-              fix: "Sacá espacios, acentos y otros signos del código.",
-            },
-            {
-              message: "Mínimo 2 caracteres.",
-              fix: "Usá un código de al menos 2 caracteres.",
-            },
-            {
-              message: "Nombre requerido.",
-              fix: "Escribí un nombre de al menos 2 caracteres.",
-            },
-            {
-              message: "Ya existe un centro con ese código.",
-              fix: "Elegí otro código.",
-            },
-            {
-              message: "Ese camión ya está vinculado a otro centro de costo.",
-              fix: "Desvinculá el camión del otro centro o usá ese centro.",
-            },
-            {
-              message: "No tenés permiso.",
-              fix: "Pedíselo a alguien con permiso de escritura en Contabilidad.",
-            },
-          ],
-          related: ["editar-centro-de-costo", "ver-margen-por-camion"],
-          keywords: ["nuevo centro", "centro de costo", "imputar por camión"],
-        },
-        {
-          id: "editar-centro-de-costo",
-          title: "Editar, desactivar o vincular un camión a un centro de costo",
-          permission: "accounting:write",
-          screens: [
-            {
-              kind: "menu",
-              trigger: "⋯",
-              items: [
-                { label: "Editar", marker: 1 },
-                { label: "Borrar", destructive: true },
-              ],
-            },
-          ],
-          steps: [
-            "En [[/accounting/cost-centers]], abrí el menú ⋯ del centro y elegí {{Editar}}.",
-            "Cambiá {{Nombre}}, {{Descripción}}, {{Camión}} o {{Activo}}. El código no se puede cambiar.",
-            "Hacé clic en {{Guardar}}.",
-          ],
-          after: [
-            "Desactivar un centro conserva sus movimientos. Vincular un camión hace que lo cargado con el centro sume en su fila de [[#ver-margen-por-camion]].",
-          ],
-          errors: [
-            {
-              message: "Ese camión ya está vinculado a otro centro de costo.",
-              fix: "Desvinculá el camión del otro centro primero.",
-            },
-          ],
-          related: ["crear-centro-de-costo", "borrar-centro-de-costo"],
-          keywords: ["desactivar centro", "vincular camión"],
-        },
-        {
-          id: "borrar-centro-de-costo",
-          title: "Borrar un centro de costo",
-          permission: "accounting:write",
-          steps: [
-            "En [[/accounting/cost-centers]], abrí el menú ⋯ del centro y elegí {{Borrar}}.",
-            "Confirmá con {{Borrar}}.",
-          ],
-          after: [
-            "Solo se puede borrar un centro que no se usó en ningún documento, movimiento ni asiento.",
-          ],
-          errors: [
-            {
-              message:
-                "El centro de costo está en uso en comprobantes, movimientos o asientos. Desactivalo en lugar de borrarlo.",
-              fix: "Desactivalo desde {{Editar}}.",
-            },
-          ],
-          related: ["editar-centro-de-costo"],
-          keywords: ["eliminar centro de costo"],
-        },
-        {
-          id: "exportar-centros-de-costo",
-          title: "Exportar los centros de costo",
-          permission: "accounting:read",
-          screens: [
-            {
-              kind: "dialog",
-              title: "Exportar",
-              description:
-                "Elegí el formato y el rango de fechas. También podés exportar todo el historial.",
-              fields: [
-                { label: "PDF", kind: "checkbox", value: "Sí", marker: 2 },
-                { label: "Excel", kind: "checkbox", marker: 2 },
-                {
-                  label: "Desde",
-                  kind: "date",
-                  value: "01/11/2026",
-                  marker: 2,
-                },
-                {
-                  label: "Hasta",
-                  kind: "date",
-                  value: "05/11/2026",
-                  marker: 2,
-                },
-              ],
-              footer: [
-                { label: "Todo el historial", variant: "outline", marker: 3 },
-                { label: "Descargar período", variant: "primary", marker: 3 },
-              ],
-            },
-          ],
-          steps: [
-            "En [[/accounting/cost-centers]], hacé clic en {{Exportar}}.",
-            "Elegí {{PDF}} o {{Excel}}.",
-            "Hacé clic en {{Todo el historial}} para exportar todos los centros. {{Descargar período}} exporta solo los centros creados entre {{Desde}} y {{Hasta}} (por defecto, del 1 del mes a hoy).",
-          ],
-          after: [
-            "El listado trae {{Código}}, {{Nombre}}, {{Descripción}} y {{Estado}} (no el camión vinculado). El PDF se abre en otra pestaña; el Excel se descarga.",
-          ],
-          errors: [
-            {
-              message: "No se pudo generar el Excel.",
-              fix: "Probá de nuevo.",
-            },
-          ],
-          related: ["exportar-cotizaciones"],
-          keywords: ["exportar centros", "listado de centros"],
         },
       ],
     },
@@ -2533,7 +2307,6 @@ export const accountingPage: GuidePage = {
               fix: "Probá de nuevo.",
             },
           ],
-          related: ["exportar-centros-de-costo"],
           keywords: ["exportar dólar", "histórico cotizaciones"],
         },
       ],

@@ -895,6 +895,27 @@ const AUDIT_ACTIONS: Record<string, Spec> = {
     group: "treasury",
     say: (c) => `ignoró una línea del extracto bancario${quoted(c.p.reason)}`,
   },
+  "bank_statement_code.saved": {
+    group: "treasury",
+    say: (c) =>
+      `configuró el código ${str(c.p.bank_code) ?? ""} del extracto bancario`.replace(
+        "  ",
+        " ",
+      ),
+  },
+  "bank_statement_code.deleted": {
+    group: "treasury",
+    say: (c) =>
+      `borró el código ${str(c.p.bank_code) ?? ""} del extracto bancario`.replace(
+        "  ",
+        " ",
+      ),
+  },
+  "bank_statement_code.preset": {
+    group: "treasury",
+    say: (c) =>
+      `cargó los códigos del banco de la cuenta (${num(c.p.inserted) ?? 0} nuevos)`,
+  },
   "bank_statement_line.restored": {
     group: "treasury",
     say: () => "volvió a pendiente una línea del extracto bancario",
@@ -1691,7 +1712,7 @@ const AUDIT_ACTIONS: Record<string, Spec> = {
   "import_run.committed": {
     group: "files",
     say: (c) =>
-      `importó ${label(IMPORT_KIND_LABELS, c.p.kind) || "datos"} desde${quoted(c.p.file_name) || " un archivo"} (${count(num(c.p.inserted), "fila nueva", "filas nuevas")})`,
+      `importó ${label(IMPORT_KIND_LABELS, c.p.kind) || "datos"} desde${quoted(c.p.file_name) || " un archivo"} (${count(num(c.p.inserted), "fila nueva", "filas nuevas")}${num(c.p.filled) ? `, ${count(num(c.p.filled), "código completado", "códigos completados")}` : ""})`,
   },
   "import_run.undone": {
     group: "files",

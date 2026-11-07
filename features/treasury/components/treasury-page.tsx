@@ -1,28 +1,13 @@
 "use client";
 
 import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
-import Link from "next/link";
-import { useMemo, useState } from "react";
 
-import { ListSearch, ListToolbar } from "@/components/list-toolbar";
 import { ReadError } from "@/components/read-error";
 import { Badge } from "@/components/ui/badge";
-import { DataTable, type ColumnDef } from "@/components/ui/data-table";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmployeeCashDialog } from "@/features/hr/components/employee-cash-dialog";
 import { PayDialog } from "@/features/payment-orders/components/pay-dialog";
 import { CollectDialog } from "@/features/receipts/components/collect-dialog";
-import {
-  ACCOUNT_TYPE_LABEL,
-  type AccountType,
-} from "@/features/accounts/schema";
 import {
   formatArgentineDate,
   formatMoney,
@@ -30,14 +15,7 @@ import {
 } from "@/lib/format";
 
 import { useTreasurySummary } from "../hooks/use-treasury";
-import {
-  isCheckAccountType,
-  isLiquidAccountType,
-  type TreasuryAccountRow,
-  type TreasuryCurrency,
-} from "../schema";
-
-const ANY = "__any__";
+import type { TreasuryCurrency } from "../schema";
 
 /** `canCollect` / `canPay`: receipts:write / payment_orders:write, for the
  *  "Cobrar a cliente" / "Pagar a proveedor" entry points; `canAdvance`:
@@ -55,124 +33,14 @@ export function TreasuryPage({
   canEditRetentions?: boolean;
 }) {
   const query = useTreasurySummary();
-  const [search, setSearch] = useState("");
-  const [currencyFilter, setCurrencyFilter] = useState<string>(ANY);
-  const [typeFilter, setTypeFilter] = useState<string>(ANY);
-
-  const filtered = useMemo(() => {
-    const rows = query.data?.accounts ?? [];
-    const term = search.trim().toLowerCase();
-    return rows.filter((r) => {
-      if (currencyFilter !== ANY && r.currency !== currencyFilter) return false;
-      if (typeFilter !== ANY && r.type !== typeFilter) return false;
-      if (term && !r.name.toLowerCase().includes(term)) return false;
-      return true;
-    });
-  }, [query.data, search, currencyFilter, typeFilter]);
-
-  const columns = useMemo<ColumnDef<TreasuryAccountRow>[]>(
-    () => [
-      {
-        accessorKey: "name",
-        header: "Cuenta",
-        cell: ({ row }) => (
-          <Link
-            href={`/transactions?account=${row.original.id}`}
-            className="font-medium hover:underline"
-            title="Ver movimientos y registrar nuevo"
-          >
-            {row.original.name}
-          </Link>
-        ),
-      },
-      {
-        accessorKey: "type",
-        header: "Tipo",
-        cell: ({ row }) => (
-          <Badge variant="outline" className="text-xs font-normal">
-            {ACCOUNT_TYPE_LABEL[row.original.type]}
-          </Badge>
-        ),
-      },
-      {
-        accessorKey: "currency",
-        header: "Moneda",
-        cell: ({ row }) => (
-          <span className="text-xs">{row.original.currency}</span>
-        ),
-      },
-      {
-        accessorKey: "balance_now",
-        header: "Saldo actual",
-        meta: { align: "right" },
-        cell: ({ row }) => {
-          const acc = row.original;
-          const isLiquid = isLiquidAccountType(acc.type);
-          const isCheck = isCheckAccountType(acc.type);
-          return (
-            <span
-              className={`font-mono ${isCheck ? "text-muted-foreground" : ""} ${
-                !isLiquid && !isCheck ? "text-muted-foreground" : ""
-              }`}
-            >
-              {formatMoneyWithCode(acc.balance_now, acc.currency)}
-            </span>
-          );
-        },
-      },
-      {
-        id: "delta",
-        header: "Cambio del mes",
-        enableSorting: false,
-        meta: { align: "right" },
-        cell: ({ row }) => {
-          const acc = row.original;
-          const delta = acc.balance_now - acc.balance_prev_eom;
-          if (Math.abs(delta) < 0.01) {
-            return <span className="text-xs text-muted-foreground">—</span>;
-          }
-          return (
-            <Badge
-              variant="secondary"
-              className={`gap-1 font-mono text-[10px] ${
-                delta > 0
-                  ? "bg-muted text-muted-foreground dark:text-muted-foreground"
-                  : "bg-muted text-foreground dark:text-foreground"
-              }`}
-            >
-              {delta > 0 ? (
-                <ArrowUpRight className="size-3" />
-              ) : (
-                <ArrowDownRight className="size-3" />
-              )}
-              {delta > 0 ? "+" : ""}
-              {formatMoney(delta, acc.currency)}
-            </Badge>
-          );
-        },
-      },
-      {
-        accessorKey: "last_movement_date",
-        header: "Último mov.",
-        meta: { cellClassName: "text-xs text-muted-foreground" },
-        cell: ({ row }) =>
-          row.original.last_movement_date
-            ? formatArgentineDate(row.original.last_movement_date)
-            : "—",
-      },
-    ],
-    [],
-  );
-
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Tesorería</h1>
           <p className="text-sm text-muted-foreground">
-            Caja real de todos los canales. Liquidez actual por moneda y por
-            cuenta. Saldos calculados en vivo desde transacciones; el delta
-            compara con el cierre del mes anterior.
+            Liquidez actual por moneda y cheques en cartera, en vivo desde los
+            movimientos; el cambio compara con el cierre del mes anterior.
           </p>
         </div>
         {(canCollect || canPay || canAdvance) && (
@@ -182,6 +50,7 @@ export function TreasuryPage({
             )}
             {canPay && <PayDialog />}
             {canAdvance && <EmployeeCashDialog kind="advance" />}
+            {canAdvance && <EmployeeCashDialog kind="loan" />}
           </div>
         )}
       </div>
@@ -257,74 +126,6 @@ export function TreasuryPage({
               </p>
             </div>
           )}
-
-          {/* Filters + table */}
-          <ListToolbar
-            isFiltered={
-              search.trim() !== "" ||
-              currencyFilter !== ANY ||
-              typeFilter !== ANY
-            }
-            onClear={() => {
-              setSearch("");
-              setCurrencyFilter(ANY);
-              setTypeFilter(ANY);
-            }}
-            actions={
-              query.data && (
-                <span className="text-sm text-muted-foreground">
-                  {filtered.length} de {query.data.accounts.length}
-                </span>
-              )
-            }
-          >
-            <ListSearch
-              placeholder="Buscar cuenta"
-              value={search}
-              onChange={setSearch}
-            />
-            <Select value={currencyFilter} onValueChange={setCurrencyFilter}>
-              <SelectTrigger className="w-[180px]" aria-label="Moneda">
-                <SelectValue placeholder="Moneda" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ANY}>Todas las monedas</SelectItem>
-                <SelectItem value="ARS">ARS</SelectItem>
-                <SelectItem value="USD">USD</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="w-[220px]" aria-label="Tipo">
-                <SelectValue placeholder="Tipo" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ANY}>Todos los tipos</SelectItem>
-                {(
-                  [
-                    "bank",
-                    "cash",
-                    "wallet",
-                    "investment",
-                    "checks",
-                    "echeq",
-                  ] as AccountType[]
-                ).map((t) => (
-                  <SelectItem key={t} value={t}>
-                    {ACCOUNT_TYPE_LABEL[t]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </ListToolbar>
-
-          <DataTable
-            columns={columns}
-            data={filtered}
-            getRowId={(acc) => acc.id}
-            isLoading={query.isLoading}
-            skeletonRows={3}
-            emptyMessage="Sin cuentas para el filtro actual."
-          />
         </>
       )}
     </div>

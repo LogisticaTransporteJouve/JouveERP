@@ -32,7 +32,7 @@ export function ImportRunsTable({
   async function undo(run: ImportRunRow) {
     const ok = await confirm({
       title: "Deshacer la importación",
-      description: `Se borran las ${run.inserted_rows} filas que importó ${run.file_name}. Solo se puede si nadie las editó ni las usa en otro lado.`,
+      description: `Se borran las ${run.inserted_rows} filas que importó ${run.file_name}. Solo se puede si nadie las editó ni las usa en otro lado.${run.filled_rows > 0 ? " Los códigos del banco que completó quedan." : ""}`,
       confirmLabel: "Deshacer",
       tone: "destructive",
     });
@@ -85,6 +85,14 @@ export function ImportRunsTable({
               </TableCell>
               <TableCell className="text-right text-sm">
                 {run.inserted_rows}
+                {run.filled_rows > 0 && (
+                  <span className="text-muted-foreground block text-xs">
+                    {run.filled_rows}{" "}
+                    {run.filled_rows === 1
+                      ? "código completado"
+                      : "códigos completados"}
+                  </span>
+                )}
               </TableCell>
               <TableCell className="text-right text-sm">
                 {run.skipped_rows}

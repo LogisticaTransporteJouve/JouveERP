@@ -20,6 +20,9 @@ const DELEGATES: Record<string, string | null> = {
   // Passes the active channels to the bulk payment dialog.
   "features/hr/components/payroll-period-grid.tsx":
     "features/hr/components/bulk-payroll-payment-dialog.tsx",
+  // Picks the fiscal channel for one-click accepts and the receipt form.
+  "features/bank-reconciliation/components/statement-coding.tsx":
+    "features/receipts/components/receipt-form.tsx",
   // A list's channel labels, under the layout's banner (no dialog).
   "features/purchase-invoices/components/purchase-invoices-table.tsx": null,
 };

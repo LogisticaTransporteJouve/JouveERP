@@ -1,0 +1,123 @@
+// A loan's cuotas as the bank lists them, read from text pasted from its home
+// banking, or computed with the French system from the TNA. Pure, no DB.
+
+import { addMonthsClamped } from "./amortization";
+
+export type PlanInstallment = {
+  number: number;
+  due_date: string;
+  /** What the bank debits: capital + interest + IVA + perception + other. */
+  amount: number;
+  capital: number;
+  interest: number;
+  iva: number;
+  perception: number;
+  other: number;
+  /** The bank lists it as paid. */
+  paid: boolean;
+};
+
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
+function arAmount(text: string): number {
+  return Number(text.replace(/[$\s.]/g, "").replace(",", "."));
+}
+
+function isoDate(ddmmyyyy: string): string {
+  const [d, m, y] = ddmmyyyy.split("/");
+  return `${y}-${m}-${d}`;
+}
+
+const MONEY = String.raw`\$?\s*-?[\d.]+,\d{2}`;
+
+// Banco Macro's «Plan de cuotas»: Num. de cuota, Vencimiento, Total a pagar,
+// Capital, Otro capital, Intereses, Seguro, Otros rubros, IVA, Estado.
+const MACRO_ROW = new RegExp(
+  String.raw`(?:^|\s)(\d{1,3})\s+(\d{2}/\d{2}/\d{4})` +
+    `((?:\\s+${MONEY}){7})` +
+    String.raw`\s*(Pagada|Vencida|Vence el\s*\d{2}/\d{2}/\d{4}|Pendiente)?`,
+  "gi",
+);
+
+/** The cuotas in the pasted text, or an error to show. */
+export function parseBankPlan(
+  text: string,
+): { ok: true; rows: PlanInstallment[] } | { ok: false; error: string } {
+  const rows: PlanInstallment[] = [];
+  for (const m of text.matchAll(MACRO_ROW)) {
+    const amounts = (m[3] ?? "").match(new RegExp(MONEY, "g")) ?? [];
+    const [total, capital, otherCapital, interest, insurance, others, iva] =
+      amounts.map(arAmount);
+    const row: PlanInstallment = {
+      number: Number(m[1]),
+      due_date: isoDate(m[2] ?? ""),
+      amount: round2(total ?? 0),
+      capital: round2((capital ?? 0) + (otherCapital ?? 0)),
+      interest: round2(interest ?? 0),
+      iva: round2(iva ?? 0),
+      perception: 0,
+      other: round2((insurance ?? 0) + (others ?? 0)),
+      paid: /^pagada$/i.test((m[4] ?? "").trim()),
+    };
+    const parts = round2(
+      row.capital + row.interest + row.iva + row.perception + row.other,
+    );
+    if (Math.abs(parts - row.amount) > 0.01) {
+      return {
+        ok: false,
+        error: `En la cuota ${row.number} las partes suman ${parts.toFixed(2)} y el total es ${row.amount.toFixed(2)}.`,
+      };
+    }
+    rows.push(row);
+  }
+  if (rows.length === 0) {
+    return {
+      ok: false,
+      error:
+        "No encontramos cuotas. Copiá la tabla «Plan de cuotas» del home banking, con número, vencimiento e importes.",
+    };
+  }
+  rows.sort((a, b) => a.number - b.number);
+  if (rows.some((r, i) => r.number !== i + 1)) {
+    return {
+      ok: false,
+      error:
+        "Faltan cuotas: copiá la tabla completa, de la primera a la última.",
+    };
+  }
+  return { ok: true, rows };
+}
+
+/** French system: the same capital + interest every month, the interest on
+ *  the balance at TNA / 12; the last cuota absorbs the rounding. */
+export function frenchPlan(
+  principal: number,
+  tnaPercent: number,
+  count: number,
+  firstDueDate: string,
+): PlanInstallment[] {
+  const rate = tnaPercent / 100 / 12;
+  const cuota =
+    rate === 0
+      ? principal / count
+      : (principal * rate) / (1 - Math.pow(1 + rate, -count));
+  const out: PlanInstallment[] = [];
+  let balance = principal;
+  for (let n = 1; n <= count; n++) {
+    const interest = round2(balance * rate);
+    const capital = n === count ? round2(balance) : round2(cuota - interest);
+    balance = round2(balance - capital);
+    out.push({
+      number: n,
+      due_date: addMonthsClamped(firstDueDate, n - 1),
+      amount: round2(capital + interest),
+      capital,
+      interest,
+      iva: 0,
+      perception: 0,
+      other: 0,
+      paid: false,
+    });
+  }
+  return out;
+}

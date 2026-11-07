@@ -3,14 +3,20 @@
 import { ExportButton } from "@/components/export-button";
 import { ListToolbar } from "@/components/list-toolbar";
 import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
+import { treasurySummaryQuery } from "@/features/treasury/lib/treasury-queries";
 import type { Access } from "@/lib/auth/permissions";
-import { userCan } from "@/lib/auth/permissions";
+import {
+  TREASURY_PERMISSIONS,
+  userCan,
+  userCanAll,
+} from "@/lib/auth/permissions";
 
-import { formatMoney } from "@/lib/format";
+import { formatArgentineDate, formatMoney } from "@/lib/format";
 
 import { useAccountsList } from "../hooks/use-accounts";
 import {
@@ -40,6 +46,15 @@ export function AccountsTable({
   // flow). It stays invisible in the UI for finance/admin; the RPC
   // also blocks it just in case.
   const canAdjust = userCan(actorAccess, "opening_balances:write");
+  const canSeeBalances = userCanAll(actorAccess, TREASURY_PERMISSIONS);
+  const summary = useQuery({
+    ...treasurySummaryQuery(),
+    enabled: canSeeBalances,
+  });
+  const balances = useMemo(
+    () => new Map((summary.data?.accounts ?? []).map((a) => [a.id, a])),
+    [summary.data],
+  );
 
   const columns = useMemo<ColumnDef<Account>[]>(
     () => [
@@ -49,9 +64,9 @@ export function AccountsTable({
         cell: ({ row }) => (
           <div className={row.original.is_active ? undefined : "opacity-60"}>
             <Link
-              href={`/transactions?account=${row.original.id}`}
+              href={`/accounts/${row.original.id}`}
               className="font-medium hover:underline"
-              title="Ver movimientos y registrar nuevo"
+              title="Ver movimientos y extracto"
             >
               {row.original.name}
             </Link>
@@ -90,39 +105,50 @@ export function AccountsTable({
           </span>
         ),
       },
-      {
-        accessorKey: "opening_balance",
-        header: "Saldo inicial",
-        meta: { align: "right" },
-        cell: ({ row }) => (
-          <span
-            className={
-              row.original.is_active
-                ? "font-mono text-sm"
-                : "font-mono text-sm opacity-60"
-            }
-          >
-            {formatBalance(
-              Number(row.original.opening_balance ?? 0),
-              row.original.currency,
-            )}
-          </span>
-        ),
-      },
-      {
-        accessorKey: "is_active",
-        header: "Estado",
-        cell: ({ row }) =>
-          row.original.is_active ? (
-            <span className="text-sm text-muted-foreground dark:text-muted-foreground">
-              Activa
-            </span>
-          ) : (
-            <span className="text-sm text-muted-foreground opacity-60">
-              Inactiva
-            </span>
-          ),
-      },
+      ...(canSeeBalances
+        ? ([
+            {
+              id: "balance_now",
+              header: "Saldo actual",
+              enableSorting: false,
+              meta: { align: "right" },
+              cell: ({ row }) => {
+                const b = balances.get(row.original.id);
+                return (
+                  <span className="font-mono text-sm">
+                    {b ? formatBalance(b.balance_now, b.currency) : "—"}
+                  </span>
+                );
+              },
+            },
+            {
+              id: "month_change",
+              header: "Cambio del mes",
+              enableSorting: false,
+              meta: {
+                align: "right",
+                cellClassName: "font-mono text-xs text-muted-foreground",
+              },
+              cell: ({ row }) => {
+                const b = balances.get(row.original.id);
+                if (!b) return "—";
+                const delta = b.balance_now - b.balance_prev_eom;
+                if (Math.abs(delta) < 0.01) return "—";
+                return `${delta > 0 ? "+" : ""}${formatMoney(delta, b.currency)}`;
+              },
+            },
+            {
+              id: "last_movement",
+              header: "Último mov.",
+              enableSorting: false,
+              meta: { cellClassName: "text-xs text-muted-foreground" },
+              cell: ({ row }) => {
+                const date = balances.get(row.original.id)?.last_movement_date;
+                return date ? formatArgentineDate(date) : "—";
+              },
+            },
+          ] satisfies ColumnDef<Account>[])
+        : []),
       {
         id: "actions",
         header: "Acciones",
@@ -135,6 +161,7 @@ export function AccountsTable({
                 accountId={row.original.id}
                 accountName={row.original.name}
                 currency={row.original.currency}
+                accountType={row.original.type}
                 channels={channels}
               />
             )}
@@ -144,7 +171,7 @@ export function AccountsTable({
         ),
       },
     ],
-    [canAdjust, canWrite, channels],
+    [balances, canAdjust, canSeeBalances, canWrite, channels],
   );
 
   return (

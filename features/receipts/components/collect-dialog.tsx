@@ -38,6 +38,8 @@ export function CollectDialog({
   trigger,
   canEditRetentions,
   defaultOpen = false,
+  fromBankLine,
+  onCreated,
 }: {
   side?: ScopeSide;
   initialClient?: PickedClient | null;
@@ -47,6 +49,15 @@ export function CollectDialog({
   canEditRetentions: boolean;
   /** Open on mount (a task's «Cobrar» links to the comprobante with it). */
   defaultOpen?: boolean;
+  /** Opened from a bank statement line: its date, amount and account. */
+  fromBankLine?: {
+    date: string;
+    amount: number;
+    account_id: string;
+    channel_id?: string;
+  };
+  /** Runs with the new receipt's id once it is issued. */
+  onCreated?: (receiptId: string) => void;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const [side, setSide] = useState<ScopeSide>(fixedSide ?? "fiscal");
@@ -84,6 +95,8 @@ export function CollectDialog({
               initialClient={initialClient ?? null}
               initialAllocations={initialAllocations}
               canEditRetentions={canEditRetentions}
+              fromBankLine={fromBankLine}
+              onCreated={onCreated}
               onDone={() => setOpen(false)}
             />
           </Suspense>
@@ -98,12 +111,21 @@ function CollectForm({
   initialClient,
   initialAllocations,
   canEditRetentions,
+  fromBankLine,
+  onCreated,
   onDone,
 }: {
   side: ScopeSide;
   initialClient: PickedClient | null;
   initialAllocations?: AllocationDraft[];
   canEditRetentions: boolean;
+  fromBankLine?: {
+    date: string;
+    amount: number;
+    account_id: string;
+    channel_id?: string;
+  };
+  onCreated?: (receiptId: string) => void;
   onDone: () => void;
 }) {
   const { channels } = useScope();
@@ -124,7 +146,11 @@ function CollectForm({
         initialClient={initialClient}
         initialAllocations={initialAllocations}
         canEditRetentions={canEditRetentions}
-        onSuccess={onDone}
+        fromBankLine={fromBankLine}
+        onSuccess={(id) => {
+          onCreated?.(id);
+          onDone();
+        }}
         onCancel={onDone}
       />
     </PageSideProvider>

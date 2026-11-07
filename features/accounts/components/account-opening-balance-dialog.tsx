@@ -4,8 +4,10 @@ import { Pencil, Wallet } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 import { toast } from "sonner";
 
+import { ChannelsReadError } from "@/components/channels-read-error";
 import { MoneyInput } from "@/components/money-input";
 import { useConfirm } from "@/components/providers/confirm-provider";
+import { useScope } from "@/components/providers/scope-provider";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -37,6 +39,7 @@ import {
   useClearAccountOpeningBalance,
   useSetAccountOpeningBalance,
 } from "../hooks/use-accounts";
+import type { AccountType } from "../schema";
 
 interface ChannelOption {
   id: string;
@@ -54,13 +57,21 @@ export function AccountOpeningBalanceDialog({
   accountId,
   accountName,
   currency,
+  accountType,
   channels,
 }: {
   accountId: string;
   accountName: string;
   currency: string;
+  accountType: AccountType;
   channels: ChannelOption[];
 }) {
+  const { channels: scopeChannels } = useScope();
+  /** A bank, wallet or investment is the fiscal side's money: no channel to
+   *  pick. Cash and check carteras can be either side. */
+  const fixedChannel = isLiquidNonCash(accountType)
+    ? (scopeChannels.find((c) => c.is_active && c.is_fiscal)?.id ?? "")
+    : null;
   const [open, setOpen] = useState(false);
   const { data: existing } = useAccountOpeningBalance(accountId, open);
   const setMut = useSetAccountOpeningBalance();
@@ -78,16 +89,17 @@ export function AccountOpeningBalanceDialog({
     if (existing) {
       setAdjustmentDate(existing.adjustment_date);
       setTargetRaw(signedAmountToInput(existing.target_balance));
-      setChannelId(existing.channel_id ?? "");
+      setChannelId(fixedChannel ?? existing.channel_id ?? "");
       setNotes(existing.notes ?? "");
     } else {
       setAdjustmentDate(todayIso());
       setTargetRaw("");
       setNotes("");
-      // D4: no default channel, the user picks where the adjustment goes.
-      setChannelId("");
+      // D4: no default channel, the user picks where the adjustment goes
+      // (a bank's goes to the fiscal channel).
+      setChannelId(fixedChannel ?? "");
     }
-  }, [open, existing]);
+  }, [open, existing, fixedChannel]);
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -182,21 +194,24 @@ export function AccountOpeningBalanceDialog({
             </div>
           </div>
 
-          <div className="space-y-1">
-            <Label className="text-xs">Canal de imputación</Label>
-            <Select value={channelId} onValueChange={setChannelId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Elegí canal" />
-              </SelectTrigger>
-              <SelectContent position="popper">
-                {channels.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {fixedChannel !== null && <ChannelsReadError inline />}
+          {fixedChannel === null && (
+            <div className="space-y-1">
+              <Label className="text-xs">Canal de imputación</Label>
+              <Select value={channelId} onValueChange={setChannelId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Elegí canal" />
+                </SelectTrigger>
+                <SelectContent position="popper">
+                  {channels.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div className="space-y-1">
             <Label className="text-xs">Notas (opcional)</Label>
@@ -254,4 +269,8 @@ export function AccountOpeningBalanceDialog({
       </DialogContent>
     </Dialog>
   );
+}
+
+function isLiquidNonCash(type: AccountType): boolean {
+  return type === "bank" || type === "wallet" || type === "investment";
 }

@@ -22,7 +22,7 @@ export const treasuryPage: GuidePage = {
       intro: [
         "La foto de la liquidez de hoy, de todos los canales juntos (fiscal e interno). Los saldos se calculan en vivo: saldo inicial de cada cuenta más sus movimientos de Caja hasta hoy, y el cambio se compara con el cierre del mes anterior.",
         "Arriba están las tarjetas {{Total ARS líquido}} y {{Total USD líquido}} (bancos, efectivo, billeteras e inversiones; la de dólares muestra además su equivalente en pesos a la última cotización cargada), {{Cheques en cartera ARS}} (con cuántos acreditan en 7 días o menos) y, si hay, {{Cheques en cartera USD}}. Si hay cheques en pesos que vencen en los próximos 7 días aparece el aviso {{Próximos a acreditarse (≤ 7 días)}}.",
-        "La tabla lista las cuentas activas con {{Cuenta}}, {{Tipo}}, {{Moneda}}, {{Saldo actual}}, {{Cambio del mes}} y {{Último mov.}}. Se filtra con {{Buscar cuenta}}, la moneda ({{Todas las monedas}}, ARS, USD) y el tipo ({{Todos los tipos}} o uno en particular). Las cuentas inactivas no aparecen.",
+        "Debajo está la tabla {{Cuentas}}, con el saldo actual de cada una (ver [[#cuentas]]).",
         "Si tenés permiso para ver cheques y hay cheques vendidos sin vencer o rechazados sin pagar al comprador, abajo aparece el bloque {{Cheques vendidos}} con el {{Pasivo contingente (vendidos sin vencer)}} y la {{Deuda con compradores (rechazados sin debitar)}}; {{Ver cheques}} lleva a [[/checks]].",
       ],
       screens: [
@@ -33,45 +33,13 @@ export const treasuryPage: GuidePage = {
             { label: "Cobrar a cliente", variant: "outline" },
             { label: "Pagar a proveedor", variant: "outline" },
             { label: "Adelanto a empleado", variant: "outline" },
+            { label: "Préstamo a empleado", variant: "outline" },
           ],
           stats: [
             { label: "Total ARS líquido", value: "$ 12.480.300,00" },
             { label: "Total USD líquido", value: "US$ 8.200,00" },
             { label: "Cheques en cartera ARS", value: "$ 3.150.000,00" },
           ],
-          toolbar: [
-            { label: "Buscar cuenta", kind: "input" },
-            { label: "Todas las monedas", kind: "select" },
-            { label: "Todos los tipos", kind: "select" },
-          ],
-          table: {
-            columns: [
-              "Cuenta",
-              "Tipo",
-              "Moneda",
-              "Saldo actual",
-              "Cambio del mes",
-              "Último mov.",
-            ],
-            rows: [
-              [
-                "Banco Galicia ARS",
-                "Cuenta bancaria",
-                "ARS",
-                "$ 9.870.000,00",
-                "+$ 1.200.000,00",
-                "04/11/2026",
-              ],
-              [
-                "Caja chica",
-                "Efectivo",
-                "ARS",
-                "$ 85.300,00",
-                "—",
-                "31/10/2026",
-              ],
-            ],
-          },
         },
       ],
       concepts: [
@@ -100,14 +68,11 @@ export const treasuryPage: GuidePage = {
           id: "ver-movimientos-de-una-cuenta",
           title: "Ver los movimientos de una cuenta",
           summary:
-            "Desde el resumen se salta a Caja ya filtrada por la cuenta.",
+            "Cada cuenta tiene su página con sus movimientos, el saldo después de cada uno y, en un banco, su extracto.",
           permission: "transactions:read",
-          steps: [
-            "En [[/treasury]], buscá la cuenta con {{Buscar cuenta}} o filtrá por moneda o tipo.",
-            "Hacé clic en el nombre de la cuenta (columna {{Cuenta}}).",
-          ],
+          steps: ["En [[/treasury]], hacé clic en el nombre de la cuenta."],
           after: [
-            "Se abre [[/transactions]] filtrada por esa cuenta, con todos sus movimientos.",
+            "Se abre la cuenta en {{Movimientos}}, con el mes actual: {{Debe}}, {{Haber}} y {{Saldo}} de cada movimiento. El período se cambia con el filtro de fecha.",
           ],
           related: ["caja", "filtrar-movimientos-caja"],
           keywords: [
@@ -299,7 +264,7 @@ export const treasuryPage: GuidePage = {
               kind: "dialog",
               title: "Adelanto a empleado",
               description:
-                "Sale de la cuenta elegida y va a la cuenta corriente del empleado (no es un gasto). Se descuenta en la planilla con un plan en cuotas.",
+                "Sale de la cuenta elegida y va a la cuenta corriente del empleado (no es un gasto). Se descuenta entero en la planilla del mes de la fecha.",
               fields: [
                 { label: "Empleado", kind: "select", marker: 2, wide: true },
                 { label: "Cuenta", kind: "select", value: "Caja chica (ARS)" },
@@ -307,40 +272,22 @@ export const treasuryPage: GuidePage = {
                 { label: "Fecha", kind: "date", value: "05/11/2026" },
                 { label: "~Importe (ARS)", kind: "money", value: "150.000,00" },
                 { label: "Descripción (opcional)", kind: "input", wide: true },
-                {
-                  label: "Descontar en la planilla con un plan",
-                  kind: "checkbox",
-                  marker: 4,
-                  wide: true,
-                },
-                {
-                  label: "Cuota mensual (vacío = todo en un mes)",
-                  kind: "money",
-                  wide: true,
-                },
               ],
               footer: [
                 { label: "Cancelar", variant: "outline" },
-                { label: "Registrar", variant: "primary", marker: 5 },
+                { label: "Registrar", variant: "primary", marker: 4 },
               ],
             },
           ],
           steps: [
-            "En [[/treasury]] (o en [[/transactions]]), hacé clic en {{Adelanto a empleado}}.",
+            "En [[/treasury]] (o en [[/transactions]]), hacé clic en {{Adelanto a empleado}} (se descuenta entero en la planilla del mes) o en {{Préstamo a empleado}} (en cuotas: pide la {{Cuota mensual}}, menor que el importe).",
             "En {{Empleado}}, elegí el empleado.",
             "Completá {{Cuenta}} (de donde sale la plata; la moneda del adelanto es la de la cuenta), {{Canal}}, {{Fecha}}, {{Importe}} y, si querés, {{Descripción (opcional)}}.",
-            {
-              text: "Dejá marcado {{Descontar en la planilla con un plan}} para descontarlo del sueldo en cuotas:",
-              substeps: [
-                "En {{Cuota mensual (vacío = todo en un mes)}}, poné cuánto descontar por mes, o dejalo vacío para descontarlo entero en un mes.",
-                "La planilla solo descuenta planes en pesos: un adelanto en dólares se salda con pagos del empleado.",
-              ],
-            },
-            "Hacé clic en {{Registrar}}.",
+            "Hacé clic en {{Registrar}}. La planilla solo descuenta planes en pesos: uno en dólares se salda con pagos del empleado.",
           ],
           after: [
             "Se registra un egreso en la cuenta elegida y un movimiento en la cuenta corriente del empleado. Si el canal es fiscal y el plan de cuentas tiene activa la cuenta de anticipos al personal, el asiento va contra ella y no contra gastos.",
-            "Si marcaste el plan, queda un plan en cuotas que la planilla de sueldos descuenta cada mes.",
+            "Queda un plan que la planilla de sueldos descuenta: entero en el mes de la fecha (adelanto) o una cuota por mes (préstamo).",
             "Ese egreso lo maneja la cuenta corriente del empleado: no se edita monto, fecha ni cuenta desde Caja.",
           ],
           errors: [
@@ -406,12 +353,12 @@ export const treasuryPage: GuidePage = {
     {
       id: "cuentas",
       title: "Cuentas",
-      menuPath: "Tesorería › Cuentas",
-      routes: ["/accounts"],
+      menuPath: "Tesorería › Resumen › Cuentas",
+      routes: ["/accounts", "/accounts/[id]"],
       permission: "accounts:read",
       intro: [
         "El padrón de cajas, bancos, billeteras, inversiones y carteras de cheques. Cada movimiento de Caja, recibo, orden de pago o cheque pasa por una de estas cuentas.",
-        "La tabla muestra {{Nombre}} (con las notas debajo; el nombre lleva a sus movimientos en [[/transactions]]), {{Tipo}}, {{Moneda}}, {{Saldo inicial}}, {{Estado}} ({{Activa}} o {{Inactiva}}) y {{Acciones}}.",
+        "La tabla muestra {{Nombre}} (con las notas debajo; el nombre abre la cuenta, con sus {{Movimientos}} y, en un banco, su {{Extracto}}), {{Tipo}}, {{Moneda}}, {{Saldo actual}}, {{Cambio del mes}} (contra el cierre del mes anterior), {{Último mov.}} y {{Acciones}} (una cuenta inactiva se ve atenuada). Los saldos se ven con permiso para ver tesorería.",
       ],
       screens: [
         {
@@ -426,8 +373,9 @@ export const treasuryPage: GuidePage = {
               "Nombre",
               "Tipo",
               "Moneda",
-              "Saldo inicial",
-              "Estado",
+              "Saldo actual",
+              "Cambio del mes",
+              "Último mov.",
               "Acciones",
             ],
             rows: [
@@ -436,7 +384,8 @@ export const treasuryPage: GuidePage = {
                 "Cuenta bancaria",
                 "ARS",
                 "$ 0,00",
-                "Activa",
+                "—",
+                "—",
                 "",
               ],
               [
@@ -444,7 +393,8 @@ export const treasuryPage: GuidePage = {
                 "Cheques físicos en cartera",
                 "ARS",
                 "$ 0,00",
-                "Activa",
+                "—",
+                "—",
                 "",
               ],
             ],
@@ -507,7 +457,7 @@ export const treasuryPage: GuidePage = {
             },
           ],
           steps: [
-            "En [[/accounts]], hacé clic en {{Nueva cuenta}}.",
+            "En [[/treasury]], hacé clic en {{Nueva cuenta}}.",
             "En {{Nombre}}, escribí cómo la vas a reconocer (al menos 2 letras).",
             "Elegí el {{Tipo}} y la {{Moneda}} (ARS o USD). Pensalo bien: cuando la cuenta tenga movimientos no se cambian.",
             "Si querés, cargá el {{Saldo inicial}} (acepta negativos) y {{Notas}}.",
@@ -544,7 +494,7 @@ export const treasuryPage: GuidePage = {
           title: "Editar una cuenta",
           permission: "accounts:write",
           steps: [
-            "En [[/accounts]], en la fila de la cuenta, hacé clic en el lápiz ({{Editar}}).",
+            "En [[/treasury]], en la fila de la cuenta, hacé clic en el lápiz ({{Editar}}).",
             "Cambiá {{Nombre}} o {{Notas}}. {{Tipo}}, {{Moneda}} y {{Saldo inicial}} solo se pueden cambiar si la cuenta todavía no tiene movimientos; si los tiene, aparecen bloqueados con la aclaración.",
             "Hacé clic en {{Guardar cambios}} (se habilita cuando cambiaste algo).",
           ],
@@ -582,7 +532,7 @@ export const treasuryPage: GuidePage = {
             "Una cuenta que ya no se usa se desactiva en vez de borrarse: conserva su historia.",
           permission: "accounts:write",
           steps: [
-            "En [[/accounts]], en la fila de la cuenta, hacé clic en el botón de encendido ({{Desactivar}}; en una inactiva dice {{Reactivar}}).",
+            "En [[/treasury]], en la fila de la cuenta, hacé clic en el botón de encendido ({{Desactivar}}; en una inactiva dice {{Reactivar}}).",
           ],
           after: [
             "Una cuenta inactiva se ve atenuada en la lista, deja de figurar en [[/treasury]] y no se ofrece para cargar movimientos, cobros ni pagos. Sus movimientos anteriores quedan.",
@@ -630,9 +580,9 @@ export const treasuryPage: GuidePage = {
             },
           ],
           steps: [
-            "En [[/accounts]], en la fila de la cuenta, hacé clic en {{Ajustar saldo}} (si ya tiene un ajuste dice {{Editar saldo}}).",
+            "En [[/treasury]], en la fila de la cuenta, hacé clic en {{Ajustar saldo}} (si ya tiene un ajuste dice {{Editar saldo}}).",
             "Elegí la {{Fecha de ajuste}} y escribí el {{Saldo real al corte}} (por ejemplo, el del extracto a esa fecha; acepta negativos).",
-            "En {{Canal de imputación}}, elegí el canal al que va el ajuste (no hay uno por defecto). Si querés, agregá {{Notas (opcional)}}.",
+            "En una caja de efectivo o una cartera de cheques, elegí en {{Canal de imputación}} el canal al que va el ajuste (no hay uno por defecto). En un banco, una billetera o una inversión no se elige: va al canal fiscal. Si querés, agregá {{Notas (opcional)}}.",
             "Hacé clic en {{Registrar}} (o {{Actualizar}} si ya había un ajuste).",
           ],
           after: [
@@ -675,7 +625,7 @@ export const treasuryPage: GuidePage = {
             "Que la cuenta tenga un ajuste cargado ([[#ajustar-saldo-cuenta]]).",
           ],
           steps: [
-            "En [[/accounts]], en la fila de la cuenta, hacé clic en {{Editar saldo}}.",
+            "En [[/treasury]], en la fila de la cuenta, hacé clic en {{Editar saldo}}.",
             "Abajo a la izquierda, hacé clic en {{Borrar}}.",
             "Confirmá en el aviso {{Borrar el saldo de apertura}}.",
           ],
@@ -702,8 +652,8 @@ export const treasuryPage: GuidePage = {
       permission: "transactions:read",
       intro: [
         "Todos los movimientos de todas las cuentas, de los dos lados: ingresos, egresos y transferencias, los cargados a mano y los que generan los documentos (recibos, órdenes de pago, cheques, préstamos, sueldos, impuestos). Cada movimiento tiene un canal.",
-        "Columnas: {{Fecha}}, {{Tipo}} ({{Ingreso}}, {{Egreso}}, {{Transferencia (entra)}}, {{Transferencia (sale)}}), {{Cuenta}} (clic para filtrar por ella), {{Canal}}, {{Descripción}} (con el cliente si lo hay y la marca {{Conciliado}}) y {{Monto}} con signo. La lista carga más al bajar.",
-        "Arriba están los mismos atajos que en el resumen ({{Cobrar a cliente}}, {{Pagar a proveedor}}, {{Adelanto a empleado}}; ver [[#tesoreria-resumen]]) y {{Nuevo movimiento}}.",
+        "Columnas: {{Fecha}}, {{Cuenta}} (clic para abrir la cuenta), {{Canal}}, {{Descripción}} (con el cliente si lo hay y la marca {{Conciliado}}), {{Debe}} (lo que entra) y {{Haber}} (lo que sale). El tipo ({{Ingreso}}, {{Egreso}}, {{Transferencia (entra)}}, {{Transferencia (sale)}}) se filtra arriba. En la página de una cuenta se suma {{Saldo}}, el saldo después de cada movimiento. La lista carga más al bajar.",
+        "Arriba están los mismos atajos que en el resumen ({{Cobrar a cliente}}, {{Pagar a proveedor}}, {{Adelanto a empleado}}, {{Préstamo a empleado}}; ver [[#tesoreria-resumen]]) y {{Nuevo movimiento}}.",
       ],
       screens: [
         {
@@ -714,6 +664,7 @@ export const treasuryPage: GuidePage = {
             { label: "Cobrar a cliente", variant: "outline" },
             { label: "Pagar a proveedor", variant: "outline" },
             { label: "Adelanto a empleado", variant: "outline" },
+            { label: "Préstamo a empleado", variant: "outline" },
             { label: "Nuevo movimiento", variant: "primary" },
           ],
           toolbar: [
@@ -725,28 +676,28 @@ export const treasuryPage: GuidePage = {
           table: {
             columns: [
               "Fecha",
-              "Tipo",
               "Cuenta",
               "Canal",
               "Descripción",
-              "Monto",
+              "Debe",
+              "Haber",
             ],
             rows: [
               [
                 "04/11/2026",
-                "Egreso",
                 "Banco Galicia ARS",
                 "Jouve fiscal",
                 "Comisión mantenimiento",
-                "-$ 12.500,00",
+                "",
+                "$ 12.500,00",
               ],
               [
                 "03/11/2026",
-                "Ingreso",
                 "Caja chica",
                 "Jouve interno",
                 "Venta de chatarra",
-                "+$ 40.000,00",
+                "$ 40.000,00",
+                "",
               ],
             ],
             rowMenu: true,
@@ -765,7 +716,7 @@ export const treasuryPage: GuidePage = {
         {
           title: "Movimientos conciliados",
           body: [
-            "Un movimiento con la marca {{Conciliado}} ya está explicado por una línea del extracto bancario. No se borra ni cambia monto, fechas, cuenta, tipo, moneda o canal hasta desconciliar su línea en [[/treasury/reconciliation]]. La descripción, la cuenta de gasto y el centro de costo sí se cambian.",
+            "Un movimiento con la marca {{Conciliado}} ya está explicado por una línea del extracto bancario. No se borra ni cambia monto, fechas, cuenta, tipo, moneda o canal hasta desconciliar su línea en [[/treasury/reconciliation]]. La descripción y la cuenta de gasto sí se cambian.",
           ],
         },
         {
@@ -827,7 +778,6 @@ export const treasuryPage: GuidePage = {
                   value: "Sin cuenta (Gastos)",
                   marker: 6,
                 },
-                { label: "Centro de costo", kind: "select", marker: 6 },
                 { label: "Descripción", kind: "textarea", wide: true },
               ],
               footer: [
@@ -842,7 +792,7 @@ export const treasuryPage: GuidePage = {
             "En {{Cuenta}}, elegí la caja, banco o billetera. La {{Moneda}} toma la de la cuenta.",
             "Elegí el {{Canal}} y escribí el {{Monto}} (mayor a cero).",
             "Revisá la {{Fecha}}. El {{Mes devengado}} se completa con el mes de la fecha; cambialo si el gasto o ingreso corresponde a otro mes.",
-            "Si es un egreso, elegí la {{Cuenta de gasto}} (si no, va a {{Sin cuenta (Gastos)}}) y, si corresponde, el {{Centro de costo}}.",
+            "Si es un egreso, elegí la {{Cuenta de gasto}} (si no, va a {{Sin cuenta (Gastos)}}).",
             "Escribí una {{Descripción}} y hacé clic en {{Registrar}}.",
           ],
           after: [
@@ -978,7 +928,6 @@ export const treasuryPage: GuidePage = {
                   marker: 2,
                 },
                 { label: "Cuenta de gasto", kind: "select", marker: 2 },
-                { label: "Centro de costo", kind: "select", marker: 2 },
                 {
                   label: "Descripción",
                   kind: "textarea",
@@ -994,7 +943,7 @@ export const treasuryPage: GuidePage = {
           ],
           steps: [
             "En [[/transactions]], en la fila del movimiento, abrí el menú ⋯ y elegí {{Editar}}.",
-            "Cambiá {{Monto}}, {{Fecha}}, {{Mes devengado}} o {{Descripción}}; en un egreso, también {{Cuenta de gasto}} y {{Centro de costo}}. La cuenta, el canal y el tipo no se cambian: si están mal, borralo y cargalo de nuevo.",
+            "Cambiá {{Monto}}, {{Fecha}}, {{Mes devengado}} o {{Descripción}}; en un egreso, también {{Cuenta de gasto}}. La cuenta, el canal y el tipo no se cambian: si están mal, borralo y cargalo de nuevo.",
             "Hacé clic en {{Guardar}}.",
           ],
           after: [
@@ -1034,12 +983,12 @@ export const treasuryPage: GuidePage = {
           id: "recategorizar-egreso",
           title: "Recategorizar un egreso manual",
           summary:
-            "Cambia solo la cuenta de gasto y el centro de costo, aunque el egreso esté conciliado.",
+            "Cambia solo la cuenta de gasto, aunque el egreso esté conciliado.",
           permission: "transactions:write",
           prerequisites: ["Que sea un egreso manual."],
           steps: [
             "En [[/transactions]], en la fila del egreso, abrí el menú ⋯ y elegí {{Recategorizar}}.",
-            "En el diálogo {{Recategorizar gasto}}, elegí la nueva {{Cuenta de gasto}} (o {{Sin cuenta (Gastos)}}) y el {{Centro de costo}}.",
+            "En el diálogo {{Recategorizar gasto}}, elegí la nueva {{Cuenta de gasto}} (o {{Sin cuenta (Gastos)}}).",
             "Hacé clic en {{Recategorizar}}.",
           ],
           after: [
@@ -1063,12 +1012,7 @@ export const treasuryPage: GuidePage = {
             },
           ],
           related: ["editar-movimiento-caja"],
-          keywords: [
-            "centro de costo",
-            "cuenta de gasto",
-            "imputación",
-            "reclasificar",
-          ],
+          keywords: ["cuenta de gasto", "imputación", "reclasificar"],
         },
         {
           id: "borrar-movimiento-caja",
@@ -1213,7 +1157,7 @@ export const treasuryPage: GuidePage = {
         {
           kind: "page",
           title: "Conciliación bancaria",
-          actions: [{ label: "Importar extracto", variant: "outline" }],
+          actions: [{ label: "Subir extracto", variant: "outline" }],
           toolbar: [
             {
               label: "Cuenta",
@@ -1264,61 +1208,43 @@ export const treasuryPage: GuidePage = {
           id: "importar-extracto-bancario",
           title: "Importar el extracto del banco",
           summary:
-            "Las líneas del extracto se cargan con el importador, como tipo {{Extracto bancario}}. No crean movimientos en Caja: quedan para conciliar.",
+            "Las líneas del extracto se suben desde la cuenta ({{Subir extracto}}) o desde el importador, como tipo {{Extracto bancario}}. No crean movimientos en Caja: quedan para conciliar.",
           permission: ["imports:write", "transactions:write"],
           prerequisites: [
-            "Ser owner o admin: el importador ([[/admin/imports]]) es solo para esos roles; sin el permiso, el botón {{Importar extracto}} no aparece.",
-            "El extracto como planilla .xlsx (se lee la primera hoja) o .csv, con una fila de títulos y hasta 5000 filas. Columnas: fecha y descripción (obligatorias), el importe con signo (negativo = débito) o dos columnas de débito y crédito, y si las trae, saldo y referencia.",
+            "Ser owner o admin: el importador ([[/admin/imports]]) es solo para esos roles; sin el permiso, el botón {{Subir extracto}} no aparece.",
+            "El extracto como planilla .xlsx (se lee la primera hoja) o .csv, con una fila de títulos y hasta 5000 filas. Columnas: fecha y descripción (obligatorias), el importe con signo (negativo = débito) o dos columnas de débito y crédito, y si las trae, saldo, referencia y el código del banco (en Macro, «Código Causal»).",
             "La cuenta del extracto activa y de tipo banco, billetera, efectivo o inversión (no una cartera de cheques).",
           ],
           screens: [
             {
               kind: "dialog",
-              title: "Importar planilla",
+              title: "Subir extracto",
               description:
-                "Subí un .xlsx (primera hoja) o .csv con una fila de títulos. Nada se guarda hasta que confirmes; las filas con error quedan afuera y las que ya están cargadas se saltean.",
-              fields: [
-                {
-                  label: "Qué importar",
-                  kind: "select",
-                  value: "Extracto bancario",
-                  marker: 3,
-                },
-                { label: "Archivo", kind: "input", marker: 5 },
-                {
-                  label: "Cuenta del extracto",
-                  kind: "select",
-                  value: "Banco Galicia ARS · Cuenta bancaria · ARS",
-                  marker: 4,
-                  wide: true,
-                },
-              ],
+                "Subí el .csv o .xlsx que bajaste del banco. Las líneas que ya estaban cargadas se saltean.",
+              fields: [{ label: "Archivo", kind: "input", marker: 2 }],
               footer: [
                 { label: "Cancelar", variant: "outline" },
-                { label: "~Importar 43 filas", variant: "primary", marker: 8 },
+                { label: "~Importar 43 filas", variant: "primary", marker: 5 },
               ],
             },
           ],
           steps: [
-            "En [[/treasury/reconciliation]], hacé clic en {{Importar extracto}}: abre el importador ([[/admin/imports]]).",
-            "Hacé clic en {{Importar planilla}}.",
-            "En {{Qué importar}}, elegí {{Extracto bancario}}.",
-            "En {{Cuenta del extracto}}, elegí la cuenta del banco.",
-            "En {{Archivo}}, elegí la planilla y hacé clic en {{Leer archivo}}. Todavía no se guarda nada.",
+            "En [[/treasury]], hacé clic en el nombre de la cuenta del banco y, en la pestaña {{Extracto}}, en {{Subir extracto}}. (También sirve [[/treasury/reconciliation]] con la {{Cuenta}} elegida.)",
+            "{{Desde}} y {{Hasta}} vienen con el mes elegido en {{Mes}}: las líneas con fecha fuera de ese período no se importan. Cambialos si el extracto es de otro período.",
+            "En {{Archivo}}, elegí la planilla. Se lee sola y todavía no se guarda nada: arriba del botón dice cuántas filas están listas, cuántas ya estaban cargadas y cuántas tienen error.",
             {
-              text: "Revisá {{Columnas}}: cada dato muestra de qué columna de la planilla lo lee (las reconoce por el título, como «Fecha», «Concepto», «Débito», «Crédito» o «Saldo»).",
+              text: "Si falta una columna o alguna fila tiene error, aparecen {{Columnas}} y la tabla de filas para corregirlo.",
               substeps: [
-                "Si alguna está mal o falta, elegila en su lista (o {{No está}}) y hacé clic en {{Volver a leer con estas columnas}}.",
+                "Cada dato muestra de qué columna lo lee (las reconoce por el título, como «Fecha», «Concepto», «Débito», «Crédito» o «Saldo»). Si alguna está mal o falta, elegila en su lista (o {{No está}}) y hacé clic en {{Volver a leer con estas columnas}}.",
                 "Hacen falta {{Fecha}}, {{Descripción}} y el importe: {{Importe}} con signo, o {{Débito}} y {{Crédito}} si el banco los separa.",
               ],
             },
-            "Revisá la vista previa: arriba dice cuántas filas están listas, cuántas ya estaban cargadas y cuántas tienen error; cada fila muestra su estado ({{Lista}}, {{Ya existe}} o {{Con error}}) y el motivo.",
-            "Hacé clic en el botón «Importar … filas» (cuenta solo las listas).",
-            "Volvé a [[/treasury/reconciliation]] y elegí la {{Cuenta}} y el {{Mes}} del extracto.",
+            "Hacé clic en el botón «Importar … filas» (cuenta solo las listas; si el archivo trae el código del banco de líneas que ya estaban cargadas sin él, dice también «y completar … códigos»).",
+            "Elegí el {{Mes}} del extracto para ver sus líneas.",
           ],
           after: [
             "Las líneas aparecen en la tabla {{Extracto}} como {{Pendiente}}. No se crea ningún movimiento en Caja ni asiento.",
-            "Las líneas que ya estaban (por ejemplo, de un extracto que se superpone con uno anterior) se saltean, y las filas con error quedan afuera.",
+            "Las líneas que ya estaban (por ejemplo, de un extracto que se superpone con uno anterior) se saltean, y las filas con error quedan afuera. Si una línea ya cargada no tenía el código del banco y el archivo lo trae, se le completa el código; lo demás de la línea no cambia.",
             "Las que tienen un movimiento de la cuenta con el mismo importe y hasta 5 días de diferencia aparecen en {{Sugerencias}} ([[#aceptar-sugerencias-conciliacion]]).",
             "La importación queda en la lista {{Importaciones}} del importador. Si te equivocaste de cuenta o de archivo, {{Deshacer}} borra todas sus líneas, mientras ninguna esté conciliada ni marcada como que no corresponde.",
           ],
@@ -1493,7 +1419,6 @@ export const treasuryPage: GuidePage = {
                 },
                 { label: "Canal", kind: "select", marker: 3, wide: true },
                 { label: "Cuenta de gasto", kind: "select", marker: 3 },
-                { label: "Centro de costo", kind: "select" },
                 {
                   label: "Descripción",
                   kind: "input",
@@ -1510,7 +1435,7 @@ export const treasuryPage: GuidePage = {
           steps: [
             "En la línea {{Pendiente}}, abrí el menú ⋯ y elegí {{Crear movimiento…}}. El diálogo dice {{Crear egreso}} o {{Crear ingreso}} según el signo de la línea.",
             "Si es un débito en pesos y tenés permiso de impuestos, en {{Tipo}} elegí {{Egreso manual}} (para pagar un impuesto ver [[#pagar-impuesto-desde-extracto]]).",
-            "Elegí el {{Canal}}; si es un débito, también la {{Cuenta de gasto}} (obligatoria) y, si corresponde, el {{Centro de costo}}. Corregí la {{Descripción}} si querés (viene la de la línea).",
+            "Elegí el {{Canal}}; si es un débito, también la {{Cuenta de gasto}} (obligatoria). Corregí la {{Descripción}} si querés (viene la de la línea).",
             "Hacé clic en {{Crear y conciliar}}.",
           ],
           after: [
@@ -1805,7 +1730,7 @@ export const treasuryPage: GuidePage = {
             {
               message:
                 "Configurá una cuenta de cartera primero (Cheques físicos o e-cheq).",
-              fix: "Creá una cuenta de cartera en [[/accounts]].",
+              fix: "Creá una cuenta de cartera en [[/treasury]].",
             },
             {
               message: "Ya existe un cheque … para ….",
@@ -2621,8 +2546,8 @@ export const treasuryPage: GuidePage = {
       permission: TREASURY_READ,
       intro: [
         "Los préstamos y leasings de la empresa con su cronograma de cuotas. Las cuotas pendientes se proyectan en [[/treasury/cash-flow]].",
-        "La lista muestra {{Descripción}} (con el tipo, {{Préstamo}} o {{Leasing}}), {{Acreedor}}, {{Canal}}, {{Capital}}, {{Pagado}}, {{Pendiente}} (con la cantidad de cuotas), {{Próx. venc.}} y {{Estado}} ({{Activo}}, {{Cancelado}} cuando se pagó la última cuota, {{Anulado}}).",
-        "En el detalle (clic en la descripción o {{Ver cuotas}}) se ve si el desembolso está registrado en Caja, las tarjetas {{Capital}}, {{Saldo de capital (pasivo)}}, {{Pagado}}, {{Pendiente}} y {{Cuotas pendientes}}, y la tabla de cuotas con {{Vencimiento}}, {{Monto}} (y su desglose si lo tiene), {{Estado}} ({{Pendiente}} o {{Pagada}}) y {{Pago}}.",
+        "La lista muestra {{Descripción}} (con el tipo, {{Préstamo}} o {{Leasing}}, y el número del banco), {{Banco}}, {{Capital}}, {{Capital adeudado}}, {{Cuotas pagas}}, {{Pendiente}} (con la cantidad de cuotas), {{Próx. venc.}} y {{Estado}} ({{Activo}}, {{Cancelado}} cuando se pagó la última cuota, {{Anulado}}).",
+        "En el detalle (clic en la descripción o {{Ver cuotas}}) se ve lo mismo que en el home banking: arriba {{Capital adeudado}}, {{Cuotas pagas}}, {{Próxima cuota}} y {{Vencimiento próxima cuota}}; en {{General}} el estado, el monto original, la fecha de alta, el plazo y lo pendiente; en {{Tasas}} la TNA, la TEA, el CFT y los intereses pagados; y el {{Plan de cuotas}} con {{Total a pagar}}, {{Capital}}, {{Intereses}}, {{Otros}}, {{IVA}} y el estado de cada una ({{Pagada}}, {{Pagada (antes de cargar)}}, {{Vencida}} o la fecha en que vence).",
       ],
       screens: [
         {
@@ -2632,23 +2557,23 @@ export const treasuryPage: GuidePage = {
           table: {
             columns: [
               "Descripción",
-              "Acreedor",
-              "Canal",
+              "Banco",
               "Capital",
-              "Pagado",
+              "Capital adeudado",
+              "Cuotas pagas",
               "Pendiente",
               "Próx. venc.",
               "Estado",
             ],
             rows: [
               [
-                "Préstamo Banco Nación",
-                "Banco Nación",
-                "Jouve fiscal",
-                "$ 24.000.000,00",
-                "$ 6.000.000,00",
-                "$ 18.000.000,00 (18)",
-                "2026-11-15",
+                "Préstamo a Sola Firma",
+                "Banco Macro",
+                "$ 18.000.000,00",
+                "$ 1.783.037,51",
+                "11/12",
+                "$ 1.850.555,27 (1)",
+                "03/12/2026",
                 "Activo",
               ],
             ],
@@ -2677,62 +2602,80 @@ export const treasuryPage: GuidePage = {
               kind: "dialog",
               title: "Nuevo préstamo / leasing",
               description:
-                "Cargá el capital y la cantidad de cuotas. Se genera el cronograma de cuotas iguales (después editás cada una si hace falta).",
+                "Cargá los datos del préstamo como los muestra el banco y su plan de cuotas. Las cuotas que el banco da por pagadas quedan pagadas, sin movimiento en Caja.",
               fields: [
                 { label: "Tipo", kind: "select", value: "Préstamo", marker: 2 },
                 { label: "Moneda", kind: "select", value: "ARS", marker: 2 },
                 {
+                  label: "Banco",
+                  kind: "input",
+                  value: "Banco Macro",
+                  marker: 2,
+                },
+                {
+                  label: "Número de préstamo",
+                  kind: "input",
+                  value: "7670122511",
+                  marker: 2,
+                },
+                {
                   label: "Descripción",
                   kind: "input",
-                  value: "Préstamo Banco Nación",
+                  value: "Préstamo a Sola Firma",
                   marker: 3,
-                  wide: true,
                 },
                 {
-                  label: "Acreedor (opcional)",
-                  kind: "input",
-                  value: "Banco Nación",
-                  marker: 3,
-                  wide: true,
-                },
-                {
-                  label: "Canal (blanco / interno)",
+                  label: "Cuenta de débito",
                   kind: "select",
+                  value: "Banco Macro",
+                  marker: 3,
+                },
+                {
+                  label: "Fecha de alta",
+                  kind: "date",
+                  value: "04/12/2025",
+                  marker: 3,
+                },
+                {
+                  label: "Monto original",
+                  kind: "money",
+                  value: "18.000.000,00",
+                  marker: 3,
+                },
+                { label: "TNA (%)", kind: "input", value: "40,00", marker: 3 },
+                {
+                  label: "Plan de cuotas del banco",
+                  kind: "textarea",
                   marker: 4,
                   wide: true,
-                },
-                {
-                  label: "Capital",
-                  kind: "money",
-                  value: "24.000.000,00",
-                  marker: 5,
-                },
-                { label: "Cuotas", kind: "input", value: "24", marker: 5 },
-                {
-                  label: "1ª cuota",
-                  kind: "date",
-                  value: "15/12/2026",
-                  marker: 5,
                 },
                 { label: "Notas (opcional)", kind: "textarea", wide: true },
               ],
               footer: [
                 { label: "Cancelar", variant: "outline" },
-                { label: "Crear", variant: "primary", marker: 6 },
+                { label: "Crear", variant: "primary", marker: 5 },
               ],
             },
           ],
           steps: [
             "En [[/loans]], hacé clic en {{Nuevo préstamo}}.",
-            "Elegí el {{Tipo}} ({{Préstamo}} o {{Leasing}}) y la {{Moneda}}.",
-            "Escribí la {{Descripción}} y, si querés, el {{Acreedor (opcional)}}.",
-            "En {{Canal (blanco / interno)}}, elegí el canal (cada uno dice si es fiscal o interno).",
-            "Escribí el {{Capital}}, la cantidad de {{Cuotas}} (de 1 a 600) y la fecha de la {{1ª cuota}}.",
-            "Hacé clic en {{Crear}}.",
+            "Elegí el {{Tipo}} ({{Préstamo}} o {{Leasing}}) y la {{Moneda}}, y escribí el {{Banco}} y el {{Número de préstamo}}.",
+            "Escribí la {{Descripción}}, elegí la {{Cuenta de débito}} (de donde el banco debita las cuotas) y cargá la {{Fecha de alta}}, el {{Monto original}} y las tasas ({{TNA (%)}}, {{TEA (%)}}, {{CFT (%)}}) como figuran en el banco.",
+            {
+              text: "En {{Plan de cuotas}} elegí cómo se arman las cuotas.",
+              substeps: [
+                "{{Pegar del banco}}: en el home banking abrí el préstamo › Plan de cuotas, seleccioná la tabla entera, copiala y pegala. Toma cada cuota con su capital, intereses, otros rubros e IVA, y las que figuran pagadas.",
+                "{{Calcular con la TNA}}: sistema francés (capital más interés igual todos los meses), con la cantidad de {{Cuotas}} y la {{1ª cuota}}.",
+                "{{Cuotas iguales}}: el monto original dividido en partes iguales, sin desglose.",
+              ],
+            },
+            "Revisá la vista previa del plan y hacé clic en {{Crear}}.",
           ],
           after: [
-            "Se crea el préstamo {{Activo}} con un cronograma de cuotas iguales, una por mes desde la primera (la última absorbe el redondeo). Cada cuota se puede editar después ([[#editar-cuota-prestamo]]).",
-            "Todavía no hay plata en Caja: registrá el desembolso cuando el banco lo deposite ([[#registrar-desembolso-prestamo]]).",
+            "Se crea el préstamo {{Activo}}, en el canal fiscal, con su plan. Cada cuota pendiente se puede editar después ([[#editar-cuota-prestamo]]).",
+            "Las cuotas que el banco da por pagadas quedan {{Pagada (antes de cargar)}}: sin movimiento en Caja ni asiento, porque esa plata salió antes de usar el sistema. En ese caso no hace falta registrar el desembolso.",
+            "Un préstamo nuevo todavía no tiene plata en Caja: registrá el desembolso cuando el banco lo deposite ([[#registrar-desembolso-prestamo]]).",
+            "Cuando el banco debita una cuota, la línea del extracto propone {{Pagar cuota}}: un clic la paga y la concilia ([[#pagar-cuota-prestamo]]).",
           ],
           errors: [
             {
@@ -2740,12 +2683,9 @@ export const treasuryPage: GuidePage = {
               fix: "Escribí la descripción.",
             },
             {
-              message: "Canal requerido.",
-              fix: "Elegí el canal.",
-            },
-            {
-              message: "Entre 1 y 600.",
-              fix: "Escribí una cantidad de cuotas entre 1 y 600.",
+              message:
+                "Faltan cuotas: copiá la tabla completa, de la primera a la última.",
+              fix: "Copiá de nuevo la tabla del plan desde la cuota 1.",
             },
             {
               message: "Fecha requerida.",
@@ -2897,6 +2837,7 @@ export const treasuryPage: GuidePage = {
           after: [
             "La cuota pasa a {{Pagada}} con su fecha e importe, y se registra el egreso en Caja con su asiento (ver «Qué asientos hace un préstamo»). Ese egreso se corrige desde el préstamo, no desde Caja.",
             "Cuando se paga la última cuota, el préstamo pasa a {{Cancelado}}.",
+            "Si el banco ya debitó la cuota, es más rápido desde el extracto: en la pestaña {{Extracto}} de la cuenta, la línea del débito (en Macro, código 361) muestra la cuota que paga y el botón {{Pagar cuota}}. Paga la cuota con la fecha y el importe de la línea, desde la cuenta del extracto, y deja la línea conciliada. Aparece si el préstamo tiene esa {{Cuenta de débito}} y una cuota pendiente por el mismo importe.",
           ],
           errors: [
             {

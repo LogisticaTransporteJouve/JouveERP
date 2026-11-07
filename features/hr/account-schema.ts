@@ -286,6 +286,35 @@ export type DebtPlan = {
   remaining: number;
 };
 
+/** A debt the company gave in cash: an adelanto is discounted whole in one
+ *  planilla, a préstamo in monthly cuotas. Read from the plan, not stored:
+ *  a plan whose cuota covers its total is paid in one month. */
+export type DebtKind = "advance" | "loan";
+
+export const DEBT_KIND_LABEL: Record<DebtKind, string> = {
+  advance: "Adelanto",
+  loan: "Préstamo",
+};
+
+export function debtPlanKind(
+  plan: Pick<DebtPlan, "total" | "installment_amount">,
+): DebtKind {
+  return plan.installment_amount >= plan.total ? "advance" : "loan";
+}
+
+/** The cuotas a préstamo takes: whole ones plus a smaller last one. */
+export function loanInstallments(
+  total: number,
+  installment: number,
+): { count: number; last: number } | null {
+  if (!(total > 0) || !(installment > 0) || installment >= total) return null;
+  const whole = Math.floor(total / installment);
+  const rest = Math.round((total - whole * installment) * 100) / 100;
+  return rest > 0
+    ? { count: whole + 1, last: rest }
+    : { count: whole, last: installment };
+}
+
 /** What the planilla discounts for the plan this month (ARS plans only). */
 export function planInstallmentDue(
   plan: Pick<

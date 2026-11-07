@@ -70,10 +70,13 @@ import {
 // schema, matched against what is already loaded, with its natural key and
 // the payload commit_import_run inserts. Pure: the action loads the lookups.
 
-export type ImportRowStatus = "ready" | "duplicate" | "invalid";
+/** `fill`: a statement line already loaded without the bank's code; the
+ *  import only writes its code. */
+export type ImportRowStatus = "ready" | "fill" | "duplicate" | "invalid";
 
 export const IMPORT_ROW_STATUS_LABELS: Record<ImportRowStatus, string> = {
   ready: "Lista",
+  fill: "Completa el código",
   duplicate: "Ya existe",
   invalid: "Con error",
 };
@@ -1507,6 +1510,7 @@ function buildStatementLine(
   }
   const balance = numberCell(kind, cells, "balance", errors, reported);
   const reference = orNull(text(cells, "reference"));
+  const bankCode = orNull(text(cells, "bank_code"));
 
   const label = date
     ? `${formatArgentineDate(date)} · ${description || "—"}`
@@ -1546,6 +1550,7 @@ function buildStatementLine(
     amount,
     balance,
     reference,
+    bank_code: bankCode,
     source_hash: lookups.hash(`${content}|${occurrence}`),
   });
   if (!parsed.success) {
@@ -1564,6 +1569,7 @@ function buildStatementLine(
         ? null
         : `Saldo ${formatMoney(d.balance, account.currency)}`,
       d.reference ? `Ref. ${d.reference}` : null,
+      d.bank_code ? `Cód. ${d.bank_code}` : null,
     ]
       .filter(Boolean)
       .join(" · "),
@@ -1672,11 +1678,14 @@ export function buildRows(input: {
 
 /** Marks as duplicate a ready row whose key is already loaded or appeared
  *  earlier in the file. With `strict` (money items, kindHasStrictKeys) a key
- *  repeated in the file is an error in every row that has it instead. */
+ *  repeated in the file is an error in every row that has it instead. A row
+ *  whose key is in `fillable` (a statement line loaded without the bank's
+ *  code) and that carries a code becomes `fill` instead of duplicate. */
 export function markDuplicates(
   rows: readonly BuiltRow[],
   existing: ReadonlySet<string>,
   strict = false,
+  fillable: ReadonlySet<string> = new Set(),
 ): BuiltRow[] {
   const seen = new Set<string>();
   const linesByKey = new Map<string, number[]>();
@@ -1688,6 +1697,20 @@ export function markDuplicates(
     if (row.status !== "ready" || row.key === null) return row;
     const key = row.key;
     if (existing.has(key)) {
+      if (
+        fillable.has(key) &&
+        !seen.has(key) &&
+        row.payload !== null &&
+        typeof row.payload.bank_code === "string"
+      ) {
+        seen.add(key);
+        return {
+          ...row,
+          status: "fill",
+          warnings: ["Ya está cargada: se completa el código del banco."],
+          payload: { ...row.payload, fill_only: true },
+        };
+      }
       return { ...row, status: "duplicate", warnings: ["Ya está cargado."] };
     }
     const lines = linesByKey.get(key) ?? [];
@@ -1717,7 +1740,7 @@ export function markDuplicates(
 export type ImportCounts = Record<ImportRowStatus, number>;
 
 export function countRows(rows: readonly { status: ImportRowStatus }[]) {
-  const out: ImportCounts = { ready: 0, duplicate: 0, invalid: 0 };
+  const out: ImportCounts = { ready: 0, fill: 0, duplicate: 0, invalid: 0 };
   for (const r of rows) out[r.status] += 1;
   return out;
 }

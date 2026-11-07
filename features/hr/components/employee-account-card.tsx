@@ -42,6 +42,8 @@ import {
   ACCOUNT_MOVEMENT_KIND_LABEL,
   CREDITOR_LABEL,
   CREDITORS,
+  DEBT_KIND_LABEL,
+  debtPlanKind,
   isAccountCurrency,
   isCreditor,
   isDebitKind,
@@ -52,6 +54,7 @@ import {
   type AccountCurrency,
   type AccountMovement,
   type Creditor,
+  type DebtKind,
   type DebtPlan,
   type PlanStatus,
 } from "../account-schema";
@@ -106,6 +109,14 @@ export function EmployeeAccountCard({
   const [editingPlan, setEditingPlan] = useState<DebtPlan | null>(null);
 
   const plans = data?.plans ?? [];
+  // A plan opened by a cash advance is an adelanto or a préstamo; the other
+  // plans (a charge, a hand-made debt) are just plans.
+  const cashDebtKinds = new Map<string, DebtKind>();
+  for (const m of data?.movements ?? []) {
+    const plan =
+      m.kind === "advance" ? plans.find((p) => p.id === m.plan_id) : undefined;
+    if (plan) cashDebtKinds.set(plan.id, debtPlanKind(plan));
+  }
 
   return (
     <div className="rounded-lg border bg-card p-4">
@@ -132,6 +143,16 @@ export function EmployeeAccountCard({
                   trigger={
                     <Button variant="outline" size="sm">
                       Adelanto
+                    </Button>
+                  }
+                />
+                <EmployeeCashDialog
+                  kind="loan"
+                  employeeId={employeeId}
+                  employeeName={employeeName}
+                  trigger={
+                    <Button variant="outline" size="sm">
+                      Préstamo
                     </Button>
                   }
                 />
@@ -219,6 +240,7 @@ export function EmployeeAccountCard({
                   <PlanRow
                     key={p.id}
                     plan={p}
+                    debtKind={cashDebtKinds.get(p.id)}
                     employeeId={employeeId}
                     canWrite={canWrite}
                     onEdit={() => {
@@ -258,6 +280,9 @@ export function EmployeeAccountCard({
                       <MovementRow
                         key={m.id}
                         movement={m}
+                        debtKind={
+                          m.plan_id ? cashDebtKinds.get(m.plan_id) : undefined
+                        }
                         canWrite={canWrite}
                         canMoveCash={canMoveCash}
                         deleting={deleteMovement.isPending}
@@ -306,11 +331,14 @@ export function EmployeeAccountCard({
 
 function PlanRow({
   plan,
+  debtKind,
   employeeId,
   canWrite,
   onEdit,
 }: {
   plan: DebtPlan;
+  /** Set when a cash advance opened the plan. */
+  debtKind: DebtKind | undefined;
   employeeId: string;
   canWrite: boolean;
   onEdit: () => void;
@@ -346,6 +374,11 @@ function PlanRow({
       <div className="min-w-0">
         <p className="font-medium">
           {plan.description}
+          {debtKind && (
+            <Badge variant="outline" className="ml-2 text-[10px] font-normal">
+              {DEBT_KIND_LABEL[debtKind]}
+            </Badge>
+          )}
           <Badge variant="outline" className="ml-2 text-[10px] font-normal">
             {settled && !closed ? "Saldado" : PLAN_STATUS_LABEL[plan.status]}
           </Badge>
@@ -417,12 +450,15 @@ function PlanRow({
 
 function MovementRow({
   movement: m,
+  debtKind,
   canWrite,
   canMoveCash,
   deleting,
   onDelete,
 }: {
   movement: AccountMovement;
+  /** The advance's plan says whether it is an adelanto or a préstamo. */
+  debtKind: DebtKind | undefined;
   canWrite: boolean;
   canMoveCash: boolean;
   deleting: boolean;
@@ -442,7 +478,10 @@ function MovementRow({
       <td className="px-3 py-2">
         <div>{m.description}</div>
         <div className="text-xs text-muted-foreground">
-          {ACCOUNT_MOVEMENT_KIND_LABEL[m.kind]} · {SOURCE_LABEL[source]}
+          {m.kind === "advance" && debtKind
+            ? DEBT_KIND_LABEL[debtKind]
+            : ACCOUNT_MOVEMENT_KIND_LABEL[m.kind]}{" "}
+          · {SOURCE_LABEL[source]}
           {m.plan_description ? ` · plan ${m.plan_description}` : ""}
           {m.creditor === "socio" ? " · socio" : ""}
         </div>

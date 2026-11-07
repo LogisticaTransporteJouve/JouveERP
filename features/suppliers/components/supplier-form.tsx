@@ -276,26 +276,6 @@ export function SupplierForm({
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="default_cost_center_id"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Centro de costo</FormLabel>
-                  <FormControl>
-                    <CostTagSelect
-                      kind="costCenter"
-                      value={field.value}
-                      onChange={field.onChange}
-                      noneLabel="Ninguno"
-                      side="bottom"
-                      avoidCollisions={false}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
           </div>
         </div>
 

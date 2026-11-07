@@ -875,11 +875,11 @@ export const adminPage: GuidePage = {
                   ["~3", "~Logística Norte SRL", "~Ya existe"],
                   ["~4", "~Cliente sin CUIT", "~Con error"],
                 ],
-                marker: 6,
+                marker: 5,
               },
               footer: [
                 { label: "Cancelar", variant: "outline" },
-                { label: "~Importar 1 fila", variant: "primary", marker: 7 },
+                { label: "~Importar 1 fila", variant: "primary", marker: 6 },
               ],
             },
           ],
@@ -895,9 +895,8 @@ export const adminPage: GuidePage = {
                 "Préstamos: {{Canal}}.",
               ],
             },
-            "Hacé clic en {{Leer archivo}}.",
             {
-              text: "Revisá el resultado.",
+              text: "El archivo se lee solo: revisá el resultado.",
               substeps: [
                 "En {{Columnas}}, cada dato muestra la columna elegida; cambiala si está mal o elegí {{No está}}. Las obligatorias llevan * o (falta). Si cambiaste alguna, hacé clic en {{Volver a leer con estas columnas}}.",
                 "La línea de conteo dice cuántas filas están listas, ya cargadas y con error.",

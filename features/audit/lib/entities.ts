@@ -69,7 +69,7 @@ export const ENTITY_HREF: Record<EntityKind, ((id: string) => string) | null> =
     vehicle: () => "/vehicles",
     driver: () => "/drivers",
     employee: (id) => `/employees/${id}`,
-    account: () => "/accounts",
+    account: (id) => `/accounts/${id}`,
     user: () => "/admin/users",
     freight_settlement: () => "/liquidaciones",
     driver_settlement: () => "/rendiciones",

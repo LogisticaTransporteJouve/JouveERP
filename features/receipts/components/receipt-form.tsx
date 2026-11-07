@@ -121,6 +121,7 @@ export function ReceiptForm({
   onSuccess,
   onCancel,
   canEditRetentions,
+  fromBankLine,
 }: {
   mode: Mode;
   channels: ChannelOption[];
@@ -135,14 +136,28 @@ export function ReceiptForm({
   /** Without retentions:write the form keeps the stored retentions as they
    *  are and offers no editor (the action refuses any change). */
   canEditRetentions: boolean;
+  /** Create mode from a bank statement line: its date, and its amount in
+   *  the account it came in. */
+  fromBankLine?: {
+    date: string;
+    amount: number;
+    account_id: string;
+    channel_id?: string;
+  };
 }) {
   const createMut = useCreateReceipt();
   const updateMut = useUpdateReceipt();
   const isSaving = createMut.isPending || updateMut.isPending;
 
   const defaultChannel = useDefaultChannel();
-  const initialChannel = receipt?.receipt.channel_id ?? defaultChannel ?? "";
+  const initialChannel =
+    receipt?.receipt.channel_id ??
+    fromBankLine?.channel_id ??
+    defaultChannel ??
+    "";
   const sideChannels = useSideChannels(channels);
+  /** A bank line's receipt goes to the bank's channel: no choice to make. */
+  const channelFixed = mode === "create" && !!fromBankLine?.channel_id;
   const pageIsFiscal = usePageIsFiscal();
 
   const initialPaymentLines: PaymentLineDraft[] = receipt
@@ -163,7 +178,13 @@ export function ReceiptForm({
             : undefined,
         };
       })
-    : [{ account_id: "", amount: "", reference: "" }];
+    : [
+        {
+          account_id: fromBankLine?.account_id ?? "",
+          amount: fromBankLine ? amountToInput(fromBankLine.amount) : "",
+          reference: "",
+        },
+      ];
 
   const initialAllocations: AllocationDraft[] = receipt
     ? [
@@ -197,7 +218,8 @@ export function ReceiptForm({
     defaultValues: {
       channelId: initialChannel,
       numero: receipt ? String(receipt.receipt.numero) : "",
-      receiptDate: receipt?.receipt.receipt_date ?? todayInAR(),
+      receiptDate:
+        receipt?.receipt.receipt_date ?? fromBankLine?.date ?? todayInAR(),
       currency:
         (receipt?.receipt.currency as ReceiptCurrency | undefined) ?? "ARS",
       cotizacion:
@@ -442,40 +464,50 @@ export function ReceiptForm({
         <ListFormColumns
           left={
             <>
-              <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-[1fr_140px_140px_100px]">
-                <FormField
-                  control={form.control}
-                  name="channelId"
-                  render={({ field }) => (
-                    <FormItem className="space-y-1">
-                      <FormLabel className="text-xs">Canal</FormLabel>
-                      <Select
-                        value={field.value}
-                        onValueChange={(next) => {
-                          field.onChange(next);
-                          // Allocations are per channel — drop picks from the old one.
-                          form.setValue("allocations", []);
-                        }}
-                        disabled={mode === "edit"}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent position="popper">
-                          {sideChannels.map((c) => (
-                            <SelectItem key={c.id} value={c.id}>
-                              {c.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <ChannelsReadError inline />
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              {channelFixed && <ChannelsReadError inline />}
+              <div
+                className={cn(
+                  "grid grid-cols-1 items-start gap-3",
+                  channelFixed
+                    ? "sm:grid-cols-[140px_140px_100px]"
+                    : "sm:grid-cols-[1fr_140px_140px_100px]",
+                )}
+              >
+                {!channelFixed && (
+                  <FormField
+                    control={form.control}
+                    name="channelId"
+                    render={({ field }) => (
+                      <FormItem className="space-y-1">
+                        <FormLabel className="text-xs">Canal</FormLabel>
+                        <Select
+                          value={field.value}
+                          onValueChange={(next) => {
+                            field.onChange(next);
+                            // Allocations are per channel — drop picks from the old one.
+                            form.setValue("allocations", []);
+                          }}
+                          disabled={mode === "edit"}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent position="popper">
+                            {sideChannels.map((c) => (
+                              <SelectItem key={c.id} value={c.id}>
+                                {c.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <ChannelsReadError inline />
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
                 <FormField
                   control={form.control}
                   name="numero"

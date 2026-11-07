@@ -524,23 +524,6 @@ export function TransactionForm({
                     </FormItem>
                   )}
                 />
-                <FormField
-                  control={form.control}
-                  name="cost_center_id"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs">Centro de costo</FormLabel>
-                      <FormControl>
-                        <CostTagSelect
-                          kind="costCenter"
-                          value={field.value}
-                          onChange={field.onChange}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
               </div>
             )}
 

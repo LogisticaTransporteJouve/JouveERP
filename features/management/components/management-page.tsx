@@ -33,13 +33,11 @@ import {
   INTERNAL_USE_NOTICE,
   MANAGEMENT_BASES,
   MANAGEMENT_BASIS_LABEL,
-  NO_COST_CENTER,
   SIDE_VIEWS,
   TABLE_LINES,
   buildMonthTable,
   computeKpis,
   computeWaterfall,
-  costCenterBreakdown,
   filterByCostCenter,
   isManagementBasis,
   isSideView,
@@ -172,21 +170,10 @@ export function ManagementPage({
               percepción de la cuota van con los intereses).
             </li>
             <li>
-              Por centro de costo cuenta solo lo cargado con centro (compras,
-              egresos manuales y documentos); el resto va a «Sin centro». En
-              Percibido, los pagos con orden de pago no llevan el centro de la
-              compra.
-            </li>
-            <li>
               En Percibido, un cobro o un pago cuenta como venta de bien de uso,
               inversión en flota o anticipo al personal según lo que imputó; lo
               cobrado o pagado a cuenta (sin imputar) va a servicios o a pagos a
               proveedores.
-            </li>
-            <li>
-              El margen por camión suma lo cargado con el centro de costo de
-              cada camión; un camión sin centro vinculado solo lleva sus viajes,
-              combustible y mantenimiento.
             </li>
           </ul>
         </div>
@@ -208,7 +195,7 @@ function ManagementReportView({
 }) {
   const { data } = useManagementReport(input);
   const [sideView, setSideView] = useState<SideView>("total");
-  const [costCenter, setCostCenter] = useState<string>(ALL_COST_CENTERS);
+  const costCenter = ALL_COST_CENTERS;
   const [drill, setDrill] = useState<DrillCell | null>(null);
   const logExport = useLogManagementExport();
 
@@ -225,7 +212,6 @@ function ManagementReportView({
     () => buildMonthTable(rows, data.months),
     [rows, data.months],
   );
-  const breakdown = useMemo(() => costCenterBreakdown(data.rows), [data.rows]);
   const centerById = useMemo(
     () => new Map(data.costCenters.map((c) => [c.id, c])),
     [data.costCenters],
@@ -261,14 +247,10 @@ function ManagementReportView({
       data.months,
       sideView,
     );
-    const scope =
-      costCenter === ALL_COST_CENTERS
-        ? "Todos los centros"
-        : centerLabel(costCenter === NO_COST_CENTER ? null : costCenter);
     const title = `Resultado de gestión ${fiscalYearLabel(input.fiscalYear, data.fiscalYearStartMonth)}`;
     const subtitle = `${MANAGEMENT_BASIS_LABEL[input.basis]}${
       input.inflation ? " ajustado por inflación" : ""
-    } · ${scope} · meses en ${SIDE_LABEL[sideView]}`;
+    } · meses en ${SIDE_LABEL[sideView]}`;
     const fileBase = `gestion-uso-interno-${input.fiscalYear}-${input.basis}`;
     try {
       if (format === "csv") {
@@ -321,27 +303,6 @@ function ManagementReportView({
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1">
-        <Label className="text-xs">Centro de costo</Label>
-        <Select value={costCenter} onValueChange={setCostCenter}>
-          <SelectTrigger
-            className="w-full max-w-72"
-            aria-label="Centro de costo"
-          >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent position="popper">
-            <SelectItem value={ALL_COST_CENTERS}>Todos</SelectItem>
-            {data.costCenters.map((c) => (
-              <SelectItem key={c.id} value={c.id}>
-                {c.code} · {c.name}
-              </SelectItem>
-            ))}
-            <SelectItem value={NO_COST_CENTER}>Sin centro</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
       {data.partial && (
         <div className="flex gap-2 rounded-lg border p-3 text-sm">
           <Info className="mt-0.5 size-4 shrink-0" />
@@ -399,11 +360,7 @@ function ManagementReportView({
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[2fr_1fr]">
         <div className="rounded-lg border bg-card p-4">
-          <h2 className="mb-2 text-sm font-medium">
-            Cascada del año fiscal
-            {costCenter !== ALL_COST_CENTERS &&
-              ` · ${centerLabel(costCenter === NO_COST_CENTER ? null : costCenter)}`}
-          </h2>
+          <h2 className="mb-2 text-sm font-medium">Cascada del año fiscal</h2>
           <WaterfallChart waterfall={waterfall} />
         </div>
         <div className="rounded-lg border bg-card">
@@ -562,68 +519,6 @@ function ManagementReportView({
         costCenter={costCenter}
         onClose={() => setDrill(null)}
       />
-
-      <div className="rounded-lg border bg-card">
-        <div className="border-b px-4 py-3">
-          <h2 className="text-sm font-medium">Por centro de costo</h2>
-          <p className="text-xs text-muted-foreground">
-            Año fiscal completo, fiscal + interno. Elegí un centro arriba para
-            ver su cascada y su mes a mes.
-          </p>
-        </div>
-        {breakdown.length === 0 ? (
-          <p className="px-4 py-3 text-sm text-muted-foreground">
-            Sin movimientos en el año.
-          </p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[40rem] text-xs">
-              <thead className="bg-muted/30 text-muted-foreground">
-                <tr>
-                  <th className="px-3 py-2 text-left">Centro</th>
-                  <th className="px-3 py-2 text-right">Servicios</th>
-                  <th className="px-3 py-2 text-right">Costos operativos</th>
-                  <th className="px-3 py-2 text-right">Sin clasificar</th>
-                  <th className="px-3 py-2 text-right">Margen operativo</th>
-                  <th className="px-3 py-2 text-right">Inversión en flota</th>
-                </tr>
-              </thead>
-              <tbody>
-                {breakdown.map(({ costCenterId, waterfall: w }) => (
-                  <tr key={costCenterId ?? NO_COST_CENTER} className="border-t">
-                    <td className="px-3 py-1.5">
-                      <button
-                        type="button"
-                        className="text-left underline-offset-2 hover:underline"
-                        onClick={() =>
-                          setCostCenter(costCenterId ?? NO_COST_CENTER)
-                        }
-                      >
-                        {centerLabel(costCenterId)}
-                      </button>
-                    </td>
-                    <td className="px-3 py-1.5 text-right font-mono">
-                      {money(w.serviceRevenue)}
-                    </td>
-                    <td className="px-3 py-1.5 text-right font-mono">
-                      {money(w.operatingCost)}
-                    </td>
-                    <td className="px-3 py-1.5 text-right font-mono">
-                      {money(w.unclassified)}
-                    </td>
-                    <td className="px-3 py-1.5 text-right font-mono font-semibold">
-                      {money(w.operatingMargin)}
-                    </td>
-                    <td className="px-3 py-1.5 text-right font-mono">
-                      {money(w.fleetInvestment)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
 
       <VehicleMarginSection
         fromPeriod={data.months[0]!}

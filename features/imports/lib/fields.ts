@@ -418,6 +418,19 @@ const GO_LIVE_FIELDS = {
         "nro de comprobante",
       ],
     },
+    {
+      key: "bank_code",
+      label: "Código del banco",
+      required: false,
+      aliases: [
+        "codigo causal",
+        "causal",
+        "cod causal",
+        "codigo de operacion",
+        "cod operacion",
+      ],
+      hint: "El código que el banco da a cada movimiento (en Macro, «Código Causal»).",
+    },
   ],
 } satisfies Partial<Record<ImportKind, readonly ImportField[]>>;
 

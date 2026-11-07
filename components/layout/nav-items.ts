@@ -45,12 +45,10 @@ import {
   ShoppingCart,
   Sparkles,
   Tags,
-  Target,
   TrendingUp,
   Truck,
   UserRound,
   Users,
-  Wallet,
   Warehouse,
   Wrench,
 } from "lucide-react";
@@ -74,6 +72,8 @@ export type NavItem = {
   permission?: Permission | readonly Permission[];
   /** Opening the item switches the side (fiscal / internal) to this one. */
   scope?: Exclude<FiscalFilter, "all">;
+  /** Other paths that belong to this item (an account opens from Resumen). */
+  also?: readonly string[];
 };
 
 export type NavSection = {
@@ -207,18 +207,13 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         label: "Resumen",
         icon: LineChart,
         permission: TREASURY_PERMISSIONS,
+        also: ["/accounts"],
       },
       {
         href: "/treasury/cash-flow",
         label: "Flujo de caja",
         icon: TrendingUp,
         permission: TREASURY_PERMISSIONS,
-      },
-      {
-        href: "/accounts",
-        label: "Cuentas",
-        icon: Wallet,
-        permission: "accounts:read",
       },
       {
         href: "/transactions",
@@ -308,12 +303,6 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         label: "Resultado de gestión",
         icon: Gauge,
         permission: "management:read",
-      },
-      {
-        href: "/accounting/cost-centers",
-        label: "Centros de costo",
-        icon: Target,
-        permission: "accounting:read",
       },
       {
         href: "/taxes",
@@ -583,20 +572,21 @@ export function navItemForPath(
   pathname: string,
   scope: FiscalFilter = "all",
 ): NavItem | undefined {
-  let best: NavItem | undefined;
+  let best: { item: NavItem; length: number } | undefined;
+  const under = (base: string) =>
+    pathname === base || pathname.startsWith(`${base}/`);
   for (const item of ALL_ITEMS) {
-    const matches =
-      pathname === item.href || pathname.startsWith(`${item.href}/`);
-    if (!matches) continue;
+    const base = [item.href, ...(item.also ?? [])].find(under);
+    if (!base) continue;
     if (
       !best ||
-      item.href.length > best.href.length ||
-      (item.href === best.href && item.scope === scope)
+      base.length > best.length ||
+      (base.length === best.length && item.scope === scope)
     ) {
-      best = item;
+      best = { item, length: base.length };
     }
   }
-  return best;
+  return best?.item;
 }
 
 export function navSectionForItem(item: NavItem): NavSection | undefined {

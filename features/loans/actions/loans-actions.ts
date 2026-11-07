@@ -35,7 +35,10 @@ import {
 } from "../schema";
 
 const LOAN_COLUMNS =
-  "id, kind, description, lender, principal, currency, channel_id, installments_count, first_due_date, status, notes, created_at, disbursement_transaction_id, channel:invoicing_channels(name, is_fiscal)";
+  "id, kind, description, lender, principal, currency, channel_id, installments_count, first_due_date, status, notes, created_at, disbursement_transaction_id, loan_number, account_id, start_date, original_amount, tna, tea, cft, channel:invoicing_channels(name, is_fiscal), account:accounts(name)";
+
+const numOrNull = (v: number | string | null) =>
+  v === null ? null : Number(v);
 
 function readChannelName(
   channel: { name: string } | { name: string }[] | null,
@@ -51,6 +54,8 @@ type InstallmentAgg = {
   due_date: string;
   paid_amount: number | null;
   capital_amount: number | null;
+  interest_amount: number | null;
+  paid_outside: boolean;
 };
 
 function summarize(
@@ -59,28 +64,42 @@ function summarize(
 ): Pick<
   LoanListItem,
   | "paid_total"
+  | "paid_count"
+  | "interest_paid"
+  | "next_due_amount"
   | "pending_total"
   | "pending_count"
   | "next_due_date"
   | "capital_outstanding"
 > {
   let paid = 0;
+  let paidCount = 0;
+  let interestPaid = 0;
   let capitalPaid = 0;
   let pendingTotal = 0;
   let pendingCount = 0;
   let nextDue: string | null = null;
+  let nextAmount: number | null = null;
   for (const r of rows) {
     if (r.status === "pagada") {
-      paid += Number(r.paid_amount ?? 0);
+      paidCount += 1;
+      if (!r.paid_outside) paid += Number(r.paid_amount ?? 0);
+      interestPaid += Number(r.interest_amount ?? 0);
       capitalPaid += Number(r.capital_amount ?? r.paid_amount ?? 0);
     } else {
       pendingTotal += Number(r.amount);
       pendingCount += 1;
-      if (nextDue === null || r.due_date < nextDue) nextDue = r.due_date;
+      if (nextDue === null || r.due_date < nextDue) {
+        nextDue = r.due_date;
+        nextAmount = Number(r.amount);
+      }
     }
   }
   return {
     paid_total: Math.round(paid * 100) / 100,
+    paid_count: paidCount,
+    interest_paid: Math.round(interestPaid * 100) / 100,
+    next_due_amount: nextAmount,
     pending_total: Math.round(pendingTotal * 100) / 100,
     pending_count: pendingCount,
     next_due_date: nextDue,
@@ -123,7 +142,15 @@ function toListItem(
     notes: string | null;
     created_at: string;
     disbursement_transaction_id: string | null;
+    loan_number: string | null;
+    account_id: string | null;
+    start_date: string | null;
+    original_amount: number | string | null;
+    tna: number | string | null;
+    tea: number | string | null;
+    cft: number | string | null;
     channel: { name: string } | { name: string }[] | null;
+    account: { name: string } | { name: string }[] | null;
   },
   agg: ReturnType<typeof summarize>,
 ): LoanListItem {
@@ -142,6 +169,14 @@ function toListItem(
     notes: loan.notes,
     created_at: loan.created_at,
     disbursement_transaction_id: loan.disbursement_transaction_id ?? null,
+    loan_number: loan.loan_number,
+    account_id: loan.account_id,
+    account_name: readChannelName(loan.account),
+    start_date: loan.start_date,
+    original_amount: numOrNull(loan.original_amount),
+    tna: numOrNull(loan.tna),
+    tea: numOrNull(loan.tea),
+    cft: numOrNull(loan.cft),
     ...agg,
   };
 }
@@ -179,7 +214,7 @@ export async function listLoansAction(input?: {
         supabase
           .from("loan_installments")
           .select(
-            "loan_id, amount, status, due_date, paid_amount, capital_amount",
+            "loan_id, amount, status, due_date, paid_amount, capital_amount, interest_amount, paid_outside",
           )
           .in("loan_id", chunkIds)
           .order("id")
@@ -203,6 +238,9 @@ export async function listLoansAction(input?: {
         paid_amount: i.paid_amount === null ? null : Number(i.paid_amount),
         capital_amount:
           i.capital_amount == null ? null : Number(i.capital_amount),
+        interest_amount:
+          i.interest_amount == null ? null : Number(i.interest_amount),
+        paid_outside: i.paid_outside,
       });
       byLoan.set(i.loan_id, arr);
     }
@@ -239,7 +277,7 @@ export async function getLoanAction(
     supabase
       .from("loan_installments")
       .select(
-        "id, loan_id, number, due_date, amount, status, paid_date, paid_amount, transaction_id, notes, capital_amount, interest_amount, iva_amount, perception_amount, other_charges_amount",
+        "id, loan_id, number, due_date, amount, status, paid_date, paid_amount, transaction_id, notes, capital_amount, interest_amount, iva_amount, perception_amount, other_charges_amount, paid_outside",
       )
       .eq("loan_id", id)
       .order("number")
@@ -265,6 +303,7 @@ export async function getLoanAction(
     transaction_id: i.transaction_id,
     notes: i.notes,
     split: readSplit(i),
+    paid_outside: i.paid_outside,
   }));
   const agg = summarize(
     installments.map((i) => ({
@@ -274,6 +313,8 @@ export async function getLoanAction(
       due_date: i.due_date,
       paid_amount: i.paid_amount,
       capital_amount: i.split?.capital ?? null,
+      interest_amount: i.split?.interest ?? null,
+      paid_outside: i.paid_outside,
     })),
     Number(loan.principal),
   );
@@ -297,11 +338,28 @@ export async function createLoanAction(
   const d = parsed.data;
   const supabase = await createSupabaseClient();
 
-  const schedule = generateInstallments(
-    d.principal,
-    d.installments_count,
-    d.first_due_date,
-  );
+  // The bank's plan (or the French one from the TNA) sets the cuotas, their
+  // split and which were paid before; without it, equal parts of the capital.
+  const plan = d.plan ?? null;
+  const schedule = plan
+    ? plan.map((p) => ({
+        number: p.number,
+        due_date: p.due_date,
+        amount: p.amount,
+        capital: p.capital,
+        interest: p.interest,
+        iva: p.iva,
+        perception: p.perception,
+        other: p.other,
+        paid_outside: p.paid,
+      }))
+    : generateInstallments(d.principal, d.installments_count, d.first_due_date);
+  if (plan && plan.every((p) => p.paid)) {
+    return {
+      ok: false,
+      error: "Todas las cuotas figuran pagadas: no hay nada para seguir.",
+    };
+  }
   // One transaction: the loan never exists without its schedule.
   const { data: loanId, error } = await supabase.rpc("create_loan", {
     p_loan: {
@@ -311,15 +369,18 @@ export async function createLoanAction(
       principal: d.principal,
       currency: d.currency,
       channel_id: d.channel_id,
-      installments_count: d.installments_count,
-      first_due_date: d.first_due_date,
+      installments_count: schedule.length,
+      first_due_date: schedule[0]?.due_date ?? d.first_due_date,
       notes: d.notes ?? null,
+      loan_number: d.loan_number ?? null,
+      account_id: d.account_id ?? null,
+      start_date: d.start_date ?? null,
+      original_amount: d.original_amount ?? null,
+      tna: d.tna ?? null,
+      tea: d.tea ?? null,
+      cft: d.cft ?? null,
     },
-    p_installments: schedule.map((s) => ({
-      number: s.number,
-      due_date: s.due_date,
-      amount: s.amount,
-    })),
+    p_installments: schedule,
   });
   if (error || !loanId) {
     const guardError = mapDbGuardError(error, {

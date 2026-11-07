@@ -176,7 +176,6 @@ describe("PurchaseInvoiceForm accepting an ARCA voucher", () => {
       "Canal",
       "Vencimiento de pago",
       "Cuenta de gasto",
-      "Centro de costo",
       "A cargo de empleado",
       "Notas",
     ]) {

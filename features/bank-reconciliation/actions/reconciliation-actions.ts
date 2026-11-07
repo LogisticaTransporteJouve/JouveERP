@@ -4,7 +4,9 @@ import { isAccountType, isCheckAccount } from "@/features/accounts/schema";
 import { TransactionCreateSchema } from "@/features/transactions/schema";
 import { logAudit } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
-import { userCan } from "@/lib/auth/permissions";
+import { userCan, userCanAll } from "@/lib/auth/permissions";
+import { LOAN_CASH_PERMISSIONS } from "@/features/loans/lib/loan-cash";
+import { payLoanInstallment } from "@/lib/commands/pay-loan-installment";
 import {
   matchBankLine,
   matchBankLines,
@@ -24,12 +26,15 @@ import {
 } from "../lib/reconcile";
 import {
   AcceptSuggestionsSchema,
+  BANK_TAX_ROLES,
   CANDIDATE_DAY_WINDOW,
   CreateLineTaxPaymentSchema,
   CreateLineTransactionSchema,
   IgnoreLineSchema,
   LineIdSchema,
   MatchLineSchema,
+  MatchLineToReceiptSchema,
+  PayLoanFromLineSchema,
   MatchLinesToMovementSchema,
   ReconciliationQuerySchema,
   SUGGESTION_DAY_WINDOW,
@@ -93,6 +98,7 @@ type LineRow = {
   amount: number;
   balance: number | null;
   reference: string | null;
+  bank_code: string | null;
   status: string;
   ignore_reason: string | null;
   line_no: number;
@@ -170,7 +176,7 @@ export async function getReconciliationAction(
       service
         .from("bank_statement_lines")
         .select(
-          "id, line_date, description, amount, balance, reference, status, ignore_reason, line_no, import_run_id, created_at",
+          "id, line_date, description, amount, balance, reference, bank_code, status, ignore_reason, line_no, import_run_id, created_at",
         )
         .eq("account_id", account_id)
         .gte("line_date", from)
@@ -267,6 +273,7 @@ export async function getReconciliationAction(
         amount: Number(l.amount),
         balance: l.balance === null ? null : Number(l.balance),
         reference: l.reference,
+        bank_code: l.bank_code,
         status: l.status,
         ignore_reason: l.ignore_reason,
         transaction_ids: txOfLine.get(l.id) ?? [],
@@ -368,6 +375,98 @@ export async function matchLineAction(
     };
   }
   return matchBankLine(ctx.userId, parsed.data);
+}
+
+/** Reconciles a line with the movements of its account that a receipt
+ *  created (the receipt issued from that line). */
+export async function matchLineToReceiptAction(
+  input: unknown,
+): Promise<ActionResult<{ line_id: string }>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.access, "transactions:write")) {
+    return { ok: false, error: WRITE_DENIED };
+  }
+  const parsed = MatchLineToReceiptSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Datos inválidos." };
+  const service = getServiceClient();
+  const line = await service
+    .from("bank_statement_lines")
+    .select("account_id")
+    .eq("id", parsed.data.line_id)
+    .maybeSingle();
+  if (line.error || !line.data) {
+    return { ok: false, error: "La línea del extracto ya no existe." };
+  }
+  const txs = await service
+    .from("transactions")
+    .select("id")
+    .eq("receipt_id", parsed.data.receipt_id)
+    .eq("account_id", line.data.account_id);
+  if (txs.error) {
+    logger.error("reconciliation.receipt_match.read_failed", {
+      userId: ctx.userId,
+      error: txs.error,
+    });
+    return { ok: false, error: "No se pudo leer el movimiento del recibo." };
+  }
+  if (txs.data.length === 0) {
+    return {
+      ok: false,
+      error: "El recibo no tiene un movimiento en la cuenta del extracto.",
+    };
+  }
+  return matchBankLine(ctx.userId, {
+    line_id: parsed.data.line_id,
+    transaction_ids: txs.data.map((t) => t.id),
+  });
+}
+
+/** Pays a loan cuota with a bank debit line and reconciles them: the cuota's
+ *  outflow goes to the line's account on its date, for its amount. */
+export async function payLoanInstallmentFromLineAction(
+  input: unknown,
+): Promise<ActionResult<{ line_id: string }>> {
+  const ctx = await requireUserContext();
+  if (!userCanAll(ctx.access, LOAN_CASH_PERMISSIONS)) {
+    return {
+      ok: false,
+      error: "No tenés permiso para pagar cuotas de préstamos.",
+    };
+  }
+  const parsed = PayLoanFromLineSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Datos inválidos." };
+  const line = await getServiceClient()
+    .from("bank_statement_lines")
+    .select("account_id, line_date, amount, status")
+    .eq("id", parsed.data.line_id)
+    .maybeSingle();
+  if (line.error || !line.data) {
+    return { ok: false, error: "La línea del extracto ya no existe." };
+  }
+  if (line.data.status !== "open" || Number(line.data.amount) >= 0) {
+    return {
+      ok: false,
+      error: "La línea ya está resuelta o no es un débito.",
+    };
+  }
+  const paid = await payLoanInstallment(ctx.userId, {
+    id: parsed.data.installment_id,
+    paid_date: line.data.line_date,
+    account_id: line.data.account_id,
+    amount: -Number(line.data.amount),
+  });
+  if (!paid.ok) return paid;
+  const matched = await matchBankLine(ctx.userId, {
+    line_id: parsed.data.line_id,
+    transaction_ids: [paid.data.transactionId],
+  });
+  if (!matched.ok) {
+    return {
+      ok: false,
+      error: `La cuota quedó pagada pero la línea no se concilió: ${matched.error}`,
+    };
+  }
+  return matched;
 }
 
 export type AcceptSuggestionsResult = BankMatchesResult;
@@ -591,6 +690,27 @@ export async function createLineTransactionAction(
     return { ok: false, error: "Elegí la cuenta de gasto del débito." };
   }
   const expenseAccountId = isDebit ? (d.expense_account_id ?? null) : null;
+  if (expenseAccountId) {
+    const target = await service
+      .from("chart_of_accounts")
+      .select("system_role")
+      .eq("id", expenseAccountId)
+      .maybeSingle();
+    if (target.error) {
+      return { ok: false, error: "No se pudo leer la cuenta contable." };
+    }
+    const role = target.data?.system_role;
+    if (
+      role &&
+      (BANK_TAX_ROLES as readonly string[]).includes(role) &&
+      !userCan(ctx.access, "taxes:write")
+    ) {
+      return {
+        ok: false,
+        error: "No tenés permiso para registrar impuestos.",
+      };
+    }
+  }
   const costCenterId = isDebit ? (d.cost_center_id ?? null) : null;
   // The same contract as the manual form (Caja › Nuevo movimiento).
   const contract = TransactionCreateSchema.safeParse({

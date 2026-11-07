@@ -1126,11 +1126,73 @@ export type Database = {
           },
         ]
       }
+      bank_statement_codes: {
+        Row: {
+          account_id: string
+          bank_code: string
+          chart_account_id: string | null
+          created_at: string
+          created_by: string | null
+          description_pattern: string
+          id: string
+          kind: string
+          label: string | null
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          bank_code: string
+          chart_account_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description_pattern?: string
+          id?: string
+          kind: string
+          label?: string | null
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          bank_code?: string
+          chart_account_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description_pattern?: string
+          id?: string
+          kind?: string
+          label?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_statement_codes_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_statement_codes_chart_account_id_fkey"
+            columns: ["chart_account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_statement_codes_chart_account_id_fkey"
+            columns: ["chart_account_id"]
+            isOneToOne: false
+            referencedRelation: "expense_leaf_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bank_statement_lines: {
         Row: {
           account_id: string
           amount: number
           balance: number | null
+          bank_code: string | null
           created_at: string
           description: string
           id: string
@@ -1148,6 +1210,7 @@ export type Database = {
           account_id: string
           amount: number
           balance?: number | null
+          bank_code?: string | null
           created_at?: string
           description: string
           id?: string
@@ -1165,6 +1228,7 @@ export type Database = {
           account_id?: string
           amount?: number
           balance?: number | null
+          bank_code?: string | null
           created_at?: string
           description?: string
           id?: string
@@ -4049,6 +4113,7 @@ export type Database = {
           created_by: string | null
           file_name: string
           file_sha256: string
+          filled_rows: number
           id: string
           inserted_rows: number
           invalid_rows: number
@@ -4065,6 +4130,7 @@ export type Database = {
           created_by?: string | null
           file_name: string
           file_sha256: string
+          filled_rows?: number
           id?: string
           inserted_rows?: number
           invalid_rows?: number
@@ -4081,6 +4147,7 @@ export type Database = {
           created_by?: string | null
           file_name?: string
           file_sha256?: string
+          filled_rows?: number
           id?: string
           inserted_rows?: number
           invalid_rows?: number
@@ -4736,6 +4803,7 @@ export type Database = {
           other_charges_amount: number | null
           paid_amount: number | null
           paid_date: string | null
+          paid_outside: boolean
           perception_amount: number | null
           status: Database["public"]["Enums"]["loan_installment_status"]
           transaction_id: string | null
@@ -4755,6 +4823,7 @@ export type Database = {
           other_charges_amount?: number | null
           paid_amount?: number | null
           paid_date?: string | null
+          paid_outside?: boolean
           perception_amount?: number | null
           status?: Database["public"]["Enums"]["loan_installment_status"]
           transaction_id?: string | null
@@ -4774,6 +4843,7 @@ export type Database = {
           other_charges_amount?: number | null
           paid_amount?: number | null
           paid_date?: string | null
+          paid_outside?: boolean
           perception_amount?: number | null
           status?: Database["public"]["Enums"]["loan_installment_status"]
           transaction_id?: string | null
@@ -4805,6 +4875,8 @@ export type Database = {
       }
       loans: {
         Row: {
+          account_id: string | null
+          cft: number | null
           channel_id: string
           created_at: string
           created_by: string | null
@@ -4817,12 +4889,19 @@ export type Database = {
           installments_count: number
           kind: Database["public"]["Enums"]["loan_kind"]
           lender: string | null
+          loan_number: string | null
           notes: string | null
+          original_amount: number | null
           principal: number
+          start_date: string | null
           status: Database["public"]["Enums"]["loan_status"]
+          tea: number | null
+          tna: number | null
           updated_at: string
         }
         Insert: {
+          account_id?: string | null
+          cft?: number | null
           channel_id: string
           created_at?: string
           created_by?: string | null
@@ -4835,12 +4914,19 @@ export type Database = {
           installments_count: number
           kind?: Database["public"]["Enums"]["loan_kind"]
           lender?: string | null
+          loan_number?: string | null
           notes?: string | null
+          original_amount?: number | null
           principal: number
+          start_date?: string | null
           status?: Database["public"]["Enums"]["loan_status"]
+          tea?: number | null
+          tna?: number | null
           updated_at?: string
         }
         Update: {
+          account_id?: string | null
+          cft?: number | null
           channel_id?: string
           created_at?: string
           created_by?: string | null
@@ -4853,12 +4939,24 @@ export type Database = {
           installments_count?: number
           kind?: Database["public"]["Enums"]["loan_kind"]
           lender?: string | null
+          loan_number?: string | null
           notes?: string | null
+          original_amount?: number | null
           principal?: number
+          start_date?: string | null
           status?: Database["public"]["Enums"]["loan_status"]
+          tea?: number | null
+          tna?: number | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "loans_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "loans_channel_id_fkey"
             columns: ["channel_id"]
@@ -10326,6 +10424,7 @@ export type Database = {
         }[]
       }
       invoice_open_amount: { Args: { p_invoice_id: string }; Returns: number }
+      is_bank_tax_account: { Args: { p_account_id: string }; Returns: boolean }
       is_channel_fiscal: { Args: { p_channel_id: string }; Returns: boolean }
       is_driver_employee: { Args: { p_employee_id: string }; Returns: boolean }
       is_employee_document_file: {

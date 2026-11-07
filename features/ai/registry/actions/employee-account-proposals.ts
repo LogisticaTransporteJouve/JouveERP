@@ -120,9 +120,10 @@ export const proposeEmployeeAccountCash = defineAiProposal({
     "Propose an advance to an employee (adelanto, sale plata de una cuenta) " +
     "or a payment by the employee (pago del empleado, entra plata) for the " +
     "user to accept on a card: the Caja movement and the employee's account " +
-    "movement together. An advance is discounted in the planilla in one " +
-    "month unless installment_amount says the monthly cuota, or " +
-    "discount_in_payroll is false. A payment can be applied to one of the " +
+    "movement together. An advance (adelanto) is discounted whole in the " +
+    "planilla of its month; a loan (préstamo) is the same with " +
+    "installment_amount, the monthly cuota, below the amount. " +
+    "discount_in_payroll false leaves it out of the planilla. A payment can be applied to one of the " +
     "employee's debt plans (plan). Writes nothing by itself.",
   input: z.object({
     employee: employeeRef,
