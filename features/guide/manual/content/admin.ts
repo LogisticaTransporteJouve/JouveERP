@@ -480,7 +480,8 @@ export const adminPage: GuidePage = {
         "La pantalla de configuración de AFIP/ARCA. Arriba muestra el ambiente ({{Producción}} u {{Homologación}}) y el CUIT con el que se factura, y tiene cuatro bloques:",
         "{{Diagnóstico AFIP}}: las validaciones que tienen que pasar antes de emitir: {{Variables de entorno}}, {{Certificado}} (avisa cuando faltan menos de 30 días para que venza y cuando está vencido), el ticket de acceso a los servicios ({{WSAA — wsfe}} y el del padrón) y el estado del servidor de facturación ({{WSFEv1 — FEDummy}}).",
         "{{Puntos de venta}}: los puntos de venta que AFIP tiene habilitados para el CUIT, con {{Número}}, {{Alias}}, {{Canal}}, {{Habilitado}} y el estado en {{AFIP}} (activo o bloqueado y su tipo de emisión). AFIP solo devuelve los puntos de factura electrónica por web service (WSFEv1); los de Comprobantes en Línea u otros servicios no aparecen.",
-        "{{Conciliación con ARCA}}: compara, por punto de venta y tipo de comprobante, el último número autorizado en ARCA contra lo que tiene el sistema.",
+        "{{Conciliación con ARCA}}: dos pestañas. {{Ventas}} compara, por punto de venta y tipo de comprobante, el último número autorizado en ARCA contra lo que tiene el sistema. {{Compras}} compara los comprobantes que ARCA lista como recibidos contra las compras fiscales, por año y mes: ver [[#conciliacion-compras-arca]].",
+        "Quien carga compras (permiso de escribir compras) sin administrar AFIP entra a esta página y ve solo el bloque {{Conciliación con ARCA}} con la pestaña {{Compras}}; cada pestaña aparece solo para quien la puede ver.",
         "{{CAEA (contingencia)}}: el código anticipado por quincena para emitir con AFIP caído.",
       ],
       screens: [
@@ -524,9 +525,9 @@ export const adminPage: GuidePage = {
           ],
         },
         {
-          title: "Conciliación con ARCA",
+          title: "Conciliación con ARCA: ventas",
           body: [
-            "ARCA numera cada tipo de comprobante sin saltos, así que del 1 al último autorizado todo tiene que estar en el sistema. La tabla muestra {{PV}}, {{Tipo}}, {{Último en ARCA}}, {{Último en el ERP}}, {{Por importar}} (números por encima del último que tiene el sistema), {{Huecos}} (números que faltan por debajo, por ejemplo NC/ND que esperan su factura de origen) y {{Números faltantes}} (los primeros huecos).",
+            "La pestaña {{Ventas}} del bloque {{Conciliación con ARCA}}, con el cuadro {{Numeración de ventas}}. ARCA numera cada tipo de comprobante sin saltos, así que del 1 al último autorizado todo tiene que estar en el sistema. La tabla muestra {{PV}}, {{Tipo}}, {{Último en ARCA}}, {{Último en el ERP}}, {{Por importar}} (números por encima del último que tiene el sistema), {{Huecos}} (números que faltan por debajo, por ejemplo NC/ND que esperan su factura de origen) y {{Números faltantes}} (los primeros huecos).",
             "Lo que falta se trae con {{Traer de ARCA}} en [[/invoices]].",
           ],
         },
@@ -663,7 +664,7 @@ export const adminPage: GuidePage = {
             "Verifica que el sistema tenga todos los comprobantes que ARCA autorizó.",
           permission: "afip:admin",
           steps: [
-            "En [[/admin/afip/puntos-de-venta]], en el bloque {{Conciliación con ARCA}}, hacé clic en {{Conciliar con ARCA}}.",
+            "En [[/admin/afip/puntos-de-venta]], en el bloque {{Conciliación con ARCA}}, pestaña {{Ventas}}, hacé clic en {{Conciliar con ARCA}}.",
             "Esperá a que termine la consulta y leé el resumen y la tabla.",
           ],
           after: [

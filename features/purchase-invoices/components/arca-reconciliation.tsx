@@ -1,9 +1,18 @@
 "use client";
 
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { QueryErrorResetBoundary } from "@tanstack/react-query";
+import { ChevronDown, ChevronRight, RefreshCw } from "lucide-react";
 import Link from "next/link";
-import { Fragment, Suspense, useMemo, useState } from "react";
+import {
+  Component,
+  Fragment,
+  Suspense,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 
+import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { Section } from "@/components/ui/section";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -29,7 +38,11 @@ import {
   type ReconciliationPeriod,
   type SideTotals,
 } from "../lib/arca-reconciliation";
-import { RECEIVED_VOUCHER_TAB_LABEL, formatInvoiceNumber } from "../schema";
+import {
+  RECEIVED_VOUCHER_TAB_LABEL,
+  formatInvoiceNumber,
+  isReceivedVoucherTab,
+} from "../schema";
 
 const nf = new Intl.NumberFormat("es-AR");
 
@@ -42,6 +55,74 @@ const AMOUNTS = [
 
 function periodLabel(period: string): string {
   return period.length === 4 ? period : formatPeriod(period);
+}
+
+/** A failed read shows its own message and «Reintentar» in place, instead of
+ *  taking the whole page to the route's error screen. */
+class ReconciliationErrorBoundary extends Component<
+  { children: ReactNode; onReset: () => void },
+  { error: Error | null }
+> {
+  state: { error: Error | null } = { error: null };
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  render() {
+    const { error } = this.state;
+    if (!error) return this.props.children;
+    return (
+      <div className="space-y-3 rounded-lg border px-4 py-6 text-sm">
+        <p className="text-muted-foreground">{error.message}</p>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            this.props.onReset();
+            this.setState({ error: null });
+          }}
+        >
+          <RefreshCw />
+          Reintentar
+        </Button>
+      </div>
+    );
+  }
+}
+
+function Guarded({
+  children,
+  fallback,
+}: {
+  children: ReactNode;
+  fallback: ReactNode;
+}) {
+  return (
+    <QueryErrorResetBoundary>
+      {({ reset }) => (
+        <ReconciliationErrorBoundary onReset={reset}>
+          <Suspense fallback={fallback}>{children}</Suspense>
+        </ReconciliationErrorBoundary>
+      )}
+    </QueryErrorResetBoundary>
+  );
+}
+
+/** The purchases reconciliation with its own loading and error states. */
+export function ArcaReconciliationSection() {
+  return (
+    <Guarded
+      fallback={
+        <div className="space-y-4">
+          <Skeleton className="h-64 w-full rounded-lg" />
+          <Skeleton className="h-48 w-full rounded-lg" />
+        </div>
+      }
+    >
+      <ArcaReconciliation />
+    </Guarded>
+  );
 }
 
 export function ArcaReconciliation() {
@@ -124,12 +205,12 @@ export function ArcaReconciliation() {
         </div>
       </Section>
 
-      <Suspense
+      <Guarded
         key={period}
         fallback={<Skeleton className="h-48 w-full rounded-lg" />}
       >
         <PeriodDetail period={current} />
-      </Suspense>
+      </Guarded>
     </div>
   );
 }
@@ -433,7 +514,8 @@ function IssueLink({ row }: { row: ReconciliationIssue }) {
       </Link>
     );
   }
-  if (row.voucher_status) {
+  // A loaded voucher whose purchase no longer matches (cancelled) has no tab.
+  if (isReceivedVoucherTab(row.voucher_status)) {
     return (
       <Link
         href={`/purchases/arca?estado=${row.voucher_status}`}

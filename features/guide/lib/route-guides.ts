@@ -106,12 +106,6 @@ export const ROUTE_GUIDES: readonly RouteGuide[] = [
       "Agrupan a los proveedores para los reportes y el rubro por defecto.",
   },
   {
-    prefix: "/purchases/arca/reconciliation",
-    title: "Conciliación con ARCA",
-    summary:
-      "Lo que ARCA lista como recibido contra las compras fiscales, por año y por mes, con los comprobantes que faltan de cada lado o difieren en el total.",
-  },
-  {
     prefix: "/purchases/arca",
     title: "Recibidos de ARCA",
     summary:
@@ -405,7 +399,8 @@ export const ROUTE_GUIDES: readonly RouteGuide[] = [
   {
     prefix: "/admin/afip/puntos-de-venta",
     title: "Puntos de venta",
-    summary: "Los puntos de venta habilitados en ARCA y su canal.",
+    summary:
+      "Los puntos de venta habilitados en ARCA y su canal, y la Conciliación con ARCA: en Ventas la numeración de cada punto de venta, en Compras lo recibido contra las compras fiscales por año y mes.",
   },
   {
     prefix: "/admin/accesos",
