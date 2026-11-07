@@ -125,6 +125,9 @@ export const ImportRequestSchema = z.object({
   account_id: z.string().uuid().nullable().default(null),
   /** The channel of loans and checks. */
   channel_id: z.string().min(1).max(60).nullable().default(null),
+  /** A statement's period: lines dated outside it are left out. */
+  date_from: z.iso.date().nullable().default(null),
+  date_to: z.iso.date().nullable().default(null),
 });
 export type ImportRequestInput = z.infer<typeof ImportRequestSchema>;
 

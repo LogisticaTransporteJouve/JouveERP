@@ -1263,6 +1263,7 @@ export const treasuryPage: GuidePage = {
           ],
           steps: [
             "En [[/accounts]], hacé clic en el nombre de la cuenta del banco y, en la pestaña {{Extracto}}, en {{Subir extracto}}. (También sirve [[/treasury/reconciliation]] con la {{Cuenta}} elegida.)",
+            "{{Desde}} y {{Hasta}} vienen con el mes elegido en {{Mes}}: las líneas con fecha fuera de ese período no se importan. Cambialos si el extracto es de otro período.",
             "En {{Archivo}}, elegí la planilla. Se lee sola y todavía no se guarda nada: arriba del botón dice cuántas filas están listas, cuántas ya estaban cargadas y cuántas tienen error.",
             {
               text: "Si falta una columna o alguna fila tiene error, aparecen {{Columnas}} y la tabla de filas para corregirlo.",

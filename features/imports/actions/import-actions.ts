@@ -75,6 +75,8 @@ export type ImportPreview = {
   truncated: boolean;
   /** Earlier runs of this same file (same SHA-256). */
   previousRuns: { id: string; created_at: string; status: ImportRunStatus }[];
+  /** Statement lines left out for being outside the chosen period. */
+  outsidePeriod: number;
 };
 
 type Prepared = Omit<ImportPreview, "rows"> & { rows: BuiltRow[] };
@@ -488,6 +490,8 @@ async function prepare(
     mapping: mappingInput,
     account_id: optional("account_id"),
     channel_id: optional("channel_id"),
+    date_from: optional("date_from"),
+    date_to: optional("date_to"),
   });
   if (!parsed.success) return { error: "Datos inválidos." };
   const { kind } = parsed.data;
@@ -561,6 +565,7 @@ async function prepare(
     mapping,
     truncated: table.truncated,
     previousRuns,
+    outsidePeriod: 0,
   };
   const missing = missingRequired(kind, mapping);
   if (missing.length > 0) {
@@ -606,13 +611,26 @@ async function prepare(
     });
     return { error: "No se pudo revisar qué ya está cargado." };
   }
-  const rows = markDuplicates(
+  const marked = markDuplicates(
     built,
     existing,
     kindHasStrictKeys(kind),
     fillable,
   );
-  return { ...base, missing, rows, counts: countRows(rows) };
+  const { date_from, date_to } = parsed.data;
+  const inPeriod = (r: BuiltRow) => {
+    const date = r.payload?.line_date;
+    if (kind !== "bank_statement" || typeof date !== "string") return true;
+    return (!date_from || date >= date_from) && (!date_to || date <= date_to);
+  };
+  const rows = marked.filter(inPeriod);
+  return {
+    ...base,
+    missing,
+    rows,
+    counts: countRows(rows),
+    outsidePeriod: marked.length - rows.length,
+  };
 }
 
 /** Reads the file and shows each row as it would import: ready, already

@@ -192,12 +192,13 @@ export function AccountStatement({
 
       {gates.canImport && (
         <ImportDialog
-          key={accountId}
+          key={`${accountId}-${from}`}
           open={importOpen}
           onOpenChange={setImportOpen}
           kinds={["bank_statement"]}
           canReadAccounts={gates.canReadAccounts}
           fixedAccountId={accountId}
+          defaultPeriod={{ from, to }}
         />
       )}
 

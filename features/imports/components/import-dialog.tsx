@@ -24,6 +24,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -137,6 +138,7 @@ export function ImportDialog({
   kinds,
   canReadAccounts,
   fixedAccountId,
+  defaultPeriod,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -146,6 +148,8 @@ export function ImportDialog({
   canReadAccounts: boolean;
   /** Opened from an account: its statement goes to that account only. */
   fixedAccountId?: string;
+  /** A statement's period to start with: lines outside it are left out. */
+  defaultPeriod?: { from: string; to: string };
 }) {
   const previewMut = usePreviewImport();
   const commitMut = useCommitImport();
@@ -157,6 +161,8 @@ export function ImportDialog({
   const [mapping, setMapping] = useState<ImportMapping | null>(null);
   const [accountId, setAccountId] = useState(fixedAccountId ?? "");
   const [channelId, setChannelId] = useState("");
+  const [dateFrom, setDateFrom] = useState(defaultPeriod?.from ?? "");
+  const [dateTo, setDateTo] = useState(defaultPeriod?.to ?? "");
 
   function reset() {
     setFile(null);
@@ -177,6 +183,10 @@ export function ImportDialog({
     if (withMapping) data.set("mapping", JSON.stringify(withMapping));
     if (needsAccount) data.set("account_id", accountId);
     if (needsChannel) data.set("channel_id", channelId);
+    if (kind === "bank_statement") {
+      if (dateFrom) data.set("date_from", dateFrom);
+      if (dateTo) data.set("date_to", dateTo);
+    }
     return data;
   }
 
@@ -199,7 +209,7 @@ export function ImportDialog({
   const readChosenFile = useEffectEvent(() => read(null));
   useEffect(() => {
     if (file && kind && targetsReady) readChosenFile();
-  }, [file, kind, accountId, channelId, targetsReady]);
+  }, [file, kind, accountId, channelId, targetsReady, dateFrom, dateTo]);
 
   function commit() {
     const data = formData(mapping);
@@ -319,6 +329,30 @@ export function ImportDialog({
               </p>
             )}
           </div>
+          {kind === "bank_statement" && (
+            <div className="grid grid-cols-2 gap-3 sm:col-span-full sm:max-w-md">
+              <div className="min-w-0 space-y-1.5">
+                <Label htmlFor="import-date-from">Desde</Label>
+                <DatePicker
+                  id="import-date-from"
+                  value={dateFrom || null}
+                  onChange={setDateFrom}
+                  max={dateTo || undefined}
+                  clearable
+                />
+              </div>
+              <div className="min-w-0 space-y-1.5">
+                <Label htmlFor="import-date-to">Hasta</Label>
+                <DatePicker
+                  id="import-date-to"
+                  value={dateTo || null}
+                  onChange={setDateTo}
+                  min={dateFrom || undefined}
+                  clearable
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         {kind && !simple && (needsAccount || needsChannel) && (
@@ -480,6 +514,8 @@ export function ImportDialog({
               {fill > 0 && `${fill} completan el código del banco · `}
               {preview.counts.duplicate} ya cargadas · {preview.counts.invalid}{" "}
               con error
+              {preview.outsidePeriod > 0 &&
+                ` · ${preview.outsidePeriod} fuera del período`}
               {preview.truncated &&
                 " · el archivo tiene más de 5000 filas o celdas muy largas: dividilo para importarlo"}
             </p>
