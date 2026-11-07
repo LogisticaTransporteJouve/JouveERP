@@ -137,6 +137,14 @@ function CollectForm({
         .map((c) => ({ id: c.id, name: c.name })),
     [channels],
   );
+  // A bank line whose side the user picks here goes to that side's channel.
+  const sideChannel = channels.find(
+    (c) => c.is_active && c.is_fiscal === (side === "fiscal"),
+  )?.id;
+  const bankLine =
+    fromBankLine && !fromBankLine.channel_id && sideChannel
+      ? { ...fromBankLine, channel_id: sideChannel }
+      : fromBankLine;
   return (
     <PageSideProvider side={side}>
       <ReceiptForm
@@ -146,7 +154,7 @@ function CollectForm({
         initialClient={initialClient}
         initialAllocations={initialAllocations}
         canEditRetentions={canEditRetentions}
-        fromBankLine={fromBankLine}
+        fromBankLine={bankLine}
         onSuccess={(id) => {
           onCreated?.(id);
           onDone();

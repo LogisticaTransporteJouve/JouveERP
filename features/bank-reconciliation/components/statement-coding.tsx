@@ -228,41 +228,41 @@ export function LineProposalView({
           onOpenChange={setSplitting}
         />
       )}
-      {gates.canCollect &&
-        proposal.kind === "receipt" &&
-        proposal.client &&
-        line.amount > 0 && (
-          <CollectDialog
-            initialClient={proposal.client}
-            side="fiscal"
-            canEditRetentions={gates.canEditRetentions}
-            fromBankLine={{
-              date: line.line_date,
-              amount: line.amount,
-              account_id: accountId,
-              channel_id: fiscal || undefined,
-            }}
-            onCreated={(receiptId) =>
-              matchToReceipt.mutate(
-                { line_id: line.id, receipt_id: receiptId },
-                {
-                  onSuccess: () =>
-                    toast.success("Línea conciliada con el recibo."),
-                  onError: (err) =>
-                    toast.error(
-                      `El recibo se emitió pero la línea no se concilió: ${err.message}`,
-                    ),
-                },
-              )
-            }
-            trigger={
-              <Button type="button" size="sm" variant="outline" className="h-7">
-                <FileText className="size-3.5" />
-                Crear recibo
-              </Button>
-            }
-          />
-        )}
+      {gates.canCollect && proposal.kind === "receipt" && line.amount > 0 && (
+        // A client found by the line's CUIT is the fiscal side's; without
+        // one (an internal client has no CUIT) the user picks the side and
+        // the client, or creates it from the picker.
+        <CollectDialog
+          initialClient={proposal.client}
+          side={proposal.client ? "fiscal" : undefined}
+          canEditRetentions={gates.canEditRetentions}
+          fromBankLine={{
+            date: line.line_date,
+            amount: line.amount,
+            account_id: accountId,
+            channel_id: proposal.client ? fiscal || undefined : undefined,
+          }}
+          onCreated={(receiptId) =>
+            matchToReceipt.mutate(
+              { line_id: line.id, receipt_id: receiptId },
+              {
+                onSuccess: () =>
+                  toast.success("Línea conciliada con el recibo."),
+                onError: (err) =>
+                  toast.error(
+                    `El recibo se emitió pero la línea no se concilió: ${err.message}`,
+                  ),
+              },
+            )
+          }
+          trigger={
+            <Button type="button" size="sm" variant="outline" className="h-7">
+              <FileText className="size-3.5" />
+              Crear recibo
+            </Button>
+          }
+        />
+      )}
       {gates.canWrite &&
         (proposal.code === null ||
           (bankCodePosts(proposal.kind ?? "ignore") &&

@@ -191,7 +191,9 @@ export function proposeLine(
       client,
       installment: null,
       ready: false,
-      missing: client ? null : "No hay un cliente con el CUIT de la línea.",
+      missing: client
+        ? null
+        : "Ningún cliente tiene el CUIT de la línea: elegilo o crealo en el recibo.",
     };
   }
   if (code.kind === "loan") {
