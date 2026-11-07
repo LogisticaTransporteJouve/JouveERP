@@ -1,5 +1,6 @@
 "use client";
 
+import { previousPeriod, periodOf } from "@/lib/accounting-period";
 import { todayInAR } from "@/lib/format";
 import { useQueryClient } from "@tanstack/react-query";
 import { FileUp } from "lucide-react";
@@ -35,12 +36,7 @@ import {
 } from "../actions/echeq-listado-actions";
 
 /** The first day of last month: a statement is closed a month at a time. */
-const firstOfLastMonth = () => {
-  const [y, m] = todayInAR().split("-").map(Number);
-  const month = m === 1 ? 12 : m! - 1;
-  const year = m === 1 ? y! - 1 : y!;
-  return `${year}-${String(month).padStart(2, "0")}-01`;
-};
+const firstOfLastMonth = () => `${previousPeriod(periodOf(todayInAR()))}-01`;
 
 /** Loads the eCheqs of Banco Galicia's «Listado de cheques recibidos» as
  *  receipts of the clients who endorsed them. */
