@@ -56,7 +56,23 @@ export function PayLoanFromLineDialog({
       taxes: amountToInput(s.taxes),
     };
   });
+  // Interest is the rest of the debit until the user types it: the detail
+  // of the cuota gives capital, taxes and the rest, and interest follows.
+  const [interestTyped, setInterestTyped] = useState(false);
   const read = (k: Part) => parseArAmount(values[k]) ?? 0;
+  function change(key: Part, v: string) {
+    const next = { ...values, [key]: v };
+    if (key === "interest") setInterestTyped(true);
+    else if (!interestTyped) {
+      const others = PARTS.filter(([k]) => k !== "interest").reduce(
+        (sum, [k]) => sum + (parseArAmount(next[k]) ?? 0),
+        0,
+      );
+      const rest = Math.round((debit - others) * 100) / 100;
+      next.interest = amountToInput(Math.max(0, rest));
+    }
+    setValues(next);
+  }
   const amounts: Record<Part, number> = {
     capital: read("capital"),
     interest: read("interest"),
@@ -95,8 +111,8 @@ export function PayLoanFromLineDialog({
           <DialogDescription>
             El banco debitó {formatMoney(debit)} y el plan dice{" "}
             {formatMoney(installment.amount)}. Separá el débito como lo muestra
-            el detalle de la cuota en el home banking: el capital viene del
-            plan; lo demás suele ser interés por días, punitorios e impuestos.
+            el detalle de la cuota en el home banking (capital, impuestos,
+            intereses exceso): los intereses se completan con el resto.
           </DialogDescription>
         </DialogHeader>
         <div className="grid grid-cols-1 gap-3">
@@ -109,7 +125,7 @@ export function PayLoanFromLineDialog({
               <MoneyInput
                 id={`split-${key}`}
                 value={values[key]}
-                onChange={(v) => setValues({ ...values, [key]: v })}
+                onChange={(v) => change(key, v)}
               />
             </div>
           ))}
