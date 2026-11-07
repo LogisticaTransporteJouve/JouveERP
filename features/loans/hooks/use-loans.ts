@@ -14,11 +14,13 @@ import { runAction } from "@/lib/query/run-action";
 
 import {
   adoptInstallmentPaymentAction,
+  bookLoanOpeningAction,
   cancelLoanAction,
   createLoanAction,
   getLoanAction,
   listLoansAction,
   payInstallmentAction,
+  recordBankPaymentsAction,
   recordLoanDisbursementAction,
   updateInstallmentAction,
 } from "../actions/loans-actions";
@@ -93,5 +95,24 @@ export function useCancelLoan() {
   return useMutation({
     mutationFn: (id: string) => runAction(() => cancelLoanAction({ id })),
     onSuccess: () => invalidate(qc),
+  });
+}
+
+/** The bank's receipts and the opening debt post journal entries, not Caja. */
+export function useRecordBankPayments() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: unknown) =>
+      runAction(() => recordBankPaymentsAction(input)),
+    onSuccess: () => invalidateKeys(qc, [loansKeys.all, ...LEDGER_KEYS]),
+  });
+}
+
+export function useBookLoanOpening() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (loanId: string) =>
+      runAction(() => bookLoanOpeningAction({ loan_id: loanId })),
+    onSuccess: () => invalidateKeys(qc, [loansKeys.all, ...LEDGER_KEYS]),
   });
 }

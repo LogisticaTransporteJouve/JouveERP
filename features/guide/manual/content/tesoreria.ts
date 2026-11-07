@@ -2700,6 +2700,43 @@ export const treasuryPage: GuidePage = {
           keywords: ["préstamo bancario", "leasing", "crédito", "cronograma"],
         },
         {
+          id: "comprobantes-banco-prestamo",
+          title:
+            "Cargar los comprobantes de pago del banco (préstamo en curso)",
+          summary:
+            "Los pagos hechos antes de usar el sistema quedan en contabilidad con su detalle real (capital, intereses, punitorios, IVA y percepciones), sin movimiento en Caja.",
+          permission: "accounting:write",
+          prerequisites: [
+            "El préstamo cargado con su {{Número de préstamo}} y su {{Fecha de alta}}, y con las cuotas pagadas antes ([[#crear-prestamo]]).",
+            "Los comprobantes en PDF: en el home banking de Macro, préstamo › {{Comprobantes de pago}}, descargalos.",
+          ],
+          steps: [
+            "Abrí el préstamo en [[/loans]].",
+            "En {{Comprobantes del banco}}, hacé clic en {{Subir comprobantes}} y elegí todos los PDF (se pueden elegir varios; los de otro préstamo se descartan solos).",
+            "Si el préstamo se otorgó antes del ejercicio abierto, hacé clic en {{Registrar la deuda al}} y la fecha: deja el capital que se debía ese día como deuda. Si se otorgó dentro del ejercicio, el botón es {{Registrar el desembolso del}} y la fecha de alta: asienta el ingreso del banco contra la deuda.",
+          ],
+          after: [
+            "Cada comprobante queda en la tabla con su fecha, cuota, total, capital, intereses, IVA y percepciones.",
+            "Los del ejercicio abierto (desde su primer día, por ejemplo el 1 de octubre si el ejercicio arranca en octubre) generan su asiento: el capital baja Préstamos financieros, intereses y punitorios van a Intereses pagados, el IVA a IVA Crédito Fiscal y las percepciones a sus cuentas, contra Bancos. Los de ejercicios anteriores se guardan sin asiento.",
+            "No se crea ningún movimiento en Caja. Subir el mismo comprobante otra vez no lo duplica.",
+            "Una cuota pagada desde el sistema (por ejemplo, desde el extracto) ya tiene su asiento y su comprobante no lo repite.",
+          ],
+          errors: [
+            {
+              message:
+                "Cargá el número de préstamo del banco: con él se sabe qué comprobantes son de este préstamo.",
+              fix: "El número está en el home banking, arriba del préstamo (por ejemplo 7670122511).",
+            },
+          ],
+          related: ["crear-prestamo", "pagar-cuota-prestamo"],
+          keywords: [
+            "comprobante de pago",
+            "préstamo en curso",
+            "cierre de ejercicio",
+            "asientos de préstamo",
+          ],
+        },
+        {
           id: "registrar-desembolso-prestamo",
           title: "Registrar el desembolso de un préstamo",
           permission: ["accounting:write", "transactions:write"],

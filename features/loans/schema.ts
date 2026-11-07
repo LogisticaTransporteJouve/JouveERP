@@ -130,8 +130,31 @@ export function canCancelLoan(
   );
 }
 
+/** A bank payment receipt of the loan, loaded from its PDF. */
+export interface LoanBankPayment {
+  id: string;
+  receipt_number: string;
+  paid_date: string;
+  installment_number: number;
+  total: number;
+  capital: number;
+  interest: number;
+  late_interest: number;
+  iva: number;
+  iva_perception: number;
+  iibb_perception: number;
+  /** Booked (paid in the year being closed, before the system); null =
+   *  stored only. */
+  journal_entry_id: string | null;
+}
+
 export interface LoanDetail extends LoanListItem {
   installments: LoanInstallment[];
+  bank_payments: LoanBankPayment[];
+  /** The capital owed at the start of the fiscal year is booked. */
+  opening_booked: boolean;
+  /** Start of the current fiscal year: receipts from then on are booked. */
+  book_from: string;
 }
 
 const dateStr = z
@@ -248,6 +271,32 @@ export const PayInstallmentSchema = z.object({
 });
 
 export const CancelLoanSchema = z.object({ id: z.string().uuid() });
+
+const cents = z.number().min(0).max(1e12);
+
+export const RecordBankPaymentsSchema = z.object({
+  loan_id: z.string().uuid(),
+  payments: z
+    .array(
+      z.object({
+        loan_number: z.string().min(1).max(40),
+        receipt_number: z.string().min(1).max(40),
+        paid_date: dateStr,
+        installment_number: z.number().int().min(1).max(600),
+        total: z.number().positive().max(1e12),
+        capital: cents,
+        interest: cents,
+        late_interest: cents,
+        iva: cents,
+        iva_perception: cents,
+        iibb_perception: cents,
+      }),
+    )
+    .min(1, "Elegí al menos un comprobante.")
+    .max(500),
+});
+
+export const BookLoanOpeningSchema = z.object({ loan_id: z.string().uuid() });
 
 export function isLoanKind(v: unknown): v is LoanKind {
   return typeof v === "string" && (LOAN_KINDS as readonly string[]).includes(v);
