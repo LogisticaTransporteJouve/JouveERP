@@ -1,4 +1,4 @@
-import { simulateReadableStream, type UIMessage } from "ai";
+import { APICallError, simulateReadableStream, type UIMessage } from "ai";
 import { MockLanguageModelV4 } from "ai/test";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -272,5 +272,31 @@ describe("POST /api/ai/chat with attachments", () => {
       "row-1",
       [],
     );
+  });
+});
+
+describe("POST /api/ai/chat when the model call fails", () => {
+  it("answers a Spanish error and saves no empty assistant message", async () => {
+    model = new MockLanguageModelV4({
+      doStream: async () => {
+        throw new APICallError({
+          message: "messages.3: invalid request",
+          url: "https://api.anthropic.com/v1/messages",
+          requestBodyValues: {},
+          statusCode: 400,
+          isRetryable: false,
+        });
+      },
+    });
+    const res = await POST(
+      post({ id: "m4", role: "user", parts: [{ type: "text", text: "y?" }] }),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.text();
+    expect(body).toContain("turn_failed");
+    expect(body).toContain("El asistente no pudo responder este mensaje.");
+    expect(body).not.toContain("invalid request");
+    const roles = chatStore.appendAiMessage.mock.calls.map((c) => c[1].role);
+    expect(roles).toEqual(["user"]);
   });
 });

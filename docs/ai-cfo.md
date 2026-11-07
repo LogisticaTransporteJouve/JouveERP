@@ -117,7 +117,11 @@ solo opciones de la tarjeta, texto acotado), las guarda como resultado del tool 
 persistido con un compare-and-set (solo si la parte sigue `input-available` en la base; un segundo
 envío recibe 409 y el chat recarga la conversación) y agrega un turno fijo del usuario (oculto en la UI) para que el modelo siga en un turno
 nuevo. "Omitir" responde `{ skipped: true }`. Una tarjeta respondida queda de solo lectura con las
-respuestas.
+respuestas. Al modelo no le vuelve como llamada y resultado del tool: `questionCardsAsText` la
+reescribe como texto del asistente (las preguntas) y las respuestas van como texto en ese turno
+oculto. Los turnos anteriores viajan sin sus bloques de pensamiento, y la API rechaza un pedido cuyo
+último mensaje del usuario trae un `tool_result` de un `tool_use` sin ellos. El mensaje guardado no
+cambia.
 
 **Propuestas (`sideEffect: "propose"`).** `defineAiProposal` (`features/ai/registry/propose.ts`):
 `prepare` resuelve lo que dijo el modelo (nombres, códigos) con las acciones de lectura de cada

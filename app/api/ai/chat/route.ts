@@ -70,6 +70,9 @@ function isUniqueViolation(err: unknown): boolean {
   );
 }
 
+const TURN_FAILED =
+  "El asistente no pudo responder este mensaje. Probá de nuevo en unos minutos.";
+
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -331,41 +334,51 @@ export async function POST(req: Request) {
     ? { ...registryTools, [OPEN_ATTACHMENT_TOOL]: openAttachment }
     : registryTools;
 
-  const result = await streamChat(allMessages, {
-    attachments,
-    // A file the model API refuses is left out for the rest of the session.
-    onAttachmentRejected: async (fileId) => {
-      logger.warn("ai.chat.attachments.rejected", {
-        userId: ctx.userId,
-        sessionId,
-        fileId,
-      });
-      try {
-        await markAttachmentUnreadable(fileId);
-      } catch (err) {
-        logger.error("ai.chat.attachments.mark_failed", {
+  let result: Awaited<ReturnType<typeof streamChat>>;
+  try {
+    result = await streamChat(allMessages, {
+      attachments,
+      // A file the model API refuses is left out for the rest of the session.
+      onAttachmentRejected: async (fileId) => {
+        logger.warn("ai.chat.attachments.rejected", {
           userId: ctx.userId,
           sessionId,
           fileId,
-          error: err,
         });
-      }
-    },
-    tools,
-    capabilities: buildCapabilitiesSummary(ctx.access, undefined, {
-      artifacts: true,
-    }),
-    notes: proposalNote,
-    userId: ctx.userId,
-    sessionId,
-    onUsage: (usage) =>
-      recordAiUsage({
-        kind: "chat",
-        sessionId,
-        userId: ctx.userId,
-        ...usage,
+        try {
+          await markAttachmentUnreadable(fileId);
+        } catch (err) {
+          logger.error("ai.chat.attachments.mark_failed", {
+            userId: ctx.userId,
+            sessionId,
+            fileId,
+            error: err,
+          });
+        }
+      },
+      tools,
+      capabilities: buildCapabilitiesSummary(ctx.access, undefined, {
+        artifacts: true,
       }),
-  });
+      notes: proposalNote,
+      userId: ctx.userId,
+      sessionId,
+      onUsage: (usage) =>
+        recordAiUsage({
+          kind: "chat",
+          sessionId,
+          userId: ctx.userId,
+          ...usage,
+        }),
+    });
+  } catch (err) {
+    logger.error("ai.chat.request_failed", {
+      userId: ctx.userId,
+      sessionId,
+      error: err,
+    });
+    return NextResponse.json({ error: TURN_FAILED }, { status: 502 });
+  }
 
   const stream = createUIMessageStream({
     originalMessages: allMessages,
@@ -375,9 +388,28 @@ export async function POST(req: Request) {
     generateId: () => crypto.randomUUID(),
     execute: ({ writer }) => {
       artifacts.attach((chunk) => writer.write(chunk));
-      writer.merge(toUIMessageStream({ stream: result.stream, tools }));
+      writer.merge(
+        toUIMessageStream({
+          stream: result.stream,
+          tools,
+          // The model call failed (a provider 4xx/5xx, a request it refused):
+          // the real error goes to the logs and the client gets a JSON body
+          // like the route's other errors.
+          onError: (error) => {
+            logger.error("ai.chat.stream_failed", {
+              userId: ctx.userId,
+              sessionId,
+              error,
+            });
+            return JSON.stringify({ error: TURN_FAILED, code: "turn_failed" });
+          },
+        }),
+      );
     },
     onEnd: async ({ responseMessage }) => {
+      // A turn that failed before its first step has nothing to keep: an
+      // empty assistant message would only sit in the transcript.
+      if (responseMessage.parts.every((p) => p.type === "step-start")) return;
       try {
         await appendAiMessage(sessionId, responseMessage);
         if (isFirstTurn && titleSource) {

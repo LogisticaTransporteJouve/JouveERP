@@ -152,6 +152,26 @@ describe("stripReasoningParts", () => {
     expect(out[0]).toBe(messages[0]);
     expect(out[1]?.parts.map((p) => p.type)).toEqual(["step-start", "text"]);
   });
+
+  it("drops provider stream markers and empty assistant messages", () => {
+    const messages: UIMessage[] = [
+      { id: "u1", role: "user", parts: [{ type: "text", text: "hola" }] },
+      {
+        id: "a1",
+        role: "assistant",
+        parts: [
+          { type: "step-start" },
+          { type: "custom", kind: "anthropic.message_start" },
+          { type: "text", text: "respuesta" },
+        ],
+      },
+      { id: "a2", role: "assistant", parts: [] },
+      { id: "a3", role: "assistant", parts: [{ type: "step-start" }] },
+    ];
+    const out = stripReasoningParts(messages);
+    expect(out.map((m) => m.id)).toEqual(["u1", "a1"]);
+    expect(out[1]?.parts.map((p) => p.type)).toEqual(["step-start", "text"]);
+  });
 });
 
 describe("withTurnContext", () => {
