@@ -2,6 +2,8 @@
 
 import { BookCheck, Plus, Trash2, Wallet } from "lucide-react";
 
+import { cn } from "@/lib/utils";
+import { FIT_LIST, FIT_LIST_SECTION } from "@/components/form-columns";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -142,7 +144,7 @@ export function PaymentLinesEditor({
   );
 
   return (
-    <div className="space-y-2">
+    <div className={cn("space-y-2", FIT_LIST_SECTION)}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Label className="text-sm font-medium">Medios de pago</Label>
         <div className="flex flex-wrap items-center gap-1">
@@ -227,7 +229,7 @@ export function PaymentLinesEditor({
           emití un cheque propio.
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className={cn("space-y-2", FIT_LIST)}>
           {lines.map((line, idx) => {
             if (line.line_kind === "account") {
               const account = accounts.find((a) => a.id === line.account_id);

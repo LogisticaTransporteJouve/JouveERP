@@ -2,6 +2,8 @@
 
 import { Trash2 } from "lucide-react";
 
+import { cn } from "@/lib/utils";
+import { FIT_LIST, FIT_LIST_SECTION } from "@/components/form-columns";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -95,7 +97,7 @@ export function PaymentLinesEditor({
   }
 
   return (
-    <div className="space-y-2">
+    <div className={cn("space-y-2", FIT_LIST_SECTION)}>
       <div className="flex items-center justify-between">
         <Label className="text-sm font-medium">Líneas de pago</Label>
         <Button type="button" variant="outline" size="sm" onClick={add}>
@@ -109,7 +111,7 @@ export function PaymentLinesEditor({
           plata.
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className={cn("space-y-2", FIT_LIST)}>
           {lines.map((line, idx) => {
             const account = accounts.find((a) => a.id === line.account_id);
             const isCheck = isCheckAccount(account?.type);

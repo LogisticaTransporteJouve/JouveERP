@@ -2,6 +2,8 @@
 
 import { Trash2 } from "lucide-react";
 
+import { cn } from "@/lib/utils";
+import { FIT_LIST, FIT_LIST_SECTION } from "@/components/form-columns";
 import { MoneyInput } from "@/components/money-input";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
@@ -67,7 +69,7 @@ export function RetentionsEditor({
   }
 
   return (
-    <div className="space-y-2">
+    <div className={cn("space-y-2", FIT_LIST_SECTION)}>
       <div className="flex items-center justify-between">
         <div>
           <Label className="text-sm font-medium">
@@ -84,7 +86,7 @@ export function RetentionsEditor({
       </div>
 
       {retentions.length === 0 ? null : (
-        <div className="space-y-2">
+        <div className={cn("space-y-2", FIT_LIST)}>
           {retentions.map((r, idx) => {
             const showJurisdiction = r.tax_type === "iibb";
             return (

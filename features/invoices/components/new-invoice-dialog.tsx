@@ -26,6 +26,13 @@ import {
   DialogTrigger,
   DIALOG_STICKY_FOOTER,
 } from "@/components/ui/dialog";
+import {
+  FIT_LIST,
+  FIT_LIST_SECTION,
+  LIST_FORM,
+  LIST_FORM_DIALOG,
+  ListFormColumns,
+} from "@/components/form-columns";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
   Form,
@@ -172,7 +179,7 @@ export function NewInvoiceDialog({
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
+      <DialogContent className={LIST_FORM_DIALOG}>
         <DialogHeader>
           <DialogTitle>
             {isFiscalPage ? "Nuevo comprobante" : "Nuevo remito interno"}
@@ -537,431 +544,477 @@ function NewInvoiceForm({
       <form
         onSubmit={form.handleSubmit(onSubmit)}
         onKeyDown={onFormKeyDown}
-        className="space-y-5"
+        className={LIST_FORM}
       >
-        {/* Tipo + Canal + Fecha. POS is resolved from the channel (1:1 mapping)
+        <ListFormColumns
+          left={
+            <>
+              {/* Tipo + Canal + Fecha. POS is resolved from the channel (1:1 mapping)
             and Concepto is always Servicios, so neither needs to live in the
             UI for facturas. NC/ND
             inherit canal + POS + concepto from the origen invoice. */}
-        <div
-          className={cn(
-            "grid gap-4",
-            isFiscal
-              ? "sm:grid-cols-[180px_1fr_180px]"
-              : "sm:grid-cols-[1fr_180px]",
-          )}
-        >
-          {isFiscal && (
-            <FormField
-              control={form.control}
-              name="kind"
-              render={({ field }) => (
-                <FormItem className="space-y-2">
-                  <FormLabel>Tipo</FormLabel>
-                  <Select
-                    value={field.value}
-                    onValueChange={(v) => handleKindChange(v as Kind)}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent position="popper">
-                      {KIND_OPTIONS.map((k) => (
-                        <SelectItem key={k.value} value={k.value}>
-                          {k.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          )}
-          <FormField
-            control={form.control}
-            name="channelId"
-            render={({ field }) => (
-              <FormItem className="space-y-2">
-                <FormLabel>Canal</FormLabel>
-                <Select
-                  value={field.value}
-                  onValueChange={field.onChange}
-                  disabled={channelLocked}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue
-                        placeholder={
-                          channelLocked
-                            ? "Lo define la factura origen"
-                            : "Elegí un canal"
-                        }
-                      />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent position="popper">
-                    {sideChannels.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <ChannelsReadError inline />
-                {channelId && !isNote && posQuery.isError && (
-                  <ReadError
-                    message="No se pudieron cargar los puntos de venta."
-                    onRetry={() => void posQuery.refetch()}
-                  />
+              <div
+                className={cn(
+                  "grid items-start gap-4",
+                  isFiscal
+                    ? "sm:grid-cols-[180px_1fr_180px]"
+                    : "sm:grid-cols-[1fr_180px]",
                 )}
-                {channelId &&
-                  !isNote &&
-                  posQuery.isSuccess &&
-                  posOptions.length === 0 && (
-                    <p className="text-xs text-destructive">
-                      Sin POS habilitados — configurá uno en{" "}
-                      <code className="font-mono">
-                        /admin/afip/puntos-de-venta
-                      </code>
-                      .
-                    </p>
-                  )}
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          {!isNote && posOptions.length > 1 && (
-            <FormField
-              control={form.control}
-              name="puntoVenta"
-              render={({ field }) => (
-                <FormItem className="space-y-2">
-                  <FormLabel>Punto de venta</FormLabel>
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Elegí un punto de venta" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent position="popper">
-                      {posOptions.map((p) => (
-                        <SelectItem key={p.numero} value={String(p.numero)}>
-                          {posLabel(p)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          )}
-          <FormField
-            control={form.control}
-            name="fecha"
-            render={({ field }) => (
-              <FormItem className="space-y-2">
-                <FormLabel>Fecha de emisión</FormLabel>
-                <FormControl>
-                  <DatePicker value={field.value} onChange={field.onChange} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        {/* NC/ND-specific: factura origen + motivo */}
-        {isNote && (
-          <>
-            <FormField
-              control={form.control}
-              name="origin"
-              render={({ field }) => (
-                <FormItem className="space-y-2">
-                  <FormLabel>Factura origen</FormLabel>
-                  <FormControl>
-                    <OriginPicker
-                      value={field.value}
-                      onChange={field.onChange}
-                    />
-                  </FormControl>
-                  <p className="text-xs text-muted-foreground">
-                    La letra, el cliente y el punto de venta se heredan de la
-                    factura origen (RG 1415).
-                  </p>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="motivo"
-              render={({ field }) => (
-                <FormItem className="space-y-2">
-                  <FormLabel>
-                    Motivo <span className="text-destructive">*</span>
-                  </FormLabel>
-                  <FormControl>
-                    <Input
-                      {...field}
-                      placeholder={
-                        kind === "nc"
-                          ? "Ej. devolución de servicios prestados"
-                          : "Ej. diferencia de tarifa"
-                      }
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </>
-        )}
-
-        {/* Client. For a factura we use the ClientPicker. For NC/ND the client
-            is inherited from the origin: we show a read-only summary so the
-            user can see it and there's no way to change it (AFIP requires the
-            same receiver). */}
-        {!isNote && (
-          <FormField
-            control={form.control}
-            name="client"
-            render={({ field }) => (
-              <FormItem className="space-y-2">
-                <FormLabel>Cliente</FormLabel>
-                <FormControl>
-                  <ClientPicker
-                    key={clientPickerKey}
-                    value={field.value}
-                    onChange={field.onChange}
-                    isFiscal={isFiscal}
-                    autoFocus={clientPickerKey > 0}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        )}
-        {isNote && client && (
-          <div className="space-y-2">
-            <Label>Cliente (heredado de la factura origen)</Label>
-            <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
-              <p className="font-medium">{client.legal_name}</p>
-              <p className="font-mono text-xs text-muted-foreground">
-                {counterpartyIdentityLabel(client)}
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Items — enabled only once a channel/origin is picked. For a
-            factura, the Seguro row stays pinned at the bottom. */}
-        {(!isNote || originDetail) && (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>Ítems</Label>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={addItem}
               >
-                <Plus />
-                Agregar ítem
-              </Button>
-            </div>
-            <div className="overflow-x-auto rounded-md border">
-              <div className="min-w-[36rem]">
-                <div
-                  className={cn(
-                    itemGrid,
-                    "border-b px-3 py-2 text-xs text-muted-foreground",
-                  )}
-                >
-                  <div>Descripción</div>
-                  <div>Cantidad</div>
-                  <div>{isFiscal ? "Precio unitario" : "Precio final"}</div>
-                  {isFiscal && <div>IVA</div>}
-                  <div className="text-right">Subtotal</div>
-                  <div />
-                </div>
-                {items.map((item, idx) => {
-                  const qty = itemNumber(item.quantity);
-                  const price = itemNumber(item.unit_price);
-                  const lineTotal = isFiscal
-                    ? qty * price * (1 + ivaRatePercent(item.iva_rate_id) / 100)
-                    : qty * price;
-                  const seguro = showSeguro && isSeguroRow(item);
-                  return (
-                    <div
-                      key={idx}
-                      className={cn(
-                        itemGrid,
-                        "items-center px-3 py-2",
-                        seguro && "border-t bg-muted/30",
-                      )}
-                    >
-                      {seguro ? (
-                        <div className="min-w-0 text-sm">
-                          <div className="font-medium">Seguro</div>
-                          <div className="text-xs text-muted-foreground">
-                            % sobre el valor declarado
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="min-w-0 space-y-1">
-                          <Input
-                            placeholder="Descripción"
-                            aria-label="Descripción"
-                            value={item.description}
-                            onChange={(e) =>
-                              updateItem(idx, { description: e.target.value })
-                            }
-                          />
-                          <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                            <Checkbox
-                              checked={
-                                itemRevenueKind(item, isFiscal) === "asset_sale"
-                              }
-                              onCheckedChange={(checked) =>
-                                updateItem(idx, {
-                                  revenue_kind:
-                                    checked === true ? "asset_sale" : "service",
-                                })
-                              }
-                            />
-                            {REVENUE_KIND_LABEL.asset_sale}
-                          </label>
-                        </div>
-                      )}
-                      {seguro ? (
-                        <SeguroPercentInput
-                          value={item.quantity}
-                          onChange={(q) => updateItem(idx, { quantity: q })}
-                        />
-                      ) : (
-                        <MoneyInput
-                          aria-label="Cantidad"
-                          decimals={ITEM_DECIMALS}
-                          value={item.quantity}
-                          onChange={(quantity) => updateItem(idx, { quantity })}
-                        />
-                      )}
-                      <MoneyInput
-                        decimals={ITEM_DECIMALS}
-                        placeholder={seguro ? "Valor declarado" : "$ 0,00"}
-                        aria-label={
-                          seguro
-                            ? "Valor declarado"
-                            : isFiscal
-                              ? "Precio unitario"
-                              : "Precio final"
-                        }
-                        value={item.unit_price}
-                        onChange={(unit_price) =>
-                          updateItem(idx, { unit_price })
-                        }
-                      />
-                      {isFiscal && (
+                {isFiscal && (
+                  <FormField
+                    control={form.control}
+                    name="kind"
+                    render={({ field }) => (
+                      <FormItem className="space-y-2">
+                        <FormLabel>Tipo</FormLabel>
                         <Select
-                          value={String(item.iva_rate_id)}
-                          onValueChange={(v) =>
-                            updateItem(idx, {
-                              iva_rate_id: Number(v) as IvaRateId,
-                            })
-                          }
+                          value={field.value}
+                          onValueChange={(v) => handleKindChange(v as Kind)}
                         >
-                          <SelectTrigger className="w-full" aria-label="IVA">
-                            <SelectValue />
-                          </SelectTrigger>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
                           <SelectContent position="popper">
-                            {IVA_RATE_OPTIONS.map((r) => (
-                              <SelectItem key={r.value} value={String(r.value)}>
-                                {r.label}
+                            {KIND_OPTIONS.map((k) => (
+                              <SelectItem key={k.value} value={k.value}>
+                                {k.label}
                               </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+                <FormField
+                  control={form.control}
+                  name="channelId"
+                  render={({ field }) => (
+                    <FormItem className="space-y-2">
+                      <FormLabel>Canal</FormLabel>
+                      <Select
+                        value={field.value}
+                        onValueChange={field.onChange}
+                        disabled={channelLocked}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue
+                              placeholder={
+                                channelLocked
+                                  ? "Lo define la factura origen"
+                                  : "Elegí un canal"
+                              }
+                            />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent position="popper">
+                          {sideChannels.map((c) => (
+                            <SelectItem key={c.id} value={c.id}>
+                              {c.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <ChannelsReadError inline />
+                      {channelId && !isNote && posQuery.isError && (
+                        <ReadError
+                          message="No se pudieron cargar los puntos de venta."
+                          onRetry={() => void posQuery.refetch()}
+                        />
                       )}
-                      <div className="text-right font-mono text-sm tabular-nums">
-                        ${formatNumber2(lineTotal)}
-                      </div>
-                      <div className="flex justify-end">
-                        {!seguro && (
-                          <IconButton
-                            label="Quitar ítem"
-                            type="button"
-                            variant="ghost"
-                            className="size-8"
-                            onClick={() => removeItem(idx)}
-                            disabledReason={
-                              items.length <= (showSeguro ? 2 : 1)
-                                ? "Tiene que quedar al menos un ítem."
-                                : null
-                            }
-                            disabled={items.length <= (showSeguro ? 2 : 1)}
-                          >
-                            <X />
-                          </IconButton>
+                      {channelId &&
+                        !isNote &&
+                        posQuery.isSuccess &&
+                        posOptions.length === 0 && (
+                          <p className="text-xs text-destructive">
+                            Sin POS habilitados — configurá uno en{" "}
+                            <code className="font-mono">
+                              /admin/afip/puntos-de-venta
+                            </code>
+                            .
+                          </p>
                         )}
-                      </div>
-                    </div>
-                  );
-                })}
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                {!isNote && posOptions.length > 1 && (
+                  <FormField
+                    control={form.control}
+                    name="puntoVenta"
+                    render={({ field }) => (
+                      <FormItem className="space-y-2">
+                        <FormLabel>Punto de venta</FormLabel>
+                        <Select
+                          value={field.value}
+                          onValueChange={field.onChange}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Elegí un punto de venta" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent position="popper">
+                            {posOptions.map((p) => (
+                              <SelectItem
+                                key={p.numero}
+                                value={String(p.numero)}
+                              >
+                                {posLabel(p)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+                <FormField
+                  control={form.control}
+                  name="fecha"
+                  render={({ field }) => (
+                    <FormItem className="space-y-2">
+                      <FormLabel>Fecha de emisión</FormLabel>
+                      <FormControl>
+                        <DatePicker
+                          value={field.value}
+                          onChange={field.onChange}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
-            </div>
-          </div>
-        )}
 
-        {/* Totals */}
-        {(!isNote || originDetail) && (
-          <div className="flex items-center justify-end gap-6 rounded-md border bg-muted/30 p-3">
-            {isFiscal && (
-              <>
-                <div className="text-sm">
-                  Neto:{" "}
-                  <span className="font-mono">
-                    ${formatNumber2(totals.imp_neto)}
-                  </span>
-                </div>
-                <div className="text-sm">
-                  IVA:{" "}
-                  <span className="font-mono">
-                    ${formatNumber2(totals.imp_iva)}
-                  </span>
-                </div>
-              </>
-            )}
-            <div className="text-base font-semibold">
-              Total:{" "}
-              <span className="font-mono">
-                ${formatNumber2(totals.imp_total)}
-              </span>
-            </div>
-          </div>
-        )}
+              {/* NC/ND-specific: factura origen + motivo */}
+              {isNote && (
+                <>
+                  <FormField
+                    control={form.control}
+                    name="origin"
+                    render={({ field }) => (
+                      <FormItem className="space-y-2">
+                        <FormLabel>Factura origen</FormLabel>
+                        <FormControl>
+                          <OriginPicker
+                            value={field.value}
+                            onChange={field.onChange}
+                          />
+                        </FormControl>
+                        <p className="text-xs text-muted-foreground">
+                          La letra, el cliente y el punto de venta se heredan de
+                          la factura origen (RG 1415).
+                        </p>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="motivo"
+                    render={({ field }) => (
+                      <FormItem className="space-y-2">
+                        <FormLabel>
+                          Motivo <span className="text-destructive">*</span>
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            placeholder={
+                              kind === "nc"
+                                ? "Ej. devolución de servicios prestados"
+                                : "Ej. diferencia de tarifa"
+                            }
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </>
+              )}
 
-        {/* Internal notes — for factura. For NC/ND the reason is already above. */}
-        {!isNote && (
-          <FormField
-            control={form.control}
-            name="motivo"
-            render={({ field }) => (
-              <FormItem className="space-y-2">
-                <FormLabel>Notas internas (no van a AFIP)</FormLabel>
-                <FormControl>
-                  <Textarea rows={2} {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        )}
+              {/* Client. For a factura we use the ClientPicker. For NC/ND the client
+            is inherited from the origin: we show a read-only summary so the
+            user can see it and there's no way to change it (AFIP requires the
+            same receiver). */}
+              {!isNote && (
+                <FormField
+                  control={form.control}
+                  name="client"
+                  render={({ field }) => (
+                    <FormItem className="space-y-2">
+                      <FormLabel>Cliente</FormLabel>
+                      <FormControl>
+                        <ClientPicker
+                          key={clientPickerKey}
+                          value={field.value}
+                          onChange={field.onChange}
+                          isFiscal={isFiscal}
+                          autoFocus={clientPickerKey > 0}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+              {isNote && client && (
+                <div className="space-y-2">
+                  <Label>Cliente (heredado de la factura origen)</Label>
+                  <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
+                    <p className="font-medium">{client.legal_name}</p>
+                    <p className="font-mono text-xs text-muted-foreground">
+                      {counterpartyIdentityLabel(client)}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Internal notes — for factura. For NC/ND the reason is already above. */}
+              {!isNote && (
+                <FormField
+                  control={form.control}
+                  name="motivo"
+                  render={({ field }) => (
+                    <FormItem className="space-y-2">
+                      <FormLabel>Notas internas (no van a AFIP)</FormLabel>
+                      <FormControl>
+                        <Textarea rows={2} className="min-h-0" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+            </>
+          }
+          right={
+            <>
+              {/* Items — enabled only once a channel/origin is picked. For a
+            factura, the Seguro row stays pinned at the bottom. */}
+              {(!isNote || originDetail) && (
+                <div className={cn("space-y-2", FIT_LIST_SECTION)}>
+                  <div className="flex items-center justify-between">
+                    <Label>Ítems</Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={addItem}
+                    >
+                      <Plus />
+                      Agregar ítem
+                    </Button>
+                  </div>
+                  <div
+                    className={cn(
+                      "overflow-x-auto rounded-md border",
+                      FIT_LIST,
+                    )}
+                  >
+                    <div className="min-w-[36rem]">
+                      <div
+                        className={cn(
+                          itemGrid,
+                          "sticky top-0 z-10 border-b bg-background px-3 py-2 text-xs text-muted-foreground",
+                        )}
+                      >
+                        <div>Descripción</div>
+                        <div>Cantidad</div>
+                        <div>
+                          {isFiscal ? "Precio unitario" : "Precio final"}
+                        </div>
+                        {isFiscal && <div>IVA</div>}
+                        <div className="text-right">Subtotal</div>
+                        <div />
+                      </div>
+                      {items.map((item, idx) => {
+                        const qty = itemNumber(item.quantity);
+                        const price = itemNumber(item.unit_price);
+                        const lineTotal = isFiscal
+                          ? qty *
+                            price *
+                            (1 + ivaRatePercent(item.iva_rate_id) / 100)
+                          : qty * price;
+                        const seguro = showSeguro && isSeguroRow(item);
+                        return (
+                          <div
+                            key={idx}
+                            className={cn(
+                              itemGrid,
+                              "items-center px-3 py-2",
+                              seguro && "border-t bg-muted/30",
+                            )}
+                          >
+                            {seguro ? (
+                              <div className="min-w-0 text-sm">
+                                <div className="font-medium">Seguro</div>
+                                <div className="text-xs text-muted-foreground">
+                                  % sobre el valor declarado
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="min-w-0 space-y-1">
+                                <Input
+                                  placeholder="Descripción"
+                                  aria-label="Descripción"
+                                  value={item.description}
+                                  onChange={(e) =>
+                                    updateItem(idx, {
+                                      description: e.target.value,
+                                    })
+                                  }
+                                />
+                                <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                  <Checkbox
+                                    checked={
+                                      itemRevenueKind(item, isFiscal) ===
+                                      "asset_sale"
+                                    }
+                                    onCheckedChange={(checked) =>
+                                      updateItem(idx, {
+                                        revenue_kind:
+                                          checked === true
+                                            ? "asset_sale"
+                                            : "service",
+                                      })
+                                    }
+                                  />
+                                  {REVENUE_KIND_LABEL.asset_sale}
+                                </label>
+                              </div>
+                            )}
+                            {seguro ? (
+                              <SeguroPercentInput
+                                value={item.quantity}
+                                onChange={(q) =>
+                                  updateItem(idx, { quantity: q })
+                                }
+                              />
+                            ) : (
+                              <MoneyInput
+                                aria-label="Cantidad"
+                                decimals={ITEM_DECIMALS}
+                                value={item.quantity}
+                                onChange={(quantity) =>
+                                  updateItem(idx, { quantity })
+                                }
+                              />
+                            )}
+                            <MoneyInput
+                              decimals={ITEM_DECIMALS}
+                              placeholder={
+                                seguro ? "Valor declarado" : "$ 0,00"
+                              }
+                              aria-label={
+                                seguro
+                                  ? "Valor declarado"
+                                  : isFiscal
+                                    ? "Precio unitario"
+                                    : "Precio final"
+                              }
+                              value={item.unit_price}
+                              onChange={(unit_price) =>
+                                updateItem(idx, { unit_price })
+                              }
+                            />
+                            {isFiscal && (
+                              <Select
+                                value={String(item.iva_rate_id)}
+                                onValueChange={(v) =>
+                                  updateItem(idx, {
+                                    iva_rate_id: Number(v) as IvaRateId,
+                                  })
+                                }
+                              >
+                                <SelectTrigger
+                                  className="w-full"
+                                  aria-label="IVA"
+                                >
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent position="popper">
+                                  {IVA_RATE_OPTIONS.map((r) => (
+                                    <SelectItem
+                                      key={r.value}
+                                      value={String(r.value)}
+                                    >
+                                      {r.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            )}
+                            <div className="text-right font-mono text-sm tabular-nums">
+                              ${formatNumber2(lineTotal)}
+                            </div>
+                            <div className="flex justify-end">
+                              {!seguro && (
+                                <IconButton
+                                  label="Quitar ítem"
+                                  type="button"
+                                  variant="ghost"
+                                  className="size-8"
+                                  onClick={() => removeItem(idx)}
+                                  disabledReason={
+                                    items.length <= (showSeguro ? 2 : 1)
+                                      ? "Tiene que quedar al menos un ítem."
+                                      : null
+                                  }
+                                  disabled={
+                                    items.length <= (showSeguro ? 2 : 1)
+                                  }
+                                >
+                                  <X />
+                                </IconButton>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Totals */}
+              {(!isNote || originDetail) && (
+                <div className="flex items-center justify-end gap-6 rounded-md border bg-muted/30 p-3 lg:mt-auto">
+                  {isFiscal && (
+                    <>
+                      <div className="text-sm">
+                        Neto:{" "}
+                        <span className="font-mono">
+                          ${formatNumber2(totals.imp_neto)}
+                        </span>
+                      </div>
+                      <div className="text-sm">
+                        IVA:{" "}
+                        <span className="font-mono">
+                          ${formatNumber2(totals.imp_iva)}
+                        </span>
+                      </div>
+                    </>
+                  )}
+                  <div className="text-base font-semibold">
+                    Total:{" "}
+                    <span className="font-mono">
+                      ${formatNumber2(totals.imp_total)}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </>
+          }
+        />
 
         <div
           className={cn(

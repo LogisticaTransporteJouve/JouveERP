@@ -13,6 +13,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { LIST_FORM_DIALOG } from "@/components/form-columns";
 import type { Account } from "@/features/accounts/schema";
 
 import { useReceiptDetail } from "../hooks/use-receipts";
@@ -54,7 +55,7 @@ export function EditReceiptDialog({
           <Pencil className="size-4" />
         </IconButton>
       </DialogTrigger>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
+      <DialogContent className={LIST_FORM_DIALOG}>
         <DialogHeader>
           <DialogTitle>
             Recibo {formatReceiptNumber(puntoVenta, numero)}

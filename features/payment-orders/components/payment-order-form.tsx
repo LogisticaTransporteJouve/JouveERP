@@ -9,6 +9,7 @@ import { z } from "zod";
 
 import { cn } from "@/lib/utils";
 import { DIALOG_STICKY_FOOTER } from "@/components/ui/dialog";
+import { LIST_FORM, ListFormColumns } from "@/components/form-columns";
 import {
   useDefaultChannel,
   usePageIsFiscal,
@@ -489,222 +490,233 @@ export function PaymentOrderForm({
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_140px_140px_100px]">
-          <FormField
-            control={form.control}
-            name="channelId"
-            render={({ field }) => (
-              <FormItem className="space-y-1">
-                <FormLabel className="text-xs">Canal</FormLabel>
-                <Select
-                  value={field.value}
-                  onValueChange={(next) => {
-                    field.onChange(next);
-                    // Allocations are per channel — drop picks from the old one.
-                    form.setValue("allocations", []);
-                  }}
-                  disabled={mode === "edit"}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent position="popper">
-                    {sideChannels.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <ChannelsReadError inline />
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="numero"
-            render={({ field }) => (
-              <FormItem className="space-y-1">
-                <FormLabel className="text-xs">Número</FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    disabled={numeroLocked}
-                    type="number"
-                    min={1}
-                    inputMode="numeric"
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="paymentDate"
-            render={({ field }) => (
-              <FormItem className="space-y-1">
-                <FormLabel className="text-xs">Fecha</FormLabel>
-                <FormControl>
-                  <DatePicker value={field.value} onChange={field.onChange} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="currency"
-            render={({ field }) => (
-              <FormItem className="space-y-1">
-                <FormLabel className="text-xs">Moneda</FormLabel>
-                <Select
-                  value={field.value}
-                  onValueChange={(v) =>
-                    field.onChange(v as PaymentOrderCurrency)
-                  }
-                  disabled={mode === "edit"}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent position="popper">
-                    {PAYMENT_ORDER_CURRENCIES.map((c) => (
-                      <SelectItem key={c} value={c}>
-                        {c}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        {isUsd && (
-          <UsdRateField
-            control={form.control}
-            name="cotizacion"
-            noLoadedRate={usdRate.isSuccess && usdRate.data === null}
-          />
-        )}
-
-        {mode === "create" && isFirst && (
-          <div className="rounded-md border border-border bg-muted p-2 text-xs text-muted-foreground dark:text-muted-foreground">
-            Es la primera OP de este canal. Si ya tenías una numeración previa
-            en otro sistema, podés escribir el siguiente número manualmente.
-            Después queda fijado.
-          </div>
-        )}
-
-        <FormField
-          control={form.control}
-          name="supplier"
-          render={({ field }) => (
-            <FormItem className="space-y-1">
-              <FormLabel className="text-xs">Proveedor</FormLabel>
-              <FormControl>
-                {editSupplierFailed ? (
-                  <ReadError
-                    message="No se pudo leer el proveedor de la orden de pago."
-                    onRetry={() => void editSupplier.refetch()}
-                  />
-                ) : (
-                  <SupplierPicker
-                    value={field.value}
-                    onChange={field.onChange}
-                    isFiscal={pageIsFiscal ?? true}
-                    disabled={mode === "edit"}
-                  />
-                )}
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <PaymentLinesEditor
-          accounts={accounts.filter(
-            (a) => a.is_active && a.currency === currency,
-          )}
-          // A check is endorsed only in a payment order of its own channel;
-          // one without channel takes the payment order's.
-          carteraChecks={(carteraChecksQuery.data ?? []).filter(
-            (c) => c.channel_id === null || c.channel_id === channelId,
-          )}
-          carteraChecksLoading={carteraChecksQuery.isLoading}
-          currency={currency}
-          lines={paymentLines}
-          onChange={(lines) => form.setValue("paymentLines", lines)}
-        />
-
-        {mode === "create" && (
-          <AllocationModeSelect
-            payer="payment_order"
-            value={allocationMode}
-            onChange={(m) => form.setValue("allocationMode", m)}
-          />
-        )}
-        {(mode === "edit" || allocationMode === "manual") && (
-          <AllocationsPicker
-            supplierId={editSupplierId ?? supplier?.id ?? null}
-            channelId={channelId || null}
-            excludePaymentOrderId={paymentOrder?.paymentOrder.id}
-            allocations={allocations}
-            onChange={(allocs) => form.setValue("allocations", allocs)}
-          />
-        )}
-
-        <div className="grid grid-cols-1 gap-3 rounded-md border bg-muted/30 p-3 text-sm sm:grid-cols-3">
-          <div>
-            <div className="text-xs text-muted-foreground">Total a pagar</div>
-            <div className="font-mono font-semibold">
-              {formatMoney(totalAmount)} {currency}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs text-muted-foreground">Imputado</div>
-            <div className="font-mono">
-              {allocationMode === "fifo"
-                ? "Automático"
-                : `${formatMoney(allocatedAmount + rejectedCheckApplied)} ${currency}`}
-            </div>
-            {rejectedCheckApplied > 0 && (
-              <div className="text-xs text-muted-foreground">
-                {formatMoney(rejectedCheckApplied)} {currency} a cheques
-                rechazados (se mantiene al editar)
+      <form onSubmit={form.handleSubmit(onSubmit)} className={LIST_FORM}>
+        <ListFormColumns
+          left={
+            <>
+              <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-[1fr_140px_140px_100px]">
+                <FormField
+                  control={form.control}
+                  name="channelId"
+                  render={({ field }) => (
+                    <FormItem className="space-y-1">
+                      <FormLabel className="text-xs">Canal</FormLabel>
+                      <Select
+                        value={field.value}
+                        onValueChange={(next) => {
+                          field.onChange(next);
+                          // Allocations are per channel — drop picks from the old one.
+                          form.setValue("allocations", []);
+                        }}
+                        disabled={mode === "edit"}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent position="popper">
+                          {sideChannels.map((c) => (
+                            <SelectItem key={c.id} value={c.id}>
+                              {c.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <ChannelsReadError inline />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="numero"
+                  render={({ field }) => (
+                    <FormItem className="space-y-1">
+                      <FormLabel className="text-xs">Número</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          disabled={numeroLocked}
+                          type="number"
+                          min={1}
+                          inputMode="numeric"
+                        />
+                      </FormControl>
+                      {mode === "create" && isFirst && (
+                        <p className="text-xs text-muted-foreground">
+                          Primera OP del canal: podés cambiar el número.
+                        </p>
+                      )}
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="paymentDate"
+                  render={({ field }) => (
+                    <FormItem className="space-y-1">
+                      <FormLabel className="text-xs">Fecha</FormLabel>
+                      <FormControl>
+                        <DatePicker
+                          value={field.value}
+                          onChange={field.onChange}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="currency"
+                  render={({ field }) => (
+                    <FormItem className="space-y-1">
+                      <FormLabel className="text-xs">Moneda</FormLabel>
+                      <Select
+                        value={field.value}
+                        onValueChange={(v) =>
+                          field.onChange(v as PaymentOrderCurrency)
+                        }
+                        disabled={mode === "edit"}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent position="popper">
+                          {PAYMENT_ORDER_CURRENCIES.map((c) => (
+                            <SelectItem key={c} value={c}>
+                              {c}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
-            )}
-          </div>
-          <div>
-            <div className="text-xs text-muted-foreground">A cuenta</div>
-            <div className="font-mono">
-              {allocationMode === "fifo"
-                ? "Lo que sobre"
-                : `${formatMoney(aCuenta)} ${currency}`}
-            </div>
-          </div>
-        </div>
 
-        <FormField
-          control={form.control}
-          name="notes"
-          render={({ field }) => (
-            <FormItem className="space-y-1">
-              <FormLabel className="text-xs">Notas</FormLabel>
-              <FormControl>
-                <Textarea rows={2} {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
+              {isUsd && (
+                <UsdRateField
+                  control={form.control}
+                  name="cotizacion"
+                  noLoadedRate={usdRate.isSuccess && usdRate.data === null}
+                />
+              )}
+
+              <FormField
+                control={form.control}
+                name="supplier"
+                render={({ field }) => (
+                  <FormItem className="space-y-1">
+                    <FormLabel className="text-xs">Proveedor</FormLabel>
+                    <FormControl>
+                      {editSupplierFailed ? (
+                        <ReadError
+                          message="No se pudo leer el proveedor de la orden de pago."
+                          onRetry={() => void editSupplier.refetch()}
+                        />
+                      ) : (
+                        <SupplierPicker
+                          value={field.value}
+                          onChange={field.onChange}
+                          isFiscal={pageIsFiscal ?? true}
+                          disabled={mode === "edit"}
+                        />
+                      )}
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <PaymentLinesEditor
+                accounts={accounts.filter(
+                  (a) => a.is_active && a.currency === currency,
+                )}
+                // A check is endorsed only in a payment order of its own channel;
+                // one without channel takes the payment order's.
+                carteraChecks={(carteraChecksQuery.data ?? []).filter(
+                  (c) => c.channel_id === null || c.channel_id === channelId,
+                )}
+                carteraChecksLoading={carteraChecksQuery.isLoading}
+                currency={currency}
+                lines={paymentLines}
+                onChange={(lines) => form.setValue("paymentLines", lines)}
+              />
+
+              <FormField
+                control={form.control}
+                name="notes"
+                render={({ field }) => (
+                  <FormItem className="space-y-1">
+                    <FormLabel className="text-xs">Notas</FormLabel>
+                    <FormControl>
+                      <Textarea rows={2} className="min-h-0" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </>
+          }
+          right={
+            <>
+              {mode === "create" && (
+                <AllocationModeSelect
+                  payer="payment_order"
+                  value={allocationMode}
+                  onChange={(m) => form.setValue("allocationMode", m)}
+                />
+              )}
+              {(mode === "edit" || allocationMode === "manual") && (
+                <AllocationsPicker
+                  supplierId={editSupplierId ?? supplier?.id ?? null}
+                  channelId={channelId || null}
+                  excludePaymentOrderId={paymentOrder?.paymentOrder.id}
+                  allocations={allocations}
+                  onChange={(allocs) => form.setValue("allocations", allocs)}
+                />
+              )}
+
+              <div className="grid grid-cols-1 gap-2 rounded-md border bg-muted/30 p-3 text-sm sm:grid-cols-3 lg:mt-auto">
+                <div>
+                  <div className="text-xs text-muted-foreground">
+                    Total a pagar
+                  </div>
+                  <div className="font-mono font-semibold">
+                    {formatMoney(totalAmount)} {currency}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Imputado</div>
+                  <div className="font-mono">
+                    {allocationMode === "fifo"
+                      ? "Automático"
+                      : `${formatMoney(allocatedAmount + rejectedCheckApplied)} ${currency}`}
+                  </div>
+                  {rejectedCheckApplied > 0 && (
+                    <div className="text-xs text-muted-foreground">
+                      {formatMoney(rejectedCheckApplied)} {currency} a cheques
+                      rechazados (se mantiene al editar)
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">A cuenta</div>
+                  <div className="font-mono">
+                    {allocationMode === "fifo"
+                      ? "Lo que sobre"
+                      : `${formatMoney(aCuenta)} ${currency}`}
+                  </div>
+                </div>
+              </div>
+            </>
+          }
         />
 
         <div

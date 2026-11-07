@@ -1437,39 +1437,9 @@ export function PurchaseInvoiceForm({
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
         {draftNotice}
         <FormColumns>
-          <FormColumn>
-            {supplierField}
-
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              {channelField}
-              <FormField
-                control={form.control}
-                name="kind"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Tipo{aiMark("kind")}</FormLabel>
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <FormControl>
-                        <SelectTrigger className="w-full">
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {PURCHASE_INVOICE_KINDS.map((k) => (
-                          <SelectItem key={k} value={k}>
-                            {PURCHASE_INVOICE_KIND_LABEL[k]}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            {internalNotice}
-          </FormColumn>
+          {/* Row-major cells: each row lines up across both columns even
+              when the supplier card is taller than an input. */}
+          <FormColumn>{supplierField}</FormColumn>
           <FormColumn>
             <div
               className={`grid gap-4 ${isInternalChannel ? "sm:grid-cols-3" : "sm:grid-cols-4"}`}
@@ -1547,9 +1517,39 @@ export function PurchaseInvoiceForm({
                 )}
               />
             </div>
-
             {duplicateNotice}
-
+          </FormColumn>
+          <FormColumn>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {channelField}
+              <FormField
+                control={form.control}
+                name="kind"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tipo{aiMark("kind")}</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {PURCHASE_INVOICE_KINDS.map((k) => (
+                          <SelectItem key={k} value={k}>
+                            {PURCHASE_INVOICE_KIND_LABEL[k]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            {internalNotice}
+          </FormColumn>
+          <FormColumn>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <FormField
                 control={form.control}
