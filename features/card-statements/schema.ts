@@ -50,44 +50,48 @@ const total = amount.min(0).transform(toCents);
 /** A statement as the PDF reader returns it, plus the account that pays it. */
 export const CreateCardStatementSchema = z.object({
   pay_account_id: z.string().uuid("Elegí la cuenta que paga la tarjeta."),
-  statement: z.object({
-    number: z.string().trim().min(1).max(60),
-    account_number: z.string().trim().min(1).max(40).nullable(),
-    close_date: isoDate,
-    due_date: isoDate,
-    total_ars: total,
-    total_usd: total,
-    cards: z
-      .array(
-        z.object({
-          last4: z.string().regex(/^\d{4}$/),
-          holder: z.string().trim().min(1).max(120),
-          purchases: z
-            .array(
-              z.object({
-                date: isoDate,
-                description: z.string().trim().min(1).max(200),
-                installment: z.string().max(10).nullable(),
-                amount: money,
-                currency: z.enum(["ARS", "USD"]),
-              }),
-            )
-            .max(2000),
-        }),
-      )
-      .min(1)
-      .max(50),
-    charges: z
-      .array(
-        z.object({
-          date: isoDate,
-          description: z.string().trim().min(1).max(200),
-          kind: z.string().max(40),
-          amount: money,
-        }),
-      )
-      .max(200),
-  }),
+  statement: z
+    .object({
+      number: z.string().trim().min(1).max(60),
+      account_number: z.string().trim().min(1).max(40).nullable(),
+      close_date: isoDate,
+      due_date: isoDate,
+      total_ars: total,
+      total_usd: total,
+      cards: z
+        .array(
+          z.object({
+            last4: z.string().regex(/^\d{4}$/),
+            holder: z.string().trim().min(1).max(120),
+            purchases: z
+              .array(
+                z.object({
+                  date: isoDate,
+                  description: z.string().trim().min(1).max(200),
+                  installment: z.string().max(10).nullable(),
+                  amount: money,
+                  currency: z.enum(["ARS", "USD"]),
+                }),
+              )
+              .max(2000),
+          }),
+        )
+        .min(1)
+        .max(50),
+      charges: z
+        .array(
+          z.object({
+            date: isoDate,
+            description: z.string().trim().min(1).max(200),
+            kind: z.string().max(40),
+            amount: money,
+          }),
+        )
+        .max(200),
+    })
+    .refine((s) => s.total_ars > 0 || s.total_usd > 0, {
+      message: "El resumen no tiene nada para pagar.",
+    }),
 });
 export type CreateCardStatementInput = z.input<
   typeof CreateCardStatementSchema

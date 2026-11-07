@@ -141,19 +141,22 @@ async function prepare(formData: FormData): Promise<
     ),
   );
 
+  const listed = new Set<string>();
   const rows: EcheqListadoRow[] = toLoad.map((c) => {
     const client_id = clientByCuit.get(c.client_cuit) ?? null;
     const key = `${digits(c.check_number)}|${c.amount.toFixed(2)}`;
-    const repeated = loaded.has(key);
     // A cheque listed twice is loaded once.
-    loaded.add(key);
-    const issue = repeated
+    const repeated = listed.has(key);
+    listed.add(key);
+    const issue = loaded.has(key)
       ? "Ya está cargado."
-      : !cartera.data
-        ? "No hay una cartera de e-cheq activa."
-        : !client_id
-          ? `No hay un cliente con el CUIT ${c.client_cuit}: crealo en Ventas › Clientes.`
-          : null;
+      : repeated
+        ? "Repetido en el listado."
+        : !cartera.data
+          ? "No hay una cartera de e-cheq activa."
+          : !client_id
+            ? `No hay un cliente con el CUIT ${c.client_cuit}: crealo en Ventas › Clientes.`
+            : null;
     return { ...c, client_id, issue };
   });
   return {

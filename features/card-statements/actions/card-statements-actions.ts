@@ -507,11 +507,15 @@ export async function setCardHolderAction(
     chart_account_id: d.treatment === "expense" ? d.chart_account_id : null,
     employee_id: d.treatment === "advance" ? d.employee_id : null,
   };
-  const holder = await service
+  // An advance is Personal's: without its write it stays as it is.
+  const hrWrite = userCan(ctx.access, "hr:write");
+  let holderUpdate = service
     .from("card_holders")
     .update({ ...values, updated_at: new Date().toISOString() })
     .eq("account_number", st.data.account_number)
     .eq("last4", d.last4);
+  if (!hrWrite) holderUpdate = holderUpdate.neq("treatment", "advance");
+  const holder = await holderUpdate;
   if (holder.error) {
     logger.error("cards.holder_update_failed", {
       userId: ctx.userId,
@@ -528,13 +532,14 @@ export async function setCardHolderAction(
     );
     return { ok: true, data: { updated: 0 } };
   }
-  const { data, error } = await service
+  let linesUpdate = service
     .from("card_statement_lines")
     .update(values)
     .eq("statement_id", d.statement_id)
     .eq("card_last4", d.last4)
-    .is("transaction_id", null)
-    .select("id");
+    .is("transaction_id", null);
+  if (!hrWrite) linesUpdate = linesUpdate.neq("treatment", "advance");
+  const { data, error } = await linesUpdate.select("id");
   if (error) {
     logger.error("cards.holder_apply_failed", { userId: ctx.userId, error });
     return {

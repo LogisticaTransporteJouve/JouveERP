@@ -2578,7 +2578,6 @@ export const treasuryPage: GuidePage = {
             "accounting:read",
             "accounts:read",
             "transactions:write",
-            "taxes:write",
           ],
           prerequisites: [
             "El resumen cargado, con todos sus consumos y cargos definidos.",
@@ -2590,7 +2589,7 @@ export const treasuryPage: GuidePage = {
           ],
           after: [
             "En la cuenta del banco, con la fecha del débito, queda un egreso por cada cuenta contable y un adelanto por cada empleado (en su cuenta corriente), y la línea del extracto queda conciliada con ellos.",
-            "Si el resumen tiene adelantos de sueldo, pagarlo pide también el permiso de escritura de Personal.",
+            "Si la parte que pagás tiene adelantos de sueldo, pide también el permiso de escritura de Personal; si tiene IVA o percepciones, el de Impuestos.",
             "Si pagaste con el débito equivocado, en el resumen deshacé el pago de los pesos (o de los dólares) y confirmá con {{Deshacer pago}}: borra sus egresos y adelantos con sus asientos, la línea del extracto vuelve a pendiente y los consumos se pueden cambiar otra vez.",
           ],
           keywords: ["pago tarjeta", "visa", "debito automatico"],

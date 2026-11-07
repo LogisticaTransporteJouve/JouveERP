@@ -53,7 +53,7 @@ describe("treasury writes", () => {
     async (_name, run) => {
       denied = ["transactions:write"];
       const res = await run();
-      expect(res.ok).toBe(false);
+      expect(res.ok === false && res.error).toMatch(/permiso/i);
       expect(fake.calls).toHaveLength(0);
     },
   );
@@ -70,7 +70,7 @@ describe("treasury writes", () => {
   it("refuses a cheque deposit from a line without cheques:write", async () => {
     denied = ["cheques:write"];
     const res = await bank.depositCheckFromLineAction({});
-    expect(res.ok).toBe(false);
+    expect(res.ok === false && res.error).toMatch(/permiso/i);
     expect(fake.calls).toHaveLength(0);
   });
 });

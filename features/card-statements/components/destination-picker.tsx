@@ -45,12 +45,20 @@ export function DestinationPicker({
   /** Shown instead of the employees when the user may not see them. */
   employeesHidden?: boolean;
 }) {
-  const [draft, setDraft] = useState<CardTreatment | null>(null);
+  // An «Adelanto» still without its employee, for the saved value it was
+  // picked on: a save from elsewhere (the card's default) drops it.
+  const saved = `${value.treatment}:${value.chart_account_id}:${value.employee_id}`;
+  const [pending, setPending] = useState<string | null>(null);
+  const draft = pending === saved ? "advance" : null;
+  const setDraft = (t: CardTreatment | null) =>
+    setPending(t === "advance" ? saved : null);
   const shown = draft ?? value.treatment;
   // The bank charged every line, so the payment books each somewhere.
   const treatments = CARD_TREATMENTS.filter(
     (t) =>
-      (allowAdvance || t !== "advance" || value.treatment === "advance") &&
+      ((allowAdvance && !employeesHidden) ||
+        t !== "advance" ||
+        value.treatment === "advance") &&
       // «No corresponde» stays readable on an old line but is not offered.
       (t !== "ignore" || value.treatment === "ignore"),
   );
@@ -58,7 +66,8 @@ export function DestinationPicker({
     <div className="flex flex-wrap items-center gap-2">
       <Select
         value={shown}
-        disabled={disabled}
+        // An advance is Personal's: without its write it stays as it is.
+        disabled={disabled || (value.treatment === "advance" && !allowAdvance)}
         onValueChange={(v) => {
           if (!isCardTreatment(v)) return;
           if (v === "advance" && value.treatment !== "advance") {

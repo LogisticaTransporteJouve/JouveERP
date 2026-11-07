@@ -388,12 +388,13 @@ begin
       using errcode = '23514', hint = 'jouve_guard';
   end if;
   -- A movement is positive: a refund alone in its account (or employee)
-  -- has nothing to net against.
+  -- has nothing to net against. One that nets to zero (a fee and its
+  -- bonificación) books nothing.
   if exists (
     select 1 from card_amounts where treatment in ('expense', 'advance')
-     group by treatment, chart_account_id, employee_id having sum(ars) <= 0
+     group by treatment, chart_account_id, employee_id having sum(ars) < 0
   ) then
-    raise exception 'Una cuenta o un empleado del resumen queda en cero o negativo (una devolución sola): imputala a la cuenta o al empleado de su consumo'
+    raise exception 'Una cuenta o un empleado del resumen queda negativo (una devolución sola): imputala a la cuenta o al empleado de su consumo'
       using errcode = '23514', hint = 'jouve_guard';
   end if;
 
@@ -403,6 +404,9 @@ begin
      where treatment = 'expense'
      group by chart_account_id
   loop
+    if r.total = 0 then
+      continue;
+    end if;
     insert into public.transactions (
       account_id, channel_id, kind, amount, currency, transaction_date,
       accrual_month, description, expense_account_id, created_by
@@ -426,6 +430,9 @@ begin
      where a.treatment = 'advance'
      group by a.employee_id, e.legal_name
   loop
+    if r.total = 0 then
+      continue;
+    end if;
     insert into public.transactions (
       account_id, channel_id, kind, amount, currency, transaction_date,
       accrual_month, description, created_by
@@ -641,3 +648,93 @@ begin
 end;
 $$;
 revoke all on function public.guard_transaction_owned_by_document() from public, anon, authenticated;
+
+------------------------------------------------------------------------------
+-- 6. Nor are they loose for linking, adopting or recategorizing
+------------------------------------------------------------------------------
+-- Same as 20261103170000 plus card_statement_lines: a card payment's
+-- movement is not offered to a tax document, a loan cuota or Recategorizar.
+create or replace function public.transaction_is_loose(p_tx public.transactions)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select p_tx.invoice_id is null
+     and p_tx.receipt_id is null
+     and p_tx.payment_order_id is null
+     and p_tx.issued_check_id is null
+     and p_tx.rejected_check_id is null
+     and p_tx.manual_check_id is null
+     and p_tx.check_sale_id is null
+     and p_tx.transfer_pair_id is null
+     and not p_tx.is_payroll
+     and not exists (select 1 from public.payroll_payments where transaction_id = p_tx.id)
+     and not exists (select 1 from public.loan_installments where transaction_id = p_tx.id)
+     and not exists (select 1 from public.loans where disbursement_transaction_id = p_tx.id)
+     and not exists (select 1 from public.check_movements where transaction_id = p_tx.id)
+     and not exists (select 1 from public.account_opening_balances where adjustment_transaction_id = p_tx.id)
+     and not exists (select 1 from public.employee_account_movements where transaction_id = p_tx.id)
+     and not exists (select 1 from public.tax_documents where payment_transaction_id = p_tx.id)
+     and not exists (select 1 from public.card_statement_lines where transaction_id = p_tx.id);
+$$;
+revoke all on function public.transaction_is_loose(public.transactions) from public, anon, authenticated;
+
+create or replace view public.v_transactions_tagged with (security_invoker = on) as
+  select
+    t.id,
+    t.account_id,
+    t.channel_id,
+    t.kind,
+    t.amount,
+    t.currency,
+    t.transaction_date,
+    t.accrual_month,
+    t.description,
+    t.invoice_id,
+    t.counterparty_client_id,
+    t.transfer_pair_id,
+    t.created_by,
+    t.created_at,
+    t.updated_at,
+    c.is_fiscal as channel_is_fiscal,
+    c.name as channel_name,
+    a.name as account_name,
+    a.type as account_type,
+    t.receipt_id,
+    t.payment_order_id,
+    t.rejected_check_id,
+    t.issued_check_id,
+    t.is_payroll,
+    case
+      when t.receipt_id is not null then 'receipt'
+      when t.payment_order_id is not null then 'payment_order'
+      when t.invoice_id is not null then 'invoice'
+      when t.issued_check_id is not null then 'issued_check'
+      when t.rejected_check_id is not null then 'rejected_check'
+      when t.manual_check_id is not null then 'manual_check'
+      when t.check_sale_id is not null then 'check_sale'
+      when t.is_payroll
+        or exists (select 1 from public.payroll_payments pp where pp.transaction_id = t.id)
+        then 'payroll'
+      when exists (select 1 from public.loan_installments li where li.transaction_id = t.id)
+        then 'loan_installment'
+      when exists (select 1 from public.loans l where l.disbursement_transaction_id = t.id)
+        then 'loan_disbursement'
+      when exists (select 1 from public.check_movements cm where cm.transaction_id = t.id)
+        then 'check_movement'
+      when exists (select 1 from public.account_opening_balances aob where aob.adjustment_transaction_id = t.id)
+        then 'account_opening_balance'
+      when exists (select 1 from public.employee_account_movements eam where eam.transaction_id = t.id)
+        then 'employee_account'
+      when exists (select 1 from public.tax_documents td where td.payment_transaction_id = t.id)
+        then 'tax_document'
+      when exists (select 1 from public.card_statement_lines csl where csl.transaction_id = t.id)
+        then 'card_statement'
+    end as source_document,
+    t.cost_center_id,
+    t.expense_account_id
+  from public.transactions t
+  join public.invoicing_channels c on c.id = t.channel_id
+  join public.accounts a on a.id = t.account_id;

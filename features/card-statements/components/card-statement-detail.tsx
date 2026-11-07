@@ -139,7 +139,13 @@ function Detail({
             employees={employees}
             employeesHidden={employees_hidden}
             allowAdvance={canAdvance && l.source === "purchase"}
-            disabled={!canWrite || locked || l.paid || setLines.isPending}
+            disabled={
+              !canWrite ||
+              locked ||
+              l.paid ||
+              setLines.isPending ||
+              setHolder.isPending
+            }
             onChange={(d) => applyLine(l, d)}
           />
         </TableCell>
@@ -165,7 +171,7 @@ function Detail({
             {locked
               ? "Pagado: sus gastos y adelantos ya están en la cuenta."
               : pending > 0
-                ? `Faltan ${pending} consumos o cargos por definir (una cuenta, un empleado, o cambiar «no corresponde»). Cuando el banco debite el pago, la línea del extracto lo paga.`
+                ? `${pending === 1 ? "Falta 1 consumo o cargo" : `Faltan ${pending} consumos o cargos`} por definir (una cuenta, un empleado, o cambiar «no corresponde»). Cuando el banco debite el pago, la línea del extracto lo paga.`
                 : "Todo definido. Cuando el banco debite el pago, la línea del extracto lo paga."}
           </p>
         </div>
@@ -279,7 +285,12 @@ function Detail({
                     employees={employees}
                     employeesHidden={employees_hidden}
                     allowAdvance={canAdvance}
-                    disabled={!canWrite || locked || setHolder.isPending}
+                    disabled={
+                      !canWrite ||
+                      locked ||
+                      setHolder.isPending ||
+                      setLines.isPending
+                    }
                     onChange={(d) =>
                       setHolder.mutate(
                         { statement_id: st.id, last4, ...d },

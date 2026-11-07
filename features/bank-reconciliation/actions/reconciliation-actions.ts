@@ -490,7 +490,14 @@ export async function depositCheckFromLineAction(
       .maybeSingle(),
     fiscalChannel(service, ctx.userId),
   ]);
-  if (line.error || !line.data || check.error || !check.data) {
+  if (line.error || check.error) {
+    logger.error("reconciliation.deposit.read_failed", {
+      userId: ctx.userId,
+      error: line.error ?? check.error,
+    });
+    return { ok: false, error: "No se pudieron leer la línea y el cheque." };
+  }
+  if (!line.data || !check.data) {
     return { ok: false, error: "No se encontró la línea o el cheque." };
   }
   if (!channel.ok) return channel;
@@ -520,6 +527,12 @@ export async function depositCheckFromLineAction(
     .select("transaction:transactions ( transfer_pair_id )")
     .eq("id", deposited.data.movement_id)
     .maybeSingle();
+  if (movement.error) {
+    logger.error("reconciliation.deposit.read_failed", {
+      userId: ctx.userId,
+      error: movement.error,
+    });
+  }
   const tx = movement.data?.transaction;
   const pair = (Array.isArray(tx) ? tx[0] : tx)?.transfer_pair_id ?? null;
   if (!pair) {
@@ -583,7 +596,14 @@ export async function transferFromLineAction(
     service.from("accounts").select("id, currency"),
     fiscalChannel(service, ctx.userId),
   ]);
-  if (line.error || !line.data) {
+  if (line.error) {
+    logger.error("reconciliation.transfer.read_failed", {
+      userId: ctx.userId,
+      error: line.error,
+    });
+    return { ok: false, error: "No se pudo leer la línea del extracto." };
+  }
+  if (!line.data) {
     return { ok: false, error: "La línea del extracto ya no existe." };
   }
   if (accounts.error) {
@@ -708,12 +728,11 @@ export async function transferFromLineAction(
       error: opposite.error,
     });
   }
-  if (opposite.error || opposite.data.length !== 1) {
-    return {
-      ok: true,
-      data: { other: opposite.data?.length ? "several" : "none" },
-    };
+  // Unknown (the read failed) or ambiguous: the user reconciles it there.
+  if (opposite.error || opposite.data.length > 1) {
+    return { ok: true, data: { other: "several" } };
   }
+  if (opposite.data.length === 0) return { ok: true, data: { other: "none" } };
   const res = await matchBankLine(ctx.userId, {
     line_id: opposite.data[0]!.id,
     transaction_ids: [theirs],

@@ -181,10 +181,11 @@ export async function getStatementCodingAction(
       .limit(5000),
     service.from("business_units").select("cuit").limit(1).maybeSingle(),
   ]);
-  if (!codes || !postingAccounts || lines.error) {
+  if (!codes || !postingAccounts || lines.error || company.error) {
     logger.error("reconciliation.coding.read_failed", {
       userId: ctx.userId,
       account_id,
+      error: lines.error ?? company.error,
     });
     return { ok: false, error: "No se pudieron leer los códigos del banco." };
   }

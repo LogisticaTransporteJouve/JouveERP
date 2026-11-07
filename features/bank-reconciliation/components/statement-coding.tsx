@@ -948,7 +948,7 @@ function OwnTransfer({
                     ? "Transferencia registrada y conciliada en las dos cuentas."
                     : other === "several"
                       ? "Transferencia registrada. En la otra cuenta conciliala desde sus sugerencias."
-                      : "Transferencia registrada. La otra cuenta la concilia cuando cargues su extracto.",
+                      : "Transferencia registrada. En la otra cuenta queda sugerida para conciliar cuando cargues su extracto.",
                 ),
               onError: (err) => toast.error(err.message),
             },
