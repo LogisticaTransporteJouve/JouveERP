@@ -309,7 +309,7 @@ export const hrPage: GuidePage = {
               ],
             },
             "Cargá el {{Aumento (%)}} (mayor a 0 y hasta 100; acepta coma decimal) y elegí {{Desde el mes}}. Opcional: {{Motivo (opcional)}}.",
-            "Revisá la lista de abajo: muestra cuántos empleados alcanza y, para cada uno, el sueldo actual → el nuevo. Solo entran los activos con sueldo base cargado. {{Aplicar aumento}} se habilita cuando el porcentaje es válido y la lista tiene al menos un empleado.",
+            "Revisá la lista de abajo: para cada empleado del grupo muestra el sueldo actual → el nuevo, con una casilla tildada. Destildá a los que no reciben el aumento (la casilla de arriba tilda o destilda a todos); arriba dice cuántos quedan elegidos. Solo entran los activos con sueldo base cargado. {{Aplicar aumento}} se habilita cuando el porcentaje es válido y hay al menos un empleado tildado.",
             "Hacé clic en {{Aplicar aumento}}.",
           ],
           after: [

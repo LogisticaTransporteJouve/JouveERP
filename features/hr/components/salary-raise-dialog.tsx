@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { DisabledHint, firstReason } from "@/components/disabled-hint";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -88,6 +89,8 @@ function RaiseForm({ onDone }: { onDone: () => void }) {
   const [percentage, setPercentage] = useState("");
   const [month, setMonth] = useState(todayInAR().slice(0, 7));
   const [reason, setReason] = useState("");
+  // Who of the group is left out; a new group starts with everyone in.
+  const [excluded, setExcluded] = useState<ReadonlySet<string>>(new Set());
 
   const options = useMemo(() => {
     if (scope === "all") return [];
@@ -100,7 +103,18 @@ function RaiseForm({ onDone }: { onDone: () => void }) {
     ].sort((a, b) => a.localeCompare(b, "es-AR"));
   }, [active, scope]);
 
-  const targets = raiseTargets(active, scope, value);
+  const group = raiseTargets(active, scope, value);
+  const targets = group.filter((t) => !excluded.has(t.id));
+  const allChecked = group.length > 0 && targets.length === group.length;
+
+  function toggle(id: string, checked: boolean) {
+    setExcluded((prev) => {
+      const next = new Set(prev);
+      if (checked) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
   const pct = Number(percentage.replace(/,/g, "."));
   const validPct = Number.isFinite(pct) && pct > 0 && pct <= 100;
 
@@ -134,6 +148,7 @@ function RaiseForm({ onDone }: { onDone: () => void }) {
               if (found) {
                 setScope(found);
                 setValue("");
+                setExcluded(new Set());
               }
             }}
           >
@@ -154,7 +169,13 @@ function RaiseForm({ onDone }: { onDone: () => void }) {
             <Label htmlFor="raise-value">
               {scope === "position" ? "Puesto" : "Convenio"}
             </Label>
-            <Select value={value} onValueChange={setValue}>
+            <Select
+              value={value}
+              onValueChange={(v) => {
+                setValue(v);
+                setExcluded(new Set());
+              }}
+            >
               <SelectTrigger id="raise-value">
                 <SelectValue placeholder="Elegí" />
               </SelectTrigger>
@@ -194,27 +215,63 @@ function RaiseForm({ onDone }: { onDone: () => void }) {
       </div>
 
       <div className="rounded-md border">
-        <p className="border-b px-3 py-2 text-xs text-muted-foreground">
-          {targets.length} empleado(s) con sueldo base
-          {scope !== "all" && value === "" ? " — elegí un valor" : ""}
-        </p>
+        <div className="flex items-center gap-2 border-b px-3 py-2 text-xs text-muted-foreground">
+          {group.length > 0 && (
+            <Checkbox
+              id="raise-all"
+              aria-label="Elegir todos"
+              checked={
+                allChecked ? true : targets.length > 0 ? "indeterminate" : false
+              }
+              onCheckedChange={(c) =>
+                setExcluded(
+                  c === true ? new Set() : new Set(group.map((t) => t.id)),
+                )
+              }
+            />
+          )}
+          <span>
+            {targets.length} de {group.length} empleado(s) con sueldo base
+            {scope !== "all" && value === "" ? " — elegí un valor" : ""}
+          </span>
+        </div>
         <ul className="max-h-60 divide-y overflow-y-auto text-sm">
-          {targets.map((t) => (
-            <li
-              key={t.id}
-              className="flex items-center justify-between gap-2 px-3 py-1.5"
-            >
-              <span className="min-w-0 truncate">{t.legal_name}</span>
-              <span className="whitespace-nowrap font-mono text-xs text-muted-foreground">
-                {formatMoney(t.base_salary ?? 0)} →{" "}
-                <span className="text-foreground">
-                  {validPct
-                    ? formatMoney(raisedSalary(t.base_salary ?? 0, pct))
-                    : "—"}
-                </span>
-              </span>
-            </li>
-          ))}
+          {group.map((t) => {
+            const checked = !excluded.has(t.id);
+            return (
+              <li key={t.id}>
+                <label
+                  htmlFor={`raise-${t.id}`}
+                  className="flex cursor-pointer items-center justify-between gap-2 px-3 py-1.5"
+                >
+                  <span className="flex min-w-0 items-center gap-2">
+                    <Checkbox
+                      id={`raise-${t.id}`}
+                      checked={checked}
+                      onCheckedChange={(c) => toggle(t.id, c === true)}
+                    />
+                    <span
+                      className={
+                        checked
+                          ? "min-w-0 truncate"
+                          : "min-w-0 truncate text-muted-foreground"
+                      }
+                    >
+                      {t.legal_name}
+                    </span>
+                  </span>
+                  <span className="whitespace-nowrap font-mono text-xs text-muted-foreground">
+                    {formatMoney(t.base_salary ?? 0)} →{" "}
+                    <span className={checked ? "text-foreground" : undefined}>
+                      {validPct && checked
+                        ? formatMoney(raisedSalary(t.base_salary ?? 0, pct))
+                        : "—"}
+                    </span>
+                  </span>
+                </label>
+              </li>
+            );
+          })}
         </ul>
       </div>
 
@@ -235,9 +292,10 @@ function RaiseForm({ onDone }: { onDone: () => void }) {
               scope === "position" ? "Elegí el puesto." : "Elegí el convenio.",
             ],
             [
-              targets.length === 0,
+              group.length === 0,
               "No hay empleados a los que aplicar el aumento.",
             ],
+            [targets.length === 0, "Elegí al menos un empleado."],
           )}
         >
           <Button
