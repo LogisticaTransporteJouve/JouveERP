@@ -20,7 +20,10 @@ alter table public.bank_statement_lines
 comment on column public.bank_statement_lines.bank_code is
   'El código que el banco da a cada movimiento (en Macro, "Código Causal"); null si el archivo no lo trae.';
 
+-- integer like its sibling counts (inserted_rows, skipped_rows): a run takes
+-- at most 5000 rows.
 alter table public.import_runs
+  -- squawk-ignore prefer-bigint-over-int
   add column filled_rows integer not null default 0
   constraint import_runs_filled_rows_check check (filled_rows >= 0);
 
