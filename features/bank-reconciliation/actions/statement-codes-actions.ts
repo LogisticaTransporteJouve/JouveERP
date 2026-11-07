@@ -137,7 +137,7 @@ export async function getStatementCodingAction(
   const { account_id, from, to } = parsed.data;
   const service = getServiceClient();
 
-  const [codes, postingAccounts, lines] = await Promise.all([
+  const [codes, postingAccounts, lines, company] = await Promise.all([
     readCodes(service, account_id),
     readPostingAccounts(service),
     service
@@ -148,6 +148,7 @@ export async function getStatementCodingAction(
       .gte("line_date", from)
       .lte("line_date", to)
       .limit(5000),
+    service.from("business_units").select("cuit").limit(1).maybeSingle(),
   ]);
   if (!codes || !postingAccounts || lines.error) {
     logger.error("reconciliation.coding.read_failed", {
@@ -218,6 +219,7 @@ export async function getStatementCodingAction(
       clients,
       can_read_clients: canReadClients,
       loan_installments: loanInstallments,
+      company_cuit: company.data?.cuit ?? null,
     },
   };
 }

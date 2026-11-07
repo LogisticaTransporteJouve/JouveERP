@@ -106,8 +106,22 @@ export function proposeLine(
   codes: readonly BankStatementCode[],
   clientsByCuit: ReadonlyMap<string, StatementClient>,
   installments: readonly StatementLoanInstallment[] = [],
+  companyCuit: string | null = null,
 ): LineProposal {
   const code = findBankCode(line, codes);
+  // Money from or to the company itself: a transfer between its accounts,
+  // whatever the bank calls it.
+  if (companyCuit && cuitsIn(line.description).includes(companyCuit)) {
+    return {
+      kind: "transfer",
+      code,
+      label: "Transferencia entre cuentas propias",
+      client: null,
+      installment: null,
+      ready: false,
+      missing: null,
+    };
+  }
   if (!code) {
     return {
       kind: null,

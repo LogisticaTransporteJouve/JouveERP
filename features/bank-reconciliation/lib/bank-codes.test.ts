@@ -229,3 +229,29 @@ describe("a bank with no code (Provincia)", () => {
     );
   });
 });
+
+describe("own transfers", () => {
+  it("money carrying the company's CUIT is a transfer, not a collection", () => {
+    const p = proposeLine(
+      {
+        bank_code: null,
+        description: "CR.TRAN. 30714637432 DZYSONS SA",
+        amount: 5_500_000,
+        line_date: "2026-10-15",
+      },
+      [
+        code({
+          bank_code: "",
+          description_pattern: "CR.TRAN.",
+          kind: "receipt",
+          chart_account_id: null,
+        }),
+      ],
+      new Map(),
+      [],
+      "30714637432",
+    );
+    expect(p.kind).toBe("transfer");
+    expect(p.label).toBe("Transferencia entre cuentas propias");
+  });
+});

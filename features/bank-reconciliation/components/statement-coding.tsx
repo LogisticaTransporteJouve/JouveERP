@@ -79,6 +79,7 @@ export function useLineProposals(
             coding.data.codes,
             byCuit,
             coding.data.loan_installments,
+            coding.data.company_cuit,
           ),
         );
       }

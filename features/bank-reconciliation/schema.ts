@@ -377,6 +377,9 @@ export type StatementCoding = {
   /** Pending cuotas of the loans debited from this account (empty without
    *  permission to see loans). */
   loan_installments: StatementLoanInstallment[];
+  /** The company's own CUIT: a transfer carrying it is between its own
+   *  accounts, not a collection. */
+  company_cuit: string | null;
 };
 
 export const PayLoanFromLineSchema = z.object({
