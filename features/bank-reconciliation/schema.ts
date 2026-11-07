@@ -369,6 +369,10 @@ export type StatementLoanInstallment = {
   /** The plan's capital (the whole cuota when it has no split). */
   capital: number;
   iva: number;
+  /** The taxes the bank charged on the interest of the account's last
+   *  cuota that had them (Banco Provincia: «Impuestos» / «Intereses»);
+   *  null when none did. Used to suggest the split of the next debit. */
+  tax_rate?: number | null;
 };
 
 export type StatementCoding = {

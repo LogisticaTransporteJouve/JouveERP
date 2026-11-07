@@ -293,6 +293,26 @@ describe("a debit that is not the plan's amount (Provincia)", () => {
       taxes: 0,
     });
   });
+
+  it("splits the rest into interest and taxes at the last cuota's rate", () => {
+    // 1573367/5 cuota 28: the bank's detail is capital 481.646,35,
+    // intereses 641.388,24, impuestos 10.262,20; 1,6 % comes from
+    // 1367511/2 cuota 108 (603,30 on 37.709,58, rounded).
+    expect(
+      suggestLoanSplit(1133296.79, {
+        capital: 481646.35,
+        iva: 0,
+        tax_rate: 0.016,
+      }),
+    ).toEqual({
+      capital: 481646.35,
+      // The bank's own rounding lands a cent away (641.388,24 / 10.262,20).
+      interest: 641388.23,
+      late_interest: 0,
+      iva: 0,
+      taxes: 10262.21,
+    });
+  });
 });
 
 describe("detectBankPreset", () => {

@@ -129,17 +129,21 @@ export function findLoanInstallment(
  *  out of it from the bank's detail of the cuota. */
 export function suggestLoanSplit(
   debit: number,
-  installment: Pick<StatementLoanInstallment, "capital" | "iva">,
+  installment: Pick<StatementLoanInstallment, "capital" | "iva" | "tax_rate">,
 ) {
   const round2 = (n: number) => Math.round(n * 100) / 100;
   const capital = Math.min(installment.capital, debit);
   const iva = Math.min(installment.iva, round2(debit - capital));
+  // The rest is interest plus the taxes on it, at the rate of the last cuota.
+  const rest = round2(debit - capital - iva);
+  const rate = installment.tax_rate ?? 0;
+  const interest = rate > 0 ? round2(rest / (1 + rate)) : rest;
   return {
     capital,
-    interest: round2(debit - capital - iva),
+    interest,
     late_interest: 0,
     iva,
-    taxes: 0,
+    taxes: round2(rest - interest),
   };
 }
 

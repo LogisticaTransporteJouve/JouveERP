@@ -107,6 +107,30 @@ async function readLoanInstallments(
     .order("due_date")
     .limit(500);
   if (error) return null;
+  // The bank's taxes on interest move over time: the last paid cuota of
+  // these loans that had them gives the current rate.
+  const last = await service
+    .from("loan_installments")
+    .select(
+      "interest_amount, perception_amount, loan:loans!inner ( account_id )",
+    )
+    .eq("status", "pagada")
+    .eq("loan.account_id", accountId)
+    .gt("perception_amount", 0)
+    .gt("interest_amount", 0)
+    .order("paid_date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (last.error) return null;
+  // The bank states it with two decimals of a percent (1,6 %, 3,03 %); the
+  // cuota's rounded amounts would shift it by a few cents.
+  const tax_rate = last.data
+    ? Math.round(
+        (Number(last.data.perception_amount) /
+          Number(last.data.interest_amount)) *
+          10_000,
+      ) / 10_000
+    : null;
   return data.flatMap((i) => {
     const loan = Array.isArray(i.loan) ? i.loan[0] : i.loan;
     if (!loan) return [];
@@ -120,6 +144,7 @@ async function readLoanInstallments(
         amount: Number(i.amount),
         capital: Number(i.capital_amount ?? i.amount),
         iva: Number(i.iva_amount ?? 0),
+        tax_rate,
       },
     ];
   });
