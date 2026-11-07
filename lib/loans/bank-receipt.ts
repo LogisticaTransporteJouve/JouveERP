@@ -53,10 +53,22 @@ const CONCEPT = new RegExp(
   "g",
 );
 
-/** The receipt in the text, or why it is not one. */
+const partsTotal = (r: BankLoanReceipt) =>
+  round2(
+    r.capital +
+      r.interest +
+      r.late_interest +
+      r.iva +
+      r.iva_perception +
+      r.iibb_perception,
+  );
+
+/** The receipt in the text, or why it is not one. A debit that pays the end
+ *  of one cuota and the start of the next comes back as one part per cuota
+ *  (number «comprobante-cuota»), each with its own total. */
 export function parseBankLoanReceipt(
   text: string,
-): { ok: true; receipt: BankLoanReceipt } | { ok: false; error: string } {
+): { ok: true; receipts: BankLoanReceipt[] } | { ok: false; error: string } {
   const lines = text
     .split("\n")
     .map((l) => l.trim())
@@ -78,49 +90,50 @@ export function parseBankLoanReceipt(
     return { ok: false, error: "Faltan la fecha, los números o el monto." };
   }
   const [d, m, y] = date.split("/");
-  const out: BankLoanReceipt = {
-    loan_number: loan,
-    receipt_number: receipt,
-    paid_date: `${y}-${m}-${d}`,
-    installment_number: 0,
-    total: round2(arAmount(total)),
-    capital: 0,
-    interest: 0,
-    late_interest: 0,
-    iva: 0,
-    iva_perception: 0,
-    iibb_perception: 0,
-  };
-  const body = lines.join("\n");
-  let concepts = 0;
-  for (const match of body.matchAll(CONCEPT)) {
+  const byCuota = new Map<number, BankLoanReceipt>();
+  for (const match of lines.join("\n").matchAll(CONCEPT)) {
     const part = partOf(match[1] ?? "");
     if (!part) {
       return { ok: false, error: `Concepto que no reconocemos: ${match[1]}.` };
     }
-    out[part] = round2(out[part] + arAmount(match[3] ?? "0"));
-    out.installment_number = Number(match[2]);
-    concepts += 1;
+    const cuota = Number(match[2]);
+    const r = byCuota.get(cuota) ?? {
+      loan_number: loan,
+      receipt_number: receipt,
+      paid_date: `${y}-${m}-${d}`,
+      installment_number: cuota,
+      total: 0,
+      capital: 0,
+      interest: 0,
+      late_interest: 0,
+      iva: 0,
+      iva_perception: 0,
+      iibb_perception: 0,
+    };
+    r[part] = round2(r[part] + arAmount(match[3] ?? "0"));
+    byCuota.set(cuota, r);
   }
-  if (concepts === 0) {
+  if (byCuota.size === 0) {
     return {
       ok: false,
       error: "El comprobante no trae los conceptos aplicados.",
     };
   }
-  const parts = round2(
-    out.capital +
-      out.interest +
-      out.late_interest +
-      out.iva +
-      out.iva_perception +
-      out.iibb_perception,
-  );
-  if (Math.abs(parts - out.total) > 0.005) {
+  const receipts = [...byCuota.values()]
+    .sort((a, b) => a.installment_number - b.installment_number)
+    .map((r) => ({
+      ...r,
+      total: partsTotal(r),
+      receipt_number:
+        byCuota.size > 1 ? `${receipt}-${r.installment_number}` : receipt,
+    }));
+  const parts = round2(receipts.reduce((s, r) => s + r.total, 0));
+  const amount = round2(arAmount(total));
+  if (Math.abs(parts - amount) > 0.005) {
     return {
       ok: false,
-      error: `Los conceptos suman ${parts.toFixed(2)} y el monto es ${out.total.toFixed(2)}.`,
+      error: `Los conceptos suman ${parts.toFixed(2)} y el monto es ${amount.toFixed(2)}.`,
     };
   }
-  return { ok: true, receipt: out };
+  return { ok: true, receipts };
 }

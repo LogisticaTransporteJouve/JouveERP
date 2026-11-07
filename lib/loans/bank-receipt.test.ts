@@ -11,20 +11,38 @@ describe("parseBankLoanReceipt", () => {
     const r = parseBankLoanReceipt(RECEIPT);
     expect(r).toEqual({
       ok: true,
-      receipt: {
-        loan_number: "7670122511",
-        receipt_number: "7674000161",
-        paid_date: "2026-02-04",
-        installment_number: 2,
-        total: 771222.19,
-        capital: 551139.93,
-        interest: 190087.54,
-        late_interest: 2152.23,
-        iva: 20185.18,
-        iva_perception: 2851.31,
-        iibb_perception: 4806,
-      },
+      receipts: [
+        {
+          loan_number: "7670122511",
+          receipt_number: "7674000161",
+          paid_date: "2026-02-04",
+          installment_number: 2,
+          total: 771222.19,
+          capital: 551139.93,
+          interest: 190087.54,
+          late_interest: 2152.23,
+          iva: 20185.18,
+          iva_perception: 2851.31,
+          iibb_perception: 4806,
+        },
+      ],
     });
+  });
+
+  it("splits a debit that pays two cuotas into one part per cuota", () => {
+    const two = RECEIPT.replace("CAPITAL\n \n2\n", "CAPITAL\n \n3\n");
+    const r = parseBankLoanReceipt(two);
+    expect(
+      r.ok &&
+        r.receipts.map((p) => [
+          p.receipt_number,
+          p.installment_number,
+          p.total,
+        ]),
+    ).toEqual([
+      ["7674000161-2", 2, 220082.26],
+      ["7674000161-3", 3, 551139.93],
+    ]);
   });
 
   it("refuses a concept it does not know instead of guessing", () => {

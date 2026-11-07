@@ -59,7 +59,7 @@ export function LoanBankPayments({
       for (const file of Array.from(files)) {
         try {
           const parsed = parseBankLoanReceipt(await readPdfText(file));
-          if (parsed.ok) receipts.push(parsed.receipt);
+          if (parsed.ok) receipts.push(...parsed.receipts);
           else failed.push(`${file.name}: ${parsed.error}`);
         } catch {
           failed.push(`${file.name}: no se pudo leer el PDF.`);
