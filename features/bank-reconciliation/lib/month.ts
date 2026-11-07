@@ -9,3 +9,13 @@ export function isMonth(value: string): boolean {
 export function monthParam(value: string | undefined): string | null {
   return value !== undefined && isMonth(value) ? value : null;
 }
+
+/** The first and last day of a YYYY-MM month. */
+export function monthRange(month: string): { from: string; to: string } {
+  const [y, m] = month.split("-").map(Number);
+  const last = new Date(Date.UTC(y ?? 2000, m ?? 1, 0)).getUTCDate();
+  return {
+    from: `${month}-01`,
+    to: `${month}-${String(last).padStart(2, "0")}`,
+  };
+}

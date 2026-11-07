@@ -65,16 +65,7 @@ import {
   MatchMovementLinesDialog,
 } from "./line-dialogs";
 import type { ReconciliationGates } from "../lib/gates";
-import { isMonth } from "../lib/month";
-
-function monthRange(month: string): { from: string; to: string } {
-  const [y, m] = month.split("-").map(Number);
-  const last = new Date(Date.UTC(y ?? 2000, m ?? 1, 0)).getUTCDate();
-  return {
-    from: `${month}-01`,
-    to: `${month}-${String(last).padStart(2, "0")}`,
-  };
-}
+import { isMonth, monthRange } from "../lib/month";
 
 export function ReconciliationPage({
   today,

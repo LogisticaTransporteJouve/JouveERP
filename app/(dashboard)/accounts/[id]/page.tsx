@@ -8,7 +8,12 @@ import { accountsKeys } from "@/features/accounts/lib/accounts-keys";
 import { ACCOUNT_TYPE_LABEL, isCheckAccount } from "@/features/accounts/schema";
 import { AccountStatement } from "@/features/bank-reconciliation/components/reconciliation-page";
 import { reconciliationGates } from "@/features/bank-reconciliation/lib/gates";
-import { monthParam } from "@/features/bank-reconciliation/lib/month";
+import { getReconciliationAction } from "@/features/bank-reconciliation/actions/reconciliation-actions";
+import {
+  monthParam,
+  monthRange,
+} from "@/features/bank-reconciliation/lib/month";
+import { reconciliationKeys } from "@/features/bank-reconciliation/lib/reconciliation-keys";
 import { listTransactionsAction } from "@/features/transactions/actions/transactions-actions";
 import { TransactionsTable } from "@/features/transactions/components/transactions-table";
 import { TRANSACTIONS_PAGE_SIZE } from "@/features/transactions/lib/pagination";
@@ -51,6 +56,9 @@ export default async function CuentaPage({
 
   const canReadMovements = userCan(ctx.access, "transactions:read");
   const hasStatement = canReadMovements && !isCheckAccount(account.type);
+  const today = todayInAR();
+  const month = monthParam(search.month);
+  const { from, to } = monthRange(month ?? today.slice(0, 7));
 
   const listParams = parseTransactionListParams({ ...search, account: id });
   const filters = transactionListFilters(
@@ -67,6 +75,17 @@ export default async function CuentaPage({
       queryKey: accountsKeys.list(),
       queryFn: () => Promise.resolve(accounts),
     },
+    ...(hasStatement
+      ? [
+          {
+            queryKey: reconciliationKeys.view(account.id, from, to),
+            queryFn: () =>
+              runAction(() =>
+                getReconciliationAction({ account_id: account.id, from, to }),
+              ),
+          },
+        ]
+      : []),
     ...(canReadMovements
       ? [
           {
@@ -110,8 +129,8 @@ export default async function CuentaPage({
               <TabsContent value="statement" className="pt-4">
                 <AccountStatement
                   accountId={account.id}
-                  today={todayInAR()}
-                  initialMonth={monthParam(search.month)}
+                  today={today}
+                  initialMonth={month}
                   gates={reconciliationGates(ctx.access)}
                 />
               </TabsContent>
