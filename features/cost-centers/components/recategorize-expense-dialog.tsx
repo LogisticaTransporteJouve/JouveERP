@@ -100,7 +100,7 @@ function RecategorizeForm({
 }) {
   const mutation = useRecategorizeExpense();
   const [account, setAccount] = useState(expense.expense_account_id ?? "");
-  const [costCenter, setCostCenter] = useState(expense.cost_center_id ?? "");
+  const costCenter = expense.cost_center_id ?? "";
   const input = changes(expense, account, costCenter);
 
   function onSubmit() {
@@ -130,15 +130,6 @@ function RecategorizeForm({
             value={account}
             onChange={setAccount}
             noneLabel={DEFAULT_ACCOUNT_LABEL[expense.source]}
-            disabled={mutation.isPending}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label className="text-xs">Centro de costo</Label>
-          <CostTagSelect
-            kind="costCenter"
-            value={costCenter}
-            onChange={setCostCenter}
             disabled={mutation.isPending}
           />
         </div>

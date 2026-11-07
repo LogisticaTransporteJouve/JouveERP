@@ -136,8 +136,7 @@ export function ArcaVoucherDetailDialog({
           )}
           <p>
             Los importes son los que el proveedor informó a ARCA y no se
-            modifican. Al aceptar elegís cuenta, centro de costo y el reparto de
-            otros tributos.
+            modifican. Al aceptar elegís cuenta y el reparto de otros tributos.
           </p>
         </div>
       </DialogContent>

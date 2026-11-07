@@ -7,13 +7,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FilterField } from "@/components/ui/filter-field";
 import { MonthPicker } from "@/components/ui/month-picker";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { fiscalYearPresets } from "@/lib/fiscal-year";
@@ -35,20 +28,14 @@ import {
 const money = (n: number) => formatNumber2(Math.abs(n));
 const signed = (n: number) => (n >= 0 ? money(n) : `-${money(n)}`);
 
-export type CostCenterOption = { id: string; code: string; name: string };
-
-const ALL_COST_CENTERS = "__all__";
-
 export function BalancePage({
-  costCenters,
   fiscalYearStartMonth,
 }: {
-  costCenters: CostCenterOption[];
   fiscalYearStartMonth: number;
 }) {
   const [periodEnd, setPeriodEnd] = useState(currentMonth());
   const [periodStart, setPeriodStart] = useState("");
-  const [costCenterId, setCostCenterId] = useState<string | null>(null);
+  const costCenterId = null;
   const presets = fiscalYearPresets(currentMonth(), fiscalYearStartMonth);
 
   function applyPreset(range: { from: string; to: string }) {
@@ -84,28 +71,6 @@ export function BalancePage({
             clearable
           />
         </FilterField>
-        {costCenters.length > 0 && (
-          <FilterField id="balance-cost-center" label="Centro de costo">
-            <Select
-              value={costCenterId ?? ALL_COST_CENTERS}
-              onValueChange={(v) =>
-                setCostCenterId(v === ALL_COST_CENTERS ? null : v)
-              }
-            >
-              <SelectTrigger id="balance-cost-center" className="w-[220px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL_COST_CENTERS}>Todos</SelectItem>
-                {costCenters.map((cc) => (
-                  <SelectItem key={cc.id} value={cc.id}>
-                    {cc.code} — {cc.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </FilterField>
-        )}
         <div className="flex flex-wrap items-center gap-2">
           <Button
             type="button"

@@ -1,7 +1,6 @@
 "use client";
 
 import { Info } from "lucide-react";
-import Link from "next/link";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatNumber2 } from "@/lib/format";
@@ -38,12 +37,8 @@ export function VehicleMarginSection({
         <p className="text-xs text-muted-foreground">
           Año fiscal completo, devengado y sin ajuste por inflación
           {differs ? " (no sigue la base elegida arriba)" : ""}. Ingreso y
-          costos de sus viajes (sin cancelados), combustible y mantenimiento,
-          más lo cargado con el centro de costo del camión (se vincula en{" "}
-          <Link href="/accounting/cost-centers" className="underline">
-            Centros de costo
-          </Link>
-          ). Lo que no es de un camión va aparte: no se reparte.
+          costos de sus viajes (sin cancelados), combustible y mantenimiento. Lo
+          que no es de un camión va aparte: no se reparte.
         </p>
       </div>
       {query.isPending ? (
@@ -80,7 +75,6 @@ function VehicleMarginTable({
     (s, r) => s + r.pendingUsd,
     0,
   );
-  const withoutCenter = vehicles.filter((v) => v.costCenterId === null).length;
   const withoutCost = vehicles.reduce(
     (s, v) => s + v.maintenanceWithoutCost,
     0,
@@ -131,11 +125,6 @@ function VehicleMarginTable({
                       (inactivo)
                     </span>
                   )}
-                  <span className="block text-muted-foreground">
-                    {v.costCenterId === null
-                      ? "Sin centro vinculado"
-                      : centerLabel(v.costCenterId)}
-                  </span>
                 </td>
                 <Num value={v.trips} plain />
                 <Num value={v.revenue} />
@@ -189,15 +178,6 @@ function VehicleMarginTable({
       )}
 
       <ul className="list-disc space-y-0.5 px-4 pl-8 text-xs text-muted-foreground">
-        {withoutCenter > 0 && (
-          <li>
-            {withoutCenter === 1
-              ? "1 camión no tiene centro de costo vinculado"
-              : `${withoutCenter} camiones no tienen centro de costo vinculado`}
-            : sus seguros, patentes y compras cargadas con centro no se le
-            suman.
-          </li>
-        )}
         {uninvoicedShipments > 0 && (
           <li>{pendingNote(uninvoicedShipments, withPending.length)}</li>
         )}

@@ -124,7 +124,7 @@ export function PurchaseInvoiceDraftDialogContent({
             <DialogTitle>Aceptar comprobante recibido de ARCA</DialogTitle>
             <DialogDescription>
               Los datos y los importes vienen de ARCA → Mis Comprobantes y no se
-              pueden cambiar. Elegí canal, cuenta y centro de costo, y aceptalo.
+              pueden cambiar. Elegí canal y cuenta, y aceptalo.
             </DialogDescription>
           </>
         ) : (

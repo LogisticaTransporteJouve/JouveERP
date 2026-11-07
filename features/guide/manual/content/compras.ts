@@ -184,12 +184,6 @@ export const purchasesPage: GuidePage = {
                   value: "Ninguna",
                   marker: 5,
                 },
-                {
-                  label: "Centro de costo",
-                  kind: "select",
-                  value: "Ninguno",
-                  marker: 5,
-                },
               ],
               footer: [
                 { label: "Cancelar", variant: "ghost" },
@@ -223,7 +217,6 @@ export const purchasesPage: GuidePage = {
                 "{{Canal}}: el canal que se elige solo al cargarle una compra. Si el lado del proveedor tiene un solo canal (hoy, Compras tiene solo el fiscal de Jouve), el campo no aparece: la compra ya arranca en ese canal.",
                 "{{Plazo de pago (días)}}: de 1 a 365. El vencimiento de pago de la factura se propone como fecha de la factura más esos días.",
                 "{{Cuenta de gasto}}: la cuenta contable a la que va el neto (si no elegís, va a Compras).",
-                "{{Centro de costo}}: el centro al que se imputa el gasto.",
               ],
             },
             "Hacé clic en {{Crear proveedor}}.",
@@ -780,7 +773,7 @@ export const purchasesPage: GuidePage = {
       routes: ["/purchases", "/purchases/[id]"],
       permission: "purchase_invoices:read",
       intro: [
-        "Del lado fiscal, la pantalla se llama {{Comprobantes}} (como en Ventas): facturas, notas de crédito y notas de débito que te mandan los proveedores de Compras, con su IVA, percepciones, cuenta de gasto y centro de costo. Del lado interno se llama {{Remitos internos de compra}}: compras a proveedores de Otras compras sin factura, que no van al Libro IVA.",
+        "Del lado fiscal, la pantalla se llama {{Comprobantes}} (como en Ventas): facturas, notas de crédito y notas de débito que te mandan los proveedores de Compras, con su IVA, percepciones y cuenta de gasto. Del lado interno se llama {{Remitos internos de compra}}: compras a proveedores de Otras compras sin factura, que no van al Libro IVA.",
         "Columnas: {{Comprobante}} (tipo y número), {{Proveedor}}, {{Tipo}} ({{Fiscal}} o {{Interno}}), {{Fecha}}, {{Total}}, {{Estado}} ({{Recibida}} o {{Anulada}}) y {{Acciones}}. Arriba podés buscar por proveedor, CUIT o número, filtrar por fechas y por estado ({{Cualquier estado}}).",
         "Del lado fiscal, quien puede cargar compras ve además el botón {{Recibidos de ARCA}}, con la cantidad de comprobantes pendientes: ver [[/purchases/arca]].",
         "El detalle de una compra muestra el proveedor (con CAE, vencimiento del CAE y vencimiento de pago), los {{Totales}} ({{Neto}}, no gravado, exento, {{IVA}}, {{Otros tributos}} y su reparto, {{Total}}, {{Pagado}}, {{Acreditado}} y {{Saldo}}), los {{Ítems}} (o {{Sin detalle (cargada solo por totales)}}), el motivo si es NC/ND, las {{Órdenes de pago imputadas}}, los {{Remitos internos imputados}}, las notas y los adjuntos.",
@@ -860,10 +853,10 @@ export const purchasesPage: GuidePage = {
           ],
         },
         {
-          title: "Cuenta de gasto y centro de costo",
+          title: "Cuenta de gasto",
           body: [
-            "La {{Cuenta de gasto}} es la cuenta contable a la que va el neto; si no elegís ninguna ({{Sin cuenta (Compras)}}) va a la cuenta Compras. El {{Centro de costo}} reparte el gasto por unidad (por ejemplo, un camión).",
-            "Una nota de crédito o débito sin cuenta ni centro propios toma los de su factura de origen, y los sigue si después la factura se recategoriza.",
+            "La {{Cuenta de gasto}} es la cuenta contable a la que va el neto; si no elegís ninguna ({{Sin cuenta (Compras)}}) va a la cuenta Compras.",
+            "Una nota de crédito o débito sin cuenta propia toma la de su factura de origen, y la sigue si después la factura se recategoriza.",
             "Una compra {{A cargo de empleado}} manda el neto a la cuenta del empleado (lo que el empleado le debe a la empresa) en lugar de a una cuenta de gasto.",
           ],
         },
@@ -960,7 +953,6 @@ export const purchasesPage: GuidePage = {
                   value: "Sin cuenta (Compras)",
                   marker: 9,
                 },
-                { label: "Centro de costo", kind: "select", marker: 9 },
                 {
                   label: "Moneda",
                   kind: "select",
@@ -983,7 +975,7 @@ export const purchasesPage: GuidePage = {
           ],
           steps: [
             "En [[/purchases]] (bloque Compras), hacé clic en {{Cargar factura}}. También podés hacerlo desde la ficha del proveedor con {{Nueva factura}}.",
-            "En {{Proveedor}}, buscá por razón social, nombre fantasía o CUIT y elegilo. Si tiene valores para compras nuevas, el sistema propone el canal, el vencimiento de pago, la cuenta de gasto y el centro de costo.",
+            "En {{Proveedor}}, buscá por razón social, nombre fantasía o CUIT y elegilo. Si tiene valores para compras nuevas, el sistema propone el canal, el vencimiento de pago y la cuenta de gasto.",
             "Revisá el {{Canal}} y dejá {{Tipo}} en {{Factura}}.",
             {
               text: "Completá {{Letra}} ({{A}}, {{B}} o {{C}}), {{Punto de venta}} y {{Número}} tal como figuran en la factura.",
@@ -1009,14 +1001,14 @@ export const purchasesPage: GuidePage = {
               ],
             },
             "Si aparece el aviso de diferencia, corregí los importes o usá {{Pasar la diferencia a No gravado}} / {{Sumar la diferencia al neto}}.",
-            "Elegí la {{Cuenta de gasto}} y el {{Centro de costo}}. Si la compra la paga un empleado y la empresa se la cobra, elegilo en {{A cargo de empleado}} (si no, {{No (gasto de la empresa)}}).",
+            "Elegí la {{Cuenta de gasto}}. Si la compra la paga un empleado y la empresa se la cobra, elegilo en {{A cargo de empleado}} (si no, {{No (gasto de la empresa)}}).",
             "Si la factura es en dólares, elegí {{USD — Dólar}} en {{Moneda}} y cargá la {{Cotización}} (mayor a 1).",
             "Opcional: {{CAE proveedor (opcional)}}, {{Vto. CAE proveedor}} y {{Notas}}.",
             "Hacé clic en {{Cargar factura}}.",
           ],
           after: [
             "Aviso «Factura cargada.». La compra queda {{Recibida}}, aparece en la cuenta corriente del proveedor, en el aging y en el Libro IVA Compras del mes.",
-            "Se genera el asiento: Proveedores al haber por el total; el neto a la cuenta de gasto (o Compras, o la cuenta del empleado), el IVA crédito fiscal y las percepciones al debe, con el centro de costo elegido. En dólares, se convierte a pesos con la cotización cargada.",
+            "Se genera el asiento: Proveedores al haber por el total; el neto a la cuenta de gasto (o Compras, o la cuenta del empleado), el IVA crédito fiscal y las percepciones al debe. En dólares, se convierte a pesos con la cotización cargada.",
             "Si coincide con un comprobante pendiente en [[/purchases/arca]] (mismo proveedor, tipo, letra, número e importes), ese comprobante queda vinculado a la compra y sale de la bandeja.",
           ],
           errors: [
@@ -1190,7 +1182,7 @@ export const purchasesPage: GuidePage = {
             "Completá letra, punto de venta, número, fecha e importes como en una factura.",
             "En {{Factura origen}}, buscá la factura por número y elegila; en {{Motivo}}, explicá la razón (por ejemplo, «ajuste por devolución»).",
             "Al elegir la factura de origen, la nota toma su {{Moneda}} y su cotización, y la {{Moneda}} queda bloqueada: una NC/ND va en la misma moneda que su factura. Si la nota viene de ARCA, conserva la suya.",
-            "Dejá {{Cuenta de gasto}} en {{La del comprobante de origen}} y {{Centro de costo}} en {{El del comprobante de origen}} para que tome los de la factura, o elegí otros.",
+            "Dejá {{Cuenta de gasto}} en {{La del comprobante de origen}} para que tome la de la factura, o elegí otra.",
             "Hacé clic en {{Cargar factura}}.",
           ],
           after: [
@@ -1293,7 +1285,7 @@ export const purchasesPage: GuidePage = {
             "En **Otras compras › Remitos de compra**, hacé clic en {{Cargar remito}}.",
             "Elegí el {{Proveedor}}. El formulario muestra «Gasto interno.»: sin letra fiscal ni CAE.",
             "El {{Número}} se completa solo con el siguiente de ese proveedor (y el punto de venta en 1); cambialo solo si hace falta.",
-            "Cargá la fecha, los importes, la cuenta de gasto y el centro de costo.",
+            "Cargá la fecha, los importes y la cuenta de gasto.",
             "Hacé clic en {{Cargar factura}}.",
           ],
           after: [
@@ -1329,8 +1321,8 @@ export const purchasesPage: GuidePage = {
             "Hacé clic en {{Guardar cambios}}.",
           ],
           after: [
-            "Aviso «Cambios guardados.». Si cambiaste importes, fecha, cuenta, centro o moneda, el asiento se rehace.",
-            "Si cambiás la cuenta de gasto o el centro de costo de una factura, sus notas de crédito y débito que los heredaban los siguen.",
+            "Aviso «Cambios guardados.». Si cambiaste importes, fecha, cuenta o moneda, el asiento se rehace.",
+            "Si cambiás la cuenta de gasto de una factura, sus notas de crédito y débito que la heredaban la siguen.",
             "Si la compra estaba vinculada a un comprobante de ARCA y cambiás proveedor, tipo, letra, punto de venta o número de modo que ya no coincide, el comprobante vuelve a {{Pendientes}} en [[/purchases/arca]].",
           ],
           errors: [
@@ -1399,9 +1391,9 @@ export const purchasesPage: GuidePage = {
         },
         {
           id: "recategorizar-compra",
-          title: "Recategorizar una compra (cuenta de gasto y centro de costo)",
+          title: "Recategorizar una compra (cuenta de gasto)",
           summary:
-            "Cambia solo a qué cuenta y centro va el gasto; no toca importes ni fechas.",
+            "Cambia solo a qué cuenta va el gasto; no toca importes ni fechas.",
           permission: "purchase_invoices:write",
           prerequisites: ["La compra en estado {{Recibida}}."],
           screens: [
@@ -1416,12 +1408,6 @@ export const purchasesPage: GuidePage = {
                   value: "Mantenimiento de unidades",
                   marker: 2,
                 },
-                {
-                  label: "Centro de costo",
-                  kind: "select",
-                  value: "AB123CD",
-                  marker: 2,
-                },
               ],
               footer: [
                 { label: "Cancelar", variant: "ghost" },
@@ -1431,12 +1417,12 @@ export const purchasesPage: GuidePage = {
           ],
           steps: [
             "En [[/purchases]], en la fila de la compra, hacé clic en la etiqueta ({{Recategorizar}}).",
-            "Elegí la nueva {{Cuenta de gasto}} ({{Sin cuenta (Compras)}} para la cuenta Compras) y/o el nuevo {{Centro de costo}}.",
+            "Elegí la nueva {{Cuenta de gasto}} ({{Sin cuenta (Compras)}} para la cuenta Compras).",
             "Hacé clic en {{Recategorizar}}.",
           ],
           after: [
-            "Aviso «Gasto recategorizado.». El asiento se rehace con la nueva cuenta y centro.",
-            "Las notas de crédito y débito vigentes de la factura que tenían la cuenta o el centro anteriores se recategorizan con ella.",
+            "Aviso «Gasto recategorizado.». El asiento se rehace con la nueva cuenta.",
+            "Las notas de crédito y débito vigentes de la factura que tenían la cuenta anterior se recategorizan con ella.",
           ],
           errors: [
             {
@@ -1455,21 +1441,12 @@ export const purchasesPage: GuidePage = {
               fix: "Elegí otra cuenta.",
             },
             {
-              message: "El centro de costo no existe o está inactivo",
-              fix: "Elegí un centro activo.",
-            },
-            {
               message: "No tenés permiso para recategorizar ese gasto.",
               fix: "Hace falta poder cargar facturas de compra.",
             },
           ],
           related: ["editar-factura-de-compra"],
-          keywords: [
-            "rubro",
-            "imputar gasto",
-            "centro de costo",
-            "cuenta contable",
-          ],
+          keywords: ["rubro", "imputar gasto", "cuenta contable"],
         },
         {
           id: "anular-factura-de-compra",
@@ -1833,7 +1810,7 @@ export const purchasesPage: GuidePage = {
           id: "aceptar-comprobante-de-arca",
           title: "Aceptar un comprobante de ARCA y cargarlo como compra",
           summary:
-            "Los datos y los importes vienen de ARCA y no se cambian: vos elegís canal, cuenta, centro de costo y el reparto de otros tributos.",
+            "Los datos y los importes vienen de ARCA y no se cambian: vos elegís canal, cuenta y el reparto de otros tributos.",
           permission: "purchase_invoices:write",
           screens: [
             {
@@ -1842,7 +1819,7 @@ export const purchasesPage: GuidePage = {
                 "En la computadora el diálogo tiene dos columnas: a la izquierda el comprobante tal como lo informó ARCA (proveedor, número, fecha, moneda, CAE e importes), a la derecha la imputación. En el celular van una debajo de la otra.",
               title: "Aceptar comprobante recibido de ARCA",
               description:
-                "Los datos y los importes vienen de ARCA → Mis Comprobantes y no se pueden cambiar. Elegí canal, cuenta y centro de costo, y aceptalo.",
+                "Los datos y los importes vienen de ARCA → Mis Comprobantes y no se pueden cambiar. Elegí canal y cuenta, y aceptalo.",
               fields: [
                 {
                   label: "Proveedor",
@@ -1864,7 +1841,6 @@ export const purchasesPage: GuidePage = {
                   marker: 3,
                 },
                 { label: "Cuenta de gasto", kind: "select", marker: 3 },
-                { label: "Centro de costo", kind: "select", marker: 3 },
                 {
                   label: "A cargo de empleado",
                   kind: "select",
@@ -1909,7 +1885,7 @@ export const purchasesPage: GuidePage = {
               text: "En **Imputación**, completá lo que no viene de ARCA:",
               substeps: [
                 "{{Canal}} y {{Vencimiento de pago}}: el vencimiento arranca en la fecha del comprobante, o con el plazo de pago del proveedor si lo tiene.",
-                "{{Cuenta de gasto}}, {{Centro de costo}} y {{A cargo de empleado}}.",
+                "{{Cuenta de gasto}} y {{A cargo de empleado}}.",
                 "Si los importes de ARCA no suman el total, el recuadro **Comprobante** muestra la {{Diferencia sin detallar}} y en **Imputación** aparece **Diferencia de $ …: va a**. Elegí {{Otros tributos (percepciones)}} (después la repartís entre los tributos, como cualquier percepción) o {{No gravado}} (en facturas B y C dice {{Neto}}, porque ahí todo va al neto). El IVA y el total quedan como los informó ARCA. Hasta que elijas, {{Aceptar comprobante}} queda deshabilitado y abajo dice «Elegí a dónde va la diferencia para aceptar el comprobante.».",
                 "Si ARCA informa solo el total de otros tributos, repartilo en **Otros tributos: cómo se reparten**.",
                 "Si es en dólares, revisá la {{Cotización}}; si es una nota de crédito o débito, elegí la {{Factura origen}}.",

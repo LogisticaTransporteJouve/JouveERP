@@ -459,7 +459,6 @@ export function CreateLineTransactionDialog({
   const [mode, setMode] = useState<CreateMode>("manual");
   const [channelId, setChannelId] = useState(fiscalChannel);
   const [expenseAccountId, setExpenseAccountId] = useState("");
-  const [costCenterId, setCostCenterId] = useState("");
   const [description, setDescription] = useState<string | null>(null);
   const [taxDocumentId, setTaxDocumentId] = useState("");
   const [confirmDifference, setConfirmDifference] = useState(false);
@@ -478,7 +477,6 @@ export function CreateLineTransactionDialog({
     setMode("manual");
     setChannelId(fiscalChannel);
     setExpenseAccountId("");
-    setCostCenterId("");
     setDescription(null);
     setTaxDocumentId("");
     setConfirmDifference(false);
@@ -509,7 +507,7 @@ export function CreateLineTransactionDialog({
         line_id: line.id,
         channel_id: channelId,
         expense_account_id: isDebit ? expenseAccountId : "",
-        cost_center_id: isDebit ? costCenterId : "",
+        cost_center_id: "",
         description: text,
       },
       {
@@ -638,24 +636,14 @@ export function CreateLineTransactionDialog({
                 <ChannelsReadError inline />
               </div>
               {isDebit && (
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div className="min-w-0 space-y-1.5">
-                    <Label>Cuenta de gasto</Label>
-                    <CostTagSelect
-                      kind="expenseAccount"
-                      value={expenseAccountId}
-                      onChange={setExpenseAccountId}
-                      noneLabel="Elegí la cuenta"
-                    />
-                  </div>
-                  <div className="min-w-0 space-y-1.5">
-                    <Label>Centro de costo</Label>
-                    <CostTagSelect
-                      kind="costCenter"
-                      value={costCenterId}
-                      onChange={setCostCenterId}
-                    />
-                  </div>
+                <div className="min-w-0 space-y-1.5">
+                  <Label>Cuenta de gasto</Label>
+                  <CostTagSelect
+                    kind="expenseAccount"
+                    value={expenseAccountId}
+                    onChange={setExpenseAccountId}
+                    noneLabel="Elegí la cuenta"
+                  />
                 </div>
               )}
               <div className="space-y-1.5">

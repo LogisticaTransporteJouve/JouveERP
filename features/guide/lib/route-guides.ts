@@ -115,7 +115,7 @@ export const ROUTE_GUIDES: readonly RouteGuide[] = [
     prefix: "/purchases",
     title: "Comprobantes",
     summary:
-      "Facturas, notas de crédito y débito de proveedores con su IVA, percepciones, rubro y centro de costo. Del lado interno son remitos de compra.",
+      "Facturas, notas de crédito y débito de proveedores con su IVA, percepciones y rubro. Del lado interno son remitos de compra.",
   },
   {
     prefix: "/payment-orders",
@@ -231,11 +231,6 @@ export const ROUTE_GUIDES: readonly RouteGuide[] = [
     title: "Resultado de gestión",
     summary:
       "El resultado para el dueño, devengado o percibido, fiscal e interno juntos. No es el EERR.",
-  },
-  {
-    prefix: "/accounting/cost-centers",
-    title: "Centros de costo",
-    summary: "Para ver costos por camión, depósito o área.",
   },
   {
     prefix: "/accounting/inflation",

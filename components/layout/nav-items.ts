@@ -45,7 +45,6 @@ import {
   ShoppingCart,
   Sparkles,
   Tags,
-  Target,
   TrendingUp,
   Truck,
   UserRound,
@@ -308,12 +307,6 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         label: "Resultado de gestión",
         icon: Gauge,
         permission: "management:read",
-      },
-      {
-        href: "/accounting/cost-centers",
-        label: "Centros de costo",
-        icon: Target,
-        permission: "accounting:read",
       },
       {
         href: "/taxes",

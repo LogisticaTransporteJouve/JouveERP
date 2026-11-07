@@ -749,7 +749,7 @@ export const treasuryPage: GuidePage = {
         {
           title: "Movimientos conciliados",
           body: [
-            "Un movimiento con la marca {{Conciliado}} ya está explicado por una línea del extracto bancario. No se borra ni cambia monto, fechas, cuenta, tipo, moneda o canal hasta desconciliar su línea en [[/treasury/reconciliation]]. La descripción, la cuenta de gasto y el centro de costo sí se cambian.",
+            "Un movimiento con la marca {{Conciliado}} ya está explicado por una línea del extracto bancario. No se borra ni cambia monto, fechas, cuenta, tipo, moneda o canal hasta desconciliar su línea en [[/treasury/reconciliation]]. La descripción y la cuenta de gasto sí se cambian.",
           ],
         },
         {
@@ -811,7 +811,6 @@ export const treasuryPage: GuidePage = {
                   value: "Sin cuenta (Gastos)",
                   marker: 6,
                 },
-                { label: "Centro de costo", kind: "select", marker: 6 },
                 { label: "Descripción", kind: "textarea", wide: true },
               ],
               footer: [
@@ -826,7 +825,7 @@ export const treasuryPage: GuidePage = {
             "En {{Cuenta}}, elegí la caja, banco o billetera. La {{Moneda}} toma la de la cuenta.",
             "Elegí el {{Canal}} y escribí el {{Monto}} (mayor a cero).",
             "Revisá la {{Fecha}}. El {{Mes devengado}} se completa con el mes de la fecha; cambialo si el gasto o ingreso corresponde a otro mes.",
-            "Si es un egreso, elegí la {{Cuenta de gasto}} (si no, va a {{Sin cuenta (Gastos)}}) y, si corresponde, el {{Centro de costo}}.",
+            "Si es un egreso, elegí la {{Cuenta de gasto}} (si no, va a {{Sin cuenta (Gastos)}}).",
             "Escribí una {{Descripción}} y hacé clic en {{Registrar}}.",
           ],
           after: [
@@ -962,7 +961,6 @@ export const treasuryPage: GuidePage = {
                   marker: 2,
                 },
                 { label: "Cuenta de gasto", kind: "select", marker: 2 },
-                { label: "Centro de costo", kind: "select", marker: 2 },
                 {
                   label: "Descripción",
                   kind: "textarea",
@@ -978,7 +976,7 @@ export const treasuryPage: GuidePage = {
           ],
           steps: [
             "En [[/transactions]], en la fila del movimiento, abrí el menú ⋯ y elegí {{Editar}}.",
-            "Cambiá {{Monto}}, {{Fecha}}, {{Mes devengado}} o {{Descripción}}; en un egreso, también {{Cuenta de gasto}} y {{Centro de costo}}. La cuenta, el canal y el tipo no se cambian: si están mal, borralo y cargalo de nuevo.",
+            "Cambiá {{Monto}}, {{Fecha}}, {{Mes devengado}} o {{Descripción}}; en un egreso, también {{Cuenta de gasto}}. La cuenta, el canal y el tipo no se cambian: si están mal, borralo y cargalo de nuevo.",
             "Hacé clic en {{Guardar}}.",
           ],
           after: [
@@ -1018,12 +1016,12 @@ export const treasuryPage: GuidePage = {
           id: "recategorizar-egreso",
           title: "Recategorizar un egreso manual",
           summary:
-            "Cambia solo la cuenta de gasto y el centro de costo, aunque el egreso esté conciliado.",
+            "Cambia solo la cuenta de gasto, aunque el egreso esté conciliado.",
           permission: "transactions:write",
           prerequisites: ["Que sea un egreso manual."],
           steps: [
             "En [[/transactions]], en la fila del egreso, abrí el menú ⋯ y elegí {{Recategorizar}}.",
-            "En el diálogo {{Recategorizar gasto}}, elegí la nueva {{Cuenta de gasto}} (o {{Sin cuenta (Gastos)}}) y el {{Centro de costo}}.",
+            "En el diálogo {{Recategorizar gasto}}, elegí la nueva {{Cuenta de gasto}} (o {{Sin cuenta (Gastos)}}).",
             "Hacé clic en {{Recategorizar}}.",
           ],
           after: [
@@ -1047,12 +1045,7 @@ export const treasuryPage: GuidePage = {
             },
           ],
           related: ["editar-movimiento-caja"],
-          keywords: [
-            "centro de costo",
-            "cuenta de gasto",
-            "imputación",
-            "reclasificar",
-          ],
+          keywords: ["cuenta de gasto", "imputación", "reclasificar"],
         },
         {
           id: "borrar-movimiento-caja",
@@ -1474,7 +1467,6 @@ export const treasuryPage: GuidePage = {
                 },
                 { label: "Canal", kind: "select", marker: 3, wide: true },
                 { label: "Cuenta de gasto", kind: "select", marker: 3 },
-                { label: "Centro de costo", kind: "select" },
                 {
                   label: "Descripción",
                   kind: "input",
@@ -1491,7 +1483,7 @@ export const treasuryPage: GuidePage = {
           steps: [
             "En la línea {{Pendiente}}, abrí el menú ⋯ y elegí {{Crear movimiento…}}. El diálogo dice {{Crear egreso}} o {{Crear ingreso}} según el signo de la línea.",
             "Si es un débito en pesos y tenés permiso de impuestos, en {{Tipo}} elegí {{Egreso manual}} (para pagar un impuesto ver [[#pagar-impuesto-desde-extracto]]).",
-            "Elegí el {{Canal}}; si es un débito, también la {{Cuenta de gasto}} (obligatoria) y, si corresponde, el {{Centro de costo}}. Corregí la {{Descripción}} si querés (viene la de la línea).",
+            "Elegí el {{Canal}}; si es un débito, también la {{Cuenta de gasto}} (obligatoria). Corregí la {{Descripción}} si querés (viene la de la línea).",
             "Hacé clic en {{Crear y conciliar}}.",
           ],
           after: [

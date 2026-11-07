@@ -84,6 +84,9 @@ const APP_ROUTES = walk(path.join(ROOT, "app/(dashboard)"), (f) =>
   })
   .sort();
 
+// Reachable by URL only: out of the menu and the manual on purpose.
+const UNDOCUMENTED_PAGES = ["/accounting/cost-centers"];
+
 const SECTIONS = GUIDE_PAGES.flatMap((p) => p.sections);
 const TASKS: GuideTask[] = SECTIONS.flatMap((s) => s.tasks);
 const TEXTS = SECTIONS.flatMap(sectionTexts).concat(
@@ -156,7 +159,10 @@ describe("routes", () => {
 
   it("every page of the app has its section", () => {
     const covered = new Set(SECTIONS.flatMap((s) => s.routes));
-    expect(APP_ROUTES.filter((r) => !covered.has(r))).toEqual([]);
+    const missing = APP_ROUTES.filter(
+      (r) => !covered.has(r) && !UNDOCUMENTED_PAGES.includes(r),
+    );
+    expect(missing).toEqual([]);
   });
 
   it("every menu entry and sidebar guide leads to a section", () => {

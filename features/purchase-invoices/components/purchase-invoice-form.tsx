@@ -1176,27 +1176,6 @@ export function PurchaseInvoiceForm({
     />
   );
 
-  const costCenterField = (
-    <FormField
-      control={form.control}
-      name="cost_center_id"
-      render={({ field }) => (
-        <FormItem>
-          <FormLabel>Centro de costo</FormLabel>
-          <FormControl>
-            <CostTagSelect
-              kind="costCenter"
-              value={field.value}
-              onChange={field.onChange}
-              noneLabel={isNcOrNd ? "El del comprobante de origen" : undefined}
-            />
-          </FormControl>
-          <FormMessage />
-        </FormItem>
-      )}
-    />
-  );
-
   const employeeField = watchedKind !== "nc" && chargeKnown && (
     <FormField
       control={form.control}
@@ -1404,7 +1383,6 @@ export function PurchaseInvoiceForm({
                 {channelField}
                 {fchVtoPagoField}
                 {accountField}
-                {costCenterField}
                 {employeeField}
                 {cotizacionField}
                 {!isInternalChannel && arcaCae === null && (
@@ -1830,7 +1808,6 @@ export function PurchaseInvoiceForm({
           <FormColumn>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {accountField}
-              {costCenterField}
             </div>
 
             {employeeField}
