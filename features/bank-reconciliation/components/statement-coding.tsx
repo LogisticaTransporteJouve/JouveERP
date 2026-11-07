@@ -139,6 +139,7 @@ export function LineProposalView({
         line.amount > 0 && (
           <CollectDialog
             initialClient={proposal.client}
+            side="fiscal"
             canEditRetentions={gates.canEditRetentions}
             fromBankLine={{
               date: line.line_date,

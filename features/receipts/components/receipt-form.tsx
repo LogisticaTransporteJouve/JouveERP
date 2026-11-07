@@ -156,6 +156,8 @@ export function ReceiptForm({
     defaultChannel ??
     "";
   const sideChannels = useSideChannels(channels);
+  /** A bank line's receipt goes to the bank's channel: no choice to make. */
+  const channelFixed = mode === "create" && !!fromBankLine?.channel_id;
   const pageIsFiscal = usePageIsFiscal();
 
   const initialPaymentLines: PaymentLineDraft[] = receipt
@@ -462,40 +464,50 @@ export function ReceiptForm({
         <ListFormColumns
           left={
             <>
-              <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-[1fr_140px_140px_100px]">
-                <FormField
-                  control={form.control}
-                  name="channelId"
-                  render={({ field }) => (
-                    <FormItem className="space-y-1">
-                      <FormLabel className="text-xs">Canal</FormLabel>
-                      <Select
-                        value={field.value}
-                        onValueChange={(next) => {
-                          field.onChange(next);
-                          // Allocations are per channel — drop picks from the old one.
-                          form.setValue("allocations", []);
-                        }}
-                        disabled={mode === "edit"}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent position="popper">
-                          {sideChannels.map((c) => (
-                            <SelectItem key={c.id} value={c.id}>
-                              {c.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <ChannelsReadError inline />
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              {channelFixed && <ChannelsReadError inline />}
+              <div
+                className={cn(
+                  "grid grid-cols-1 items-start gap-3",
+                  channelFixed
+                    ? "sm:grid-cols-[140px_140px_100px]"
+                    : "sm:grid-cols-[1fr_140px_140px_100px]",
+                )}
+              >
+                {!channelFixed && (
+                  <FormField
+                    control={form.control}
+                    name="channelId"
+                    render={({ field }) => (
+                      <FormItem className="space-y-1">
+                        <FormLabel className="text-xs">Canal</FormLabel>
+                        <Select
+                          value={field.value}
+                          onValueChange={(next) => {
+                            field.onChange(next);
+                            // Allocations are per channel — drop picks from the old one.
+                            form.setValue("allocations", []);
+                          }}
+                          disabled={mode === "edit"}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent position="popper">
+                            {sideChannels.map((c) => (
+                              <SelectItem key={c.id} value={c.id}>
+                                {c.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <ChannelsReadError inline />
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
                 <FormField
                   control={form.control}
                   name="numero"
