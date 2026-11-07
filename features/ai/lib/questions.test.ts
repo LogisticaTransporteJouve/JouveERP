@@ -8,6 +8,7 @@ import {
   askQuestionsInputSchema,
   isAnswersTurn,
   pendingQuestionCall,
+  questionCardsAsText,
   type AskQuestionsInput,
 } from "./questions";
 
@@ -277,5 +278,80 @@ describe("answers turn", () => {
     // Once the user turn follows, the card no longer waits.
     const messages = [...transcript("output-available"), turn];
     expect(pendingQuestionCall(messages)).toBeNull();
+  });
+});
+
+describe("questionCardsAsText", () => {
+  it("replays an answered card as text, the answers in its answers turn", () => {
+    const turn = answersTurnMessage("call-1");
+    const out = questionCardsAsText([...transcript("output-available"), turn]);
+    expect(out).toHaveLength(3);
+    const first = out[1]?.parts[0];
+    expect(first?.type === "text" ? first.text : "").toContain(
+      "1. ¿Qué empleado? (opciones: Ana Pérez / Anabel Gómez / Otro)",
+    );
+    expect(out[2]).toMatchObject({
+      id: turn.id,
+      role: "user",
+      metadata: { answersFor: "call-1" },
+      parts: [
+        {
+          type: "text",
+          text: "[Respuestas de la tarjeta]\n- ¿Qué empleado? Ana Pérez\n- ¿Qué meses? Agosto, Septiembre\n- ¿Algo más? Nada",
+        },
+      ],
+    });
+  });
+
+  it("says when the card was closed without answers", () => {
+    const [user, assistant] = transcript("output-available");
+    if (!user || !assistant) throw new Error("transcript");
+    const skipped: UIMessage = {
+      ...assistant,
+      parts: [
+        {
+          type: "tool-askQuestions",
+          toolCallId: "call-1",
+          state: "output-available",
+          input: card,
+          output: { skipped: true },
+        },
+      ],
+    };
+    const out = questionCardsAsText([
+      user,
+      skipped,
+      answersTurnMessage("call-1"),
+    ]);
+    expect(JSON.stringify(out[2]?.parts)).toContain("sin responder");
+  });
+
+  it("adds a user message with the answers when no answers turn follows", () => {
+    const followUp: UIMessage = {
+      id: "m3",
+      role: "user",
+      parts: [{ type: "text", text: "otra cosa" }],
+    };
+    const out = questionCardsAsText([
+      ...transcript("output-available"),
+      followUp,
+    ]);
+    expect(out.map((m) => m.role)).toEqual([
+      "user",
+      "assistant",
+      "user",
+      "user",
+    ]);
+    expect(JSON.stringify(out[2]?.parts)).toContain(
+      "[Respuestas de la tarjeta]",
+    );
+    expect(out[3]).toBe(followUp);
+  });
+
+  it("leaves pending cards and unrelated messages alone", () => {
+    const messages = transcript("input-available");
+    const out = questionCardsAsText(messages);
+    expect(out[0]).toBe(messages[0]);
+    expect(out[1]).toBe(messages[1]);
   });
 });

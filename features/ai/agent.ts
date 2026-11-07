@@ -27,7 +27,7 @@ import {
   RENDER_TABLE_TOOL,
 } from "./artifacts/spec";
 import { compactHistory } from "./lib/history";
-import { isAnswersTurn } from "./lib/questions";
+import { isAnswersTurn, questionCardsAsText } from "./lib/questions";
 import { haikuRegenerator, makeRepairToolCall } from "./lib/repair-tool-call";
 import {
   AI_CHAT_MAX_OUTPUT_TOKENS,
@@ -114,13 +114,25 @@ function lastUserText(messages: UIMessage[]): string {
  * blocks from earlier turns can't be replayed safely (and
  * blocks from another model/provider are useless anyway). Reasoning produced
  * within the current turn is untouched — the SDK appends it step by step.
+ *
+ * `custom` parts (the provider's stream markers, e.g. anthropic.message_start)
+ * go too, and a message left with nothing to say (a turn that failed before
+ * its first step was saved as an empty assistant message) is dropped.
  */
 export function stripReasoningParts(messages: UIMessage[]): UIMessage[] {
-  return messages.map((m) =>
-    m.parts.some((p) => p.type === "reasoning")
-      ? { ...m, parts: m.parts.filter((p) => p.type !== "reasoning") }
-      : m,
-  );
+  return messages.flatMap((m) => {
+    const parts = m.parts.some(isReplayOnly)
+      ? m.parts.filter((p) => !isReplayOnly(p))
+      : m.parts;
+    if (m.role === "assistant" && parts.every((p) => p.type === "step-start")) {
+      return [];
+    }
+    return [parts === m.parts ? m : { ...m, parts }];
+  });
+}
+
+function isReplayOnly(part: UIMessage["parts"][number]): boolean {
+  return part.type === "reasoning" || part.type === "custom";
 }
 
 function mergeProviderOptions(
@@ -263,7 +275,7 @@ export async function streamChat(
   const history = compactHistory(
     await convertToModelMessages(
       expandAttachmentParts(
-        stripReasoningParts(messages),
+        questionCardsAsText(stripReasoningParts(messages)),
         options.attachments ?? new Map(),
       ),
       { tools, ignoreIncompleteToolCalls: true },

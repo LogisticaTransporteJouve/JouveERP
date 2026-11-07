@@ -76,20 +76,25 @@ function readBody(body: object | undefined, key: string): unknown {
   return body && key in body ? Reflect.get(body, key) : undefined;
 }
 
-/** The route answers errors as `{ error }` JSON; the transport surfaces the
- *  body as the message. */
-function chatErrorMessage(error: Error): string {
+/** The route answers errors as `{ error }` JSON (a failed model call too,
+ *  with `code: "turn_failed"`); the transport surfaces the body as the
+ *  message. */
+function readChatError(error: Error): { text: string; turnFailed: boolean } {
   try {
-    const body: unknown = JSON.parse(error.message);
-    const text = readBody(
-      typeof body === "object" && body !== null ? body : undefined,
-      "error",
-    );
-    if (typeof text === "string") return text;
+    const parsed: unknown = JSON.parse(error.message);
+    const body =
+      typeof parsed === "object" && parsed !== null ? parsed : undefined;
+    const text = readBody(body, "error");
+    if (typeof text === "string") {
+      return { text, turnFailed: readBody(body, "code") === "turn_failed" };
+    }
   } catch {
-    // Not JSON: a network or stream error.
+    // Not JSON: a network error.
   }
-  return "No se pudo enviar el mensaje. Probá de nuevo.";
+  return {
+    text: "No se pudo enviar el mensaje. Probá de nuevo.",
+    turnFailed: false,
+  };
 }
 
 export function AiChat({
@@ -147,16 +152,22 @@ export function AiChat({
         });
       },
       onError: (error) => {
+        const failure = readChatError(error);
         if (!answering.current) {
-          toast.error(chatErrorMessage(error));
+          toast.error(failure.text);
           attachmentsRef.current?.restore(sentDrafts.current);
           sentDrafts.current = [];
           return;
         }
         answering.current = false;
-        toast.info(
-          "Esas preguntas ya estaban respondidas. Actualicé la conversación.",
-        );
+        // The answers were saved either way: the transcript is reloaded.
+        if (failure.turnFailed) {
+          toast.error(failure.text);
+        } else {
+          toast.info(
+            "Esas preguntas ya estaban respondidas. Actualicé la conversación.",
+          );
+        }
         void runAction(() => getAiSessionMessagesAction(sessionId)).then(
           setMessages,
           () => undefined,

@@ -209,6 +209,99 @@ export function isAnswersTurn(message: UIMessage): boolean {
   );
 }
 
+function cardText(input: AskQuestionsInput): string {
+  const lines = input.questions.map((q, i) => {
+    const options = (q.options ?? []).map((o) => o.label);
+    if (q.allowOther) options.push("Otro");
+    return options.length > 0
+      ? `${i + 1}. ${q.prompt} (opciones: ${options.join(" / ")})`
+      : `${i + 1}. ${q.prompt}`;
+  });
+  return `[Tarjeta de preguntas al usuario]\n${lines.join("\n")}`;
+}
+
+function answersText(input: AskQuestionsInput, answers: QuestionAnswers) {
+  if ("skipped" in answers) {
+    return "[Respuestas de la tarjeta] El usuario cerró la tarjeta sin responder.";
+  }
+  const lines = answerLabels(input, answers).map(
+    (a) => `- ${a.prompt} ${a.answer}`,
+  );
+  return `[Respuestas de la tarjeta]\n${lines.join("\n")}`;
+}
+
+/**
+ * The transcript as the model reads it again: each answered question card
+ * becomes the assistant's questions as text plus the user's answers as text
+ * in the user turn that follows it, instead of a tool call and its result.
+ *
+ * A turn that ended on a card is replayed without its thinking blocks
+ * (stripReasoningParts), and the API rejects a request whose last user
+ * message carries a tool_result for a tool_use without them. As text, the
+ * answers open a new turn. The stored transcript is untouched and the
+ * transform is deterministic, so the cached prefix holds.
+ */
+export function questionCardsAsText(messages: UIMessage[]): UIMessage[] {
+  const out: UIMessage[] = [];
+  const pendingAnswers = new Map<string, string>();
+  for (const [index, message] of messages.entries()) {
+    const answerFor = answersTurnFor(message);
+    const pending = answerFor ? pendingAnswers.get(answerFor) : undefined;
+    if (answerFor && pending !== undefined) {
+      pendingAnswers.delete(answerFor);
+      out.push({ ...message, parts: [{ type: "text", text: pending }] });
+      continue;
+    }
+    if (message.role !== "assistant") {
+      out.push(message);
+      continue;
+    }
+    const answered: string[] = [];
+    const parts = message.parts.map((part) => {
+      if (
+        !isToolUIPart(part) ||
+        part.type !== `tool-${ASK_QUESTIONS_TOOL}` ||
+        part.state !== "output-available"
+      ) {
+        return part;
+      }
+      const input = askQuestionsInputSchema.safeParse(part.input);
+      const output = questionAnswersSchema.safeParse(part.output);
+      if (!input.success || !output.success) return part;
+      pendingAnswers.set(part.toolCallId, answersText(input.data, output.data));
+      answered.push(part.toolCallId);
+      return { type: "text" as const, text: cardText(input.data) };
+    });
+    out.push(answered.length > 0 ? { ...message, parts } : message);
+    // A card answered before the separate answers turn existed: its answers
+    // go in a user message of their own right after it.
+    const next = messages[index + 1];
+    const nextFor = next ? answersTurnFor(next) : null;
+    for (const id of answered) {
+      if (id === nextFor) continue;
+      const text = pendingAnswers.get(id);
+      pendingAnswers.delete(id);
+      if (text !== undefined) {
+        out.push({
+          id: `${message.id}-answers-${id}`,
+          role: "user",
+          parts: [{ type: "text", text }],
+        });
+      }
+    }
+  }
+  return out;
+}
+
+function answersTurnFor(message: UIMessage): string | null {
+  const meta = message.metadata;
+  if (!isAnswersTurn(message) || typeof meta !== "object" || meta === null) {
+    return null;
+  }
+  const id: unknown = Reflect.get(meta, "answersFor");
+  return typeof id === "string" ? id : null;
+}
+
 /** The question card the user still has to answer, if the transcript ends on
  *  one the chat can show. A card whose input does not parse cannot be
  *  answered, so it never holds the composer. */
