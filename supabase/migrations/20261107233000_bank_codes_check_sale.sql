@@ -16,3 +16,26 @@ alter table public.bank_statement_codes
     'tax', 'bank_fee', 'receipt', 'payment', 'transfer', 'loan', 'ignore',
     'check_sale'
   ));
+
+-- The IVA a bank charges on its fees and on a cheque discount's interest
+-- (Galicia: «Iva», «Percep. Iva») is a tax credit like the IIBB ones: a
+-- statement line may post to IVA Crédito Fiscal and Percepciones IVA too.
+create or replace function public.is_bank_tax_account(p_account_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1 from public.chart_of_accounts
+     where id = p_account_id
+       and is_active
+       and system_role in (
+         'percepciones_iibb_pagadas', 'retenciones_pagadas', 'percepciones_ganancias',
+         'iva_credito', 'percepciones_iva_pagadas'
+       )
+  );
+$$;
+
+revoke all on function public.is_bank_tax_account(uuid) from public, anon, authenticated;

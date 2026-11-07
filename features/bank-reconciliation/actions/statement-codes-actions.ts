@@ -26,6 +26,7 @@ import {
   type BankStatementCode,
   type PostingAccount,
   type StatementCoding,
+  type StatementCardStatement,
   type StatementCheckSaleTransfer,
   type StatementLoanInstallment,
 } from "../schema";
@@ -239,8 +240,11 @@ export async function getStatementCodingAction(
     loanInstallments = read;
   }
 
-  const saleTransfers = await readCheckSaleTransfers(service, account_id);
-  if (!saleTransfers) {
+  const [saleTransfers, cardStatements] = await Promise.all([
+    readCheckSaleTransfers(service, account_id),
+    readCardStatements(service, account_id),
+  ]);
+  if (!saleTransfers || !cardStatements) {
     logger.error("reconciliation.coding.check_sales_failed", {
       userId: ctx.userId,
       account_id,
@@ -261,8 +265,35 @@ export async function getStatementCodingAction(
       loan_installments: loanInstallments,
       company_cuit: company.data?.cuit ?? null,
       check_sale_transfers: saleTransfers,
+      card_statements: cardStatements,
     },
   };
+}
+
+/** The card statements this account pays with a part not paid yet. */
+async function readCardStatements(
+  service: Service,
+  accountId: string,
+): Promise<StatementCardStatement[] | null> {
+  const { data, error } = await service
+    .from("card_statements")
+    .select(
+      "id, brand, account_number, close_date, due_date, total_ars, total_usd, paid_ars_on, paid_usd_on",
+    )
+    .eq("pay_account_id", accountId)
+    .eq("status", "pendiente")
+    .order("due_date")
+    .limit(50);
+  if (error) return null;
+  return data.map((s) => ({
+    id: s.id,
+    label: `${s.brand} ${s.account_number} cierre ${s.close_date.split("-").reverse().join("/")}`,
+    due_date: s.due_date,
+    total_ars: Number(s.total_ars),
+    total_usd: Number(s.total_usd),
+    ars_pending: s.paid_ars_on === null,
+    usd_pending: Number(s.total_usd) > 0 && s.paid_usd_on === null,
+  }));
 }
 
 /** The transfers of cheques sold to a bank into the account that no

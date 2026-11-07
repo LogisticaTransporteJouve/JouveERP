@@ -36,6 +36,7 @@ import {
   useCreateLineTransaction,
   useMatchLine,
   useMatchLineToReceipt,
+  usePayCardFromLine,
   usePayLoanFromLine,
 } from "../hooks/use-reconciliation";
 import {
@@ -90,6 +91,7 @@ export function useLineProposals(
             coding.data.loan_installments,
             coding.data.company_cuit,
             coding.data.check_sale_transfers ?? [],
+            coding.data.card_statements ?? [],
           ),
         );
       }
@@ -154,6 +156,7 @@ export function LineProposalView({
   const matchToReceipt = useMatchLineToReceipt();
   const payLoan = usePayLoanFromLine();
   const matchLine = useMatchLine();
+  const payCard = usePayCardFromLine();
   const [splitting, setSplitting] = useState(false);
   const fiscal = useFiscalChannel();
   if (!proposal) return null;
@@ -222,6 +225,34 @@ export function LineProposalView({
         >
           <Check className="size-3.5" />
           Pagar cuota {proposal.installment.number}
+        </Button>
+      )}
+      {gates.canWrite && proposal.card && (
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-7"
+          disabled={payCard.isPending}
+          onClick={() =>
+            payCard.mutate(
+              {
+                line_id: line.id,
+                statement_id: proposal.card!.statement.id,
+                currency: proposal.card!.currency,
+              },
+              {
+                onSuccess: ({ movements }) =>
+                  toast.success(
+                    `Resumen pagado: ${movements} movimientos (gastos y adelantos) conciliados.`,
+                  ),
+                onError: (err) => toast.error(err.message),
+              },
+            )
+          }
+        >
+          <Check className="size-3.5" />
+          Pagar resumen
         </Button>
       )}
       {gates.canWrite && proposal.sale_transfers && (

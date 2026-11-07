@@ -181,6 +181,12 @@ export const ROUTE_GUIDES: readonly RouteGuide[] = [
       "Alquileres, servicios y otros pagos fijos: entran en el flujo de caja proyectado.",
   },
   {
+    prefix: "/card-statements",
+    title: "Tarjetas",
+    summary:
+      "Los resúmenes de las tarjetas de crédito: cada consumo es un gasto de la empresa o un adelanto de sueldo.",
+  },
+  {
     prefix: "/loans",
     title: "Préstamos",
     summary:

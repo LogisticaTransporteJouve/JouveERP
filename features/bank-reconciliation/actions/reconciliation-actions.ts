@@ -4,7 +4,11 @@ import { isAccountType, isCheckAccount } from "@/features/accounts/schema";
 import { TransactionCreateSchema } from "@/features/transactions/schema";
 import { logAudit } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
-import { userCan, userCanAll } from "@/lib/auth/permissions";
+import {
+  TREASURY_PERMISSIONS,
+  userCan,
+  userCanAll,
+} from "@/lib/auth/permissions";
 import { LOAN_CASH_PERMISSIONS } from "@/features/loans/lib/loan-cash";
 import { payLoanInstallment } from "@/lib/commands/pay-loan-installment";
 import {
@@ -34,6 +38,7 @@ import {
   LineIdSchema,
   MatchLineSchema,
   MatchLineToReceiptSchema,
+  PayCardFromLineSchema,
   PayLoanFromLineSchema,
   MatchLinesToMovementSchema,
   ReconciliationQuerySchema,
@@ -423,6 +428,55 @@ export async function matchLineToReceiptAction(
 
 /** Pays a loan cuota with a bank debit line and reconciles them: the cuota's
  *  outflow goes to the line's account on its date, for its amount. */
+/** Pays a card statement (its pesos or its dollars) with the bank's debit:
+ *  its expenses and salary advances are booked on the account on the
+ *  debit's date and the line is reconciled with them. */
+export async function payCardStatementFromLineAction(
+  input: unknown,
+): Promise<ActionResult<{ movements: number }>> {
+  const ctx = await requireUserContext();
+  if (!userCanAll(ctx.access, TREASURY_PERMISSIONS)) {
+    return { ok: false, error: "No tenés permiso para pagar tarjetas." };
+  }
+  const parsed = PayCardFromLineSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Datos inválidos." };
+  const d = parsed.data;
+  const service = getServiceClient();
+  const channel = await service
+    .from("invoicing_channels")
+    .select("id")
+    .eq("is_fiscal", true)
+    .eq("is_active", true)
+    .limit(1)
+    .maybeSingle();
+  if (channel.error || !channel.data) {
+    return { ok: false, error: "No hay un canal fiscal activo." };
+  }
+  const { data, error } = await service.rpc("settle_card_statement", {
+    p_statement_id: d.statement_id,
+    p_line_id: d.line_id,
+    p_currency: d.currency,
+    p_channel_id: channel.data.id,
+    p_user_id: ctx.userId,
+  });
+  if (error || data === null) {
+    const guard = mapDbGuardError(error, {
+      slug: "cards.settle.rejected",
+      userId: ctx.userId,
+    });
+    if (guard) return { ok: false, error: guard };
+    logger.error("cards.settle_failed", { userId: ctx.userId, error });
+    return { ok: false, error: "No se pudo pagar el resumen." };
+  }
+  await logAudit(
+    "card_statement.paid",
+    ctx.userId,
+    { line_id: d.line_id, currency: d.currency, movements: data },
+    d.statement_id,
+  );
+  return { ok: true, data: { movements: data } };
+}
+
 export async function payLoanInstallmentFromLineAction(
   input: unknown,
 ): Promise<ActionResult<{ line_id: string }>> {

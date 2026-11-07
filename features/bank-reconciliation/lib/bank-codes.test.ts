@@ -6,6 +6,7 @@ import {
   PROVINCIA_CODES,
   counterpartyOf,
   detectBankPreset,
+  findCardStatement,
   findSaleTransfers,
   findLoanInstallment,
   suggestLoanSplit,
@@ -434,6 +435,57 @@ describe("findSaleTransfers", () => {
     ).toBeNull();
     expect(
       findSaleTransfers({ amount: 134384, line_date: "2026-11-20" }, sale),
+    ).toBeNull();
+  });
+});
+
+describe("findCardStatement", () => {
+  const visa = {
+    id: "v1",
+    label: "VISA 0627785090 cierre 29/10/2026",
+    due_date: "2026-11-11",
+    total_ars: 9524333.3,
+    total_usd: 8.04,
+    ars_pending: true,
+    usd_pending: true,
+  };
+
+  it("pays the pesos with the debit of their total", () => {
+    expect(
+      findCardStatement(
+        {
+          amount: -9524333.3,
+          line_date: "2026-11-11",
+          description: "Pago Visa Empresa",
+        },
+        [visa],
+      ),
+    ).toEqual({ statement: visa, currency: "ARS" });
+  });
+
+  it("pays the dollars with the debit the bank converted", () => {
+    expect(
+      findCardStatement(
+        {
+          amount: -12362.4,
+          line_date: "2026-11-11",
+          description: "Pago Visa Empresa · SALDO EN USD COTIZACION 1530,00",
+        },
+        [visa],
+      )?.currency,
+    ).toBe("USD");
+  });
+
+  it("finds nothing for another amount in pesos", () => {
+    expect(
+      findCardStatement(
+        {
+          amount: -5000000,
+          line_date: "2026-11-11",
+          description: "Pago Visa Empresa",
+        },
+        [visa],
+      ),
     ).toBeNull();
   });
 });

@@ -230,6 +230,7 @@ export const BANK_CODE_KINDS = [
   "loan",
   "ignore",
   "check_sale",
+  "card_payment",
 ] as const;
 export type BankCodeKind = (typeof BANK_CODE_KINDS)[number];
 
@@ -242,6 +243,7 @@ export const BANK_CODE_KIND_LABEL: Record<BankCodeKind, string> = {
   loan: "Cuota de préstamo",
   ignore: "No corresponde",
   check_sale: "Descuento de cheques",
+  card_payment: "Pago de tarjeta",
 };
 
 export function isBankCodeKind(value: unknown): value is BankCodeKind {
@@ -257,6 +259,8 @@ export const BANK_TAX_ROLES = [
   "percepciones_iibb_pagadas",
   "retenciones_pagadas",
   "percepciones_ganancias",
+  "iva_credito",
+  "percepciones_iva_pagadas",
 ] as const;
 
 /** A tax or a bank fee is booked straight to its chart account. */
@@ -393,6 +397,26 @@ export type StatementCoding = {
   /** The cheques sold to a bank (sell_checks) whose transfer to this account
    *  no line explains yet: a discount credit is reconciled with them. */
   check_sale_transfers?: StatementCheckSaleTransfer[];
+  card_statements?: StatementCardStatement[];
+};
+
+export const PayCardFromLineSchema = z.object({
+  line_id: z.string().uuid(),
+  statement_id: z.string().uuid(),
+  currency: z.enum(["ARS", "USD"]),
+});
+export type PayCardFromLineInput = z.infer<typeof PayCardFromLineSchema>;
+
+/** A card statement paid from this account with a part (pesos or dollars)
+ *  not paid yet: the bank's debit of the payment pays it. */
+export type StatementCardStatement = {
+  id: string;
+  label: string;
+  due_date: string;
+  total_ars: number;
+  total_usd: number;
+  ars_pending: boolean;
+  usd_pending: boolean;
 };
 
 export type StatementCheckSaleTransfer = {

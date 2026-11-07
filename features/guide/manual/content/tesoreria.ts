@@ -2539,6 +2539,61 @@ export const treasuryPage: GuidePage = {
       ],
     },
 
+    // ── Tarjetas ─────────────────────────────────────────────────────────
+    {
+      id: "tarjetas",
+      title: "Tarjetas de crédito",
+      menuPath: "Tesorería › Tarjetas",
+      routes: ["/card-statements"],
+      permission: TREASURY_READ,
+      intro: [
+        "Los resúmenes de las tarjetas de crédito de la empresa (por ejemplo, la VISA Business de Banco Galicia). Cada consumo es un gasto de la empresa, con su cuenta contable, o un adelanto de sueldo de un empleado (un socio que también es empleado). Los cargos del banco (IVA, percepciones, sellos, comisión) van a sus cuentas.",
+        "Nada se registra al cargar el resumen: los gastos y los adelantos entran en la cuenta del banco cuando el banco debita el pago, desde el extracto.",
+      ],
+      tasks: [
+        {
+          id: "cargar-resumen-tarjeta",
+          title: "Cargar un resumen y definir qué es cada consumo",
+          permission: [
+            "transactions:read",
+            "transactions:write",
+            "accounts:read",
+          ],
+          steps: [
+            "En [[/card-statements]], hacé clic en {{Subir resumen}} y elegí el PDF que bajás del home banking.",
+            "Revisá lo que leyó (tarjetas, consumos, cargos y total), elegí la {{Cuenta que paga la tarjeta}} y hacé clic en {{Cargar}}.",
+            "En cada tarjeta, elegí qué son por defecto sus consumos ({{Gasto de la empresa}} con su cuenta, o {{Adelanto de sueldo}} con el empleado): se aplica a sus consumos y se recuerda para los próximos resúmenes.",
+            "Si un consumo es otra cosa, cambialo en su fila. Los cargos sin cuenta (los sellos) necesitan la suya.",
+          ],
+          after: [
+            "El resumen queda {{Pendiente}} hasta que el banco debita el pago. Si te equivocaste de archivo, {{Borrar resumen}} lo saca mientras no tenga ningún pago.",
+          ],
+          keywords: ["tarjeta", "visa", "resumen", "adelanto", "socio"],
+        },
+        {
+          id: "pagar-resumen-tarjeta",
+          title: "Pagar el resumen desde el extracto",
+          permission: [
+            "transactions:read",
+            "transactions:write",
+            "accounts:read",
+          ],
+          prerequisites: [
+            "El resumen cargado, con todos sus consumos y cargos definidos.",
+            "El extracto del banco con el débito del pago («Pago Visa Empresa» en Galicia).",
+          ],
+          steps: [
+            "En la pestaña {{Extracto}} de la cuenta, la línea del pago muestra el resumen que paga y el botón {{Pagar resumen}}.",
+            "Hacé clic en {{Pagar resumen}}. El banco debita los pesos y los dólares por separado: cada débito paga su parte, y el de dólares toma la cotización que aplicó el banco.",
+          ],
+          after: [
+            "En la cuenta del banco, con la fecha del débito, queda un egreso por cada cuenta contable y un adelanto por cada empleado (en su cuenta corriente), y la línea del extracto queda conciliada con ellos.",
+          ],
+          keywords: ["pago tarjeta", "visa", "debito automatico"],
+        },
+      ],
+    },
+
     // ── Préstamos ────────────────────────────────────────────────────────
     {
       id: "prestamos",

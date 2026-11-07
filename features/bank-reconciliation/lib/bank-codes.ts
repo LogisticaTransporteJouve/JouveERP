@@ -3,6 +3,7 @@ import { isValidCuit } from "@/lib/validation/cuit";
 import type {
   BankCodeKind,
   BankCodePreset,
+  StatementCardStatement,
   StatementCheckSaleTransfer,
   BankStatementCode,
   StatementClient,
@@ -105,6 +106,8 @@ export type LineProposal = {
   /** The transfers of a cheque sale a discount credit is: the cheques of
    *  one «N° de préstamo», summing the line. */
   sale_transfers?: StatementCheckSaleTransfer[];
+  /** The card statement (and which part) a card payment debit pays. */
+  card?: { statement: StatementCardStatement; currency: "ARS" | "USD" };
   /** Can be accepted in one click: a tax or fee with its account. */
   ready: boolean;
   /** What is missing to book it, when something is. */
@@ -171,6 +174,7 @@ export function proposeLine(
   installments: readonly StatementLoanInstallment[] = [],
   companyCuit: string | null = null,
   saleTransfers: readonly StatementCheckSaleTransfer[] = [],
+  cardStatements: readonly StatementCardStatement[] = [],
 ): LineProposal {
   const code = findBankCode(line, codes);
   // Money from or to the company itself: a transfer between its accounts,
@@ -233,6 +237,24 @@ export function proposeLine(
       missing: client
         ? null
         : "Ningún cliente tiene el CUIT de la línea: elegilo o crealo en el recibo.",
+    };
+  }
+  if (code.kind === "card_payment") {
+    const card =
+      line.amount < 0 ? findCardStatement(line, cardStatements) : null;
+    return {
+      kind: "card_payment",
+      code,
+      label: card
+        ? `Pago del resumen ${card.statement.label} (${card.currency === "ARS" ? "pesos" : "dólares"})`
+        : label,
+      client: null,
+      installment: null,
+      card: card ?? undefined,
+      ready: false,
+      missing: card
+        ? null
+        : "No hay un resumen de tarjeta pendiente por este pago: subilo en Tesorería › Tarjetas.",
     };
   }
   if (code.kind === "check_sale") {
@@ -580,6 +602,13 @@ export const GALICIA_CODES: readonly PresetCode[] = [
   },
   {
     bank_code: "",
+    description_pattern: "PAGO VISA EMPRESA",
+    kind: "card_payment",
+    account: null,
+    label: "Pago de la tarjeta VISA",
+  },
+  {
+    bank_code: "",
     description_pattern: "CREDITO DESCUENTO DOCUMENTO",
     kind: "check_sale",
     account: null,
@@ -658,6 +687,33 @@ export function findSaleTransfers(
       return search(i + 1, left);
     };
     if (search(0, target)) return [...pick];
+  }
+  return null;
+}
+
+/** The card statement a payment debit pays: the pesos of one whose total
+ *  is the debit, else the dollars of the closest one due within 45 days
+ *  (the bank debits them apart, at its rate: «SALDO EN USD COTIZACION»). */
+export function findCardStatement(
+  line: Pick<StatementLine, "amount" | "line_date" | "description">,
+  statements: readonly StatementCardStatement[],
+): { statement: StatementCardStatement; currency: "ARS" | "USD" } | null {
+  const debit = Math.round(-line.amount * 100);
+  const ars = statements.find(
+    (s) => s.ars_pending && Math.round(s.total_ars * 100) === debit,
+  );
+  if (ars) return { statement: ars, currency: "ARS" };
+  const days = (s: StatementCardStatement) =>
+    Math.abs(Date.parse(s.due_date) - Date.parse(line.line_date)) / 86_400_000;
+  const usd = statements
+    .filter((s) => s.usd_pending && days(s) <= 45)
+    .sort((a, b) => days(a) - days(b))[0];
+  // A dollar debit says so, or is far below any total in pesos.
+  if (
+    usd &&
+    (/USD|DOLAR/i.test(line.description) || debit < usd.total_ars * 100 * 0.1)
+  ) {
+    return { statement: usd, currency: "USD" };
   }
   return null;
 }

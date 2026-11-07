@@ -11,14 +11,14 @@
 <aside class="sidebar">
 <a class="brand" href="index.html"><span class="logo">J</span><span>Guía de JouveERP</span></a>
 <div class="search"><input id="guide-search" type="search" placeholder="Buscar: emitir factura, cheque…" autocomplete="off" aria-label="Buscar en la guía" /><div id="guide-results" class="results" hidden></div></div>
-<nav><ul class="nav"><li><a href="conceptos.html">Conceptos generales</a></li><li><a href="plataforma.html">Plataforma</a></li><li><a href="asistente.html">Asistente (IA)</a></li><li><a href="ventas.html">Ventas</a></li><li><a href="compras.html">Compras</a></li><li class="active"><a href="tesoreria.html">Tesorería</a><ul><li><a href="tesoreria.html#tesoreria-resumen">Resumen de tesorería</a></li><li><a href="tesoreria.html#flujo-de-caja">Flujo de caja</a></li><li><a href="tesoreria.html#cuentas">Cuentas</a></li><li><a href="tesoreria.html#caja">Caja (movimientos)</a></li><li><a href="tesoreria.html#conciliacion-bancaria">Conciliación bancaria</a></li><li><a href="tesoreria.html#cheques-recibidos">Cheques recibidos</a></li><li><a href="tesoreria.html#cheques-propios">Cheques propios</a></li><li><a href="tesoreria.html#pagos-recurrentes">Pagos recurrentes</a></li><li><a href="tesoreria.html#prestamos">Préstamos y leasing</a></li></ul></li><li><a href="contabilidad.html">Contabilidad</a></li><li><a href="personal.html">Personal</a></li><li><a href="flota.html">Flota</a></li><li><a href="deposito.html">Depósito</a></li><li><a href="admin.html">Administración</a></li></ul></nav>
+<nav><ul class="nav"><li><a href="conceptos.html">Conceptos generales</a></li><li><a href="plataforma.html">Plataforma</a></li><li><a href="asistente.html">Asistente (IA)</a></li><li><a href="ventas.html">Ventas</a></li><li><a href="compras.html">Compras</a></li><li class="active"><a href="tesoreria.html">Tesorería</a><ul><li><a href="tesoreria.html#tesoreria-resumen">Resumen de tesorería</a></li><li><a href="tesoreria.html#flujo-de-caja">Flujo de caja</a></li><li><a href="tesoreria.html#cuentas">Cuentas</a></li><li><a href="tesoreria.html#caja">Caja (movimientos)</a></li><li><a href="tesoreria.html#conciliacion-bancaria">Conciliación bancaria</a></li><li><a href="tesoreria.html#cheques-recibidos">Cheques recibidos</a></li><li><a href="tesoreria.html#cheques-propios">Cheques propios</a></li><li><a href="tesoreria.html#pagos-recurrentes">Pagos recurrentes</a></li><li><a href="tesoreria.html#tarjetas">Tarjetas de crédito</a></li><li><a href="tesoreria.html#prestamos">Préstamos y leasing</a></li></ul></li><li><a href="contabilidad.html">Contabilidad</a></li><li><a href="personal.html">Personal</a></li><li><a href="flota.html">Flota</a></li><li><a href="deposito.html">Depósito</a></li><li><a href="admin.html">Administración</a></li></ul></nav>
 </aside>
 <div class="content">
 <header class="topbar"><a href="index.html">Guía</a><span class="sep">›</span><strong>Tesorería</strong><a class="back" href="/dashboard" target="jouve-app">Volver a JouveERP</a></header>
 <main>
 <h1>Tesorería</h1>
 <p class="lead">La plata de la empresa: saldos de cajas y bancos, movimientos, conciliación con el extracto, cheques recibidos y propios, pagos fijos y préstamos.</p>
-<nav class="toc"><h4>En esta página</h4><ul><li><a href="#tesoreria-resumen">Resumen de tesorería</a></li><li><a href="#flujo-de-caja">Flujo de caja</a></li><li><a href="#cuentas">Cuentas</a></li><li><a href="#caja">Caja (movimientos)</a></li><li><a href="#conciliacion-bancaria">Conciliación bancaria</a></li><li><a href="#cheques-recibidos">Cheques recibidos</a></li><li><a href="#cheques-propios">Cheques propios</a></li><li><a href="#pagos-recurrentes">Pagos recurrentes</a></li><li><a href="#prestamos">Préstamos y leasing</a></li></ul></nav>
+<nav class="toc"><h4>En esta página</h4><ul><li><a href="#tesoreria-resumen">Resumen de tesorería</a></li><li><a href="#flujo-de-caja">Flujo de caja</a></li><li><a href="#cuentas">Cuentas</a></li><li><a href="#caja">Caja (movimientos)</a></li><li><a href="#conciliacion-bancaria">Conciliación bancaria</a></li><li><a href="#cheques-recibidos">Cheques recibidos</a></li><li><a href="#cheques-propios">Cheques propios</a></li><li><a href="#pagos-recurrentes">Pagos recurrentes</a></li><li><a href="#tarjetas">Tarjetas de crédito</a></li><li><a href="#prestamos">Préstamos y leasing</a></li></ul></nav>
 <section class="section" id="tesoreria-resumen">
 <h2><a class="anchor" href="#tesoreria-resumen">Resumen de tesorería</a></h2>
 <p class="where">En el menú: <strong>Tesorería › Resumen</strong> · <code>/treasury</code></p><p class="where">Ven esta pantalla: Owner, Admin, Finanzas <span class="muted">(permiso <code class="perm">accounting:read</code> + <code class="perm">accounts:read</code>)</span></p><p class="open"><a href="/treasury" target="jouve-app">Abrir esta pantalla en JouveERP ↗</a></p>
@@ -504,6 +504,34 @@
 <div class="block after"><h4>Qué pasa después</h4><ul><li>Se elimina el pago recurrente. No se puede deshacer: si solo querés pausarlo, usá el interruptor <span class="ui" data-ui="Activo">Activo</span>.</li></ul></div>
 <div class="block errors"><h4>Si aparece un error</h4><dl><dt>“No tenés permiso para borrar pagos recurrentes.”</dt><dd>Pedí el permiso de pagos recurrentes.</dd></dl></div>
 <p class="related">Relacionado: <a class="ref" href="tesoreria.html#activar-pago-recurrente">Pausar o reactivar un pago recurrente</a></p>
+</article>
+</section>
+<section class="section" id="tarjetas">
+<h2><a class="anchor" href="#tarjetas">Tarjetas de crédito</a></h2>
+<p class="where">En el menú: <strong>Tesorería › Tarjetas</strong> · <code>/card-statements</code></p><p class="where">Ven esta pantalla: Owner, Admin, Finanzas <span class="muted">(permiso <code class="perm">accounting:read</code> + <code class="perm">accounts:read</code>)</span></p><p class="open"><a href="/card-statements" target="jouve-app">Abrir esta pantalla en JouveERP ↗</a></p>
+<p>Los resúmenes de las tarjetas de crédito de la empresa (por ejemplo, la VISA Business de Banco Galicia). Cada consumo es un gasto de la empresa, con su cuenta contable, o un adelanto de sueldo de un empleado (un socio que también es empleado). Los cargos del banco (IVA, percepciones, sellos, comisión) van a sus cuentas.</p><p>Nada se registra al cargar el resumen: los gastos y los adelantos entran en la cuenta del banco cuando el banco debita el pago, desde el extracto.</p>
+
+
+<ul class="task-toc"><li><a href="#cargar-resumen-tarjeta">Cargar un resumen y definir qué es cada consumo</a></li><li><a href="#pagar-resumen-tarjeta">Pagar el resumen desde el extracto</a></li></ul>
+<article class="task" id="cargar-resumen-tarjeta">
+<h3><a class="anchor" href="#cargar-resumen-tarjeta">Cargar un resumen y definir qué es cada consumo</a></h3>
+
+<dl class="meta"><dt>Quién puede</dt><dd>Owner, Admin, Finanzas <span class="muted">(permiso <code class="perm">transactions:read</code> + <code class="perm">transactions:write</code> + <code class="perm">accounts:read</code>)</span></dd></dl>
+
+<ol class="steps"><li>En <a class="ref" href="tesoreria.html#tarjetas">Tesorería › Tarjetas</a>, hacé clic en <span class="ui" data-ui="Subir resumen">Subir resumen</span> y elegí el PDF que bajás del home banking.</li><li>Revisá lo que leyó (tarjetas, consumos, cargos y total), elegí la <span class="ui" data-ui="Cuenta que paga la tarjeta">Cuenta que paga la tarjeta</span> y hacé clic en <span class="ui" data-ui="Cargar">Cargar</span>.</li><li>En cada tarjeta, elegí qué son por defecto sus consumos (<span class="ui" data-ui="Gasto de la empresa">Gasto de la empresa</span> con su cuenta, o <span class="ui" data-ui="Adelanto de sueldo">Adelanto de sueldo</span> con el empleado): se aplica a sus consumos y se recuerda para los próximos resúmenes.</li><li>Si un consumo es otra cosa, cambialo en su fila. Los cargos sin cuenta (los sellos) necesitan la suya.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>El resumen queda <span class="ui" data-ui="Pendiente">Pendiente</span> hasta que el banco debita el pago. Si te equivocaste de archivo, <span class="ui" data-ui="Borrar resumen">Borrar resumen</span> lo saca mientras no tenga ningún pago.</li></ul></div>
+
+
+</article>
+<article class="task" id="pagar-resumen-tarjeta">
+<h3><a class="anchor" href="#pagar-resumen-tarjeta">Pagar el resumen desde el extracto</a></h3>
+
+<dl class="meta"><dt>Quién puede</dt><dd>Owner, Admin, Finanzas <span class="muted">(permiso <code class="perm">transactions:read</code> + <code class="perm">transactions:write</code> + <code class="perm">accounts:read</code>)</span></dd><dt>Antes</dt><dd><ul><li>El resumen cargado, con todos sus consumos y cargos definidos.</li><li>El extracto del banco con el débito del pago («Pago Visa Empresa» en Galicia).</li></ul></dd></dl>
+
+<ol class="steps"><li>En la pestaña <span class="ui" data-ui="Extracto">Extracto</span> de la cuenta, la línea del pago muestra el resumen que paga y el botón <span class="ui" data-ui="Pagar resumen">Pagar resumen</span>.</li><li>Hacé clic en <span class="ui" data-ui="Pagar resumen">Pagar resumen</span>. El banco debita los pesos y los dólares por separado: cada débito paga su parte, y el de dólares toma la cotización que aplicó el banco.</li></ol>
+<div class="block after"><h4>Qué pasa después</h4><ul><li>En la cuenta del banco, con la fecha del débito, queda un egreso por cada cuenta contable y un adelanto por cada empleado (en su cuenta corriente), y la línea del extracto queda conciliada con ellos.</li></ul></div>
+
+
 </article>
 </section>
 <section class="section" id="prestamos">
