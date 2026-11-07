@@ -4,6 +4,8 @@ import { AlertTriangle, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { useId, useMemo, useState } from "react";
 
+import { useElementWidth } from "@/hooks/use-element-width";
+
 import { Badge } from "@/components/ui/badge";
 import { Section } from "@/components/ui/section";
 import { UsdSkippedNote } from "@/components/usd-skipped-note";
@@ -50,6 +52,10 @@ const compactArs = new Intl.NumberFormat("es-AR", {
 
 export function CashFlowChart({ data }: { data: CashFlowChartData }) {
   const [hovered, setHovered] = useState<number | null>(null);
+  // Drawn at its real width, so a wide screen gets a wider chart, not a
+  // taller one with bigger letters.
+  const desktop = useElementWidth<HTMLDivElement>(720);
+  const desktopW = Math.max(360, desktop.width);
 
   // Compact (< md) window: the 2 most recent realized months + the next 4
   // projected. Fewer bars keep labels legible on a phone-width viewBox.
@@ -95,11 +101,14 @@ export function CashFlowChart({ data }: { data: CashFlowChartData }) {
         </div>
       )}
       <div className="rounded-lg border bg-card">
-        <div className="relative p-2 text-foreground max-md:hidden">
+        <div
+          ref={desktop.ref}
+          className="relative p-2 text-foreground max-md:hidden"
+        >
           <ChartSvg
             months={data.months}
-            vbW={720}
-            vbH={230}
+            vbW={desktopW}
+            vbH={220}
             padL={56}
             active={hovered}
             interaction="hover"
@@ -110,8 +119,9 @@ export function CashFlowChart({ data }: { data: CashFlowChartData }) {
               month={data.months[hovered]}
               leftPct={
                 ((56 +
-                  (hovered + 0.5) * ((720 - 56 - PAD_R) / data.months.length)) /
-                  720) *
+                  (hovered + 0.5) *
+                    ((desktopW - 56 - PAD_R) / data.months.length)) /
+                  desktopW) *
                 100
               }
             />
@@ -307,7 +317,7 @@ function ChartSvg({
             fillOpacity="0.55"
             className="font-mono"
           >
-            {compactArs.format(t)}
+            {compactArs.format(t === 0 ? 0 : t)}
           </text>
         </g>
       ))}

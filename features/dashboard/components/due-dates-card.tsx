@@ -1,10 +1,4 @@
-import {
-  AlertTriangle,
-  ArrowDownRight,
-  ArrowUpRight,
-  CalendarClock,
-  FileWarning,
-} from "lucide-react";
+import { AlertTriangle, CalendarClock, FileWarning } from "lucide-react";
 import Link from "next/link";
 
 import { Section } from "@/components/ui/section";
@@ -57,14 +51,10 @@ export function DueDatesCard({
                   href={item.href}
                   className="flex items-center gap-3 p-3 text-sm hover:bg-accent/50"
                 >
-                  <span className="w-14 shrink-0 font-mono text-xs text-muted-foreground">
+                  <span className="w-20 shrink-0 font-mono text-xs text-muted-foreground">
                     {formatArDateShort(item.date)}
                   </span>
-                  {item.direction === "in" ? (
-                    <ArrowUpRight className="size-4 shrink-0 text-muted-foreground dark:text-muted-foreground" />
-                  ) : item.direction === "out" ? (
-                    <ArrowDownRight className="size-4 shrink-0 text-foreground dark:text-foreground" />
-                  ) : (
+                  {item.direction !== "in" && item.direction !== "out" && (
                     <FileWarning className="size-4 shrink-0 text-muted-foreground" />
                   )}
                   <span className="min-w-0 flex-1">
