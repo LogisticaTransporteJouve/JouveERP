@@ -12,6 +12,13 @@ vi.mock("sonner", () => ({
 vi.mock("@/components/providers/confirm-provider", () => ({
   useConfirm: () => vi.fn(),
 }));
+vi.mock("@/components/providers/scope-provider", () => ({
+  useScope: () => ({
+    channels: [
+      { id: "ch1", name: "Jouve fiscal", is_active: true, is_fiscal: true },
+    ],
+  }),
+}));
 vi.mock("../hooks/use-accounts", () => ({
   useAccountOpeningBalance: () => ({ data: existing }),
   useSetAccountOpeningBalance: () => ({ mutate: setMutate, isPending: false }),
@@ -41,7 +48,7 @@ function input(): HTMLInputElement {
   return el;
 }
 
-function open(balance: number) {
+function open(balance: number, accountType: "cash" | "bank" = "cash") {
   existing = {
     adjustment_date: "2026-10-01",
     target_balance: balance,
@@ -53,6 +60,7 @@ function open(balance: number) {
       accountId="a1"
       accountName="Banco"
       currency="ARS"
+      accountType={accountType}
       channels={[CHANNEL]}
     />,
   );
@@ -88,5 +96,27 @@ describe("AccountOpeningBalanceDialog", () => {
     expect(setMutate.mock.calls[0]?.[0]).toMatchObject({
       target_balance: -1500.5,
     });
+  });
+
+  it("a bank's adjustment goes to the fiscal channel with nothing to pick", () => {
+    existing = {
+      adjustment_date: "2026-10-01",
+      target_balance: 100,
+      channel_id: "ch2",
+      notes: null,
+    };
+    render(
+      <AccountOpeningBalanceDialog
+        accountId="a1"
+        accountName="Banco"
+        currency="ARS"
+        accountType="bank"
+        channels={[{ id: "ch2", name: "Jouve interno" }]}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Editar saldo/ }));
+    expect(screen.queryByText("Canal de imputación")).toBeNull();
+    save();
+    expect(setMutate.mock.calls[0]?.[0]).toMatchObject({ channel_id: "ch1" });
   });
 });

@@ -175,6 +175,7 @@ export function AccountsTable({
                 accountId={row.original.id}
                 accountName={row.original.name}
                 currency={row.original.currency}
+                accountType={row.original.type}
                 channels={channels}
               />
             )}

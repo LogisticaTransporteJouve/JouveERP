@@ -585,7 +585,7 @@ export const treasuryPage: GuidePage = {
           steps: [
             "En [[/accounts]], en la fila de la cuenta, hacé clic en {{Ajustar saldo}} (si ya tiene un ajuste dice {{Editar saldo}}).",
             "Elegí la {{Fecha de ajuste}} y escribí el {{Saldo real al corte}} (por ejemplo, el del extracto a esa fecha; acepta negativos).",
-            "En {{Canal de imputación}}, elegí el canal al que va el ajuste (no hay uno por defecto). Si querés, agregá {{Notas (opcional)}}.",
+            "En una caja de efectivo o una cartera de cheques, elegí en {{Canal de imputación}} el canal al que va el ajuste (no hay uno por defecto). En un banco, una billetera o una inversión no se elige: va al canal fiscal. Si querés, agregá {{Notas (opcional)}}.",
             "Hacé clic en {{Registrar}} (o {{Actualizar}} si ya había un ajuste).",
           ],
           after: [
