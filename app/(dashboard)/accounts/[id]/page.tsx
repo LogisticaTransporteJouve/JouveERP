@@ -141,6 +141,7 @@ export default async function CuentaPage({
                   channels={channels}
                   actorAccess={ctx.access}
                   initialParams={listParams}
+                  fixedAccountId={account.id}
                 />
               </Suspense>
             </TabsContent>

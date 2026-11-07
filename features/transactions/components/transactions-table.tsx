@@ -324,14 +324,25 @@ export function TransactionsTable({
   channels,
   actorAccess,
   initialParams,
+  fixedAccountId,
 }: {
   channels: ChannelOption[];
   actorAccess: Access;
   initialParams: TransactionListParams;
+  /** Shown inside an account's page: always that account, and no account
+   *  or reconciliation filter (the statement tab reconciles). */
+  fixedAccountId?: string;
 }) {
+  const defaults = useMemo(
+    () =>
+      fixedAccountId
+        ? { ...DEFAULT_TRANSACTION_LIST_PARAMS, accountId: fixedAccountId }
+        : DEFAULT_TRANSACTION_LIST_PARAMS,
+    [fixedAccountId],
+  );
   const { params, committed, update, reset, isFiltered } = useListParams({
     initial: initialParams,
-    defaults: DEFAULT_TRANSACTION_LIST_PARAMS,
+    defaults,
     toUrl: transactionListParamsToUrl,
   });
   const isFiscal = useScopeIsFiscal();
@@ -437,7 +448,7 @@ export function TransactionsTable({
           value={params.period}
           onChange={(period) => update({ period })}
         />
-        {canPickAccount && (
+        {canPickAccount && !fixedAccountId && (
           <AccountFilter
             value={params.accountId ?? ANY_ACCOUNT}
             onChange={(v) =>
@@ -463,24 +474,26 @@ export function TransactionsTable({
             ))}
           </SelectContent>
         </Select>
-        <Select
-          value={params.reconciled ?? ANY_RECONCILED}
-          onValueChange={(v) =>
-            update({ reconciled: isReconciledFilter(v) ? v : null })
-          }
-        >
-          <SelectTrigger className="w-[200px]" aria-label="Conciliación">
-            <SelectValue placeholder="Conciliación" />
-          </SelectTrigger>
-          <SelectContent position="popper">
-            <SelectItem value={ANY_RECONCILED}>Conciliados o no</SelectItem>
-            {RECONCILED_FILTERS.map((r) => (
-              <SelectItem key={r} value={r}>
-                {RECONCILED_FILTER_LABEL[r]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {!fixedAccountId && (
+          <Select
+            value={params.reconciled ?? ANY_RECONCILED}
+            onValueChange={(v) =>
+              update({ reconciled: isReconciledFilter(v) ? v : null })
+            }
+          >
+            <SelectTrigger className="w-[200px]" aria-label="Conciliación">
+              <SelectValue placeholder="Conciliación" />
+            </SelectTrigger>
+            <SelectContent position="popper">
+              <SelectItem value={ANY_RECONCILED}>Conciliados o no</SelectItem>
+              {RECONCILED_FILTERS.map((r) => (
+                <SelectItem key={r} value={r}>
+                  {RECONCILED_FILTER_LABEL[r]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </ListToolbar>
 
       <div className="mt-4">
