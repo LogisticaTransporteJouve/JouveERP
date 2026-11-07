@@ -60,14 +60,18 @@ export function CardStatementDetailView({
       <p className="text-muted-foreground text-sm">Cargando el resumen…</p>
     );
   }
-  if (q.isError) return <p className="text-sm">{q.error.message}</p>;
+  // A failed refetch keeps what was read: the error goes above it.
+  if (!q.data) return <p className="text-sm">{q.error?.message}</p>;
   return (
-    <Detail
-      data={q.data}
-      onDeleted={onDeleted}
-      canWrite={canWrite}
-      canAdvance={canAdvance}
-    />
+    <div className="space-y-2">
+      {q.isError && <p className="text-sm">{q.error.message}</p>}
+      <Detail
+        data={q.data}
+        onDeleted={onDeleted}
+        canWrite={canWrite}
+        canAdvance={canAdvance}
+      />
+    </div>
   );
 }
 

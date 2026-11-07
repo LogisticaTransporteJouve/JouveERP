@@ -171,7 +171,7 @@ export async function getCardStatementAction(
   ) {
     logger.error("cards.detail_failed", {
       userId: ctx.userId,
-      id,
+      statementId: id,
       error:
         lines.error ??
         holders.error ??
@@ -197,7 +197,7 @@ export async function getCardStatementAction(
   if (former.error) {
     logger.error("cards.detail_failed", {
       userId: ctx.userId,
-      id,
+      statementId: id,
       error: former.error,
     });
     return { ok: false, error: "No se pudo leer el resumen." };
@@ -255,7 +255,10 @@ async function chargeAccounts(
     .from("chart_of_accounts")
     .select("id, code, system_role")
     .eq("is_active", true);
-  if (error) return null;
+  if (error) {
+    logger.error("cards.charge_accounts_failed", { error });
+    return null;
+  }
   const out = new Map<string, string>();
   for (const [kind, target] of Object.entries(CHARGE_ACCOUNT)) {
     const found = data.find((a) =>
