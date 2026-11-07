@@ -38,6 +38,7 @@ export function CollectDialog({
   trigger,
   canEditRetentions,
   defaultOpen = false,
+  fromBankLine,
 }: {
   side?: ScopeSide;
   initialClient?: PickedClient | null;
@@ -47,6 +48,13 @@ export function CollectDialog({
   canEditRetentions: boolean;
   /** Open on mount (a task's «Cobrar» links to the comprobante with it). */
   defaultOpen?: boolean;
+  /** Opened from a bank statement line: its date, amount and account. */
+  fromBankLine?: {
+    date: string;
+    amount: number;
+    account_id: string;
+    channel_id?: string;
+  };
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const [side, setSide] = useState<ScopeSide>(fixedSide ?? "fiscal");
@@ -84,6 +92,7 @@ export function CollectDialog({
               initialClient={initialClient ?? null}
               initialAllocations={initialAllocations}
               canEditRetentions={canEditRetentions}
+              fromBankLine={fromBankLine}
               onDone={() => setOpen(false)}
             />
           </Suspense>
@@ -98,12 +107,19 @@ function CollectForm({
   initialClient,
   initialAllocations,
   canEditRetentions,
+  fromBankLine,
   onDone,
 }: {
   side: ScopeSide;
   initialClient: PickedClient | null;
   initialAllocations?: AllocationDraft[];
   canEditRetentions: boolean;
+  fromBankLine?: {
+    date: string;
+    amount: number;
+    account_id: string;
+    channel_id?: string;
+  };
   onDone: () => void;
 }) {
   const { channels } = useScope();
@@ -124,6 +140,7 @@ function CollectForm({
         initialClient={initialClient}
         initialAllocations={initialAllocations}
         canEditRetentions={canEditRetentions}
+        fromBankLine={fromBankLine}
         onSuccess={onDone}
         onCancel={onDone}
       />

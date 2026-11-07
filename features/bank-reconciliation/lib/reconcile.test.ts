@@ -15,6 +15,7 @@ function line(p: Partial<StatementLine> & { id: string }): StatementLine {
     amount: -100,
     balance: null,
     reference: null,
+    bank_code: null,
     status: "open",
     ignore_reason: null,
     transaction_ids: [],

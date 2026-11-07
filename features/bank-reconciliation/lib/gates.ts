@@ -11,6 +11,11 @@ export type ReconciliationGates = {
   canImport: boolean;
   /** accounts:read, which the import dialog needs to show the account. */
   canReadAccounts: boolean;
+  /** Makes a receipt from a collection line (receipts:write + accounts:read). */
+  canCollect: boolean;
+  canEditRetentions: boolean;
+  /** Creates a chart account from the bank codes (accounting:write). */
+  canManageChart: boolean;
 };
 
 export function reconciliationGates(access: Access): ReconciliationGates {
@@ -22,5 +27,10 @@ export function reconciliationGates(access: Access): ReconciliationGates {
       userCan(access, "imports:write") &&
       userCanAll(access, IMPORT_KIND_PERMISSION.bank_statement),
     canReadAccounts: userCan(access, "accounts:read"),
+    canCollect:
+      userCan(access, "receipts:write") && userCan(access, "accounts:read"),
+    canEditRetentions: userCan(access, "retentions:write"),
+    canManageChart:
+      userCan(access, "accounting:write") && userCan(access, "accounting:read"),
   };
 }

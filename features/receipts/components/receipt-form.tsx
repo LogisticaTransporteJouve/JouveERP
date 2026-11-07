@@ -121,6 +121,7 @@ export function ReceiptForm({
   onSuccess,
   onCancel,
   canEditRetentions,
+  fromBankLine,
 }: {
   mode: Mode;
   channels: ChannelOption[];
@@ -135,13 +136,25 @@ export function ReceiptForm({
   /** Without retentions:write the form keeps the stored retentions as they
    *  are and offers no editor (the action refuses any change). */
   canEditRetentions: boolean;
+  /** Create mode from a bank statement line: its date, and its amount in
+   *  the account it came in. */
+  fromBankLine?: {
+    date: string;
+    amount: number;
+    account_id: string;
+    channel_id?: string;
+  };
 }) {
   const createMut = useCreateReceipt();
   const updateMut = useUpdateReceipt();
   const isSaving = createMut.isPending || updateMut.isPending;
 
   const defaultChannel = useDefaultChannel();
-  const initialChannel = receipt?.receipt.channel_id ?? defaultChannel ?? "";
+  const initialChannel =
+    receipt?.receipt.channel_id ??
+    fromBankLine?.channel_id ??
+    defaultChannel ??
+    "";
   const sideChannels = useSideChannels(channels);
   const pageIsFiscal = usePageIsFiscal();
 
@@ -163,7 +176,13 @@ export function ReceiptForm({
             : undefined,
         };
       })
-    : [{ account_id: "", amount: "", reference: "" }];
+    : [
+        {
+          account_id: fromBankLine?.account_id ?? "",
+          amount: fromBankLine ? amountToInput(fromBankLine.amount) : "",
+          reference: "",
+        },
+      ];
 
   const initialAllocations: AllocationDraft[] = receipt
     ? [
@@ -197,7 +216,8 @@ export function ReceiptForm({
     defaultValues: {
       channelId: initialChannel,
       numero: receipt ? String(receipt.receipt.numero) : "",
-      receiptDate: receipt?.receipt.receipt_date ?? todayInAR(),
+      receiptDate:
+        receipt?.receipt.receipt_date ?? fromBankLine?.date ?? todayInAR(),
       currency:
         (receipt?.receipt.currency as ReceiptCurrency | undefined) ?? "ARS",
       cotizacion:

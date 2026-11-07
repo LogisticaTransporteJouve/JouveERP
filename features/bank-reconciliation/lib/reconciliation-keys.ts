@@ -3,4 +3,6 @@ export const reconciliationKeys = {
   accounts: () => [...reconciliationKeys.all, "accounts"] as const,
   view: (accountId: string, from: string, to: string) =>
     [...reconciliationKeys.all, "view", accountId, from, to] as const,
+  coding: (accountId: string, from: string, to: string) =>
+    [...reconciliationKeys.all, "coding", accountId, from, to] as const,
 };

@@ -8,6 +8,7 @@ import {
   Link2,
   MoreHorizontal,
   Plus,
+  Settings2,
   Undo2,
   Unlink,
 } from "lucide-react";
@@ -65,6 +66,13 @@ import {
   MatchMovementLinesDialog,
 } from "./line-dialogs";
 import type { ReconciliationGates } from "../lib/gates";
+import {
+  AcceptReadyButton,
+  BankCodesDialog,
+  LineProposalView,
+  useLineProposals,
+  type CodeDraft,
+} from "./statement-coding";
 import { isMonth, monthRange } from "../lib/month";
 
 /** Lists read newest first, as everywhere in the app; the action returns them
@@ -193,8 +201,7 @@ export function AccountStatement({
           accountId={accountId}
           from={from}
           to={to}
-          canWrite={gates.canWrite}
-          canPayTaxes={gates.canPayTaxes}
+          gates={gates}
         />
       </Suspense>
     </div>
@@ -240,16 +247,17 @@ function ReconciliationBody({
   accountId,
   from,
   to,
-  canWrite,
-  canPayTaxes,
+  gates,
 }: {
   accountId: string;
   from: string;
   to: string;
-  canWrite: boolean;
-  canPayTaxes: boolean;
+  gates: ReconciliationGates;
 }) {
+  const { canWrite, canPayTaxes } = gates;
   const { data } = useReconciliation(accountId, from, to);
+  const { proposals } = useLineProposals(accountId, from, to, data.lines);
+  const [codes, setCodes] = useState<{ draft: CodeDraft | null } | null>(null);
   const accept = useAcceptSuggestions();
   const unmatch = useUnmatchLine();
   const restore = useRestoreLine();
@@ -422,7 +430,36 @@ function ReconciliationBody({
       )}
 
       <section className="space-y-2">
-        <h2 className="text-base font-semibold">Extracto</h2>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-base font-semibold">Extracto</h2>
+          <div className="flex flex-wrap gap-2">
+            {canWrite && (
+              <AcceptReadyButton lines={data.lines} proposals={proposals} />
+            )}
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => setCodes({ draft: null })}
+            >
+              <Settings2 className="size-4" />
+              Códigos del banco
+            </Button>
+          </div>
+        </div>
+        {codes && (
+          <BankCodesDialog
+            accountId={accountId}
+            from={from}
+            to={to}
+            gates={gates}
+            open
+            onOpenChange={(o) => {
+              if (!o) setCodes(null);
+            }}
+            initialDraft={codes.draft}
+          />
+        )}
         <div className="overflow-x-auto rounded-md border">
           <Table>
             <TableHeader>
@@ -456,7 +493,17 @@ function ReconciliationBody({
                     {line.reference && (
                       <span className="text-muted-foreground block text-xs">
                         Ref. {line.reference}
+                        {line.bank_code ? ` · Cód. ${line.bank_code}` : ""}
                       </span>
+                    )}
+                    {line.status === "open" && (
+                      <LineProposalView
+                        line={line}
+                        proposal={proposals.get(line.id)}
+                        accountId={accountId}
+                        gates={gates}
+                        onConfigure={(draft) => setCodes({ draft })}
+                      />
                     )}
                     {line.transaction_ids.map((id) => (
                       <MatchedMovement

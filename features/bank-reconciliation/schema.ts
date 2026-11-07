@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import type { IvaCondition } from "@/features/clients/schema";
+
 // Conciliación bancaria (roadmap 5.4): the lines of an imported bank
 // statement (bank_statement_lines) matched against the account's movements
 // (transactions), per account and period
@@ -136,6 +138,8 @@ export type StatementLine = {
   amount: number;
   balance: number | null;
   reference: string | null;
+  /** The bank's code for the movement (Macro: "Código Causal"). */
+  bank_code: string | null;
   status: StatementLineStatus;
   ignore_reason: string | null;
   transaction_ids: string[];
@@ -205,4 +209,138 @@ export type ReconciliationView = {
   movements: BookMovement[];
   suggestions: MatchSuggestion[];
   summary: ReconciliationSummary;
+};
+
+// ─── Bank codes ──────────────────────────────────────────────────────────────
+
+/** What a bank code is: a tax or a bank fee posts to its chart account; the
+ *  rest point to the document that books it. */
+export const BANK_CODE_KINDS = [
+  "tax",
+  "bank_fee",
+  "receipt",
+  "payment",
+  "transfer",
+  "loan",
+  "ignore",
+] as const;
+export type BankCodeKind = (typeof BANK_CODE_KINDS)[number];
+
+export const BANK_CODE_KIND_LABEL: Record<BankCodeKind, string> = {
+  tax: "Impuesto",
+  bank_fee: "Gasto bancario",
+  receipt: "Cobro de cliente",
+  payment: "Pago a proveedor",
+  transfer: "Transferencia entre cuentas",
+  loan: "Cuota de préstamo",
+  ignore: "No corresponde",
+};
+
+export function isBankCodeKind(value: unknown): value is BankCodeKind {
+  return (
+    typeof value === "string" &&
+    (BANK_CODE_KINDS as readonly string[]).includes(value)
+  );
+}
+
+/** The tax credits a bank debits (is_bank_tax_account in SQL): a line may
+ *  post to them, with taxes:write. */
+export const BANK_TAX_ROLES = [
+  "percepciones_iibb_pagadas",
+  "retenciones_pagadas",
+  "percepciones_ganancias",
+] as const;
+
+/** A tax or a bank fee is booked straight to its chart account. */
+export function bankCodePosts(kind: BankCodeKind): boolean {
+  return kind === "tax" || kind === "bank_fee";
+}
+
+export type BankStatementCode = {
+  id: string;
+  account_id: string;
+  bank_code: string;
+  /** Text the description contains; "" = the whole code. */
+  description_pattern: string;
+  kind: BankCodeKind;
+  chart_account_id: string | null;
+  /** "5.4.3 Impuesto a los débitos y créditos bancarios". */
+  chart_account_label: string | null;
+  label: string | null;
+};
+
+/** A chart account a tax or a fee can post to. */
+export type PostingAccount = {
+  id: string;
+  code: string;
+  name: string;
+  /** expense: a postable expense leaf; tax: a tax credit the bank debits. */
+  group: "expense" | "tax";
+};
+
+export const SaveBankStatementCodeSchema = z
+  .object({
+    id: z.string().uuid().nullable().optional(),
+    account_id: z.string().uuid(),
+    bank_code: z.string().trim().min(1, "Cargá el código.").max(20),
+    description_pattern: z.string().trim().max(80).default(""),
+    kind: z.enum(BANK_CODE_KINDS),
+    chart_account_id: z.string().uuid().nullable().optional(),
+    label: z
+      .string()
+      .trim()
+      .max(120)
+      .transform((v) => (v === "" ? null : v))
+      .nullable()
+      .optional(),
+  })
+  .superRefine((v, ctx) => {
+    if (!bankCodePosts(v.kind) && v.chart_account_id) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["chart_account_id"],
+        message: "Solo un impuesto o un gasto bancario lleva cuenta contable.",
+      });
+    }
+  });
+export type SaveBankStatementCodeInput = z.input<
+  typeof SaveBankStatementCodeSchema
+>;
+
+export const DeleteBankStatementCodeSchema = z.object({
+  id: z.string().uuid(),
+});
+
+export const BANK_CODE_PRESETS = ["macro"] as const;
+export type BankCodePreset = (typeof BANK_CODE_PRESETS)[number];
+
+export const PresetBankStatementCodesSchema = z.object({
+  account_id: z.string().uuid(),
+  preset: z.enum(BANK_CODE_PRESETS),
+});
+
+export const StatementCodingInputSchema = z.object({
+  account_id: z.string().uuid(),
+  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+});
+
+/** A client found by a CUIT in a line, as the receipt form takes it. */
+export type StatementClient = {
+  id: string;
+  cuit: string;
+  legal_name: string;
+  display_name: string | null;
+  iva_condition: IvaCondition | null;
+  is_fiscal: boolean;
+};
+
+/** What the page needs to propose each line: the account's codes, the
+ *  accounts a code can post to, and the clients whose CUIT is in a line. */
+export type StatementCoding = {
+  codes: BankStatementCode[];
+  posting_accounts: PostingAccount[];
+  clients: StatementClient[];
+  /** clients:read; without it no client is looked up. */
+  can_read_clients: boolean;
 };
