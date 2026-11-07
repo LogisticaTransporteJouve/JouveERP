@@ -1,16 +1,6 @@
 "use client";
 
-import {
-  ArrowDownCircle,
-  ArrowLeftRight,
-  ArrowUpCircle,
-  Link2,
-  MoreHorizontal,
-  Pencil,
-  Tags,
-  Trash2,
-  X,
-} from "lucide-react";
+import { Link2, MoreHorizontal, Pencil, Tags, Trash2, X } from "lucide-react";
 import Link from "next/link";
 import {
   Suspense,
@@ -72,7 +62,6 @@ import {
   isReconciledFilter,
   isTransactionKind,
   type TransactionFilters,
-  type TransactionKind,
 } from "../schema";
 import { EditTransactionDialog } from "./edit-transaction-dialog";
 import {
@@ -91,20 +80,6 @@ const ANY_KIND = "__any_kind__";
 const ANY_RECONCILED = "__any_reconciled__";
 
 // Money formatter centralizado en lib/format (formatMoney).
-
-const KIND_TONE: Record<TransactionKind, string> = {
-  income: "bg-muted text-muted-foreground dark:text-muted-foreground",
-  expense: "bg-muted text-foreground dark:text-foreground",
-  transfer_in: "bg-muted text-muted-foreground dark:text-muted-foreground",
-  transfer_out: "bg-muted text-muted-foreground dark:text-muted-foreground",
-};
-
-const KIND_ICON: Record<TransactionKind, typeof ArrowUpCircle> = {
-  income: ArrowDownCircle,
-  expense: ArrowUpCircle,
-  transfer_in: ArrowLeftRight,
-  transfer_out: ArrowLeftRight,
-};
 
 type RowActions = {
   canEdit: boolean;
@@ -162,24 +137,6 @@ function useTransactionColumns(
             {formatArgentineDate(row.original.transaction_date)}
           </span>
         ),
-      },
-      {
-        id: "kind",
-        header: "Tipo",
-        enableSorting: false,
-        meta: { headerClassName: "w-36", mobile: "secondary" },
-        cell: ({ row }) => {
-          const Icon = KIND_ICON[row.original.kind];
-          return (
-            <Badge
-              variant="secondary"
-              className={`gap-1 ${KIND_TONE[row.original.kind]}`}
-            >
-              <Icon className="size-3" />
-              {TRANSACTION_KIND_LABEL[row.original.kind]}
-            </Badge>
-          );
-        },
       },
       {
         id: "account_name",

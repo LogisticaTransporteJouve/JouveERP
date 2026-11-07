@@ -655,7 +655,7 @@ export const treasuryPage: GuidePage = {
       permission: "transactions:read",
       intro: [
         "Todos los movimientos de todas las cuentas, de los dos lados: ingresos, egresos y transferencias, los cargados a mano y los que generan los documentos (recibos, órdenes de pago, cheques, préstamos, sueldos, impuestos). Cada movimiento tiene un canal.",
-        "Columnas: {{Fecha}}, {{Tipo}} ({{Ingreso}}, {{Egreso}}, {{Transferencia (entra)}}, {{Transferencia (sale)}}), {{Cuenta}} (clic para filtrar por ella), {{Canal}}, {{Descripción}} (con el cliente si lo hay y la marca {{Conciliado}}) y {{Monto}} con signo. La lista carga más al bajar.",
+        "Columnas: {{Fecha}}, {{Cuenta}} (clic para abrir la cuenta), {{Canal}}, {{Descripción}} (con el cliente si lo hay y la marca {{Conciliado}}), {{Debe}} (lo que entra) y {{Haber}} (lo que sale). El tipo ({{Ingreso}}, {{Egreso}}, {{Transferencia (entra)}}, {{Transferencia (sale)}}) se filtra arriba. En la página de una cuenta se suma {{Saldo}}, el saldo después de cada movimiento. La lista carga más al bajar.",
         "Arriba están los mismos atajos que en el resumen ({{Cobrar a cliente}}, {{Pagar a proveedor}}, {{Adelanto a empleado}}, {{Préstamo a empleado}}; ver [[#tesoreria-resumen]]) y {{Nuevo movimiento}}.",
       ],
       screens: [
@@ -679,28 +679,28 @@ export const treasuryPage: GuidePage = {
           table: {
             columns: [
               "Fecha",
-              "Tipo",
               "Cuenta",
               "Canal",
               "Descripción",
-              "Monto",
+              "Debe",
+              "Haber",
             ],
             rows: [
               [
                 "04/11/2026",
-                "Egreso",
                 "Banco Galicia ARS",
                 "Jouve fiscal",
                 "Comisión mantenimiento",
-                "-$ 12.500,00",
+                "",
+                "$ 12.500,00",
               ],
               [
                 "03/11/2026",
-                "Ingreso",
                 "Caja chica",
                 "Jouve interno",
                 "Venta de chatarra",
-                "+$ 40.000,00",
+                "$ 40.000,00",
+                "",
               ],
             ],
             rowMenu: true,
