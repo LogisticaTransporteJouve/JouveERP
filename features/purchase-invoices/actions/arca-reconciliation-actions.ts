@@ -21,6 +21,13 @@ import {
 
 const DENIED = "No tenés permiso para ver los comprobantes recibidos de ARCA.";
 const FAILED = "No se pudo armar la conciliación con ARCA.";
+const TIMED_OUT =
+  "La conciliación con ARCA tardó demasiado en armarse. Probá de nuevo en un rato.";
+
+/** Postgres statement_timeout. */
+function failure(error: { code?: string }): string {
+  return error.code === "57014" ? TIMED_OUT : FAILED;
+}
 
 /** ARCA vs ERP totals per month (ARS, NC negative). */
 export async function getArcaReconciliationMonthsAction(): Promise<
@@ -35,7 +42,7 @@ export async function getArcaReconciliationMonthsAction(): Promise<
   );
   if (error) {
     logger.error("arca_reconciliation.months.failed", { error: error.message });
-    return { ok: false, error: FAILED };
+    return { ok: false, error: failure(error) };
   }
   const parsed = z.array(ReconciliationMonthSchema).safeParse(data ?? []);
   if (!parsed.success) {
@@ -68,7 +75,7 @@ export async function getArcaReconciliationDetailAction(
   );
   if (error) {
     logger.error("arca_reconciliation.detail.failed", { error: error.message });
-    return { ok: false, error: FAILED };
+    return { ok: false, error: failure(error) };
   }
   const parsed = z.array(ReconciliationIssueSchema).safeParse(data ?? []);
   if (!parsed.success) {
