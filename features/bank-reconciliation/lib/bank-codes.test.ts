@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import type { BankStatementCode, StatementClient } from "../schema";
 import {
   PROVINCIA_CODES,
+  findLoanInstallment,
+  suggestLoanSplit,
   conceptOf,
   cuitsIn,
   findBankCode,
@@ -16,6 +18,8 @@ const CUOTA_11 = {
   count: 12,
   due_date: "2026-11-03",
   amount: 1858377.66,
+  capital: 1725520.13,
+  iva: 12279.97,
 };
 
 function code(p: Partial<BankStatementCode>): BankStatementCode {
@@ -253,5 +257,38 @@ describe("own transfers", () => {
     );
     expect(p.kind).toBe("transfer");
     expect(p.label).toBe("Transferencia entre cuentas propias");
+  });
+});
+
+describe("a debit that is not the plan's amount (Provincia)", () => {
+  // 1573367/5, cuota of October: capital 470.281,22 by the plan; the bank
+  // charged interest by days (631.907,74) and 1,6 % of taxes on it.
+  const cuota = {
+    id: "c27",
+    loan_description: "Préstamo",
+    number: 27,
+    count: 60,
+    due_date: "2026-10-04",
+    amount: 1110965.45,
+    capital: 470281.22,
+    iva: 0,
+  };
+
+  it("still finds the cuota, within 10 %", () => {
+    expect(
+      findLoanInstallment({ amount: -1112299.46, line_date: "2026-10-05" }, [
+        cuota,
+      ])?.id,
+    ).toBe("c27");
+  });
+
+  it("suggests the plan's capital and the rest as interest", () => {
+    expect(suggestLoanSplit(1112299.46, cuota)).toEqual({
+      capital: 470281.22,
+      interest: 642018.24,
+      late_interest: 0,
+      iva: 0,
+      taxes: 0,
+    });
   });
 });

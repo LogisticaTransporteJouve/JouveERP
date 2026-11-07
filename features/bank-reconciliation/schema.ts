@@ -366,6 +366,9 @@ export type StatementLoanInstallment = {
   count: number;
   due_date: string;
   amount: number;
+  /** The plan's capital (the whole cuota when it has no split). */
+  capital: number;
+  iva: number;
 };
 
 export type StatementCoding = {
@@ -382,8 +385,22 @@ export type StatementCoding = {
   company_cuit: string | null;
 };
 
+const splitPart = z.number().min(0).max(1e12);
+
 export const PayLoanFromLineSchema = z.object({
   line_id: z.string().uuid(),
   installment_id: z.string().uuid(),
+  /** What the bank applied when the debit is not the plan's amount (interest
+   *  by days, punitorios, taxes): it must add up to the debit. */
+  split: z
+    .object({
+      capital: splitPart,
+      interest: splitPart,
+      late_interest: splitPart,
+      iva: splitPart,
+      taxes: splitPart,
+    })
+    .nullable()
+    .optional(),
 });
 export type PayLoanFromLineInput = z.infer<typeof PayLoanFromLineSchema>;

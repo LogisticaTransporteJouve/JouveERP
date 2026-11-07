@@ -99,7 +99,7 @@ async function readLoanInstallments(
   const { data, error } = await service
     .from("loan_installments")
     .select(
-      "id, number, due_date, amount, loan:loans!inner ( description, installments_count, account_id, status )",
+      "id, number, due_date, amount, capital_amount, iva_amount, loan:loans!inner ( description, installments_count, account_id, status )",
     )
     .eq("status", "pendiente")
     .eq("loan.account_id", accountId)
@@ -118,6 +118,8 @@ async function readLoanInstallments(
         count: loan.installments_count,
         due_date: i.due_date,
         amount: Number(i.amount),
+        capital: Number(i.capital_amount ?? i.amount),
+        iva: Number(i.iva_amount ?? 0),
       },
     ];
   });

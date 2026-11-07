@@ -30,6 +30,8 @@ import { ChartAccountDialog } from "@/features/chart-of-accounts/components/char
 import { useChartOfAccounts } from "@/features/chart-of-accounts/hooks/use-chart-of-accounts";
 import { CollectDialog } from "@/features/receipts/components/collect-dialog";
 
+import { PayLoanFromLineDialog } from "./pay-loan-from-line-dialog";
+
 import {
   useCreateLineTransaction,
   useMatchLineToReceipt,
@@ -112,6 +114,7 @@ export function LineProposalView({
   const create = useCreateLineTransaction();
   const matchToReceipt = useMatchLineToReceipt();
   const payLoan = usePayLoanFromLine();
+  const [splitting, setSplitting] = useState(false);
   const fiscal = useFiscalChannel();
   if (!proposal) return null;
 
@@ -160,6 +163,11 @@ export function LineProposalView({
           onClick={() => {
             const installment = proposal.installment;
             if (!installment) return;
+            // A debit of another amount is split first, as the bank did.
+            if (Math.abs(installment.amount + line.amount) > 0.005) {
+              setSplitting(true);
+              return;
+            }
             payLoan.mutate(
               { line_id: line.id, installment_id: installment.id },
               {
@@ -175,6 +183,14 @@ export function LineProposalView({
           <Check className="size-3.5" />
           Pagar cuota {proposal.installment.number}
         </Button>
+      )}
+      {splitting && proposal.installment && (
+        <PayLoanFromLineDialog
+          line={line}
+          installment={proposal.installment}
+          open={splitting}
+          onOpenChange={setSplitting}
+        />
       )}
       {gates.canCollect &&
         proposal.kind === "receipt" &&

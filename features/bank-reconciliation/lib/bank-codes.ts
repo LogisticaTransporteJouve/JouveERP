@@ -82,20 +82,44 @@ export function findLoanInstallment(
   line: Pick<StatementLine, "amount" | "line_date">,
   installments: readonly StatementLoanInstallment[],
 ): StatementLoanInstallment | null {
+  // The cuota a debit pays: due within a month of it, the same amount or
+  // the closest within 10 % (a bank charges the interest by days, and
+  // punitorios and taxes on top), and among equals the closest due date.
   const days = (a: string, b: string) =>
     Math.abs(Date.parse(a) - Date.parse(b)) / 86_400_000;
+  const debit = -line.amount;
   let best: StatementLoanInstallment | null = null;
+  let bestScore = Infinity;
   for (const i of installments) {
-    if (Math.abs(i.amount + line.amount) > 0.005) continue;
     if (days(i.due_date, line.line_date) > 31) continue;
-    if (
-      !best ||
-      days(i.due_date, line.line_date) < days(best.due_date, line.line_date)
-    ) {
+    const gap = Math.abs(i.amount - debit);
+    if (gap > i.amount * 0.1 + 0.005) continue;
+    const score = gap * 1000 + days(i.due_date, line.line_date);
+    if (score < bestScore) {
       best = i;
+      bestScore = score;
     }
   }
   return best;
+}
+
+/** How to split a debit that is not the cuota's amount: the plan's capital
+ *  and IVA, and the rest as interest; the user moves punitorios and taxes
+ *  out of it from the bank's detail of the cuota. */
+export function suggestLoanSplit(
+  debit: number,
+  installment: Pick<StatementLoanInstallment, "capital" | "iva">,
+) {
+  const round2 = (n: number) => Math.round(n * 100) / 100;
+  const capital = Math.min(installment.capital, debit);
+  const iva = Math.min(installment.iva, round2(debit - capital));
+  return {
+    capital,
+    interest: round2(debit - capital - iva),
+    late_interest: 0,
+    iva,
+    taxes: 0,
+  };
 }
 
 export function proposeLine(
