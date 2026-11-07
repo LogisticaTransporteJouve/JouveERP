@@ -182,6 +182,7 @@ export function TreasuryPage({
             )}
             {canPay && <PayDialog />}
             {canAdvance && <EmployeeCashDialog kind="advance" />}
+            {canAdvance && <EmployeeCashDialog kind="loan" />}
           </div>
         )}
       </div>
