@@ -14,13 +14,25 @@ import type { ActionResult } from "@/lib/query/run-action";
 import { applyFiscalFilter } from "@/lib/supabase/fiscal-filter";
 import { fetchInChunks, paginateRange } from "@/lib/supabase/paginate";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
+import { getServiceClient } from "@/lib/supabase/service";
 
 import { generateInstallments } from "@/lib/loans/amortization";
+import { fiscalYearMonths, fiscalYearOf } from "@/lib/fiscal-year";
+import { readFiscalYearStartMonth } from "@/lib/fiscal-year-settings";
+import { todayInAR } from "@/lib/format";
+import { z } from "zod";
+
+const BankPaymentsResultSchema = z.object({
+  inserted: z.number(),
+  booked: z.number(),
+});
 import { LOAN_CASH_PERMISSIONS } from "../lib/loan-cash";
 import {
   AdoptInstallmentPaymentSchema,
   CancelLoanSchema,
+  BookLoanOpeningSchema,
   CreateLoanSchema,
+  RecordBankPaymentsSchema,
   PayInstallmentSchema,
   RecordDisbursementSchema,
   UpdateInstallmentSchema,
@@ -318,7 +330,187 @@ export async function getLoanAction(
     })),
     Number(loan.principal),
   );
-  return { ok: true, data: { ...toListItem(loan, agg), installments } };
+  const [payments, opening, bookFrom] = await Promise.all([
+    supabase
+      .from("loan_bank_payments")
+      .select(
+        "id, receipt_number, paid_date, installment_number, total, capital, interest, late_interest, iva, iva_perception, iibb_perception, journal_entry_id",
+      )
+      .eq("loan_id", id)
+      .order("paid_date")
+      .order("receipt_number")
+      .limit(1000),
+    supabase
+      .from("loans")
+      .select("opening_journal_entry_id")
+      .eq("id", id)
+      .maybeSingle(),
+    fiscalYearBookFrom(ctx.userId),
+  ]);
+  if (payments.error || opening.error || !bookFrom.ok) {
+    logger.error("loans.detail.bank_payments_failed", {
+      userId: ctx.userId,
+      error: payments.error ?? opening.error,
+    });
+    return { ok: false, error: "No se pudo cargar el préstamo." };
+  }
+  return {
+    ok: true,
+    data: {
+      ...toListItem(loan, agg),
+      installments,
+      bank_payments: payments.data.map((p) => ({
+        ...p,
+        total: Number(p.total),
+        capital: Number(p.capital),
+        interest: Number(p.interest),
+        late_interest: Number(p.late_interest),
+        iva: Number(p.iva),
+        iva_perception: Number(p.iva_perception),
+        iibb_perception: Number(p.iibb_perception),
+      })),
+      opening_booked: opening.data?.opening_journal_entry_id != null,
+      book_from: bookFrom.data,
+    },
+  };
+}
+
+/** The first day of the earliest fiscal year still open: the one after the
+ *  last closed period, and never later than the previous fiscal year (the
+ *  one about to be closed). The bank receipts of a loan in course are
+ *  booked from then on; earlier years are closed. */
+async function fiscalYearBookFrom(
+  userId: string,
+): Promise<ActionResult<string>> {
+  const startMonth = await readFiscalYearStartMonth(userId);
+  if (!startMonth.ok) return startMonth;
+  const closed = await getServiceClient()
+    .from("accounting_closed_periods")
+    .select("period")
+    .order("period", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (closed.error) {
+    logger.error("loans.book_from.closed_failed", {
+      userId,
+      error: closed.error,
+    });
+    return { ok: false, error: "No se pudieron leer los períodos cerrados." };
+  }
+  const current = fiscalYearOf(todayInAR().slice(0, 7), startMonth.data);
+  const afterClosed = closed.data
+    ? fiscalYearOf(closed.data.period, startMonth.data) + 1
+    : current - 1;
+  const year = Math.min(current, Math.max(current - 1, afterClosed));
+  return {
+    ok: true,
+    data: `${fiscalYearMonths(year, startMonth.data)[0]}-01`,
+  };
+}
+
+/** Loads the bank's payment receipts of a loan (read from their PDFs in the
+ *  browser): stores them and books, without Caja, those of cuotas paid before
+ *  the loan was loaded within the current fiscal year. */
+export async function recordBankPaymentsAction(
+  input: unknown,
+): Promise<ActionResult<{ inserted: number; booked: number; other: number }>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.access, "accounting:write")) {
+    return { ok: false, error: "Sin permiso para cargar pagos de préstamos." };
+  }
+  const parsed = RecordBankPaymentsSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
+    };
+  }
+  const supabase = await createSupabaseClient();
+  const loan = await supabase
+    .from("loans")
+    .select("loan_number")
+    .eq("id", parsed.data.loan_id)
+    .maybeSingle();
+  if (loan.error || !loan.data) {
+    return { ok: false, error: "No se encontró el préstamo." };
+  }
+  const loanNumber = loan.data.loan_number;
+  if (!loanNumber) {
+    return {
+      ok: false,
+      error:
+        "Cargá el número de préstamo del banco: con él se sabe qué comprobantes son de este préstamo.",
+    };
+  }
+  const mine = parsed.data.payments.filter((p) => p.loan_number === loanNumber);
+  const other = parsed.data.payments.length - mine.length;
+  if (mine.length === 0) {
+    return {
+      ok: false,
+      error: `Ningún comprobante es del préstamo ${loanNumber}.`,
+    };
+  }
+  const bookFrom = await fiscalYearBookFrom(ctx.userId);
+  if (!bookFrom.ok) return bookFrom;
+  // The RPC is service-role only: the gate above is the authorization.
+  const { data, error } = await getServiceClient().rpc(
+    "record_loan_bank_payments",
+    {
+      p_loan_id: parsed.data.loan_id,
+      p_payments: mine.map(({ loan_number: _n, ...p }) => p),
+      p_book_from: bookFrom.data,
+      p_user_id: ctx.userId,
+    },
+  );
+  if (error || !data) {
+    const guardError = mapDbGuardError(error, {
+      slug: "loans.bank_payments.rejected",
+      userId: ctx.userId,
+    });
+    if (guardError) return { ok: false, error: guardError };
+    logger.error("loans.bank_payments.failed", { userId: ctx.userId, error });
+    return { ok: false, error: "No se pudieron cargar los comprobantes." };
+  }
+  const result = BankPaymentsResultSchema.safeParse(data);
+  if (!result.success) {
+    return { ok: false, error: "No se pudieron cargar los comprobantes." };
+  }
+  await logAudit(
+    "loan.bank_payments_recorded",
+    ctx.userId,
+    result.data,
+    parsed.data.loan_id,
+  );
+  return { ok: true, data: { ...result.data, other } };
+}
+
+/** Books the capital the loan owed at the start of the fiscal year. */
+export async function bookLoanOpeningAction(
+  input: unknown,
+): Promise<ActionResult> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.access, "accounting:write")) {
+    return { ok: false, error: "Sin permiso para registrar la deuda." };
+  }
+  const parsed = BookLoanOpeningSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Datos inválidos." };
+  const bookFrom = await fiscalYearBookFrom(ctx.userId);
+  if (!bookFrom.ok) return bookFrom;
+  const { error } = await getServiceClient().rpc("book_loan_opening", {
+    p_loan_id: parsed.data.loan_id,
+    p_date: bookFrom.data,
+  });
+  if (error) {
+    const guardError = mapDbGuardError(error, {
+      slug: "loans.opening.rejected",
+      userId: ctx.userId,
+    });
+    if (guardError) return { ok: false, error: guardError };
+    logger.error("loans.opening.failed", { userId: ctx.userId, error });
+    return { ok: false, error: "No se pudo registrar la deuda de apertura." };
+  }
+  await logAudit("loan.opening_booked", ctx.userId, {}, parsed.data.loan_id);
+  return { ok: true, data: undefined };
 }
 
 export async function createLoanAction(

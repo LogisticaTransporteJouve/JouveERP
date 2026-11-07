@@ -7,10 +7,7 @@ import "server-only";
 
 import { renderToBuffer } from "@react-pdf/renderer";
 
-import {
-  InvoiceDocument,
-  type InvoiceTemplateData,
-} from "./invoice-template";
+import { InvoiceDocument, type InvoiceTemplateData } from "./invoice-template";
 
 export async function renderInvoicePdf(
   data: InvoiceTemplateData,
