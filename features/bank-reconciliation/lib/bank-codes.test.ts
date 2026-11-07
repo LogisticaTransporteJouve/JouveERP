@@ -391,6 +391,21 @@ describe("Banco Galicia's codes", () => {
     );
   });
 
+  it("does not take a pattern inside another word", () => {
+    expect(labelOf("Debito Directo · RIVADAVIA SEGUROS")).toBeNull();
+  });
+
+  it("guesses no bank on a tie", () => {
+    expect(
+      detectBankPreset([
+        { bank_code: null, description: "Iva" },
+        { bank_code: null, description: "Percep. Iva" },
+        { bank_code: null, description: "IMPUESTO DEBITO - LEY 25413" },
+        { bank_code: null, description: "RETENCION ARBA" },
+      ]),
+    ).toBeNull();
+  });
+
   it("knows a Galicia statement", () => {
     expect(
       detectBankPreset([
@@ -449,6 +464,8 @@ describe("findCardStatement", () => {
     total_usd: 8.04,
     ars_pending: true,
     usd_pending: true,
+    undefined_ars: 0,
+    undefined_usd: 0,
   };
 
   it("pays the pesos with the debit of their total", () => {
@@ -475,6 +492,19 @@ describe("findCardStatement", () => {
         [visa],
       )?.currency,
     ).toBe("USD");
+  });
+
+  it("never takes a small peso debit as the dollars", () => {
+    expect(
+      findCardStatement(
+        {
+          amount: -12301.2,
+          line_date: "2026-11-11",
+          description: "Pago Visa Empresa",
+        },
+        [visa],
+      ),
+    ).toBeNull();
   });
 
   it("finds nothing for another amount in pesos", () => {
@@ -518,6 +548,15 @@ describe("findCarteraCheck", () => {
         cartera,
       )?.id,
     ).toBe("b");
+  });
+
+  it("never takes another cheque when the line names its number", () => {
+    expect(
+      findCarteraCheck(
+        { amount: 649643, description: "G.de Echeq   Q55555555 Bol1" },
+        [c("b", "00001763", 649643)],
+      ),
+    ).toBeNull();
   });
 
   it("does not guess between cheques of the same amount", () => {

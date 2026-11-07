@@ -39,8 +39,12 @@ export function DestinationPicker({
   allowAdvance?: boolean;
   disabled?: boolean;
 }) {
+  // «No corresponde» stays readable on an old line but is not offered: the
+  // bank charged it, so the payment has to book it somewhere.
   const treatments = CARD_TREATMENTS.filter(
-    (t) => allowAdvance || t !== "advance",
+    (t) =>
+      (allowAdvance || t !== "advance" || value.treatment === "advance") &&
+      (t !== "ignore" || value.treatment === "ignore"),
   );
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -52,7 +56,7 @@ export function DestinationPicker({
           onChange({ treatment: v, chart_account_id: null, employee_id: null })
         }
       >
-        <SelectTrigger className="h-8 w-44">
+        <SelectTrigger className="h-8 w-44" aria-label="Qué es">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>

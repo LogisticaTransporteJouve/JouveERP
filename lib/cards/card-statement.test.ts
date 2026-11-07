@@ -89,6 +89,13 @@ describe("parseCardStatement", () => {
     expect(r.ok).toBe(false);
   });
 
+  it("refuses a dollar total that is not its purchases", () => {
+    const carried = STATEMENT.map((l) =>
+      l === "4.746.236,89 2,98" ? "4.746.236,89 10,00" : l,
+    );
+    expect(parseCardStatement(carried).ok).toBe(false);
+  });
+
   it("says when the text is not a card statement", () => {
     expect(parseCardStatement(["Comprobante final"]).ok).toBe(false);
   });

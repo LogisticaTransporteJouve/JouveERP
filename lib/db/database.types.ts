@@ -11790,6 +11790,10 @@ export type Database = {
         Args: { p_line_id: string; p_user_id: string }
         Returns: undefined
       }
+      unsettle_card_statement: {
+        Args: { p_currency: string; p_statement_id: string; p_user_id: string }
+        Returns: number
+      }
       unpost_driver_settlement_difference: {
         Args: {
           p_allow_driver?: boolean

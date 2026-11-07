@@ -255,6 +255,14 @@ export function parseCardStatement(
       error: `Los consumos y cargos leídos suman ${sum} y el resumen dice ${totalArs}: revisalo a mano.`,
     };
   }
+  const totalUsd = totals[1] ? money(totals[1]) : 0;
+  const usdSum = round2(cards.reduce((t, c) => t + c.total_usd, 0));
+  if (usdSum !== totalUsd) {
+    return {
+      ok: false,
+      error: `Los consumos en dólares suman ${usdSum} y el resumen dice ${totalUsd}: revisalo a mano.`,
+    };
+  }
   return {
     ok: true,
     statement: {
@@ -263,7 +271,7 @@ export function parseCardStatement(
       close_date: closeDate,
       due_date: dueDate,
       total_ars: totalArs,
-      total_usd: totals[1] ? money(totals[1]) : 0,
+      total_usd: totalUsd,
       previous_ars: previous[0] ? money(previous[0]) : 0,
       previous_usd: previous[1] ? money(previous[1]) : 0,
       cards,

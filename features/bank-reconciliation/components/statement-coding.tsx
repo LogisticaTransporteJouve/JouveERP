@@ -27,7 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ChartAccountDialog } from "@/features/chart-of-accounts/components/chart-account-dialog";
-import { useAccountsList } from "@/features/accounts/hooks/use-accounts";
+import { useAccountOptions } from "@/features/accounts/hooks/use-accounts";
 import { useChartOfAccounts } from "@/features/chart-of-accounts/hooks/use-chart-of-accounts";
 import { CollectDialog } from "@/features/receipts/components/collect-dialog";
 
@@ -161,6 +161,11 @@ export function LineProposalView({
   const payLoan = usePayLoanFromLine();
   const matchLine = useMatchLine();
   const payCard = usePayCardFromLine();
+  const cardUndefined = proposal?.card
+    ? proposal.card.currency === "USD"
+      ? proposal.card.statement.undefined_usd
+      : proposal.card.statement.undefined_ars
+    : 0;
   const depositCheck = useDepositCheckFromLine();
   const [splitting, setSplitting] = useState(false);
   const fiscal = useFiscalChannel();
@@ -232,7 +237,7 @@ export function LineProposalView({
           Pagar cuota {proposal.installment.number}
         </Button>
       )}
-      {gates.canWrite && proposal.cartera_check && (
+      {gates.canDepositChecks && proposal.cartera_check && (
         <Button
           type="button"
           size="sm"
@@ -254,16 +259,25 @@ export function LineProposalView({
           Depositar cheque {proposal.cartera_check.check_number}
         </Button>
       )}
-      {gates.canWrite && proposal.kind === "transfer" && (
-        <OwnTransfer line={line} accountId={accountId} />
+      {gates.canTreasuryWrite && proposal.kind === "transfer" && (
+        <OwnTransfer
+          line={line}
+          accountId={accountId}
+          canReadAccounts={gates.canReadAccounts}
+        />
       )}
-      {gates.canWrite && proposal.card && (
+      {gates.canTreasuryWrite && proposal.card && cardUndefined > 0 && (
+        <span className="text-muted-foreground text-xs">
+          Faltan {cardUndefined} consumos por definir en Tesorería › Tarjetas.
+        </span>
+      )}
+      {gates.canTreasuryWrite && proposal.card && (
         <Button
           type="button"
           size="sm"
           variant="outline"
           className="h-7"
-          disabled={payCard.isPending}
+          disabled={payCard.isPending || cardUndefined > 0}
           onClick={() =>
             payCard.mutate(
               {
@@ -274,7 +288,7 @@ export function LineProposalView({
               {
                 onSuccess: ({ movements }) =>
                   toast.success(
-                    `Resumen pagado: ${movements} movimientos (gastos y adelantos) conciliados.`,
+                    `${proposal.card!.currency === "USD" ? "Dólares" : "Pesos"} del resumen pagados: ${movements} movimientos (gastos y adelantos) conciliados.`,
                   ),
                 onError: (err) => toast.error(err.message),
               },
@@ -618,7 +632,7 @@ export function BankCodesDialog({
                         {c.bank_code || "Por texto"}
                         {c.description_pattern && (
                           <span className="text-muted-foreground block font-sans">
-                            contiene «{c.description_pattern}»
+                            dice «{c.description_pattern}»
                           </span>
                         )}
                       </td>
@@ -733,8 +747,8 @@ function CodeForm({
         <div className="space-y-1.5">
           <Label htmlFor="code-pattern">
             {v.bank_code.trim() === ""
-              ? "El concepto contiene"
-              : "Solo si la descripción contiene (opcional)"}
+              ? "El concepto dice (palabras enteras)"
+              : "Solo si la descripción dice (palabras enteras, opcional)"}
           </Label>
           <Input
             id="code-pattern"
@@ -877,11 +891,13 @@ function NewChartAccount({ onClose }: { onClose: () => void }) {
 function OwnTransfer({
   line,
   accountId,
+  canReadAccounts,
 }: {
   line: StatementLine;
   accountId: string;
+  canReadAccounts: boolean;
 }) {
-  const { data: accounts } = useAccountsList();
+  const { accounts } = useAccountOptions(canReadAccounts);
   const transfer = useTransferFromLine();
   const [other, setOther] = useState("");
   const own = accounts.find((a) => a.id === accountId);

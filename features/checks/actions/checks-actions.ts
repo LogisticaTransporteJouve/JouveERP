@@ -1,6 +1,7 @@
 "use server";
 
 import { logAudit } from "@/lib/actions/audit";
+import { creditCheck } from "@/lib/commands/credit-check";
 import { createManualCheck } from "@/lib/commands/create-manual-check";
 import { depositCheck } from "@/lib/commands/deposit-check";
 import type { ActionResult } from "@/lib/query/run-action";
@@ -309,31 +310,7 @@ export async function creditCheckAction(
       error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
     };
   }
-  const data = parsed.data;
-
-  const supabase = await createSupabaseClient();
-  const { data: id, error } = await supabase.rpc("credit_check", {
-    p_check_id: data.check_id,
-    p_event_date: data.event_date,
-    p_notes: data.notes ?? "",
-  });
-  if (error) {
-    const guard = mapDbGuardError(error, {
-      slug: "cheques.credit.rejected",
-      userId: ctx.userId,
-      id: data.check_id,
-    });
-    if (guard) return { ok: false, error: guard };
-    logger.error("cheques.credit.failed", {
-      userId: ctx.userId,
-      check_id: data.check_id,
-      error,
-    });
-    return { ok: false, error: "No se pudo acreditar el cheque." };
-  }
-
-  await logAudit("check.credited", ctx.userId, {}, data.check_id);
-  return { ok: true, data: { movement_id: id as string } };
+  return creditCheck(ctx.userId, parsed.data);
 }
 
 export async function rejectCheckAction(

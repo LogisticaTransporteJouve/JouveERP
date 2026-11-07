@@ -919,6 +919,15 @@ const AUDIT_ACTIONS: Record<string, Spec> = {
     group: "treasury",
     say: (c) => `borró el resumen de tarjeta ${str(c.p.number) ?? ""}`.trim(),
   },
+  "card_statement.lines_updated": {
+    group: "treasury",
+    say: () => "cambió qué son consumos de un resumen de tarjeta",
+  },
+  "card_statement.unsettled": {
+    group: "treasury",
+    say: (c) =>
+      `deshizo el pago de ${c.p.currency === "USD" ? "los dólares" : "los pesos"} de un resumen de tarjeta`,
+  },
   "card_holder.updated": {
     group: "treasury",
     say: (c) =>

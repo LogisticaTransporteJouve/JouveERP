@@ -10,6 +10,7 @@ import {
 import { createReceipt } from "@/lib/commands/create-receipt";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
+import { fetchInChunks } from "@/lib/supabase/paginate";
 import { getServiceClient } from "@/lib/supabase/service";
 import { readUploadedTable } from "@/lib/tables/read-upload";
 
@@ -102,20 +103,30 @@ async function prepare(formData: FormData): Promise<
   const toLoad = echeqsToLoad(parsed.cheques, from);
 
   const cuits = [...new Set(toLoad.map((c) => c.client_cuit).filter(Boolean))];
+  // A cheque may be stored as the listado writes it, without its zeros or
+  // padded to 8 digits (loaded by hand).
+  const numbers = [
+    ...new Set(
+      toLoad.flatMap((c) => {
+        const n = digits(c.check_number);
+        return [c.check_number, n, n.padStart(8, "0")];
+      }),
+    ),
+  ];
   const [clients, checks] = await Promise.all([
-    service
-      .from("clients")
-      .select("id, cuit")
-      .in("cuit", cuits.length ? cuits : ["-"])
-      .eq("is_fiscal", true),
-    service
-      .from("checks")
-      .select("check_number, amount")
-      .in("check_number", [
-        ...new Set(
-          toLoad.flatMap((c) => [c.check_number, digits(c.check_number)]),
-        ),
-      ]),
+    fetchInChunks(cuits, (chunk) =>
+      service
+        .from("clients")
+        .select("id, cuit")
+        .in("cuit", chunk)
+        .eq("is_fiscal", true),
+    ),
+    fetchInChunks(numbers, (chunk) =>
+      service
+        .from("checks")
+        .select("check_number, amount")
+        .in("check_number", chunk),
+    ),
   ]);
   if (clients.error || checks.error) {
     return {

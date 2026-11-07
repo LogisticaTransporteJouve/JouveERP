@@ -92,11 +92,24 @@ export function parseEcheqListado(
         "Al listado le faltan columnas (número, cliente, importe, fechas o estado).",
     };
   }
-  const endorsements = header.flatMap((c, i) =>
+  // Each endorsement: its «Beneficiario», then that block's CUIT and «Fecha»
+  // columns, found by title up to the next endorsement.
+  const starts = header.flatMap((c, i) =>
     c === "beneficiario" && groupOf(i).startsWith("historial de endosos")
       ? [i]
       : [],
   );
+  const endorsements = starts.map((b, k) => {
+    const end = starts[k + 1] ?? header.length;
+    const within = (pred: (c: string) => boolean) => {
+      for (let j = b + 1; j < end; j++) if (pred(header[j]!)) return j;
+      return -1;
+    };
+    return {
+      cuit: within((c) => c.startsWith("cuit")),
+      date: within((c) => c === "fecha"),
+    };
+  });
   const company = companyCuit.replace(/\D/g, "");
 
   const cheques: ListedEcheq[] = [];
@@ -106,11 +119,12 @@ export function parseEcheqListado(
     const due = isoDate(r[at.due] ?? "");
     const issue = isoDate(r[at.issue] ?? "");
     if (!number || amount === null || !due || !issue) continue;
-    // The endorsement to the company: «Beneficiario», its CUIT, …, «Fecha».
+    // The endorsement to the company.
     let received: string | null = null;
-    for (const b of endorsements) {
-      const cuit = (r[b + 1] ?? "").replace(/\D/g, "");
-      const date = isoDate(r[b + 4] ?? "");
+    for (const e of endorsements) {
+      if (e.cuit < 0 || e.date < 0) continue;
+      const cuit = (r[e.cuit] ?? "").replace(/\D/g, "");
+      const date = isoDate(r[e.date] ?? "");
       if (cuit === company && date) received = date;
     }
     // A cheque issued to the company itself («Recibido de» is the company)

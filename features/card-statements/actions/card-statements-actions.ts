@@ -2,7 +2,16 @@
 
 import { logAudit } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
-import { TREASURY_PERMISSIONS, userCanAll } from "@/lib/auth/permissions";
+import { BANK_TAX_ROLES } from "@/features/bank-reconciliation/schema";
+import {
+  TREASURY_PERMISSIONS,
+  TREASURY_WRITE_PERMISSIONS,
+  userCan,
+  userCanAll,
+  type Access,
+} from "@/lib/auth/permissions";
+import { cardPartDenied } from "@/lib/cards/card-permissions";
+import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { getServiceClient } from "@/lib/supabase/service";
@@ -11,6 +20,8 @@ import {
   CreateCardStatementSchema,
   DeleteCardStatementSchema,
   SetCardHolderSchema,
+  UnsettleCardStatementSchema,
+  statementAddsUp,
   SetCardLinesSchema,
   isCardStatementStatus,
   isCardTreatment,
@@ -20,15 +31,16 @@ import {
 
 const READ_DENIED = "Sin permiso para ver tarjetas.";
 const WRITE_DENIED = "Sin permiso para cargar resúmenes de tarjeta.";
-// Reading and paying a card statement moves treasury money: the treasury
-// permissions (transactions read and write, accounts read).
-const canWrite = (access: Parameters<typeof userCanAll>[0]) =>
-  userCanAll(access, TREASURY_PERMISSIONS);
+const ADVANCE_DENIED =
+  "Sin permiso para imputar adelantos de sueldo (hace falta permiso de Personal).";
+const canRead = (access: Access) => userCanAll(access, TREASURY_PERMISSIONS);
+const canWrite = (access: Access) =>
+  userCanAll(access, TREASURY_WRITE_PERMISSIONS);
 
 type Service = ReturnType<typeof getServiceClient>;
 
 /** Where each charge of the bank goes by default (by system role or code);
- *  sellos and anything unknown are left for the user. */
+ *  a charge of a kind not listed is left for the user. */
 const CHARGE_ACCOUNT: Record<string, { role: string } | { code: string }> = {
   iva: { role: "iva_credito" },
   iva_perception: { role: "percepciones_iva_pagadas" },
@@ -79,7 +91,7 @@ export async function listCardStatementsAction(): Promise<
   ActionResult<CardStatementListItem[]>
 > {
   const ctx = await requireUserContext();
-  if (!canWrite(ctx.access)) return { ok: false, error: READ_DENIED };
+  if (!canRead(ctx.access)) return { ok: false, error: READ_DENIED };
   const { data, error } = await getServiceClient()
     .from("card_statements")
     .select(STATEMENT_COLUMNS)
@@ -96,7 +108,7 @@ export async function getCardStatementAction(
   id: string,
 ): Promise<ActionResult<CardStatementDetail>> {
   const ctx = await requireUserContext();
-  if (!canWrite(ctx.access)) return { ok: false, error: READ_DENIED };
+  if (!canRead(ctx.access)) return { ok: false, error: READ_DENIED };
   const parsed = DeleteCardStatementSchema.safeParse({ id });
   if (!parsed.success) return { ok: false, error: "Datos inválidos." };
   const service = getServiceClient();
@@ -133,19 +145,20 @@ export async function getCardStatementAction(
       .from("chart_of_accounts")
       .select("id, code, name")
       .eq("is_active", true)
-      .in("system_role", [
-        "iva_credito",
-        "percepciones_iva_pagadas",
-        "percepciones_iibb_pagadas",
-        "percepciones_ganancias",
-        "retenciones_pagadas",
-      ])
+      .in("system_role", [...BANK_TAX_ROLES])
       .order("code"),
-    service
-      .from("employees")
-      .select("id, legal_name")
-      .order("legal_name")
-      .limit(1000),
+    // Employees only for whoever may see them (Personal).
+    userCan(ctx.access, "hr:read")
+      ? service
+          .from("employees")
+          .select("id, legal_name")
+          .eq("is_active", true)
+          .order("legal_name")
+          .limit(1000)
+      : Promise.resolve({
+          data: [] as { id: string; legal_name: string }[],
+          error: null,
+        }),
   ]);
   if (
     lines.error ||
@@ -229,6 +242,13 @@ export async function createCardStatementAction(
     };
   }
   const { pay_account_id, statement: s } = parsed.data;
+  if (!statementAddsUp(s)) {
+    return {
+      ok: false,
+      error:
+        "Los consumos y cargos del resumen no suman sus totales: revisá el PDF.",
+    };
+  }
   const accountNumber = s.account_number ?? "—";
   const service = getServiceClient();
 
@@ -386,6 +406,9 @@ export async function setCardLinesAction(
     };
   }
   const d = parsed.data;
+  if (d.treatment === "advance" && !userCan(ctx.access, "hr:write")) {
+    return { ok: false, error: ADVANCE_DENIED };
+  }
   const service = getServiceClient();
   const blocked = await assertEditable(service, d.statement_id);
   if (blocked) return { ok: false, error: blocked };
@@ -406,6 +429,12 @@ export async function setCardLinesAction(
     logger.error("cards.lines_update_failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudieron cambiar los consumos." };
   }
+  await logAudit(
+    "card_statement.lines_updated",
+    ctx.userId,
+    { treatment: d.treatment, lines: data.length },
+    d.statement_id,
+  );
   return { ok: true, data: { updated: data.length } };
 }
 
@@ -424,6 +453,9 @@ export async function setCardHolderAction(
     };
   }
   const d = parsed.data;
+  if (d.treatment === "advance" && !userCan(ctx.access, "hr:write")) {
+    return { ok: false, error: ADVANCE_DENIED };
+  }
   const service = getServiceClient();
   const st = await service
     .from("card_statements")
@@ -507,4 +539,59 @@ export async function deleteCardStatementAction(
     data.id,
   );
   return { ok: true, data: { id: data.id } };
+}
+
+/** Undoes the payment of a part (pesos or dollars) booked by mistake: its
+ *  bank line goes back to pending, its expenses and advances are deleted
+ *  and its lines can be changed again. */
+export async function unsettleCardStatementAction(
+  input: unknown,
+): Promise<ActionResult<{ movements: number }>> {
+  const ctx = await requireUserContext();
+  if (!canWrite(ctx.access)) return { ok: false, error: WRITE_DENIED };
+  const parsed = UnsettleCardStatementSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Datos inválidos." };
+  const d = parsed.data;
+  const service = getServiceClient();
+  const [lines, taxes] = await Promise.all([
+    service
+      .from("card_statement_lines")
+      .select("treatment, chart_account_id")
+      .eq("statement_id", d.id)
+      .eq("currency", d.currency),
+    service
+      .from("chart_of_accounts")
+      .select("id")
+      .in("system_role", [...BANK_TAX_ROLES]),
+  ]);
+  if (lines.error || taxes.error) {
+    return { ok: false, error: "No se pudo leer el resumen." };
+  }
+  const denied = cardPartDenied(
+    ctx.access,
+    lines.data,
+    new Set(taxes.data.map((t) => t.id)),
+  );
+  if (denied) return { ok: false, error: denied };
+  const { data, error } = await service.rpc("unsettle_card_statement", {
+    p_statement_id: d.id,
+    p_currency: d.currency,
+    p_user_id: ctx.userId,
+  });
+  if (error || data === null) {
+    const guard = mapDbGuardError(error, {
+      slug: "cards.unsettle.rejected",
+      userId: ctx.userId,
+    });
+    if (guard) return { ok: false, error: guard };
+    logger.error("cards.unsettle_failed", { userId: ctx.userId, error });
+    return { ok: false, error: "No se pudo deshacer el pago." };
+  }
+  await logAudit(
+    "card_statement.unsettled",
+    ctx.userId,
+    { currency: d.currency, movements: data },
+    d.id,
+  );
+  return { ok: true, data: { movements: data } };
 }

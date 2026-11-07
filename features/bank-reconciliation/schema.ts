@@ -428,6 +428,10 @@ export type StatementCardStatement = {
   total_usd: number;
   ars_pending: boolean;
   usd_pending: boolean;
+  /** Lines of each part still to define (no account or employee, or «no
+   *  corresponde»): the payment waits for them. */
+  undefined_ars: number;
+  undefined_usd: number;
 };
 
 /** A cheque in a cartera: a deposit credit of its amount takes it to the bank. */

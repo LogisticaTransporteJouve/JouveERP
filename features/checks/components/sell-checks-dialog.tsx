@@ -39,11 +39,8 @@ function amountOf(value: string): number {
   return n !== null && n >= 0 ? n : NaN;
 }
 
-/**
- * Venta de cheques (descuento) to a bank or financiera: the selected cartera
- * checks leave as vendido, the net lands in the chosen account and the
- * interest and commission are recorded as financial expense.
- */
+/** From a bank's discount receipt: who bought the cheques, when, a note,
+ *  and the destination account by name. */
 export type SellPrefill = {
   buyer_name: string;
   buyer_cuit: string;
@@ -53,6 +50,11 @@ export type SellPrefill = {
   account_name?: string;
 };
 
+/**
+ * Venta de cheques (descuento) to a bank or financiera: the selected cartera
+ * checks leave as vendido, the net lands in the chosen account and the
+ * interest and commission are recorded as financial expense.
+ */
 export function SellChequesDialog({
   checks,
   channels,

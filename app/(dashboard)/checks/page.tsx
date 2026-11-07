@@ -54,7 +54,7 @@ export default async function ChequesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">Cheques</h1>
           <p className="text-sm text-muted-foreground">

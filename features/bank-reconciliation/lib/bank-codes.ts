@@ -513,11 +513,12 @@ export function detectBankPreset(
       if (patterns.some((p) => hasWords(d, p))) add(preset);
     }
   }
-  let best: BankCodePreset | null = null;
-  for (const [preset, n] of hits) {
-    if (n >= 2 && (!best || n > (hits.get(best) ?? 0))) best = preset;
-  }
-  return best;
+  // A clear winner only: generic words («IVA», «COMISION») of one bank can
+  // appear on another's statement.
+  const ranked = [...hits].sort((a, b) => b[1] - a[1]);
+  const [first, second] = ranked;
+  if (!first || first[1] < 2 || (second && second[1] === first[1])) return null;
+  return first[0];
 }
 
 /** Banco Galicia has no code either: its concepts, as the home banking
@@ -735,35 +736,35 @@ export function findSaleTransfers(
 }
 
 /** The card statement a payment debit pays: the pesos of one whose total
- *  is the debit, else the dollars of the closest one due within 45 days
- *  (the bank debits them apart, at its rate: «SALDO EN USD COTIZACION»). */
+ *  is the debit, or the dollars of the closest one due within 45 days when
+ *  the debit says it is in dollars. */
 export function findCardStatement(
   line: Pick<StatementLine, "amount" | "line_date" | "description">,
   statements: readonly StatementCardStatement[],
 ): { statement: StatementCardStatement; currency: "ARS" | "USD" } | null {
   const debit = Math.round(-line.amount * 100);
+  // The dollars come as their own debit, which says so («SALDO EN USD
+  // COTIZACION …»): its amount is the bank's conversion, so it cannot match
+  // a total and is told apart by its text only.
+  if (/USD|DOLAR/i.test(line.description)) {
+    const days = (s: StatementCardStatement) =>
+      Math.abs(Date.parse(s.due_date) - Date.parse(line.line_date)) /
+      86_400_000;
+    const usd = statements
+      .filter((s) => s.usd_pending && days(s) <= 45)
+      .sort((a, b) => days(a) - days(b))[0];
+    return usd ? { statement: usd, currency: "USD" } : null;
+  }
   const ars = statements.find(
     (s) => s.ars_pending && Math.round(s.total_ars * 100) === debit,
   );
-  if (ars) return { statement: ars, currency: "ARS" };
-  const days = (s: StatementCardStatement) =>
-    Math.abs(Date.parse(s.due_date) - Date.parse(line.line_date)) / 86_400_000;
-  const usd = statements
-    .filter((s) => s.usd_pending && days(s) <= 45)
-    .sort((a, b) => days(a) - days(b))[0];
-  // A dollar debit says so, or is far below any total in pesos.
-  if (
-    usd &&
-    (/USD|DOLAR/i.test(line.description) || debit < usd.total_ars * 100 * 0.1)
-  ) {
-    return { statement: usd, currency: "USD" };
-  }
-  return null;
+  return ars ? { statement: ars, currency: "ARS" } : null;
 }
 
 /** The cartera cheque a deposit credit is: the number the bank writes in the
  *  line («G.de Echeq Q10365334», «G. De Echeq Galicia Q 1763») and its
- *  amount; by the amount alone when only one cheque has it. */
+ *  amount; by the amount alone only when the line names no number and one
+ *  cheque has it. */
 export function findCarteraCheck(
   line: Pick<StatementLine, "amount" | "description">,
   checks: readonly StatementCarteraCheck[],
@@ -774,7 +775,10 @@ export function findCarteraCheck(
   const numbers = [
     ...line.description.matchAll(/(?:Q|Nro\.?)\s*0*(\d{3,})/gi),
   ].map((m) => digits(m[1]!));
-  const byNumber = same.find((c) => numbers.includes(digits(c.check_number)));
-  if (byNumber) return byNumber;
+  // A line that names its cheque is that cheque or none: another cheque of
+  // the same amount is not it.
+  if (numbers.length > 0) {
+    return same.find((c) => numbers.includes(digits(c.check_number))) ?? null;
+  }
   return same.length === 1 ? same[0]! : null;
 }

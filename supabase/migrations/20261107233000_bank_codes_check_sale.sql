@@ -5,8 +5,8 @@ SET LOCAL statement_timeout = '15min';
 -- Descuento Documento»): the line is reconciled with the transfers of the
 -- cheques sold to the bank (sell_checks), one credit per «N° de préstamo».
 --
--- Rollback: older code does not know the kind and shows the line as a code
--- it cannot act on; nothing posts.
+-- Rollback: older code drops a code of a kind it does not know, so its
+-- lines show as without a code; nothing posts.
 
 alter table public.bank_statement_codes
   -- squawk-ignore ban-drop-constraint
@@ -39,3 +39,6 @@ as $$
 $$;
 
 revoke all on function public.is_bank_tax_account(uuid) from public, anon, authenticated;
+
+comment on function public.is_bank_tax_account(uuid) is
+  'Cuentas de impuestos a favor que el banco debita (percepciones y recaudaciones de IIBB, retenciones, pagos a cuenta de Ganancias, IVA crédito fiscal y percepciones de IVA): una línea del extracto (o el pago de una tarjeta) puede imputarse a ellas.';

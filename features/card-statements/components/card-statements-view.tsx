@@ -46,7 +46,15 @@ import { CARD_STATUS_LABEL } from "../schema";
 
 import { CardStatementDetailView } from "./card-statement-detail";
 
-export function CardStatementsView() {
+export function CardStatementsView({
+  canWrite,
+  canAdvance,
+}: {
+  /** Treasury write: load, define, delete and undo statements. */
+  canWrite: boolean;
+  /** Personal's write too: a purchase may be a salary advance. */
+  canAdvance: boolean;
+}) {
   const { data: statements } = useCardStatements();
   const { data: accounts } = useAccountsList();
   const create = useCreateCardStatement();
@@ -56,17 +64,21 @@ export function CardStatementsView() {
   );
   const [read, setRead] = useState<CardStatement | null>(null);
   const [payAccount, setPayAccount] = useState("");
+  const [reading, setReading] = useState(false);
   const banks = accounts.filter(
     (a) => a.is_active && a.type === "bank" && a.currency === "ARS",
   );
 
   async function onFile(file: File) {
     let lines: string[];
+    setReading(true);
     try {
       lines = await readPdfLines(file);
     } catch {
       toast.error("No se pudo leer el PDF.");
       return;
+    } finally {
+      setReading(false);
     }
     const parsed = parseCardStatement(lines);
     if (!parsed.ok) {
@@ -136,10 +148,12 @@ export function CardStatementsView() {
             if (f) void onFile(f);
           }}
         />
-        <Button onClick={() => input.current?.click()}>
-          <FileUp />
-          Subir resumen
-        </Button>
+        {canWrite && (
+          <Button disabled={reading} onClick={() => input.current?.click()}>
+            <FileUp />
+            {reading ? "Leyendo…" : "Subir resumen"}
+          </Button>
+        )}
       </div>
 
       {statements.length === 0 ? (
@@ -191,6 +205,8 @@ export function CardStatementsView() {
         <CardStatementDetailView
           id={selected}
           onDeleted={() => setSelected(null)}
+          canWrite={canWrite}
+          canAdvance={canAdvance}
         />
       )}
 

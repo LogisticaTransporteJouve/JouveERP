@@ -6,7 +6,12 @@ import { listCardStatementsAction } from "@/features/card-statements/actions/car
 import { CardStatementsView } from "@/features/card-statements/components/card-statements-view";
 import { cardStatementsKeys } from "@/features/card-statements/lib/card-statements-keys";
 import { requireUserContext } from "@/lib/auth/context";
-import { TREASURY_PERMISSIONS, userCanAll } from "@/lib/auth/permissions";
+import {
+  TREASURY_PERMISSIONS,
+  TREASURY_WRITE_PERMISSIONS,
+  userCan,
+  userCanAll,
+} from "@/lib/auth/permissions";
 import { Hydrate } from "@/lib/query/hydrate";
 import { prefetchQueries } from "@/lib/query/prefetch";
 import { runAction } from "@/lib/query/run-action";
@@ -30,7 +35,13 @@ export default async function CardStatementsRoute() {
   ]);
   return (
     <Hydrate state={dehydratedState}>
-      <CardStatementsView />
+      <CardStatementsView
+        canWrite={userCanAll(ctx.access, TREASURY_WRITE_PERMISSIONS)}
+        canAdvance={
+          userCanAll(ctx.access, TREASURY_WRITE_PERMISSIONS) &&
+          userCan(ctx.access, "hr:write")
+        }
+      />
     </Hydrate>
   );
 }

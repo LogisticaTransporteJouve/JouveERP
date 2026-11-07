@@ -1492,7 +1492,7 @@ function statementAmount(
 
 /** The bank's description, plus who sent or got the money when the bank
  *  keeps it apart (Galicia: «Transferencia De Terceros» · «ZUNINO/SEBASTIAN
- *  GABRIEL» · «20281430867»), so the line reads whole and its CUIT finds
+ *  GABRIEL» · «20111111112»), so the line reads whole and its CUIT finds
  *  the client. */
 function statementDescription(cells: Cells): string {
   const description = text(cells, "description");

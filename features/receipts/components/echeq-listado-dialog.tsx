@@ -60,41 +60,50 @@ export function EcheqListadoDialog() {
 
   async function read() {
     setBusy(true);
-    const res = await previewEcheqListadoAction(form());
-    setBusy(false);
-    if (!res.ok) toast.error(res.error);
-    else setPreview(res.data);
+    try {
+      const res = await previewEcheqListadoAction(form());
+      if (!res.ok) toast.error(res.error);
+      else setPreview(res.data);
+    } catch {
+      toast.error("No se pudo leer el listado.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function load() {
     setBusy(true);
-    const res = await importEcheqListadoAction(form());
-    setBusy(false);
-    if (!res.ok) {
-      toast.error(res.error);
-      return;
+    try {
+      const res = await importEcheqListadoAction(form());
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
+      if (res.data.failed.length > 0) {
+        toast.error(
+          `Se cargaron ${res.data.created}; fallaron: ${res.data.failed.join(" · ")}`,
+        );
+      } else {
+        toast.success(`Se cargaron ${res.data.created} cobros con e-cheq.`);
+      }
+      close();
+    } catch {
+      toast.error("No se pudo terminar la carga: revisá qué cobros quedaron.");
+    } finally {
+      // Some receipts may exist even when it failed halfway.
+      void qc.invalidateQueries();
+      setBusy(false);
     }
-    await qc.invalidateQueries();
-    if (res.data.failed.length > 0) {
-      toast.error(
-        `Se cargaron ${res.data.created}; fallaron: ${res.data.failed.join(" · ")}`,
-      );
-    } else {
-      toast.success(`Se cargaron ${res.data.created} cobros con e-cheq.`);
-    }
+  }
+
+  function close() {
     setOpen(false);
     setPreview(null);
     setFile(null);
   }
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(o) => {
-        setOpen(o);
-        if (!o) setPreview(null);
-      }}
-    >
+    <Dialog open={open} onOpenChange={(o) => (o ? setOpen(true) : close())}>
       <Button variant="outline" onClick={() => setOpen(true)}>
         <FileUp />
         Cargar e-cheq de Galicia
@@ -124,8 +133,9 @@ export function EcheqListadoDialog() {
             />
           </div>
           <div className="space-y-1">
-            <Label>Pagados desde</Label>
+            <Label htmlFor="echeq-from">Pagados desde</Label>
             <DatePicker
+              id="echeq-from"
               value={from}
               onChange={(v) => {
                 setFrom(v);
@@ -171,7 +181,7 @@ export function EcheqListadoDialog() {
           </div>
         )}
         <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>
+          <Button variant="outline" onClick={close}>
             Cancelar
           </Button>
           {preview ? (

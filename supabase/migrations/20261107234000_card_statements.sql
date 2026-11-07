@@ -13,7 +13,8 @@ SET LOCAL statement_timeout = '15min';
 --      PDF, with every purchase and every charge of the bank, each with its
 --      treatment: expense (chart account), advance (employee) or ignore.
 --   3. bank_statement_codes takes 'card_payment' (Galicia: «Pago Visa
---      Empresa»), and settle_card_statement (service role; the action gates on
+--      Empresa») and 'check_deposit', settle_card_statement and its undo
+--      unsettle_card_statement (service role; the action gates on
 --      transactions:write): pays the statement with the bank's debits of the
 --      payment ("Pago Visa Empresa"). On the bank account, on the payment
 --      date, one expense per chart account and one advance per employee
@@ -231,7 +232,7 @@ begin
   -- the RPCs write them; nothing else writes an owned one.
   get diagnostics v_stack = pg_context;
   if pg_trigger_depth() > 1
-     or v_stack ~ 'function (public\.)?(record_employee_account_cash|delete_employee_account_movement|post_driver_settlement_difference|unpost_driver_settlement_difference|cancel_driver_settlement|settle_card_statement)\(' then
+     or v_stack ~ 'function (public\.)?(record_employee_account_cash|delete_employee_account_movement|post_driver_settlement_difference|unpost_driver_settlement_difference|cancel_driver_settlement|settle_card_statement|unsettle_card_statement)\(' then
     return case when tg_op = 'DELETE' then old else new end;
   end if;
 
@@ -341,6 +342,21 @@ begin
 
   v_label := v_st.brand || ' ' || v_st.account_number || ' cierre ' || to_char(v_st.close_date, 'DD/MM/YYYY');
 
+  -- The lines as they are now: an edit of one after this point waits.
+  perform 1 from public.card_statement_lines
+   where statement_id = v_st.id and currency = p_currency
+     for update;
+
+  -- The dollars of the purchases are the statement's dollars: a gap would
+  -- end up inside one purchase below.
+  if p_currency = 'USD' and (
+    select round(coalesce(sum(amount), 0), 2) from public.card_statement_lines
+     where statement_id = v_st.id and currency = 'USD'
+  ) <> round(v_st.total_usd, 2) then
+    raise exception 'Los consumos en dólares no suman el total en dólares del resumen'
+      using errcode = '23514', hint = 'jouve_guard';
+  end if;
+
   -- Pesos of each line; the cents of rounding the dollars go on the largest
   -- one, so the movements add up to the debit.
   drop table if exists card_amounts;
@@ -351,6 +367,10 @@ begin
       from public.card_statement_lines l
      where l.statement_id = v_st.id and l.currency = p_currency;
   select round(v_total - coalesce(sum(ars), 0), 2) into v_diff from card_amounts;
+  if p_currency = 'USD' and abs(v_diff) > 0.01 * (select count(*) from card_amounts) then
+    raise exception 'El débito en dólares no cierra con los consumos al cambio del banco'
+      using errcode = '23514', hint = 'jouve_guard';
+  end if;
   if p_currency = 'USD' and v_diff <> 0 then
     update card_amounts set ars = ars + v_diff
      where id = (select id from card_amounts order by amount desc limit 1);
@@ -375,7 +395,7 @@ begin
       accrual_month, description, expense_account_id, created_by
     ) values (
       v_st.pay_account_id, p_channel_id, 'expense', r.total, 'ARS', v_line.line_date,
-      date_trunc('month', v_st.close_date)::date,
+      date_trunc('month', v_line.line_date)::date,
       left('Tarjeta ' || v_label || ' · ' || r.n || case when r.n = 1 then ' consumo' else ' consumos' end, 500),
       r.chart_account_id, p_user_id
     )
@@ -420,7 +440,7 @@ begin
   end loop;
 
   if (select coalesce(sum(t.amount), 0) from public.transactions t where t.id = any (v_txs)) <> round(v_paid, 2) then
-    raise exception 'Los movimientos del resumen no suman el débito del banco: revisá que no haya consumos con importe negativo'
+    raise exception 'Los movimientos del resumen no suman el débito del banco: revisá que el resumen tenga todos sus consumos y cargos'
       using errcode = '23514', hint = 'jouve_guard';
   end if;
 
@@ -445,6 +465,71 @@ revoke all on function public.settle_card_statement(uuid, uuid, text, text, uuid
 grant execute on function public.settle_card_statement(uuid, uuid, text, text, uuid)
   to service_role;
 
+-- Undoes a part (pesos or dollars) paid by mistake: the bank line goes back
+-- to pending, the part's expenses and advances (with their employee
+-- movements and entries) are deleted, and its lines can be edited again.
+create or replace function public.unsettle_card_statement(
+  p_statement_id uuid,
+  p_currency     text,
+  p_user_id      uuid
+)
+returns integer
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_st    public.card_statements%rowtype;
+  v_txs   uuid[];
+  v_line  uuid;
+begin
+  if p_currency is null or p_currency not in ('ARS', 'USD') then
+    raise exception 'Se deshace el pago de los pesos o de los dólares'
+      using errcode = '22023', hint = 'jouve_guard';
+  end if;
+  select * into v_st from public.card_statements where id = p_statement_id for update;
+  if v_st.id is null then
+    raise exception 'El resumen no existe' using errcode = 'P0002', hint = 'jouve_guard';
+  end if;
+  if (p_currency = 'ARS' and v_st.paid_ars_on is null)
+     or (p_currency = 'USD' and v_st.paid_usd_on is null) then
+    raise exception 'Esa parte del resumen no está pagada'
+      using errcode = '55006', hint = 'jouve_guard';
+  end if;
+
+  select array_agg(distinct transaction_id) into v_txs
+    from public.card_statement_lines
+   where statement_id = v_st.id and currency = p_currency and transaction_id is not null;
+  v_txs := coalesce(v_txs, '{}');
+
+  for v_line in
+    select distinct m.line_id from public.bank_statement_matches m
+     where m.transaction_id = any (v_txs)
+  loop
+    perform public.unmatch_bank_statement_line(v_line, p_user_id);
+  end loop;
+
+  update public.card_statement_lines set transaction_id = null
+   where statement_id = v_st.id and currency = p_currency;
+  delete from public.employee_account_movements where transaction_id = any (v_txs);
+  delete from public.transactions where id = any (v_txs);
+
+  update public.card_statements
+     set paid_ars_on = case when p_currency = 'ARS' then null else paid_ars_on end,
+         paid_usd_on = case when p_currency = 'USD' then null else paid_usd_on end,
+         usd_rate    = case when p_currency = 'USD' then null else usd_rate end,
+         status      = 'pendiente'
+   where id = v_st.id;
+
+  return cardinality(v_txs);
+end;
+$$;
+
+revoke all on function public.unsettle_card_statement(uuid, text, uuid)
+  from public, anon, authenticated;
+grant execute on function public.unsettle_card_statement(uuid, text, uuid)
+  to service_role;
+
 ------------------------------------------------------------------------------
 -- 4. Impuesto de sellos
 ------------------------------------------------------------------------------
@@ -461,5 +546,5 @@ select p.id, '5.4.4', 'Impuesto de sellos', 3, 'resultado_negativo', 'gastos_fin
 insert into public.management_buckets (chart_of_accounts_id, bucket, subbucket)
 select c.id, 'operating_cost', 'impuestos'
   from public.chart_of_accounts c
- where c.code = '5.4.4'
-   and not exists (select 1 from public.management_buckets b where b.chart_of_accounts_id = c.id);
+ where c.code = '5.4.4' and c.name = 'Impuesto de sellos'
+on conflict (chart_of_accounts_id) do nothing;

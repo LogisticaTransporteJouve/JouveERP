@@ -108,6 +108,34 @@ export type SetCardHolderInput = z.infer<typeof SetCardHolderSchema>;
 
 export const DeleteCardStatementSchema = z.object({ id: z.string().uuid() });
 
+export const UnsettleCardStatementSchema = z.object({
+  id: z.string().uuid(),
+  currency: z.enum(["ARS", "USD"]),
+});
+export type UnsettleCardStatementInput = z.infer<
+  typeof UnsettleCardStatementSchema
+>;
+
+const cents = (n: number) => Math.round(n * 100);
+
+/** The statement adds up: its purchases and charges in pesos are its total
+ *  in pesos, its purchases in dollars its total in dollars. Paying it books
+ *  exactly its lines, so a gap would be booked nowhere (or inside one line). */
+export function statementAddsUp(
+  s: CreateCardStatementInput["statement"],
+): boolean {
+  const purchases = s.cards.flatMap((c) => c.purchases);
+  const ars =
+    purchases
+      .filter((p) => p.currency === "ARS")
+      .reduce((t, p) => t + cents(p.amount), 0) +
+    s.charges.reduce((t, c) => t + cents(c.amount), 0);
+  const usd = purchases
+    .filter((p) => p.currency === "USD")
+    .reduce((t, p) => t + cents(p.amount), 0);
+  return ars === cents(s.total_ars) && usd === cents(s.total_usd);
+}
+
 export type CardStatementListItem = {
   id: string;
   number: string;

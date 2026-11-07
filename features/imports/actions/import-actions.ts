@@ -465,30 +465,45 @@ async function existingKeys(
         typeof r.payload?.line_date === "string" ? [r.payload.line_date] : [],
       );
       if (dates.length === 0) return existing;
-      const loaded = await service
-        .from("bank_statement_lines")
-        .select("line_date, amount, balance")
-        .eq("account_id", accountId)
-        .not("balance", "is", null)
-        .gte(
-          "line_date",
-          dates.reduce((a, b) => (a < b ? a : b)),
-        )
-        .lte(
-          "line_date",
-          dates.reduce((a, b) => (a > b ? a : b)),
-        )
-        .limit(20000);
+      const from = dates.reduce((a, b) => (a < b ? a : b));
+      const to = dates.reduce((a, b) => (a > b ? a : b));
+      const loaded = await paginateRange((start, end) =>
+        service
+          .from("bank_statement_lines")
+          .select("id, line_date, amount, balance")
+          .eq("account_id", accountId)
+          .not("balance", "is", null)
+          .gte("line_date", from)
+          .lte("line_date", to)
+          .order("line_date")
+          .order("id")
+          .range(start, end),
+      );
       if (loaded.error) return null;
       const triple = (date: unknown, amount: unknown, balance: unknown) =>
         `${String(date)}|${Number(amount).toFixed(2)}|${Number(balance).toFixed(2)}`;
-      const seen = new Set(
-        loaded.data.map((l) => triple(l.line_date, l.amount, l.balance)),
-      );
+      // Counted, not just seen: a debit, its reversal and the same debit
+      // again leave two lines with the same day, amount and balance.
+      const left = new Map<string, number>();
+      for (const l of loaded.data) {
+        const t = triple(l.line_date, l.amount, l.balance);
+        left.set(t, (left.get(t) ?? 0) + 1);
+      }
+      for (const r of rows) {
+        const p = r.payload;
+        if (!r.key || !existing.has(r.key) || typeof p?.balance !== "number")
+          continue;
+        const t = triple(p.line_date, p.amount, p.balance);
+        left.set(t, (left.get(t) ?? 0) - 1);
+      }
       for (const r of pending) {
         const p = r.payload;
-        if (r.key && p && seen.has(triple(p.line_date, p.amount, p.balance))) {
+        if (!r.key || !p) continue;
+        const t = triple(p.line_date, p.amount, p.balance);
+        const n = left.get(t) ?? 0;
+        if (n > 0) {
           existing.add(r.key);
+          left.set(t, n - 1);
         }
       }
       return existing;

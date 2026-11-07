@@ -67,16 +67,20 @@ export function ChequesTable({
   const [sellOpen, setSellOpen] = useState(false);
   const [prefill, setPrefill] = useState<SellPrefill | null>(null);
   const receiptInput = useRef<HTMLInputElement>(null);
+  const [readingReceipt, setReadingReceipt] = useState(false);
 
   // A bank's discount receipt picks the cartera checks it sold (by number
   // and amount) and fills the sale; a check not loaded yet stops it.
   async function onReceipt(file: File) {
     let text: string;
+    setReadingReceipt(true);
     try {
       text = await readPdfText(file);
     } catch {
       toast.error("No se pudo leer el PDF.");
       return;
+    } finally {
+      setReadingReceipt(false);
     }
     const parsed = parseDiscountReceipt(text);
     if (!parsed.ok) {
@@ -330,10 +334,11 @@ export function ChequesTable({
                   />
                   <Button
                     variant="outline"
+                    disabled={readingReceipt}
                     onClick={() => receiptInput.current?.click()}
                   >
                     <FileUp />
-                    Vender con comprobante
+                    {readingReceipt ? "Leyendo…" : "Vender con comprobante"}
                   </Button>
                 </>
               )}

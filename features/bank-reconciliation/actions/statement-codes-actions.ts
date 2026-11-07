@@ -11,7 +11,7 @@ import {
 import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
-import { fetchInChunks } from "@/lib/supabase/paginate";
+import { fetchInChunks, paginateRange } from "@/lib/supabase/paginate";
 import { getServiceClient } from "@/lib/supabase/service";
 
 import { PRESET_CODES, cuitsIn } from "../lib/bank-codes";
@@ -241,19 +241,26 @@ export async function getStatementCodingAction(
     loanInstallments = read;
   }
 
+  // Each one only for whoever may see it: the cartera with cheques:read,
+  // the card statements with the treasury reads (as the loan cuotas).
+  const empty = <T>(): Promise<T[]> => Promise.resolve([]);
   const [saleTransfers, cardStatements, carteraChecks] = await Promise.all([
     readCheckSaleTransfers(service, account_id),
-    readCardStatements(service, account_id),
-    readCarteraChecks(service),
+    userCanAll(ctx.access, TREASURY_PERMISSIONS)
+      ? readCardStatements(service, account_id)
+      : empty<StatementCardStatement>(),
+    userCan(ctx.access, "cheques:read")
+      ? readCarteraChecks(service)
+      : empty<StatementCarteraCheck>(),
   ]);
   if (!saleTransfers || !cardStatements || !carteraChecks) {
-    logger.error("reconciliation.coding.check_sales_failed", {
+    logger.error("reconciliation.coding.cheques_cards_failed", {
       userId: ctx.userId,
       account_id,
     });
     return {
       ok: false,
-      error: "No se pudieron leer las ventas de cheques.",
+      error: "No se pudieron leer los cheques o las tarjetas de la cuenta.",
     };
   }
 
@@ -277,13 +284,16 @@ export async function getStatementCodingAction(
 async function readCarteraChecks(
   service: Service,
 ): Promise<StatementCarteraCheck[] | null> {
-  const { data, error } = await service
-    .from("checks")
-    .select("id, check_number, amount, due_date, drawer_name")
-    .eq("status", "en_cartera")
-    .eq("currency", "ARS")
-    .order("due_date")
-    .limit(2000);
+  const { data, error } = await paginateRange((from, to) =>
+    service
+      .from("checks")
+      .select("id, check_number, amount, due_date, drawer_name")
+      .eq("status", "en_cartera")
+      .eq("currency", "ARS")
+      .order("due_date")
+      .order("id")
+      .range(from, to),
+  );
   if (error) return null;
   return data.map((c) => ({
     id: c.id,
@@ -302,14 +312,34 @@ async function readCardStatements(
   const { data, error } = await service
     .from("card_statements")
     .select(
-      "id, brand, account_number, close_date, due_date, total_ars, total_usd, paid_ars_on, paid_usd_on",
+      "id, brand, account_number, close_date, due_date, total_ars, total_usd, paid_ars_on, paid_usd_on, lines:card_statement_lines ( currency, treatment, chart_account_id, employee_id )",
     )
     .eq("pay_account_id", accountId)
     .eq("status", "pendiente")
     .order("due_date")
     .limit(50);
   if (error) return null;
+  // What settle_card_statement refuses: a line without its account or
+  // employee, or one marked «no corresponde».
+  const undefinedOf = (
+    lines: {
+      currency: string;
+      treatment: string;
+      chart_account_id: string | null;
+      employee_id: string | null;
+    }[],
+    currency: "ARS" | "USD",
+  ) =>
+    lines.filter(
+      (l) =>
+        l.currency === currency &&
+        (l.treatment === "ignore" ||
+          (l.treatment === "expense" && !l.chart_account_id) ||
+          (l.treatment === "advance" && !l.employee_id)),
+    ).length;
   return data.map((s) => ({
+    undefined_ars: undefinedOf(s.lines, "ARS"),
+    undefined_usd: undefinedOf(s.lines, "USD"),
     id: s.id,
     label: `${s.brand} ${s.account_number} cierre ${s.close_date.split("-").reverse().join("/")}`,
     due_date: s.due_date,
