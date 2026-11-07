@@ -302,18 +302,24 @@ export function LineProposalView({
   );
 }
 
-/** "Aceptar todas": books every line whose code already says the account. */
+/** "Aceptar todas": books every line whose code already says the account,
+ *  except the ones a movement already loaded may explain (a suggestion):
+ *  creating another would count the money twice. */
 export function AcceptReadyButton({
   lines,
   proposals,
+  suggested,
 }: {
   lines: readonly StatementLine[];
   proposals: ReadonlyMap<string, LineProposal>;
+  suggested: ReadonlySet<string>;
 }) {
   const create = useCreateLineTransaction();
   const fiscal = useFiscalChannel();
   const [running, setRunning] = useState(false);
-  const ready = lines.filter((l) => proposals.get(l.id)?.ready);
+  const ready = lines.filter(
+    (l) => proposals.get(l.id)?.ready && !suggested.has(l.id),
+  );
   if (ready.length === 0) return null;
 
   async function run() {

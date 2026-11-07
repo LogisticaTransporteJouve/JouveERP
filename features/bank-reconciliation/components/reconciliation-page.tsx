@@ -276,6 +276,7 @@ function ReconciliationBody({
   const s = data.summary;
   const lineById = new Map(data.lines.map((l) => [l.id, l]));
   const movementById = new Map(data.movements.map((m) => [m.id, m]));
+  const suggestedLines = new Set(data.suggestions.map((sg) => sg.line_id));
   const suggestionByLine = new Map(
     data.suggestions.map((sg) => [sg.line_id, sg]),
   );
@@ -443,7 +444,11 @@ function ReconciliationBody({
           <h2 className="text-base font-semibold">Extracto</h2>
           <div className="flex flex-wrap gap-2">
             {canWrite && (
-              <AcceptReadyButton lines={data.lines} proposals={proposals} />
+              <AcceptReadyButton
+                lines={data.lines}
+                proposals={proposals}
+                suggested={suggestedLines}
+              />
             )}
             <Button
               type="button"
