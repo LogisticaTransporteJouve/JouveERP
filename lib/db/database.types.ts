@@ -1126,6 +1126,67 @@ export type Database = {
           },
         ]
       }
+      bank_statement_codes: {
+        Row: {
+          account_id: string
+          bank_code: string
+          chart_account_id: string | null
+          created_at: string
+          created_by: string | null
+          description_pattern: string
+          id: string
+          kind: string
+          label: string | null
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          bank_code: string
+          chart_account_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description_pattern?: string
+          id?: string
+          kind: string
+          label?: string | null
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          bank_code?: string
+          chart_account_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description_pattern?: string
+          id?: string
+          kind?: string
+          label?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_statement_codes_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_statement_codes_chart_account_id_fkey"
+            columns: ["chart_account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_statement_codes_chart_account_id_fkey"
+            columns: ["chart_account_id"]
+            isOneToOne: false
+            referencedRelation: "expense_leaf_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bank_statement_lines: {
         Row: {
           account_id: string
@@ -10332,6 +10393,7 @@ export type Database = {
         }[]
       }
       invoice_open_amount: { Args: { p_invoice_id: string }; Returns: number }
+      is_bank_tax_account: { Args: { p_account_id: string }; Returns: boolean }
       is_channel_fiscal: { Args: { p_channel_id: string }; Returns: boolean }
       is_driver_employee: { Args: { p_employee_id: string }; Returns: boolean }
       is_employee_document_file: {
