@@ -11035,7 +11035,12 @@ export type Database = {
         Returns: string
       }
       record_loan_bank_payments: {
-        Args: { p_book_from: string; p_loan_id: string; p_payments: Json }
+        Args: {
+          p_book_from: string
+          p_loan_id: string
+          p_payments: Json
+          p_user_id: string
+        }
         Returns: Json
       }
       record_loan_disbursement: {

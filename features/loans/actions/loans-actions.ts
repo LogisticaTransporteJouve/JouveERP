@@ -452,11 +452,16 @@ export async function recordBankPaymentsAction(
   }
   const bookFrom = await fiscalYearBookFrom(ctx.userId);
   if (!bookFrom.ok) return bookFrom;
-  const { data, error } = await supabase.rpc("record_loan_bank_payments", {
-    p_loan_id: parsed.data.loan_id,
-    p_payments: mine.map(({ loan_number: _n, ...p }) => p),
-    p_book_from: bookFrom.data,
-  });
+  // The RPC is service-role only: the gate above is the authorization.
+  const { data, error } = await getServiceClient().rpc(
+    "record_loan_bank_payments",
+    {
+      p_loan_id: parsed.data.loan_id,
+      p_payments: mine.map(({ loan_number: _n, ...p }) => p),
+      p_book_from: bookFrom.data,
+      p_user_id: ctx.userId,
+    },
+  );
   if (error || !data) {
     const guardError = mapDbGuardError(error, {
       slug: "loans.bank_payments.rejected",
@@ -491,8 +496,7 @@ export async function bookLoanOpeningAction(
   if (!parsed.success) return { ok: false, error: "Datos inválidos." };
   const bookFrom = await fiscalYearBookFrom(ctx.userId);
   if (!bookFrom.ok) return bookFrom;
-  const supabase = await createSupabaseClient();
-  const { error } = await supabase.rpc("book_loan_opening", {
+  const { error } = await getServiceClient().rpc("book_loan_opening", {
     p_loan_id: parsed.data.loan_id,
     p_date: bookFrom.data,
   });
