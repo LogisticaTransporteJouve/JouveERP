@@ -46,6 +46,7 @@ import {
   fixedCapitalPlan,
   frenchPlanWith,
   parseBankPlan,
+  withOpeningCuotas,
   type PlanInstallment,
 } from "@/lib/loans/bank-plan";
 import { positiveArAmountField } from "@/lib/validation/common";
@@ -127,6 +128,8 @@ export function LoanDialog({
   const [byDays, setByDays] = useState(false);
   const [separateInterest, setSeparateInterest] = useState(false);
   const [paidRaw, setPaidRaw] = useState("");
+  const [openingRaw, setOpeningRaw] = useState("");
+  const [openingTaxesRaw, setOpeningTaxesRaw] = useState("");
 
   useEffect(() => {
     if (!open) return;
@@ -136,6 +139,8 @@ export function LoanDialog({
     setByDays(false);
     setSeparateInterest(false);
     setPaidRaw("");
+    setOpeningRaw("");
+    setOpeningTaxesRaw("");
   }, [open, form]);
 
   const [currency, principalRaw, tnaRaw, countRaw, firstDue, startDate] =
@@ -172,31 +177,38 @@ export function LoanDialog({
       return null;
     }
     const paidCount = Math.max(0, Math.trunc(Number(paidRaw) || 0));
+    const opening = {
+      count: Math.max(0, Math.trunc(Number(openingRaw) || 0)),
+      date: startDate || firstDue,
+      taxes: parseArAmount(openingTaxesRaw) ?? 0,
+    };
+    let base: PlanInstallment[];
     if (mode === "french" || mode === "fixed") {
       const tna = rateOrNull(tnaRaw);
       if (tna === null) return null;
-      const options = {
-        interestByDays: byDays,
-        startDate: startDate || null,
-        paidCount,
-      };
-      return mode === "french"
-        ? frenchPlanWith(principal, tna, count, firstDue, options)
-        : fixedCapitalPlan(principal, tna, count, firstDue, {
-            ...options,
-            separateInterest,
-          });
+      const options = { interestByDays: byDays, startDate: startDate || null };
+      base =
+        mode === "french"
+          ? frenchPlanWith(principal, tna, count, firstDue, options)
+          : fixedCapitalPlan(principal, tna, count, firstDue, {
+              ...options,
+              separateInterest,
+            });
+    } else {
+      base = generateInstallments(principal, count, firstDue).map((g) => ({
+        ...g,
+        capital: g.amount,
+        interest: 0,
+        iva: 0,
+        perception: 0,
+        other: 0,
+        paid: false,
+      }));
     }
-    return generateInstallments(principal, count, firstDue).map((g, i) => ({
-      ...g,
-      capital: g.amount,
-      interest: 0,
-      iva: 0,
-      perception: 0,
-      other: 0,
-      paid: i < paidCount,
-    }));
+    return withOpeningCuotas(base, opening, paidCount);
   }, [
+    openingRaw,
+    openingTaxesRaw,
     mode,
     pasted,
     principalRaw,
@@ -498,7 +510,9 @@ export function LoanDialog({
                       )}
                     />
                     <div className="space-y-2">
-                      <Label htmlFor="loan-paid-count">Ya pagadas</Label>
+                      <Label htmlFor="loan-paid-count">
+                        Ya pagadas (hasta la Nº)
+                      </Label>
                       <Input
                         id="loan-paid-count"
                         type="number"
@@ -510,6 +524,38 @@ export function LoanDialog({
                       />
                     </div>
                   </div>
+                  <div className="grid grid-cols-2 gap-3 sm:max-w-md">
+                    <div className="space-y-2">
+                      <Label htmlFor="loan-opening-count">
+                        Cuotas del otorgamiento
+                      </Label>
+                      <Input
+                        id="loan-opening-count"
+                        type="number"
+                        inputMode="numeric"
+                        min={0}
+                        value={openingRaw}
+                        onChange={(e) => setOpeningRaw(e.target.value)}
+                        placeholder="0"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="loan-opening-taxes">
+                        Impuestos al otorgamiento
+                      </Label>
+                      <MoneyInput
+                        id="loan-opening-taxes"
+                        value={openingTaxesRaw}
+                        onChange={setOpeningTaxesRaw}
+                        disabled={!Number(openingRaw)}
+                      />
+                    </div>
+                  </div>
+                  <p className="text-muted-foreground text-xs">
+                    Algunos bancos numeran cuotas al otorgar el préstamo (Banco
+                    Provincia: la 1 con los impuestos y la 2 en $0). Cargalas
+                    acá para que los números coincidan con los del banco.
+                  </p>
                   {(mode === "french" || mode === "fixed") && (
                     <div className="space-y-2 text-sm">
                       <div className="flex items-center gap-2">

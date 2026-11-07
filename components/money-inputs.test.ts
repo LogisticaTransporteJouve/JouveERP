@@ -41,7 +41,10 @@ const ALLOWED = new Map<string, { count: number; why: string }>([
   ],
   [
     "features/loans/components/loan-dialog.tsx",
-    { count: 3, why: "installments count, cuotas already paid, rates (%)" },
+    {
+      count: 4,
+      why: "installments count, cuotas already paid, opening cuotas, rates (%)",
+    },
   ],
   [
     "features/pallets/components/bulk-pallet-dialog.tsx",

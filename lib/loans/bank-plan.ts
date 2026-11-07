@@ -225,3 +225,36 @@ function numbered(
     .filter((r) => r.amount > 0)
     .map((r, i) => ({ ...r, number: i + 1, paid: i < paidCount }));
 }
+
+/** Puts first the cuotas the bank numbers at the grant (Banco Provincia:
+ *  cuota 1 is the taxes of the grant, cuota 2 is $0, both on the day it was
+ *  granted), so the numbers match the bank's. Then marks paid the first
+ *  `paidCount` of all of them, counted as the bank counts. */
+export function withOpeningCuotas(
+  plan: readonly PlanInstallment[],
+  opening: { count: number; date: string; taxes: number },
+  paidCount: number,
+): PlanInstallment[] {
+  const leading: PlanInstallment[] = Array.from(
+    { length: Math.max(0, opening.count) },
+    (_, i) => {
+      const taxes = i === 0 ? round2(opening.taxes) : 0;
+      return {
+        number: 0,
+        due_date: opening.date,
+        amount: taxes,
+        capital: 0,
+        interest: 0,
+        iva: 0,
+        perception: 0,
+        other: taxes,
+        paid: true,
+      };
+    },
+  );
+  return [...leading, ...plan].map((p, i) => ({
+    ...p,
+    number: i + 1,
+    paid: p.paid || i < paidCount,
+  }));
+}

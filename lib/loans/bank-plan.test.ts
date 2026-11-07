@@ -5,6 +5,7 @@ import {
   frenchPlan,
   frenchPlanWith,
   parseBankPlan,
+  withOpeningCuotas,
 } from "./bank-plan";
 
 // Two rows of Banco Macro's «Plan de cuotas» as the browser copies them.
@@ -105,5 +106,27 @@ describe("Banco Provincia's plans", () => {
     const plan = frenchPlanWith(35_000_000, 29, 60, "2024-10-04");
     expect(plan[0]?.amount).toBe(1110965.45);
     expect(plan[0]?.interest).toBe(845833.33);
+  });
+});
+
+describe("withOpeningCuotas", () => {
+  it("numbers the plan as Banco Provincia does, after the grant's cuotas", () => {
+    const plan = withOpeningCuotas(
+      frenchPlanWith(35_000_000, 29, 60, "2024-10-04"),
+      { count: 2, date: "2024-09-04", taxes: 210_000 },
+      27,
+    );
+    expect(plan).toHaveLength(62);
+    expect(
+      plan.slice(0, 3).map((p) => [p.number, p.due_date, p.amount, p.paid]),
+    ).toEqual([
+      [1, "2024-09-04", 210_000, true],
+      [2, "2024-09-04", 0, true],
+      [3, "2024-10-04", 1110965.45, true],
+    ]);
+    expect(plan.find((p) => p.due_date === "2026-11-04")).toMatchObject({
+      number: 28,
+      paid: false,
+    });
   });
 });
