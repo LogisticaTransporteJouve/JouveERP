@@ -4,7 +4,9 @@ import {
   ApplySalaryRaiseSchema,
   CreateDebtPlanSchema,
   RecordAccountCashSchema,
+  debtPlanKind,
   isDebitKind,
+  loanInstallments,
   movementSource,
   planInstallmentDue,
   raiseTargets,
@@ -165,6 +167,26 @@ describe("debt plans", () => {
     );
     expect(planInstallmentDue({ ...plan, remaining: 0 }, 2026, 11)).toBe(0);
     expect(planInstallmentDue({ ...plan, currency: "USD" }, 2026, 11)).toBe(0);
+  });
+});
+
+describe("adelanto vs préstamo", () => {
+  it("a plan whose cuota covers the total is an adelanto", () => {
+    expect(debtPlanKind({ total: 100000, installment_amount: 100000 })).toBe(
+      "advance",
+    );
+    expect(debtPlanKind({ total: 300000, installment_amount: 100000 })).toBe(
+      "loan",
+    );
+  });
+
+  it("counts the cuotas of a préstamo, with a smaller last one", () => {
+    expect(loanInstallments(300000, 100000)).toEqual({
+      count: 3,
+      last: 100000,
+    });
+    expect(loanInstallments(250000, 100000)).toEqual({ count: 3, last: 50000 });
+    expect(loanInstallments(100000, 100000)).toBeNull();
   });
 });
 

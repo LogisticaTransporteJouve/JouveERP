@@ -477,9 +477,9 @@ export const hrPage: GuidePage = {
         },
         {
           id: "registrar-adelanto-empleado",
-          title: "Registrar un adelanto a un empleado",
+          title: "Registrar un adelanto o un préstamo a un empleado",
           summary:
-            "Sale plata de una caja o banco y queda como deuda del empleado, que se descuenta en la planilla en cuotas.",
+            "Sale plata de una caja o banco y queda como deuda del empleado. Un adelanto se descuenta entero en la planilla del mes; un préstamo, en cuotas mensuales.",
           permission: ["hr:write", "transactions:write"],
           prerequisites: [
             "Una caja o banco activo (no una cartera de cheques).",
@@ -488,9 +488,9 @@ export const hrPage: GuidePage = {
           screens: [
             {
               kind: "dialog",
-              title: "~Adelanto a empleado — Pérez, Juan",
+              title: "~Préstamo a empleado — Pérez, Juan",
               description:
-                "Sale de la cuenta elegida y va a la cuenta corriente del empleado (no es un gasto). Se descuenta en la planilla con un plan en cuotas.",
+                "Sale de la cuenta elegida y va a la cuenta corriente del empleado (no es un gasto). Se descuenta en la planilla en cuotas mensuales, desde el mes de la fecha.",
               fields: [
                 {
                   label: "Cuenta",
@@ -509,17 +509,11 @@ export const hrPage: GuidePage = {
                 {
                   label: "Descripción (opcional)",
                   kind: "input",
-                  value: "adelanto de sueldo",
+                  value: "préstamo personal",
                   wide: true,
                 },
                 {
-                  label: "Descontar en la planilla con un plan",
-                  kind: "checkbox",
-                  value: "sí",
-                  marker: 3,
-                },
-                {
-                  label: "Cuota mensual (vacío = todo en un mes)",
+                  label: "Cuota mensual",
                   kind: "money",
                   value: "100.000",
                   marker: 3,
@@ -532,14 +526,14 @@ export const hrPage: GuidePage = {
             },
           ],
           steps: [
-            "En la ficha del empleado, en {{Cuenta corriente}}, hacé clic en {{Adelanto}}. (También se carga desde Tesorería con {{Adelanto a empleado}}, eligiendo primero el {{Empleado}}.)",
-            "Elegí la {{Cuenta}} de donde sale la plata (la moneda del adelanto es la de la cuenta), el {{Canal}}, la {{Fecha}} y el {{Importe}}. Opcional: una {{Descripción (opcional)}}; si no, queda «Adelanto a» y el nombre.",
-            "Dejá tildado {{Descontar en la planilla con un plan}} y cargá la {{Cuota mensual (vacío = todo en un mes)}}. Si lo destildás, el adelanto queda como deuda sin plan.",
+            "En la ficha del empleado, en {{Cuenta corriente}}, hacé clic en {{Adelanto}} (se descuenta entero en la planilla del mes) o en {{Préstamo}} (se descuenta en cuotas). También se cargan desde Tesorería con {{Adelanto a empleado}} o {{Préstamo a empleado}}, eligiendo primero el {{Empleado}}.",
+            "Elegí la {{Cuenta}} de donde sale la plata (la moneda es la de la cuenta), el {{Canal}}, la {{Fecha}} y el {{Importe}}. Opcional: una {{Descripción (opcional)}}; si no, queda «Adelanto a» o «Préstamo a» y el nombre.",
+            "En un préstamo, cargá la {{Cuota mensual}}: tiene que ser menor que el importe, y abajo dice en cuántas cuotas queda.",
             "Hacé clic en {{Registrar}}.",
           ],
           after: [
             "Se crea un egreso en la cuenta elegida y su asiento contra **Anticipos al personal** (un activo, no un gasto).",
-            "En la cuenta corriente aparece el {{Adelanto}} con origen {{Caja}} y, si tildaste el plan, un plan con el total del adelanto, la cuota elegida y primer mes el de la fecha.",
+            "En la cuenta corriente aparece el movimiento ({{Adelanto}} o {{Préstamo}}) con origen {{Caja}} y un plan con el total, la cuota (en un adelanto, el total) y primer mes el de la fecha.",
             "Las planillas mensuales en borrador recalculan la columna {{Deudas}} del empleado con la cuota (solo planes en pesos).",
           ],
           errors: [
@@ -548,8 +542,9 @@ export const hrPage: GuidePage = {
               fix: "Cargá un importe mayor a cero.",
             },
             {
-              message: "La cuota no puede superar el adelanto.",
-              fix: "Bajá la cuota o dejala vacía para descontar todo en un mes.",
+              message:
+                "La cuota tiene que ser menor que el préstamo: si se descuenta entero en un mes, es un adelanto.",
+              fix: "Bajá la cuota, o cargalo como {{Adelanto}}.",
             },
             {
               message:

@@ -33,6 +33,7 @@ export const treasuryPage: GuidePage = {
             { label: "Cobrar a cliente", variant: "outline" },
             { label: "Pagar a proveedor", variant: "outline" },
             { label: "Adelanto a empleado", variant: "outline" },
+            { label: "Préstamo a empleado", variant: "outline" },
           ],
           stats: [
             { label: "Total ARS líquido", value: "$ 12.480.300,00" },
@@ -299,7 +300,7 @@ export const treasuryPage: GuidePage = {
               kind: "dialog",
               title: "Adelanto a empleado",
               description:
-                "Sale de la cuenta elegida y va a la cuenta corriente del empleado (no es un gasto). Se descuenta en la planilla con un plan en cuotas.",
+                "Sale de la cuenta elegida y va a la cuenta corriente del empleado (no es un gasto). Se descuenta entero en la planilla del mes de la fecha.",
               fields: [
                 { label: "Empleado", kind: "select", marker: 2, wide: true },
                 { label: "Cuenta", kind: "select", value: "Caja chica (ARS)" },
@@ -307,40 +308,22 @@ export const treasuryPage: GuidePage = {
                 { label: "Fecha", kind: "date", value: "05/11/2026" },
                 { label: "~Importe (ARS)", kind: "money", value: "150.000,00" },
                 { label: "Descripción (opcional)", kind: "input", wide: true },
-                {
-                  label: "Descontar en la planilla con un plan",
-                  kind: "checkbox",
-                  marker: 4,
-                  wide: true,
-                },
-                {
-                  label: "Cuota mensual (vacío = todo en un mes)",
-                  kind: "money",
-                  wide: true,
-                },
               ],
               footer: [
                 { label: "Cancelar", variant: "outline" },
-                { label: "Registrar", variant: "primary", marker: 5 },
+                { label: "Registrar", variant: "primary", marker: 4 },
               ],
             },
           ],
           steps: [
-            "En [[/treasury]] (o en [[/transactions]]), hacé clic en {{Adelanto a empleado}}.",
+            "En [[/treasury]] (o en [[/transactions]]), hacé clic en {{Adelanto a empleado}} (se descuenta entero en la planilla del mes) o en {{Préstamo a empleado}} (en cuotas: pide la {{Cuota mensual}}, menor que el importe).",
             "En {{Empleado}}, elegí el empleado.",
             "Completá {{Cuenta}} (de donde sale la plata; la moneda del adelanto es la de la cuenta), {{Canal}}, {{Fecha}}, {{Importe}} y, si querés, {{Descripción (opcional)}}.",
-            {
-              text: "Dejá marcado {{Descontar en la planilla con un plan}} para descontarlo del sueldo en cuotas:",
-              substeps: [
-                "En {{Cuota mensual (vacío = todo en un mes)}}, poné cuánto descontar por mes, o dejalo vacío para descontarlo entero en un mes.",
-                "La planilla solo descuenta planes en pesos: un adelanto en dólares se salda con pagos del empleado.",
-              ],
-            },
-            "Hacé clic en {{Registrar}}.",
+            "Hacé clic en {{Registrar}}. La planilla solo descuenta planes en pesos: uno en dólares se salda con pagos del empleado.",
           ],
           after: [
             "Se registra un egreso en la cuenta elegida y un movimiento en la cuenta corriente del empleado. Si el canal es fiscal y el plan de cuentas tiene activa la cuenta de anticipos al personal, el asiento va contra ella y no contra gastos.",
-            "Si marcaste el plan, queda un plan en cuotas que la planilla de sueldos descuenta cada mes.",
+            "Queda un plan que la planilla de sueldos descuenta: entero en el mes de la fecha (adelanto) o una cuota por mes (préstamo).",
             "Ese egreso lo maneja la cuenta corriente del empleado: no se edita monto, fecha ni cuenta desde Caja.",
           ],
           errors: [
@@ -703,7 +686,7 @@ export const treasuryPage: GuidePage = {
       intro: [
         "Todos los movimientos de todas las cuentas, de los dos lados: ingresos, egresos y transferencias, los cargados a mano y los que generan los documentos (recibos, órdenes de pago, cheques, préstamos, sueldos, impuestos). Cada movimiento tiene un canal.",
         "Columnas: {{Fecha}}, {{Tipo}} ({{Ingreso}}, {{Egreso}}, {{Transferencia (entra)}}, {{Transferencia (sale)}}), {{Cuenta}} (clic para filtrar por ella), {{Canal}}, {{Descripción}} (con el cliente si lo hay y la marca {{Conciliado}}) y {{Monto}} con signo. La lista carga más al bajar.",
-        "Arriba están los mismos atajos que en el resumen ({{Cobrar a cliente}}, {{Pagar a proveedor}}, {{Adelanto a empleado}}; ver [[#tesoreria-resumen]]) y {{Nuevo movimiento}}.",
+        "Arriba están los mismos atajos que en el resumen ({{Cobrar a cliente}}, {{Pagar a proveedor}}, {{Adelanto a empleado}}, {{Préstamo a empleado}}; ver [[#tesoreria-resumen]]) y {{Nuevo movimiento}}.",
       ],
       screens: [
         {
@@ -714,6 +697,7 @@ export const treasuryPage: GuidePage = {
             { label: "Cobrar a cliente", variant: "outline" },
             { label: "Pagar a proveedor", variant: "outline" },
             { label: "Adelanto a empleado", variant: "outline" },
+            { label: "Préstamo a empleado", variant: "outline" },
             { label: "Nuevo movimiento", variant: "primary" },
           ],
           toolbar: [

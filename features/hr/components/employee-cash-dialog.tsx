@@ -11,7 +11,6 @@ import {
   useScope,
 } from "@/components/providers/scope-provider";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -34,17 +33,27 @@ import {
 } from "@/components/ui/select";
 import { AccountOptionsGate } from "@/features/accounts/components/account-options-gate";
 import { isCheckAccount, type Account } from "@/features/accounts/schema";
-import { parseArAmount, todayInAR } from "@/lib/format";
+import { formatMoneyWithCode, parseArAmount, todayInAR } from "@/lib/format";
 
 import { useRecordAccountCash } from "../hooks/use-employee-account";
 import { useEmployeesList } from "../hooks/use-employees";
-import type { DebtPlan } from "../account-schema";
+import { loanInstallments, type DebtPlan } from "../account-schema";
 
-type CashKind = "advance" | "payment";
+/** advance: discounted whole in the month's planilla; loan: in cuotas. Both
+ *  are an "advance" movement with its plan; they differ in the cuota. */
+type CashKind = "advance" | "loan" | "payment";
 
 const TITLE: Record<CashKind, string> = {
   advance: "Adelanto a empleado",
+  loan: "Préstamo a empleado",
   payment: "Pago del empleado",
+};
+
+const DESCRIPTION: Record<CashKind, string> = {
+  advance:
+    "Sale de la cuenta elegida y va a la cuenta corriente del empleado (no es un gasto). Se descuenta entero en la planilla del mes de la fecha.",
+  loan: "Sale de la cuenta elegida y va a la cuenta corriente del empleado (no es un gasto). Se descuenta en la planilla en cuotas mensuales, desde el mes de la fecha.",
+  payment: "Entra en la cuenta elegida y baja lo que el empleado debe.",
 };
 
 const NONE = "__none__";
@@ -86,11 +95,7 @@ export function EmployeeCashDialog({
             {TITLE[kind]}
             {employeeName ? ` — ${employeeName}` : ""}
           </DialogTitle>
-          <DialogDescription>
-            {kind === "advance"
-              ? "Sale de la cuenta elegida y va a la cuenta corriente del empleado (no es un gasto). Se descuenta en la planilla con un plan en cuotas."
-              : "Entra en la cuenta elegida y baja lo que el empleado debe."}
-          </DialogDescription>
+          <DialogDescription>{DESCRIPTION[kind]}</DialogDescription>
         </DialogHeader>
         {open && (
           <Suspense
@@ -104,6 +109,7 @@ export function EmployeeCashDialog({
               <CashForm
                 kind={kind}
                 employeeId={employeeId}
+                employeeName={employeeName}
                 plans={plans}
                 onDone={() => setOpen(false)}
               />
@@ -152,6 +158,7 @@ function PickEmployeeThenForm({
           key={employeeId}
           kind={kind}
           employeeId={employeeId}
+          employeeName={active.find((e) => e.id === employeeId)?.legal_name}
           plans={[]}
           onDone={onDone}
         />
@@ -163,6 +170,7 @@ function PickEmployeeThenForm({
 type CashFormProps = {
   kind: CashKind;
   employeeId: string;
+  employeeName?: string;
   plans: DebtPlan[];
   onDone: () => void;
 };
@@ -178,6 +186,7 @@ function CashForm(props: CashFormProps) {
 function CashFormFields({
   kind,
   employeeId,
+  employeeName,
   plans,
   onDone,
   accounts,
@@ -197,7 +206,6 @@ function CashFormFields({
   const [date, setDate] = useState(todayInAR());
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
-  const [inInstallments, setInInstallments] = useState(kind === "advance");
   const [installment, setInstallment] = useState("");
   const [planId, setPlanId] = useState(NONE);
 
@@ -211,32 +219,56 @@ function CashFormFields({
     return parseArAmount(v) ?? Number.NaN;
   }
 
+  const amountValue = parse(amount);
+  const installmentValue = parse(installment);
+  const cuotas =
+    kind === "loan" ? loanInstallments(amountValue, installmentValue) : null;
+  const loanIssue =
+    kind !== "loan"
+      ? null
+      : !(installmentValue > 0)
+        ? "Cargá la cuota mensual."
+        : amountValue > 0 && installmentValue >= amountValue
+          ? "La cuota tiene que ser menor que el préstamo: si se descuenta entero en un mes, es un adelanto."
+          : null;
+
   function onSave() {
-    const value = parse(amount);
-    if (!Number.isFinite(value) || value <= 0) {
+    if (!Number.isFinite(amountValue) || amountValue <= 0) {
       toast.error("Importe inválido.");
       return;
     }
-    const installmentValue =
-      kind === "advance" && inInstallments
-        ? parse(installment || amount)
-        : null;
+    if (loanIssue) {
+      toast.error(loanIssue);
+      return;
+    }
     mutation.mutate(
       {
         employee_id: employeeId,
-        kind,
+        kind: kind === "payment" ? "payment" : "advance",
         account_id: accountId,
         channel_id: channelId,
         date,
-        amount: value,
-        description,
+        amount: amountValue,
+        description:
+          kind === "loan" && description.trim() === "" && employeeName
+            ? `Préstamo a ${employeeName}`
+            : description,
         plan_id: kind === "payment" && planId !== NONE ? planId : null,
-        installment_amount: installmentValue,
+        installment_amount:
+          kind === "advance"
+            ? amountValue
+            : kind === "loan"
+              ? installmentValue
+              : null,
       },
       {
         onSuccess: () => {
           toast.success(
-            kind === "advance" ? "Adelanto registrado." : "Pago registrado.",
+            kind === "payment"
+              ? "Pago registrado."
+              : kind === "loan"
+                ? "Préstamo registrado."
+                : "Adelanto registrado.",
           );
           onDone();
         },
@@ -305,7 +337,11 @@ function CashFormFields({
           <Input
             id="cash-description"
             placeholder={
-              kind === "advance" ? "Ej. adelanto de sueldo" : "Ej. devolución"
+              kind === "advance"
+                ? "Ej. adelanto de sueldo"
+                : kind === "loan"
+                  ? "Ej. préstamo personal"
+                  : "Ej. devolución"
             }
             value={description}
             onChange={(e) => setDescription(e.target.value)}
@@ -313,38 +349,38 @@ function CashFormFields({
         </div>
       </div>
 
-      {kind === "advance" && (
+      {kind === "loan" && (
         <div className="space-y-2 rounded-md border p-3">
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="cash-installments"
-              checked={inInstallments}
-              onCheckedChange={(v) => setInInstallments(v === true)}
-            />
-            <Label htmlFor="cash-installments" className="font-normal">
-              Descontar en la planilla con un plan
-            </Label>
-          </div>
-          {inInstallments && (
-            <div className="space-y-2">
-              <Label htmlFor="cash-installment">
-                Cuota mensual (vacío = todo en un mes)
-              </Label>
-              <MoneyInput
-                id="cash-installment"
-                className="text-right font-mono"
-                value={installment}
-                onChange={setInstallment}
-              />
-              {currency !== "ARS" && (
-                <p className="text-xs text-muted-foreground">
-                  La planilla solo descuenta planes en pesos: uno en dólares se
-                  salda con pagos del empleado.
-                </p>
-              )}
-            </div>
+          <Label htmlFor="cash-installment">Cuota mensual</Label>
+          <MoneyInput
+            id="cash-installment"
+            className="text-right font-mono"
+            value={installment}
+            onChange={setInstallment}
+          />
+          {cuotas && (
+            <p className="text-xs text-muted-foreground">
+              {cuotas.count} cuotas de{" "}
+              {formatMoneyWithCode(installmentValue, currency)}
+              {cuotas.last !== installmentValue &&
+                ` (la última de ${formatMoneyWithCode(cuotas.last, currency)})`}
+              .
+            </p>
+          )}
+          {currency !== "ARS" && (
+            <p className="text-xs text-muted-foreground">
+              La planilla solo descuenta planes en pesos: uno en dólares se
+              salda con pagos del empleado.
+            </p>
           )}
         </div>
+      )}
+
+      {kind === "advance" && currency !== "ARS" && (
+        <p className="text-xs text-muted-foreground">
+          La planilla solo descuenta planes en pesos: un adelanto en dólares se
+          salda con pagos del empleado.
+        </p>
       )}
 
       {kind === "payment" && plansForPayment.length > 0 && (
@@ -379,11 +415,17 @@ function CashFormFields({
           reason={firstReason(
             [!accountId, "Elegí la cuenta."],
             [!channelId, "Elegí el canal."],
+            [loanIssue !== null, loanIssue ?? ""],
           )}
         >
           <Button
             onClick={onSave}
-            disabled={mutation.isPending || !accountId || !channelId}
+            disabled={
+              mutation.isPending ||
+              !accountId ||
+              !channelId ||
+              loanIssue !== null
+            }
           >
             {mutation.isPending ? "Guardando…" : "Registrar"}
           </Button>

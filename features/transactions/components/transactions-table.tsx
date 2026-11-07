@@ -411,6 +411,7 @@ export function TransactionsTable({
             )}
             {canPay && <PayDialog />}
             {canAdvance && <EmployeeCashDialog kind="advance" />}
+            {canAdvance && <EmployeeCashDialog kind="loan" />}
             {canWrite && canPickAccount && (
               <NewTransactionDialog
                 channels={channels}
