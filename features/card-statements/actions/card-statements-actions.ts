@@ -168,7 +168,16 @@ export async function getCardStatementAction(
     taxes.error ||
     employees.error
   ) {
-    logger.error("cards.detail_failed", { userId: ctx.userId, id });
+    logger.error("cards.detail_failed", {
+      userId: ctx.userId,
+      id,
+      error:
+        lines.error ??
+        holders.error ??
+        leaves.error ??
+        taxes.error ??
+        employees.error,
+    });
     return { ok: false, error: "No se pudo leer el resumen." };
   }
   // An employee already chosen stays shown after leaving the company.
@@ -185,7 +194,11 @@ export async function getCardStatementAction(
       ? await service.from("employees").select("id, legal_name").in("id", gone)
       : { data: [] as { id: string; legal_name: string }[], error: null };
   if (former.error) {
-    logger.error("cards.detail_failed", { userId: ctx.userId, id });
+    logger.error("cards.detail_failed", {
+      userId: ctx.userId,
+      id,
+      error: former.error,
+    });
     return { ok: false, error: "No se pudo leer el resumen." };
   }
   return {
@@ -299,7 +312,10 @@ export async function createCardStatementAction(
       .maybeSingle(),
   ]);
   if (existing.error || holders.error || !charges || payAccount.error) {
-    logger.error("cards.create_read_failed", { userId: ctx.userId });
+    logger.error("cards.create_read_failed", {
+      userId: ctx.userId,
+      error: existing.error ?? holders.error ?? payAccount.error,
+    });
     return { ok: false, error: "No se pudo cargar el resumen." };
   }
   if (existing.data) {

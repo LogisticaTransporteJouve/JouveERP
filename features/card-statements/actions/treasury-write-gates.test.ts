@@ -179,3 +179,40 @@ describe("card parts and advances", () => {
     expect(update?.filters).toContainEqual(["neq", "treatment", "advance"]);
   });
 });
+
+describe("a paid part", () => {
+  const ID = "00000000-0000-4000-8000-0000000000c1";
+  const LINE = "00000000-0000-4000-8000-0000000000d1";
+  const ACCOUNT = "00000000-0000-4000-8000-0000000000e1";
+
+  it("keeps its lines as booked when lines or a card's default change", async () => {
+    fake = recordingSupabase((call) =>
+      call.table === "card_statements"
+        ? {
+            data: {
+              account_number: "0600000001",
+              status: "pendiente",
+              paid_ars_on: "2026-11-11",
+              paid_usd_on: null,
+            },
+            error: null,
+          }
+        : { data: [], error: null },
+    );
+    const destination = {
+      statement_id: ID,
+      treatment: "expense",
+      chart_account_id: ACCOUNT,
+      employee_id: null,
+    } as const;
+    await cards.setCardLinesAction({ ...destination, line_ids: [LINE] });
+    await cards.setCardHolderAction({ ...destination, last4: "1234" });
+    const lineUpdates = fake.calls.filter(
+      (c) => c.op === "update" && c.table === "card_statement_lines",
+    );
+    expect(lineUpdates).toHaveLength(2);
+    for (const u of lineUpdates) {
+      expect(u.filters).toContainEqual(["not", "currency", ["in", "(ARS)"]]);
+    }
+  });
+});
