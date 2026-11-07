@@ -2,6 +2,7 @@ import { isValidCuit } from "@/lib/validation/cuit";
 
 import type {
   BankCodeKind,
+  BankCodePreset,
   BankStatementCode,
   StatementClient,
   StatementLine,
@@ -252,7 +253,7 @@ export const PROVINCIA_CODES: readonly PresetCode[] = [
     description_pattern: "RETENCION ARBA",
     kind: "tax",
     account: { role: "percepciones_iibb_pagadas" },
-    label: "SIRCREB (recaudación IIBB)",
+    label: "Retención ARBA (recaudación IIBB)",
   },
   {
     bank_code: "",
@@ -385,3 +386,25 @@ export const MACRO_CODES: readonly PresetCode[] = [
     label: "Transferencia entre cuentas propias",
   },
 ];
+
+/** The bank whose known codes fit the statement, for an account with none
+ *  yet: Macro by its «Código Causal», Provincia by the text of its concepts.
+ *  Two lines that fit are enough; null when neither does. */
+export function detectBankPreset(
+  lines: readonly Pick<StatementLine, "bank_code" | "description">[],
+): BankCodePreset | null {
+  const macro = new Set(MACRO_CODES.map((c) => c.bank_code));
+  const provincia = PROVINCIA_CODES.map((c) => norm(c.description_pattern));
+  let macroHits = 0;
+  let provinciaHits = 0;
+  for (const l of lines) {
+    if (l.bank_code) {
+      if (macro.has(l.bank_code)) macroHits++;
+    } else {
+      const d = norm(l.description);
+      if (provincia.some((p) => d.includes(p))) provinciaHits++;
+    }
+  }
+  if (macroHits < 2 && provinciaHits < 2) return null;
+  return macroHits >= provinciaHits ? "macro" : "provincia";
+}

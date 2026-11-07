@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, FileText, Pencil, Plus, Settings2, Trash2 } from "lucide-react";
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { useScope } from "@/components/providers/scope-provider";
@@ -43,7 +43,12 @@ import {
   useSaveBankStatementCode,
   useStatementCoding,
 } from "../hooks/use-statement-codes";
-import { conceptOf, proposeLine, type LineProposal } from "../lib/bank-codes";
+import {
+  conceptOf,
+  detectBankPreset,
+  proposeLine,
+  type LineProposal,
+} from "../lib/bank-codes";
 import type { ReconciliationGates } from "../lib/gates";
 import {
   BANK_CODE_KIND_LABEL,
@@ -88,7 +93,38 @@ export function useLineProposals(
     }
     return map;
   }, [coding.data, lines]);
+  useAutoPreset(accountId, coding.data?.codes, lines);
   return { coding, proposals };
+}
+
+/** An account with no codes yet gets its bank's known codes as soon as its
+ *  statement shows which bank it is, once per account. A user who cannot
+ *  write codes gets the error from the action and nothing changes. */
+function useAutoPreset(
+  accountId: string,
+  codes: readonly BankStatementCode[] | undefined,
+  lines: readonly StatementLine[],
+) {
+  const preset = usePresetBankStatementCodes();
+  const tried = useRef(new Set<string>());
+  const detected = codes?.length === 0 ? detectBankPreset(lines) : null;
+  const { mutate } = preset;
+  useEffect(() => {
+    if (!detected || tried.current.has(accountId)) return;
+    tried.current.add(accountId);
+    mutate(
+      { account_id: accountId, preset: detected },
+      {
+        onSuccess: ({ inserted }) => {
+          if (inserted > 0) {
+            toast.success(
+              `Se cargaron los códigos de ${BANK_CODE_PRESET_LABEL[detected]}: las líneas ya se reconocen.`,
+            );
+          }
+        },
+      },
+    );
+  }, [accountId, detected, mutate]);
 }
 
 /** The fiscal channel a bank movement goes to by default. */

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { BankStatementCode, StatementClient } from "../schema";
 import {
   PROVINCIA_CODES,
+  detectBankPreset,
   findLoanInstallment,
   suggestLoanSplit,
   conceptOf,
@@ -290,5 +291,35 @@ describe("a debit that is not the plan's amount (Provincia)", () => {
       iva: 0,
       taxes: 0,
     });
+  });
+});
+
+describe("detectBankPreset", () => {
+  const line = (bank_code: string, description: string) => ({
+    bank_code,
+    description,
+  });
+
+  it("knows Provincia by its concepts and Macro by its codes", () => {
+    expect(
+      detectBankPreset([
+        line("", "IMPUESTO DEBITO - LEY 25413"),
+        line("", "RETENCION ARBA                 0023"),
+        line("", "TRANSF DE ANDINO OUTFITTERS SO (33718235559) VAR"),
+      ]),
+    ).toBe("provincia");
+    expect(
+      detectBankPreset([
+        line("1684", "IMP DEB LEY 25413"),
+        line("361", "PAGO PRESTAMO"),
+      ]),
+    ).toBe("macro");
+  });
+
+  it("guesses nothing from one line or unknown ones", () => {
+    expect(detectBankPreset([line("", "RETENCION ARBA")])).toBeNull();
+    expect(
+      detectBankPreset([line("9", "OTRA COSA"), line("", "ALGO")]),
+    ).toBeNull();
   });
 });
