@@ -158,8 +158,8 @@ export function EcheqListadoDialog() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {preview.rows.map((r) => (
-                  <TableRow key={`${r.check_number}-${r.amount}`}>
+                {preview.rows.map((r, i) => (
+                  <TableRow key={`${r.check_number}-${r.amount}-${i}`}>
                     <TableCell className="font-mono">
                       {r.check_number}
                     </TableCell>

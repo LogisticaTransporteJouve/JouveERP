@@ -364,8 +364,8 @@ begin
       using errcode = '23514', hint = 'jouve_guard';
   end if;
 
-  -- Pesos of each line; the cents of rounding the dollars go on the largest
-  -- one, so the movements add up to the debit.
+  -- Pesos of each line; the cents of rounding the dollars go on one line
+  -- (below), so the movements add up to the debit.
   drop table if exists card_amounts;
   create temporary table card_amounts on commit drop as
     select l.id, l.treatment, l.chart_account_id, l.employee_id,
@@ -378,9 +378,19 @@ begin
     raise exception 'El débito en dólares no cierra con los consumos al cambio del banco'
       using errcode = '23514', hint = 'jouve_guard';
   end if;
+  -- On the largest line of the largest group: a purchase refunded in full
+  -- nets to zero and must stay at zero.
   if p_currency = 'USD' and v_diff <> 0 then
     update card_amounts set ars = ars + v_diff
-     where id = (select id from card_amounts order by amount desc limit 1);
+     where id = (
+       select a.id from card_amounts a
+         join (select treatment, chart_account_id, employee_id, sum(ars) as total
+                 from card_amounts group by 1, 2, 3) g
+           on g.treatment = a.treatment
+          and g.chart_account_id is not distinct from a.chart_account_id
+          and g.employee_id is not distinct from a.employee_id
+        order by g.total desc, a.amount desc
+        limit 1);
   end if;
 
   if exists (select 1 from card_amounts where treatment = 'ignore') then

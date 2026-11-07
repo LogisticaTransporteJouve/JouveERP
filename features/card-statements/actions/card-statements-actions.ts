@@ -125,6 +125,7 @@ export async function getCardStatementAction(
       });
     return { ok: false, error: "No se encontró el resumen." };
   }
+  const statement = st.data;
   const [lines, holders, leaves, taxes, employees] = await Promise.all([
     service
       .from("card_statement_lines")
@@ -203,7 +204,11 @@ export async function getCardStatementAction(
         treatment: isCardTreatment(l.treatment) ? l.treatment : "expense",
         chart_account_id: l.chart_account_id,
         employee_id: l.employee_id,
-        paid: l.transaction_id !== null,
+        paid:
+          l.transaction_id !== null ||
+          (l.currency === "USD"
+            ? statement.paid_usd_on
+            : statement.paid_ars_on) !== null,
       })),
       holders: holders.data.map((h) => ({
         last4: h.last4,
@@ -414,16 +419,31 @@ export async function createCardStatementAction(
   return { ok: true, data: { id } };
 }
 
-async function assertEditable(service: Service, statementId: string) {
+/** The parts (pesos, dollars) already paid: their lines are as booked,
+ *  including those of a group that netted to zero and booked nothing. */
+function paidParts(st: {
+  paid_ars_on: string | null;
+  paid_usd_on: string | null;
+}): ("ARS" | "USD")[] {
+  return [
+    ...(st.paid_ars_on ? (["ARS"] as const) : []),
+    ...(st.paid_usd_on ? (["USD"] as const) : []),
+  ];
+}
+
+async function assertEditable(
+  service: Service,
+  statementId: string,
+): Promise<{ error: string } | { paid: ("ARS" | "USD")[] }> {
   const { data, error } = await service
     .from("card_statements")
-    .select("status")
+    .select("status, paid_ars_on, paid_usd_on")
     .eq("id", statementId)
     .maybeSingle();
-  if (error || !data) return "No se encontró el resumen.";
+  if (error || !data) return { error: "No se encontró el resumen." };
   if (data.status === "pagado")
-    return "El resumen ya está pagado: no se cambia.";
-  return null;
+    return { error: "El resumen ya está pagado: no se cambia." };
+  return { paid: paidParts(data) };
 }
 
 /** What some lines are: a company expense (with its account), a salary
@@ -445,8 +465,8 @@ export async function setCardLinesAction(
     return { ok: false, error: ADVANCE_DENIED };
   }
   const service = getServiceClient();
-  const blocked = await assertEditable(service, d.statement_id);
-  if (blocked) return { ok: false, error: blocked };
+  const editable = await assertEditable(service, d.statement_id);
+  if ("error" in editable) return { ok: false, error: editable.error };
   let update = service
     .from("card_statement_lines")
     .update({
@@ -457,6 +477,8 @@ export async function setCardLinesAction(
     .eq("statement_id", d.statement_id)
     .in("id", d.line_ids)
     .is("transaction_id", null);
+  if (editable.paid.length > 0)
+    update = update.not("currency", "in", `(${editable.paid.join(",")})`);
   // A charge of the bank is never a salary advance.
   if (d.treatment === "advance") update = update.eq("source", "purchase");
   // An advance is Personal's: without its write it stays as it is.
@@ -497,7 +519,7 @@ export async function setCardHolderAction(
   const service = getServiceClient();
   const st = await service
     .from("card_statements")
-    .select("account_number, status")
+    .select("account_number, status, paid_ars_on, paid_usd_on")
     .eq("id", d.statement_id)
     .maybeSingle();
   if (st.error || !st.data)
@@ -538,6 +560,9 @@ export async function setCardHolderAction(
     .eq("statement_id", d.statement_id)
     .eq("card_last4", d.last4)
     .is("transaction_id", null);
+  const paid = paidParts(st.data);
+  if (paid.length > 0)
+    linesUpdate = linesUpdate.not("currency", "in", `(${paid.join(",")})`);
   if (!hrWrite) linesUpdate = linesUpdate.neq("treatment", "advance");
   const { data, error } = await linesUpdate.select("id");
   if (error) {

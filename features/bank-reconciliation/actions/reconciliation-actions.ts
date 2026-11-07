@@ -528,7 +528,7 @@ export async function depositCheckFromLineAction(
     .eq("id", deposited.data.movement_id)
     .maybeSingle();
   if (movement.error) {
-    logger.error("reconciliation.deposit.read_failed", {
+    logger.error("reconciliation.deposit.movement_read_failed", {
       userId: ctx.userId,
       error: movement.error,
     });
