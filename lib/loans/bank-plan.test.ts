@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { frenchPlan, parseBankPlan } from "./bank-plan";
+import {
+  fixedCapitalPlan,
+  frenchPlan,
+  frenchPlanWith,
+  parseBankPlan,
+  withOpeningCuotas,
+} from "./bank-plan";
 
 // Two rows of Banco Macro's «Plan de cuotas» as the browser copies them.
 const MACRO = `Num. de cuota	Vencimiento	Total a pagar	Capital	Otro capital	Intereses	Seguro	Otros rubros	IVA	Estado
@@ -61,5 +67,66 @@ describe("frenchPlan", () => {
       Math.abs((plan[0]?.amount ?? 0) - (plan[5]?.amount ?? 0)),
     ).toBeLessThan(0.02);
     expect(plan[0]?.interest).toBe(600000);
+  });
+});
+
+describe("Banco Provincia's plans", () => {
+  it("1666007/8: fixed capital, interest by days in its own cuota", () => {
+    const plan = fixedCapitalPlan(60_000_000, 42, 12, "2026-02-15", {
+      interestByDays: true,
+      startDate: "2026-01-15",
+      separateInterest: true,
+      paidCount: 18,
+    });
+    expect(plan).toHaveLength(24);
+    expect(
+      plan.slice(0, 4).map((p) => [p.number, p.capital, p.interest]),
+    ).toEqual([
+      [1, 5_000_000, 0],
+      [2, 0, 2140273.97],
+      [3, 5_000_000, 0],
+      [4, 0, 1772054.79],
+    ]);
+    expect(plan[17]?.paid).toBe(true);
+    expect(plan[18]?.paid).toBe(false);
+  });
+
+  it("1367511/2: fixed capital of 150.000 at 37 %, interest by days", () => {
+    const plan = fixedCapitalPlan(9_000_000, 37, 60, "2022-07-02", {
+      interestByDays: true,
+      startDate: "2022-06-02",
+      separateInterest: true,
+    });
+    const oct = plan.find((p) => p.due_date === "2026-10-02" && p.interest > 0);
+    expect(oct?.interest).toBe(41054.79);
+    expect(plan[1]?.interest).toBe(273698.63);
+  });
+
+  it("1573367/5: French at 29 %, the plan's cuota", () => {
+    const plan = frenchPlanWith(35_000_000, 29, 60, "2024-10-04");
+    expect(plan[0]?.amount).toBe(1110965.45);
+    expect(plan[0]?.interest).toBe(845833.33);
+  });
+});
+
+describe("withOpeningCuotas", () => {
+  it("numbers the plan as Banco Provincia does, after the grant's cuotas", () => {
+    const plan = withOpeningCuotas(
+      frenchPlanWith(35_000_000, 29, 60, "2024-10-04"),
+      { count: 2, date: "2024-09-04", taxes: 210_000 },
+      27,
+    );
+    expect(plan).toHaveLength(62);
+    expect(
+      plan.slice(0, 3).map((p) => [p.number, p.due_date, p.amount, p.paid]),
+    ).toEqual([
+      [1, "2024-09-04", 210_000, true],
+      [2, "2024-09-04", 0, true],
+      [3, "2024-10-04", 1110965.45, true],
+    ]);
+    expect(plan.find((p) => p.due_date === "2026-11-04")).toMatchObject({
+      number: 28,
+      paid: false,
+    });
   });
 });

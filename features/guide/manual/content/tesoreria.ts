@@ -1212,7 +1212,7 @@ export const treasuryPage: GuidePage = {
           permission: ["imports:write", "transactions:write"],
           prerequisites: [
             "Ser owner o admin: el importador ([[/admin/imports]]) es solo para esos roles; sin el permiso, el botón {{Subir extracto}} no aparece.",
-            "El extracto como planilla .xlsx (se lee la primera hoja) o .csv, con una fila de títulos y hasta 5000 filas. Columnas: fecha y descripción (obligatorias), el importe con signo (negativo = débito) o dos columnas de débito y crédito, y si las trae, saldo, referencia y el código del banco (en Macro, «Código Causal»).",
+            "El extracto como lo baja el banco: planilla .xlsx (se lee la primera hoja), .csv o .txt (el de Banco Provincia, con su encabezado y totales, se lee tal cual), con una fila de títulos y hasta 5000 filas. Columnas: fecha y descripción (obligatorias), el importe con signo (negativo = débito) o dos columnas de débito y crédito, y si las trae, saldo, referencia y el código del banco (en Macro, «Código Causal»).",
             "La cuenta del extracto activa y de tipo banco, billetera, efectivo o inversión (no una cartera de cheques).",
           ],
           screens: [
@@ -1220,7 +1220,7 @@ export const treasuryPage: GuidePage = {
               kind: "dialog",
               title: "Subir extracto",
               description:
-                "Subí el .csv o .xlsx que bajaste del banco. Las líneas que ya estaban cargadas se saltean.",
+                "Subí el extracto que bajaste del banco (.csv, .txt o .xlsx). Las líneas que ya estaban cargadas se saltean.",
               fields: [{ label: "Archivo", kind: "input", marker: 2 }],
               footer: [
                 { label: "Cancelar", variant: "outline" },
@@ -2665,8 +2665,11 @@ export const treasuryPage: GuidePage = {
               text: "En {{Plan de cuotas}} elegí cómo se arman las cuotas.",
               substeps: [
                 "{{Pegar del banco}}: en el home banking abrí el préstamo › Plan de cuotas, seleccioná la tabla entera, copiala y pegala. Toma cada cuota con su capital, intereses, otros rubros e IVA, y las que figuran pagadas.",
-                "{{Calcular con la TNA}}: sistema francés (capital más interés igual todos los meses), con la cantidad de {{Cuotas}} y la {{1ª cuota}}.",
+                "{{Francés (TNA)}}: capital más interés igual todos los meses, con la cantidad de {{Cuotas}} y la {{1ª cuota}}.",
+                "{{Capital fijo (TNA)}}: el mismo capital todos los meses y el interés sobre lo que se debe (sistema alemán, como los de Banco Provincia). Si el banco cobra el interés por los días del período, marcá «Interés por días reales» (cuenta desde la {{Fecha de alta}}); si lista el capital y el interés como dos cuotas del mismo día, marcá «Interés en cuota aparte».",
                 "{{Cuotas iguales}}: el monto original dividido en partes iguales, sin desglose.",
+                "Si el banco numera cuotas al otorgar el préstamo (Banco Provincia: la 1 con los impuestos del otorgamiento y la 2 en $0, el día del alta), cargá cuántas en {{Cuotas del otorgamiento}} y el importe en {{Impuestos al otorgamiento}}: así los números coinciden con los del banco.",
+                "Si el préstamo ya venía pagándose, poné en {{Ya pagadas (hasta la Nº)}} el número de la última cuota paga, como lo muestra el banco: quedan pagadas, sin movimiento en Caja.",
               ],
             },
             "Revisá la vista previa del plan y hacé clic en {{Crear}}.",
@@ -2874,7 +2877,8 @@ export const treasuryPage: GuidePage = {
           after: [
             "La cuota pasa a {{Pagada}} con su fecha e importe, y se registra el egreso en Caja con su asiento (ver «Qué asientos hace un préstamo»). Ese egreso se corrige desde el préstamo, no desde Caja.",
             "Cuando se paga la última cuota, el préstamo pasa a {{Cancelado}}.",
-            "Si el banco ya debitó la cuota, es más rápido desde el extracto: en la pestaña {{Extracto}} de la cuenta, la línea del débito (en Macro, código 361) muestra la cuota que paga y el botón {{Pagar cuota}}. Paga la cuota con la fecha y el importe de la línea, desde la cuenta del extracto, y deja la línea conciliada. Aparece si el préstamo tiene esa {{Cuenta de débito}} y una cuota pendiente por el mismo importe.",
+            "Si el banco ya debitó la cuota, es más rápido desde el extracto: en la pestaña {{Extracto}} de la cuenta, la línea del débito (en Macro, código 361) muestra la cuota que paga y el botón {{Pagar cuota}}. Paga la cuota con la fecha y el importe de la línea, desde la cuenta del extracto, y deja la línea conciliada. Aparece si el préstamo tiene esa {{Cuenta de débito}} y una cuota pendiente que vence hasta 31 días antes o después, por el mismo importe o con hasta un 10 % de diferencia. Si el importe no coincide (el banco cobró interés por días, punitorios o impuestos), {{Pagar cuota}} abre el desglose: Capital, Intereses, Intereses exceso (punitorios), IVA e Impuestos; cargalo como el detalle de la cuota del home banking, tiene que sumar el débito, y hacé clic en {{Pagar y conciliar}}.",
+            "En Banco Provincia el extracto no trae código: las líneas se reconocen por el texto del concepto (por ejemplo «PAGO CUOTA DE PRESTAMO», «IMPUESTO DEBITO - LEY 25413», «RETENCION ARBA»). Una transferencia con el CUIT de la empresa se propone como transferencia entre cuentas propias. La primera vez que se sube un extracto de Macro o de Provincia a una cuenta sin códigos, los del banco se cargan solos. Una transferencia recibida muestra {{Crear recibo}}: con el cliente ya elegido si su CUIT está en la línea; si no (por ejemplo, un cliente interno, que no tiene CUIT), elegí el lado y el cliente, o crealo con {{Nuevo}}.",
           ],
           errors: [
             {

@@ -288,7 +288,8 @@ export const SaveBankStatementCodeSchema = z
   .object({
     id: z.string().uuid().nullable().optional(),
     account_id: z.string().uuid(),
-    bank_code: z.string().trim().min(1, "Cargá el código.").max(20),
+    /** Empty for a bank with no code: the text below then says what it is. */
+    bank_code: z.string().trim().max(20).default(""),
     description_pattern: z.string().trim().max(80).default(""),
     kind: z.enum(BANK_CODE_KINDS),
     chart_account_id: z.string().uuid().nullable().optional(),
@@ -301,6 +302,13 @@ export const SaveBankStatementCodeSchema = z
       .optional(),
   })
   .superRefine((v, ctx) => {
+    if (v.bank_code === "" && v.description_pattern === "") {
+      ctx.addIssue({
+        code: "custom",
+        path: ["bank_code"],
+        message: "Cargá el código del banco o el texto del concepto.",
+      });
+    }
     if (!bankCodePosts(v.kind) && v.chart_account_id) {
       ctx.addIssue({
         code: "custom",
@@ -317,7 +325,14 @@ export const DeleteBankStatementCodeSchema = z.object({
   id: z.string().uuid(),
 });
 
-export const BANK_CODE_PRESETS = ["macro"] as const;
+export const BANK_CODE_PRESETS = ["macro", "provincia"] as const;
+export const BANK_CODE_PRESET_LABEL: Record<
+  (typeof BANK_CODE_PRESETS)[number],
+  string
+> = {
+  macro: "Banco Macro",
+  provincia: "Banco Provincia",
+};
 export type BankCodePreset = (typeof BANK_CODE_PRESETS)[number];
 
 export const PresetBankStatementCodesSchema = z.object({
@@ -351,6 +366,13 @@ export type StatementLoanInstallment = {
   count: number;
   due_date: string;
   amount: number;
+  /** The plan's capital (the whole cuota when it has no split). */
+  capital: number;
+  iva: number;
+  /** The taxes the bank charged on the interest of the account's last
+   *  cuota that had them (Banco Provincia: «Impuestos» / «Intereses»);
+   *  null when none did. Used to suggest the split of the next debit. */
+  tax_rate?: number | null;
 };
 
 export type StatementCoding = {
@@ -362,10 +384,27 @@ export type StatementCoding = {
   /** Pending cuotas of the loans debited from this account (empty without
    *  permission to see loans). */
   loan_installments: StatementLoanInstallment[];
+  /** The company's own CUIT: a transfer carrying it is between its own
+   *  accounts, not a collection. */
+  company_cuit: string | null;
 };
+
+const splitPart = z.number().min(0).max(1e12);
 
 export const PayLoanFromLineSchema = z.object({
   line_id: z.string().uuid(),
   installment_id: z.string().uuid(),
+  /** What the bank applied when the debit is not the plan's amount (interest
+   *  by days, punitorios, taxes): it must add up to the debit. */
+  split: z
+    .object({
+      capital: splitPart,
+      interest: splitPart,
+      late_interest: splitPart,
+      iva: splitPart,
+      taxes: splitPart,
+    })
+    .nullable()
+    .optional(),
 });
 export type PayLoanFromLineInput = z.infer<typeof PayLoanFromLineSchema>;

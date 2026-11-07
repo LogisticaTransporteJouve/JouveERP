@@ -380,7 +380,16 @@ const GO_LIVE_FIELDS = {
       key: "description",
       label: "Descripción",
       required: true,
-      aliases: ["descripcion", "concepto", "detalle", "movimiento", "leyenda"],
+      // Banco Provincia's export has a short «Descripción» and the full one
+      // (with the CUIT and the loan) in «Descripción Extendida».
+      aliases: [
+        "descripcion extendida",
+        "descripcion",
+        "concepto",
+        "detalle",
+        "movimiento",
+        "leyenda",
+      ],
     },
     {
       key: "amount",
@@ -416,6 +425,7 @@ const GO_LIVE_FIELDS = {
         "comprobante",
         "nro comprobante",
         "nro de comprobante",
+        "numero secuencia",
       ],
     },
     {

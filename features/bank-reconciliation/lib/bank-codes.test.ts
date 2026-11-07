@@ -1,7 +1,17 @@
 import { describe, expect, it } from "vitest";
 
 import type { BankStatementCode, StatementClient } from "../schema";
-import { cuitsIn, findBankCode, proposeLine } from "./bank-codes";
+import {
+  PROVINCIA_CODES,
+  counterpartyOf,
+  detectBankPreset,
+  findLoanInstallment,
+  suggestLoanSplit,
+  conceptOf,
+  cuitsIn,
+  findBankCode,
+  proposeLine,
+} from "./bank-codes";
 
 const CUOTA_11 = {
   id: "i11",
@@ -10,6 +20,8 @@ const CUOTA_11 = {
   count: 12,
   due_date: "2026-11-03",
   amount: 1858377.66,
+  capital: 1725520.13,
+  iva: 12279.97,
 };
 
 function code(p: Partial<BankStatementCode>): BankStatementCode {
@@ -181,5 +193,169 @@ describe("proposeLine", () => {
     );
     expect(p.installment).toBeNull();
     expect(p.missing).toContain("No hay una cuota pendiente");
+  });
+});
+
+describe("a bank with no code (Provincia)", () => {
+  const codes = PROVINCIA_CODES.map((c, i) =>
+    code({
+      id: `p${i}`,
+      bank_code: c.bank_code,
+      description_pattern: c.description_pattern,
+      kind: c.kind,
+      label: c.label,
+    }),
+  );
+  const kindOf = (description: string) =>
+    findBankCode({ bank_code: null, description }, codes)?.kind ?? null;
+
+  it("reads each movement by its concept, in both exports", () => {
+    expect(kindOf("IMPUESTO DEBITO - LEY 25413    0023")).toBe("tax");
+    expect(kindOf("RETENCION ARBA                 6401 SUIPACHA")).toBe("tax");
+    expect(kindOf("PAGO CUOTA DE PRESTAMO         1987 BIYCSA")).toBe("loan");
+    expect(
+      kindOf("PAGO TOTAL CUOTA PMO (7175-330-01573367/5-FVTO:2026-11-04)"),
+    ).toBe("loan");
+    expect(kindOf("TRANSF DE QUIMSA SRL (30708529636) FAC 000300022272")).toBe(
+      "receipt",
+    );
+    expect(kindOf("CR.TRAN. 30708978554 ELECTRA MERCEDES")).toBe("receipt");
+    expect(
+      kindOf("COMISION MANTENIM. PERIODO DESDE 28-09-2026 HASTA 28-10-2026"),
+    ).toBe("bank_fee");
+    expect(kindOf("ALGO NUEVO")).toBeNull();
+  });
+
+  it("offers the concept's fixed start as the text of a new rule", () => {
+    expect(conceptOf("PAGO CUOTA DE PRESTAMO         1987 BIYCSA")).toBe(
+      "PAGO CUOTA DE PRESTAMO",
+    );
+    expect(conceptOf("TRANSF DE VALDEZ, MONICA ADRIA (23207269824) VAR")).toBe(
+      "TRANSF DE VALDEZ, MONICA ADRIA",
+    );
+  });
+});
+
+describe("own transfers", () => {
+  it("money carrying the company's CUIT is a transfer, not a collection", () => {
+    const p = proposeLine(
+      {
+        bank_code: null,
+        description: "CR.TRAN. 30714637432 DZYSONS SA",
+        amount: 5_500_000,
+        line_date: "2026-10-15",
+      },
+      [
+        code({
+          bank_code: "",
+          description_pattern: "CR.TRAN.",
+          kind: "receipt",
+          chart_account_id: null,
+        }),
+      ],
+      new Map(),
+      [],
+      "30714637432",
+    );
+    expect(p.kind).toBe("transfer");
+    expect(p.label).toBe("Transferencia entre cuentas propias");
+  });
+});
+
+describe("a debit that is not the plan's amount (Provincia)", () => {
+  // 1573367/5, cuota of October: capital 470.281,22 by the plan; the bank
+  // charged interest by days (631.907,74) and 1,6 % of taxes on it.
+  const cuota = {
+    id: "c27",
+    loan_description: "Préstamo",
+    number: 27,
+    count: 60,
+    due_date: "2026-10-04",
+    amount: 1110965.45,
+    capital: 470281.22,
+    iva: 0,
+  };
+
+  it("still finds the cuota, within 10 %", () => {
+    expect(
+      findLoanInstallment({ amount: -1112299.46, line_date: "2026-10-05" }, [
+        cuota,
+      ])?.id,
+    ).toBe("c27");
+  });
+
+  it("suggests the plan's capital and the rest as interest", () => {
+    expect(suggestLoanSplit(1112299.46, cuota)).toEqual({
+      capital: 470281.22,
+      interest: 642018.24,
+      late_interest: 0,
+      iva: 0,
+      taxes: 0,
+    });
+  });
+
+  it("splits the rest into interest and taxes at the last cuota's rate", () => {
+    // 1573367/5 cuota 28: the bank's detail is capital 481.646,35,
+    // intereses 641.388,24, impuestos 10.262,20; 1,6 % comes from
+    // 1367511/2 cuota 108 (603,30 on 37.709,58, rounded).
+    expect(
+      suggestLoanSplit(1133296.79, {
+        capital: 481646.35,
+        iva: 0,
+        tax_rate: 0.016,
+      }),
+    ).toEqual({
+      capital: 481646.35,
+      // The bank's own rounding lands a cent away (641.388,24 / 10.262,20).
+      interest: 641388.23,
+      late_interest: 0,
+      iva: 0,
+      taxes: 10262.21,
+    });
+  });
+});
+
+describe("detectBankPreset", () => {
+  const line = (bank_code: string, description: string) => ({
+    bank_code,
+    description,
+  });
+
+  it("knows Provincia by its concepts and Macro by its codes", () => {
+    expect(
+      detectBankPreset([
+        line("", "IMPUESTO DEBITO - LEY 25413"),
+        line("", "RETENCION ARBA                 0023"),
+        line("", "TRANSF DE ANDINO OUTFITTERS SO (33718235559) VAR"),
+      ]),
+    ).toBe("provincia");
+    expect(
+      detectBankPreset([
+        line("1684", "IMP DEB LEY 25413"),
+        line("361", "PAGO PRESTAMO"),
+      ]),
+    ).toBe("macro");
+  });
+
+  it("guesses nothing from one line or unknown ones", () => {
+    expect(detectBankPreset([line("", "RETENCION ARBA")])).toBeNull();
+    expect(
+      detectBankPreset([line("9", "OTRA COSA"), line("", "ALGO")]),
+    ).toBeNull();
+  });
+});
+
+describe("counterpartyOf", () => {
+  it("reads who sent a transfer from Provincia's concepts", () => {
+    expect(
+      counterpartyOf("TRANSF DE ANDINO OUTFITTERS SO (33718235559) VAR"),
+    ).toEqual({ cuit: "33718235559", name: "ANDINO OUTFITTERS SO" });
+    expect(counterpartyOf("CR.TRAN. 30708978554 ELECTRA MERCEDES")).toEqual({
+      cuit: "30708978554",
+      name: "ELECTRA MERCEDES",
+    });
+    expect(
+      counterpartyOf("TRANSF DE VALDEZ, MONICA ADRIA (23207269824) VAR VARIOS"),
+    ).toEqual({ cuit: "23207269824", name: "VALDEZ, MONICA ADRIA" });
   });
 });

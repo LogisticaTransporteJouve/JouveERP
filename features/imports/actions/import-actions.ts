@@ -32,6 +32,7 @@ import {
   vehicleKey,
 } from "../lib/keys";
 import {
+  mergeDescriptionOverflow,
   buildRows,
   countRows,
   markDuplicates,
@@ -512,13 +513,14 @@ async function prepare(
   }
   const bytes = new Uint8Array(await file.arrayBuffer());
   // A bank or a Spanish-locale Excel writes CSV in windows-1252.
+  const keys = fieldKeys(kind);
+  const aliases = fieldAliases(kind);
   const table = readUploadedTable(file.name, bytes, IMPORT_LIMITS, {
     decode: decodeText,
+    header: { fields: keys, aliases },
   });
   if (typeof table === "string") return { error: table };
 
-  const keys = fieldKeys(kind);
-  const aliases = fieldAliases(kind);
   const headerIndex = findHeaderRowIndex(table.rows, keys, aliases);
   if (headerIndex < 0) {
     return {
@@ -587,7 +589,14 @@ async function prepare(
   }
   const built = buildRows({
     kind,
-    rows: table.rows.slice(headerIndex + 1),
+    rows:
+      kind === "bank_statement"
+        ? mergeDescriptionOverflow(
+            table.rows.slice(headerIndex + 1),
+            headers.length,
+            mapping.description,
+          )
+        : table.rows.slice(headerIndex + 1),
     firstLine: headerIndex + 2,
     mapping,
     lookups,

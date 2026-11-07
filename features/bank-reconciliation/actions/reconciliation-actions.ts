@@ -449,11 +449,57 @@ export async function payLoanInstallmentFromLineAction(
       error: "La línea ya está resuelta o no es un débito.",
     };
   }
+  const debit = -Number(line.data.amount);
+  const split = parsed.data.split;
+  if (split) {
+    const parts =
+      Math.round(
+        (split.capital +
+          split.interest +
+          split.late_interest +
+          split.iva +
+          split.taxes) *
+          100,
+      ) / 100;
+    if (Math.abs(parts - debit) > 0.005) {
+      return {
+        ok: false,
+        error: `El desglose suma ${parts.toFixed(2)} y el débito es ${debit.toFixed(2)}.`,
+      };
+    }
+    // The cuota takes what the bank actually applied before it is paid:
+    // interest and punitorios to interest, taxes to perceptions.
+    const { error } = await getServiceClient()
+      .from("loan_installments")
+      .update({
+        amount: debit,
+        capital_amount: split.capital,
+        interest_amount: split.interest,
+        other_charges_amount: split.late_interest,
+        iva_amount: split.iva,
+        perception_amount: split.taxes,
+      })
+      .eq("id", parsed.data.installment_id)
+      .eq("status", "pendiente");
+    if (error) {
+      const guard = mapDbGuardError(error, {
+        slug: "reconciliation.loan_split.rejected",
+        userId: ctx.userId,
+      });
+      if (!guard) {
+        logger.error("reconciliation.loan_split.failed", {
+          userId: ctx.userId,
+          error,
+        });
+      }
+      return { ok: false, error: guard ?? "No se pudo ajustar la cuota." };
+    }
+  }
   const paid = await payLoanInstallment(ctx.userId, {
     id: parsed.data.installment_id,
     paid_date: line.data.line_date,
     account_id: line.data.account_id,
-    amount: -Number(line.data.amount),
+    amount: debit,
   });
   if (!paid.ok) return paid;
   const matched = await matchBankLine(ctx.userId, {

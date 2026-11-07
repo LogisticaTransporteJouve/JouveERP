@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, FileText, Pencil, Plus, Settings2, Trash2 } from "lucide-react";
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { useScope } from "@/components/providers/scope-provider";
@@ -30,6 +30,8 @@ import { ChartAccountDialog } from "@/features/chart-of-accounts/components/char
 import { useChartOfAccounts } from "@/features/chart-of-accounts/hooks/use-chart-of-accounts";
 import { CollectDialog } from "@/features/receipts/components/collect-dialog";
 
+import { PayLoanFromLineDialog } from "./pay-loan-from-line-dialog";
+
 import {
   useCreateLineTransaction,
   useMatchLineToReceipt,
@@ -41,10 +43,18 @@ import {
   useSaveBankStatementCode,
   useStatementCoding,
 } from "../hooks/use-statement-codes";
-import { proposeLine, type LineProposal } from "../lib/bank-codes";
+import {
+  conceptOf,
+  counterpartyOf,
+  detectBankPreset,
+  proposeLine,
+  type LineProposal,
+} from "../lib/bank-codes";
 import type { ReconciliationGates } from "../lib/gates";
 import {
   BANK_CODE_KIND_LABEL,
+  BANK_CODE_PRESETS,
+  BANK_CODE_PRESET_LABEL,
   BANK_CODE_KINDS,
   bankCodePosts,
   isBankCodeKind,
@@ -77,13 +87,45 @@ export function useLineProposals(
             coding.data.codes,
             byCuit,
             coding.data.loan_installments,
+            coding.data.company_cuit,
           ),
         );
       }
     }
     return map;
   }, [coding.data, lines]);
+  useAutoPreset(accountId, coding.data?.codes, lines);
   return { coding, proposals };
+}
+
+/** An account with no codes yet gets its bank's known codes as soon as its
+ *  statement shows which bank it is, once per account. A user who cannot
+ *  write codes gets the error from the action and nothing changes. */
+function useAutoPreset(
+  accountId: string,
+  codes: readonly BankStatementCode[] | undefined,
+  lines: readonly StatementLine[],
+) {
+  const preset = usePresetBankStatementCodes();
+  const tried = useRef(new Set<string>());
+  const detected = codes?.length === 0 ? detectBankPreset(lines) : null;
+  const { mutate } = preset;
+  useEffect(() => {
+    if (!detected || tried.current.has(accountId)) return;
+    tried.current.add(accountId);
+    mutate(
+      { account_id: accountId, preset: detected },
+      {
+        onSuccess: ({ inserted }) => {
+          if (inserted > 0) {
+            toast.success(
+              `Se cargaron los códigos de ${BANK_CODE_PRESET_LABEL[detected]}: las líneas ya se reconocen.`,
+            );
+          }
+        },
+      },
+    );
+  }, [accountId, detected, mutate]);
 }
 
 /** The fiscal channel a bank movement goes to by default. */
@@ -109,6 +151,7 @@ export function LineProposalView({
   const create = useCreateLineTransaction();
   const matchToReceipt = useMatchLineToReceipt();
   const payLoan = usePayLoanFromLine();
+  const [splitting, setSplitting] = useState(false);
   const fiscal = useFiscalChannel();
   if (!proposal) return null;
 
@@ -157,6 +200,11 @@ export function LineProposalView({
           onClick={() => {
             const installment = proposal.installment;
             if (!installment) return;
+            // A debit of another amount is split first, as the bank did.
+            if (Math.abs(installment.amount + line.amount) > 0.005) {
+              setSplitting(true);
+              return;
+            }
             payLoan.mutate(
               { line_id: line.id, installment_id: installment.id },
               {
@@ -173,43 +221,53 @@ export function LineProposalView({
           Pagar cuota {proposal.installment.number}
         </Button>
       )}
-      {gates.canCollect &&
-        proposal.kind === "receipt" &&
-        proposal.client &&
-        line.amount > 0 && (
-          <CollectDialog
-            initialClient={proposal.client}
-            side="fiscal"
-            canEditRetentions={gates.canEditRetentions}
-            fromBankLine={{
-              date: line.line_date,
-              amount: line.amount,
-              account_id: accountId,
-              channel_id: fiscal || undefined,
-            }}
-            onCreated={(receiptId) =>
-              matchToReceipt.mutate(
-                { line_id: line.id, receipt_id: receiptId },
-                {
-                  onSuccess: () =>
-                    toast.success("Línea conciliada con el recibo."),
-                  onError: (err) =>
-                    toast.error(
-                      `El recibo se emitió pero la línea no se concilió: ${err.message}`,
-                    ),
-                },
-              )
-            }
-            trigger={
-              <Button type="button" size="sm" variant="outline" className="h-7">
-                <FileText className="size-3.5" />
-                Crear recibo
-              </Button>
-            }
-          />
-        )}
+      {splitting && proposal.installment && (
+        <PayLoanFromLineDialog
+          line={line}
+          installment={proposal.installment}
+          open={splitting}
+          onOpenChange={setSplitting}
+        />
+      )}
+      {gates.canCollect && proposal.kind === "receipt" && line.amount > 0 && (
+        // A client found by the line's CUIT is the fiscal side's; without
+        // one (an internal client has no CUIT) the user picks the side and
+        // the client, or creates it from the picker.
+        <CollectDialog
+          initialClient={proposal.client}
+          side={proposal.client ? "fiscal" : undefined}
+          canEditRetentions={gates.canEditRetentions}
+          fromBankLine={{
+            date: line.line_date,
+            amount: line.amount,
+            account_id: accountId,
+            channel_id: proposal.client ? fiscal || undefined : undefined,
+            counterparty: proposal.client
+              ? null
+              : counterpartyOf(line.description),
+          }}
+          onCreated={(receiptId) =>
+            matchToReceipt.mutate(
+              { line_id: line.id, receipt_id: receiptId },
+              {
+                onSuccess: () =>
+                  toast.success("Línea conciliada con el recibo."),
+                onError: (err) =>
+                  toast.error(
+                    `El recibo se emitió pero la línea no se concilió: ${err.message}`,
+                  ),
+              },
+            )
+          }
+          trigger={
+            <Button type="button" size="sm" variant="outline" className="h-7">
+              <FileText className="size-3.5" />
+              Crear recibo
+            </Button>
+          }
+        />
+      )}
       {gates.canWrite &&
-        line.bank_code &&
         (proposal.code === null ||
           (bankCodePosts(proposal.kind ?? "ignore") &&
             !proposal.code.chart_account_id)) && (
@@ -225,7 +283,10 @@ export function LineProposalView({
                   : {
                       id: null,
                       bank_code: line.bank_code ?? "",
-                      description_pattern: "",
+                      // With no code, the rule is the concept's fixed start.
+                      description_pattern: line.bank_code
+                        ? ""
+                        : conceptOf(line.description),
                       kind: line.amount < 0 ? "tax" : "receipt",
                       chart_account_id: "",
                       label: line.description,
@@ -234,7 +295,7 @@ export function LineProposalView({
             }
           >
             <Settings2 className="size-3.5" />
-            Configurar código
+            {line.bank_code ? "Configurar código" : "Configurar concepto"}
           </Button>
         )}
     </div>
@@ -388,30 +449,32 @@ export function BankCodesDialog({
                   Agregar código
                 </Button>
               )}
-              {gates.canWrite && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={preset.isPending}
-                  onClick={() =>
-                    preset.mutate(
-                      { account_id: accountId, preset: "macro" },
-                      {
-                        onSuccess: ({ inserted }) =>
-                          toast.success(
-                            inserted === 0
-                              ? "Los códigos de Banco Macro ya estaban."
-                              : `Se cargaron ${inserted} códigos de Banco Macro.`,
-                          ),
-                        onError: (err) => toast.error(err.message),
-                      },
-                    )
-                  }
-                >
-                  Cargar códigos de Banco Macro
-                </Button>
-              )}
+              {gates.canWrite &&
+                BANK_CODE_PRESETS.map((p) => (
+                  <Button
+                    key={p}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={preset.isPending}
+                    onClick={() =>
+                      preset.mutate(
+                        { account_id: accountId, preset: p },
+                        {
+                          onSuccess: ({ inserted }) =>
+                            toast.success(
+                              inserted === 0
+                                ? `Los códigos de ${BANK_CODE_PRESET_LABEL[p]} ya estaban.`
+                                : `Se cargaron ${inserted} códigos de ${BANK_CODE_PRESET_LABEL[p]}.`,
+                            ),
+                          onError: (err) => toast.error(err.message),
+                        },
+                      )
+                    }
+                  >
+                    Cargar códigos de {BANK_CODE_PRESET_LABEL[p]}
+                  </Button>
+                ))}
             </div>
             <div className="overflow-x-auto rounded-md border">
               <table className="w-full text-sm">
@@ -457,7 +520,7 @@ export function BankCodesDialog({
                   {codes.map((c) => (
                     <tr key={c.id} className="border-b last:border-0">
                       <td className="px-3 py-2 font-mono text-xs">
-                        {c.bank_code}
+                        {c.bank_code || "Por texto"}
                         {c.description_pattern && (
                           <span className="text-muted-foreground block font-sans">
                             contiene «{c.description_pattern}»
@@ -480,14 +543,14 @@ export function BankCodesDialog({
                       {gates.canWrite && (
                         <td className="px-2 py-2 text-right whitespace-nowrap">
                           <IconButton
-                            label={`Editar el código ${c.bank_code}`}
+                            label={`Editar el código ${c.bank_code || c.description_pattern}`}
                             variant="ghost"
                             onClick={() => setDraft(draftOf(c))}
                           >
                             <Pencil className="size-4" />
                           </IconButton>
                           <IconButton
-                            label={`Borrar el código ${c.bank_code}`}
+                            label={`Borrar el código ${c.bank_code || c.description_pattern}`}
                             variant="ghost"
                             disabled={remove.isPending}
                             onClick={() =>
@@ -562,7 +625,9 @@ function CodeForm({
     <div className="space-y-3">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
-          <Label htmlFor="code-bank-code">Código del banco</Label>
+          <Label htmlFor="code-bank-code">
+            Código del banco (vacío si el banco no tiene)
+          </Label>
           <Input
             id="code-bank-code"
             className="font-mono"
@@ -572,7 +637,9 @@ function CodeForm({
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="code-pattern">
-            Solo si la descripción contiene (opcional)
+            {v.bank_code.trim() === ""
+              ? "El concepto contiene"
+              : "Solo si la descripción contiene (opcional)"}
           </Label>
           <Input
             id="code-pattern"
@@ -681,7 +748,10 @@ function CodeForm({
         </Button>
         <Button
           type="button"
-          disabled={save.isPending || v.bank_code.trim() === ""}
+          disabled={
+            save.isPending ||
+            (v.bank_code.trim() === "" && v.description_pattern.trim() === "")
+          }
           onClick={onSave}
         >
           {save.isPending ? "Guardando…" : "Guardar"}

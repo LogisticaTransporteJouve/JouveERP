@@ -2,6 +2,7 @@ import { isValidCuit } from "@/lib/validation/cuit";
 
 import type {
   BankCodeKind,
+  BankCodePreset,
   BankStatementCode,
   StatementClient,
   StatementLine,
@@ -12,25 +13,46 @@ function norm(text: string): string {
   return text.toUpperCase().replace(/\s+/g, " ").trim();
 }
 
-/** The code that says what a line is: among the codes of its bank code, the
- *  one whose text the description contains (the longest wins), else the one
- *  for the whole code. */
+/** The code that says what a line is. Among the codes of its bank code,
+ *  the one whose text the description contains (the longest wins), else the
+ *  one for the whole code. A bank whose statement has no code (Provincia)
+ *  is read by text alone: the code with no bank code whose text the
+ *  description contains, the longest first. */
 export function findBankCode(
   line: Pick<StatementLine, "bank_code" | "description">,
   codes: readonly BankStatementCode[],
 ): BankStatementCode | null {
-  if (!line.bank_code) return null;
   const description = norm(line.description);
-  let best: BankStatementCode | null = null;
-  for (const c of codes) {
-    if (c.bank_code !== line.bank_code) continue;
-    const pattern = norm(c.description_pattern);
-    if (pattern !== "" && !description.includes(pattern)) continue;
-    if (!best || pattern.length > norm(best.description_pattern).length) {
-      best = c;
+  const longest = (candidates: readonly BankStatementCode[]) => {
+    let best: BankStatementCode | null = null;
+    for (const c of candidates) {
+      const pattern = norm(c.description_pattern);
+      if (pattern !== "" && !description.includes(pattern)) continue;
+      if (!best || pattern.length > norm(best.description_pattern).length) {
+        best = c;
+      }
     }
-  }
-  return best;
+    return best;
+  };
+  const byCode = line.bank_code
+    ? longest(codes.filter((c) => c.bank_code === line.bank_code))
+    : null;
+  return (
+    byCode ??
+    longest(
+      codes.filter((c) => c.bank_code === "" && c.description_pattern !== ""),
+    )
+  );
+}
+
+/** The fixed start of a description, to offer as a code's text: what comes
+ *  before a CUIT, a parenthesis, an amount or a branch («TRANSF DE VALDEZ,
+ *  MONICA (2320…)» → «TRANSF DE VALDEZ, MONICA»). The user trims it. */
+export function conceptOf(description: string): string {
+  const start = description.split(/\s{2,}|\(|\d{4,}/)[0] ?? "";
+  return norm(start)
+    .replace(/[\s,.:-]+$/, "")
+    .slice(0, 80);
 }
 
 /** The valid CUITs written in a line's description (Macro puts the
@@ -38,6 +60,26 @@ export function findBankCode(
 export function cuitsIn(description: string): string[] {
   const found = description.match(/\d{11}/g) ?? [];
   return [...new Set(found)].filter((c) => isValidCuit(c));
+}
+
+/** Who sent a transfer, as the line says it: the first valid CUIT and the
+ *  name around it («TRANSF DE ANDINO OUTFITTERS SO (33718235559) VAR» →
+ *  «ANDINO OUTFITTERS SO»; «CR.TRAN. 30708978554 ELECTRA MERCEDES» →
+ *  «ELECTRA MERCEDES»). Null when the line names no one. */
+export function counterpartyOf(
+  description: string,
+): { cuit: string | null; name: string } | null {
+  const cuit = cuitsIn(description)[0] ?? null;
+  const name = norm(
+    description
+      .replace(/^\s*(TRANSF(ERENCIA)? DE|CR\.?\s*TRAN\.?|TEF)\s+/i, "")
+      .replace(/\(.*$/, "")
+      .replace(/\d{11}/g, " "),
+  )
+    .replace(/[\s,.:-]+$/, "")
+    .slice(0, 120);
+  if (!cuit && name === "") return null;
+  return { cuit, name };
 }
 
 export type LineProposal = {
@@ -61,20 +103,48 @@ export function findLoanInstallment(
   line: Pick<StatementLine, "amount" | "line_date">,
   installments: readonly StatementLoanInstallment[],
 ): StatementLoanInstallment | null {
+  // The cuota a debit pays: due within a month of it, the same amount or
+  // the closest within 10 % (a bank charges the interest by days, and
+  // punitorios and taxes on top), and among equals the closest due date.
   const days = (a: string, b: string) =>
     Math.abs(Date.parse(a) - Date.parse(b)) / 86_400_000;
+  const debit = -line.amount;
   let best: StatementLoanInstallment | null = null;
+  let bestScore = Infinity;
   for (const i of installments) {
-    if (Math.abs(i.amount + line.amount) > 0.005) continue;
     if (days(i.due_date, line.line_date) > 31) continue;
-    if (
-      !best ||
-      days(i.due_date, line.line_date) < days(best.due_date, line.line_date)
-    ) {
+    const gap = Math.abs(i.amount - debit);
+    if (gap > i.amount * 0.1 + 0.005) continue;
+    const score = gap * 1000 + days(i.due_date, line.line_date);
+    if (score < bestScore) {
       best = i;
+      bestScore = score;
     }
   }
   return best;
+}
+
+/** How to split a debit that is not the cuota's amount: the plan's capital
+ *  and IVA, and the rest as interest; the user moves punitorios and taxes
+ *  out of it from the bank's detail of the cuota. */
+export function suggestLoanSplit(
+  debit: number,
+  installment: Pick<StatementLoanInstallment, "capital" | "iva" | "tax_rate">,
+) {
+  const round2 = (n: number) => Math.round(n * 100) / 100;
+  const capital = Math.min(installment.capital, debit);
+  const iva = Math.min(installment.iva, round2(debit - capital));
+  // The rest is interest plus the taxes on it, at the rate of the last cuota.
+  const rest = round2(debit - capital - iva);
+  const rate = installment.tax_rate ?? 0;
+  const interest = rate > 0 ? round2(rest / (1 + rate)) : rest;
+  return {
+    capital,
+    interest,
+    late_interest: 0,
+    iva,
+    taxes: round2(rest - interest),
+  };
 }
 
 export function proposeLine(
@@ -85,22 +155,38 @@ export function proposeLine(
   codes: readonly BankStatementCode[],
   clientsByCuit: ReadonlyMap<string, StatementClient>,
   installments: readonly StatementLoanInstallment[] = [],
+  companyCuit: string | null = null,
 ): LineProposal {
   const code = findBankCode(line, codes);
+  // Money from or to the company itself: a transfer between its accounts,
+  // whatever the bank calls it.
+  if (companyCuit && cuitsIn(line.description).includes(companyCuit)) {
+    return {
+      kind: "transfer",
+      code,
+      label: "Transferencia entre cuentas propias",
+      client: null,
+      installment: null,
+      ready: false,
+      missing: null,
+    };
+  }
   if (!code) {
     return {
       kind: null,
       code: null,
       label: line.bank_code
         ? `Código ${line.bank_code} sin configurar`
-        : "Sin código del banco",
+        : "Concepto sin configurar",
       client: null,
       installment: null,
       ready: false,
-      missing: line.bank_code ? "Configurá qué es este código." : null,
+      missing: line.bank_code
+        ? "Configurá qué es este código."
+        : "Configurá qué es este concepto.",
     };
   }
-  const label = code.label ?? code.bank_code;
+  const label = code.label ?? (code.bank_code || code.description_pattern);
   if (code.kind === "tax" || code.kind === "bank_fee") {
     return {
       kind: code.kind,
@@ -129,7 +215,9 @@ export function proposeLine(
       client,
       installment: null,
       ready: false,
-      missing: client ? null : "No hay un cliente con el CUIT de la línea.",
+      missing: client
+        ? null
+        : "Ningún cliente tiene el CUIT de la línea: elegilo o crealo en el recibo.",
     };
   }
   if (code.kind === "loan") {
@@ -167,6 +255,75 @@ type PresetCode = {
   account: { code: string } | { role: string } | null;
   label: string;
 };
+
+/** Banco Provincia has no code: each movement is read by the start of its
+ *  concept, in the monthly .txt («CONCEPTO») and in the home banking
+ *  export («Descripción Extendida») alike. */
+export const PROVINCIA_CODES: readonly PresetCode[] = [
+  {
+    bank_code: "",
+    description_pattern: "IMPUESTO DEBITO - LEY 25413",
+    kind: "tax",
+    account: { code: "5.4.3" },
+    label: "Impuesto a los débitos (Ley 25.413)",
+  },
+  {
+    bank_code: "",
+    description_pattern: "IMPUESTO CREDITO -LEY 25413",
+    kind: "tax",
+    account: { code: "5.4.3" },
+    label: "Impuesto a los créditos (Ley 25.413)",
+  },
+  {
+    bank_code: "",
+    description_pattern: "RETENCION ARBA",
+    kind: "tax",
+    account: { role: "percepciones_iibb_pagadas" },
+    label: "Retención ARBA (recaudación IIBB)",
+  },
+  {
+    bank_code: "",
+    description_pattern: "IMPUESTO I.BRUTOS - PERCEPCION",
+    kind: "tax",
+    account: { role: "percepciones_iibb_pagadas" },
+    label: "Percepción IIBB sobre comisiones",
+  },
+  {
+    bank_code: "",
+    description_pattern: "COMISION",
+    kind: "bank_fee",
+    account: { code: "5.4.2" },
+    label: "Comisión del banco",
+  },
+  {
+    bank_code: "",
+    description_pattern: "PAGO CUOTA DE PRESTAMO",
+    kind: "loan",
+    account: null,
+    label: "Cuota de préstamo",
+  },
+  {
+    bank_code: "",
+    description_pattern: "PAGO TOTAL CUOTA PMO",
+    kind: "loan",
+    account: null,
+    label: "Cuota de préstamo",
+  },
+  {
+    bank_code: "",
+    description_pattern: "TRANSF DE",
+    kind: "receipt",
+    account: null,
+    label: "Transferencia recibida",
+  },
+  {
+    bank_code: "",
+    description_pattern: "CR.TRAN.",
+    kind: "receipt",
+    account: null,
+    label: "Transferencia recibida",
+  },
+];
 
 /** Banco Macro's "Código Causal": what each one is. */
 export const MACRO_CODES: readonly PresetCode[] = [
@@ -255,3 +412,25 @@ export const MACRO_CODES: readonly PresetCode[] = [
     label: "Transferencia entre cuentas propias",
   },
 ];
+
+/** The bank whose known codes fit the statement, for an account with none
+ *  yet: Macro by its «Código Causal», Provincia by the text of its concepts.
+ *  Two lines that fit are enough; null when neither does. */
+export function detectBankPreset(
+  lines: readonly Pick<StatementLine, "bank_code" | "description">[],
+): BankCodePreset | null {
+  const macro = new Set(MACRO_CODES.map((c) => c.bank_code));
+  const provincia = PROVINCIA_CODES.map((c) => norm(c.description_pattern));
+  let macroHits = 0;
+  let provinciaHits = 0;
+  for (const l of lines) {
+    if (l.bank_code) {
+      if (macro.has(l.bank_code)) macroHits++;
+    } else {
+      const d = norm(l.description);
+      if (provincia.some((p) => d.includes(p))) provinciaHits++;
+    }
+  }
+  if (macroHits < 2 && provinciaHits < 2) return null;
+  return macroHits >= provinciaHits ? "macro" : "provincia";
+}

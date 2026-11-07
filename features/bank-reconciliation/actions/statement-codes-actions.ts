@@ -14,7 +14,7 @@ import type { ActionResult } from "@/lib/query/run-action";
 import { fetchInChunks } from "@/lib/supabase/paginate";
 import { getServiceClient } from "@/lib/supabase/service";
 
-import { MACRO_CODES, cuitsIn } from "../lib/bank-codes";
+import { MACRO_CODES, PROVINCIA_CODES, cuitsIn } from "../lib/bank-codes";
 import {
   BANK_TAX_ROLES,
   DeleteBankStatementCodeSchema,
@@ -99,7 +99,7 @@ async function readLoanInstallments(
   const { data, error } = await service
     .from("loan_installments")
     .select(
-      "id, number, due_date, amount, loan:loans!inner ( description, installments_count, account_id, status )",
+      "id, number, due_date, amount, capital_amount, iva_amount, loan:loans!inner ( description, installments_count, account_id, status )",
     )
     .eq("status", "pendiente")
     .eq("loan.account_id", accountId)
@@ -107,6 +107,30 @@ async function readLoanInstallments(
     .order("due_date")
     .limit(500);
   if (error) return null;
+  // The bank's taxes on interest move over time: the last paid cuota of
+  // these loans that had them gives the current rate.
+  const last = await service
+    .from("loan_installments")
+    .select(
+      "interest_amount, perception_amount, loan:loans!inner ( account_id )",
+    )
+    .eq("status", "pagada")
+    .eq("loan.account_id", accountId)
+    .gt("perception_amount", 0)
+    .gt("interest_amount", 0)
+    .order("paid_date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (last.error) return null;
+  // The bank states it with two decimals of a percent (1,6 %, 3,03 %); the
+  // cuota's rounded amounts would shift it by a few cents.
+  const tax_rate = last.data
+    ? Math.round(
+        (Number(last.data.perception_amount) /
+          Number(last.data.interest_amount)) *
+          10_000,
+      ) / 10_000
+    : null;
   return data.flatMap((i) => {
     const loan = Array.isArray(i.loan) ? i.loan[0] : i.loan;
     if (!loan) return [];
@@ -118,6 +142,9 @@ async function readLoanInstallments(
         count: loan.installments_count,
         due_date: i.due_date,
         amount: Number(i.amount),
+        capital: Number(i.capital_amount ?? i.amount),
+        iva: Number(i.iva_amount ?? 0),
+        tax_rate,
       },
     ];
   });
@@ -137,7 +164,7 @@ export async function getStatementCodingAction(
   const { account_id, from, to } = parsed.data;
   const service = getServiceClient();
 
-  const [codes, postingAccounts, lines] = await Promise.all([
+  const [codes, postingAccounts, lines, company] = await Promise.all([
     readCodes(service, account_id),
     readPostingAccounts(service),
     service
@@ -148,6 +175,7 @@ export async function getStatementCodingAction(
       .gte("line_date", from)
       .lte("line_date", to)
       .limit(5000),
+    service.from("business_units").select("cuit").limit(1).maybeSingle(),
   ]);
   if (!codes || !postingAccounts || lines.error) {
     logger.error("reconciliation.coding.read_failed", {
@@ -218,6 +246,7 @@ export async function getStatementCodingAction(
       clients,
       can_read_clients: canReadClients,
       loan_installments: loanInstallments,
+      company_cuit: company.data?.cuit ?? null,
     },
   };
 }
@@ -365,7 +394,8 @@ export async function presetBankStatementCodesAction(
   const byRole = new Map<string, string>(
     chart.data.flatMap((a) => (a.system_role ? [[a.system_role, a.id]] : [])),
   );
-  const rows = MACRO_CODES.map((c) => ({
+  const preset_codes = preset === "provincia" ? PROVINCIA_CODES : MACRO_CODES;
+  const rows = preset_codes.map((c) => ({
     account_id,
     bank_code: c.bank_code,
     description_pattern: c.description_pattern,
