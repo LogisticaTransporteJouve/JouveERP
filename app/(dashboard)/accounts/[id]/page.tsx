@@ -60,7 +60,13 @@ export default async function CuentaPage({
   const month = monthParam(search.month);
   const { from, to } = monthRange(month ?? today.slice(0, 7));
 
-  const listParams = parseTransactionListParams({ ...search, account: id });
+  // The movements open on the current month unless the URL picks a period.
+  const periodChosen = !!(search.period || search.from || search.to);
+  const listParams = parseTransactionListParams({
+    ...(periodChosen ? {} : { period: "this_month" }),
+    ...search,
+    account: id,
+  });
   const filters = transactionListFilters(
     listParams,
     isFiscalFor(await readSharedScope()),

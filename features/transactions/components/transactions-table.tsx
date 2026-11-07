@@ -342,7 +342,11 @@ export function TransactionsTable({
   const defaults = useMemo(
     () =>
       fixedAccountId
-        ? { ...DEFAULT_TRANSACTION_LIST_PARAMS, accountId: fixedAccountId }
+        ? {
+            ...DEFAULT_TRANSACTION_LIST_PARAMS,
+            accountId: fixedAccountId,
+            period: { preset: "this_month" as const, from: null, to: null },
+          }
         : DEFAULT_TRANSACTION_LIST_PARAMS,
     [fixedAccountId],
   );
