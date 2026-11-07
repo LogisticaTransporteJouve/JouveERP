@@ -2,6 +2,10 @@ import { z } from "zod";
 
 import { RECEIVED_VOUCHER_STATUSES } from "../schema";
 
+/** Admin › Puntos de venta › Conciliación con ARCA, Compras tab. */
+export const ARCA_RECONCILIATION_PURCHASES_HREF =
+  "/admin/afip/puntos-de-venta?tab=compras#conciliacion";
+
 /** Rows of each list the detail returns at most. */
 export const RECONCILIATION_DETAIL_LIMIT = 200;
 

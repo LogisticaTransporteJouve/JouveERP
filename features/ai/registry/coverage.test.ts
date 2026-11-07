@@ -45,7 +45,6 @@ const PAGE_TOOLS: Record<string, readonly string[]> = {
   "/purchases": ["getPurchaseInvoices"],
   "/purchases/[id]": ["getPurchaseInvoiceDetail"],
   "/purchases/arca": ["getArcaReceivedVouchers"],
-  "/purchases/arca/reconciliation": ["getArcaPurchaseReconciliation"],
   "/payment-orders": ["getPaymentOrders"],
   "/payment-orders/[id]": ["getPaymentOrderDetail"],
   "/aging-suppliers": ["getSupplierAging", "getSupplierUpcomingDues"],
@@ -123,7 +122,10 @@ const PAGE_TOOLS: Record<string, readonly string[]> = {
   "/hr/document-expirations": ["getExpiringDocuments"],
   // Administración
   "/admin/users": ["getUsers"],
-  "/admin/afip/puntos-de-venta": ["getAfipStatus"],
+  "/admin/afip/puntos-de-venta": [
+    "getAfipStatus",
+    "getArcaPurchaseReconciliation",
+  ],
   "/admin/imports": ["getImportRuns"],
   "/admin/audit": ["getAuditEvents"],
   "/admin/backups": ["getBackups"],
@@ -142,6 +144,8 @@ const NO_TOOL: Record<string, string> = {
   "/profile": "the user's own profile",
   // A developer preview of a sample PDF; it holds no data.
   "/admin/afip/preview-pdf": "PDF preview tool",
+  "/purchases/arca/reconciliation":
+    "redirects to /admin/afip/puntos-de-venta (Compras tab)",
   // Which service users are set and whether they sign in: credentials, not
   // business data for the assistant.
   "/admin/accesos": "service users (credentials)",

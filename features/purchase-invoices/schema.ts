@@ -500,12 +500,20 @@ export const RECEIVED_VOUCHER_STATUSES = [
 ] as const;
 export type ReceivedVoucherStatus = (typeof RECEIVED_VOUCHER_STATUSES)[number];
 
-export function isReceivedVoucherStatus(
-  v: unknown,
-): v is ReceivedVoucherStatus {
+/** The tray's tabs. A loaded voucher (confirmed) has none: it lives in
+ *  Compras › Comprobantes, and the Conciliación lists what is not loaded. */
+export const RECEIVED_VOUCHER_TABS = [
+  "pending_review",
+  "unreadable",
+  "discarded",
+  "unsupported",
+] as const satisfies readonly ReceivedVoucherStatus[];
+export type ReceivedVoucherTab = (typeof RECEIVED_VOUCHER_TABS)[number];
+
+export function isReceivedVoucherTab(v: unknown): v is ReceivedVoucherTab {
   return (
     typeof v === "string" &&
-    (RECEIVED_VOUCHER_STATUSES as readonly string[]).includes(v)
+    (RECEIVED_VOUCHER_TABS as readonly string[]).includes(v)
   );
 }
 

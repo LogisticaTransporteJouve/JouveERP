@@ -25,7 +25,7 @@ export function ArcaReconciliationPanel() {
     <div className="rounded-lg border bg-card">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
         <div>
-          <h2 className="text-sm font-medium">Conciliación con ARCA</h2>
+          <h3 className="text-sm font-medium">Numeración de ventas</h3>
           <p className="text-xs text-muted-foreground">
             ARCA numera cada tipo de comprobante sin saltos: del 1 al último
             autorizado tiene que estar todo en el ERP.

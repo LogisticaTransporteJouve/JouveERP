@@ -1017,7 +1017,7 @@ export const purchasesPage: GuidePage = {
           after: [
             "Aviso «Factura cargada.». La compra queda {{Recibida}}, aparece en la cuenta corriente del proveedor, en el aging y en el Libro IVA Compras del mes.",
             "Se genera el asiento: Proveedores al haber por el total; el neto a la cuenta de gasto (o Compras, o la cuenta del empleado), el IVA crédito fiscal y las percepciones al debe, con el centro de costo elegido. En dólares, se convierte a pesos con la cotización cargada.",
-            "Si coincide con un comprobante pendiente en [[/purchases/arca]] (mismo proveedor, tipo, letra, número e importes), ese comprobante pasa solo a {{Cargadas}}.",
+            "Si coincide con un comprobante pendiente en [[/purchases/arca]] (mismo proveedor, tipo, letra, número e importes), ese comprobante queda vinculado a la compra y sale de la bandeja.",
           ],
           errors: [
             {
@@ -1693,7 +1693,7 @@ export const purchasesPage: GuidePage = {
       permission: "purchase_invoices:write",
       intro: [
         "La bandeja con los comprobantes que tus proveedores informaron a ARCA (Mis Comprobantes › Recibidos). Cada uno se acepta para cargarlo como compra, o se descarta si no corresponde. Se llega con el botón {{Recibidos de ARCA}} de [[/purchases]], del lado fiscal.",
-        "Arriba está el recuadro {{Traer de ARCA}} (estado de la conexión con ARCA y la última corrida) y el recuadro para subir el archivo de Mis Comprobantes. Debajo, cinco pestañas: {{Pendientes}}, {{No se pudieron leer}}, {{Cargadas}}, {{Descartadas}} y {{No soportados}}.",
+        "Arriba está el recuadro {{Traer de ARCA}} (estado de la conexión con ARCA y la última corrida) y el recuadro para subir el archivo de Mis Comprobantes. Debajo, cuatro pestañas: {{Pendientes}}, {{No se pudieron leer}}, {{Descartadas}} y {{No soportados}}. Lo que ya se cargó como compra no queda en la bandeja: está en [[/purchases]], y lo de ARCA que falta cargar se ve en [[#conciliacion-compras-arca]].",
         "Columnas: {{Fecha}}, {{Proveedor}} (con el CUIT; «proveedor nuevo» si todavía no está cargado), {{Comprobante}} y {{Total}}.",
       ],
       concepts: [
@@ -1701,7 +1701,6 @@ export const purchasesPage: GuidePage = {
           title: "Las pestañas",
           body: [
             "{{Pendientes}}: lo que falta revisar. Cada fila tiene {{Ver detalle}}, {{Aceptar y cargar}} y {{Descartar}}.",
-            "{{Cargadas}}: ya están en Compras. {{Ver compra}} abre la compra; si la compra se anuló dice {{Anulada}}.",
             "{{Descartadas}}: las que se decidió no cargar; {{Volver a pendientes}} las recupera.",
             "{{No se pudieron leer}}: comprobantes que ARCA lista pero cuyos importes no se pueden leer (ver «Cuando los importes de ARCA no suman el total»).",
             "{{No soportados}}: tipos que todavía no se cargan solos (por ejemplo, facturas de crédito MiPyME). Con {{Cargar a mano}} elegís la clase y la letra y cargás los importes; también se pueden descartar.",
@@ -1712,7 +1711,7 @@ export const purchasesPage: GuidePage = {
           title: "Cómo llegan los comprobantes",
           body: [
             "Todos los días el sistema trae solo los comprobantes de los últimos 60 días, si hay un usuario de ARCA cargado (lo carga un owner o admin en [[/admin/accesos]], ver [[#configurar-usuario-arca]]).",
-            "Lo que ya está en la bandeja nunca se duplica. Si cargaste una compra a mano y coincide con un comprobante pendiente, el comprobante pasa solo a {{Cargadas}}.",
+            "Lo que ya está en la bandeja nunca se duplica. Si cargaste una compra a mano y coincide con un comprobante pendiente, el comprobante queda vinculado a la compra y sale de la bandeja.",
           ],
         },
         {
@@ -1920,7 +1919,7 @@ export const purchasesPage: GuidePage = {
             "Hacé clic en {{Aceptar comprobante}}.",
           ],
           after: [
-            "Aviso «Comprobante de ARCA cargado.»: se crea la compra como en [[#cargar-factura-de-compra]] y el comprobante pasa a {{Cargadas}}.",
+            "Aviso «Comprobante de ARCA cargado.»: se crea la compra como en [[#cargar-factura-de-compra]] y el comprobante sale de la bandeja.",
             "Si mientras tanto alguien la había cargado a mano con los mismos datos, no se duplica: aviso «Ya estaba cargado: quedó vinculado.».",
           ],
           errors: [
@@ -1956,7 +1955,7 @@ export const purchasesPage: GuidePage = {
             },
             {
               message: "Otra persona lo está cargando; probá en unos minutos.",
-              fix: "Esperá unos minutos y revisá si ya pasó a {{Cargadas}}.",
+              fix: "Esperá unos minutos y revisá si ya salió de {{Pendientes}} y está en [[/purchases]].",
             },
           ],
           related: [
@@ -2001,12 +2000,12 @@ export const purchasesPage: GuidePage = {
     {
       id: "conciliacion-compras-arca",
       title: "Conciliación con ARCA (compras)",
-      menuPath:
-        "Compras › Comprobantes › Recibidos de ARCA › Conciliación con ARCA",
+      menuPath: "Admin › Puntos de venta › Conciliación con ARCA › Compras",
       routes: ["/purchases/arca/reconciliation"],
       permission: "purchase_invoices:write",
       intro: [
-        "Compara lo que ARCA lista como recibido (la bandeja de [[/purchases/arca]]) con las compras fiscales del ERP. Se llega con el botón {{Conciliación con ARCA}} de [[/purchases/arca]].",
+        "Compara lo que ARCA lista como recibido (la bandeja de [[/purchases/arca]]) con las compras fiscales del ERP. Está en [[/admin/afip/puntos-de-venta]], en el bloque {{Conciliación con ARCA}}, pestaña {{Compras}} (la de {{Ventas}} es la numeración de ventas: ver [[#admin-puntos-de-venta]]). Se llega también con el botón {{Conciliación con ARCA}} de [[/purchases/arca]].",
+        "La pestaña {{Compras}} la ve quien carga compras, aunque no administre AFIP: en ese caso la página muestra solo este bloque.",
         "En ventas, ARCA numera cada tipo de comprobante sin saltos y alcanza con buscar huecos. En compras cada proveedor numera los suyos, así que se comparan uno por uno: mismo proveedor (CUIT), tipo, letra, punto de venta y número. Una compra cargada sin letra coincide con el comprobante de cualquier letra.",
       ],
       concepts: [
@@ -2039,7 +2038,7 @@ export const purchasesPage: GuidePage = {
             "Los comprobantes del período traídos de ARCA a la bandeja: ver [[#traer-recibidos-de-arca]].",
           ],
           steps: [
-            "En [[/purchases/arca]], hacé clic en {{Conciliación con ARCA}}.",
+            "En [[/purchases/arca]], hacé clic en {{Conciliación con ARCA}}: se abre [[/admin/afip/puntos-de-venta]] en la pestaña {{Compras}}.",
             "En la tabla, buscá un período cuya {{Diferencia}} no diga «—» y hacé clic en el año o, con la flecha, abrí los meses y hacé clic en el mes.",
             "Revisá las tres listas de abajo y abrí cada comprobante con {{Ver en la bandeja}} o {{Ver compra}}.",
           ],

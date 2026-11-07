@@ -43,14 +43,14 @@ import {
 } from "../lib/arca-received-draft";
 import type { PurchaseInvoiceDraft } from "../lib/purchase-invoice-draft";
 import {
-  RECEIVED_VOUCHER_STATUSES,
+  RECEIVED_VOUCHER_TABS,
   RECEIVED_VOUCHER_TAB_LABEL,
   UNREADABLE_REASON_LABEL,
   formatInvoiceNumber,
   type ReceivedVoucher,
   type ReceivedVoucherStatus,
+  type ReceivedVoucherTab,
 } from "../schema";
-import { ArcaBulkAcceptCard } from "./arca-bulk-accept-card";
 import { ArcaSyncCard } from "./arca-sync-card";
 import { ArcaVoucherDetailDialog } from "./arca-voucher-detail";
 import { PurchaseInvoiceDraftDialog } from "./purchase-invoice-draft-dialog";
@@ -425,14 +425,11 @@ function uploadSummary(r: {
 }
 
 export function ArcaReceivedTray({
-  canBulkAccept = false,
   initialStatus = "pending_review",
 }: {
-  /** The owner's «Aceptar todos los pendientes». */
-  canBulkAccept?: boolean;
-  initialStatus?: ReceivedVoucherStatus;
+  initialStatus?: ReceivedVoucherTab;
 } = {}) {
-  const [status, setStatus] = useState<ReceivedVoucherStatus>(initialStatus);
+  const [status, setStatus] = useState<ReceivedVoucherTab>(initialStatus);
   const upload = useUploadReceivedExport();
   const counts = useReceivedVoucherCounts();
   const pending = counts.data?.pending ?? 0;
@@ -463,12 +460,12 @@ export function ArcaReceivedTray({
         <Tabs
           value={status}
           onValueChange={(v) => {
-            const next = RECEIVED_VOUCHER_STATUSES.find((s) => s === v);
+            const next = RECEIVED_VOUCHER_TABS.find((s) => s === v);
             if (next) setStatus(next);
           }}
         >
           <TabsList>
-            {RECEIVED_VOUCHER_STATUSES.map((s) => (
+            {RECEIVED_VOUCHER_TABS.map((s) => (
               <TabsTrigger key={s} value={s}>
                 {RECEIVED_VOUCHER_TAB_LABEL[s]}
                 {s === "pending_review" && pending > 0 ? ` (${pending})` : ""}
@@ -478,10 +475,6 @@ export function ArcaReceivedTray({
           </TabsList>
         </Tabs>
       </div>
-
-      {status === "pending_review" && canBulkAccept && (
-        <ArcaBulkAcceptCard pending={pending} />
-      )}
 
       <Suspense
         key={status}
