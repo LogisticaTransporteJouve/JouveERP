@@ -46,6 +46,9 @@ import { CARD_STATUS_LABEL } from "../schema";
 
 import { CardStatementDetailView } from "./card-statement-detail";
 
+const count = (n: number, one: string, many: string) =>
+  `${n} ${n === 1 ? one : many}`;
+
 export function CardStatementsView({
   canWrite,
   canAdvance,
@@ -216,7 +219,11 @@ export function CardStatementsView({
             <DialogTitle>Cargar resumen</DialogTitle>
             <DialogDescription>
               {read &&
-                `${read.cards.length} tarjetas, ${read.cards.reduce((n, c) => n + c.purchases.length, 0)} consumos y ${read.charges.length} cargos del banco. Total ${formatMoney(read.total_ars, "ARS")}${read.total_usd > 0 ? ` + ${formatMoney(read.total_usd, "USD")}` : ""}, vence ${formatArgentineDate(read.due_date)}.`}
+                `${count(read.cards.length, "tarjeta", "tarjetas")}, ${count(
+                  read.cards.reduce((n, c) => n + c.purchases.length, 0),
+                  "consumo",
+                  "consumos",
+                )} y ${count(read.charges.length, "cargo", "cargos")} del banco. Total ${formatMoney(read.total_ars, "ARS")}${read.total_usd > 0 ? ` + ${formatMoney(read.total_usd, "USD")}` : ""}, vence ${formatArgentineDate(read.due_date)}.`}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-1">

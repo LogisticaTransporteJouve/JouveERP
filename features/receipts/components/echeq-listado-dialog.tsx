@@ -115,9 +115,10 @@ export function EcheqListadoDialog() {
           <DialogDescription>
             Subí el «Listado de cheques recibidos» que bajás de Galicia (.xlsx).
             Cada e-cheq entra como el recibo del cliente que te lo endosó, con
-            la fecha del endoso, e imputa a sus comprobantes más viejos. Se
-            cargan los que están en custodia o en depósito, y los pagados desde
-            la fecha que elijas.
+            la fecha del endoso (o la de emisión, si no tuvo endoso), e imputa a
+            sus comprobantes más viejos. Se cargan los que están en custodia, en
+            depósito o con el endoso recibido, y los pagados desde la fecha que
+            elijas.
           </DialogDescription>
         </DialogHeader>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
