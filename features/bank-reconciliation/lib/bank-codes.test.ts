@@ -6,6 +6,7 @@ import {
   PROVINCIA_CODES,
   counterpartyOf,
   detectBankPreset,
+  findSaleTransfers,
   findLoanInstallment,
   suggestLoanSplit,
   conceptOf,
@@ -395,5 +396,44 @@ describe("Banco Galicia's codes", () => {
         { bank_code: null, description: "Ing. Brutos S/ Cred" },
       ]),
     ).toBe("galicia");
+  });
+});
+
+describe("findSaleTransfers", () => {
+  // Galicia's operation 0002420838 of 03/11: six cheques sold, one credit
+  // per «N° de préstamo» (2059 and 5473 share one).
+  const t = (id: string, amount: number) => ({
+    id,
+    sale_id: "s1",
+    date: "2026-11-03",
+    amount,
+    description: `Venta cheque ${id} a Banco Galicia`,
+  });
+  const sale = [
+    t("1796", 134384),
+    t("2059", 165878.39),
+    t("5473", 7056795.16),
+    t("10114175", 1528950.25),
+    t("10024214", 3547538.5),
+    t("41072338", 1144309.6),
+  ];
+
+  it("finds the cheques of each credit", () => {
+    const ids = (amount: number) =>
+      findSaleTransfers({ amount, line_date: "2026-11-03" }, sale)
+        ?.map((x) => x.id)
+        .sort();
+    expect(ids(7222673.55)).toEqual(["2059", "5473"]);
+    expect(ids(134384)).toEqual(["1796"]);
+    expect(ids(1144309.6)).toEqual(["41072338"]);
+  });
+
+  it("finds nothing for another amount or a far date", () => {
+    expect(
+      findSaleTransfers({ amount: 1000, line_date: "2026-11-03" }, sale),
+    ).toBeNull();
+    expect(
+      findSaleTransfers({ amount: 134384, line_date: "2026-11-20" }, sale),
+    ).toBeNull();
   });
 });

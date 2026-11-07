@@ -3,6 +3,7 @@ import { isValidCuit } from "@/lib/validation/cuit";
 import type {
   BankCodeKind,
   BankCodePreset,
+  StatementCheckSaleTransfer,
   BankStatementCode,
   StatementClient,
   StatementLine,
@@ -101,6 +102,9 @@ export type LineProposal = {
   client: StatementClient | null;
   /** The loan cuota a loan debit pays: same amount, the closest due date. */
   installment: StatementLoanInstallment | null;
+  /** The transfers of a cheque sale a discount credit is: the cheques of
+   *  one «N° de préstamo», summing the line. */
+  sale_transfers?: StatementCheckSaleTransfer[];
   /** Can be accepted in one click: a tax or fee with its account. */
   ready: boolean;
   /** What is missing to book it, when something is. */
@@ -166,6 +170,7 @@ export function proposeLine(
   clientsByCuit: ReadonlyMap<string, StatementClient>,
   installments: readonly StatementLoanInstallment[] = [],
   companyCuit: string | null = null,
+  saleTransfers: readonly StatementCheckSaleTransfer[] = [],
 ): LineProposal {
   const code = findBankCode(line, codes);
   // Money from or to the company itself: a transfer between its accounts,
@@ -228,6 +233,24 @@ export function proposeLine(
       missing: client
         ? null
         : "Ningún cliente tiene el CUIT de la línea: elegilo o crealo en el recibo.",
+    };
+  }
+  if (code.kind === "check_sale") {
+    const found =
+      line.amount > 0 ? findSaleTransfers(line, saleTransfers) : null;
+    return {
+      kind: "check_sale",
+      code,
+      label: found
+        ? `Descuento de cheques: ${found.map((t) => t.description.replace(/^Venta cheque (\S+).*$/, "$1")).join(", ")}`
+        : label,
+      client: null,
+      installment: null,
+      sale_transfers: found ?? undefined,
+      ready: false,
+      missing: found
+        ? null
+        : "No hay cheques vendidos que sumen este crédito: registrá el descuento en Cheques › Vender (con el comprobante del banco).",
     };
   }
   if (code.kind === "loan") {
@@ -557,6 +580,13 @@ export const GALICIA_CODES: readonly PresetCode[] = [
   },
   {
     bank_code: "",
+    description_pattern: "CREDITO DESCUENTO DOCUMENTO",
+    kind: "check_sale",
+    account: null,
+    label: "Crédito por descuento de cheques",
+  },
+  {
+    bank_code: "",
     description_pattern: "COMISION",
     kind: "bank_fee",
     account: { code: "5.4.2" },
@@ -597,3 +627,37 @@ export const PRESET_CODES: Record<BankCodePreset, readonly PresetCode[]> = {
   provincia: PROVINCIA_CODES,
   galicia: GALICIA_CODES,
 };
+
+/** The transfers of one cheque sale, within 3 days of a discount credit,
+ *  that add up to it exactly (the bank credits each «N° de préstamo» apart:
+ *  one cheque or a few). */
+export function findSaleTransfers(
+  line: Pick<StatementLine, "amount" | "line_date">,
+  transfers: readonly StatementCheckSaleTransfer[],
+): StatementCheckSaleTransfer[] | null {
+  const cents = (n: number) => Math.round(n * 100);
+  const target = cents(line.amount);
+  const near = transfers.filter(
+    (t) =>
+      Math.abs(Date.parse(t.date) - Date.parse(line.line_date)) <=
+      3 * 86_400_000,
+  );
+  const bySale = new Map<string, StatementCheckSaleTransfer[]>();
+  for (const t of near)
+    bySale.set(t.sale_id, [...(bySale.get(t.sale_id) ?? []), t]);
+  for (const group of bySale.values()) {
+    const items = [...group].sort((a, b) => b.amount - a.amount).slice(0, 25);
+    let steps = 0;
+    const pick: StatementCheckSaleTransfer[] = [];
+    const search = (i: number, left: number): boolean => {
+      if (left === 0) return true;
+      if (i >= items.length || left < 0 || ++steps > 100_000) return false;
+      pick.push(items[i]!);
+      if (search(i + 1, left - cents(items[i]!.amount))) return true;
+      pick.pop();
+      return search(i + 1, left);
+    };
+    if (search(0, target)) return [...pick];
+  }
+  return null;
+}

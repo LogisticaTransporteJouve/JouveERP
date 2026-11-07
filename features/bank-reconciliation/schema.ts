@@ -229,6 +229,7 @@ export const BANK_CODE_KINDS = [
   "transfer",
   "loan",
   "ignore",
+  "check_sale",
 ] as const;
 export type BankCodeKind = (typeof BANK_CODE_KINDS)[number];
 
@@ -240,6 +241,7 @@ export const BANK_CODE_KIND_LABEL: Record<BankCodeKind, string> = {
   transfer: "Transferencia entre cuentas",
   loan: "Cuota de préstamo",
   ignore: "No corresponde",
+  check_sale: "Descuento de cheques",
 };
 
 export function isBankCodeKind(value: unknown): value is BankCodeKind {
@@ -388,6 +390,17 @@ export type StatementCoding = {
   /** The company's own CUIT: a transfer carrying it is between its own
    *  accounts, not a collection. */
   company_cuit: string | null;
+  /** The cheques sold to a bank (sell_checks) whose transfer to this account
+   *  no line explains yet: a discount credit is reconciled with them. */
+  check_sale_transfers?: StatementCheckSaleTransfer[];
+};
+
+export type StatementCheckSaleTransfer = {
+  id: string;
+  sale_id: string;
+  date: string;
+  amount: number;
+  description: string;
 };
 
 const splitPart = z.number().min(0).max(1e12);

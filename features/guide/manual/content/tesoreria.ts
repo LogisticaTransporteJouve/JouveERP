@@ -1995,6 +1995,8 @@ export const treasuryPage: GuidePage = {
           after: [
             "Los cheques pasan a {{Vendido}}, el neto entra en la cuenta elegida y los intereses y comisiones quedan como gasto financiero (en el canal fiscal, con sus asientos).",
             "La venta aparece en {{Ventas de cheques}} y lo vendido sin vencer se ve como pasivo contingente en [[/treasury]].",
+            "Con el comprobante del banco es más rápido: {{Vender con comprobante}} lee el PDF del descuento (el «Comprobante final» de Banco Galicia), marca los cheques de la cartera que vende (por número e importe) y abre la venta con el comprador, la cuenta, la fecha y la operación. Si falta algún cheque en la cartera, dice cuál: cargalo y volvé a subirlo. Los intereses, el IVA, los sellos y el IIBB quedan en cero en la venta porque el banco los debita como líneas aparte del extracto, que se aceptan ahí.",
+            "En el extracto, cada «Credito Descuento Documento» (uno por N° de préstamo del comprobante) propone {{Conciliar}} con los cheques vendidos que suman ese crédito.",
           ],
           errors: [
             {

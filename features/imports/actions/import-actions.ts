@@ -57,6 +57,11 @@ import {
   type ImportRunStatus,
 } from "../schema";
 
+/** A source hash is 64 characters, not a 36-character uuid: 200 of them in
+ *  one `.in()` overflow the proxy's URL limit (a statement of a few hundred
+ *  lines failed to read back). */
+const HASH_CHUNK_SIZE = 100;
+
 /** Rows of one import; commit_import_run takes up to 5000. */
 const IMPORT_LIMITS: TableLimits = { rows: 5000, columns: 60, cellChars: 500 };
 
@@ -374,11 +379,14 @@ async function existingKeys(
     }
     case "historic_trips": {
       const hashes = rows.flatMap((r) => (r.key ? [r.key] : []));
-      const res = await fetchInChunks(hashes, (chunk) =>
-        service
-          .from("historic_trips")
-          .select("source_hash")
-          .in("source_hash", chunk),
+      const res = await fetchInChunks(
+        hashes,
+        (chunk) =>
+          service
+            .from("historic_trips")
+            .select("source_hash")
+            .in("source_hash", chunk),
+        HASH_CHUNK_SIZE,
       );
       return res.error ? null : new Set(res.data.map((t) => t.source_hash));
     }
@@ -432,12 +440,15 @@ async function existingKeys(
       const accountId = lookups.account?.id;
       if (!accountId) return new Set();
       const hashes = rows.flatMap((r) => (r.key ? [r.key] : []));
-      const res = await fetchInChunks(hashes, (chunk) =>
-        service
-          .from("bank_statement_lines")
-          .select("source_hash")
-          .eq("account_id", accountId)
-          .in("source_hash", chunk),
+      const res = await fetchInChunks(
+        hashes,
+        (chunk) =>
+          service
+            .from("bank_statement_lines")
+            .select("source_hash")
+            .eq("account_id", accountId)
+            .in("source_hash", chunk),
+        HASH_CHUNK_SIZE,
       );
       return res.error ? null : new Set(res.data.map((l) => l.source_hash));
     }
@@ -457,13 +468,16 @@ async function statementLinesWithoutCode(
       ? [r.key]
       : [],
   );
-  const res = await fetchInChunks(hashes, (chunk) =>
-    getServiceClient()
-      .from("bank_statement_lines")
-      .select("source_hash")
-      .eq("account_id", accountId)
-      .is("bank_code", null)
-      .in("source_hash", chunk),
+  const res = await fetchInChunks(
+    hashes,
+    (chunk) =>
+      getServiceClient()
+        .from("bank_statement_lines")
+        .select("source_hash")
+        .eq("account_id", accountId)
+        .is("bank_code", null)
+        .in("source_hash", chunk),
+    HASH_CHUNK_SIZE,
   );
   return res.error ? null : new Set(res.data.map((l) => l.source_hash));
 }

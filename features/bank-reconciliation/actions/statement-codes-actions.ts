@@ -26,6 +26,7 @@ import {
   type BankStatementCode,
   type PostingAccount,
   type StatementCoding,
+  type StatementCheckSaleTransfer,
   type StatementLoanInstallment,
 } from "../schema";
 
@@ -238,6 +239,18 @@ export async function getStatementCodingAction(
     loanInstallments = read;
   }
 
+  const saleTransfers = await readCheckSaleTransfers(service, account_id);
+  if (!saleTransfers) {
+    logger.error("reconciliation.coding.check_sales_failed", {
+      userId: ctx.userId,
+      account_id,
+    });
+    return {
+      ok: false,
+      error: "No se pudieron leer las ventas de cheques.",
+    };
+  }
+
   return {
     ok: true,
     data: {
@@ -247,8 +260,41 @@ export async function getStatementCodingAction(
       can_read_clients: canReadClients,
       loan_installments: loanInstallments,
       company_cuit: company.data?.cuit ?? null,
+      check_sale_transfers: saleTransfers,
     },
   };
+}
+
+/** The transfers of cheques sold to a bank into the account that no
+ *  statement line explains yet. */
+async function readCheckSaleTransfers(
+  service: Service,
+  accountId: string,
+): Promise<StatementCheckSaleTransfer[] | null> {
+  const { data, error } = await service
+    .from("transactions")
+    .select(
+      "id, check_sale_id, transaction_date, amount, description, bank_statement_matches ( id )",
+    )
+    .eq("account_id", accountId)
+    .eq("kind", "transfer_in")
+    .not("check_sale_id", "is", null)
+    .order("transaction_date", { ascending: false })
+    .limit(500);
+  if (error) return null;
+  return data.flatMap((t) =>
+    t.check_sale_id && t.bank_statement_matches.length === 0
+      ? [
+          {
+            id: t.id,
+            sale_id: t.check_sale_id,
+            date: t.transaction_date,
+            amount: Number(t.amount),
+            description: t.description ?? "",
+          },
+        ]
+      : [],
+  );
 }
 
 /** Creates or updates what a bank code is for an account. */
