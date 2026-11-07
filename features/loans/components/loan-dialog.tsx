@@ -79,7 +79,9 @@ export function LoanDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const { channels } = useScope();
-  const channelOptions = channels.filter((c) => c.is_active);
+  // A loan is the company's debt: it goes to the fiscal channel.
+  const fiscalChannel =
+    channels.find((c) => c.is_active && c.is_fiscal)?.id ?? "";
   const createMut = useCreateLoan();
   const form = useForm<FormValues>({
     resolver: zodResolver(FormSchema),
@@ -87,8 +89,8 @@ export function LoanDialog({
   });
 
   useEffect(() => {
-    if (open) form.reset(DEFAULTS);
-  }, [open, form]);
+    if (open) form.reset({ ...DEFAULTS, channel_id: fiscalChannel });
+  }, [open, form, fiscalChannel]);
 
   function onSubmit(values: FormValues) {
     createMut.mutate(
@@ -188,32 +190,7 @@ export function LoanDialog({
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="channel_id"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Canal (blanco / interno)</FormLabel>
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Elegí un canal" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {channelOptions.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.name}
-                          {c.is_fiscal ? " (fiscal)" : " (interna)"}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <ChannelsReadError inline />
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <ChannelsReadError inline />
             <div className="grid grid-cols-3 gap-3">
               <FormField
                 control={form.control}
