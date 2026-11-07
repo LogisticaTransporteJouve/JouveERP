@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { BankStatementCode, StatementClient } from "../schema";
 import {
   PROVINCIA_CODES,
+  counterpartyOf,
   detectBankPreset,
   findLoanInstallment,
   suggestLoanSplit,
@@ -321,5 +322,20 @@ describe("detectBankPreset", () => {
     expect(
       detectBankPreset([line("9", "OTRA COSA"), line("", "ALGO")]),
     ).toBeNull();
+  });
+});
+
+describe("counterpartyOf", () => {
+  it("reads who sent a transfer from Provincia's concepts", () => {
+    expect(
+      counterpartyOf("TRANSF DE ANDINO OUTFITTERS SO (33718235559) VAR"),
+    ).toEqual({ cuit: "33718235559", name: "ANDINO OUTFITTERS SO" });
+    expect(counterpartyOf("CR.TRAN. 30708978554 ELECTRA MERCEDES")).toEqual({
+      cuit: "30708978554",
+      name: "ELECTRA MERCEDES",
+    });
+    expect(
+      counterpartyOf("TRANSF DE VALDEZ, MONICA ADRIA (23207269824) VAR VARIOS"),
+    ).toEqual({ cuit: "23207269824", name: "VALDEZ, MONICA ADRIA" });
   });
 });

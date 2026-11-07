@@ -45,6 +45,7 @@ import {
 } from "../hooks/use-statement-codes";
 import {
   conceptOf,
+  counterpartyOf,
   detectBankPreset,
   proposeLine,
   type LineProposal,
@@ -241,6 +242,9 @@ export function LineProposalView({
             amount: line.amount,
             account_id: accountId,
             channel_id: proposal.client ? fiscal || undefined : undefined,
+            counterparty: proposal.client
+              ? null
+              : counterpartyOf(line.description),
           }}
           onCreated={(receiptId) =>
             matchToReceipt.mutate(

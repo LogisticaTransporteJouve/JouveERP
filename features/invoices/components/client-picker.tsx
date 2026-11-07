@@ -25,7 +25,10 @@ import {
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 
 import { getClientByIdAction } from "@/features/clients/actions/clients-actions";
-import { ClientForm } from "@/features/clients/components/client-form";
+import {
+  ClientForm,
+  type ClientSuggestion,
+} from "@/features/clients/components/client-form";
 import {
   useClientPickerAccess,
   useClientsSearch,
@@ -48,12 +51,23 @@ export interface PickedClient {
 
 const RESULT_LIMIT = 8;
 
+/** The fiscal side searches by CUIT; the internal one has no CUIT, so by
+ *  the first word of the name (a bank cuts names short). */
+function suggestionQuery(
+  s: ClientSuggestion,
+  isFiscal: boolean | null,
+): string {
+  if (isFiscal !== false && s.cuit) return s.cuit;
+  return s.name.split(/\s+/)[0] ?? "";
+}
+
 export function ClientPicker({
   value,
   onChange,
   isFiscal,
   autoFocus,
   disabled = false,
+  suggestion,
 }: {
   value: PickedClient | null;
   onChange: (client: PickedClient | null) => void;
@@ -63,8 +77,13 @@ export function ClientPicker({
   autoFocus?: boolean;
   /** Shows the picked one read-only: an edit that cannot change it. */
   disabled?: boolean;
+  /** A client the document names but that may not be loaded (a bank
+   *  line's): it starts the search and fills «Nuevo». */
+  suggestion?: ClientSuggestion | null;
 }) {
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(() =>
+    suggestion ? suggestionQuery(suggestion, isFiscal) : "",
+  );
   const [open, setOpen] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
 
@@ -220,6 +239,7 @@ export function ClientPicker({
             <ClientForm
               isFiscal={isFiscal}
               mode="create"
+              initial={suggestion ?? undefined}
               onSuccess={onCreateSuccess}
               onCancel={() => setShowCreate(false)}
             />

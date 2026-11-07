@@ -62,6 +62,26 @@ export function cuitsIn(description: string): string[] {
   return [...new Set(found)].filter((c) => isValidCuit(c));
 }
 
+/** Who sent a transfer, as the line says it: the first valid CUIT and the
+ *  name around it («TRANSF DE ANDINO OUTFITTERS SO (33718235559) VAR» →
+ *  «ANDINO OUTFITTERS SO»; «CR.TRAN. 30708978554 ELECTRA MERCEDES» →
+ *  «ELECTRA MERCEDES»). Null when the line names no one. */
+export function counterpartyOf(
+  description: string,
+): { cuit: string | null; name: string } | null {
+  const cuit = cuitsIn(description)[0] ?? null;
+  const name = norm(
+    description
+      .replace(/^\s*(TRANSF(ERENCIA)? DE|CR\.?\s*TRAN\.?|TEF)\s+/i, "")
+      .replace(/\(.*$/, "")
+      .replace(/\d{11}/g, " "),
+  )
+    .replace(/[\s,.:-]+$/, "")
+    .slice(0, 120);
+  if (!cuit && name === "") return null;
+  return { cuit, name };
+}
+
 export type LineProposal = {
   kind: BankCodeKind | null;
   code: BankStatementCode | null;

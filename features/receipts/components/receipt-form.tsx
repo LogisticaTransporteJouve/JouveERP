@@ -37,6 +37,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { parseUsdRate, UsdRateField } from "@/components/usd-rate-field";
 import { useUsdRatePrefill } from "@/hooks/use-usd-rate-prefill";
+import type { ClientSuggestion } from "@/features/clients/components/client-form";
 import {
   ClientPicker,
   type PickedClient,
@@ -143,6 +144,8 @@ export function ReceiptForm({
     amount: number;
     account_id: string;
     channel_id?: string;
+    /** Who the bank line says sent it. */
+    counterparty?: ClientSuggestion | null;
   };
 }) {
   const createMut = useCreateReceipt();
@@ -607,6 +610,7 @@ export function ReceiptForm({
                           onChange={field.onChange}
                           isFiscal={pageIsFiscal ?? true}
                           disabled={mode === "edit"}
+                          suggestion={fromBankLine?.counterparty}
                         />
                       )}
                     </FormControl>

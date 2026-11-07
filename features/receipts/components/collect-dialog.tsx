@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { LIST_FORM_DIALOG } from "@/components/form-columns";
 import { useAccountsList } from "@/features/accounts/hooks/use-accounts";
+import type { ClientSuggestion } from "@/features/clients/components/client-form";
 import type { PickedClient } from "@/features/invoices/components/client-picker";
 import type { ScopeSide } from "@/lib/scope";
 
@@ -55,6 +56,7 @@ export function CollectDialog({
     amount: number;
     account_id: string;
     channel_id?: string;
+    counterparty?: ClientSuggestion | null;
   };
   /** Runs with the new receipt's id once it is issued. */
   onCreated?: (receiptId: string) => void;
@@ -124,6 +126,7 @@ function CollectForm({
     amount: number;
     account_id: string;
     channel_id?: string;
+    counterparty?: ClientSuggestion | null;
   };
   onCreated?: (receiptId: string) => void;
   onDone: () => void;

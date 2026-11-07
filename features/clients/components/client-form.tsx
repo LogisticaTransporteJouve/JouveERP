@@ -21,10 +21,16 @@ type Mode = "create" | "edit";
 
 type FormValues = CounterpartyIdentityValues;
 
-function clientToValues(client: Client | undefined): FormValues {
+/** A client not loaded yet, as a bank line names it. */
+export type ClientSuggestion = { cuit: string | null; name: string };
+
+function clientToValues(
+  client: Client | undefined,
+  initial?: ClientSuggestion,
+): FormValues {
   return {
-    cuit: client?.cuit ?? "",
-    legal_name: client?.legal_name ?? "",
+    cuit: client?.cuit ?? initial?.cuit ?? "",
+    legal_name: client?.legal_name ?? initial?.name ?? "",
     display_name: client?.display_name ?? "",
     iva_condition: client?.iva_condition ?? "responsable_inscripto",
     email: client?.email ?? "",
@@ -39,11 +45,14 @@ export function ClientForm({
   mode,
   client,
   isFiscal: isFiscalProp,
+  initial,
   onSuccess,
   onCancel,
 }: {
   mode: Mode;
   client?: Client;
+  /** Create mode: what is already known of the client (a bank line's). */
+  initial?: ClientSuggestion;
   /** Create mode: the side to create on; defaults to the page's side. */
   isFiscal?: boolean;
   onSuccess?: (id: string) => void;
@@ -58,7 +67,7 @@ export function ClientForm({
   const isSaving = createMut.isPending || updateMut.isPending;
 
   const form = useForm<FormValues>({
-    defaultValues: clientToValues(client),
+    defaultValues: clientToValues(client, initial),
   });
 
   function onSubmit(formValues: FormValues) {
