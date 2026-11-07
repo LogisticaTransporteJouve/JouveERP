@@ -4803,6 +4803,7 @@ export type Database = {
           other_charges_amount: number | null
           paid_amount: number | null
           paid_date: string | null
+          paid_outside: boolean
           perception_amount: number | null
           status: Database["public"]["Enums"]["loan_installment_status"]
           transaction_id: string | null
@@ -4822,6 +4823,7 @@ export type Database = {
           other_charges_amount?: number | null
           paid_amount?: number | null
           paid_date?: string | null
+          paid_outside?: boolean
           perception_amount?: number | null
           status?: Database["public"]["Enums"]["loan_installment_status"]
           transaction_id?: string | null
@@ -4841,6 +4843,7 @@ export type Database = {
           other_charges_amount?: number | null
           paid_amount?: number | null
           paid_date?: string | null
+          paid_outside?: boolean
           perception_amount?: number | null
           status?: Database["public"]["Enums"]["loan_installment_status"]
           transaction_id?: string | null
@@ -4872,6 +4875,8 @@ export type Database = {
       }
       loans: {
         Row: {
+          account_id: string | null
+          cft: number | null
           channel_id: string
           created_at: string
           created_by: string | null
@@ -4884,12 +4889,19 @@ export type Database = {
           installments_count: number
           kind: Database["public"]["Enums"]["loan_kind"]
           lender: string | null
+          loan_number: string | null
           notes: string | null
+          original_amount: number | null
           principal: number
+          start_date: string | null
           status: Database["public"]["Enums"]["loan_status"]
+          tea: number | null
+          tna: number | null
           updated_at: string
         }
         Insert: {
+          account_id?: string | null
+          cft?: number | null
           channel_id: string
           created_at?: string
           created_by?: string | null
@@ -4902,12 +4914,19 @@ export type Database = {
           installments_count: number
           kind?: Database["public"]["Enums"]["loan_kind"]
           lender?: string | null
+          loan_number?: string | null
           notes?: string | null
+          original_amount?: number | null
           principal: number
+          start_date?: string | null
           status?: Database["public"]["Enums"]["loan_status"]
+          tea?: number | null
+          tna?: number | null
           updated_at?: string
         }
         Update: {
+          account_id?: string | null
+          cft?: number | null
           channel_id?: string
           created_at?: string
           created_by?: string | null
@@ -4920,12 +4939,24 @@ export type Database = {
           installments_count?: number
           kind?: Database["public"]["Enums"]["loan_kind"]
           lender?: string | null
+          loan_number?: string | null
           notes?: string | null
+          original_amount?: number | null
           principal?: number
+          start_date?: string | null
           status?: Database["public"]["Enums"]["loan_status"]
+          tea?: number | null
+          tna?: number | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "loans_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "loans_channel_id_fkey"
             columns: ["channel_id"]

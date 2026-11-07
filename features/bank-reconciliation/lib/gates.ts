@@ -1,4 +1,5 @@
 import { IMPORT_KIND_PERMISSION } from "@/features/imports/schema";
+import { LOAN_CASH_PERMISSIONS } from "@/features/loans/lib/loan-cash";
 import { userCan, userCanAll, type Access } from "@/lib/auth/permissions";
 
 /** What a user may do on a statement, for every page that shows one. */
@@ -16,6 +17,9 @@ export type ReconciliationGates = {
   canEditRetentions: boolean;
   /** Creates a chart account from the bank codes (accounting:write). */
   canManageChart: boolean;
+  /** Pays a loan cuota from a debit line (accounting:write +
+   *  transactions:write). */
+  canPayLoans: boolean;
 };
 
 export function reconciliationGates(access: Access): ReconciliationGates {
@@ -32,5 +36,6 @@ export function reconciliationGates(access: Access): ReconciliationGates {
     canEditRetentions: userCan(access, "retentions:write"),
     canManageChart:
       userCan(access, "accounting:write") && userCan(access, "accounting:read"),
+    canPayLoans: userCanAll(access, LOAN_CASH_PERMISSIONS),
   };
 }

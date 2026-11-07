@@ -2546,8 +2546,8 @@ export const treasuryPage: GuidePage = {
       permission: TREASURY_READ,
       intro: [
         "Los préstamos y leasings de la empresa con su cronograma de cuotas. Las cuotas pendientes se proyectan en [[/treasury/cash-flow]].",
-        "La lista muestra {{Descripción}} (con el tipo, {{Préstamo}} o {{Leasing}}), {{Acreedor}}, {{Canal}}, {{Capital}}, {{Pagado}}, {{Pendiente}} (con la cantidad de cuotas), {{Próx. venc.}} y {{Estado}} ({{Activo}}, {{Cancelado}} cuando se pagó la última cuota, {{Anulado}}).",
-        "En el detalle (clic en la descripción o {{Ver cuotas}}) se ve si el desembolso está registrado en Caja, las tarjetas {{Capital}}, {{Saldo de capital (pasivo)}}, {{Pagado}}, {{Pendiente}} y {{Cuotas pendientes}}, y la tabla de cuotas con {{Vencimiento}}, {{Monto}} (y su desglose si lo tiene), {{Estado}} ({{Pendiente}} o {{Pagada}}) y {{Pago}}.",
+        "La lista muestra {{Descripción}} (con el tipo, {{Préstamo}} o {{Leasing}}, y el número del banco), {{Banco}}, {{Capital}}, {{Capital adeudado}}, {{Cuotas pagas}}, {{Pendiente}} (con la cantidad de cuotas), {{Próx. venc.}} y {{Estado}} ({{Activo}}, {{Cancelado}} cuando se pagó la última cuota, {{Anulado}}).",
+        "En el detalle (clic en la descripción o {{Ver cuotas}}) se ve lo mismo que en el home banking: arriba {{Capital adeudado}}, {{Cuotas pagas}}, {{Próxima cuota}} y {{Vencimiento próxima cuota}}; en {{General}} el estado, el monto original, la fecha de alta, el plazo y lo pendiente; en {{Tasas}} la TNA, la TEA, el CFT y los intereses pagados; y el {{Plan de cuotas}} con {{Total a pagar}}, {{Capital}}, {{Intereses}}, {{Otros}}, {{IVA}} y el estado de cada una ({{Pagada}}, {{Pagada (antes de cargar)}}, {{Vencida}} o la fecha en que vence).",
       ],
       screens: [
         {
@@ -2557,23 +2557,23 @@ export const treasuryPage: GuidePage = {
           table: {
             columns: [
               "Descripción",
-              "Acreedor",
-              "Canal",
+              "Banco",
               "Capital",
-              "Pagado",
+              "Capital adeudado",
+              "Cuotas pagas",
               "Pendiente",
               "Próx. venc.",
               "Estado",
             ],
             rows: [
               [
-                "Préstamo Banco Nación",
-                "Banco Nación",
-                "Jouve fiscal",
-                "$ 24.000.000,00",
-                "$ 6.000.000,00",
-                "$ 18.000.000,00 (18)",
-                "2026-11-15",
+                "Préstamo a Sola Firma",
+                "Banco Macro",
+                "$ 18.000.000,00",
+                "$ 1.783.037,51",
+                "11/12",
+                "$ 1.850.555,27 (1)",
+                "03/12/2026",
                 "Activo",
               ],
             ],
@@ -2602,36 +2602,52 @@ export const treasuryPage: GuidePage = {
               kind: "dialog",
               title: "Nuevo préstamo / leasing",
               description:
-                "Cargá el capital y la cantidad de cuotas. Se genera el cronograma de cuotas iguales (después editás cada una si hace falta).",
+                "Cargá los datos del préstamo como los muestra el banco y su plan de cuotas. Las cuotas que el banco da por pagadas quedan pagadas, sin movimiento en Caja.",
               fields: [
                 { label: "Tipo", kind: "select", value: "Préstamo", marker: 2 },
                 { label: "Moneda", kind: "select", value: "ARS", marker: 2 },
                 {
+                  label: "Banco",
+                  kind: "input",
+                  value: "Banco Macro",
+                  marker: 2,
+                },
+                {
+                  label: "Número de préstamo",
+                  kind: "input",
+                  value: "7670122511",
+                  marker: 2,
+                },
+                {
                   label: "Descripción",
                   kind: "input",
-                  value: "Préstamo Banco Nación",
+                  value: "Préstamo a Sola Firma",
                   marker: 3,
-                  wide: true,
                 },
                 {
-                  label: "Acreedor (opcional)",
-                  kind: "input",
-                  value: "Banco Nación",
+                  label: "Cuenta de débito",
+                  kind: "select",
+                  value: "Banco Macro",
                   marker: 3,
-                  wide: true,
                 },
                 {
-                  label: "Capital",
-                  kind: "money",
-                  value: "24.000.000,00",
-                  marker: 4,
-                },
-                { label: "Cuotas", kind: "input", value: "24", marker: 4 },
-                {
-                  label: "1ª cuota",
+                  label: "Fecha de alta",
                   kind: "date",
-                  value: "15/12/2026",
+                  value: "04/12/2025",
+                  marker: 3,
+                },
+                {
+                  label: "Monto original",
+                  kind: "money",
+                  value: "18.000.000,00",
+                  marker: 3,
+                },
+                { label: "TNA (%)", kind: "input", value: "40,00", marker: 3 },
+                {
+                  label: "Plan de cuotas del banco",
+                  kind: "textarea",
                   marker: 4,
+                  wide: true,
                 },
                 { label: "Notas (opcional)", kind: "textarea", wide: true },
               ],
@@ -2643,14 +2659,23 @@ export const treasuryPage: GuidePage = {
           ],
           steps: [
             "En [[/loans]], hacé clic en {{Nuevo préstamo}}.",
-            "Elegí el {{Tipo}} ({{Préstamo}} o {{Leasing}}) y la {{Moneda}}.",
-            "Escribí la {{Descripción}} y, si querés, el {{Acreedor (opcional)}}.",
-            "Escribí el {{Capital}}, la cantidad de {{Cuotas}} (de 1 a 600) y la fecha de la {{1ª cuota}}.",
-            "Hacé clic en {{Crear}}.",
+            "Elegí el {{Tipo}} ({{Préstamo}} o {{Leasing}}) y la {{Moneda}}, y escribí el {{Banco}} y el {{Número de préstamo}}.",
+            "Escribí la {{Descripción}}, elegí la {{Cuenta de débito}} (de donde el banco debita las cuotas) y cargá la {{Fecha de alta}}, el {{Monto original}} y las tasas ({{TNA (%)}}, {{TEA (%)}}, {{CFT (%)}}) como figuran en el banco.",
+            {
+              text: "En {{Plan de cuotas}} elegí cómo se arman las cuotas.",
+              substeps: [
+                "{{Pegar del banco}}: en el home banking abrí el préstamo › Plan de cuotas, seleccioná la tabla entera, copiala y pegala. Toma cada cuota con su capital, intereses, otros rubros e IVA, y las que figuran pagadas.",
+                "{{Calcular con la TNA}}: sistema francés (capital más interés igual todos los meses), con la cantidad de {{Cuotas}} y la {{1ª cuota}}.",
+                "{{Cuotas iguales}}: el monto original dividido en partes iguales, sin desglose.",
+              ],
+            },
+            "Revisá la vista previa del plan y hacé clic en {{Crear}}.",
           ],
           after: [
-            "Se crea el préstamo {{Activo}} con un cronograma de cuotas iguales, una por mes desde la primera (la última absorbe el redondeo). Cada cuota se puede editar después ([[#editar-cuota-prestamo]]).",
-            "Todavía no hay plata en Caja: registrá el desembolso cuando el banco lo deposite ([[#registrar-desembolso-prestamo]]).",
+            "Se crea el préstamo {{Activo}}, en el canal fiscal, con su plan. Cada cuota pendiente se puede editar después ([[#editar-cuota-prestamo]]).",
+            "Las cuotas que el banco da por pagadas quedan {{Pagada (antes de cargar)}}: sin movimiento en Caja ni asiento, porque esa plata salió antes de usar el sistema. En ese caso no hace falta registrar el desembolso.",
+            "Un préstamo nuevo todavía no tiene plata en Caja: registrá el desembolso cuando el banco lo deposite ([[#registrar-desembolso-prestamo]]).",
+            "Cuando el banco debita una cuota, la línea del extracto propone {{Pagar cuota}}: un clic la paga y la concilia ([[#pagar-cuota-prestamo]]).",
           ],
           errors: [
             {
@@ -2658,12 +2683,9 @@ export const treasuryPage: GuidePage = {
               fix: "Escribí la descripción.",
             },
             {
-              message: "Canal requerido.",
-              fix: "Elegí el canal.",
-            },
-            {
-              message: "Entre 1 y 600.",
-              fix: "Escribí una cantidad de cuotas entre 1 y 600.",
+              message:
+                "Faltan cuotas: copiá la tabla completa, de la primera a la última.",
+              fix: "Copiá de nuevo la tabla del plan desde la cuota 1.",
             },
             {
               message: "Fecha requerida.",
@@ -2815,6 +2837,7 @@ export const treasuryPage: GuidePage = {
           after: [
             "La cuota pasa a {{Pagada}} con su fecha e importe, y se registra el egreso en Caja con su asiento (ver «Qué asientos hace un préstamo»). Ese egreso se corrige desde el préstamo, no desde Caja.",
             "Cuando se paga la última cuota, el préstamo pasa a {{Cancelado}}.",
+            "Si el banco ya debitó la cuota, es más rápido desde el extracto: en la pestaña {{Extracto}} de la cuenta, la línea del débito (en Macro, código 361) muestra la cuota que paga y el botón {{Pagar cuota}}. Paga la cuota con la fecha y el importe de la línea, desde la cuenta del extracto, y deja la línea conciliada. Aparece si el préstamo tiene esa {{Cuenta de débito}} y una cuota pendiente por el mismo importe.",
           ],
           errors: [
             {

@@ -10,6 +10,14 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: vi.fn() }),
 }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock("@/features/accounts/hooks/use-accounts", () => ({
+  useAccountOptions: () => ({
+    accounts: [],
+    error: null,
+    pending: false,
+    retry: null,
+  }),
+}));
 vi.mock("../hooks/use-loans", () => ({
   useCreateLoan: () => ({ mutate: vi.fn(), isPending: false }),
 }));

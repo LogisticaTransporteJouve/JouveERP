@@ -16,11 +16,10 @@ import {
 } from "@/components/ui/table";
 import { AccountOptionsError } from "@/features/accounts/components/account-options-gate";
 import { useAccountOptions } from "@/features/accounts/hooks/use-accounts";
-import { formatMoney } from "@/lib/format";
+import { formatArgentineDate, formatMoney, todayInAR } from "@/lib/format";
 
 import { useLoan } from "../hooks/use-loans";
 import {
-  INSTALLMENT_STATUS_LABEL,
   LOAN_KIND_LABEL,
   LOAN_STATUS_LABEL,
   type LoanInstallment,
@@ -33,24 +32,47 @@ import {
 } from "./loan-movement-dialogs";
 import { PayInstallmentDialog } from "./pay-installment-dialog";
 
-function splitSummary(i: LoanInstallment): string | null {
-  if (!i.split) return null;
-  const charges = i.split.interest + i.split.other;
-  const taxes = i.split.iva + i.split.perception;
-  return `Capital ${formatMoney(i.split.capital)} · Interés y cargos ${formatMoney(charges)}${
-    taxes > 0 ? ` · IVA y percepción ${formatMoney(taxes)}` : ""
-  }`;
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+}) {
   return (
     <div className="bg-card rounded-lg border p-3">
       <div className="text-muted-foreground text-xs">{label}</div>
       <div className="font-mono text-lg font-semibold tabular-nums">
         {value}
       </div>
+      {hint && <div className="text-muted-foreground text-xs">{hint}</div>}
     </div>
   );
+}
+
+function Fact({ label, value }: { label: string; value: string | null }) {
+  return (
+    <div className="flex justify-between gap-4 border-b py-1.5 text-sm last:border-0">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="text-right">{value ?? "—"}</span>
+    </div>
+  );
+}
+
+const pct = (n: number | null) =>
+  n === null
+    ? null
+    : `${n.toLocaleString("es-AR", { minimumFractionDigits: 2 })} %`;
+
+function installmentState(i: LoanInstallment, today: string): string {
+  if (i.status === "pagada") {
+    return i.paid_outside ? "Pagada (antes de cargar)" : "Pagada";
+  }
+  return i.due_date < today
+    ? "Vencida"
+    : `Vence el ${formatArgentineDate(i.due_date)}`;
 }
 
 export function LoanDetail({
@@ -65,6 +87,8 @@ export function LoanDetail({
   canMoveCash: boolean;
 }) {
   const { data: loan } = useLoan(loanId);
+  const today = todayInAR();
+  const money = (n: number) => formatMoney(n, loan.currency);
   const [payTarget, setPayTarget] = useState<LoanInstallment | null>(null);
   const [editTarget, setEditTarget] = useState<LoanInstallment | null>(null);
   const [adoptTarget, setAdoptTarget] = useState<LoanInstallment | null>(null);
@@ -107,11 +131,22 @@ export function LoanDetail({
           </Badge>
         </div>
         <p className="text-muted-foreground text-sm">
-          {loan.lender ? `${loan.lender} · ` : ""}
-          {loan.channel_name ?? "—"} · {loan.currency}
+          {[
+            loan.lender,
+            loan.loan_number ? `Préstamo ${loan.loan_number}` : null,
+            loan.account_name ? `Débito en ${loan.account_name}` : null,
+            loan.currency,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
         </p>
         <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
-          {loan.disbursement_transaction_id ? (
+          {loan.installments.some((i) => i.paid_outside) ? (
+            <span className="text-muted-foreground">
+              Préstamo en curso: se cargó con cuotas ya pagadas, el desembolso
+              fue antes de usar el sistema.
+            </span>
+          ) : loan.disbursement_transaction_id ? (
             <span className="text-muted-foreground">
               Desembolso registrado en Caja.
             </span>
@@ -141,96 +176,154 @@ export function LoanDetail({
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-        <Stat label="Capital" value={formatMoney(loan.principal)} />
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat
-          label="Saldo de capital (pasivo)"
-          value={formatMoney(loan.capital_outstanding)}
+          label="Capital adeudado"
+          value={money(loan.capital_outstanding)}
         />
-        <Stat label="Pagado" value={formatMoney(loan.paid_total)} />
-        <Stat label="Pendiente" value={formatMoney(loan.pending_total)} />
         <Stat
-          label="Cuotas pendientes"
-          value={`${loan.pending_count} / ${loan.installments_count}`}
+          label="Cuotas pagas"
+          value={`${loan.paid_count}/${loan.installments.length}`}
+        />
+        <Stat
+          label="Próxima cuota"
+          value={
+            loan.next_due_amount === null ? "—" : money(loan.next_due_amount)
+          }
+        />
+        <Stat
+          label="Vencimiento próxima cuota"
+          value={
+            loan.next_due_date ? formatArgentineDate(loan.next_due_date) : "—"
+          }
         />
       </div>
 
-      <div className="rounded-lg border bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-12">#</TableHead>
-              <TableHead>Vencimiento</TableHead>
-              <TableHead className="text-right">Monto</TableHead>
-              <TableHead>Estado</TableHead>
-              <TableHead>Pago</TableHead>
-              <TableHead className="w-32" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loan.installments.map((i) => (
-              <TableRow key={i.id}>
-                <TableCell className="text-muted-foreground tabular-nums">
-                  {i.number}
-                </TableCell>
-                <TableCell className="text-sm">{i.due_date}</TableCell>
-                <TableCell className="text-right font-mono tabular-nums">
-                  {formatMoney(i.amount)}
-                  {i.split && (
-                    <div className="font-sans text-[11px] text-muted-foreground">
-                      {splitSummary(i)}
-                    </div>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <Badge
-                    variant={i.status === "pagada" ? "outline" : "secondary"}
-                  >
-                    {INSTALLMENT_STATUS_LABEL[i.status]}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-muted-foreground text-sm">
-                  {i.status === "pagada" && i.paid_date
-                    ? `${i.paid_date} · ${formatMoney(i.paid_amount ?? 0)}`
-                    : "—"}
-                </TableCell>
-                <TableCell className="text-right">
-                  {i.status === "pendiente" &&
-                    loan.status === "active" &&
-                    canWrite && (
-                      <div className="flex justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setEditTarget(i)}
-                        >
-                          Editar
-                        </Button>
-                        {canMoveCash && (
-                          <>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setAdoptTarget(i)}
-                              title="Usar un egreso ya cargado en Caja"
-                            >
-                              Vincular egreso
-                            </Button>
-                            {canPickAccount && (
-                              <Button size="sm" onClick={() => setPayTarget(i)}>
-                                Pagar
-                              </Button>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    )}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <section className="bg-card rounded-lg border p-4">
+          <h2 className="mb-2 text-sm font-medium">General</h2>
+          <Fact label="Estado" value={LOAN_STATUS_LABEL[loan.status]} />
+          <Fact
+            label="Monto original"
+            value={money(loan.original_amount ?? loan.principal)}
+          />
+          <Fact
+            label="Fecha de alta"
+            value={
+              loan.start_date ? formatArgentineDate(loan.start_date) : null
+            }
+          />
+          <Fact label="Plazo" value={`${loan.installments.length} cuotas`} />
+          <Fact label="Cuotas restantes" value={String(loan.pending_count)} />
+          <Fact label="Pendiente de pago" value={money(loan.pending_total)} />
+          <Fact
+            label="Pagado desde el sistema"
+            value={money(loan.paid_total)}
+          />
+        </section>
+        <section className="bg-card rounded-lg border p-4">
+          <h2 className="mb-2 text-sm font-medium">Tasas</h2>
+          <Fact label="Tasa nominal anual (TNA)" value={pct(loan.tna)} />
+          <Fact label="Tasa efectiva anual (TEA)" value={pct(loan.tea)} />
+          <Fact label="Costo financiero total (CFT)" value={pct(loan.cft)} />
+          <Fact label="Intereses pagados" value={money(loan.interest_paid)} />
+          {loan.notes && <Fact label="Notas" value={loan.notes} />}
+        </section>
       </div>
+
+      <section className="space-y-2">
+        <h2 className="text-sm font-medium">Plan de cuotas</h2>
+        <div className="bg-card overflow-x-auto rounded-lg border">
+          <Table className="min-w-[56rem]">
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-12">#</TableHead>
+                <TableHead>Vencimiento</TableHead>
+                <TableHead className="text-right">Total a pagar</TableHead>
+                <TableHead className="text-right">Capital</TableHead>
+                <TableHead className="text-right">Intereses</TableHead>
+                <TableHead className="text-right">Otros</TableHead>
+                <TableHead className="text-right">IVA</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead className="w-32" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loan.installments.map((i) => (
+                <TableRow key={i.id}>
+                  <TableCell className="text-muted-foreground tabular-nums">
+                    {i.number}
+                  </TableCell>
+                  <TableCell className="text-sm">
+                    {formatArgentineDate(i.due_date)}
+                  </TableCell>
+                  <TableCell className="text-right font-mono tabular-nums">
+                    {money(i.amount)}
+                  </TableCell>
+                  <TableCell className="text-right font-mono tabular-nums">
+                    {i.split ? money(i.split.capital) : "—"}
+                  </TableCell>
+                  <TableCell className="text-right font-mono tabular-nums">
+                    {i.split ? money(i.split.interest) : "—"}
+                  </TableCell>
+                  <TableCell className="text-right font-mono tabular-nums">
+                    {i.split ? money(i.split.other + i.split.perception) : "—"}
+                  </TableCell>
+                  <TableCell className="text-right font-mono tabular-nums">
+                    {i.split ? money(i.split.iva) : "—"}
+                  </TableCell>
+                  <TableCell className="text-sm">
+                    {installmentState(i, today)}
+                    {i.status === "pagada" &&
+                      !i.paid_outside &&
+                      i.paid_date && (
+                        <span className="text-muted-foreground block text-xs">
+                          {formatArgentineDate(i.paid_date)} ·{" "}
+                          {money(i.paid_amount ?? 0)}
+                        </span>
+                      )}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {i.status === "pendiente" &&
+                      loan.status === "active" &&
+                      canWrite && (
+                        <div className="flex justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setEditTarget(i)}
+                          >
+                            Editar
+                          </Button>
+                          {canMoveCash && (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setAdoptTarget(i)}
+                                title="Usar un egreso ya cargado en Caja"
+                              >
+                                Vincular egreso
+                              </Button>
+                              {canPickAccount && (
+                                <Button
+                                  size="sm"
+                                  onClick={() => setPayTarget(i)}
+                                >
+                                  Pagar
+                                </Button>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </section>
 
       <PayInstallmentDialog
         installment={payTarget}

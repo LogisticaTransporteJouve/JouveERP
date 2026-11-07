@@ -3,7 +3,11 @@
 import { isIvaCondition } from "@/features/clients/schema";
 import { logAudit } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
-import { userCan } from "@/lib/auth/permissions";
+import {
+  TREASURY_PERMISSIONS,
+  userCan,
+  userCanAll,
+} from "@/lib/auth/permissions";
 import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
@@ -22,6 +26,7 @@ import {
   type BankStatementCode,
   type PostingAccount,
   type StatementCoding,
+  type StatementLoanInstallment,
 } from "../schema";
 
 const READ_DENIED = "No tenés permiso para ver la conciliación.";
@@ -84,6 +89,38 @@ async function readPostingAccounts(
         : [],
     ),
   ];
+}
+
+/** The pending cuotas of the active loans debited from the account. */
+async function readLoanInstallments(
+  service: Service,
+  accountId: string,
+): Promise<StatementLoanInstallment[] | null> {
+  const { data, error } = await service
+    .from("loan_installments")
+    .select(
+      "id, number, due_date, amount, loan:loans!inner ( description, installments_count, account_id, status )",
+    )
+    .eq("status", "pendiente")
+    .eq("loan.account_id", accountId)
+    .eq("loan.status", "active")
+    .order("due_date")
+    .limit(500);
+  if (error) return null;
+  return data.flatMap((i) => {
+    const loan = Array.isArray(i.loan) ? i.loan[0] : i.loan;
+    if (!loan) return [];
+    return [
+      {
+        id: i.id,
+        loan_description: loan.description,
+        number: i.number,
+        count: loan.installments_count,
+        due_date: i.due_date,
+        amount: Number(i.amount),
+      },
+    ];
+  });
 }
 
 /** The account's bank codes, the accounts they can post to, and the
@@ -157,6 +194,22 @@ export async function getStatementCodingAction(
     );
   }
 
+  let loanInstallments: StatementLoanInstallment[] = [];
+  if (userCanAll(ctx.access, TREASURY_PERMISSIONS)) {
+    const read = await readLoanInstallments(service, account_id);
+    if (!read) {
+      logger.error("reconciliation.coding.loans_failed", {
+        userId: ctx.userId,
+        account_id,
+      });
+      return {
+        ok: false,
+        error: "No se pudieron leer las cuotas de préstamos.",
+      };
+    }
+    loanInstallments = read;
+  }
+
   return {
     ok: true,
     data: {
@@ -164,6 +217,7 @@ export async function getStatementCodingAction(
       posting_accounts: postingAccounts,
       clients,
       can_read_clients: canReadClients,
+      loan_installments: loanInstallments,
     },
   };
 }

@@ -17,7 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { PageHeader } from "@/components/ui/page-header";
-import { formatMoney } from "@/lib/format";
+import { formatArgentineDate, formatMoney } from "@/lib/format";
 
 import { useCancelLoan, useLoans } from "../hooks/use-loans";
 import {
@@ -72,21 +72,19 @@ export function LoansTable({
             <Badge variant="outline" className="ml-2 text-[10px] font-normal">
               {LOAN_KIND_LABEL[row.original.kind]}
             </Badge>
+            {row.original.loan_number && (
+              <span className="text-muted-foreground block text-xs">
+                Préstamo {row.original.loan_number}
+              </span>
+            )}
           </div>
         ),
       },
       {
         id: "lender",
-        header: "Acreedor",
+        header: "Banco",
         enableSorting: false,
         cell: ({ row }) => row.original.lender ?? "—",
-        meta: { cellClassName: "text-sm", mobile: "secondary" },
-      },
-      {
-        id: "channel",
-        header: "Canal",
-        enableSorting: false,
-        cell: ({ row }) => row.original.channel_name ?? "—",
         meta: { cellClassName: "text-sm", mobile: "secondary" },
       },
       {
@@ -100,14 +98,22 @@ export function LoansTable({
         ),
       },
       {
-        accessorKey: "paid_total",
-        header: "Pagado",
+        accessorKey: "capital_outstanding",
+        header: "Capital adeudado",
         meta: { align: "right", mobile: "secondary" },
         cell: ({ row }) => (
           <span className="font-mono tabular-nums">
-            {formatMoney(row.original.paid_total)}
+            {formatMoney(row.original.capital_outstanding)}
           </span>
         ),
+      },
+      {
+        id: "paid_count",
+        header: "Cuotas pagas",
+        enableSorting: false,
+        meta: { align: "right", mobile: "secondary" },
+        cell: ({ row }) =>
+          `${row.original.paid_count}/${row.original.paid_count + row.original.pending_count}`,
       },
       {
         accessorKey: "pending_total",
@@ -125,7 +131,10 @@ export function LoansTable({
       {
         accessorKey: "next_due_date",
         header: "Próx. venc.",
-        cell: ({ row }) => row.original.next_due_date ?? "—",
+        cell: ({ row }) =>
+          row.original.next_due_date
+            ? formatArgentineDate(row.original.next_due_date)
+            : "—",
         meta: {
           headerClassName: "w-28",
           cellClassName: "text-sm",

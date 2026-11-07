@@ -30,6 +30,7 @@ const installment: LoanInstallment = {
   transaction_id: null,
   notes: null,
   split: null,
+  paid_outside: false,
 };
 
 beforeEach(() => {

@@ -33,6 +33,7 @@ import { CollectDialog } from "@/features/receipts/components/collect-dialog";
 import {
   useCreateLineTransaction,
   useMatchLineToReceipt,
+  usePayLoanFromLine,
 } from "../hooks/use-reconciliation";
 import {
   useDeleteBankStatementCode,
@@ -69,7 +70,15 @@ export function useLineProposals(
     const byCuit = new Map(coding.data.clients.map((c) => [c.cuit, c]));
     for (const l of lines) {
       if (l.status === "open") {
-        map.set(l.id, proposeLine(l, coding.data.codes, byCuit));
+        map.set(
+          l.id,
+          proposeLine(
+            l,
+            coding.data.codes,
+            byCuit,
+            coding.data.loan_installments,
+          ),
+        );
       }
     }
     return map;
@@ -99,6 +108,7 @@ export function LineProposalView({
 }) {
   const create = useCreateLineTransaction();
   const matchToReceipt = useMatchLineToReceipt();
+  const payLoan = usePayLoanFromLine();
   const fiscal = useFiscalChannel();
   if (!proposal) return null;
 
@@ -135,6 +145,32 @@ export function LineProposalView({
         >
           <Check className="size-3.5" />
           Aceptar
+        </Button>
+      )}
+      {gates.canPayLoans && proposal.installment && (
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-7"
+          disabled={payLoan.isPending}
+          onClick={() => {
+            const installment = proposal.installment;
+            if (!installment) return;
+            payLoan.mutate(
+              { line_id: line.id, installment_id: installment.id },
+              {
+                onSuccess: () =>
+                  toast.success(
+                    `Cuota ${installment.number} pagada y conciliada.`,
+                  ),
+                onError: (err) => toast.error(err.message),
+              },
+            );
+          }}
+        >
+          <Check className="size-3.5" />
+          Pagar cuota {proposal.installment.number}
         </Button>
       )}
       {gates.canCollect &&

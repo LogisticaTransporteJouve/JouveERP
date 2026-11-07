@@ -13,6 +13,7 @@ import { listPayableTaxDocumentsAction } from "@/features/taxes/actions/tax-paym
 import { taxesKeys } from "@/features/taxes/lib/taxes-keys";
 import { transactionsKeys } from "@/features/transactions/lib/transactions-keys";
 import { CASH_KEYS } from "@/features/treasury/lib/cash-keys";
+import { loansKeys } from "@/features/loans/lib/loans-keys";
 import { invalidateKeys } from "@/lib/query/invalidate";
 import { runAction } from "@/lib/query/run-action";
 
@@ -25,6 +26,7 @@ import {
   listReconciliationAccountsAction,
   matchLineAction,
   matchLineToReceiptAction,
+  payLoanInstallmentFromLineAction,
   matchLinesToMovementAction,
   restoreLineAction,
   unmatchLineAction,
@@ -36,6 +38,7 @@ import type {
   IgnoreLineInput,
   MatchLineInput,
   MatchLineToReceiptInput,
+  PayLoanFromLineInput,
   MatchLinesToMovementInput,
 } from "../schema";
 
@@ -58,12 +61,19 @@ export function useReconciliation(accountId: string, from: string, to: string) {
 
 /** A match changes the page and locks or frees movements of Caja (whose
  *  list marks the reconciled ones). */
-function useReconciliationMutation<I, O>(fn: (input: I) => Promise<O>) {
+function useReconciliationMutation<I, O>(
+  fn: (input: I) => Promise<O>,
+  alsoKeys: readonly (readonly unknown[])[] = [],
+) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: fn,
     onSuccess: () => {
-      invalidateKeys(qc, [reconciliationKeys.all, transactionsKeys.all]);
+      invalidateKeys(qc, [
+        reconciliationKeys.all,
+        transactionsKeys.all,
+        ...alsoKeys,
+      ]);
     },
   });
 }
@@ -77,6 +87,14 @@ export function useMatchLine() {
 export function useMatchLineToReceipt() {
   return useReconciliationMutation((input: MatchLineToReceiptInput) =>
     runAction(() => matchLineToReceiptAction(input)),
+  );
+}
+
+export function usePayLoanFromLine() {
+  return useReconciliationMutation(
+    (input: PayLoanFromLineInput) =>
+      runAction(() => payLoanInstallmentFromLineAction(input)),
+    [loansKeys.all, ...CASH_KEYS],
   );
 }
 

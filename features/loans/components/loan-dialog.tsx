@@ -1,8 +1,8 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { useEffect, useMemo, useState } from "react";
+import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -35,25 +35,42 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { parseArAmount } from "@/lib/format";
+import { useAccountOptions } from "@/features/accounts/hooks/use-accounts";
+import { formatArgentineDate, formatMoney, parseArAmount } from "@/lib/format";
+import { generateInstallments } from "@/lib/loans/amortization";
+import {
+  frenchPlan,
+  parseBankPlan,
+  type PlanInstallment,
+} from "@/lib/loans/bank-plan";
 import { positiveArAmountField } from "@/lib/validation/common";
 
 import { useCreateLoan } from "../hooks/use-loans";
 import { LOAN_KINDS, LOAN_KIND_LABEL } from "../schema";
 
+const NONE = "__none__";
+
+const rateField = z
+  .string()
+  .trim()
+  .refine((v) => v === "" || parseArAmount(v) !== null, "Tasa inválida.");
+
 const FormSchema = z.object({
   kind: z.enum(LOAN_KINDS),
   description: z.string().trim().min(1, "Descripción requerida.").max(200),
   lender: z.string().trim().max(200),
+  loan_number: z.string().trim().max(60),
+  account_id: z.string(),
+  start_date: z.string(),
   principal: positiveArAmountField,
   currency: z.enum(["ARS", "USD"]),
-  channel_id: z.string().min(1, "Canal requerido."),
-  installments_count: z
-    .string()
-    .regex(/^\d+$/, "Cantidad inválida.")
-    .refine((v) => Number(v) >= 1 && Number(v) <= 600, "Entre 1 y 600."),
-  first_due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha requerida."),
+  tna: rateField,
+  tea: rateField,
+  cft: rateField,
+  installments_count: z.string(),
+  first_due_date: z.string(),
   notes: z.string().trim().max(2000),
 });
 
@@ -63,13 +80,24 @@ const DEFAULTS: FormValues = {
   kind: "prestamo",
   description: "",
   lender: "",
+  loan_number: "",
+  account_id: NONE,
+  start_date: "",
   principal: "",
   currency: "ARS",
-  channel_id: "",
+  tna: "",
+  tea: "",
+  cft: "",
   installments_count: "",
   first_due_date: "",
   notes: "",
 };
+
+/** How the cuotas are set: the bank's plan pasted, the French system from
+ *  the TNA, or equal parts of the capital. */
+type PlanMode = "bank" | "french" | "equal";
+
+const rateOrNull = (v: string) => (v === "" ? null : parseArAmount(v));
 
 export function LoanDialog({
   open,
@@ -82,19 +110,100 @@ export function LoanDialog({
   // A loan is the company's debt: it goes to the fiscal channel.
   const fiscalChannel =
     channels.find((c) => c.is_active && c.is_fiscal)?.id ?? "";
+  const { accounts } = useAccountOptions();
   const createMut = useCreateLoan();
   const form = useForm<FormValues>({
     resolver: zodResolver(FormSchema),
     defaultValues: DEFAULTS,
   });
+  const [mode, setMode] = useState<PlanMode>("bank");
+  const [planText, setPlanText] = useState("");
 
   useEffect(() => {
-    if (open) form.reset({ ...DEFAULTS, channel_id: fiscalChannel });
-  }, [open, form, fiscalChannel]);
+    if (!open) return;
+    form.reset(DEFAULTS);
+    setMode("bank");
+    setPlanText("");
+  }, [open, form]);
+
+  const [currency, principalRaw, tnaRaw, countRaw, firstDue] = useWatch({
+    control: form.control,
+    name: [
+      "currency",
+      "principal",
+      "tna",
+      "installments_count",
+      "first_due_date",
+    ],
+  });
+
+  const bankAccounts = accounts.filter(
+    (a) =>
+      a.is_active &&
+      a.currency === currency &&
+      (a.type === "bank" || a.type === "wallet"),
+  );
+
+  const pasted = useMemo(
+    () => (planText.trim() === "" ? null : parseBankPlan(planText)),
+    [planText],
+  );
+
+  // The cuotas the loan will have, shown before creating it.
+  const plan: PlanInstallment[] | null = useMemo(() => {
+    if (mode === "bank") return pasted?.ok ? pasted.rows : null;
+    const principal = parseArAmount(principalRaw);
+    const count = Number(countRaw);
+    if (!principal || !Number.isInteger(count) || count < 1 || !firstDue) {
+      return null;
+    }
+    if (mode === "french") {
+      const tna = rateOrNull(tnaRaw);
+      return tna === null ? null : frenchPlan(principal, tna, count, firstDue);
+    }
+    return generateInstallments(principal, count, firstDue).map((g) => ({
+      ...g,
+      capital: g.amount,
+      interest: 0,
+      iva: 0,
+      perception: 0,
+      other: 0,
+      paid: false,
+    }));
+  }, [mode, pasted, principalRaw, countRaw, firstDue, tnaRaw]);
 
   function onSubmit(values: FormValues) {
+    if (!plan) {
+      toast.error(
+        mode === "bank"
+          ? "Pegá el plan de cuotas del banco."
+          : "Completá las cuotas, la 1ª cuota" +
+              (mode === "french" ? " y la TNA." : "."),
+      );
+      return;
+    }
+    const principal = parseArAmount(values.principal) ?? 0;
     createMut.mutate(
-      { ...values, principal: parseArAmount(values.principal) ?? 0 },
+      {
+        kind: values.kind,
+        description: values.description,
+        lender: values.lender,
+        loan_number: values.loan_number,
+        account_id: values.account_id === NONE ? null : values.account_id,
+        start_date: values.start_date || null,
+        principal,
+        original_amount: principal,
+        currency: values.currency,
+        channel_id: fiscalChannel,
+        tna: rateOrNull(values.tna),
+        tea: rateOrNull(values.tea),
+        cft: rateOrNull(values.cft),
+        installments_count: plan.length,
+        first_due_date: plan[0]?.due_date,
+        notes: values.notes,
+        // Equal parts carry no split: the DB keeps them as before.
+        plan: mode === "equal" ? null : plan,
+      },
       {
         onSuccess: () => {
           toast.success("Préstamo creado.");
@@ -105,19 +214,22 @@ export function LoanDialog({
     );
   }
 
+  const paidBefore = plan?.filter((p) => p.paid).length ?? 0;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>Nuevo préstamo / leasing</DialogTitle>
           <DialogDescription>
-            Cargá el capital y la cantidad de cuotas. Se genera el cronograma de
-            cuotas iguales (después editás cada una si hace falta).
+            Cargá los datos del préstamo como los muestra el banco y su plan de
+            cuotas. Las cuotas que el banco da por pagadas quedan pagadas, sin
+            movimiento en Caja.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <FormField
                 control={form.control}
                 name="kind"
@@ -126,7 +238,7 @@ export function LoanDialog({
                     <FormLabel>Tipo</FormLabel>
                     <Select value={field.value} onValueChange={field.onChange}>
                       <FormControl>
-                        <SelectTrigger>
+                        <SelectTrigger className="w-full">
                           <SelectValue />
                         </SelectTrigger>
                       </FormControl>
@@ -150,7 +262,7 @@ export function LoanDialog({
                     <FormLabel>Moneda</FormLabel>
                     <Select value={field.value} onValueChange={field.onChange}>
                       <FormControl>
-                        <SelectTrigger>
+                        <SelectTrigger className="w-full">
                           <SelectValue />
                         </SelectTrigger>
                       </FormControl>
@@ -163,43 +275,42 @@ export function LoanDialog({
                   </FormItem>
                 )}
               />
+              <FormField
+                control={form.control}
+                name="lender"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Banco</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Banco Macro" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="loan_number"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Número de préstamo</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="7670122511" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Descripción</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder="Préstamo Banco Nación" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="lender"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Acreedor (opcional)</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder="Banco / dador" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <ChannelsReadError inline />
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <FormField
                 control={form.control}
-                name="principal"
+                name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Capital</FormLabel>
+                    <FormLabel>Descripción</FormLabel>
                     <FormControl>
-                      <MoneyInput {...field} />
+                      <Input {...field} placeholder="Préstamo a Sola Firma" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -207,28 +318,37 @@ export function LoanDialog({
               />
               <FormField
                 control={form.control}
-                name="installments_count"
+                name="account_id"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Cuotas</FormLabel>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        type="number"
-                        inputMode="numeric"
-                        min={1}
-                      />
-                    </FormControl>
+                    <FormLabel>Cuenta de débito</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value={NONE}>Ninguna</SelectItem>
+                        {bankAccounts.map((a) => (
+                          <SelectItem key={a.id} value={a.id}>
+                            {a.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
               <FormField
                 control={form.control}
-                name="first_due_date"
+                name="start_date"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>1ª cuota</FormLabel>
+                    <FormLabel>Fecha de alta</FormLabel>
                     <FormControl>
                       <DatePicker {...field} />
                     </FormControl>
@@ -236,7 +356,126 @@ export function LoanDialog({
                   </FormItem>
                 )}
               />
+              <FormField
+                control={form.control}
+                name="principal"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Monto original</FormLabel>
+                    <FormControl>
+                      <MoneyInput {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              {(
+                [
+                  ["tna", "TNA (%)"],
+                  ["tea", "TEA (%)"],
+                  ["cft", "CFT (%)"],
+                ] as const
+              ).map(([name, label]) => (
+                <FormField
+                  key={name}
+                  control={form.control}
+                  name={name}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{label}</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          inputMode="decimal"
+                          placeholder="40,00"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              ))}
             </div>
+            <ChannelsReadError inline />
+
+            <div className="space-y-3 rounded-lg border p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-medium">Plan de cuotas</p>
+                <Tabs
+                  value={mode}
+                  onValueChange={(v) =>
+                    setMode(v === "french" || v === "equal" ? v : "bank")
+                  }
+                >
+                  <TabsList>
+                    <TabsTrigger value="bank">Pegar del banco</TabsTrigger>
+                    <TabsTrigger value="french">
+                      Calcular con la TNA
+                    </TabsTrigger>
+                    <TabsTrigger value="equal">Cuotas iguales</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </div>
+              {mode === "bank" ? (
+                <div className="space-y-1.5">
+                  <Textarea
+                    aria-label="Plan de cuotas del banco"
+                    rows={4}
+                    value={planText}
+                    onChange={(e) => setPlanText(e.target.value)}
+                    placeholder="En el home banking abrí el préstamo › Plan de cuotas, seleccioná la tabla entera, copiala y pegala acá."
+                  />
+                  {pasted && !pasted.ok && (
+                    <p className="text-sm">{pasted.error}</p>
+                  )}
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3 sm:max-w-md">
+                  <FormField
+                    control={form.control}
+                    name="installments_count"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Cuotas</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            type="number"
+                            inputMode="numeric"
+                            min={1}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="first_due_date"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>1ª cuota</FormLabel>
+                        <FormControl>
+                          <DatePicker {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              )}
+              {plan && (
+                <>
+                  <p className="text-muted-foreground text-xs">
+                    {plan.length} cuotas
+                    {paidBefore > 0 &&
+                      ` · ${paidBefore} pagadas antes (quedan pagadas, sin movimiento)`}
+                  </p>
+                  <PlanPreview plan={plan} currency={currency} />
+                </>
+              )}
+            </div>
+
             <FormField
               control={form.control}
               name="notes"
@@ -266,5 +505,55 @@ export function LoanDialog({
         </Form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function PlanPreview({
+  plan,
+  currency,
+}: {
+  plan: PlanInstallment[];
+  currency: string;
+}) {
+  const money = (n: number) => formatMoney(n, currency);
+  return (
+    <div className="max-h-64 overflow-auto rounded-md border">
+      <table className="w-full min-w-[44rem] text-xs [&_td]:whitespace-nowrap">
+        <thead className="bg-muted/40 text-muted-foreground sticky top-0">
+          <tr>
+            <th className="px-2 py-1.5 text-left">#</th>
+            <th className="px-2 py-1.5 text-left">Vencimiento</th>
+            <th className="px-2 py-1.5 text-right">Total</th>
+            <th className="px-2 py-1.5 text-right">Capital</th>
+            <th className="px-2 py-1.5 text-right">Intereses</th>
+            <th className="px-2 py-1.5 text-right">Otros</th>
+            <th className="px-2 py-1.5 text-right">IVA</th>
+            <th className="px-2 py-1.5 text-left">Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          {plan.map((p) => (
+            <tr key={p.number} className="border-t">
+              <td className="px-2 py-1">{p.number}</td>
+              <td className="px-2 py-1">{formatArgentineDate(p.due_date)}</td>
+              <td className="px-2 py-1 text-right font-mono">
+                {money(p.amount)}
+              </td>
+              <td className="px-2 py-1 text-right font-mono">
+                {money(p.capital)}
+              </td>
+              <td className="px-2 py-1 text-right font-mono">
+                {money(p.interest)}
+              </td>
+              <td className="px-2 py-1 text-right font-mono">
+                {money(p.other)}
+              </td>
+              <td className="px-2 py-1 text-right font-mono">{money(p.iva)}</td>
+              <td className="px-2 py-1">{p.paid ? "Pagada" : "Pendiente"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }

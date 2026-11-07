@@ -5,6 +5,7 @@ import type {
   BankStatementCode,
   StatementClient,
   StatementLine,
+  StatementLoanInstallment,
 } from "../schema";
 
 function norm(text: string): string {
@@ -46,16 +47,44 @@ export type LineProposal = {
   label: string;
   /** The client of a collection, found by the CUIT in the description. */
   client: StatementClient | null;
+  /** The loan cuota a loan debit pays: same amount, the closest due date. */
+  installment: StatementLoanInstallment | null;
   /** Can be accepted in one click: a tax or fee with its account. */
   ready: boolean;
   /** What is missing to book it, when something is. */
   missing: string | null;
 };
 
+/** The pending cuota a debit pays: its amount, and the closest due date
+ *  within a month of the line. */
+export function findLoanInstallment(
+  line: Pick<StatementLine, "amount" | "line_date">,
+  installments: readonly StatementLoanInstallment[],
+): StatementLoanInstallment | null {
+  const days = (a: string, b: string) =>
+    Math.abs(Date.parse(a) - Date.parse(b)) / 86_400_000;
+  let best: StatementLoanInstallment | null = null;
+  for (const i of installments) {
+    if (Math.abs(i.amount + line.amount) > 0.005) continue;
+    if (days(i.due_date, line.line_date) > 31) continue;
+    if (
+      !best ||
+      days(i.due_date, line.line_date) < days(best.due_date, line.line_date)
+    ) {
+      best = i;
+    }
+  }
+  return best;
+}
+
 export function proposeLine(
-  line: Pick<StatementLine, "bank_code" | "description" | "amount">,
+  line: Pick<
+    StatementLine,
+    "bank_code" | "description" | "amount" | "line_date"
+  >,
   codes: readonly BankStatementCode[],
   clientsByCuit: ReadonlyMap<string, StatementClient>,
+  installments: readonly StatementLoanInstallment[] = [],
 ): LineProposal {
   const code = findBankCode(line, codes);
   if (!code) {
@@ -66,6 +95,7 @@ export function proposeLine(
         ? `Código ${line.bank_code} sin configurar`
         : "Sin código del banco",
       client: null,
+      installment: null,
       ready: false,
       missing: line.bank_code ? "Configurá qué es este código." : null,
     };
@@ -79,6 +109,7 @@ export function proposeLine(
         ? `${label} → ${code.chart_account_label}`
         : label,
       client: null,
+      installment: null,
       ready: code.chart_account_id !== null && line.amount < 0,
       missing:
         code.chart_account_id === null ? "Elegí la cuenta contable." : null,
@@ -96,8 +127,25 @@ export function proposeLine(
         ? `Cobro de ${client.display_name ?? client.legal_name}`
         : label,
       client,
+      installment: null,
       ready: false,
       missing: client ? null : "No hay un cliente con el CUIT de la línea.",
+    };
+  }
+  if (code.kind === "loan") {
+    const installment = findLoanInstallment(line, installments);
+    return {
+      kind: "loan",
+      code,
+      label: installment
+        ? `Cuota ${installment.number}/${installment.count} — ${installment.loan_description}`
+        : label,
+      client: null,
+      installment,
+      ready: false,
+      missing: installment
+        ? null
+        : "No hay una cuota pendiente de un préstamo de esta cuenta por este importe.",
     };
   }
   return {
@@ -105,6 +153,7 @@ export function proposeLine(
     code,
     label,
     client: null,
+    installment: null,
     ready: false,
     missing: null,
   };

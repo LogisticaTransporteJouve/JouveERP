@@ -17,10 +17,6 @@ export const LOAN_STATUS_LABEL: Record<LoanStatus, string> = {
 
 export const INSTALLMENT_STATUSES = ["pendiente", "pagada"] as const;
 export type InstallmentStatus = (typeof INSTALLMENT_STATUSES)[number];
-export const INSTALLMENT_STATUS_LABEL: Record<InstallmentStatus, string> = {
-  pendiente: "Pendiente",
-  pagada: "Pagada",
-};
 
 export interface LoanInstallment {
   id: string;
@@ -35,6 +31,8 @@ export interface LoanInstallment {
   notes: string | null;
   /** Optional split of the cuota; null = no split (posted whole as an expense). */
   split: InstallmentSplit | null;
+  /** Paid before the loan was loaded: no movement in Caja. */
+  paid_outside: boolean;
 }
 
 export interface InstallmentSplit {
@@ -91,8 +89,24 @@ export interface LoanListItem {
   created_at: string;
   /** Income of the disbursement in treasury; null = not recorded. */
   disbursement_transaction_id: string | null;
+  /** The bank's loan number. */
+  loan_number: string | null;
+  /** The account the cuotas are debited from. */
+  account_id: string | null;
+  account_name: string | null;
+  start_date: string | null;
+  original_amount: number | null;
+  tna: number | null;
+  tea: number | null;
+  cft: number | null;
   // computed summary
+  /** Paid through Caja (a cuota paid before the loan was loaded is not). */
   paid_total: number;
+  /** Every paid cuota, also those paid before. */
+  paid_count: number;
+  /** Interest of the paid cuotas (with a split). */
+  interest_paid: number;
+  next_due_amount: number | null;
   /** Capital still owed: principal − capital of the paid cuotas (an unsplit
    *  cuota counts whole as capital, as the management P&L reads it). */
   capital_outstanding: number;
@@ -133,6 +147,27 @@ const optionalText = (max: number) =>
     .nullable()
     .optional();
 
+const rate = z.coerce
+  .number()
+  .min(0, "La tasa no puede ser negativa.")
+  .max(1000, "Tasa inválida.")
+  .nullable()
+  .optional();
+
+/** A cuota of the bank's plan (or computed): its split and whether it was
+ *  paid before the loan is loaded. */
+export const PlanInstallmentSchema = z.object({
+  number: z.number().int().min(1),
+  due_date: dateStr,
+  amount: z.number().positive(),
+  capital: z.number().min(0),
+  interest: z.number().min(0),
+  iva: z.number().min(0),
+  perception: z.number().min(0),
+  other: z.number().min(0),
+  paid: z.boolean(),
+});
+
 export const CreateLoanSchema = z.object({
   kind: z.enum(LOAN_KINDS).default("prestamo"),
   description: z.string().trim().min(1, "Descripción requerida.").max(200),
@@ -147,6 +182,16 @@ export const CreateLoanSchema = z.object({
     .max(600, "Máximo 600 cuotas."),
   first_due_date: dateStr,
   notes: optionalText(2000),
+  loan_number: optionalText(60),
+  account_id: z.string().uuid().nullable().optional(),
+  start_date: dateStr.nullable().optional(),
+  original_amount: z.coerce.number().positive().nullable().optional(),
+  tna: rate,
+  tea: rate,
+  cft: rate,
+  /** The bank's plan, or the French plan from the TNA; without it the
+   *  cuotas are equal parts of the capital. */
+  plan: z.array(PlanInstallmentSchema).min(1).max(600).nullable().optional(),
 });
 export type CreateLoanInput = z.infer<typeof CreateLoanSchema>;
 

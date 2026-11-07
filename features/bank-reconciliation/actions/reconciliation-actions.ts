@@ -4,7 +4,9 @@ import { isAccountType, isCheckAccount } from "@/features/accounts/schema";
 import { TransactionCreateSchema } from "@/features/transactions/schema";
 import { logAudit } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
-import { userCan } from "@/lib/auth/permissions";
+import { userCan, userCanAll } from "@/lib/auth/permissions";
+import { LOAN_CASH_PERMISSIONS } from "@/features/loans/lib/loan-cash";
+import { payLoanInstallment } from "@/lib/commands/pay-loan-installment";
 import {
   matchBankLine,
   matchBankLines,
@@ -32,6 +34,7 @@ import {
   LineIdSchema,
   MatchLineSchema,
   MatchLineToReceiptSchema,
+  PayLoanFromLineSchema,
   MatchLinesToMovementSchema,
   ReconciliationQuerySchema,
   SUGGESTION_DAY_WINDOW,
@@ -416,6 +419,54 @@ export async function matchLineToReceiptAction(
     line_id: parsed.data.line_id,
     transaction_ids: txs.data.map((t) => t.id),
   });
+}
+
+/** Pays a loan cuota with a bank debit line and reconciles them: the cuota's
+ *  outflow goes to the line's account on its date, for its amount. */
+export async function payLoanInstallmentFromLineAction(
+  input: unknown,
+): Promise<ActionResult<{ line_id: string }>> {
+  const ctx = await requireUserContext();
+  if (!userCanAll(ctx.access, LOAN_CASH_PERMISSIONS)) {
+    return {
+      ok: false,
+      error: "No tenés permiso para pagar cuotas de préstamos.",
+    };
+  }
+  const parsed = PayLoanFromLineSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Datos inválidos." };
+  const line = await getServiceClient()
+    .from("bank_statement_lines")
+    .select("account_id, line_date, amount, status")
+    .eq("id", parsed.data.line_id)
+    .maybeSingle();
+  if (line.error || !line.data) {
+    return { ok: false, error: "La línea del extracto ya no existe." };
+  }
+  if (line.data.status !== "open" || Number(line.data.amount) >= 0) {
+    return {
+      ok: false,
+      error: "La línea ya está resuelta o no es un débito.",
+    };
+  }
+  const paid = await payLoanInstallment(ctx.userId, {
+    id: parsed.data.installment_id,
+    paid_date: line.data.line_date,
+    account_id: line.data.account_id,
+    amount: -Number(line.data.amount),
+  });
+  if (!paid.ok) return paid;
+  const matched = await matchBankLine(ctx.userId, {
+    line_id: parsed.data.line_id,
+    transaction_ids: [paid.data.transactionId],
+  });
+  if (!matched.ok) {
+    return {
+      ok: false,
+      error: `La cuota quedó pagada pero la línea no se concilió: ${matched.error}`,
+    };
+  }
+  return matched;
 }
 
 export type AcceptSuggestionsResult = BankMatchesResult;

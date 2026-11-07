@@ -343,10 +343,29 @@ export type StatementClient = {
 
 /** What the page needs to propose each line: the account's codes, the
  *  accounts a code can post to, and the clients whose CUIT is in a line. */
+/** A pending cuota of a loan debited from the statement's account. */
+export type StatementLoanInstallment = {
+  id: string;
+  loan_description: string;
+  number: number;
+  count: number;
+  due_date: string;
+  amount: number;
+};
+
 export type StatementCoding = {
   codes: BankStatementCode[];
   posting_accounts: PostingAccount[];
   clients: StatementClient[];
   /** clients:read; without it no client is looked up. */
   can_read_clients: boolean;
+  /** Pending cuotas of the loans debited from this account (empty without
+   *  permission to see loans). */
+  loan_installments: StatementLoanInstallment[];
 };
+
+export const PayLoanFromLineSchema = z.object({
+  line_id: z.string().uuid(),
+  installment_id: z.string().uuid(),
+});
+export type PayLoanFromLineInput = z.infer<typeof PayLoanFromLineSchema>;
