@@ -44,18 +44,30 @@ function amountOf(value: string): number {
  * checks leave as vendido, the net lands in the chosen account and the
  * interest and commission are recorded as financial expense.
  */
+export type SellPrefill = {
+  buyer_name: string;
+  buyer_cuit: string;
+  sale_date: string;
+  notes: string;
+  /** Picks the destination account whose name has it (the bank's). */
+  account_name?: string;
+};
+
 export function SellChequesDialog({
   checks,
   channels,
   open,
   onOpenChange,
   onSold,
+  prefill,
 }: {
   checks: Cheque[];
   channels: CheckChannelOption[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSold: () => void;
+  /** From a bank's discount receipt: who bought them, when, and a note. */
+  prefill?: SellPrefill | null;
 }) {
   const { data: accounts } = useAccountsList();
   const mut = useSellCheques();
@@ -88,14 +100,19 @@ export function SellChequesDialog({
   useEffect(() => {
     if (!open) return;
     setKey(crypto.randomUUID());
-    setBuyerName("");
-    setBuyerCuit("");
-    setAccountId("");
+    setBuyerName(prefill?.buyer_name ?? "");
+    setBuyerCuit(prefill?.buyer_cuit ?? "");
+    const bank = prefill?.account_name?.toLowerCase();
+    setAccountId(
+      (bank &&
+        destinations.find((a) => a.name.toLowerCase().includes(bank))?.id) ||
+        "",
+    );
     setChannelId(fixedChannel ?? "");
-    setSaleDate(todayInAR());
+    setSaleDate(prefill?.sale_date ?? todayInAR());
     setInterest("0");
     setCommission("0");
-    setNotes("");
+    setNotes(prefill?.notes ?? "");
     // Reset only when the dialog opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);

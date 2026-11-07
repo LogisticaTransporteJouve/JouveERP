@@ -14,7 +14,7 @@ import type { ActionResult } from "@/lib/query/run-action";
 import { fetchInChunks } from "@/lib/supabase/paginate";
 import { getServiceClient } from "@/lib/supabase/service";
 
-import { MACRO_CODES, PROVINCIA_CODES, cuitsIn } from "../lib/bank-codes";
+import { PRESET_CODES, cuitsIn } from "../lib/bank-codes";
 import {
   BANK_TAX_ROLES,
   DeleteBankStatementCodeSchema,
@@ -26,6 +26,9 @@ import {
   type BankStatementCode,
   type PostingAccount,
   type StatementCoding,
+  type StatementCardStatement,
+  type StatementCarteraCheck,
+  type StatementCheckSaleTransfer,
   type StatementLoanInstallment,
 } from "../schema";
 
@@ -238,6 +241,22 @@ export async function getStatementCodingAction(
     loanInstallments = read;
   }
 
+  const [saleTransfers, cardStatements, carteraChecks] = await Promise.all([
+    readCheckSaleTransfers(service, account_id),
+    readCardStatements(service, account_id),
+    readCarteraChecks(service),
+  ]);
+  if (!saleTransfers || !cardStatements || !carteraChecks) {
+    logger.error("reconciliation.coding.check_sales_failed", {
+      userId: ctx.userId,
+      account_id,
+    });
+    return {
+      ok: false,
+      error: "No se pudieron leer las ventas de cheques.",
+    };
+  }
+
   return {
     ok: true,
     data: {
@@ -247,8 +266,90 @@ export async function getStatementCodingAction(
       can_read_clients: canReadClients,
       loan_installments: loanInstallments,
       company_cuit: company.data?.cuit ?? null,
+      check_sale_transfers: saleTransfers,
+      card_statements: cardStatements,
+      cartera_checks: carteraChecks,
     },
   };
+}
+
+/** The cheques in a cartera, ARS: a deposit credit takes one to the bank. */
+async function readCarteraChecks(
+  service: Service,
+): Promise<StatementCarteraCheck[] | null> {
+  const { data, error } = await service
+    .from("checks")
+    .select("id, check_number, amount, due_date, drawer_name")
+    .eq("status", "en_cartera")
+    .eq("currency", "ARS")
+    .order("due_date")
+    .limit(2000);
+  if (error) return null;
+  return data.map((c) => ({
+    id: c.id,
+    check_number: c.check_number,
+    amount: Number(c.amount),
+    due_date: c.due_date,
+    drawer_name: c.drawer_name,
+  }));
+}
+
+/** The card statements this account pays with a part not paid yet. */
+async function readCardStatements(
+  service: Service,
+  accountId: string,
+): Promise<StatementCardStatement[] | null> {
+  const { data, error } = await service
+    .from("card_statements")
+    .select(
+      "id, brand, account_number, close_date, due_date, total_ars, total_usd, paid_ars_on, paid_usd_on",
+    )
+    .eq("pay_account_id", accountId)
+    .eq("status", "pendiente")
+    .order("due_date")
+    .limit(50);
+  if (error) return null;
+  return data.map((s) => ({
+    id: s.id,
+    label: `${s.brand} ${s.account_number} cierre ${s.close_date.split("-").reverse().join("/")}`,
+    due_date: s.due_date,
+    total_ars: Number(s.total_ars),
+    total_usd: Number(s.total_usd),
+    ars_pending: s.paid_ars_on === null,
+    usd_pending: Number(s.total_usd) > 0 && s.paid_usd_on === null,
+  }));
+}
+
+/** The transfers of cheques sold to a bank into the account that no
+ *  statement line explains yet. */
+async function readCheckSaleTransfers(
+  service: Service,
+  accountId: string,
+): Promise<StatementCheckSaleTransfer[] | null> {
+  const { data, error } = await service
+    .from("transactions")
+    .select(
+      "id, check_sale_id, transaction_date, amount, description, bank_statement_matches ( id )",
+    )
+    .eq("account_id", accountId)
+    .eq("kind", "transfer_in")
+    .not("check_sale_id", "is", null)
+    .order("transaction_date", { ascending: false })
+    .limit(500);
+  if (error) return null;
+  return data.flatMap((t) =>
+    t.check_sale_id && t.bank_statement_matches.length === 0
+      ? [
+          {
+            id: t.id,
+            sale_id: t.check_sale_id,
+            date: t.transaction_date,
+            amount: Number(t.amount),
+            description: t.description ?? "",
+          },
+        ]
+      : [],
+  );
 }
 
 /** Creates or updates what a bank code is for an account. */
@@ -394,7 +495,7 @@ export async function presetBankStatementCodesAction(
   const byRole = new Map<string, string>(
     chart.data.flatMap((a) => (a.system_role ? [[a.system_role, a.id]] : [])),
   );
-  const preset_codes = preset === "provincia" ? PROVINCIA_CODES : MACRO_CODES;
+  const preset_codes = PRESET_CODES[preset];
   const rows = preset_codes.map((c) => ({
     account_id,
     bank_code: c.bank_code,

@@ -1490,6 +1490,20 @@ function statementAmount(
   return Math.round((Math.abs(credit ?? 0) - Math.abs(debit ?? 0)) * 100) / 100;
 }
 
+/** The bank's description, plus who sent or got the money when the bank
+ *  keeps it apart (Galicia: «Transferencia De Terceros» · «ZUNINO/SEBASTIAN
+ *  GABRIEL» · «20281430867»), so the line reads whole and its CUIT finds
+ *  the client. */
+function statementDescription(cells: Cells): string {
+  const description = text(cells, "description");
+  const who = text(cells, "counterparty");
+  const cuit = text(cells, "counterparty_cuit").replace(/[-\s]/g, "");
+  const parts = [description];
+  if (who) parts.push(who);
+  if (/^\d{11}$/.test(cuit)) parts.push(cuit);
+  return parts.join(parts.length > 1 ? " · " : "");
+}
+
 function buildStatementLine(
   cells: Cells,
   lookups: ImportLookups,
@@ -1500,7 +1514,7 @@ function buildStatementLine(
   const warnings: string[] = [];
   const reported = new Set<string>();
   const account = lookups.account;
-  const description = text(cells, "description");
+  const description = statementDescription(cells);
 
   const date = dateCell(kind, cells, "line_date", errors, reported, true);
   if (date && date > lookups.today) errors.push("La fecha es futura.");
@@ -1657,14 +1671,19 @@ export function mergeDescriptionOverflow(
 
 /** A statement's balance line («SALDO ANTERIOR»), not a movement. */
 const BALANCE_LINE = /^saldo (anterior|inicial|final|al)\b/i;
+const PENDING_MOVEMENT = /^\s*(pendiente|en proceso)\s*$/i;
 
 /** A movement of a bank statement: not its balance line, and not the rules
  *  and totals a bank prints around the table (a row with no date). */
 function isStatementMovement(cells: Cells): boolean {
   if (BALANCE_LINE.test(cells.description ?? "")) return false;
-  // A date as a bank writes it (dd/mm/yyyy, yyyy-mm-dd, an Excel serial);
-  // footer totals like «ITF - LEY25413(CRE): -16058.55» are not one.
-  return /^\s*(\d{1,4}[/.-]\d{1,2}[/.-]\d{1,4}|\d{5}(\.\d+)?)\s*$/.test(
+  // Not credited yet (Galicia: «Pendiente», a cheque in process): it comes
+  // again, imputed, in the next statement.
+  if (PENDING_MOVEMENT.test(cells.movement_status ?? "")) return false;
+  // A date as a bank writes it (dd/mm/yyyy, yyyy-mm-dd, a date cell read
+  // as an ISO timestamp, an Excel serial); footer totals like
+  // «ITF - LEY25413(CRE): -16058.55» are not one.
+  return /^\s*(\d{1,4}[/.-]\d{1,2}[/.-]\d{1,4}(T[\d:.]+Z?)?|\d{5}(\.\d+)?)\s*$/.test(
     cells.line_date ?? "",
   );
 }

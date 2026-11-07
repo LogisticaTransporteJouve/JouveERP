@@ -15,6 +15,7 @@ import { transactionsKeys } from "@/features/transactions/lib/transactions-keys"
 import { CASH_KEYS } from "@/features/treasury/lib/cash-keys";
 import { loansKeys } from "@/features/loans/lib/loans-keys";
 import { invalidateKeys } from "@/lib/query/invalidate";
+import { cardStatementsKeys } from "@/features/card-statements/lib/card-statements-keys";
 import { runAction } from "@/lib/query/run-action";
 
 import {
@@ -26,6 +27,9 @@ import {
   listReconciliationAccountsAction,
   matchLineAction,
   matchLineToReceiptAction,
+  payCardStatementFromLineAction,
+  transferFromLineAction,
+  depositCheckFromLineAction,
   payLoanInstallmentFromLineAction,
   matchLinesToMovementAction,
   restoreLineAction,
@@ -38,6 +42,9 @@ import type {
   IgnoreLineInput,
   MatchLineInput,
   MatchLineToReceiptInput,
+  PayCardFromLineInput,
+  TransferFromLineInput,
+  DepositCheckFromLineInput,
   PayLoanFromLineInput,
   MatchLinesToMovementInput,
 } from "../schema";
@@ -87,6 +94,30 @@ export function useMatchLine() {
 export function useMatchLineToReceipt() {
   return useReconciliationMutation((input: MatchLineToReceiptInput) =>
     runAction(() => matchLineToReceiptAction(input)),
+  );
+}
+
+export function useDepositCheckFromLine() {
+  return useReconciliationMutation(
+    (input: DepositCheckFromLineInput) =>
+      runAction(() => depositCheckFromLineAction(input)),
+    CASH_KEYS,
+  );
+}
+
+export function useTransferFromLine() {
+  return useReconciliationMutation(
+    (input: TransferFromLineInput) =>
+      runAction(() => transferFromLineAction(input)),
+    CASH_KEYS,
+  );
+}
+
+export function usePayCardFromLine() {
+  return useReconciliationMutation(
+    (input: PayCardFromLineInput) =>
+      runAction(() => payCardStatementFromLineAction(input)),
+    [cardStatementsKeys.all, ...CASH_KEYS],
   );
 }
 

@@ -1,7 +1,8 @@
 "use client";
 
-import { HandCoins } from "lucide-react";
-import { useMemo, useState } from "react";
+import { FileUp, HandCoins } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 
 import { ExportButton } from "@/components/export-button";
 import { ListToolbar } from "@/components/list-toolbar";
@@ -13,7 +14,9 @@ import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime-invalidate";
 import type { Access } from "@/lib/auth/permissions";
 import { userCan, userCanAll } from "@/lib/auth/permissions";
+import { parseDiscountReceipt } from "@/lib/checks/discount-receipt";
 import { formatArgentineDate, formatMoney } from "@/lib/format";
+import { readPdfText } from "@/lib/pdf/pdf-text";
 
 import type { CheckListItem } from "../actions/checks-actions";
 import { useChecksList } from "../hooks/use-checks";
@@ -31,7 +34,7 @@ import {
   type CheckChannelOption,
 } from "./check-action-dialogs";
 import { NewChequeDialog } from "./new-check-dialog";
-import { SellChequesDialog } from "./sell-checks-dialog";
+import { SellChequesDialog, type SellPrefill } from "./sell-checks-dialog";
 
 const STATUS_TONE: Record<ChequeStatus, string> = {
   en_cartera: "bg-muted text-muted-foreground dark:text-muted-foreground",
@@ -62,6 +65,56 @@ export function ChequesTable({
   const canPickAccount = userCan(actorAccess, "accounts:read");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [sellOpen, setSellOpen] = useState(false);
+  const [prefill, setPrefill] = useState<SellPrefill | null>(null);
+  const receiptInput = useRef<HTMLInputElement>(null);
+
+  // A bank's discount receipt picks the cartera checks it sold (by number
+  // and amount) and fills the sale; a check not loaded yet stops it.
+  async function onReceipt(file: File) {
+    let text: string;
+    try {
+      text = await readPdfText(file);
+    } catch {
+      toast.error("No se pudo leer el PDF.");
+      return;
+    }
+    const parsed = parseDiscountReceipt(text);
+    if (!parsed.ok) {
+      toast.error(parsed.error);
+      return;
+    }
+    const r = parsed.receipt;
+    const digits = (n: string) => n.replace(/\D/g, "").replace(/^0+/, "");
+    const cartera = items.filter((c) => c.status === "en_cartera");
+    const picked: string[] = [];
+    const missing: string[] = [];
+    for (const ch of r.cheques) {
+      const found = cartera.find(
+        (c) =>
+          !picked.includes(c.id) &&
+          digits(c.check_number) === digits(ch.check_number) &&
+          Math.abs(Number(c.amount) - ch.amount) < 0.005,
+      );
+      if (found) picked.push(found.id);
+      else
+        missing.push(`${ch.check_number} (${formatMoney(ch.amount, "ARS")})`);
+    }
+    if (missing.length > 0) {
+      toast.error(
+        `Faltan en la cartera: ${missing.join(", ")}. Cargalos y volvé a subir el comprobante.`,
+      );
+      return;
+    }
+    setSelected(new Set(picked));
+    setPrefill({
+      buyer_name: r.buyer?.name ?? "",
+      buyer_cuit: r.buyer?.cuit ?? "",
+      sale_date: r.date,
+      notes: `Operación ${r.operation}. Intereses ${formatMoney(r.interest, "ARS")}, IVA ${formatMoney(r.iva, "ARS")}, percepción IVA ${formatMoney(r.iva_perception, "ARS")}, sellos ${formatMoney(r.stamp_tax, "ARS")} e IIBB ${formatMoney(r.iibb, "ARS")}: se cargan desde el extracto.`,
+      account_name: r.buyer ? "galicia" : undefined,
+    });
+    setSellOpen(true);
+  }
   // Only checks still in the cartera can be sold; drop any that left it.
   const selectedChecks = useMemo(
     () => items.filter((c) => selected.has(c.id) && c.status === "en_cartera"),
@@ -262,6 +315,28 @@ export function ChequesTable({
                   Vender ({selectedChecks.length})
                 </Button>
               )}
+              {canWrite && canPickAccount && (
+                <>
+                  <input
+                    ref={receiptInput}
+                    type="file"
+                    accept=".pdf,application/pdf"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = "";
+                      if (file) void onReceipt(file);
+                    }}
+                  />
+                  <Button
+                    variant="outline"
+                    onClick={() => receiptInput.current?.click()}
+                  >
+                    <FileUp />
+                    Vender con comprobante
+                  </Button>
+                </>
+              )}
               <ExportButton resource="checks" />
               {canWrite && canPickAccount && (
                 <NewChequeDialog channels={channels} />
@@ -300,8 +375,12 @@ export function ChequesTable({
           checks={selectedChecks}
           channels={channels}
           open={sellOpen}
-          onOpenChange={setSellOpen}
+          onOpenChange={(o) => {
+            setSellOpen(o);
+            if (!o) setPrefill(null);
+          }}
           onSold={() => setSelected(new Set())}
+          prefill={prefill}
         />
       )}
     </>

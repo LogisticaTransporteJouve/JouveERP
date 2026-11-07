@@ -4,8 +4,15 @@ import { isAccountType, isCheckAccount } from "@/features/accounts/schema";
 import { TransactionCreateSchema } from "@/features/transactions/schema";
 import { logAudit } from "@/lib/actions/audit";
 import { requireUserContext } from "@/lib/auth/context";
-import { userCan, userCanAll } from "@/lib/auth/permissions";
+import {
+  TREASURY_PERMISSIONS,
+  userCan,
+  userCanAll,
+} from "@/lib/auth/permissions";
 import { LOAN_CASH_PERMISSIONS } from "@/features/loans/lib/loan-cash";
+import { createTransfer } from "@/lib/commands/create-transfer";
+import { depositCheck } from "@/lib/commands/deposit-check";
+import { createClient as createSessionClient } from "@/lib/supabase/server";
 import { payLoanInstallment } from "@/lib/commands/pay-loan-installment";
 import {
   matchBankLine,
@@ -34,6 +41,9 @@ import {
   LineIdSchema,
   MatchLineSchema,
   MatchLineToReceiptSchema,
+  PayCardFromLineSchema,
+  TransferFromLineSchema,
+  DepositCheckFromLineSchema,
   PayLoanFromLineSchema,
   MatchLinesToMovementSchema,
   ReconciliationQuerySchema,
@@ -423,6 +433,258 @@ export async function matchLineToReceiptAction(
 
 /** Pays a loan cuota with a bank debit line and reconciles them: the cuota's
  *  outflow goes to the line's account on its date, for its amount. */
+/** A cartera cheque the bank credited: deposited into the line's account on
+ *  its date, credited, and the line reconciled with the bank's side. */
+export async function depositCheckFromLineAction(
+  input: unknown,
+): Promise<ActionResult<{ line_id: string }>> {
+  const ctx = await requireUserContext();
+  if (
+    !userCanAll(ctx.access, TREASURY_PERMISSIONS) ||
+    !userCan(ctx.access, "cheques:write")
+  ) {
+    return { ok: false, error: "No tenés permiso para depositar cheques." };
+  }
+  const parsed = DepositCheckFromLineSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Datos inválidos." };
+  const d = parsed.data;
+  const service = getServiceClient();
+  const [line, check, channel] = await Promise.all([
+    service
+      .from("bank_statement_lines")
+      .select("account_id, line_date, amount, status")
+      .eq("id", d.line_id)
+      .maybeSingle(),
+    service
+      .from("checks")
+      .select("amount, status, check_number")
+      .eq("id", d.check_id)
+      .maybeSingle(),
+    service
+      .from("invoicing_channels")
+      .select("id")
+      .eq("is_fiscal", true)
+      .eq("is_active", true)
+      .limit(1)
+      .maybeSingle(),
+  ]);
+  if (line.error || !line.data || check.error || !check.data || !channel.data) {
+    return { ok: false, error: "No se encontró la línea o el cheque." };
+  }
+  const l = line.data;
+  if (l.status !== "open" || Number(l.amount) <= 0) {
+    return {
+      ok: false,
+      error: "La línea ya está resuelta o no es un crédito.",
+    };
+  }
+  if (
+    Math.round(Number(check.data.amount) * 100) !==
+    Math.round(Number(l.amount) * 100)
+  ) {
+    return { ok: false, error: "El cheque no es del importe de la línea." };
+  }
+  const deposited = await depositCheck(ctx.userId, {
+    check_id: d.check_id,
+    account_id: l.account_id,
+    event_date: l.line_date,
+    channel_id: channel.data.id,
+    description: `Depósito cheque ${check.data.check_number}`,
+  });
+  if (!deposited.ok) return deposited;
+  const session = await createSessionClient();
+  const credited = await session.rpc("credit_check", {
+    p_check_id: d.check_id,
+    p_event_date: l.line_date,
+    p_notes: "Acreditado según el extracto del banco",
+  });
+  if (credited.error) {
+    logger.error("reconciliation.check_credit_failed", {
+      userId: ctx.userId,
+      error: credited.error,
+    });
+  }
+  // The deposit's movement is the cartera's side; the bank's is its pair.
+  const movement = await service
+    .from("check_movements")
+    .select("transaction:transactions ( transfer_pair_id )")
+    .eq("id", deposited.data.movement_id)
+    .maybeSingle();
+  const tx = movement.data?.transaction;
+  const pair = (Array.isArray(tx) ? tx[0] : tx)?.transfer_pair_id ?? null;
+  if (!pair) {
+    return {
+      ok: false,
+      error:
+        "Se depositó el cheque, pero no se encontró su movimiento en el banco para conciliar.",
+    };
+  }
+  return matchBankLine(ctx.userId, {
+    line_id: d.line_id,
+    transaction_ids: [pair],
+  });
+}
+
+/** A transfer between two accounts of the company, from one of its statement
+ *  lines: both legs on the line's date, this line reconciled with its leg,
+ *  and the other account's opposite line (same amount, up to 3 days apart)
+ *  with the other leg when its statement is loaded. */
+export async function transferFromLineAction(
+  input: unknown,
+): Promise<ActionResult<{ other_matched: boolean }>> {
+  const ctx = await requireUserContext();
+  if (!userCanAll(ctx.access, TREASURY_PERMISSIONS)) {
+    return { ok: false, error: WRITE_DENIED };
+  }
+  const parsed = TransferFromLineSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
+    };
+  }
+  const d = parsed.data;
+  const service = getServiceClient();
+  const line = await service
+    .from("bank_statement_lines")
+    .select("account_id, line_date, amount, status, description")
+    .eq("id", d.line_id)
+    .maybeSingle();
+  if (line.error || !line.data) {
+    return { ok: false, error: "La línea del extracto ya no existe." };
+  }
+  if (line.data.status !== "open") {
+    return { ok: false, error: "La línea ya está resuelta." };
+  }
+  const l = line.data;
+  if (l.account_id === d.other_account_id) {
+    return {
+      ok: false,
+      error: "Elegí otra cuenta: la transferencia es entre dos cuentas.",
+    };
+  }
+  const accounts = await service
+    .from("accounts")
+    .select("id, currency")
+    .in("id", [l.account_id, d.other_account_id]);
+  const channel = await service
+    .from("invoicing_channels")
+    .select("id")
+    .eq("is_fiscal", true)
+    .eq("is_active", true)
+    .limit(1)
+    .maybeSingle();
+  if (accounts.error || channel.error || !channel.data) {
+    return { ok: false, error: "No se pudieron leer las cuentas." };
+  }
+  const own = accounts.data.find((a) => a.id === l.account_id);
+  const other = accounts.data.find((a) => a.id === d.other_account_id);
+  if (!own || !other || own.currency !== other.currency) {
+    return {
+      ok: false,
+      error: "Las dos cuentas tienen que ser de la misma moneda.",
+    };
+  }
+  const amount = Math.abs(Number(l.amount));
+  const outgoing = Number(l.amount) < 0;
+  const created = await createTransfer(ctx.userId, {
+    account_from_id: outgoing ? l.account_id : d.other_account_id,
+    account_to_id: outgoing ? d.other_account_id : l.account_id,
+    channel_id: channel.data.id,
+    amount,
+    currency: own.currency === "USD" ? "USD" : "ARS",
+    transaction_date: l.line_date,
+    accrual_month: `${l.line_date.slice(0, 7)}-01`,
+    description: l.description.slice(0, 200),
+  });
+  if (!created.ok) return created;
+  const mine = outgoing
+    ? created.data.transfer_out_id
+    : created.data.transfer_in_id;
+  const theirs = outgoing
+    ? created.data.transfer_in_id
+    : created.data.transfer_out_id;
+  const matched = await matchBankLine(ctx.userId, {
+    line_id: d.line_id,
+    transaction_ids: [mine],
+  });
+  if (!matched.ok) {
+    return {
+      ok: false,
+      error: `Se registró la transferencia, pero la línea no se concilió: ${matched.error}`,
+    };
+  }
+
+  // The other account's side of it, when its statement is loaded.
+  const opposite = await service
+    .from("bank_statement_lines")
+    .select("id")
+    .eq("account_id", d.other_account_id)
+    .eq("status", "open")
+    .eq("amount", outgoing ? amount : -amount)
+    .gte("line_date", addDaysIso(l.line_date, -3))
+    .lte("line_date", addDaysIso(l.line_date, 3))
+    .limit(2);
+  let otherMatched = false;
+  if (!opposite.error && opposite.data.length === 1) {
+    const res = await matchBankLine(ctx.userId, {
+      line_id: opposite.data[0]!.id,
+      transaction_ids: [theirs],
+    });
+    otherMatched = res.ok;
+  }
+  return { ok: true, data: { other_matched: otherMatched } };
+}
+
+/** Pays a card statement (its pesos or its dollars) with the bank's debit:
+ *  its expenses and salary advances are booked on the account on the
+ *  debit's date and the line is reconciled with them. */
+export async function payCardStatementFromLineAction(
+  input: unknown,
+): Promise<ActionResult<{ movements: number }>> {
+  const ctx = await requireUserContext();
+  if (!userCanAll(ctx.access, TREASURY_PERMISSIONS)) {
+    return { ok: false, error: "No tenés permiso para pagar tarjetas." };
+  }
+  const parsed = PayCardFromLineSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Datos inválidos." };
+  const d = parsed.data;
+  const service = getServiceClient();
+  const channel = await service
+    .from("invoicing_channels")
+    .select("id")
+    .eq("is_fiscal", true)
+    .eq("is_active", true)
+    .limit(1)
+    .maybeSingle();
+  if (channel.error || !channel.data) {
+    return { ok: false, error: "No hay un canal fiscal activo." };
+  }
+  const { data, error } = await service.rpc("settle_card_statement", {
+    p_statement_id: d.statement_id,
+    p_line_id: d.line_id,
+    p_currency: d.currency,
+    p_channel_id: channel.data.id,
+    p_user_id: ctx.userId,
+  });
+  if (error || data === null) {
+    const guard = mapDbGuardError(error, {
+      slug: "cards.settle.rejected",
+      userId: ctx.userId,
+    });
+    if (guard) return { ok: false, error: guard };
+    logger.error("cards.settle_failed", { userId: ctx.userId, error });
+    return { ok: false, error: "No se pudo pagar el resumen." };
+  }
+  await logAudit(
+    "card_statement.paid",
+    ctx.userId,
+    { line_id: d.line_id, currency: d.currency, movements: data },
+    d.statement_id,
+  );
+  return { ok: true, data: { movements: data } };
+}
+
 export async function payLoanInstallmentFromLineAction(
   input: unknown,
 ): Promise<ActionResult<{ line_id: string }>> {

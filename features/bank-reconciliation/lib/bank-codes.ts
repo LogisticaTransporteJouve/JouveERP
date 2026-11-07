@@ -3,6 +3,9 @@ import { isValidCuit } from "@/lib/validation/cuit";
 import type {
   BankCodeKind,
   BankCodePreset,
+  StatementCardStatement,
+  StatementCarteraCheck,
+  StatementCheckSaleTransfer,
   BankStatementCode,
   StatementClient,
   StatementLine,
@@ -11,6 +14,16 @@ import type {
 
 function norm(text: string): string {
   return text.toUpperCase().replace(/\s+/g, " ").trim();
+}
+
+const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/** Whether a normalized description has the pattern as whole words: «IVA»
+ *  is Galicia's IVA line, not the «IVA» inside «RIVADAVIA». */
+function hasWords(description: string, pattern: string): boolean {
+  return new RegExp(`(^|[^A-Z0-9])${escapeRegExp(pattern)}($|[^A-Z0-9])`).test(
+    description,
+  );
 }
 
 /** The code that says what a line is. Among the codes of its bank code,
@@ -27,7 +40,7 @@ export function findBankCode(
     let best: BankStatementCode | null = null;
     for (const c of candidates) {
       const pattern = norm(c.description_pattern);
-      if (pattern !== "" && !description.includes(pattern)) continue;
+      if (pattern !== "" && !hasWords(description, pattern)) continue;
       if (!best || pattern.length > norm(best.description_pattern).length) {
         best = c;
       }
@@ -91,6 +104,13 @@ export type LineProposal = {
   client: StatementClient | null;
   /** The loan cuota a loan debit pays: same amount, the closest due date. */
   installment: StatementLoanInstallment | null;
+  /** The transfers of a cheque sale a discount credit is: the cheques of
+   *  one «N° de préstamo», summing the line. */
+  sale_transfers?: StatementCheckSaleTransfer[];
+  /** The cartera cheque a deposit credit is. */
+  cartera_check?: StatementCarteraCheck;
+  /** The card statement (and which part) a card payment debit pays. */
+  card?: { statement: StatementCardStatement; currency: "ARS" | "USD" };
   /** Can be accepted in one click: a tax or fee with its account. */
   ready: boolean;
   /** What is missing to book it, when something is. */
@@ -156,6 +176,9 @@ export function proposeLine(
   clientsByCuit: ReadonlyMap<string, StatementClient>,
   installments: readonly StatementLoanInstallment[] = [],
   companyCuit: string | null = null,
+  saleTransfers: readonly StatementCheckSaleTransfer[] = [],
+  cardStatements: readonly StatementCardStatement[] = [],
+  carteraChecks: readonly StatementCarteraCheck[] = [],
 ): LineProposal {
   const code = findBankCode(line, codes);
   // Money from or to the company itself: a transfer between its accounts,
@@ -218,6 +241,60 @@ export function proposeLine(
       missing: client
         ? null
         : "Ningún cliente tiene el CUIT de la línea: elegilo o crealo en el recibo.",
+    };
+  }
+  if (code.kind === "check_deposit") {
+    const check =
+      line.amount > 0 ? findCarteraCheck(line, carteraChecks) : null;
+    return {
+      kind: "check_deposit",
+      code,
+      label: check
+        ? `Depósito del cheque ${check.check_number} de ${check.drawer_name}`
+        : label,
+      client: null,
+      installment: null,
+      cartera_check: check ?? undefined,
+      ready: false,
+      missing: check
+        ? null
+        : "No hay un cheque en cartera con este número e importe: cargalo (Cheques › Cargar e-cheq de Galicia).",
+    };
+  }
+  if (code.kind === "card_payment") {
+    const card =
+      line.amount < 0 ? findCardStatement(line, cardStatements) : null;
+    return {
+      kind: "card_payment",
+      code,
+      label: card
+        ? `Pago del resumen ${card.statement.label} (${card.currency === "ARS" ? "pesos" : "dólares"})`
+        : label,
+      client: null,
+      installment: null,
+      card: card ?? undefined,
+      ready: false,
+      missing: card
+        ? null
+        : "No hay un resumen de tarjeta pendiente por este pago: subilo en Tesorería › Tarjetas.",
+    };
+  }
+  if (code.kind === "check_sale") {
+    const found =
+      line.amount > 0 ? findSaleTransfers(line, saleTransfers) : null;
+    return {
+      kind: "check_sale",
+      code,
+      label: found
+        ? `Descuento de cheques: ${found.map((t) => t.description.replace(/^Venta cheque (\S+).*$/, "$1")).join(", ")}`
+        : label,
+      client: null,
+      installment: null,
+      sale_transfers: found ?? undefined,
+      ready: false,
+      missing: found
+        ? null
+        : "No hay cheques vendidos que sumen este crédito: registrá el descuento en Cheques › Vender (con el comprobante del banco).",
     };
   }
   if (code.kind === "loan") {
@@ -420,17 +497,284 @@ export function detectBankPreset(
   lines: readonly Pick<StatementLine, "bank_code" | "description">[],
 ): BankCodePreset | null {
   const macro = new Set(MACRO_CODES.map((c) => c.bank_code));
-  const provincia = PROVINCIA_CODES.map((c) => norm(c.description_pattern));
-  let macroHits = 0;
-  let provinciaHits = 0;
+  const byText = (["provincia", "galicia"] as const).map((preset) => ({
+    preset,
+    patterns: PRESET_CODES[preset].map((c) => norm(c.description_pattern)),
+  }));
+  const hits = new Map<BankCodePreset, number>();
+  const add = (p: BankCodePreset) => hits.set(p, (hits.get(p) ?? 0) + 1);
   for (const l of lines) {
     if (l.bank_code) {
-      if (macro.has(l.bank_code)) macroHits++;
-    } else {
-      const d = norm(l.description);
-      if (provincia.some((p) => d.includes(p))) provinciaHits++;
+      if (macro.has(l.bank_code)) add("macro");
+      continue;
+    }
+    const d = norm(l.description);
+    for (const { preset, patterns } of byText) {
+      if (patterns.some((p) => hasWords(d, p))) add(preset);
     }
   }
-  if (macroHits < 2 && provinciaHits < 2) return null;
-  return macroHits >= provinciaHits ? "macro" : "provincia";
+  let best: BankCodePreset | null = null;
+  for (const [preset, n] of hits) {
+    if (n >= 2 && (!best || n > (hits.get(best) ?? 0))) best = preset;
+  }
+  return best;
+}
+
+/** Banco Galicia has no code either: its concepts, as the home banking
+ *  export («Descripción») writes them. A cheque discount comes as a credit
+ *  with its interest, IVA, percepción and taxes in lines of their own. */
+export const GALICIA_CODES: readonly PresetCode[] = [
+  {
+    bank_code: "",
+    description_pattern: "IMP. DEB. LEY 25413",
+    kind: "tax",
+    account: { code: "5.4.3" },
+    label: "Impuesto a los débitos (Ley 25.413)",
+  },
+  {
+    bank_code: "",
+    description_pattern: "IMP. CRE. LEY 25413",
+    kind: "tax",
+    account: { code: "5.4.3" },
+    label: "Impuesto a los créditos (Ley 25.413)",
+  },
+  {
+    bank_code: "",
+    description_pattern: "ING. BRUTOS S/ CRED",
+    kind: "tax",
+    account: { role: "percepciones_iibb_pagadas" },
+    label: "Recaudación IIBB sobre créditos (ARBA)",
+  },
+  {
+    bank_code: "",
+    description_pattern: "IMP. ING. BRUTOS",
+    kind: "tax",
+    account: { role: "percepciones_iibb_pagadas" },
+    label: "IIBB del descuento de cheques",
+  },
+  {
+    bank_code: "",
+    description_pattern: "INTERES NOMINAL",
+    kind: "bank_fee",
+    account: { role: "intereses_pagados" },
+    label: "Interés del descuento de cheques",
+  },
+  {
+    bank_code: "",
+    description_pattern: "IVA",
+    kind: "tax",
+    account: { role: "iva_credito" },
+    label: "IVA del descuento de cheques",
+  },
+  {
+    bank_code: "",
+    description_pattern: "PERCEP. IVA",
+    kind: "tax",
+    account: { role: "percepciones_iva_pagadas" },
+    label: "Percepción de IVA",
+  },
+  {
+    bank_code: "",
+    description_pattern: "IMPUESTO DE SELLOS",
+    kind: "tax",
+    account: { code: "5.4.4" },
+    label: "Impuesto de sellos",
+  },
+  {
+    bank_code: "",
+    description_pattern: "COM. DEPOSITO DE CHEQUE",
+    kind: "bank_fee",
+    account: { code: "5.4.2" },
+    label: "Comisión por depósito de cheque",
+  },
+  {
+    bank_code: "",
+    description_pattern: "TRANSFERENCIA DE TERCEROS",
+    kind: "receipt",
+    account: null,
+    label: "Transferencia recibida",
+  },
+  {
+    bank_code: "",
+    description_pattern: "CREDITO TRANSFERENCIA COELSA",
+    kind: "receipt",
+    account: null,
+    label: "Transferencia recibida",
+  },
+  {
+    bank_code: "",
+    description_pattern: "TRANSFERENCIAS CASH PROVEEDORES",
+    kind: "receipt",
+    account: null,
+    label: "Transferencia recibida",
+  },
+  {
+    bank_code: "",
+    description_pattern: "SERVICIO PAGO A PROVEEDORES",
+    kind: "receipt",
+    account: null,
+    label: "Transferencia recibida",
+  },
+  {
+    bank_code: "",
+    description_pattern: "CUOTA DE PRESTAMO",
+    kind: "loan",
+    account: null,
+    label: "Cuota de préstamo",
+  },
+  {
+    bank_code: "",
+    description_pattern: "G.DE ECHEQ",
+    kind: "check_deposit",
+    account: null,
+    label: "Depósito de e-cheq",
+  },
+  {
+    bank_code: "",
+    description_pattern: "G. DE ECHEQ",
+    kind: "check_deposit",
+    account: null,
+    label: "Depósito de e-cheq",
+  },
+  {
+    bank_code: "",
+    description_pattern: "TRANSF. CTAS PROPIAS",
+    kind: "transfer",
+    account: null,
+    label: "Transferencia entre cuentas propias",
+  },
+  {
+    bank_code: "",
+    description_pattern: "PAGO VISA EMPRESA",
+    kind: "card_payment",
+    account: null,
+    label: "Pago de la tarjeta VISA",
+  },
+  {
+    bank_code: "",
+    description_pattern: "CREDITO DESCUENTO DOCUMENTO",
+    kind: "check_sale",
+    account: null,
+    label: "Crédito por descuento de cheques",
+  },
+  {
+    bank_code: "",
+    description_pattern: "COMISION",
+    kind: "bank_fee",
+    account: { code: "5.4.2" },
+    label: "Comisión del banco",
+  },
+  {
+    bank_code: "",
+    description_pattern: "SERVICIO TERMINAL PAYWAY",
+    kind: "bank_fee",
+    account: { code: "5.4.2" },
+    label: "Terminal Payway",
+  },
+  {
+    bank_code: "",
+    description_pattern: "INTERESES SOBRE SALDOS DEUDORES",
+    kind: "bank_fee",
+    account: { role: "intereses_pagados" },
+    label: "Intereses por saldo deudor",
+  },
+  {
+    bank_code: "",
+    description_pattern: "TRF INMED PROVEED",
+    kind: "payment",
+    account: null,
+    label: "Pago a proveedor",
+  },
+  {
+    bank_code: "",
+    description_pattern: "PAGO DE SERVICIOS",
+    kind: "payment",
+    account: null,
+    label: "Pago de servicios",
+  },
+];
+
+export const PRESET_CODES: Record<BankCodePreset, readonly PresetCode[]> = {
+  macro: MACRO_CODES,
+  provincia: PROVINCIA_CODES,
+  galicia: GALICIA_CODES,
+};
+
+/** The transfers of one cheque sale, within 3 days of a discount credit,
+ *  that add up to it exactly (the bank credits each «N° de préstamo» apart:
+ *  one cheque or a few). */
+export function findSaleTransfers(
+  line: Pick<StatementLine, "amount" | "line_date">,
+  transfers: readonly StatementCheckSaleTransfer[],
+): StatementCheckSaleTransfer[] | null {
+  const cents = (n: number) => Math.round(n * 100);
+  const target = cents(line.amount);
+  const near = transfers.filter(
+    (t) =>
+      Math.abs(Date.parse(t.date) - Date.parse(line.line_date)) <=
+      3 * 86_400_000,
+  );
+  const bySale = new Map<string, StatementCheckSaleTransfer[]>();
+  for (const t of near)
+    bySale.set(t.sale_id, [...(bySale.get(t.sale_id) ?? []), t]);
+  for (const group of bySale.values()) {
+    const items = [...group].sort((a, b) => b.amount - a.amount).slice(0, 25);
+    let steps = 0;
+    const pick: StatementCheckSaleTransfer[] = [];
+    const search = (i: number, left: number): boolean => {
+      if (left === 0) return true;
+      if (i >= items.length || left < 0 || ++steps > 100_000) return false;
+      pick.push(items[i]!);
+      if (search(i + 1, left - cents(items[i]!.amount))) return true;
+      pick.pop();
+      return search(i + 1, left);
+    };
+    if (search(0, target)) return [...pick];
+  }
+  return null;
+}
+
+/** The card statement a payment debit pays: the pesos of one whose total
+ *  is the debit, else the dollars of the closest one due within 45 days
+ *  (the bank debits them apart, at its rate: «SALDO EN USD COTIZACION»). */
+export function findCardStatement(
+  line: Pick<StatementLine, "amount" | "line_date" | "description">,
+  statements: readonly StatementCardStatement[],
+): { statement: StatementCardStatement; currency: "ARS" | "USD" } | null {
+  const debit = Math.round(-line.amount * 100);
+  const ars = statements.find(
+    (s) => s.ars_pending && Math.round(s.total_ars * 100) === debit,
+  );
+  if (ars) return { statement: ars, currency: "ARS" };
+  const days = (s: StatementCardStatement) =>
+    Math.abs(Date.parse(s.due_date) - Date.parse(line.line_date)) / 86_400_000;
+  const usd = statements
+    .filter((s) => s.usd_pending && days(s) <= 45)
+    .sort((a, b) => days(a) - days(b))[0];
+  // A dollar debit says so, or is far below any total in pesos.
+  if (
+    usd &&
+    (/USD|DOLAR/i.test(line.description) || debit < usd.total_ars * 100 * 0.1)
+  ) {
+    return { statement: usd, currency: "USD" };
+  }
+  return null;
+}
+
+/** The cartera cheque a deposit credit is: the number the bank writes in the
+ *  line («G.de Echeq Q10365334», «G. De Echeq Galicia Q 1763») and its
+ *  amount; by the amount alone when only one cheque has it. */
+export function findCarteraCheck(
+  line: Pick<StatementLine, "amount" | "description">,
+  checks: readonly StatementCarteraCheck[],
+): StatementCarteraCheck | null {
+  const cents = Math.round(line.amount * 100);
+  const same = checks.filter((c) => Math.round(c.amount * 100) === cents);
+  const digits = (s: string) => s.replace(/\D/g, "").replace(/^0+/, "");
+  const numbers = [
+    ...line.description.matchAll(/(?:Q|Nro\.?)\s*0*(\d{3,})/gi),
+  ].map((m) => digits(m[1]!));
+  const byNumber = same.find((c) => numbers.includes(digits(c.check_number)));
+  if (byNumber) return byNumber;
+  return same.length === 1 ? same[0]! : null;
 }

@@ -911,6 +911,24 @@ const AUDIT_ACTIONS: Record<string, Spec> = {
         " ",
       ),
   },
+  "card_statement.created": {
+    group: "treasury",
+    say: (c) => `cargó el resumen de tarjeta ${str(c.p.number) ?? ""}`.trim(),
+  },
+  "card_statement.deleted": {
+    group: "treasury",
+    say: (c) => `borró el resumen de tarjeta ${str(c.p.number) ?? ""}`.trim(),
+  },
+  "card_holder.updated": {
+    group: "treasury",
+    say: (c) =>
+      `cambió el destino de los consumos de la tarjeta ${str(c.p.last4) ?? ""}`.trim(),
+  },
+  "card_statement.paid": {
+    group: "treasury",
+    say: (c) =>
+      `pagó ${c.p.currency === "USD" ? "los dólares" : "los pesos"} de un resumen de tarjeta desde el extracto`,
+  },
   "bank_statement_code.preset": {
     group: "treasury",
     say: (c) =>

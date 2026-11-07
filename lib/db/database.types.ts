@@ -1386,6 +1386,220 @@ export type Database = {
         }
         Relationships: []
       }
+      card_holders: {
+        Row: {
+          account_number: string
+          chart_account_id: string | null
+          created_at: string
+          employee_id: string | null
+          holder: string
+          id: string
+          last4: string
+          treatment: string
+          updated_at: string
+        }
+        Insert: {
+          account_number: string
+          chart_account_id?: string | null
+          created_at?: string
+          employee_id?: string | null
+          holder: string
+          id?: string
+          last4: string
+          treatment?: string
+          updated_at?: string
+        }
+        Update: {
+          account_number?: string
+          chart_account_id?: string | null
+          created_at?: string
+          employee_id?: string | null
+          holder?: string
+          id?: string
+          last4?: string
+          treatment?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "card_holders_chart_account_id_fkey"
+            columns: ["chart_account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "card_holders_chart_account_id_fkey"
+            columns: ["chart_account_id"]
+            isOneToOne: false
+            referencedRelation: "expense_leaf_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "card_holders_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      card_statement_lines: {
+        Row: {
+          amount: number
+          card_last4: string | null
+          chart_account_id: string | null
+          currency: string
+          description: string
+          employee_id: string | null
+          id: string
+          installment: string | null
+          line_date: string
+          sort_order: number
+          source: string
+          statement_id: string
+          transaction_id: string | null
+          treatment: string
+        }
+        Insert: {
+          amount: number
+          card_last4?: string | null
+          chart_account_id?: string | null
+          currency: string
+          description: string
+          employee_id?: string | null
+          id?: string
+          installment?: string | null
+          line_date: string
+          sort_order: number
+          source: string
+          statement_id: string
+          transaction_id?: string | null
+          treatment?: string
+        }
+        Update: {
+          amount?: number
+          card_last4?: string | null
+          chart_account_id?: string | null
+          currency?: string
+          description?: string
+          employee_id?: string | null
+          id?: string
+          installment?: string | null
+          line_date?: string
+          sort_order?: number
+          source?: string
+          statement_id?: string
+          transaction_id?: string | null
+          treatment?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "card_statement_lines_chart_account_id_fkey"
+            columns: ["chart_account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "card_statement_lines_chart_account_id_fkey"
+            columns: ["chart_account_id"]
+            isOneToOne: false
+            referencedRelation: "expense_leaf_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "card_statement_lines_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "card_statement_lines_statement_id_fkey"
+            columns: ["statement_id"]
+            isOneToOne: false
+            referencedRelation: "card_statements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "card_statement_lines_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "card_statement_lines_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "v_transactions_tagged"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      card_statements: {
+        Row: {
+          account_number: string
+          brand: string
+          close_date: string
+          created_at: string
+          created_by: string | null
+          due_date: string
+          id: string
+          number: string
+          paid_ars_on: string | null
+          paid_usd_on: string | null
+          pay_account_id: string
+          status: string
+          total_ars: number
+          total_usd: number
+          usd_rate: number | null
+        }
+        Insert: {
+          account_number: string
+          brand?: string
+          close_date: string
+          created_at?: string
+          created_by?: string | null
+          due_date: string
+          id?: string
+          number: string
+          paid_ars_on?: string | null
+          paid_usd_on?: string | null
+          pay_account_id: string
+          status?: string
+          total_ars: number
+          total_usd?: number
+          usd_rate?: number | null
+        }
+        Update: {
+          account_number?: string
+          brand?: string
+          close_date?: string
+          created_at?: string
+          created_by?: string | null
+          due_date?: string
+          id?: string
+          number?: string
+          paid_ars_on?: string | null
+          paid_usd_on?: string | null
+          pay_account_id?: string
+          status?: string
+          total_ars?: number
+          total_usd?: number
+          usd_rate?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "card_statements_pay_account_id_fkey"
+            columns: ["pay_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chart_of_accounts: {
         Row: {
           account_type: Database["public"]["Enums"]["coa_account_type"]
@@ -11403,6 +11617,16 @@ export type Database = {
         Returns: number
       }
       settle_billed_remito: { Args: { p_factura_id: string }; Returns: string }
+      settle_card_statement: {
+        Args: {
+          p_channel_id: string
+          p_currency: string
+          p_line_id: string
+          p_statement_id: string
+          p_user_id: string
+        }
+        Returns: number
+      }
       shipment_invoice_billed_ratio: {
         Args: { p_shipment_id: string }
         Returns: number

@@ -27,6 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ChartAccountDialog } from "@/features/chart-of-accounts/components/chart-account-dialog";
+import { useAccountsList } from "@/features/accounts/hooks/use-accounts";
 import { useChartOfAccounts } from "@/features/chart-of-accounts/hooks/use-chart-of-accounts";
 import { CollectDialog } from "@/features/receipts/components/collect-dialog";
 
@@ -34,7 +35,11 @@ import { PayLoanFromLineDialog } from "./pay-loan-from-line-dialog";
 
 import {
   useCreateLineTransaction,
+  useMatchLine,
   useMatchLineToReceipt,
+  usePayCardFromLine,
+  useTransferFromLine,
+  useDepositCheckFromLine,
   usePayLoanFromLine,
 } from "../hooks/use-reconciliation";
 import {
@@ -88,6 +93,9 @@ export function useLineProposals(
             byCuit,
             coding.data.loan_installments,
             coding.data.company_cuit,
+            coding.data.check_sale_transfers ?? [],
+            coding.data.card_statements ?? [],
+            coding.data.cartera_checks ?? [],
           ),
         );
       }
@@ -151,6 +159,9 @@ export function LineProposalView({
   const create = useCreateLineTransaction();
   const matchToReceipt = useMatchLineToReceipt();
   const payLoan = usePayLoanFromLine();
+  const matchLine = useMatchLine();
+  const payCard = usePayCardFromLine();
+  const depositCheck = useDepositCheckFromLine();
   const [splitting, setSplitting] = useState(false);
   const fiscal = useFiscalChannel();
   if (!proposal) return null;
@@ -219,6 +230,84 @@ export function LineProposalView({
         >
           <Check className="size-3.5" />
           Pagar cuota {proposal.installment.number}
+        </Button>
+      )}
+      {gates.canWrite && proposal.cartera_check && (
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-7"
+          disabled={depositCheck.isPending}
+          onClick={() =>
+            depositCheck.mutate(
+              { line_id: line.id, check_id: proposal.cartera_check!.id },
+              {
+                onSuccess: () =>
+                  toast.success("Cheque depositado, acreditado y conciliado."),
+                onError: (err) => toast.error(err.message),
+              },
+            )
+          }
+        >
+          <Check className="size-3.5" />
+          Depositar cheque {proposal.cartera_check.check_number}
+        </Button>
+      )}
+      {gates.canWrite && proposal.kind === "transfer" && (
+        <OwnTransfer line={line} accountId={accountId} />
+      )}
+      {gates.canWrite && proposal.card && (
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-7"
+          disabled={payCard.isPending}
+          onClick={() =>
+            payCard.mutate(
+              {
+                line_id: line.id,
+                statement_id: proposal.card!.statement.id,
+                currency: proposal.card!.currency,
+              },
+              {
+                onSuccess: ({ movements }) =>
+                  toast.success(
+                    `Resumen pagado: ${movements} movimientos (gastos y adelantos) conciliados.`,
+                  ),
+                onError: (err) => toast.error(err.message),
+              },
+            )
+          }
+        >
+          <Check className="size-3.5" />
+          Pagar resumen
+        </Button>
+      )}
+      {gates.canWrite && proposal.sale_transfers && (
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-7"
+          disabled={matchLine.isPending}
+          onClick={() =>
+            matchLine.mutate(
+              {
+                line_id: line.id,
+                transaction_ids: proposal.sale_transfers!.map((t) => t.id),
+              },
+              {
+                onSuccess: () =>
+                  toast.success("Crédito conciliado con los cheques vendidos."),
+                onError: (err) => toast.error(err.message),
+              },
+            )
+          }
+        >
+          <Check className="size-3.5" />
+          Conciliar
         </Button>
       )}
       {splitting && proposal.installment && (
@@ -302,18 +391,24 @@ export function LineProposalView({
   );
 }
 
-/** "Aceptar todas": books every line whose code already says the account. */
+/** "Aceptar todas": books every line whose code already says the account,
+ *  except the ones a movement already loaded may explain (a suggestion):
+ *  creating another would count the money twice. */
 export function AcceptReadyButton({
   lines,
   proposals,
+  suggested,
 }: {
   lines: readonly StatementLine[];
   proposals: ReadonlyMap<string, LineProposal>;
+  suggested: ReadonlySet<string>;
 }) {
   const create = useCreateLineTransaction();
   const fiscal = useFiscalChannel();
   const [running, setRunning] = useState(false);
-  const ready = lines.filter((l) => proposals.get(l.id)?.ready);
+  const ready = lines.filter(
+    (l) => proposals.get(l.id)?.ready && !suggested.has(l.id),
+  );
   if (ready.length === 0) return null;
 
   async function run() {
@@ -774,5 +869,72 @@ function NewChartAccount({ onClose }: { onClose: () => void }) {
         if (!o) onClose();
       }}
     />
+  );
+}
+
+/** A line between two accounts of the company: pick the other one, and the
+ *  transfer is booked and reconciled on both statements. */
+function OwnTransfer({
+  line,
+  accountId,
+}: {
+  line: StatementLine;
+  accountId: string;
+}) {
+  const { data: accounts } = useAccountsList();
+  const transfer = useTransferFromLine();
+  const [other, setOther] = useState("");
+  const own = accounts.find((a) => a.id === accountId);
+  const options = accounts.filter(
+    (a) =>
+      a.is_active &&
+      a.id !== accountId &&
+      a.currency === own?.currency &&
+      a.type !== "checks" &&
+      a.type !== "echeq",
+  );
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <Select value={other} onValueChange={setOther}>
+        <SelectTrigger className="h-7 w-48" aria-label="Otra cuenta">
+          <SelectValue
+            placeholder={
+              line.amount < 0 ? "¿A qué cuenta fue?" : "¿De qué cuenta vino?"
+            }
+          />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((a) => (
+            <SelectItem key={a.id} value={a.id}>
+              {a.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        className="h-7"
+        disabled={!other || transfer.isPending}
+        onClick={() =>
+          transfer.mutate(
+            { line_id: line.id, other_account_id: other },
+            {
+              onSuccess: ({ other_matched }) =>
+                toast.success(
+                  other_matched
+                    ? "Transferencia registrada y conciliada en las dos cuentas."
+                    : "Transferencia registrada. La otra cuenta la concilia cuando cargues su extracto.",
+                ),
+              onError: (err) => toast.error(err.message),
+            },
+          )
+        }
+      >
+        <Check className="size-3.5" />
+        Registrar transferencia
+      </Button>
+    </div>
   );
 }

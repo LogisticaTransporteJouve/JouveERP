@@ -134,6 +134,9 @@ const PAGE_TOOLS: Record<string, readonly string[]> = {
 
 /** Pages with no read tool, and why. */
 const NO_TOOL: Record<string, string> = {
+  // Card statements are read here and paid from the bank statement; their
+  // movements are ordinary expenses and advances the treasury tools read.
+  "/card-statements": "card statements, paid as treasury movements",
   // The assistant itself.
   "/ai": "the chat with the assistant",
   // Snapshots of earlier tool results, re-run with the tool that made them.
