@@ -1220,7 +1220,7 @@ export const treasuryPage: GuidePage = {
               kind: "dialog",
               title: "Subir extracto",
               description:
-                "Subí el .csv o .xlsx que bajaste del banco. Las líneas que ya estaban cargadas se saltean.",
+                "Subí el extracto que bajaste del banco (.csv, .txt o .xlsx). Las líneas que ya estaban cargadas se saltean.",
               fields: [{ label: "Archivo", kind: "input", marker: 2 }],
               footer: [
                 { label: "Cancelar", variant: "outline" },

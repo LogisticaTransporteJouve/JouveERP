@@ -276,7 +276,7 @@ export function ImportDialog({
           </DialogTitle>
           <DialogDescription>
             {simple
-              ? "Subí el .csv o .xlsx que bajaste del banco. Las líneas que ya estaban cargadas se saltean."
+              ? "Subí el extracto que bajaste del banco (.csv, .txt o .xlsx). Las líneas que ya estaban cargadas se saltean."
               : "Subí un .xlsx (primera hoja) o .csv con una fila de títulos. Nada se guarda hasta que confirmes; las filas con error quedan afuera y las que ya están cargadas se saltean."}
           </DialogDescription>
         </DialogHeader>
@@ -315,7 +315,7 @@ export function ImportDialog({
             <Input
               id="import-file"
               type="file"
-              accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              accept=".xlsx,.csv,.txt,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
               onChange={(e) => {
                 setFile(e.target.files?.[0] ?? null);
                 setPreview(null);

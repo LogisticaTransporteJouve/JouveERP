@@ -26,6 +26,18 @@ export function suggestColumnMapping<F extends string>(
   const normalized = header.map(normalizeHeader);
   const used = new Set<number>();
   const mapping: ColumnMapping<F> = {};
+  // An exact header wins in the order of the field's aliases, so the more
+  // specific name («descripción extendida») beats a plainer one beside it.
+  for (const field of fields) {
+    for (const alias of aliases[field]) {
+      const index = normalized.findIndex((h, i) => !used.has(i) && h === alias);
+      if (index >= 0) {
+        mapping[field] = index;
+        used.add(index);
+        break;
+      }
+    }
+  }
   for (const pass of ["exact", "prefix"] as const) {
     for (const field of fields) {
       if (mapping[field] !== undefined) continue;

@@ -1635,6 +1635,40 @@ export function missingRequired(
 
 /** The rows of the file after its header, built. A row with every mapped
  *  column empty (a blank or a subtotal line) is left out. */
+/** A bank's CSV that writes a comma inside the description without quotes
+ *  («TRANSF DE VALDEZ, MONICA») splits it in two: the extra cells go back
+ *  into the description, so the amount and the balance stay in their
+ *  columns. Rows of the header's width are left alone. */
+export function mergeDescriptionOverflow(
+  rows: readonly (readonly string[])[],
+  width: number,
+  descriptionIndex: number | undefined,
+): string[][] {
+  return rows.map((row) => {
+    const extra = row.length - width;
+    if (descriptionIndex === undefined || extra <= 0) return [...row];
+    return [
+      ...row.slice(0, descriptionIndex),
+      row.slice(descriptionIndex, descriptionIndex + extra + 1).join(", "),
+      ...row.slice(descriptionIndex + extra + 1),
+    ];
+  });
+}
+
+/** A statement's balance line («SALDO ANTERIOR»), not a movement. */
+const BALANCE_LINE = /^saldo (anterior|inicial|final|al)\b/i;
+
+/** A movement of a bank statement: not its balance line, and not the rules
+ *  and totals a bank prints around the table (a row with no date). */
+function isStatementMovement(cells: Cells): boolean {
+  if (BALANCE_LINE.test(cells.description ?? "")) return false;
+  // A date as a bank writes it (dd/mm/yyyy, yyyy-mm-dd, an Excel serial);
+  // footer totals like «ITF - LEY25413(CRE): -16058.55» are not one.
+  return /^\s*(\d{1,4}[/.-]\d{1,2}[/.-]\d{1,4}|\d{5}(\.\d+)?)\s*$/.test(
+    cells.line_date ?? "",
+  );
+}
+
 export function buildRows(input: {
   kind: ImportKind;
   rows: readonly (readonly string[])[];
@@ -1660,6 +1694,9 @@ export function buildRows(input: {
       cells[key] = index === undefined ? "" : (row[index] ?? "").trim();
     }
     if (Object.values(cells).every((v) => v === "")) return;
+    if (input.kind === "bank_statement" && !isStatementMovement(cells)) {
+      return;
+    }
     const built = buildOne(input.kind, cells, input.lookups, state);
     const line = input.firstLine + i;
     out.push({
