@@ -30,6 +30,7 @@ import {
   AdoptInstallmentPaymentDialog,
   RecordDisbursementDialog,
 } from "./loan-movement-dialogs";
+import { LoanBankPayments } from "./loan-bank-payments";
 import { PayInstallmentDialog } from "./pay-installment-dialog";
 
 function Stat({
@@ -324,6 +325,8 @@ export function LoanDetail({
           </Table>
         </div>
       </section>
+
+      <LoanBankPayments loan={loan} canWrite={canWrite} />
 
       <PayInstallmentDialog
         installment={payTarget}

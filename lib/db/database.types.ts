@@ -4788,6 +4788,75 @@ export type Database = {
           },
         ]
       }
+      loan_bank_payments: {
+        Row: {
+          capital: number
+          created_at: string
+          created_by: string | null
+          id: string
+          iibb_perception: number
+          installment_number: number
+          interest: number
+          iva: number
+          iva_perception: number
+          journal_entry_id: string | null
+          late_interest: number
+          loan_id: string
+          paid_date: string
+          receipt_number: string
+          total: number
+        }
+        Insert: {
+          capital?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          iibb_perception?: number
+          installment_number: number
+          interest?: number
+          iva?: number
+          iva_perception?: number
+          journal_entry_id?: string | null
+          late_interest?: number
+          loan_id: string
+          paid_date: string
+          receipt_number: string
+          total: number
+        }
+        Update: {
+          capital?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          iibb_perception?: number
+          installment_number?: number
+          interest?: number
+          iva?: number
+          iva_perception?: number
+          journal_entry_id?: string | null
+          late_interest?: number
+          loan_id?: string
+          paid_date?: string
+          receipt_number?: string
+          total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loan_bank_payments_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loan_bank_payments_loan_id_fkey"
+            columns: ["loan_id"]
+            isOneToOne: false
+            referencedRelation: "loans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       loan_installments: {
         Row: {
           amount: number
@@ -4891,6 +4960,7 @@ export type Database = {
           lender: string | null
           loan_number: string | null
           notes: string | null
+          opening_journal_entry_id: string | null
           original_amount: number | null
           principal: number
           start_date: string | null
@@ -4916,6 +4986,7 @@ export type Database = {
           lender?: string | null
           loan_number?: string | null
           notes?: string | null
+          opening_journal_entry_id?: string | null
           original_amount?: number | null
           principal: number
           start_date?: string | null
@@ -4941,6 +5012,7 @@ export type Database = {
           lender?: string | null
           loan_number?: string | null
           notes?: string | null
+          opening_journal_entry_id?: string | null
           original_amount?: number | null
           principal?: number
           start_date?: string | null
@@ -4983,6 +5055,13 @@ export type Database = {
             columns: ["import_run_id"]
             isOneToOne: false
             referencedRelation: "import_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loans_opening_journal_entry_id_fkey"
+            columns: ["opening_journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
             referencedColumns: ["id"]
           },
         ]
@@ -9623,6 +9702,10 @@ export type Database = {
         Args: { p_invoice_ids: string[] }
         Returns: string[]
       }
+      book_loan_opening: {
+        Args: { p_date: string; p_loan_id: string }
+        Returns: string
+      }
       bootstrap_first_owner: { Args: { p_user_id: string }; Returns: boolean }
       build_invoice_journal_lines: {
         Args: {
@@ -10950,6 +11033,10 @@ export type Database = {
           p_plan_id?: string
         }
         Returns: string
+      }
+      record_loan_bank_payments: {
+        Args: { p_book_from: string; p_loan_id: string; p_payments: Json }
+        Returns: Json
       }
       record_loan_disbursement: {
         Args: {

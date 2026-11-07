@@ -37,6 +37,9 @@ const loan: Loan = {
   pending_total: 1000,
   pending_count: 1,
   next_due_date: "2026-12-01",
+  bank_payments: [],
+  opening_booked: false,
+  book_from: "2026-01-01",
   installments: [
     {
       id: "i1",
@@ -65,6 +68,7 @@ vi.mock("@/features/accounts/actions/accounts-actions", () => ({
   listAccountsAction: h.listAccounts,
 }));
 vi.mock("../hooks/use-loans", () => ({ useLoan: () => ({ data: loan }) }));
+vi.mock("./loan-bank-payments", () => ({ LoanBankPayments: () => null }));
 vi.mock("./pay-installment-dialog", () => ({
   PayInstallmentDialog: () => null,
 }));

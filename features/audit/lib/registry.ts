@@ -1001,6 +1001,17 @@ const AUDIT_ACTIONS: Record<string, Spec> = {
     say: (c) =>
       `${c.p.adopted === true ? "vinculó el movimiento de" : "registró"} la acreditación de ${subj(c, "un préstamo")}`,
   },
+  "loan.bank_payments_recorded": {
+    group: "treasury",
+    subject: "loan",
+    say: (c) =>
+      `cargó ${typeof c.p.inserted === "number" ? c.p.inserted : "los"} comprobantes del banco de ${subj(c, "un préstamo")}`,
+  },
+  "loan.opening_booked": {
+    group: "treasury",
+    subject: "loan",
+    say: (c) => `registró la deuda de apertura de ${subj(c, "un préstamo")}`,
+  },
   "loan.installment_paid": {
     group: "treasury",
     say: (c) => `pagó una cuota de préstamo por ${money(c.p.amount) ?? "—"}`,
