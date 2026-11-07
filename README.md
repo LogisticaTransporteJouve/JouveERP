@@ -71,6 +71,7 @@ los endpoints funcionan pero `inngest.send(...)` no dispara nada.
 | `pnpm check:forbidden-words`                     | busca palabras prohibidas (lista en `FORBIDDEN_WORDS`)              |
 | `pnpm db:reset`                                  | resetea la DB local y siembra datos                                 |
 | `pnpm seed:dev` / `pnpm seed:all`                | usuario de dev / datos completos                                    |
+| `pnpm db:load-prod`                              | copia los datos de producción a la DB local (pide la contraseña una vez y la guarda en el Llavero; `--forget` la borra) |
 | `pnpm eval:ai`                                   | evals de ruteo de IA contra el modelo real                          |
 
 ## Variables de entorno
