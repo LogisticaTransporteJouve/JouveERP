@@ -455,3 +455,11 @@ select p.id, '5.4.4', 'Impuesto de sellos', 3, 'resultado_negativo', 'gastos_fin
   from public.chart_of_accounts p
  where p.code = '5.4'
    and not exists (select 1 from public.chart_of_accounts c where c.code = '5.4.4');
+
+-- In Resultado de gestión, sellos is a tax of the operation, like the tax
+-- on bank debits and credits (5.4.3).
+insert into public.management_buckets (chart_of_accounts_id, bucket, subbucket)
+select c.id, 'operating_cost', 'impuestos'
+  from public.chart_of_accounts c
+ where c.code = '5.4.4'
+   and not exists (select 1 from public.management_buckets b where b.chart_of_accounts_id = c.id);
