@@ -22,7 +22,7 @@ export const treasuryPage: GuidePage = {
       intro: [
         "La foto de la liquidez de hoy, de todos los canales juntos (fiscal e interno). Los saldos se calculan en vivo: saldo inicial de cada cuenta más sus movimientos de Caja hasta hoy, y el cambio se compara con el cierre del mes anterior.",
         "Arriba están las tarjetas {{Total ARS líquido}} y {{Total USD líquido}} (bancos, efectivo, billeteras e inversiones; la de dólares muestra además su equivalente en pesos a la última cotización cargada), {{Cheques en cartera ARS}} (con cuántos acreditan en 7 días o menos) y, si hay, {{Cheques en cartera USD}}. Si hay cheques en pesos que vencen en los próximos 7 días aparece el aviso {{Próximos a acreditarse (≤ 7 días)}}.",
-        "La tabla lista las cuentas activas con {{Cuenta}}, {{Tipo}}, {{Moneda}}, {{Saldo actual}}, {{Cambio del mes}} y {{Último mov.}}. Se filtra con {{Buscar cuenta}}, la moneda ({{Todas las monedas}}, ARS, USD) y el tipo ({{Todos los tipos}} o uno en particular). Las cuentas inactivas no aparecen.",
+        "El saldo de cada cuenta está en [[/accounts]].",
         "Si tenés permiso para ver cheques y hay cheques vendidos sin vencer o rechazados sin pagar al comprador, abajo aparece el bloque {{Cheques vendidos}} con el {{Pasivo contingente (vendidos sin vencer)}} y la {{Deuda con compradores (rechazados sin debitar)}}; {{Ver cheques}} lleva a [[/checks]].",
       ],
       screens: [
@@ -40,39 +40,6 @@ export const treasuryPage: GuidePage = {
             { label: "Total USD líquido", value: "US$ 8.200,00" },
             { label: "Cheques en cartera ARS", value: "$ 3.150.000,00" },
           ],
-          toolbar: [
-            { label: "Buscar cuenta", kind: "input" },
-            { label: "Todas las monedas", kind: "select" },
-            { label: "Todos los tipos", kind: "select" },
-          ],
-          table: {
-            columns: [
-              "Cuenta",
-              "Tipo",
-              "Moneda",
-              "Saldo actual",
-              "Cambio del mes",
-              "Último mov.",
-            ],
-            rows: [
-              [
-                "Banco Galicia ARS",
-                "Cuenta bancaria",
-                "ARS",
-                "$ 9.870.000,00",
-                "+$ 1.200.000,00",
-                "04/11/2026",
-              ],
-              [
-                "Caja chica",
-                "Efectivo",
-                "ARS",
-                "$ 85.300,00",
-                "—",
-                "31/10/2026",
-              ],
-            ],
-          },
         },
       ],
       concepts: [
@@ -101,14 +68,11 @@ export const treasuryPage: GuidePage = {
           id: "ver-movimientos-de-una-cuenta",
           title: "Ver los movimientos de una cuenta",
           summary:
-            "Desde el resumen se salta a Caja ya filtrada por la cuenta.",
+            "Cada cuenta tiene su página con sus movimientos, el saldo después de cada uno y, en un banco, su extracto.",
           permission: "transactions:read",
-          steps: [
-            "En [[/treasury]], buscá la cuenta con {{Buscar cuenta}} o filtrá por moneda o tipo.",
-            "Hacé clic en el nombre de la cuenta (columna {{Cuenta}}).",
-          ],
+          steps: ["En [[/accounts]], hacé clic en el nombre de la cuenta."],
           after: [
-            "Se abre [[/transactions]] filtrada por esa cuenta, con todos sus movimientos.",
+            "Se abre la cuenta en {{Movimientos}}, con el mes actual: {{Debe}}, {{Haber}} y {{Saldo}} de cada movimiento. El período se cambia con el filtro de fecha.",
           ],
           related: ["caja", "filtrar-movimientos-caja"],
           keywords: [
@@ -394,7 +358,7 @@ export const treasuryPage: GuidePage = {
       permission: "accounts:read",
       intro: [
         "El padrón de cajas, bancos, billeteras, inversiones y carteras de cheques. Cada movimiento de Caja, recibo, orden de pago o cheque pasa por una de estas cuentas.",
-        "La tabla muestra {{Nombre}} (con las notas debajo; el nombre abre la cuenta, con sus {{Movimientos}} y, en un banco, su {{Extracto}}), {{Tipo}}, {{Moneda}}, {{Saldo inicial}}, {{Estado}} ({{Activa}} o {{Inactiva}}) y {{Acciones}}.",
+        "La tabla muestra {{Nombre}} (con las notas debajo; el nombre abre la cuenta, con sus {{Movimientos}} y, en un banco, su {{Extracto}}), {{Tipo}}, {{Moneda}}, {{Saldo actual}}, {{Cambio del mes}} (contra el cierre del mes anterior), {{Último mov.}}, {{Estado}} ({{Activa}} o {{Inactiva}}) y {{Acciones}}. Los saldos se ven con permiso para ver tesorería.",
       ],
       screens: [
         {
@@ -409,7 +373,9 @@ export const treasuryPage: GuidePage = {
               "Nombre",
               "Tipo",
               "Moneda",
-              "Saldo inicial",
+              "Saldo actual",
+              "Cambio del mes",
+              "Último mov.",
               "Estado",
               "Acciones",
             ],
@@ -419,6 +385,8 @@ export const treasuryPage: GuidePage = {
                 "Cuenta bancaria",
                 "ARS",
                 "$ 0,00",
+                "—",
+                "—",
                 "Activa",
                 "",
               ],
@@ -427,6 +395,8 @@ export const treasuryPage: GuidePage = {
                 "Cheques físicos en cartera",
                 "ARS",
                 "$ 0,00",
+                "—",
+                "—",
                 "Activa",
                 "",
               ],

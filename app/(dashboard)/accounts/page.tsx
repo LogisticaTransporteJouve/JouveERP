@@ -5,7 +5,12 @@ import { listAccountsAction } from "@/features/accounts/actions/accounts-actions
 import { AccountsTable } from "@/features/accounts/components/accounts-table";
 import { accountsKeys } from "@/features/accounts/lib/accounts-keys";
 import { requireUserContext } from "@/lib/auth/context";
-import { userCan } from "@/lib/auth/permissions";
+import { treasurySummaryQuery } from "@/features/treasury/lib/treasury-queries";
+import {
+  TREASURY_PERMISSIONS,
+  userCan,
+  userCanAll,
+} from "@/lib/auth/permissions";
 import { getActiveInvoicingChannels } from "@/lib/channels";
 import { Hydrate } from "@/lib/query/hydrate";
 import { prefetchQueries } from "@/lib/query/prefetch";
@@ -30,6 +35,9 @@ export default async function CuentasPage() {
       queryKey: accountsKeys.list(),
       queryFn: () => runAction(() => listAccountsAction()),
     },
+    ...(userCanAll(ctx.access, TREASURY_PERMISSIONS)
+      ? [treasurySummaryQuery()]
+      : []),
   ]);
 
   return (
@@ -38,7 +46,8 @@ export default async function CuentasPage() {
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">Cuentas</h1>
           <p className="text-sm text-muted-foreground">
-            Caja, bancos, billeteras, inversiones y cheques en cartera. Entrá a
+            Caja, bancos, billeteras, inversiones y cheques en cartera, con su
+            saldo actual y el cambio contra el cierre del mes anterior. Entrá a
             una cuenta para ver sus movimientos y su extracto.
           </p>
         </div>
