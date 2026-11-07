@@ -485,7 +485,7 @@ export async function depositCheckFromLineAction(
       .maybeSingle(),
     service
       .from("checks")
-      .select("amount, check_number")
+      .select("amount, check_number, channel_id")
       .eq("id", d.check_id)
       .maybeSingle(),
     fiscalChannel(service, ctx.userId),
@@ -500,7 +500,13 @@ export async function depositCheckFromLineAction(
   if (!line.data || !check.data) {
     return { ok: false, error: "No se encontró la línea o el cheque." };
   }
-  if (!channel.ok) return channel;
+  // A cheque that came with a receipt keeps its channel (as «Depositar» in
+  // Cheques does); one loaded without it goes to the fiscal channel.
+  const channelId = check.data.channel_id ?? (channel.ok ? channel.data : null);
+  if (!channelId)
+    return channel.ok
+      ? { ok: false, error: "No hay un canal fiscal activo." }
+      : channel;
   const l = line.data;
   if (l.status !== "open" || Number(l.amount) <= 0) {
     return {
@@ -515,7 +521,7 @@ export async function depositCheckFromLineAction(
     check_id: d.check_id,
     account_id: l.account_id,
     event_date: l.line_date,
-    channel_id: channel.data,
+    channel_id: channelId,
     description: `Depósito cheque ${check.data.check_number}`,
   });
   if (!deposit.success) return { ok: false, error: "Datos inválidos." };
@@ -651,13 +657,19 @@ export async function transferFromLineAction(
     free.length > 0
       ? await service
           .from("transactions")
-          .select("id")
+          .select("id, bank_statement_matches ( id )")
           .eq("account_id", d.other_account_id)
           .in(
             "id",
             free.flatMap((leg) => leg.transfer_pair_id ?? []),
           )
-      : { data: [] as { id: string }[], error: null };
+      : {
+          data: [] as {
+            id: string;
+            bank_statement_matches: { id: string }[];
+          }[],
+          error: null,
+        };
   if (legs.error || pairs.error) {
     logger.error("reconciliation.transfer.read_failed", {
       userId: ctx.userId,
@@ -666,6 +678,13 @@ export async function transferFromLineAction(
     return { ok: false, error: "No se pudieron leer los movimientos." };
   }
   const theirSide = new Set(pairs.data.map((p) => p.id));
+  // The other account's leg of a reused transfer may be reconciled already
+  // (its statement came first).
+  const theirsMatched = new Set(
+    pairs.data
+      .filter((p) => p.bank_statement_matches.length > 0)
+      .map((p) => p.id),
+  );
   const away = (date: string) =>
     Math.abs(Date.parse(date) - Date.parse(l.line_date));
   const reuse = free
@@ -713,6 +732,9 @@ export async function transferFromLineAction(
   }
 
   // The other account's side of it, when its statement is loaded.
+  if (theirsMatched.has(theirs)) {
+    return { ok: true, data: { other: "matched" } };
+  }
   const opposite = await service
     .from("bank_statement_lines")
     .select("id")

@@ -291,7 +291,7 @@ export function LineProposalView({
               {
                 onSuccess: ({ movements }) =>
                   toast.success(
-                    `${proposal.card!.currency === "USD" ? "Dólares" : "Pesos"} del resumen pagados: ${movements === 1 ? "1 movimiento" : `${movements} movimientos`} (gastos y adelantos) conciliados.`,
+                    `${proposal.card!.currency === "USD" ? "Dólares" : "Pesos"} del resumen pagados: ${movements === 1 ? "1 movimiento (gasto o adelanto) conciliado" : `${movements} movimientos (gastos y adelantos) conciliados`}.`,
                   ),
                 onError: (err) => toast.error(err.message),
               },

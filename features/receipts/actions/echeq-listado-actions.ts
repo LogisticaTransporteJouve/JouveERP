@@ -92,6 +92,11 @@ async function prepare(formData: FormData): Promise<
       .maybeSingle(),
   ]);
   if (company.error || channel.error || cartera.error || !channel.data) {
+    if (company.error || channel.error || cartera.error) {
+      logger.error("receipts.echeq_listado.read_failed", {
+        error: company.error ?? channel.error ?? cartera.error,
+      });
+    }
     return {
       ok: false,
       error:
@@ -135,6 +140,9 @@ async function prepare(formData: FormData): Promise<
     ),
   ]);
   if (clients.error || checks.error) {
+    logger.error("receipts.echeq_listado.read_failed", {
+      error: clients.error ?? checks.error,
+    });
     return {
       ok: false,
       error: "No se pudieron revisar los clientes y los cheques cargados.",

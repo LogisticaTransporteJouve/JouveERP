@@ -117,14 +117,11 @@ export async function getCardStatementAction(
     .select(STATEMENT_COLUMNS)
     .eq("id", id)
     .maybeSingle();
-  if (st.error || !st.data) {
-    if (st.error)
-      logger.error("cards.read_failed", {
-        userId: ctx.userId,
-        error: st.error,
-      });
-    return { ok: false, error: "No se encontró el resumen." };
+  if (st.error) {
+    logger.error("cards.read_failed", { userId: ctx.userId, error: st.error });
+    return { ok: false, error: "No se pudo leer el resumen." };
   }
+  if (!st.data) return { ok: false, error: "No se encontró el resumen." };
   const statement = st.data;
   const [lines, holders, leaves, taxes, employees] = await Promise.all([
     service
