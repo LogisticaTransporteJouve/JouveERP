@@ -270,6 +270,9 @@ function ReconciliationBody({
   const s = data.summary;
   const lineById = new Map(data.lines.map((l) => [l.id, l]));
   const movementById = new Map(data.movements.map((m) => [m.id, m]));
+  const suggestionByLine = new Map(
+    data.suggestions.map((sg) => [sg.line_id, sg]),
+  );
   const free = data.movements.filter((m) => m.line_ids.length === 0);
   const unmatchedInPeriod = free.filter(
     (m) => m.transaction_date >= from && m.transaction_date <= to,
@@ -496,15 +499,29 @@ function ReconciliationBody({
                         {line.bank_code ? ` · Cód. ${line.bank_code}` : ""}
                       </span>
                     )}
-                    {line.status === "open" && (
-                      <LineProposalView
-                        line={line}
-                        proposal={proposals.get(line.id)}
-                        accountId={accountId}
-                        gates={gates}
-                        onConfigure={(draft) => setCodes({ draft })}
-                      />
-                    )}
+                    {line.status === "open" &&
+                      canWrite &&
+                      suggestionByLine.has(line.id) && (
+                        <SuggestionInline
+                          movement={movementById.get(
+                            suggestionByLine.get(line.id)!.transaction_id,
+                          )}
+                          pending={accept.isPending}
+                          onAccept={() =>
+                            acceptAll([suggestionByLine.get(line.id)!])
+                          }
+                        />
+                      )}
+                    {line.status === "open" &&
+                      !(canWrite && suggestionByLine.has(line.id)) && (
+                        <LineProposalView
+                          line={line}
+                          proposal={proposals.get(line.id)}
+                          accountId={accountId}
+                          gates={gates}
+                          onConfigure={(draft) => setCodes({ draft })}
+                        />
+                      )}
                     {line.transaction_ids.map((id) => (
                       <MatchedMovement
                         key={id}
@@ -739,6 +756,36 @@ function MatchedMovement({
       {movement.line_ids.length > 1
         ? ` · partido en ${movement.line_ids.length} líneas`
         : ""}
+    </span>
+  );
+}
+
+/** An open line that already has a matching movement: accept it here instead
+ *  of creating another one. */
+function SuggestionInline({
+  movement,
+  pending,
+  onAccept,
+}: {
+  movement: { description: string | null } | undefined;
+  pending: boolean;
+  onAccept: () => void;
+}) {
+  if (!movement) return null;
+  return (
+    <span className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+      Coincide con {movement.description || "un movimiento"}
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        className="h-7"
+        disabled={pending}
+        onClick={onAccept}
+      >
+        <Check className="size-3.5" />
+        Conciliar
+      </Button>
     </span>
   );
 }

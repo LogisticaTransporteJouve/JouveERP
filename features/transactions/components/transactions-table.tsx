@@ -188,9 +188,9 @@ function useTransactionColumns(
         meta: { mobile: "secondary" },
         cell: ({ row }) => (
           <Link
-            href={`/transactions?account=${row.original.account_id}`}
+            href={`/accounts/${row.original.account_id}`}
             className="text-sm hover:underline"
-            title="Filtrar por esta cuenta"
+            title="Ver la cuenta"
           >
             {row.original.account_name}
           </Link>
@@ -238,34 +238,26 @@ function useTransactionColumns(
           </>
         ),
       },
-      {
-        id: "amount",
-        header: "Monto",
+      ...(["debit", "credit"] as const).map((side) => ({
+        id: side,
+        header: side === "debit" ? "Debe" : "Haber",
         enableSorting: false,
         meta: {
-          align: "right",
+          align: "right" as const,
           cellClassName: "font-mono text-sm",
-          mobile: "primary",
+          mobile: "primary" as const,
         },
-        cell: ({ row }) => {
+        cell: ({ row }: { row: { original: TransactionListItem } }) => {
           const isOutflow =
             row.original.kind === "expense" ||
             row.original.kind === "transfer_out";
-          const sign = isOutflow ? -1 : 1;
-          return (
-            <span
-              className={
-                isOutflow
-                  ? "text-foreground dark:text-foreground"
-                  : "text-muted-foreground dark:text-muted-foreground"
-              }
-            >
-              {sign < 0 ? "-" : "+"}
-              {formatMoney(Number(row.original.amount), row.original.currency)}
-            </span>
+          if (isOutflow !== (side === "credit")) return null;
+          return formatMoney(
+            Number(row.original.amount),
+            row.original.currency,
           );
         },
-      },
+      })),
       ...(canEdit || canDelete
         ? [
             {
@@ -392,13 +384,20 @@ export function TransactionsTable({
     [confirm, deleteMut],
   );
 
-  const columns = useTransactionColumns({
+  const allColumns = useTransactionColumns({
     canEdit: canWrite,
     canDelete,
     onEdit: setEditing,
     onRecategorize,
     onDelete,
   });
+  const columns = useMemo(
+    () =>
+      fixedAccountId
+        ? allColumns.filter((c) => c.id !== "account_name")
+        : allColumns,
+    [allColumns, fixedAccountId],
+  );
 
   // Realtime: any transaction insert/update/delete invalidates every
   // filter combo so saldos and movements stay in sync across tabs.

@@ -77,7 +77,7 @@ export function TreasuryPage({
         header: "Cuenta",
         cell: ({ row }) => (
           <Link
-            href={`/transactions?account=${row.original.id}`}
+            href={`/accounts/${row.original.id}`}
             className="font-medium hover:underline"
             title="Ver movimientos y registrar nuevo"
           >

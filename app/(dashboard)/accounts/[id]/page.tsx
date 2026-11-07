@@ -118,12 +118,12 @@ export default async function CuentaPage({
       </div>
       {canReadMovements ? (
         <Hydrate state={dehydratedState}>
-          <Tabs defaultValue={hasStatement ? "statement" : "movements"}>
+          <Tabs defaultValue="movements">
             <TabsList>
+              <TabsTrigger value="movements">Movimientos</TabsTrigger>
               {hasStatement && (
                 <TabsTrigger value="statement">Extracto</TabsTrigger>
               )}
-              <TabsTrigger value="movements">Movimientos</TabsTrigger>
             </TabsList>
             {hasStatement && (
               <TabsContent value="statement" className="pt-4">
