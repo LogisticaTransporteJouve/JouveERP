@@ -97,7 +97,7 @@ revoke all on table public.card_statements from public, anon;
 create table public.card_statement_lines (
   id                uuid primary key default gen_random_uuid(),
   statement_id      uuid not null references public.card_statements (id) on delete cascade,
-  sort_order        integer not null,
+  sort_order        bigint not null,
   source            text not null check (source in ('purchase', 'charge')),
   card_last4        text check (card_last4 is null or card_last4 ~ '^[0-9]{4}$'),
   line_date         date not null,
@@ -442,3 +442,14 @@ revoke all on function public.settle_card_statement(uuid, uuid, text, text, uuid
   from public, anon, authenticated;
 grant execute on function public.settle_card_statement(uuid, uuid, text, text, uuid)
   to service_role;
+
+------------------------------------------------------------------------------
+-- 4. Impuesto de sellos
+------------------------------------------------------------------------------
+-- The bank charges sellos on a cheque discount and on a card statement; the
+-- chart had no account for them. Under Gastos financieros, when missing.
+insert into public.chart_of_accounts (parent_id, code, name, level, account_type, eerr_category)
+select p.id, '5.4.4', 'Impuesto de sellos', 3, 'resultado_negativo', 'gastos_financieros'
+  from public.chart_of_accounts p
+ where p.code = '5.4'
+   and not exists (select 1 from public.chart_of_accounts c where c.code = '5.4.4');

@@ -28,6 +28,7 @@ import {
   matchLineAction,
   matchLineToReceiptAction,
   payCardStatementFromLineAction,
+  transferFromLineAction,
   payLoanInstallmentFromLineAction,
   matchLinesToMovementAction,
   restoreLineAction,
@@ -41,6 +42,7 @@ import type {
   MatchLineInput,
   MatchLineToReceiptInput,
   PayCardFromLineInput,
+  TransferFromLineInput,
   PayLoanFromLineInput,
   MatchLinesToMovementInput,
 } from "../schema";
@@ -90,6 +92,14 @@ export function useMatchLine() {
 export function useMatchLineToReceipt() {
   return useReconciliationMutation((input: MatchLineToReceiptInput) =>
     runAction(() => matchLineToReceiptAction(input)),
+  );
+}
+
+export function useTransferFromLine() {
+  return useReconciliationMutation(
+    (input: TransferFromLineInput) =>
+      runAction(() => transferFromLineAction(input)),
+    CASH_KEYS,
   );
 }
 

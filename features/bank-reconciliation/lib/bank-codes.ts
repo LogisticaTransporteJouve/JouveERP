@@ -555,7 +555,7 @@ export const GALICIA_CODES: readonly PresetCode[] = [
     bank_code: "",
     description_pattern: "IMPUESTO DE SELLOS",
     kind: "tax",
-    account: null,
+    account: { code: "5.4.4" },
     label: "Impuesto de sellos",
   },
   {
@@ -599,6 +599,13 @@ export const GALICIA_CODES: readonly PresetCode[] = [
     kind: "loan",
     account: null,
     label: "Cuota de préstamo",
+  },
+  {
+    bank_code: "",
+    description_pattern: "TRANSF. CTAS PROPIAS",
+    kind: "transfer",
+    account: null,
+    label: "Transferencia entre cuentas propias",
   },
   {
     bank_code: "",

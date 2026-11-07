@@ -2563,7 +2563,7 @@ export const treasuryPage: GuidePage = {
             "En [[/card-statements]], hacé clic en {{Subir resumen}} y elegí el PDF que bajás del home banking.",
             "Revisá lo que leyó (tarjetas, consumos, cargos y total), elegí la {{Cuenta que paga la tarjeta}} y hacé clic en {{Cargar}}.",
             "En cada tarjeta, elegí qué son por defecto sus consumos ({{Gasto de la empresa}} con su cuenta, o {{Adelanto de sueldo}} con el empleado): se aplica a sus consumos y se recuerda para los próximos resúmenes.",
-            "Si un consumo es otra cosa, cambialo en su fila. Los cargos sin cuenta (los sellos) necesitan la suya.",
+            "Si un consumo es otra cosa, cambialo en su fila. Los cargos del banco ya vienen con su cuenta (los sellos, en «5.4.4 Impuesto de sellos»).",
           ],
           after: [
             "El resumen queda {{Pendiente}} hasta que el banco debita el pago. Si te equivocaste de archivo, {{Borrar resumen}} lo saca mientras no tenga ningún pago.",

@@ -36,6 +36,7 @@ const CHARGE_ACCOUNT: Record<string, { role: string } | { code: string }> = {
   income_tax_perception: { role: "percepciones_ganancias" },
   interest: { role: "intereses_pagados" },
   fee: { code: "5.4.2" },
+  stamp_tax: { code: "5.4.4" },
 };
 
 const STATEMENT_COLUMNS =

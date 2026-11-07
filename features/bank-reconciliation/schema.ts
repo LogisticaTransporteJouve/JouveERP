@@ -400,6 +400,14 @@ export type StatementCoding = {
   card_statements?: StatementCardStatement[];
 };
 
+/** A line that moves money to or from another account of the company:
+ *  the transfer is created and both statement lines reconciled. */
+export const TransferFromLineSchema = z.object({
+  line_id: z.string().uuid(),
+  other_account_id: z.string().uuid("Elegí la otra cuenta."),
+});
+export type TransferFromLineInput = z.infer<typeof TransferFromLineSchema>;
+
 export const PayCardFromLineSchema = z.object({
   line_id: z.string().uuid(),
   statement_id: z.string().uuid(),

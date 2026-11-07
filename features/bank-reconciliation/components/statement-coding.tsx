@@ -27,6 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ChartAccountDialog } from "@/features/chart-of-accounts/components/chart-account-dialog";
+import { useAccountsList } from "@/features/accounts/hooks/use-accounts";
 import { useChartOfAccounts } from "@/features/chart-of-accounts/hooks/use-chart-of-accounts";
 import { CollectDialog } from "@/features/receipts/components/collect-dialog";
 
@@ -37,6 +38,7 @@ import {
   useMatchLine,
   useMatchLineToReceipt,
   usePayCardFromLine,
+  useTransferFromLine,
   usePayLoanFromLine,
 } from "../hooks/use-reconciliation";
 import {
@@ -226,6 +228,9 @@ export function LineProposalView({
           <Check className="size-3.5" />
           Pagar cuota {proposal.installment.number}
         </Button>
+      )}
+      {gates.canWrite && proposal.kind === "transfer" && (
+        <OwnTransfer line={line} accountId={accountId} />
       )}
       {gates.canWrite && proposal.card && (
         <Button
@@ -839,5 +844,72 @@ function NewChartAccount({ onClose }: { onClose: () => void }) {
         if (!o) onClose();
       }}
     />
+  );
+}
+
+/** A line between two accounts of the company: pick the other one, and the
+ *  transfer is booked and reconciled on both statements. */
+function OwnTransfer({
+  line,
+  accountId,
+}: {
+  line: StatementLine;
+  accountId: string;
+}) {
+  const { data: accounts } = useAccountsList();
+  const transfer = useTransferFromLine();
+  const [other, setOther] = useState("");
+  const own = accounts.find((a) => a.id === accountId);
+  const options = accounts.filter(
+    (a) =>
+      a.is_active &&
+      a.id !== accountId &&
+      a.currency === own?.currency &&
+      a.type !== "checks" &&
+      a.type !== "echeq",
+  );
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <Select value={other} onValueChange={setOther}>
+        <SelectTrigger className="h-7 w-48" aria-label="Otra cuenta">
+          <SelectValue
+            placeholder={
+              line.amount < 0 ? "¿A qué cuenta fue?" : "¿De qué cuenta vino?"
+            }
+          />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((a) => (
+            <SelectItem key={a.id} value={a.id}>
+              {a.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        className="h-7"
+        disabled={!other || transfer.isPending}
+        onClick={() =>
+          transfer.mutate(
+            { line_id: line.id, other_account_id: other },
+            {
+              onSuccess: ({ other_matched }) =>
+                toast.success(
+                  other_matched
+                    ? "Transferencia registrada y conciliada en las dos cuentas."
+                    : "Transferencia registrada. La otra cuenta la concilia cuando cargues su extracto.",
+                ),
+              onError: (err) => toast.error(err.message),
+            },
+          )
+        }
+      >
+        <Check className="size-3.5" />
+        Registrar transferencia
+      </Button>
+    </div>
   );
 }
