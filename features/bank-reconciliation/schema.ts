@@ -288,7 +288,8 @@ export const SaveBankStatementCodeSchema = z
   .object({
     id: z.string().uuid().nullable().optional(),
     account_id: z.string().uuid(),
-    bank_code: z.string().trim().min(1, "Cargá el código.").max(20),
+    /** Empty for a bank with no code: the text below then says what it is. */
+    bank_code: z.string().trim().max(20).default(""),
     description_pattern: z.string().trim().max(80).default(""),
     kind: z.enum(BANK_CODE_KINDS),
     chart_account_id: z.string().uuid().nullable().optional(),
@@ -301,6 +302,13 @@ export const SaveBankStatementCodeSchema = z
       .optional(),
   })
   .superRefine((v, ctx) => {
+    if (v.bank_code === "" && v.description_pattern === "") {
+      ctx.addIssue({
+        code: "custom",
+        path: ["bank_code"],
+        message: "Cargá el código del banco o el texto del concepto.",
+      });
+    }
     if (!bankCodePosts(v.kind) && v.chart_account_id) {
       ctx.addIssue({
         code: "custom",
@@ -317,7 +325,14 @@ export const DeleteBankStatementCodeSchema = z.object({
   id: z.string().uuid(),
 });
 
-export const BANK_CODE_PRESETS = ["macro"] as const;
+export const BANK_CODE_PRESETS = ["macro", "provincia"] as const;
+export const BANK_CODE_PRESET_LABEL: Record<
+  (typeof BANK_CODE_PRESETS)[number],
+  string
+> = {
+  macro: "Banco Macro",
+  provincia: "Banco Provincia",
+};
 export type BankCodePreset = (typeof BANK_CODE_PRESETS)[number];
 
 export const PresetBankStatementCodesSchema = z.object({

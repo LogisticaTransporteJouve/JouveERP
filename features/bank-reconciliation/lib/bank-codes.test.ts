@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import type { BankStatementCode, StatementClient } from "../schema";
-import { cuitsIn, findBankCode, proposeLine } from "./bank-codes";
+import {
+  PROVINCIA_CODES,
+  conceptOf,
+  cuitsIn,
+  findBankCode,
+  proposeLine,
+} from "./bank-codes";
 
 const CUOTA_11 = {
   id: "i11",
@@ -181,5 +187,45 @@ describe("proposeLine", () => {
     );
     expect(p.installment).toBeNull();
     expect(p.missing).toContain("No hay una cuota pendiente");
+  });
+});
+
+describe("a bank with no code (Provincia)", () => {
+  const codes = PROVINCIA_CODES.map((c, i) =>
+    code({
+      id: `p${i}`,
+      bank_code: c.bank_code,
+      description_pattern: c.description_pattern,
+      kind: c.kind,
+      label: c.label,
+    }),
+  );
+  const kindOf = (description: string) =>
+    findBankCode({ bank_code: null, description }, codes)?.kind ?? null;
+
+  it("reads each movement by its concept, in both exports", () => {
+    expect(kindOf("IMPUESTO DEBITO - LEY 25413    0023")).toBe("tax");
+    expect(kindOf("RETENCION ARBA                 6401 SUIPACHA")).toBe("tax");
+    expect(kindOf("PAGO CUOTA DE PRESTAMO         1987 BIYCSA")).toBe("loan");
+    expect(
+      kindOf("PAGO TOTAL CUOTA PMO (7175-330-01573367/5-FVTO:2026-11-04)"),
+    ).toBe("loan");
+    expect(kindOf("TRANSF DE QUIMSA SRL (30708529636) FAC 000300022272")).toBe(
+      "receipt",
+    );
+    expect(kindOf("CR.TRAN. 30708978554 ELECTRA MERCEDES")).toBe("receipt");
+    expect(
+      kindOf("COMISION MANTENIM. PERIODO DESDE 28-09-2026 HASTA 28-10-2026"),
+    ).toBe("bank_fee");
+    expect(kindOf("ALGO NUEVO")).toBeNull();
+  });
+
+  it("offers the concept's fixed start as the text of a new rule", () => {
+    expect(conceptOf("PAGO CUOTA DE PRESTAMO         1987 BIYCSA")).toBe(
+      "PAGO CUOTA DE PRESTAMO",
+    );
+    expect(conceptOf("TRANSF DE VALDEZ, MONICA ADRIA (23207269824) VAR")).toBe(
+      "TRANSF DE VALDEZ, MONICA ADRIA",
+    );
   });
 });

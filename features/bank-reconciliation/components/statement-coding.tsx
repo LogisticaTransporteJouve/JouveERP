@@ -41,10 +41,12 @@ import {
   useSaveBankStatementCode,
   useStatementCoding,
 } from "../hooks/use-statement-codes";
-import { proposeLine, type LineProposal } from "../lib/bank-codes";
+import { conceptOf, proposeLine, type LineProposal } from "../lib/bank-codes";
 import type { ReconciliationGates } from "../lib/gates";
 import {
   BANK_CODE_KIND_LABEL,
+  BANK_CODE_PRESETS,
+  BANK_CODE_PRESET_LABEL,
   BANK_CODE_KINDS,
   bankCodePosts,
   isBankCodeKind,
@@ -209,7 +211,6 @@ export function LineProposalView({
           />
         )}
       {gates.canWrite &&
-        line.bank_code &&
         (proposal.code === null ||
           (bankCodePosts(proposal.kind ?? "ignore") &&
             !proposal.code.chart_account_id)) && (
@@ -225,7 +226,10 @@ export function LineProposalView({
                   : {
                       id: null,
                       bank_code: line.bank_code ?? "",
-                      description_pattern: "",
+                      // With no code, the rule is the concept's fixed start.
+                      description_pattern: line.bank_code
+                        ? ""
+                        : conceptOf(line.description),
                       kind: line.amount < 0 ? "tax" : "receipt",
                       chart_account_id: "",
                       label: line.description,
@@ -234,7 +238,7 @@ export function LineProposalView({
             }
           >
             <Settings2 className="size-3.5" />
-            Configurar código
+            {line.bank_code ? "Configurar código" : "Configurar concepto"}
           </Button>
         )}
     </div>
@@ -388,30 +392,32 @@ export function BankCodesDialog({
                   Agregar código
                 </Button>
               )}
-              {gates.canWrite && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={preset.isPending}
-                  onClick={() =>
-                    preset.mutate(
-                      { account_id: accountId, preset: "macro" },
-                      {
-                        onSuccess: ({ inserted }) =>
-                          toast.success(
-                            inserted === 0
-                              ? "Los códigos de Banco Macro ya estaban."
-                              : `Se cargaron ${inserted} códigos de Banco Macro.`,
-                          ),
-                        onError: (err) => toast.error(err.message),
-                      },
-                    )
-                  }
-                >
-                  Cargar códigos de Banco Macro
-                </Button>
-              )}
+              {gates.canWrite &&
+                BANK_CODE_PRESETS.map((p) => (
+                  <Button
+                    key={p}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={preset.isPending}
+                    onClick={() =>
+                      preset.mutate(
+                        { account_id: accountId, preset: p },
+                        {
+                          onSuccess: ({ inserted }) =>
+                            toast.success(
+                              inserted === 0
+                                ? `Los códigos de ${BANK_CODE_PRESET_LABEL[p]} ya estaban.`
+                                : `Se cargaron ${inserted} códigos de ${BANK_CODE_PRESET_LABEL[p]}.`,
+                            ),
+                          onError: (err) => toast.error(err.message),
+                        },
+                      )
+                    }
+                  >
+                    Cargar códigos de {BANK_CODE_PRESET_LABEL[p]}
+                  </Button>
+                ))}
             </div>
             <div className="overflow-x-auto rounded-md border">
               <table className="w-full text-sm">
@@ -457,7 +463,7 @@ export function BankCodesDialog({
                   {codes.map((c) => (
                     <tr key={c.id} className="border-b last:border-0">
                       <td className="px-3 py-2 font-mono text-xs">
-                        {c.bank_code}
+                        {c.bank_code || "Por texto"}
                         {c.description_pattern && (
                           <span className="text-muted-foreground block font-sans">
                             contiene «{c.description_pattern}»
@@ -480,14 +486,14 @@ export function BankCodesDialog({
                       {gates.canWrite && (
                         <td className="px-2 py-2 text-right whitespace-nowrap">
                           <IconButton
-                            label={`Editar el código ${c.bank_code}`}
+                            label={`Editar el código ${c.bank_code || c.description_pattern}`}
                             variant="ghost"
                             onClick={() => setDraft(draftOf(c))}
                           >
                             <Pencil className="size-4" />
                           </IconButton>
                           <IconButton
-                            label={`Borrar el código ${c.bank_code}`}
+                            label={`Borrar el código ${c.bank_code || c.description_pattern}`}
                             variant="ghost"
                             disabled={remove.isPending}
                             onClick={() =>
@@ -562,7 +568,9 @@ function CodeForm({
     <div className="space-y-3">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
-          <Label htmlFor="code-bank-code">Código del banco</Label>
+          <Label htmlFor="code-bank-code">
+            Código del banco (vacío si el banco no tiene)
+          </Label>
           <Input
             id="code-bank-code"
             className="font-mono"
@@ -572,7 +580,9 @@ function CodeForm({
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="code-pattern">
-            Solo si la descripción contiene (opcional)
+            {v.bank_code.trim() === ""
+              ? "El concepto contiene"
+              : "Solo si la descripción contiene (opcional)"}
           </Label>
           <Input
             id="code-pattern"
@@ -681,7 +691,10 @@ function CodeForm({
         </Button>
         <Button
           type="button"
-          disabled={save.isPending || v.bank_code.trim() === ""}
+          disabled={
+            save.isPending ||
+            (v.bank_code.trim() === "" && v.description_pattern.trim() === "")
+          }
           onClick={onSave}
         >
           {save.isPending ? "Guardando…" : "Guardar"}

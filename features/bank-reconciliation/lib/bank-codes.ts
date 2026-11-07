@@ -12,25 +12,46 @@ function norm(text: string): string {
   return text.toUpperCase().replace(/\s+/g, " ").trim();
 }
 
-/** The code that says what a line is: among the codes of its bank code, the
- *  one whose text the description contains (the longest wins), else the one
- *  for the whole code. */
+/** The code that says what a line is. Among the codes of its bank code,
+ *  the one whose text the description contains (the longest wins), else the
+ *  one for the whole code. A bank whose statement has no code (Provincia)
+ *  is read by text alone: the code with no bank code whose text the
+ *  description contains, the longest first. */
 export function findBankCode(
   line: Pick<StatementLine, "bank_code" | "description">,
   codes: readonly BankStatementCode[],
 ): BankStatementCode | null {
-  if (!line.bank_code) return null;
   const description = norm(line.description);
-  let best: BankStatementCode | null = null;
-  for (const c of codes) {
-    if (c.bank_code !== line.bank_code) continue;
-    const pattern = norm(c.description_pattern);
-    if (pattern !== "" && !description.includes(pattern)) continue;
-    if (!best || pattern.length > norm(best.description_pattern).length) {
-      best = c;
+  const longest = (candidates: readonly BankStatementCode[]) => {
+    let best: BankStatementCode | null = null;
+    for (const c of candidates) {
+      const pattern = norm(c.description_pattern);
+      if (pattern !== "" && !description.includes(pattern)) continue;
+      if (!best || pattern.length > norm(best.description_pattern).length) {
+        best = c;
+      }
     }
-  }
-  return best;
+    return best;
+  };
+  const byCode = line.bank_code
+    ? longest(codes.filter((c) => c.bank_code === line.bank_code))
+    : null;
+  return (
+    byCode ??
+    longest(
+      codes.filter((c) => c.bank_code === "" && c.description_pattern !== ""),
+    )
+  );
+}
+
+/** The fixed start of a description, to offer as a code's text: what comes
+ *  before a CUIT, a parenthesis, an amount or a branch («TRANSF DE VALDEZ,
+ *  MONICA (2320…)» → «TRANSF DE VALDEZ, MONICA»). The user trims it. */
+export function conceptOf(description: string): string {
+  const start = description.split(/\s{2,}|\(|\d{4,}/)[0] ?? "";
+  return norm(start)
+    .replace(/[\s,.:-]+$/, "")
+    .slice(0, 80);
 }
 
 /** The valid CUITs written in a line's description (Macro puts the
@@ -93,14 +114,16 @@ export function proposeLine(
       code: null,
       label: line.bank_code
         ? `Código ${line.bank_code} sin configurar`
-        : "Sin código del banco",
+        : "Concepto sin configurar",
       client: null,
       installment: null,
       ready: false,
-      missing: line.bank_code ? "Configurá qué es este código." : null,
+      missing: line.bank_code
+        ? "Configurá qué es este código."
+        : "Configurá qué es este concepto.",
     };
   }
-  const label = code.label ?? code.bank_code;
+  const label = code.label ?? (code.bank_code || code.description_pattern);
   if (code.kind === "tax" || code.kind === "bank_fee") {
     return {
       kind: code.kind,
@@ -167,6 +190,75 @@ type PresetCode = {
   account: { code: string } | { role: string } | null;
   label: string;
 };
+
+/** Banco Provincia has no code: each movement is read by the start of its
+ *  concept, in the monthly .txt («CONCEPTO») and in the home banking
+ *  export («Descripción Extendida») alike. */
+export const PROVINCIA_CODES: readonly PresetCode[] = [
+  {
+    bank_code: "",
+    description_pattern: "IMPUESTO DEBITO - LEY 25413",
+    kind: "tax",
+    account: { code: "5.4.3" },
+    label: "Impuesto a los débitos (Ley 25.413)",
+  },
+  {
+    bank_code: "",
+    description_pattern: "IMPUESTO CREDITO -LEY 25413",
+    kind: "tax",
+    account: { code: "5.4.3" },
+    label: "Impuesto a los créditos (Ley 25.413)",
+  },
+  {
+    bank_code: "",
+    description_pattern: "RETENCION ARBA",
+    kind: "tax",
+    account: { role: "percepciones_iibb_pagadas" },
+    label: "SIRCREB (recaudación IIBB)",
+  },
+  {
+    bank_code: "",
+    description_pattern: "IMPUESTO I.BRUTOS - PERCEPCION",
+    kind: "tax",
+    account: { role: "percepciones_iibb_pagadas" },
+    label: "Percepción IIBB sobre comisiones",
+  },
+  {
+    bank_code: "",
+    description_pattern: "COMISION",
+    kind: "bank_fee",
+    account: { code: "5.4.2" },
+    label: "Comisión del banco",
+  },
+  {
+    bank_code: "",
+    description_pattern: "PAGO CUOTA DE PRESTAMO",
+    kind: "loan",
+    account: null,
+    label: "Cuota de préstamo",
+  },
+  {
+    bank_code: "",
+    description_pattern: "PAGO TOTAL CUOTA PMO",
+    kind: "loan",
+    account: null,
+    label: "Cuota de préstamo",
+  },
+  {
+    bank_code: "",
+    description_pattern: "TRANSF DE",
+    kind: "receipt",
+    account: null,
+    label: "Transferencia recibida",
+  },
+  {
+    bank_code: "",
+    description_pattern: "CR.TRAN.",
+    kind: "receipt",
+    account: null,
+    label: "Transferencia recibida",
+  },
+];
 
 /** Banco Macro's "Código Causal": what each one is. */
 export const MACRO_CODES: readonly PresetCode[] = [
