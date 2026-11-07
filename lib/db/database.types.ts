@@ -1131,6 +1131,7 @@ export type Database = {
           account_id: string
           amount: number
           balance: number | null
+          bank_code: string | null
           created_at: string
           description: string
           id: string
@@ -1148,6 +1149,7 @@ export type Database = {
           account_id: string
           amount: number
           balance?: number | null
+          bank_code?: string | null
           created_at?: string
           description: string
           id?: string
@@ -1165,6 +1167,7 @@ export type Database = {
           account_id?: string
           amount?: number
           balance?: number | null
+          bank_code?: string | null
           created_at?: string
           description?: string
           id?: string
@@ -4049,6 +4052,7 @@ export type Database = {
           created_by: string | null
           file_name: string
           file_sha256: string
+          filled_rows: number
           id: string
           inserted_rows: number
           invalid_rows: number
@@ -4065,6 +4069,7 @@ export type Database = {
           created_by?: string | null
           file_name: string
           file_sha256: string
+          filled_rows?: number
           id?: string
           inserted_rows?: number
           invalid_rows?: number
@@ -4081,6 +4086,7 @@ export type Database = {
           created_by?: string | null
           file_name?: string
           file_sha256?: string
+          filled_rows?: number
           id?: string
           inserted_rows?: number
           invalid_rows?: number

@@ -49,9 +49,9 @@ export function AccountsTable({
         cell: ({ row }) => (
           <div className={row.original.is_active ? undefined : "opacity-60"}>
             <Link
-              href={`/transactions?account=${row.original.id}`}
+              href={`/accounts/${row.original.id}`}
               className="font-medium hover:underline"
-              title="Ver movimientos y registrar nuevo"
+              title="Ver movimientos y extracto"
             >
               {row.original.name}
             </Link>

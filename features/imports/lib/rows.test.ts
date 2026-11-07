@@ -151,7 +151,12 @@ describe("clients and suppliers", () => {
       "duplicate",
     ]);
     expect(rows[3]?.warnings).toEqual(["Repetido en el archivo."]);
-    expect(countRows(rows)).toEqual({ ready: 1, duplicate: 3, invalid: 0 });
+    expect(countRows(rows)).toEqual({
+      ready: 1,
+      fill: 0,
+      duplicate: 3,
+      invalid: 0,
+    });
   });
 
   it("leaves out blank lines and needs the name column", () => {

@@ -460,6 +460,64 @@ describe("bank statements", () => {
     ]);
   });
 
+  it("keeps the bank's code without changing the line's hash", () => {
+    const columns = [
+      "line_date",
+      "reference",
+      "description",
+      "debit",
+      "credit",
+      "balance",
+    ];
+    const line = [
+      "05/10/2026",
+      "1953630435",
+      "DBCR 25413 S/CR TASA GRAL",
+      "2.007,04",
+      "",
+      "3.063.436,38",
+    ];
+    const withoutCode = build("bank_statement", columns, [line], {
+      account: BANK,
+    });
+    const withCode = build(
+      "bank_statement",
+      [...columns, "bank_code"],
+      [[...line, "1685"]],
+      { account: BANK },
+    );
+    expect(withCode[0]?.payload).toMatchObject({
+      amount: -2007.04,
+      balance: 3063436.38,
+      reference: "1953630435",
+      bank_code: "1685",
+    });
+    expect(withoutCode[0]?.payload).toMatchObject({ bank_code: null });
+    expect(withCode[0]?.key).toBe(withoutCode[0]?.key);
+  });
+
+  it("fills the code of a line loaded without it, once", () => {
+    const columns = ["line_date", "description", "amount", "bank_code"];
+    const rows = build(
+      "bank_statement",
+      columns,
+      [
+        ["01/10/2026", "Comisión", "-100", "2033"],
+        ["01/10/2026", "Interés", "5", ""],
+        ["02/10/2026", "Transferencia", "50", "2027"],
+      ],
+      { account: BANK },
+    );
+    const loaded = new Set(rows.slice(0, 2).flatMap((r) => r.key ?? []));
+    const marked = markDuplicates(rows, loaded, false, loaded);
+    expect(marked.map((r) => r.status)).toEqual(["fill", "duplicate", "ready"]);
+    expect(marked[0]?.payload).toMatchObject({
+      bank_code: "2033",
+      fill_only: true,
+    });
+    expect(marked[2]?.payload).not.toHaveProperty("fill_only");
+  });
+
   it("needs an account that is not a check cartera", () => {
     const rows = build(
       "bank_statement",

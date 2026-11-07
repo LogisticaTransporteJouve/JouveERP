@@ -37,7 +37,7 @@ export const getImportRuns = defineAiAction({
   sideEffect: "read",
   sources: ["import_runs"],
   description:
-    "Importaciones de planillas (Administración → Importaciones): tipo, archivo, estado, filas totales, insertadas, salteadas e inválidas, quién y cuándo, y si se deshizo. Las 200 más recientes.",
+    "Importaciones de planillas (Administración → Importaciones): tipo, archivo, estado, filas totales, insertadas, con el código del banco completado (extractos), salteadas e inválidas, quién y cuándo, y si se deshizo. Las 200 más recientes.",
   input: z.object({}),
   run: async () => {
     const res = await listImportRunsAction();

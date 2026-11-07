@@ -1691,7 +1691,7 @@ const AUDIT_ACTIONS: Record<string, Spec> = {
   "import_run.committed": {
     group: "files",
     say: (c) =>
-      `importó ${label(IMPORT_KIND_LABELS, c.p.kind) || "datos"} desde${quoted(c.p.file_name) || " un archivo"} (${count(num(c.p.inserted), "fila nueva", "filas nuevas")})`,
+      `importó ${label(IMPORT_KIND_LABELS, c.p.kind) || "datos"} desde${quoted(c.p.file_name) || " un archivo"} (${count(num(c.p.inserted), "fila nueva", "filas nuevas")}${num(c.p.filled) ? `, ${count(num(c.p.filled), "código completado", "códigos completados")}` : ""})`,
   },
   "import_run.undone": {
     group: "files",

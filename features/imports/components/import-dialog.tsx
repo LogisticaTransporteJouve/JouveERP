@@ -91,17 +91,23 @@ function AccountSelect({
   kind,
   value,
   onChange,
+  disabled,
 }: {
   kind: ImportKind;
   value: string;
   onChange: (id: string) => void;
+  disabled?: boolean;
 }) {
   const { data: accounts } = useAccountsList();
   const options = accounts.filter(
     (a) => a.is_active && accountFits(kind, a.type),
   );
   return (
-    <Select value={value || undefined} onValueChange={onChange}>
+    <Select
+      value={value || undefined}
+      onValueChange={onChange}
+      disabled={disabled}
+    >
       <SelectTrigger id="import-account" className="w-full min-w-0">
         <SelectValue placeholder="Elegí la cuenta" />
       </SelectTrigger>
@@ -116,11 +122,20 @@ function AccountSelect({
   );
 }
 
+function commitLabel(ready: number, fill: number): string {
+  const rows = `Importar ${ready} ${ready === 1 ? "fila" : "filas"}`;
+  const codes = `${fill} ${fill === 1 ? "código" : "códigos"}`;
+  if (fill === 0) return rows;
+  if (ready === 0) return `Completar ${codes}`;
+  return `${rows} y completar ${codes}`;
+}
+
 export function ImportDialog({
   open,
   onOpenChange,
   kinds,
   canReadAccounts,
+  fixedAccountId,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -128,6 +143,8 @@ export function ImportDialog({
   kinds: readonly ImportKind[];
   /** accounts:read, to list the accounts of checks and statements. */
   canReadAccounts: boolean;
+  /** Opened from an account: its statement goes to that account only. */
+  fixedAccountId?: string;
 }) {
   const previewMut = usePreviewImport();
   const commitMut = useCommitImport();
@@ -137,7 +154,7 @@ export function ImportDialog({
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [mapping, setMapping] = useState<ImportMapping | null>(null);
-  const [accountId, setAccountId] = useState("");
+  const [accountId, setAccountId] = useState(fixedAccountId ?? "");
   const [channelId, setChannelId] = useState("");
 
   function reset() {
@@ -181,13 +198,18 @@ export function ImportDialog({
     const data = formData(mapping);
     if (!data) return;
     commitMut.mutate(data, {
-      onSuccess: ({ inserted, skipped, invalid }) => {
+      onSuccess: ({ inserted, filled, skipped, invalid }) => {
         const extra = [
+          filled
+            ? `${filled} ${filled === 1 ? "código completado" : "códigos completados"}`
+            : null,
           skipped > 0 ? `${skipped} ya estaban` : null,
           invalid > 0 ? `${invalid} con error quedaron afuera` : null,
         ].filter(Boolean);
         toast.success(
-          `Se importaron ${inserted} filas${extra.length > 0 ? ` (${extra.join("; ")})` : ""}.`,
+          inserted === 0 && filled
+            ? `Se completó el código del banco en ${filled} ${filled === 1 ? "línea" : "líneas"} ya cargadas.`
+            : `Se importaron ${inserted} filas${extra.length > 0 ? ` (${extra.join("; ")})` : ""}.`,
         );
         reset();
         onOpenChange(false);
@@ -206,6 +228,7 @@ export function ImportDialog({
   const busy = previewMut.isPending || commitMut.isPending;
   const fields = kind ? IMPORT_FIELDS[kind] : [];
   const ready = preview?.counts.ready ?? 0;
+  const fill = preview?.counts.fill ?? 0;
   // The commit reads the file with the mapping it sends: one the user changed
   // after the preview has to be read again first.
   const mappingChanged =
@@ -241,7 +264,7 @@ export function ImportDialog({
               value={kind ?? undefined}
               onValueChange={(v) => {
                 if (isImportKind(v)) setKind(v);
-                setAccountId("");
+                setAccountId(fixedAccountId ?? "");
                 setPreview(null);
                 setMapping(null);
               }}
@@ -313,6 +336,7 @@ export function ImportDialog({
                     <AccountSelect
                       kind={kind}
                       value={accountId}
+                      disabled={fixedAccountId !== undefined}
                       onChange={(id) => {
                         setAccountId(id);
                         setPreview(null);
@@ -453,8 +477,10 @@ export function ImportDialog({
         {preview && preview.missing.length === 0 && (
           <div className="space-y-2">
             <p className="text-muted-foreground text-sm">
-              {preview.counts.ready} listas · {preview.counts.duplicate} ya
-              cargadas · {preview.counts.invalid} con error
+              {preview.counts.ready} listas ·{" "}
+              {fill > 0 && `${fill} completan el código del banco · `}
+              {preview.counts.duplicate} ya cargadas · {preview.counts.invalid}{" "}
+              con error
               {preview.truncated &&
                 " · el archivo tiene más de 5000 filas o celdas muy largas: dividilo para importarlo"}
             </p>
@@ -483,7 +509,11 @@ export function ImportDialog({
                       </TableCell>
                       <TableCell className="align-top text-sm">
                         <span
-                          className={r.status === "ready" ? "" : "font-medium"}
+                          className={
+                            r.status === "ready" || r.status === "fill"
+                              ? ""
+                              : "font-medium"
+                          }
                         >
                           {IMPORT_ROW_STATUS_LABELS[r.status]}
                         </span>
@@ -542,7 +572,7 @@ export function ImportDialog({
                       mappingChanged,
                       "Cambiaste las columnas: volvé a leer el archivo.",
                     ],
-                    [ready === 0, "No hay filas listas para importar."],
+                    [ready + fill === 0, "No hay filas listas para importar."],
                   )
             }
           >
@@ -553,14 +583,12 @@ export function ImportDialog({
                 preview.missing.length > 0 ||
                 preview.truncated ||
                 mappingChanged ||
-                ready === 0 ||
+                ready + fill === 0 ||
                 busy
               }
               onClick={commit}
             >
-              {commitMut.isPending
-                ? "Importando…"
-                : `Importar ${ready} ${ready === 1 ? "fila" : "filas"}`}
+              {commitMut.isPending ? "Importando…" : commitLabel(ready, fill)}
             </Button>
           </DisabledHint>
         </DialogFooter>

@@ -407,11 +407,11 @@ export const treasuryPage: GuidePage = {
       id: "cuentas",
       title: "Cuentas",
       menuPath: "Tesorería › Cuentas",
-      routes: ["/accounts"],
+      routes: ["/accounts", "/accounts/[id]"],
       permission: "accounts:read",
       intro: [
         "El padrón de cajas, bancos, billeteras, inversiones y carteras de cheques. Cada movimiento de Caja, recibo, orden de pago o cheque pasa por una de estas cuentas.",
-        "La tabla muestra {{Nombre}} (con las notas debajo; el nombre lleva a sus movimientos en [[/transactions]]), {{Tipo}}, {{Moneda}}, {{Saldo inicial}}, {{Estado}} ({{Activa}} o {{Inactiva}}) y {{Acciones}}.",
+        "La tabla muestra {{Nombre}} (con las notas debajo; el nombre abre la cuenta, con sus {{Movimientos}} y, en un banco, su {{Extracto}}), {{Tipo}}, {{Moneda}}, {{Saldo inicial}}, {{Estado}} ({{Activa}} o {{Inactiva}}) y {{Acciones}}.",
       ],
       screens: [
         {
@@ -1213,7 +1213,7 @@ export const treasuryPage: GuidePage = {
         {
           kind: "page",
           title: "Conciliación bancaria",
-          actions: [{ label: "Importar extracto", variant: "outline" }],
+          actions: [{ label: "Subir extracto", variant: "outline" }],
           toolbar: [
             {
               label: "Cuenta",
@@ -1264,11 +1264,11 @@ export const treasuryPage: GuidePage = {
           id: "importar-extracto-bancario",
           title: "Importar el extracto del banco",
           summary:
-            "Las líneas del extracto se cargan con el importador, como tipo {{Extracto bancario}}. No crean movimientos en Caja: quedan para conciliar.",
+            "Las líneas del extracto se suben desde la cuenta ({{Subir extracto}}) o desde el importador, como tipo {{Extracto bancario}}. No crean movimientos en Caja: quedan para conciliar.",
           permission: ["imports:write", "transactions:write"],
           prerequisites: [
-            "Ser owner o admin: el importador ([[/admin/imports]]) es solo para esos roles; sin el permiso, el botón {{Importar extracto}} no aparece.",
-            "El extracto como planilla .xlsx (se lee la primera hoja) o .csv, con una fila de títulos y hasta 5000 filas. Columnas: fecha y descripción (obligatorias), el importe con signo (negativo = débito) o dos columnas de débito y crédito, y si las trae, saldo y referencia.",
+            "Ser owner o admin: el importador ([[/admin/imports]]) es solo para esos roles; sin el permiso, el botón {{Subir extracto}} no aparece.",
+            "El extracto como planilla .xlsx (se lee la primera hoja) o .csv, con una fila de títulos y hasta 5000 filas. Columnas: fecha y descripción (obligatorias), el importe con signo (negativo = débito) o dos columnas de débito y crédito, y si las trae, saldo, referencia y el código del banco (en Macro, «Código Causal»).",
             "La cuenta del extracto activa y de tipo banco, billetera, efectivo o inversión (no una cartera de cheques).",
           ],
           screens: [
@@ -1282,28 +1282,25 @@ export const treasuryPage: GuidePage = {
                   label: "Qué importar",
                   kind: "select",
                   value: "Extracto bancario",
-                  marker: 3,
+                  marker: 1,
                 },
-                { label: "Archivo", kind: "input", marker: 5 },
+                { label: "Archivo", kind: "input", marker: 2 },
                 {
                   label: "Cuenta del extracto",
                   kind: "select",
                   value: "Banco Galicia ARS · Cuenta bancaria · ARS",
-                  marker: 4,
+                  marker: 1,
                   wide: true,
                 },
               ],
               footer: [
                 { label: "Cancelar", variant: "outline" },
-                { label: "~Importar 43 filas", variant: "primary", marker: 8 },
+                { label: "~Importar 43 filas", variant: "primary", marker: 5 },
               ],
             },
           ],
           steps: [
-            "En [[/treasury/reconciliation]], hacé clic en {{Importar extracto}}: abre el importador ([[/admin/imports]]).",
-            "Hacé clic en {{Importar planilla}}.",
-            "En {{Qué importar}}, elegí {{Extracto bancario}}.",
-            "En {{Cuenta del extracto}}, elegí la cuenta del banco.",
+            "En [[/accounts]], hacé clic en el nombre de la cuenta del banco y, en la pestaña {{Extracto}}, en {{Subir extracto}}. Se abre {{Importar planilla}} con {{Extracto bancario}} y la cuenta ya elegidos. (También sirve [[/treasury/reconciliation]] con la {{Cuenta}} elegida.)",
             "En {{Archivo}}, elegí la planilla y hacé clic en {{Leer archivo}}. Todavía no se guarda nada.",
             {
               text: "Revisá {{Columnas}}: cada dato muestra de qué columna de la planilla lo lee (las reconoce por el título, como «Fecha», «Concepto», «Débito», «Crédito» o «Saldo»).",
@@ -1312,13 +1309,13 @@ export const treasuryPage: GuidePage = {
                 "Hacen falta {{Fecha}}, {{Descripción}} y el importe: {{Importe}} con signo, o {{Débito}} y {{Crédito}} si el banco los separa.",
               ],
             },
-            "Revisá la vista previa: arriba dice cuántas filas están listas, cuántas ya estaban cargadas y cuántas tienen error; cada fila muestra su estado ({{Lista}}, {{Ya existe}} o {{Con error}}) y el motivo.",
-            "Hacé clic en el botón «Importar … filas» (cuenta solo las listas).",
-            "Volvé a [[/treasury/reconciliation]] y elegí la {{Cuenta}} y el {{Mes}} del extracto.",
+            "Revisá la vista previa: arriba dice cuántas filas están listas, cuántas ya estaban cargadas y cuántas tienen error; cada fila muestra su estado ({{Lista}}, {{Completa el código}}, {{Ya existe}} o {{Con error}}) y el motivo.",
+            "Hacé clic en el botón «Importar … filas» (cuenta solo las listas; si el archivo trae el código del banco de líneas que ya estaban cargadas sin él, dice también «y completar … códigos»).",
+            "Elegí el {{Mes}} del extracto para ver sus líneas.",
           ],
           after: [
             "Las líneas aparecen en la tabla {{Extracto}} como {{Pendiente}}. No se crea ningún movimiento en Caja ni asiento.",
-            "Las líneas que ya estaban (por ejemplo, de un extracto que se superpone con uno anterior) se saltean, y las filas con error quedan afuera.",
+            "Las líneas que ya estaban (por ejemplo, de un extracto que se superpone con uno anterior) se saltean, y las filas con error quedan afuera. Si una línea ya cargada no tenía el código del banco y el archivo lo trae, se le completa el código; lo demás de la línea no cambia.",
             "Las que tienen un movimiento de la cuenta con el mismo importe y hasta 5 días de diferencia aparecen en {{Sugerencias}} ([[#aceptar-sugerencias-conciliacion]]).",
             "La importación queda en la lista {{Importaciones}} del importador. Si te equivocaste de cuenta o de archivo, {{Deshacer}} borra todas sus líneas, mientras ninguna esté conciliada ni marcada como que no corresponde.",
           ],

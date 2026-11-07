@@ -11,7 +11,6 @@ import {
   Undo2,
   Unlink,
 } from "lucide-react";
-import Link from "next/link";
 import { Suspense, useState } from "react";
 import { toast } from "sonner";
 
@@ -43,6 +42,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ACCOUNT_TYPE_LABEL, isAccountType } from "@/features/accounts/schema";
+import { ImportDialog } from "@/features/imports/components/import-dialog";
+import { useListParams } from "@/hooks/use-list-params";
 import { formatArgentineDate, formatMoneySigned } from "@/lib/format";
 
 import {
@@ -63,6 +64,8 @@ import {
   MatchLineDialog,
   MatchMovementLinesDialog,
 } from "./line-dialogs";
+import type { ReconciliationGates } from "../lib/gates";
+import { isMonth } from "../lib/month";
 
 function monthRange(month: string): { from: string; to: string } {
   const [y, m] = month.split("-").map(Number);
@@ -75,80 +78,128 @@ function monthRange(month: string): { from: string; to: string } {
 
 export function ReconciliationPage({
   today,
-  canWrite,
-  canPayTaxes,
-  canImport,
+  initialMonth,
+  gates,
 }: {
   /** The Argentine today, YYYY-MM-DD. */
   today: string;
-  /** transactions:write: match, unmatch, ignore, create. */
-  canWrite: boolean;
-  /** taxes:write too: a debit line can be booked as a tax payment. */
-  canPayTaxes: boolean;
-  /** May import statements (imports:write + transactions:write). */
-  canImport: boolean;
+  /** The month in the URL (`?month=YYYY-MM`), if any. */
+  initialMonth: string | null;
+  gates: ReconciliationGates;
 }) {
   const [accountId, setAccountId] = useState("");
-  const [month, setMonth] = useState(today.slice(0, 7));
-  const { from, to } = monthRange(month);
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Conciliación bancaria
-          </h1>
-          <p className="text-muted-foreground max-w-2xl text-sm">
-            Las líneas del extracto de una cuenta contra sus movimientos de
-            Caja, por mes. Un movimiento conciliado no se edita ni se borra
-            hasta desconciliar su línea.
-          </p>
-        </div>
-        {canImport && (
-          <Button asChild variant="outline">
-            <Link href="/admin/imports">
-              <FileUp className="size-4" />
-              Importar extracto
-            </Link>
-          </Button>
-        )}
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          Conciliación bancaria
+        </h1>
+        <p className="text-muted-foreground max-w-2xl text-sm">
+          Las líneas del extracto de una cuenta contra sus movimientos de Caja,
+          por mes. Un movimiento conciliado no se edita ni se borra hasta
+          desconciliar su línea.
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,20rem)_12rem]">
-        <div className="min-w-0 space-y-1.5">
-          <Label htmlFor="recon-account">Cuenta</Label>
-          <Suspense fallback={<Skeleton className="h-9 w-full" />}>
-            <AccountPicker value={accountId} onChange={setAccountId} />
-          </Suspense>
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="recon-month">Mes</Label>
-          <MonthPicker
-            id="recon-month"
-            value={month}
-            onChange={(value) => {
-              if (/^\d{4}-\d{2}$/.test(value)) setMonth(value);
-            }}
-          />
-        </div>
+      <div className="max-w-80 min-w-0 space-y-1.5">
+        <Label htmlFor="recon-account">Cuenta</Label>
+        <Suspense fallback={<Skeleton className="h-9 w-full" />}>
+          <AccountPicker value={accountId} onChange={setAccountId} />
+        </Suspense>
       </div>
 
       {accountId ? (
-        <Suspense fallback={<Skeleton className="h-96 w-full" />}>
-          <ReconciliationBody
-            accountId={accountId}
-            from={from}
-            to={to}
-            canWrite={canWrite}
-            canPayTaxes={canPayTaxes}
-          />
-        </Suspense>
+        <AccountStatement
+          accountId={accountId}
+          today={today}
+          initialMonth={initialMonth}
+          gates={gates}
+        />
       ) : (
         <p className="text-muted-foreground text-sm">
           Elegí la cuenta que querés conciliar.
         </p>
       )}
+    </div>
+  );
+}
+
+type MonthParams = { month: string };
+
+function monthToUrl(params: MonthParams): Record<string, string | null> {
+  return { month: params.month };
+}
+
+/** One account's statement for a month: its lines against the account's
+ *  movements, and the upload of a new statement into that account. */
+export function AccountStatement({
+  accountId,
+  today,
+  initialMonth,
+  gates,
+}: {
+  accountId: string;
+  /** The Argentine today, YYYY-MM-DD. */
+  today: string;
+  /** The month in the URL (`?month=YYYY-MM`), if any. */
+  initialMonth: string | null;
+  gates: ReconciliationGates;
+}) {
+  const currentMonth = today.slice(0, 7);
+  const { params, update } = useListParams<MonthParams>({
+    initial: { month: initialMonth ?? currentMonth },
+    defaults: { month: currentMonth },
+    toUrl: monthToUrl,
+  });
+  const [importOpen, setImportOpen] = useState(false);
+  const { from, to } = monthRange(params.month);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="w-48 space-y-1.5">
+          <Label htmlFor="recon-month">Mes</Label>
+          <MonthPicker
+            id="recon-month"
+            value={params.month}
+            onChange={(value) => {
+              if (isMonth(value)) update({ month: value });
+            }}
+          />
+        </div>
+        {gates.canImport && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setImportOpen(true)}
+          >
+            <FileUp className="size-4" />
+            Subir extracto
+          </Button>
+        )}
+      </div>
+
+      {gates.canImport && (
+        <ImportDialog
+          key={accountId}
+          open={importOpen}
+          onOpenChange={setImportOpen}
+          kinds={["bank_statement"]}
+          canReadAccounts={gates.canReadAccounts}
+          fixedAccountId={accountId}
+        />
+      )}
+
+      <Suspense fallback={<Skeleton className="h-96 w-full" />}>
+        <ReconciliationBody
+          accountId={accountId}
+          from={from}
+          to={to}
+          canWrite={gates.canWrite}
+          canPayTaxes={gates.canPayTaxes}
+        />
+      </Suspense>
     </div>
   );
 }
