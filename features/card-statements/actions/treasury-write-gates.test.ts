@@ -162,21 +162,40 @@ describe("card parts and advances", () => {
 
   it("leaves advances as they are when changing lines without hr:write", async () => {
     denied = ["hr:write"];
+    const ADVANCE = "00000000-0000-4000-8000-0000000000d2";
     fake = recordingSupabase((call) =>
       call.table === "card_statements"
-        ? { data: { status: "pendiente" }, error: null }
-        : { data: [], error: null },
+        ? { data: { paid_ars_on: null, paid_usd_on: null }, error: null }
+        : call.table === "card_statement_lines"
+          ? {
+              data: [
+                {
+                  id: LINE,
+                  currency: "ARS",
+                  source: "purchase",
+                  treatment: "expense",
+                },
+                {
+                  id: ADVANCE,
+                  currency: "ARS",
+                  source: "purchase",
+                  treatment: "advance",
+                },
+              ],
+              error: null,
+            }
+          : { data: 1, error: null },
     );
     const res = await cards.setCardLinesAction({
       statement_id: ID,
-      line_ids: [LINE],
+      line_ids: [LINE, ADVANCE],
       treatment: "expense",
       chart_account_id: ACCOUNT,
       employee_id: null,
     });
     expect(res.ok).toBe(true);
-    const update = fake.calls.find((c) => c.op === "update");
-    expect(update?.filters).toContainEqual(["neq", "treatment", "advance"]);
+    const rpc = fake.calls.find((c) => c.op === "rpc");
+    expect(rpc?.payload).toMatchObject({ p_line_ids: [LINE] });
   });
 });
 
@@ -184,36 +203,90 @@ describe("a paid part", () => {
   const ID = "00000000-0000-4000-8000-0000000000c1";
   const LINE = "00000000-0000-4000-8000-0000000000d1";
   const ACCOUNT = "00000000-0000-4000-8000-0000000000e1";
-
-  it("keeps its lines as booked when lines or a card's default change", async () => {
-    fake = recordingSupabase((call) =>
-      call.table === "card_statements"
-        ? {
-            data: {
-              account_number: "0600000001",
-              status: "pendiente",
-              paid_ars_on: "2026-11-11",
-              paid_usd_on: null,
-            },
+  const paid = (partHasAdvance: boolean) =>
+    recordingSupabase((call) => {
+      if (call.table === "card_statements") {
+        return {
+          data: {
+            account_number: "0600000001",
+            status: "pendiente",
+            paid_ars_on: "2026-11-11",
+            paid_usd_on: null,
+          },
+          error: null,
+        };
+      }
+      if (call.table === "card_statement_lines") {
+        const advanceProbe = call.filters.some(
+          ([k, c, v]) => k === "eq" && c === "treatment" && v === "advance",
+        );
+        if (advanceProbe) {
+          return {
+            data: partHasAdvance
+              ? [{ treatment: "advance", chart_account_id: null }]
+              : [],
             error: null,
-          }
-        : { data: [], error: null },
-    );
-    const destination = {
-      statement_id: ID,
-      treatment: "expense",
-      chart_account_id: ACCOUNT,
-      employee_id: null,
-    } as const;
-    await cards.setCardLinesAction({ ...destination, line_ids: [LINE] });
+          };
+        }
+        return {
+          data: [
+            {
+              id: LINE,
+              currency: "ARS",
+              source: "purchase",
+              treatment: "expense",
+            },
+          ],
+          error: null,
+        };
+      }
+      if (call.op === "rpc") return { data: 1, error: null };
+      return { data: [], error: null };
+    });
+  const destination = {
+    statement_id: ID,
+    treatment: "expense",
+    chart_account_id: ACCOUNT,
+    employee_id: null,
+  } as const;
+
+  it("books the part again when one of its lines changes", async () => {
+    fake = paid(false);
+    const res = await cards.setCardLinesAction({
+      ...destination,
+      line_ids: [LINE],
+    });
+    expect(res).toMatchObject({ ok: true, data: { updated: 1 } });
+    const rpc = fake.calls.find((c) => c.op === "rpc");
+    expect(rpc?.table).toBe("reclassify_card_statement_lines");
+    expect(rpc?.payload).toMatchObject({
+      p_line_ids: [LINE],
+      p_chart_account_id: ACCOUNT,
+    });
+  });
+
+  it("refuses booking a part with advances again without hr:write", async () => {
+    denied = ["hr:write"];
+    fake = paid(true);
+    const res = await cards.setCardLinesAction({
+      ...destination,
+      line_ids: [LINE],
+    });
+    expect(res.ok === false && res.error).toMatch(/Personal/);
+    expect(fake.calls.some((c) => c.op === "rpc")).toBe(false);
+  });
+
+  it("applies a card's default only to its parts not paid yet", async () => {
+    fake = paid(false);
     await cards.setCardHolderAction({ ...destination, last4: "1234" });
-    const lineUpdates = fake.calls.filter(
+    const lineUpdate = fake.calls.find(
       (c) => c.op === "update" && c.table === "card_statement_lines",
     );
-    expect(lineUpdates).toHaveLength(2);
-    for (const u of lineUpdates) {
-      expect(u.filters).toContainEqual(["not", "currency", ["in", "(ARS)"]]);
-    }
+    expect(lineUpdate?.filters).toContainEqual([
+      "not",
+      "currency",
+      ["in", "(ARS)"],
+    ]);
   });
 });
 

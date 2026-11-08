@@ -11,6 +11,7 @@ import {
   type Access,
 } from "@/lib/auth/permissions";
 import { readCardPartDenied } from "@/lib/cards/card-part-access";
+import { cardPartDenied } from "@/lib/cards/card-permissions";
 import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
@@ -451,28 +452,9 @@ function paidParts(st: {
   ];
 }
 
-async function assertEditable(
-  service: Service,
-  statementId: string,
-  userId: string,
-): Promise<{ error: string } | { paid: ("ARS" | "USD")[] }> {
-  const { data, error } = await service
-    .from("card_statements")
-    .select("status, paid_ars_on, paid_usd_on")
-    .eq("id", statementId)
-    .maybeSingle();
-  if (error) {
-    logger.error("cards.read_failed", { userId, statementId, error });
-    return { error: "No se pudo leer el resumen." };
-  }
-  if (!data) return { error: "No se encontró el resumen." };
-  if (data.status === "pagado")
-    return { error: "El resumen ya está pagado: no se cambia." };
-  return { paid: paidParts(data) };
-}
-
 /** What some lines are: a company expense (with its account), a salary
- *  advance (with its employee) or nothing. Paid lines stay as they are. */
+ *  advance (with its employee) or nothing. A line of a paid part (pesos or
+ *  dollars) changes by booking the part again against the same debit. */
 export async function setCardLinesAction(
   input: unknown,
 ): Promise<ActionResult<{ updated: number }>> {
@@ -486,41 +468,123 @@ export async function setCardLinesAction(
     };
   }
   const d = parsed.data;
-  if (d.treatment === "advance" && !userCan(ctx.access, "hr:write")) {
+  const hrWrite = userCan(ctx.access, "hr:write");
+  if (d.treatment === "advance" && !hrWrite) {
     return { ok: false, error: ADVANCE_DENIED };
   }
   const service = getServiceClient();
-  const editable = await assertEditable(service, d.statement_id, ctx.userId);
-  if ("error" in editable) return { ok: false, error: editable.error };
-  let update = service
-    .from("card_statement_lines")
-    .update({
-      treatment: d.treatment,
-      chart_account_id: d.treatment === "expense" ? d.chart_account_id : null,
-      employee_id: d.treatment === "advance" ? d.employee_id : null,
-    })
-    .eq("statement_id", d.statement_id)
-    .in("id", d.line_ids)
-    .is("transaction_id", null);
-  if (editable.paid.length > 0)
-    update = update.not("currency", "in", `(${editable.paid.join(",")})`);
-  // A charge of the bank is never a salary advance.
-  if (d.treatment === "advance") update = update.eq("source", "purchase");
-  // An advance is Personal's: without its write it stays as it is.
-  if (!userCan(ctx.access, "hr:write"))
-    update = update.neq("treatment", "advance");
-  const { data, error } = await update.select("id");
-  if (error) {
+  const [st, rows] = await Promise.all([
+    service
+      .from("card_statements")
+      .select("paid_ars_on, paid_usd_on")
+      .eq("id", d.statement_id)
+      .maybeSingle(),
+    service
+      .from("card_statement_lines")
+      .select("id, currency, source, treatment")
+      .eq("statement_id", d.statement_id)
+      .in("id", d.line_ids),
+  ]);
+  const readError = st.error ?? rows.error;
+  if (readError) {
+    logger.error("cards.read_failed", {
+      userId: ctx.userId,
+      statementId: d.statement_id,
+      error: readError,
+    });
+    return { ok: false, error: "No se pudo leer el resumen." };
+  }
+  if (!st.data) return { ok: false, error: "No se encontró el resumen." };
+  const lines = (rows.data ?? []).filter(
+    (l) =>
+      // A charge of the bank is never a salary advance.
+      (d.treatment !== "advance" || l.source === "purchase") &&
+      // An advance is Personal's: without its write it stays as it is.
+      (hrWrite || l.treatment !== "advance"),
+  );
+  if (lines.length === 0) return { ok: true, data: { updated: 0 } };
+  const rebooked = paidParts(st.data).filter((c) =>
+    lines.some((l) => l.currency === c),
+  );
+
+  // Booking a part again books all of it: the user needs the writes its
+  // advances and tax lines need, before and after the change.
+  if (rebooked.length > 0) {
+    const denied = await rebookDenied(
+      service,
+      ctx.access,
+      d,
+      rebooked,
+      ctx.userId,
+    );
+    if (denied) return { ok: false, error: denied };
+  }
+
+  const { data, error } = await service.rpc("reclassify_card_statement_lines", {
+    p_statement_id: d.statement_id,
+    p_line_ids: lines.map((l) => l.id),
+    p_treatment: d.treatment,
+    p_chart_account_id:
+      (d.treatment === "expense" ? d.chart_account_id : null) ?? undefined,
+    p_employee_id:
+      (d.treatment === "advance" ? d.employee_id : null) ?? undefined,
+    p_user_id: ctx.userId,
+  });
+  if (error || data === null) {
+    const guard = mapDbGuardError(error, {
+      slug: "cards.lines.rejected",
+      userId: ctx.userId,
+    });
+    if (guard) return { ok: false, error: guard };
     logger.error("cards.lines_update_failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudieron cambiar los consumos." };
   }
   await logAudit(
     "card_statement.lines_updated",
     ctx.userId,
-    { treatment: d.treatment, lines: data.length },
+    { treatment: d.treatment, lines: data, rebooked },
     d.statement_id,
   );
-  return { ok: true, data: { updated: data.length } };
+  return { ok: true, data: { updated: data } };
+}
+
+async function rebookDenied(
+  service: Service,
+  access: Access,
+  d: {
+    statement_id: string;
+    treatment: string;
+    chart_account_id: string | null;
+  },
+  parts: readonly ("ARS" | "USD")[],
+  userId: string,
+): Promise<string | null> {
+  for (const currency of parts) {
+    const part = await readCardPartDenied(
+      service,
+      access,
+      { statement_id: d.statement_id, currency },
+      BANK_TAX_ROLES,
+      userId,
+    );
+    if (!part.ok) return "No se pudo leer el resumen.";
+    if (part.denied) return part.denied;
+  }
+  if (d.treatment !== "expense" || !d.chart_account_id) return null;
+  const tax = await service
+    .from("chart_of_accounts")
+    .select("id")
+    .eq("id", d.chart_account_id)
+    .in("system_role", [...BANK_TAX_ROLES]);
+  if (tax.error) {
+    logger.error("cards.read_failed", { userId, error: tax.error });
+    return "No se pudo leer el resumen.";
+  }
+  return cardPartDenied(
+    access,
+    [{ treatment: "expense", chart_account_id: d.chart_account_id }],
+    new Set(tax.data.map((t) => t.id)),
+  );
 }
 
 /** A card's default: kept for the next statements, and applied now to its

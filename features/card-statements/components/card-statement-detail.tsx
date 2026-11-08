@@ -114,7 +114,15 @@ function Detail({
   function applyLine(line: CardStatementLine, d: Destination) {
     setLines.mutate(
       { statement_id: st.id, line_ids: [line.id], ...d },
-      { onError: (e) => toast.error(e.message) },
+      {
+        // A paid line is booked again: its part's expenses change.
+        onSuccess: () =>
+          line.paid &&
+          toast.success(
+            "Se cambió el consumo y se volvió a registrar el pago.",
+          ),
+        onError: (e) => toast.error(e.message),
+      },
     );
   }
 
@@ -143,13 +151,7 @@ function Detail({
             employees={employees}
             employeesHidden={employees_hidden}
             allowAdvance={canAdvance && l.source === "purchase"}
-            disabled={
-              !canWrite ||
-              locked ||
-              l.paid ||
-              setLines.isPending ||
-              setHolder.isPending
-            }
+            disabled={!canWrite || setLines.isPending || setHolder.isPending}
             onChange={(d) => applyLine(l, d)}
           />
         </TableCell>

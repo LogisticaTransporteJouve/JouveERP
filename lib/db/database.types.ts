@@ -3198,6 +3198,7 @@ export type Database = {
       }
       employee_salary_changes: {
         Row: {
+          component: string
           created_at: string
           created_by: string | null
           effective_month: string
@@ -3209,6 +3210,7 @@ export type Database = {
           reason: string | null
         }
         Insert: {
+          component?: string
           created_at?: string
           created_by?: string | null
           effective_month: string
@@ -3220,6 +3222,7 @@ export type Database = {
           reason?: string | null
         }
         Update: {
+          component?: string
           created_at?: string
           created_by?: string | null
           effective_month?: string
@@ -5974,6 +5977,7 @@ export type Database = {
           description: string
           entry_id: string
           id: string
+          is_recurring: boolean
           sort_order: number
         }
         Insert: {
@@ -5983,6 +5987,7 @@ export type Database = {
           description: string
           entry_id: string
           id?: string
+          is_recurring?: boolean
           sort_order?: number
         }
         Update: {
@@ -5992,6 +5997,7 @@ export type Database = {
           description?: string
           entry_id?: string
           id?: string
+          is_recurring?: boolean
           sort_order?: number
         }
         Relationships: [
@@ -10502,6 +10508,10 @@ export type Database = {
         Args: { p_employee_id: string; p_month: string }
         Returns: number
       }
+      employee_viatico_for_month: {
+        Args: { p_employee_id: string; p_month: string }
+        Returns: number
+      }
       fail_itemless_invoice_drafts: {
         Args: { p_created_before: string; p_limit?: number }
         Returns: string[]
@@ -11242,6 +11252,17 @@ export type Database = {
           documents: number
           total: number
         }[]
+      }
+      reclassify_card_statement_lines: {
+        Args: {
+          p_chart_account_id?: string
+          p_employee_id?: string
+          p_line_ids: string[]
+          p_statement_id: string
+          p_treatment: string
+          p_user_id: string
+        }
+        Returns: number
       }
       record_arca_web_attempt: {
         Args: { p_error_code: string; p_ok: boolean; p_version: string }

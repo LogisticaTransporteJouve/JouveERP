@@ -6,7 +6,7 @@
 
 begin;
 
-select plan(14);
+select plan(18);
 
 select set_config('request.jwt.claims', '{"role":"service_role"}', true);
 
@@ -23,6 +23,8 @@ select ok(
   and not has_function_privilege('authenticated', 'public.unsettle_card_statement(uuid, text, uuid)', 'execute')
   and not has_function_privilege('authenticated',
         'public.card_statement_amounts(uuid, text, numeric, numeric, numeric)', 'execute')
+  and not has_function_privilege('authenticated',
+        'public.reclassify_card_statement_lines(uuid, uuid[], text, uuid, uuid, uuid)', 'execute')
   and has_function_privilege('service_role', 'public.settle_card_statement(uuid, uuid, text, text, uuid)', 'execute'),
   'only the service role runs the card statement RPCs'
 );
@@ -169,7 +171,47 @@ select is(
   'a statement with only dollars is paid with them'
 );
 
--- 5. A lone refund ----------------------------------------------------------------
+-- 5. Changing a paid line books the part again ------------------------------------
+
+select is(
+  public.reclassify_card_statement_lines('00000000-0000-0000-0000-0000000c05a2',
+    array(select id from public.card_statement_lines
+           where statement_id = '00000000-0000-0000-0000-0000000c05a2' and description = 'Hosting'),
+    'expense', '00000000-0000-0000-0000-0000000c0f01',
+    (select id from public.chart_of_accounts where code = '5.1.1')),
+  3,
+  'a paid line changes its account'
+);
+
+select is(
+  (select array_agg(distinct c.code) from public.transactions t
+     join public.chart_of_accounts c on c.id = t.expense_account_id
+    where t.id in (select transaction_id from public.card_statement_lines
+                    where statement_id = '00000000-0000-0000-0000-0000000c05a2')),
+  array['5.1.1']::text[],
+  'the part is booked again with the new account'
+);
+
+select is(
+  (select sum(t.amount) from public.transactions t
+    where t.id in (select transaction_id from public.card_statement_lines
+                    where statement_id = '00000000-0000-0000-0000-0000000c05a2'))::text
+    || '/' || (select status from public.card_statements where id = '00000000-0000-0000-0000-0000000c05a2')
+    || '/' || (select status from public.bank_statement_lines where id = (select id from t_lines where amount = -145600.02)),
+  '145600.02/pagado/matched',
+  'booked again it still adds up to the debit, paid and reconciled'
+);
+
+select throws_like(
+  $$select public.reclassify_card_statement_lines('00000000-0000-0000-0000-0000000c05a2',
+      array(select id from public.card_statement_lines
+             where statement_id = '00000000-0000-0000-0000-0000000c05a2' and description = 'Hosting'),
+      'ignore', '00000000-0000-0000-0000-0000000c0f01')$$,
+  'Hay consumos marcados como «no corresponde»%',
+  'a change the payment cannot book is refused and nothing changes'
+);
+
+-- 6. A lone refund ----------------------------------------------------------------
 
 select throws_like(
   $$select public.settle_card_statement('00000000-0000-0000-0000-0000000c05a3',
