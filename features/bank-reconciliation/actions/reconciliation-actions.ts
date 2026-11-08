@@ -971,7 +971,8 @@ export async function matchLinesToMovementAction(
 }
 
 /** Back to pending with the rest of its reconciliation (the other lines of
- *  a split movement): its movements can be edited again. */
+ *  a split movement): its movements can be edited again. A card statement's
+ *  debit is refused: it is undone with its statement. */
 export async function unmatchLineAction(
   input: unknown,
 ): Promise<ActionResult<{ line_id: string }>> {
@@ -983,8 +984,7 @@ export async function unmatchLineAction(
   if (!parsed.success) return { ok: false, error: "Datos inválidos." };
   const { line_id } = parsed.data;
   const service = getServiceClient();
-  // A card statement's debit is undone with its statement: unmatched here,
-  // its movements would stay and the statement would stay paid.
+  // Unmatched here, its movements would stay and the statement stay paid.
   const card = await service
     .from("card_statement_lines")
     .select(

@@ -1543,6 +1543,11 @@ export const treasuryPage: GuidePage = {
               message: "La línea no está conciliada",
               fix: "Actualizá la pantalla: ya la desconciliaron.",
             },
+            {
+              message:
+                "Esta línea pagó un resumen de tarjeta: deshacé el pago desde Tesorería › Tarjetas.",
+              fix: "Abrí el resumen en [[/card-statements]] y usá {{Deshacer pago}}: la línea vuelve a pendiente sola.",
+            },
           ],
           related: ["conciliar-linea", "editar-movimiento-caja"],
           keywords: ["deshacer conciliación"],

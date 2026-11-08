@@ -4,6 +4,7 @@ import {
   Ban,
   Check,
   CheckCheck,
+  CreditCard,
   FileUp,
   Link2,
   MoreHorizontal,
@@ -12,6 +13,7 @@ import {
   Undo2,
   Unlink,
 } from "lucide-react";
+import Link from "next/link";
 import { Suspense, useState } from "react";
 import { toast } from "sonner";
 
@@ -622,29 +624,49 @@ function ReconciliationBody({
                               </DropdownMenuItem>
                             </>
                           )}
-                          {line.status === "matched" && (
-                            <DropdownMenuItem
-                              disabled={unmatch.isPending}
-                              onSelect={() => {
-                                const together = splitSiblings(
-                                  line,
-                                  movementById,
-                                );
-                                unmatch.mutate(line.id, {
-                                  onSuccess: () =>
-                                    toast.success(
-                                      together > 1
-                                        ? `Se desconciliaron las ${together} líneas del movimiento.`
-                                        : "Línea desconciliada.",
-                                    ),
-                                  onError: (err) => toast.error(err.message),
-                                });
-                              }}
-                            >
-                              <Unlink className="size-4" />
-                              Desconciliar
-                            </DropdownMenuItem>
-                          )}
+                          {line.status === "matched" &&
+                            // A card statement's debit is undone with its
+                            // statement (the server refuses it here).
+                            line.transaction_ids.some(
+                              (id) =>
+                                movementById.get(id)?.source_document ===
+                                "card_statement",
+                            ) && (
+                              <DropdownMenuItem asChild>
+                                <Link href="/card-statements">
+                                  <CreditCard className="size-4" />
+                                  Pagó un resumen: deshacelo en Tarjetas
+                                </Link>
+                              </DropdownMenuItem>
+                            )}
+                          {line.status === "matched" &&
+                            !line.transaction_ids.some(
+                              (id) =>
+                                movementById.get(id)?.source_document ===
+                                "card_statement",
+                            ) && (
+                              <DropdownMenuItem
+                                disabled={unmatch.isPending}
+                                onSelect={() => {
+                                  const together = splitSiblings(
+                                    line,
+                                    movementById,
+                                  );
+                                  unmatch.mutate(line.id, {
+                                    onSuccess: () =>
+                                      toast.success(
+                                        together > 1
+                                          ? `Se desconciliaron las ${together} líneas del movimiento.`
+                                          : "Línea desconciliada.",
+                                      ),
+                                    onError: (err) => toast.error(err.message),
+                                  });
+                                }}
+                              >
+                                <Unlink className="size-4" />
+                                Desconciliar
+                              </DropdownMenuItem>
+                            )}
                           {line.status === "ignored" && (
                             <DropdownMenuItem
                               disabled={restore.isPending}

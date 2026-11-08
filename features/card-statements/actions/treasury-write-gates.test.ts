@@ -229,6 +229,13 @@ describe("unmatching a card payment", () => {
     const res = await bank.unmatchLineAction({ line_id: LINE_ID });
     expect(res.ok === false && res.error).toMatch(/deshacé el pago/);
     expect(fake.calls.some((c) => c.op === "rpc")).toBe(false);
+    expect(
+      fake.calls.find((c) => c.table === "card_statement_lines")?.filters,
+    ).toContainEqual([
+      "eq",
+      "transactions.bank_statement_matches.line_id",
+      LINE_ID,
+    ]);
   });
 
   it("unmatches any other line", async () => {
