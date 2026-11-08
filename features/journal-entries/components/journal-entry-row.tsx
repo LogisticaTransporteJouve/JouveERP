@@ -68,7 +68,7 @@ export function JournalEntryRow({ entry }: { entry: JournalEntryWithLines }) {
         )}
         <span
           className={cn(
-            "w-28 shrink-0 text-right font-mono text-sm",
+            "w-40 shrink-0 text-right font-mono text-sm whitespace-nowrap",
             !balanced && "text-foreground",
           )}
         >
