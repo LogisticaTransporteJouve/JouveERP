@@ -9981,6 +9981,23 @@ export type Database = {
         Returns: undefined
       }
       capture_aging_snapshot: { Args: never; Returns: string }
+      card_statement_amounts: {
+        Args: {
+          p_currency: string
+          p_fix: number
+          p_paid: number
+          p_statement_id: string
+          p_total_usd: number
+        }
+        Returns: {
+          amount: number
+          ars: number
+          chart_account_id: string
+          employee_id: string
+          id: string
+          treatment: string
+        }[]
+      }
       change_shipment_status: {
         Args: {
           p_comment?: string
@@ -11790,10 +11807,6 @@ export type Database = {
         Args: { p_line_id: string; p_user_id: string }
         Returns: undefined
       }
-      unsettle_card_statement: {
-        Args: { p_currency: string; p_statement_id: string; p_user_id: string }
-        Returns: number
-      }
       unpost_driver_settlement_difference: {
         Args: {
           p_allow_driver?: boolean
@@ -11801,6 +11814,10 @@ export type Database = {
           p_user_id?: string
         }
         Returns: undefined
+      }
+      unsettle_card_statement: {
+        Args: { p_currency: string; p_statement_id: string; p_user_id: string }
+        Returns: number
       }
       update_chat_channel: {
         Args: { p_channel: string; p_description: string; p_name: string }

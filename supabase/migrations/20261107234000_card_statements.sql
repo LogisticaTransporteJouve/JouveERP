@@ -273,6 +273,53 @@ $function$;
 
 revoke all on function public.guard_employee_account_movement() from public, anon, authenticated;
 
+-- Pesos of each line of one currency of a statement. In dollars, at the
+-- bank's rate; p_fix (the cents of rounding the dollars) goes on the
+-- largest line of the largest group, so a purchase refunded in full nets
+-- to zero and stays at zero.
+create or replace function public.card_statement_amounts(
+  p_statement_id uuid,
+  p_currency     text,
+  p_paid         numeric,
+  p_total_usd    numeric,
+  p_fix          numeric
+)
+returns table (
+  id uuid, treatment text, chart_account_id uuid, employee_id uuid,
+  ars numeric, amount numeric
+)
+language sql
+stable
+set search_path = ''
+as $$
+  with base as (
+    select l.id, l.treatment, l.chart_account_id, l.employee_id,
+           case when p_currency = 'USD' then round(l.amount * p_paid / p_total_usd, 2) else l.amount end as ars,
+           l.amount
+      from public.card_statement_lines l
+     where l.statement_id = p_statement_id and l.currency = p_currency
+  ),
+  fix as (
+    select a.id from base a
+      join (select b.treatment, b.chart_account_id, b.employee_id, sum(b.ars) as total
+              from base b group by 1, 2, 3) g
+        on g.treatment = a.treatment
+       and g.chart_account_id is not distinct from a.chart_account_id
+       and g.employee_id is not distinct from a.employee_id
+     order by g.total desc, a.amount desc
+     limit 1
+  )
+  select b.id, b.treatment, b.chart_account_id, b.employee_id,
+         b.ars + case when p_fix <> 0 and b.id = (select f.id from fix f) then p_fix else 0 end,
+         b.amount
+    from base b
+$$;
+
+revoke all on function public.card_statement_amounts(uuid, text, numeric, numeric, numeric)
+  from public, anon, authenticated;
+grant execute on function public.card_statement_amounts(uuid, text, numeric, numeric, numeric)
+  to service_role;
+
 create or replace function public.settle_card_statement(
   p_statement_id uuid,
   p_line_id      uuid,
@@ -292,6 +339,8 @@ declare
   v_rate    numeric;
   v_total   numeric;
   v_diff    numeric;
+  v_fix     numeric;
+  v_n       bigint;
   v_tx      uuid;
   v_txs     uuid[] := '{}';
   v_label   text;
@@ -368,36 +417,18 @@ begin
       using errcode = '23514', hint = 'jouve_guard';
   end if;
 
-  -- Pesos of each line; the cents of rounding the dollars go on one line
-  -- (below), so the movements add up to the debit.
-  drop table if exists card_amounts;
-  create temporary table card_amounts on commit drop as
-    select l.id, l.treatment, l.chart_account_id, l.employee_id,
-           case when p_currency = 'USD' then round(l.amount * v_paid / v_st.total_usd, 2) else l.amount end as ars,
-           l.amount
-      from public.card_statement_lines l
-     where l.statement_id = v_st.id and l.currency = p_currency;
-  select round(v_total - coalesce(sum(ars), 0), 2) into v_diff from card_amounts;
-  if p_currency = 'USD' and abs(v_diff) > 0.01 * (select count(*) from card_amounts) then
+  -- The movements add up to the debit: the cents of rounding the dollars
+  -- go on one line.
+  select round(v_total - coalesce(sum(a.ars), 0), 2), count(*)
+    into v_diff, v_n
+    from public.card_statement_amounts(v_st.id, p_currency, v_paid, v_st.total_usd, 0) a;
+  if p_currency = 'USD' and abs(v_diff) > 0.01 * v_n then
     raise exception 'El débito en dólares no cierra con los consumos al cambio del banco'
       using errcode = '23514', hint = 'jouve_guard';
   end if;
-  -- On the largest line of the largest group: a purchase refunded in full
-  -- nets to zero and must stay at zero.
-  if p_currency = 'USD' and v_diff <> 0 then
-    update card_amounts set ars = ars + v_diff
-     where id = (
-       select a.id from card_amounts a
-         join (select treatment, chart_account_id, employee_id, sum(ars) as total
-                 from card_amounts group by 1, 2, 3) g
-           on g.treatment = a.treatment
-          and g.chart_account_id is not distinct from a.chart_account_id
-          and g.employee_id is not distinct from a.employee_id
-        order by g.total desc, a.amount desc
-        limit 1);
-  end if;
+  v_fix := case when p_currency = 'USD' then v_diff else 0 end;
 
-  if exists (select 1 from card_amounts where treatment = 'ignore') then
+  if exists (select 1 from public.card_statement_amounts(v_st.id, p_currency, v_paid, v_st.total_usd, v_fix) where treatment = 'ignore') then
     raise exception 'Hay consumos marcados como «no corresponde»: el banco los cobró igual, imputalos a una cuenta o a un empleado'
       using errcode = '23514', hint = 'jouve_guard';
   end if;
@@ -405,18 +436,18 @@ begin
   -- has nothing to net against. One that nets to zero (a fee and its
   -- bonificación) books nothing.
   if exists (
-    select 1 from card_amounts where treatment in ('expense', 'advance')
-     group by treatment, chart_account_id, employee_id having sum(ars) < 0
+    select 1 from public.card_statement_amounts(v_st.id, p_currency, v_paid, v_st.total_usd, v_fix) a where a.treatment in ('expense', 'advance')
+     group by a.treatment, a.chart_account_id, a.employee_id having sum(a.ars) < 0
   ) then
     raise exception 'Una cuenta o un empleado del resumen queda negativo (una devolución sola): imputala a la cuenta o al empleado de su consumo'
       using errcode = '23514', hint = 'jouve_guard';
   end if;
 
   for r in
-    select chart_account_id, sum(ars) as total, count(*) as n
-      from card_amounts
-     where treatment = 'expense'
-     group by chart_account_id
+    select a.chart_account_id, sum(a.ars) as total, count(*) as n
+      from public.card_statement_amounts(v_st.id, p_currency, v_paid, v_st.total_usd, v_fix) a
+     where a.treatment = 'expense'
+     group by a.chart_account_id
   loop
     if r.total = 0 then
       continue;
@@ -432,14 +463,14 @@ begin
     )
     returning id into v_tx;
     update public.card_statement_lines l set transaction_id = v_tx
-      from card_amounts a
+      from public.card_statement_amounts(v_st.id, p_currency, v_paid, v_st.total_usd, v_fix) a
      where a.id = l.id and a.treatment = 'expense' and a.chart_account_id = r.chart_account_id;
     v_txs := v_txs || v_tx;
   end loop;
 
   for r in
     select a.employee_id, sum(a.ars) as total, e.legal_name
-      from card_amounts a
+      from public.card_statement_amounts(v_st.id, p_currency, v_paid, v_st.total_usd, v_fix) a
       join public.employees e on e.id = a.employee_id
      where a.treatment = 'advance'
      group by a.employee_id, e.legal_name
@@ -465,7 +496,7 @@ begin
     -- Posted at insert as a loose movement; now the builder sees the employee.
     perform public.repost_journal('transactions', v_tx);
     update public.card_statement_lines l set transaction_id = v_tx
-      from card_amounts a
+      from public.card_statement_amounts(v_st.id, p_currency, v_paid, v_st.total_usd, v_fix) a
      where a.id = l.id and a.treatment = 'advance' and a.employee_id = r.employee_id;
     v_txs := v_txs || v_tx;
   end loop;
