@@ -10580,6 +10580,8 @@ export type Database = {
       get_ledger: {
         Args: { p_account_id: string; p_date_from?: string; p_date_to?: string }
         Returns: {
+          account_code: string
+          account_name: string
           accrual_period: string
           channel_id: string
           credit: number

@@ -12,6 +12,8 @@ export type LedgerRow = {
   credit: string | number;
   line_desc: string | null;
   running: string | number;
+  account_code: string;
+  account_name: string;
 };
 
 export type LedgerSummary = {

@@ -182,16 +182,6 @@ export function buildAccountTree(
   return roots;
 }
 
-/** Accounts with no child in `rows`: the only ones journal lines post to. */
-export function leafAccounts<T extends Pick<ChartAccount, "id" | "parent_id">>(
-  rows: readonly T[],
-): T[] {
-  const parents = new Set(
-    rows.map((a) => a.parent_id).filter((id) => id != null),
-  );
-  return rows.filter((a) => !parents.has(a.id));
-}
-
 export function compareCodes(a: string, b: string): number {
   const pa = a.split(".").map(Number);
   const pb = b.split(".").map(Number);

@@ -8,7 +8,6 @@ import {
   compareCodes,
   ChartAccountCreateSchema,
   ChartAccountUpdateSchema,
-  leafAccounts,
   levelFromCode,
   parentCodeFromCode,
   suggestChildCode,
@@ -152,17 +151,5 @@ describe("COA_SYSTEM_ROLES", () => {
     expect([...COA_SYSTEM_ROLES].sort()).toEqual(
       [...Constants.public.Enums.coa_system_role].sort(),
     );
-  });
-});
-
-describe("leafAccounts", () => {
-  it("keeps only accounts with no child", () => {
-    const rows = [
-      { id: "1", parent_id: null },
-      { id: "1.1", parent_id: "1" },
-      { id: "1.1.1", parent_id: "1.1" },
-      { id: "1.2", parent_id: "1" },
-    ];
-    expect(leafAccounts(rows).map((a) => a.id)).toEqual(["1.1.1", "1.2"]);
   });
 });

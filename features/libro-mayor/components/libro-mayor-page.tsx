@@ -15,7 +15,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useChartOfAccounts } from "@/features/chart-of-accounts/hooks/use-chart-of-accounts";
-import { leafAccounts } from "@/features/chart-of-accounts/schema";
 import {
   journalSourceHref,
   journalSourceLabel,
@@ -43,7 +42,7 @@ export function LibroMayorPage() {
 
   const sortedAccounts = useMemo(
     () =>
-      leafAccounts(accounts).sort((a, b) => {
+      [...accounts].sort((a, b) => {
         // Numeric sort by code segments
         const pa = a.code.split(".").map(Number);
         const pb = b.code.split(".").map(Number);
@@ -58,14 +57,16 @@ export function LibroMayorPage() {
   );
 
   const selectedAccount = accounts.find((a) => a.id === accountId);
+  const isGroup = accounts.some((a) => a.parent_id === accountId);
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Libro mayor</h1>
         <p className="text-sm text-muted-foreground">
-          Movimientos de una cuenta con saldo acumulado por línea, desde el
-          saldo anterior a la fecha &quot;Desde&quot;.
+          Movimientos de una cuenta (con los de sus subcuentas) y el saldo
+          acumulado por línea, desde el saldo anterior a la fecha
+          &quot;Desde&quot;.
         </p>
       </div>
 
@@ -170,6 +171,9 @@ export function LibroMayorPage() {
                     </th>
                     <th className="px-2 py-2 font-medium">Período</th>
                     <th className="px-2 py-2 font-medium">Descripción</th>
+                    {isGroup && (
+                      <th className="px-2 py-2 font-medium">Cuenta</th>
+                    )}
                     <th className="px-2 py-2 font-medium">Origen</th>
                     <th className="px-2 py-2 text-right font-medium">Debe</th>
                     <th className="px-2 py-2 text-right font-medium">Haber</th>
@@ -183,7 +187,10 @@ export function LibroMayorPage() {
                         {formatArgentineDate(from)}
                       </td>
                       <td className="px-2 py-1" />
-                      <td className="px-2 py-1 font-medium" colSpan={4}>
+                      <td
+                        className="px-2 py-1 font-medium"
+                        colSpan={isGroup ? 5 : 4}
+                      >
                         Saldo anterior
                       </td>
                       <td className="px-2 py-1 text-right font-mono font-medium">
@@ -216,6 +223,14 @@ export function LibroMayorPage() {
                           )}
                           <span title={r.line_desc ?? ""}>{r.description}</span>
                         </td>
+                        {isGroup && (
+                          <td className="px-2 py-1 text-xs whitespace-nowrap">
+                            <span className="font-mono text-muted-foreground">
+                              {r.account_code}
+                            </span>{" "}
+                            {r.account_name}
+                          </td>
+                        )}
                         <td className="px-2 py-1">
                           {href ? (
                             <Link
@@ -263,7 +278,10 @@ export function LibroMayorPage() {
                     <td className="sticky left-0 z-10 bg-card px-2 py-2 text-xs">
                       Totales
                     </td>
-                    <td colSpan={3} className="px-2 py-2 text-right text-xs">
+                    <td
+                      colSpan={isGroup ? 4 : 3}
+                      className="px-2 py-2 text-right text-xs"
+                    >
                       {rows.length} movimientos
                     </td>
                     <td className="px-2 py-2 text-right font-mono">
