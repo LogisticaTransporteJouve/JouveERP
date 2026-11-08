@@ -2,9 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import type { BankStatementCode, StatementClient } from "../schema";
 import {
+  GALICIA_CODES,
   PROVINCIA_CODES,
   counterpartyOf,
   detectBankPreset,
+  findCardStatement,
+  findCarteraCheck,
+  findSaleTransfers,
   findLoanInstallment,
   suggestLoanSplit,
   conceptOf,
@@ -219,7 +223,7 @@ describe("a bank with no code (Provincia)", () => {
     expect(kindOf("TRANSF DE QUIMSA SRL (30708529636) FAC 000300022272")).toBe(
       "receipt",
     );
-    expect(kindOf("CR.TRAN. 30708978554 ELECTRA MERCEDES")).toBe("receipt");
+    expect(kindOf("CR.TRAN. 30111111118 CLIENTE UNO")).toBe("receipt");
     expect(
       kindOf("COMISION MANTENIM. PERIODO DESDE 28-09-2026 HASTA 28-10-2026"),
     ).toBe("bank_fee");
@@ -350,12 +354,198 @@ describe("counterpartyOf", () => {
     expect(
       counterpartyOf("TRANSF DE ANDINO OUTFITTERS SO (33718235559) VAR"),
     ).toEqual({ cuit: "33718235559", name: "ANDINO OUTFITTERS SO" });
-    expect(counterpartyOf("CR.TRAN. 30708978554 ELECTRA MERCEDES")).toEqual({
-      cuit: "30708978554",
-      name: "ELECTRA MERCEDES",
+    expect(counterpartyOf("CR.TRAN. 30111111118 CLIENTE UNO")).toEqual({
+      cuit: "30111111118",
+      name: "CLIENTE UNO",
     });
     expect(
       counterpartyOf("TRANSF DE VALDEZ, MONICA ADRIA (23207269824) VAR VARIOS"),
     ).toEqual({ cuit: "23207269824", name: "VALDEZ, MONICA ADRIA" });
+  });
+});
+
+describe("Banco Galicia's codes", () => {
+  const codes = GALICIA_CODES.map((c, i) =>
+    code({
+      id: `g${i}`,
+      bank_code: "",
+      description_pattern: c.description_pattern,
+      kind: c.kind,
+      label: c.label,
+    }),
+  );
+  const labelOf = (description: string) =>
+    findBankCode({ bank_code: null, description }, codes)?.label ?? null;
+
+  it("reads each concept by its whole words", () => {
+    expect(labelOf("Iva")).toBe("IVA del descuento de cheques");
+    expect(labelOf("Percep. Iva")).toBe("Percepción de IVA");
+    expect(labelOf("Ing. Brutos S/ Cred · LEY 12837-BS.AS.")).toBe(
+      "Recaudación IIBB sobre créditos (ARBA)",
+    );
+    expect(
+      labelOf("Transferencia De Terceros · RIVADAVIA SRL · 30711111118"),
+    ).toBe("Transferencia recibida");
+    expect(labelOf("Trf Inmed Proveed · RIVAS JUAN · VARIOS")).toBe(
+      "Pago a proveedor",
+    );
+  });
+
+  it("does not take a pattern inside another word", () => {
+    expect(labelOf("Debito Directo · RIVADAVIA SEGUROS")).toBeNull();
+  });
+
+  it("guesses no bank on a tie", () => {
+    expect(
+      detectBankPreset([
+        { bank_code: null, description: "Iva" },
+        { bank_code: null, description: "Percep. Iva" },
+        { bank_code: null, description: "IMPUESTO DEBITO - LEY 25413" },
+        { bank_code: null, description: "RETENCION ARBA" },
+      ]),
+    ).toBeNull();
+  });
+
+  it("knows a Galicia statement", () => {
+    expect(
+      detectBankPreset([
+        { bank_code: null, description: "Imp. Deb. Ley 25413 Gral." },
+        { bank_code: null, description: "Ing. Brutos S/ Cred" },
+      ]),
+    ).toBe("galicia");
+  });
+});
+
+describe("findSaleTransfers", () => {
+  // Galicia's operation 0001234567 of 03/11: six cheques sold, one credit
+  // per «N° de préstamo» (2059 and 5473 share one).
+  const t = (id: string, amount: number) => ({
+    id,
+    sale_id: "s1",
+    date: "2026-11-03",
+    amount,
+    description: `Venta cheque ${id} a Banco Galicia`,
+  });
+  const sale = [
+    t("1796", 134384),
+    t("2059", 165878.39),
+    t("5473", 7056795.16),
+    t("10114175", 1528950.25),
+    t("10024214", 3547538.5),
+    t("41072338", 1144309.6),
+  ];
+
+  it("finds the cheques of each credit", () => {
+    const ids = (amount: number) =>
+      findSaleTransfers({ amount, line_date: "2026-11-03" }, sale)
+        ?.map((x) => x.id)
+        .sort();
+    expect(ids(7222673.55)).toEqual(["2059", "5473"]);
+    expect(ids(134384)).toEqual(["1796"]);
+    expect(ids(1144309.6)).toEqual(["41072338"]);
+  });
+
+  it("finds nothing for another amount or a far date", () => {
+    expect(
+      findSaleTransfers({ amount: 1000, line_date: "2026-11-03" }, sale),
+    ).toBeNull();
+    expect(
+      findSaleTransfers({ amount: 134384, line_date: "2026-11-20" }, sale),
+    ).toBeNull();
+  });
+});
+
+describe("findCardStatement", () => {
+  const visa = {
+    id: "v1",
+    label: "VISA 0600000001 cierre 29/10/2026",
+    close_date: "2026-10-29",
+    due_date: "2026-11-11",
+    total_ars: 1250000.5,
+    total_usd: 10,
+    ars_pending: true,
+    usd_pending: true,
+    undefined_ars: 0,
+    undefined_usd: 0,
+  };
+  // Galicia writes the same text on the pesos and the dollars debits.
+  const debit = (amount: number, line_date = "2026-11-11") => ({
+    amount,
+    line_date,
+    description: "Pago Visa Empresa · DEBITO AUTOMATICO AL VENCIMIENTO",
+  });
+
+  it("pays the pesos with the debit of their total", () => {
+    expect(findCardStatement(debit(-1250000.5), [visa])).toEqual({
+      statement: visa,
+      currency: "ARS",
+    });
+  });
+
+  it("takes the other debit of the payment as the dollars", () => {
+    expect(findCardStatement(debit(-15376.12), [visa])?.currency).toBe("USD");
+  });
+
+  it("never takes a debit before the close as this statement's dollars", () => {
+    expect(
+      findCardStatement(debit(-15376.12, "2026-10-13"), [visa]),
+    ).toBeNull();
+  });
+
+  it("never takes a debit long past the due date as its dollars", () => {
+    expect(
+      findCardStatement(debit(-15376.12, "2026-12-01"), [visa]),
+    ).toBeNull();
+  });
+
+  it("finds nothing once the dollars are paid and the pesos do not match", () => {
+    expect(
+      findCardStatement(debit(-15376.12), [{ ...visa, usd_pending: false }]),
+    ).toBeNull();
+  });
+});
+
+describe("findCarteraCheck", () => {
+  const c = (id: string, check_number: string, amount: number) => ({
+    id,
+    check_number,
+    amount,
+    due_date: "2026-10-09",
+    drawer_name: "CLIENTE",
+  });
+  const cartera = [
+    c("a", "10365334", 4612),
+    c("b", "00001763", 649643),
+    c("c", "99", 4612),
+  ];
+
+  it("finds the deposited cheque by the number the bank writes", () => {
+    expect(
+      findCarteraCheck(
+        { amount: 4612, description: "G.de Echeq   Q10365334 Bol38694344" },
+        cartera,
+      )?.id,
+    ).toBe("a");
+    expect(
+      findCarteraCheck(
+        { amount: 649643, description: "G. De Echeq Galicia Q    1763" },
+        cartera,
+      )?.id,
+    ).toBe("b");
+  });
+
+  it("never takes another cheque when the line names its number", () => {
+    expect(
+      findCarteraCheck(
+        { amount: 649643, description: "G.de Echeq   Q55555555 Bol1" },
+        [c("b", "00001763", 649643)],
+      ),
+    ).toBeNull();
+  });
+
+  it("does not guess between cheques of the same amount", () => {
+    expect(
+      findCarteraCheck({ amount: 4612, description: "Deposito" }, cartera),
+    ).toBeNull();
   });
 });

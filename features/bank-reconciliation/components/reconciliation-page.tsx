@@ -4,6 +4,7 @@ import {
   Ban,
   Check,
   CheckCheck,
+  CreditCard,
   FileUp,
   Link2,
   MoreHorizontal,
@@ -12,6 +13,7 @@ import {
   Undo2,
   Unlink,
 } from "lucide-react";
+import Link from "next/link";
 import { Suspense, useState } from "react";
 import { toast } from "sonner";
 
@@ -262,7 +264,12 @@ function ReconciliationBody({
 }) {
   const { canWrite, canPayTaxes } = gates;
   const { data } = useReconciliation(accountId, from, to);
-  const { proposals } = useLineProposals(accountId, from, to, data.lines);
+  const { coding, proposals } = useLineProposals(
+    accountId,
+    from,
+    to,
+    data.lines,
+  );
   const [codes, setCodes] = useState<{ draft: CodeDraft | null } | null>(null);
   const accept = useAcceptSuggestions();
   const unmatch = useUnmatchLine();
@@ -276,6 +283,7 @@ function ReconciliationBody({
   const s = data.summary;
   const lineById = new Map(data.lines.map((l) => [l.id, l]));
   const movementById = new Map(data.movements.map((m) => [m.id, m]));
+  const suggestedLines = new Set(data.suggestions.map((sg) => sg.line_id));
   const suggestionByLine = new Map(
     data.suggestions.map((sg) => [sg.line_id, sg]),
   );
@@ -439,11 +447,30 @@ function ReconciliationBody({
       )}
 
       <section className="space-y-2">
+        {coding.isError && !coding.data && (
+          <p className="text-sm">
+            {coding.error.message} Las líneas quedan sin propuestas.{" "}
+            <Button
+              type="button"
+              variant="link"
+              size="sm"
+              className="h-auto px-0"
+              disabled={coding.isFetching}
+              onClick={() => void coding.refetch()}
+            >
+              Reintentar
+            </Button>
+          </p>
+        )}
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-base font-semibold">Extracto</h2>
           <div className="flex flex-wrap gap-2">
             {canWrite && (
-              <AcceptReadyButton lines={data.lines} proposals={proposals} />
+              <AcceptReadyButton
+                lines={data.lines}
+                proposals={proposals}
+                suggested={suggestedLines}
+              />
             )}
             <Button
               type="button"
@@ -597,29 +624,49 @@ function ReconciliationBody({
                               </DropdownMenuItem>
                             </>
                           )}
-                          {line.status === "matched" && (
-                            <DropdownMenuItem
-                              disabled={unmatch.isPending}
-                              onSelect={() => {
-                                const together = splitSiblings(
-                                  line,
-                                  movementById,
-                                );
-                                unmatch.mutate(line.id, {
-                                  onSuccess: () =>
-                                    toast.success(
-                                      together > 1
-                                        ? `Se desconciliaron las ${together} líneas del movimiento.`
-                                        : "Línea desconciliada.",
-                                    ),
-                                  onError: (err) => toast.error(err.message),
-                                });
-                              }}
-                            >
-                              <Unlink className="size-4" />
-                              Desconciliar
-                            </DropdownMenuItem>
-                          )}
+                          {line.status === "matched" &&
+                            // A card statement's debit is undone with its
+                            // statement (the server refuses it here).
+                            line.transaction_ids.some(
+                              (id) =>
+                                movementById.get(id)?.source_document ===
+                                "card_statement",
+                            ) && (
+                              <DropdownMenuItem asChild>
+                                <Link href="/card-statements">
+                                  <CreditCard className="size-4" />
+                                  Pagó un resumen: deshacelo en Tarjetas
+                                </Link>
+                              </DropdownMenuItem>
+                            )}
+                          {line.status === "matched" &&
+                            !line.transaction_ids.some(
+                              (id) =>
+                                movementById.get(id)?.source_document ===
+                                "card_statement",
+                            ) && (
+                              <DropdownMenuItem
+                                disabled={unmatch.isPending}
+                                onSelect={() => {
+                                  const together = splitSiblings(
+                                    line,
+                                    movementById,
+                                  );
+                                  unmatch.mutate(line.id, {
+                                    onSuccess: () =>
+                                      toast.success(
+                                        together > 1
+                                          ? `Se desconciliaron las ${together} líneas del movimiento.`
+                                          : "Línea desconciliada.",
+                                      ),
+                                    onError: (err) => toast.error(err.message),
+                                  });
+                                }}
+                              >
+                                <Unlink className="size-4" />
+                                Desconciliar
+                              </DropdownMenuItem>
+                            )}
                           {line.status === "ignored" && (
                             <DropdownMenuItem
                               disabled={restore.isPending}

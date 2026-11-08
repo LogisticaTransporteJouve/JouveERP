@@ -6,6 +6,8 @@ import { accountsKeys } from "@/features/accounts/lib/accounts-keys";
 import { listChecksAction } from "@/features/checks/actions/checks-actions";
 import { CheckSalesSection } from "@/features/checks/components/check-sales-section";
 import { ChequesTable } from "@/features/checks/components/checks-table";
+import { EcheqListadoDialog } from "@/features/receipts/components/echeq-listado-dialog";
+import { ECHEQ_LISTADO_PERMISSIONS } from "@/features/receipts/lib/echeq-listado-permissions";
 import {
   CHECK_CASH_DENIED_REASON,
   CHECK_CASH_PERMISSIONS,
@@ -53,7 +55,7 @@ export default async function ChequesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">Cheques</h1>
           <p className="text-sm text-muted-foreground">
@@ -61,6 +63,9 @@ export default async function ChequesPage() {
             depositar / endosar / rechazar → acreditar.
           </p>
         </div>
+        {userCanAll(ctx.access, ECHEQ_LISTADO_PERMISSIONS) && (
+          <EcheqListadoDialog />
+        )}
       </div>
       <Hydrate state={dehydratedState}>
         <Suspense fallback={<Loading />}>

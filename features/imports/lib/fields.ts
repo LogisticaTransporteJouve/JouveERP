@@ -441,6 +441,29 @@ const GO_LIVE_FIELDS = {
       ],
       hint: "El código que el banco da a cada movimiento (en Macro, «Código Causal»).",
     },
+    // Banco Galicia puts who sent or got the money apart from the
+    // description: the name in «Leyendas Adicionales 1», the CUIT in «2».
+    {
+      key: "counterparty",
+      label: "Ordenante / destinatario",
+      required: false,
+      aliases: ["leyendas adicionales 1"],
+      hint: "Se agrega a la descripción: el nombre de quien transfirió o recibió.",
+    },
+    {
+      key: "counterparty_cuit",
+      label: "CUIT de la contraparte",
+      required: false,
+      aliases: ["leyendas adicionales 2"],
+      hint: "Se agrega a la descripción cuando es un CUIT, para reconocer al cliente.",
+    },
+    {
+      key: "movement_status",
+      label: "Estado del movimiento",
+      required: false,
+      aliases: ["tipo de movimiento"],
+      hint: "Las líneas «Pendiente» (un cheque en proceso) no se importan: entran cuando el banco las imputa.",
+    },
   ],
 } satisfies Partial<Record<ImportKind, readonly ImportField[]>>;
 

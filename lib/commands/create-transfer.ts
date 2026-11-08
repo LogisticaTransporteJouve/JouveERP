@@ -11,7 +11,8 @@ import { createClient } from "@/lib/supabase/server";
  * Moves money between two treasury accounts with the caller's session: both
  * legs in one transaction (RPC `create_transfer`), then the audit. The caller
  * has already checked `transactions:write` and parsed the input with
- * `TransferCreateSchema`: the Caja form and an accepted assistant proposal.
+ * `TransferCreateSchema`: the Caja form, «Registrar transferencia» on a bank
+ * statement line and an accepted assistant proposal.
  */
 export async function createTransfer(
   actorId: string,

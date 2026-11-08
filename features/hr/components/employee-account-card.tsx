@@ -73,6 +73,7 @@ import { EmployeeCashDialog } from "./employee-cash-dialog";
 
 const SOURCE_LABEL: Record<ReturnType<typeof movementSource>, string> = {
   cash: "Caja",
+  card: "Tarjeta",
   purchase: "Compra",
   payroll: "Planilla",
   settlement: "Rendición",

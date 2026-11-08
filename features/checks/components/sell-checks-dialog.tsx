@@ -39,6 +39,17 @@ function amountOf(value: string): number {
   return n !== null && n >= 0 ? n : NaN;
 }
 
+/** From a bank's discount receipt: who bought the cheques, when, a note,
+ *  and the destination account by name. */
+export type SellPrefill = {
+  buyer_name: string;
+  buyer_cuit: string;
+  sale_date: string;
+  notes: string;
+  /** Picks the destination account whose name has it (the bank's). */
+  account_name?: string;
+};
+
 /**
  * Venta de cheques (descuento) to a bank or financiera: the selected cartera
  * checks leave as vendido, the net lands in the chosen account and the
@@ -50,12 +61,15 @@ export function SellChequesDialog({
   open,
   onOpenChange,
   onSold,
+  prefill,
 }: {
   checks: Cheque[];
   channels: CheckChannelOption[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSold: () => void;
+  /** From a bank's discount receipt: who bought them, when, and a note. */
+  prefill?: SellPrefill | null;
 }) {
   const { data: accounts } = useAccountsList();
   const mut = useSellCheques();
@@ -88,14 +102,19 @@ export function SellChequesDialog({
   useEffect(() => {
     if (!open) return;
     setKey(crypto.randomUUID());
-    setBuyerName("");
-    setBuyerCuit("");
-    setAccountId("");
+    setBuyerName(prefill?.buyer_name ?? "");
+    setBuyerCuit(prefill?.buyer_cuit ?? "");
+    const bank = prefill?.account_name?.toLowerCase();
+    setAccountId(
+      (bank &&
+        destinations.find((a) => a.name.toLowerCase().includes(bank))?.id) ||
+        "",
+    );
     setChannelId(fixedChannel ?? "");
-    setSaleDate(todayInAR());
+    setSaleDate(prefill?.sale_date ?? todayInAR());
     setInterest("0");
     setCommission("0");
-    setNotes("");
+    setNotes(prefill?.notes ?? "");
     // Reset only when the dialog opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);

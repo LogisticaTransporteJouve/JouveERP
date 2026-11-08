@@ -229,6 +229,9 @@ export const BANK_CODE_KINDS = [
   "transfer",
   "loan",
   "ignore",
+  "check_sale",
+  "card_payment",
+  "check_deposit",
 ] as const;
 export type BankCodeKind = (typeof BANK_CODE_KINDS)[number];
 
@@ -240,6 +243,9 @@ export const BANK_CODE_KIND_LABEL: Record<BankCodeKind, string> = {
   transfer: "Transferencia entre cuentas",
   loan: "Cuota de préstamo",
   ignore: "No corresponde",
+  check_sale: "Descuento de cheques",
+  card_payment: "Pago de tarjeta",
+  check_deposit: "Depósito de cheque",
 };
 
 export function isBankCodeKind(value: unknown): value is BankCodeKind {
@@ -255,6 +261,8 @@ export const BANK_TAX_ROLES = [
   "percepciones_iibb_pagadas",
   "retenciones_pagadas",
   "percepciones_ganancias",
+  "iva_credito",
+  "percepciones_iva_pagadas",
 ] as const;
 
 /** A tax or a bank fee is booked straight to its chart account. */
@@ -325,13 +333,14 @@ export const DeleteBankStatementCodeSchema = z.object({
   id: z.string().uuid(),
 });
 
-export const BANK_CODE_PRESETS = ["macro", "provincia"] as const;
+export const BANK_CODE_PRESETS = ["macro", "provincia", "galicia"] as const;
 export const BANK_CODE_PRESET_LABEL: Record<
   (typeof BANK_CODE_PRESETS)[number],
   string
 > = {
   macro: "Banco Macro",
   provincia: "Banco Provincia",
+  galicia: "Banco Galicia",
 };
 export type BankCodePreset = (typeof BANK_CODE_PRESETS)[number];
 
@@ -387,6 +396,68 @@ export type StatementCoding = {
   /** The company's own CUIT: a transfer carrying it is between its own
    *  accounts, not a collection. */
   company_cuit: string | null;
+  /** The cheques sold to a bank (sell_checks) whose transfer to this account
+   *  no line explains yet: a discount credit is reconciled with them. */
+  check_sale_transfers?: StatementCheckSaleTransfer[];
+  card_statements?: StatementCardStatement[];
+  cartera_checks?: StatementCarteraCheck[];
+};
+
+/** A line that moves money to or from another account of the company:
+ *  the transfer is created and both statement lines reconciled. */
+export const TransferFromLineSchema = z.object({
+  line_id: z.string().uuid(),
+  other_account_id: z.string().uuid("Elegí la otra cuenta."),
+});
+export type TransferFromLineInput = z.infer<typeof TransferFromLineSchema>;
+
+export const PayCardFromLineSchema = z.object({
+  line_id: z.string().uuid(),
+  statement_id: z.string().uuid(),
+  currency: z.enum(["ARS", "USD"]),
+});
+export type PayCardFromLineInput = z.infer<typeof PayCardFromLineSchema>;
+
+/** A card statement paid from this account with a part (pesos or dollars)
+ *  not paid yet: the bank's debit of the payment pays it. */
+export type StatementCardStatement = {
+  id: string;
+  label: string;
+  close_date: string;
+  due_date: string;
+  total_ars: number;
+  total_usd: number;
+  ars_pending: boolean;
+  usd_pending: boolean;
+  /** Lines of each part still to define (no account or employee, or «no
+   *  corresponde»): the payment waits for them. */
+  undefined_ars: number;
+  undefined_usd: number;
+};
+
+/** A cheque in a cartera: a deposit credit of its amount takes it to the bank. */
+export type StatementCarteraCheck = {
+  id: string;
+  check_number: string;
+  amount: number;
+  due_date: string;
+  drawer_name: string;
+};
+
+export const DepositCheckFromLineSchema = z.object({
+  line_id: z.string().uuid(),
+  check_id: z.string().uuid(),
+});
+export type DepositCheckFromLineInput = z.infer<
+  typeof DepositCheckFromLineSchema
+>;
+
+export type StatementCheckSaleTransfer = {
+  id: string;
+  sale_id: string;
+  date: string;
+  amount: number;
+  description: string;
 };
 
 const splitPart = z.number().min(0).max(1e12);

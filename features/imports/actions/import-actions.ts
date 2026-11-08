@@ -57,6 +57,11 @@ import {
   type ImportRunStatus,
 } from "../schema";
 
+/** A source hash is 64 characters, not a 36-character uuid: 200 of them in
+ *  one `.in()` overflow the proxy's URL limit (a statement of a few hundred
+ *  lines failed to read back). */
+const HASH_CHUNK_SIZE = 100;
+
 /** Rows of one import; commit_import_run takes up to 5000. */
 const IMPORT_LIMITS: TableLimits = { rows: 5000, columns: 60, cellChars: 500 };
 
@@ -374,11 +379,14 @@ async function existingKeys(
     }
     case "historic_trips": {
       const hashes = rows.flatMap((r) => (r.key ? [r.key] : []));
-      const res = await fetchInChunks(hashes, (chunk) =>
-        service
-          .from("historic_trips")
-          .select("source_hash")
-          .in("source_hash", chunk),
+      const res = await fetchInChunks(
+        hashes,
+        (chunk) =>
+          service
+            .from("historic_trips")
+            .select("source_hash")
+            .in("source_hash", chunk),
+        HASH_CHUNK_SIZE,
       );
       return res.error ? null : new Set(res.data.map((t) => t.source_hash));
     }
@@ -432,14 +440,73 @@ async function existingKeys(
       const accountId = lookups.account?.id;
       if (!accountId) return new Set();
       const hashes = rows.flatMap((r) => (r.key ? [r.key] : []));
-      const res = await fetchInChunks(hashes, (chunk) =>
+      const res = await fetchInChunks(
+        hashes,
+        (chunk) =>
+          service
+            .from("bank_statement_lines")
+            .select("source_hash")
+            .eq("account_id", accountId)
+            .in("source_hash", chunk),
+        HASH_CHUNK_SIZE,
+      );
+      if (res.error) return null;
+      const existing = new Set(res.data.map((l) => l.source_hash));
+      // A bank rewrites a line's text between downloads (Galicia adds a
+      // «Leyenda» later): the same day, amount and running balance is the
+      // same line, whatever its description now says.
+      const pending = rows.filter(
+        (r) =>
+          r.key &&
+          !existing.has(r.key) &&
+          typeof r.payload?.balance === "number",
+      );
+      const dates = pending.flatMap((r) =>
+        typeof r.payload?.line_date === "string" ? [r.payload.line_date] : [],
+      );
+      if (dates.length === 0) return existing;
+      const from = dates.reduce((a, b) => (a < b ? a : b));
+      const to = dates.reduce((a, b) => (a > b ? a : b));
+      const loaded = await paginateRange((start, end) =>
         service
           .from("bank_statement_lines")
-          .select("source_hash")
+          .select("id, line_date, amount, balance")
           .eq("account_id", accountId)
-          .in("source_hash", chunk),
+          .not("balance", "is", null)
+          .gte("line_date", from)
+          .lte("line_date", to)
+          .order("line_date")
+          .order("id")
+          .range(start, end),
       );
-      return res.error ? null : new Set(res.data.map((l) => l.source_hash));
+      if (loaded.error) return null;
+      const triple = (date: unknown, amount: unknown, balance: unknown) =>
+        `${String(date)}|${Number(amount).toFixed(2)}|${Number(balance).toFixed(2)}`;
+      // Counted, not just seen: a debit, its reversal and the same debit
+      // again leave two lines with the same day, amount and balance.
+      const left = new Map<string, number>();
+      for (const l of loaded.data) {
+        const t = triple(l.line_date, l.amount, l.balance);
+        left.set(t, (left.get(t) ?? 0) + 1);
+      }
+      for (const r of rows) {
+        const p = r.payload;
+        if (!r.key || !existing.has(r.key) || typeof p?.balance !== "number")
+          continue;
+        const t = triple(p.line_date, p.amount, p.balance);
+        left.set(t, (left.get(t) ?? 0) - 1);
+      }
+      for (const r of pending) {
+        const p = r.payload;
+        if (!r.key || !p) continue;
+        const t = triple(p.line_date, p.amount, p.balance);
+        const n = left.get(t) ?? 0;
+        if (n > 0) {
+          existing.add(r.key);
+          left.set(t, n - 1);
+        }
+      }
+      return existing;
     }
   }
 }
@@ -457,13 +524,16 @@ async function statementLinesWithoutCode(
       ? [r.key]
       : [],
   );
-  const res = await fetchInChunks(hashes, (chunk) =>
-    getServiceClient()
-      .from("bank_statement_lines")
-      .select("source_hash")
-      .eq("account_id", accountId)
-      .is("bank_code", null)
-      .in("source_hash", chunk),
+  const res = await fetchInChunks(
+    hashes,
+    (chunk) =>
+      getServiceClient()
+        .from("bank_statement_lines")
+        .select("source_hash")
+        .eq("account_id", accountId)
+        .is("bank_code", null)
+        .in("source_hash", chunk),
+    HASH_CHUNK_SIZE,
   );
   return res.error ? null : new Set(res.data.map((l) => l.source_hash));
 }

@@ -1,6 +1,12 @@
+import { CHECK_CASH_PERMISSIONS } from "@/features/checks/lib/check-cash";
 import { IMPORT_KIND_PERMISSION } from "@/features/imports/schema";
 import { LOAN_CASH_PERMISSIONS } from "@/features/loans/lib/loan-cash";
-import { userCan, userCanAll, type Access } from "@/lib/auth/permissions";
+import {
+  TREASURY_WRITE_PERMISSIONS,
+  userCan,
+  userCanAll,
+  type Access,
+} from "@/lib/auth/permissions";
 
 /** What a user may do on a statement, for every page that shows one. */
 export type ReconciliationGates = {
@@ -20,6 +26,11 @@ export type ReconciliationGates = {
   /** Pays a loan cuota from a debit line (accounting:write +
    *  transactions:write). */
   canPayLoans: boolean;
+  /** Books a transfer between own accounts or pays a card statement from a
+   *  line (treasury reads + transactions:write). */
+  canTreasuryWrite: boolean;
+  /** Deposits a cartera cheque from a credit line (+ cheques:write). */
+  canDepositChecks: boolean;
 };
 
 export function reconciliationGates(access: Access): ReconciliationGates {
@@ -37,5 +48,9 @@ export function reconciliationGates(access: Access): ReconciliationGates {
     canManageChart:
       userCan(access, "accounting:write") && userCan(access, "accounting:read"),
     canPayLoans: userCanAll(access, LOAN_CASH_PERMISSIONS),
+    canTreasuryWrite: userCanAll(access, TREASURY_WRITE_PERMISSIONS),
+    canDepositChecks:
+      userCanAll(access, TREASURY_WRITE_PERMISSIONS) &&
+      userCanAll(access, CHECK_CASH_PERMISSIONS),
   };
 }

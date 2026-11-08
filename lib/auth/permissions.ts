@@ -437,6 +437,14 @@ export const TREASURY_PERMISSIONS = [
   "accounts:read",
 ] as const satisfies readonly Permission[];
 
+/** A treasury write (a card statement, a transfer or a deposit booked from a
+ *  bank line): the treasury reads plus transactions:write, which a per-user
+ *  deny can take away. */
+export const TREASURY_WRITE_PERMISSIONS = [
+  ...TREASURY_PERMISSIONS,
+  "transactions:write",
+] as const satisfies readonly Permission[];
+
 /** Composite gate of the fleet profitability report: a trip's revenue is
  *  the freight of its cargas. */
 export const FLEET_PROFITABILITY_PERMISSIONS = [

@@ -15,7 +15,8 @@ import { createClient } from "@/lib/supabase/server";
  * (RPC `deposit_check`, which refuses a check no longer en cartera), then
  * the audit. The caller has already checked `cheques:write` +
  * CHECK_CASH_PERMISSIONS and parsed the input with `DepositChequeSchema`:
- * «Depositar» in Cheques and an accepted assistant proposal.
+ * «Depositar» in Cheques, «Depositar cheque» on a bank statement line and
+ * an accepted assistant proposal.
  */
 export async function depositCheck(
   actorId: string,

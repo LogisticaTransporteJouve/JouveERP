@@ -7,6 +7,7 @@ import {
 } from "@tanstack/react-query";
 
 import { agingKeys } from "@/features/aging/lib/aging-keys";
+import { reconciliationKeys } from "@/features/bank-reconciliation/lib/reconciliation-keys";
 import { clientsKeys } from "@/features/clients/lib/clients-keys";
 import { LEDGER_KEYS } from "@/features/journal-entries/lib/ledger-keys";
 import { receiptsKeys } from "@/features/receipts/lib/receipts-keys";
@@ -46,10 +47,12 @@ function makeChequeMutation<TInput, TData>(
       mutationFn: (input: TInput) => runAction(() => fn(input)),
       // Every check mutation may move cash (cartera, deposit, credit,
       // rejection) and post a fiscal entry; a rejection also puts client
-      // debt back (account statement, aging, receipts' pending list).
+      // debt back (account statement, aging, receipts' pending list). The
+      // statement's proposals read the cartera and the sale transfers.
       onSuccess: () => {
         invalidateKeys(qc, [
           checksKeys.all,
+          reconciliationKeys.all,
           ...CASH_KEYS,
           ...LEDGER_KEYS,
           clientsKeys.all,

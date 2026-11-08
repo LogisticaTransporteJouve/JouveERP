@@ -30,9 +30,9 @@ const PROVINCIA_TXT = [
   "\t \t DESDE: \t01/10/2026",
 ].join("\n");
 
-function build(text: string) {
+function build(text: string, name = "extracto.txt") {
   const table = readUploadedTable(
-    "extracto.txt",
+    name,
     new TextEncoder().encode(text),
     { rows: 100, columns: 20, cellChars: 500 },
     {
@@ -86,6 +86,33 @@ describe("Banco Provincia's statement", () => {
       "TRANSF DE VALDEZ, MONICA ADRIA (23207269824) VAR VARIOS",
     );
     expect(first?.payload?.balance).toBe(1653337.81);
+  });
+});
+
+// Banco Galicia's home banking export: dates read from date cells, debits
+// and credits apart, who sent the money in «Leyendas Adicionales», and a
+// cheque still in process («Pendiente») at the end.
+const GALICIA_CSV = [
+  "Fecha;Descripción;Origen;Débitos;Créditos;Grupo de Conceptos;Concepto;Número de Terminal;Observaciones Cliente;Número de Comprobante;Leyendas Adicionales 1;Leyendas Adicionales 2;Leyendas Adicionales 3;Leyendas Adicionales 4;Tipo de Movimiento;Saldo",
+  "2026-10-07T00:00:00.000Z;Transferencia De Terceros;;0;33813.75;;;TIFN0000;;;PEREZ/JUAN CARLOS;20111111112;0000000000000000000001;;Imputado;3037630.31",
+  "2026-10-07T00:00:00.000Z;Ing. Brutos S/ Cred;;439.58;0;;;;;;LEY 12837-BS.AS.;;;;Imputado;3037190.73",
+  "2026-11-12T00:00:00.000Z;Cheque Depositado En Proceso;;0;1231153;;;;;;;;;;Pendiente;10445889.51",
+].join("\n");
+
+describe("Banco Galicia's statement", () => {
+  it("reads the dates, skips what is pending and keeps who sent it", () => {
+    const rows = build(GALICIA_CSV, "extracto.csv");
+    expect(rows.flatMap((r) => r.errors)).toEqual([]);
+    expect(rows.map((r) => [r.payload?.line_date, r.payload?.amount])).toEqual([
+      ["2026-10-07", 33813.75],
+      ["2026-10-07", -439.58],
+    ]);
+    expect(rows[0]?.payload?.description).toBe(
+      "Transferencia De Terceros · PEREZ/JUAN CARLOS · 20111111112",
+    );
+    expect(rows[1]?.payload?.description).toBe(
+      "Ing. Brutos S/ Cred · LEY 12837-BS.AS.",
+    );
   });
 });
 

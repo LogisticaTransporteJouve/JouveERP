@@ -11,6 +11,7 @@ import {
   recordEmployeeAccountCash,
 } from "@/lib/commands/record-employee-account";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
+import { fetchInChunks } from "@/lib/supabase/paginate";
 
 import {
   CreateDebtPlanSchema,
@@ -112,6 +113,24 @@ export async function getEmployeeAccountAction(
   }
 
   const rows = movementsRes.data ?? [];
+  // A card statement's advance is undone from the statement, not here.
+  const cardRes = await fetchInChunks(
+    rows.flatMap((r) => (r.transaction_id ? [r.transaction_id] : [])),
+    (ids) =>
+      supabase
+        .from("card_statement_lines")
+        .select("transaction_id")
+        .in("transaction_id", ids),
+    50,
+  );
+  if (cardRes.error) {
+    logger.error("employee_account.card_read_failed", {
+      userId: ctx.userId,
+      error: cardRes.error,
+    });
+    return { ok: false, error: "No se pudo leer la cuenta corriente." };
+  }
+  const fromCard = new Set(cardRes.data.map((r) => r.transaction_id));
   const movements: AccountMovement[] = [];
   for (const row of rows.slice(0, MOVEMENTS_LIMIT)) {
     const { kind, currency, creditor } = row;
@@ -143,6 +162,8 @@ export async function getEmployeeAccountAction(
       purchase_invoice_id: row.purchase_invoice_id,
       payroll_entry_id: row.payroll_entry_id,
       driver_settlement_id: row.driver_settlement_id,
+      card_statement:
+        row.transaction_id !== null && fromCard.has(row.transaction_id),
     });
   }
 

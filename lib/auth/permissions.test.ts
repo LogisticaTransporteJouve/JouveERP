@@ -8,6 +8,7 @@ import {
   PERMISSIONS,
   SUPPLIER_AGING_PERMISSIONS,
   TREASURY_PERMISSIONS,
+  TREASURY_WRITE_PERMISSIONS,
   ROLES,
   OWNER_ONLY_PERMISSIONS,
   ROLE_PERMISSIONS,
@@ -485,6 +486,25 @@ describe("fiscal_reader", () => {
         true,
       );
     }
+  });
+
+  it("writes treasury only with transactions:write on top of its reads", () => {
+    for (const role of ["owner", "admin", "finance"] as const) {
+      expect(
+        userCanAll(resolveAccess([role]), TREASURY_WRITE_PERMISSIONS),
+      ).toBe(true);
+    }
+    for (const role of ["operations", "fiscal_reader"] as const) {
+      expect(
+        userCanAll(resolveAccess([role]), TREASURY_WRITE_PERMISSIONS),
+      ).toBe(false);
+    }
+    expect(
+      userCanAll(
+        resolveAccess(["finance"], ["transactions:write"]),
+        TREASURY_WRITE_PERMISSIONS,
+      ),
+    ).toBe(false);
   });
 
   it("pins a fiscal-only user to fiscal channels", () => {

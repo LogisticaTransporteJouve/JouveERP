@@ -1,3 +1,4 @@
+import { checkNumberKey } from "@/lib/checks/check-number";
 import { z } from "zod";
 
 import { listAccountsAction } from "@/features/accounts/actions/accounts-actions";
@@ -167,11 +168,6 @@ export function channelFor(
       })),
     ),
   };
-}
-
-/** A check number as typed: digits only, no leading zeros. */
-function checkNumberKey(text: string): string {
-  return text.replace(/\D/g, "").replace(/^0+/, "");
 }
 
 /** The cartera check with the number the user said (and bank, when the

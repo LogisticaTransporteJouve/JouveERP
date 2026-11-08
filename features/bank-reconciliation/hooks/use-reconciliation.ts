@@ -7,7 +7,13 @@ import {
   useSuspenseQuery,
 } from "@tanstack/react-query";
 
+import { agingKeys } from "@/features/aging/lib/aging-keys";
+import { checksKeys } from "@/features/checks/lib/checks-keys";
+import { clientsKeys } from "@/features/clients/lib/clients-keys";
+import { accountKeys } from "@/features/hr/lib/account-keys";
+import { employeesKeys } from "@/features/hr/lib/employees-keys";
 import { LEDGER_KEYS } from "@/features/journal-entries/lib/ledger-keys";
+import { receiptsKeys } from "@/features/receipts/lib/receipts-keys";
 import { tasksKeys } from "@/features/tasks/lib/tasks-keys";
 import { listPayableTaxDocumentsAction } from "@/features/taxes/actions/tax-payment-link-actions";
 import { taxesKeys } from "@/features/taxes/lib/taxes-keys";
@@ -15,6 +21,7 @@ import { transactionsKeys } from "@/features/transactions/lib/transactions-keys"
 import { CASH_KEYS } from "@/features/treasury/lib/cash-keys";
 import { loansKeys } from "@/features/loans/lib/loans-keys";
 import { invalidateKeys } from "@/lib/query/invalidate";
+import { cardStatementsKeys } from "@/features/card-statements/lib/card-statements-keys";
 import { runAction } from "@/lib/query/run-action";
 
 import {
@@ -26,6 +33,9 @@ import {
   listReconciliationAccountsAction,
   matchLineAction,
   matchLineToReceiptAction,
+  payCardStatementFromLineAction,
+  transferFromLineAction,
+  depositCheckFromLineAction,
   payLoanInstallmentFromLineAction,
   matchLinesToMovementAction,
   restoreLineAction,
@@ -38,6 +48,9 @@ import type {
   IgnoreLineInput,
   MatchLineInput,
   MatchLineToReceiptInput,
+  PayCardFromLineInput,
+  TransferFromLineInput,
+  DepositCheckFromLineInput,
   PayLoanFromLineInput,
   MatchLinesToMovementInput,
 } from "../schema";
@@ -66,9 +79,12 @@ function useReconciliationMutation<I, O>(
   alsoKeys: readonly (readonly unknown[])[] = [],
 ) {
   const qc = useQueryClient();
+  // On settled, not on success: an action may write and then report a
+  // later step failed (a transfer booked whose line did not match), and the
+  // page has to show what was written.
   return useMutation({
     mutationFn: fn,
-    onSuccess: () => {
+    onSettled: () => {
       invalidateKeys(qc, [
         reconciliationKeys.all,
         transactionsKeys.all,
@@ -87,6 +103,43 @@ export function useMatchLine() {
 export function useMatchLineToReceipt() {
   return useReconciliationMutation((input: MatchLineToReceiptInput) =>
     runAction(() => matchLineToReceiptAction(input)),
+  );
+}
+
+export function useDepositCheckFromLine() {
+  return useReconciliationMutation(
+    (input: DepositCheckFromLineInput) =>
+      runAction(() => depositCheckFromLineAction(input)),
+    [
+      checksKeys.all,
+      ...CASH_KEYS,
+      ...LEDGER_KEYS,
+      clientsKeys.all,
+      agingKeys.all,
+      receiptsKeys.all,
+    ],
+  );
+}
+
+export function useTransferFromLine() {
+  return useReconciliationMutation(
+    (input: TransferFromLineInput) =>
+      runAction(() => transferFromLineAction(input)),
+    [...CASH_KEYS, ...LEDGER_KEYS],
+  );
+}
+
+export function usePayCardFromLine() {
+  return useReconciliationMutation(
+    (input: PayCardFromLineInput) =>
+      runAction(() => payCardStatementFromLineAction(input)),
+    [
+      cardStatementsKeys.all,
+      ...CASH_KEYS,
+      ...LEDGER_KEYS,
+      employeesKeys.all,
+      accountKeys.all,
+    ],
   );
 }
 
