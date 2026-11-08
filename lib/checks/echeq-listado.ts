@@ -36,7 +36,8 @@ const isoDate = (s: string): string | null => {
 
 const amountOf = (s: string): number | null => {
   const t = s.trim();
-  if (/^-?\d+(\.\d+)?$/.test(t)) return Number(t);
+  // A raw xlsx number may carry float noise (1433696.6000000001).
+  if (/^-?\d+(\.\d+)?$/.test(t)) return Math.round(Number(t) * 100) / 100;
   if (/^-?[\d.]+,\d{1,2}$/.test(t))
     return Number(t.replace(/\./g, "").replace(",", "."));
   return null;

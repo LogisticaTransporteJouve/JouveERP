@@ -12,7 +12,6 @@ import {
 } from "@/lib/commands/record-employee-account";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { fetchInChunks } from "@/lib/supabase/paginate";
-import { getServiceClient } from "@/lib/supabase/service";
 
 import {
   CreateDebtPlanSchema,
@@ -114,12 +113,11 @@ export async function getEmployeeAccountAction(
   }
 
   const rows = movementsRes.data ?? [];
-  // A card statement's advance is undone from the statement, not here. Read
-  // with the service client: HR may not see the statement's lines.
+  // A card statement's advance is undone from the statement, not here.
   const cardRes = await fetchInChunks(
     rows.flatMap((r) => (r.transaction_id ? [r.transaction_id] : [])),
     (ids) =>
-      getServiceClient()
+      supabase
         .from("card_statement_lines")
         .select("transaction_id")
         .in("transaction_id", ids),

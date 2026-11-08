@@ -103,17 +103,15 @@ create temporary table t_tx as
   select transaction_id as id from public.card_statement_lines
    where statement_id = '00000000-0000-0000-0000-0000000c05a1' and sort_order = 1;
 
-select throws_ok(
+select throws_like(
   $$update public.transactions set amount = 1 where id = (select id from t_tx)$$,
-  '55006',
-  null,
+  '%resumen de tarjeta%',
   'a card movement cannot be edited by hand'
 );
 
-select throws_ok(
+select throws_like(
   $$delete from public.transactions where id = (select id from t_tx)$$,
-  '55006',
-  null,
+  '%resumen de tarjeta%',
   'a card movement cannot be deleted by hand'
 );
 
@@ -173,12 +171,11 @@ select is(
 
 -- 5. A lone refund ----------------------------------------------------------------
 
-select throws_ok(
+select throws_like(
   $$select public.settle_card_statement('00000000-0000-0000-0000-0000000c05a3',
       (select id from t_lines where amount = -900), 'ARS', 'jouve_fiscal',
       '00000000-0000-0000-0000-0000000c0f01')$$,
-  '23514',
-  null,
+  'Una cuenta o un empleado del resumen queda negativo%',
   'an account left negative by a lone refund is refused'
 );
 

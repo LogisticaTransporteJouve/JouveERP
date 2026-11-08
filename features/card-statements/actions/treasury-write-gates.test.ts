@@ -216,3 +216,33 @@ describe("a paid part", () => {
     }
   });
 });
+
+describe("unmatching a card payment", () => {
+  const LINE_ID = "00000000-0000-4000-8000-0000000000b1";
+
+  it("refuses a line that paid a card statement, before the RPC", async () => {
+    fake = recordingSupabase((call) =>
+      call.table === "card_statement_lines"
+        ? { data: [{ id: "x" }], error: null }
+        : { data: null, error: null },
+    );
+    const res = await bank.unmatchLineAction({ line_id: LINE_ID });
+    expect(res.ok === false && res.error).toMatch(/deshacé el pago/);
+    expect(fake.calls.some((c) => c.op === "rpc")).toBe(false);
+  });
+
+  it("unmatches any other line", async () => {
+    fake = recordingSupabase((call) =>
+      call.table === "card_statement_lines"
+        ? { data: [], error: null }
+        : { data: null, error: null },
+    );
+    const res = await bank.unmatchLineAction({ line_id: LINE_ID });
+    expect(res.ok).toBe(true);
+    expect(
+      fake.calls.some(
+        (c) => c.op === "rpc" && c.table === "unmatch_bank_statement_line",
+      ),
+    ).toBe(true);
+  });
+});

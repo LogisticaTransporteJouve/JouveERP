@@ -959,7 +959,7 @@ export const treasuryPage: GuidePage = {
             {
               message:
                 "No se puede editar monto, fecha, cuenta, tipo o canal de un movimiento generado por un documento (sueldo, préstamo, cheque, saldo inicial, impuesto, cuenta corriente de un empleado o resumen de tarjeta): editá el documento de origen",
-              fix: "Corregí el sueldo, la cuota, el cheque, el saldo inicial, el impuesto o el movimiento del empleado desde su pantalla.",
+              fix: "Corregí el sueldo, la cuota, el cheque, el saldo inicial, el impuesto o el movimiento del empleado desde su pantalla, o deshacé el pago del resumen de tarjeta.",
             },
             {
               message:

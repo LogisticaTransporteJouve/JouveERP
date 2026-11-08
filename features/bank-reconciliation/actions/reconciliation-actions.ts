@@ -982,13 +982,35 @@ export async function unmatchLineAction(
   const parsed = LineIdSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Datos inválidos." };
   const { line_id } = parsed.data;
-  const { error } = await getServiceClient().rpc(
-    "unmatch_bank_statement_line",
-    {
-      p_line_id: line_id,
-      p_user_id: ctx.userId,
-    },
-  );
+  const service = getServiceClient();
+  // A card statement's debit is undone with its statement: unmatched here,
+  // its movements would stay and the statement would stay paid.
+  const card = await service
+    .from("card_statement_lines")
+    .select(
+      "id, transactions!inner ( bank_statement_matches!inner ( line_id ) )",
+    )
+    .eq("transactions.bank_statement_matches.line_id", line_id)
+    .limit(1);
+  if (card.error) {
+    logger.error("reconciliation.unmatch.card_read_failed", {
+      userId: ctx.userId,
+      lineId: line_id,
+      error: card.error,
+    });
+    return { ok: false, error: "No se pudo desconciliar la línea." };
+  }
+  if (card.data.length > 0) {
+    return {
+      ok: false,
+      error:
+        "Esta línea pagó un resumen de tarjeta: deshacé el pago desde Tesorería › Tarjetas.",
+    };
+  }
+  const { error } = await service.rpc("unmatch_bank_statement_line", {
+    p_line_id: line_id,
+    p_user_id: ctx.userId,
+  });
   if (error) {
     return {
       ok: false,
