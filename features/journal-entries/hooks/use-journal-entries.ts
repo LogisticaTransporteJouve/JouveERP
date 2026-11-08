@@ -9,6 +9,7 @@ import {
 import { useMemo } from "react";
 
 import { listChartOfAccountsAction } from "@/features/chart-of-accounts/actions/chart-of-accounts-actions";
+import { leafAccounts } from "@/features/chart-of-accounts/schema";
 import { runAction } from "@/lib/query/run-action";
 
 import { createManualJournalEntryAction } from "../actions/journal-entries-actions";
@@ -54,13 +55,7 @@ export function usePostableAccounts(enabled: boolean) {
     staleTime: 60_000,
   });
 
-  const accounts = useMemo(() => {
-    const all = query.data ?? [];
-    const parents = new Set(
-      all.map((a) => a.parent_id).filter((id): id is string => id !== null),
-    );
-    return all.filter((a) => !parents.has(a.id));
-  }, [query.data]);
+  const accounts = useMemo(() => leafAccounts(query.data ?? []), [query.data]);
 
   return { ...query, accounts };
 }

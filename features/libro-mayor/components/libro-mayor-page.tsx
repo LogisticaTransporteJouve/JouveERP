@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useChartOfAccounts } from "@/features/chart-of-accounts/hooks/use-chart-of-accounts";
+import { leafAccounts } from "@/features/chart-of-accounts/schema";
 import {
   journalSourceHref,
   journalSourceLabel,
@@ -42,7 +43,7 @@ export function LibroMayorPage() {
 
   const sortedAccounts = useMemo(
     () =>
-      [...accounts].sort((a, b) => {
+      leafAccounts(accounts).sort((a, b) => {
         // Numeric sort by code segments
         const pa = a.code.split(".").map(Number);
         const pb = b.code.split(".").map(Number);
