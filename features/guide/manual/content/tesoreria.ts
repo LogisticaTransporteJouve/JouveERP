@@ -2601,6 +2601,7 @@ export const treasuryPage: GuidePage = {
             "En la cuenta del banco, con la fecha del débito, queda un egreso por cada cuenta contable y un adelanto por cada empleado (en su cuenta corriente), y la línea del extracto queda conciliada con ellos.",
             "Si la parte que pagás tiene adelantos de sueldo, pide también el permiso de escritura de Personal; si tiene IVA o percepciones, el de Impuestos.",
             "Si pagaste con el débito equivocado, en el resumen deshacé el pago de los pesos (o de los dólares) y confirmá con {{Deshacer pago}}: borra sus egresos y adelantos con sus asientos, la línea del extracto vuelve a pendiente y los consumos se pueden cambiar otra vez.",
+            "Después de pagar podés seguir cambiando qué es cada consumo en su fila: el pago de esa parte se vuelve a registrar solo, contra el mismo débito, con los egresos y adelantos nuevos. Si el cambio no se puede pagar (por ejemplo, una devolución que queda sola en una cuenta), no cambia nada y te avisa por qué.",
           ],
           keywords: ["pago tarjeta", "visa", "debito automatico"],
         },

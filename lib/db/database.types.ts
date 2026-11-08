@@ -11243,6 +11243,17 @@ export type Database = {
           total: number
         }[]
       }
+      reclassify_card_statement_lines: {
+        Args: {
+          p_chart_account_id?: string
+          p_employee_id?: string
+          p_line_ids: string[]
+          p_statement_id: string
+          p_treatment: string
+          p_user_id: string
+        }
+        Returns: number
+      }
       record_arca_web_attempt: {
         Args: { p_error_code: string; p_ok: boolean; p_version: string }
         Returns: boolean
