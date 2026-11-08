@@ -31,6 +31,8 @@ function ledgerRow(i: number) {
     credit: 0,
     line_desc: null,
     running: h.opening + i + 1,
+    account_code: "1.1.1.2",
+    account_name: "Bancos",
   };
 }
 

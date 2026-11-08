@@ -16,6 +16,8 @@ const row = (over: Partial<LedgerRow>): LedgerRow => ({
   credit: 0,
   line_desc: null,
   running: 0,
+  account_code: "1.1.1.2",
+  account_name: "Bancos",
   ...over,
 });
 

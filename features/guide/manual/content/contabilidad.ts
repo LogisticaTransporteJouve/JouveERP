@@ -698,7 +698,7 @@ export const accountingPage: GuidePage = {
           kind: "page",
           title: "Libro mayor",
           toolbar: [
-            { label: "Cuenta", kind: "select", value: "1.1.1 Caja general" },
+            { label: "Cuenta", kind: "select", value: "1.1.1.1 Caja general" },
             { label: "Desde", kind: "date", value: "01/10/2026" },
             { label: "Hasta", kind: "date", value: "31/10/2026" },
           ],
@@ -739,7 +739,7 @@ export const accountingPage: GuidePage = {
           permission: "accounting:read",
           steps: [
             "Entrá a [[/accounting/libro-mayor]].",
-            "En {{Cuenta}}, elegí la cuenta (la lista trae las cuentas activas, ordenadas por código).",
+            "En {{Cuenta}}, elegí la cuenta (la lista trae las cuentas activas, ordenadas por código). Una cuenta que agrupa a otras, como 1.1.1 Caja y bancos, muestra los movimientos de todas sus subcuentas juntos, con una columna {{Cuenta}} que dice de cuál es cada uno.",
             "Opcional: acotá las fechas con {{Desde}} y {{Hasta}}. Sin fechas se ven todos los movimientos.",
             {
               text: "Leé el resultado:",

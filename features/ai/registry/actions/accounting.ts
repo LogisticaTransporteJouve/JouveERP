@@ -110,7 +110,8 @@ export const getLedger = defineAiAction({
   sideEffect: "read",
   sources: ["get_ledger"],
   description:
-    "General ledger of ONE ledger account: movements with running balance " +
+    "General ledger of ONE ledger account (a grouping account includes all " +
+    "its subaccounts, each row's account_code says which): movements with running balance " +
     "between dates; the running balance starts from `opening` (the balance " +
     "before `from`). Requires the account UUID (obtainable from the chart of " +
     "accounts / getTrialBalance).",

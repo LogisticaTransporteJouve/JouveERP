@@ -25,9 +25,7 @@ vi.mock("next/link", () => ({
   ),
 }));
 vi.mock("@/features/chart-of-accounts/hooks/use-chart-of-accounts", () => ({
-  useChartOfAccounts: () => ({
-    data: [{ id: "acc-1", code: "1.1", name: "Caja" }],
-  }),
+  useChartOfAccounts: () => ({ data: h.accounts }),
 }));
 const ledgerData = {
   truncated: false,
@@ -45,6 +43,8 @@ const ledgerData = {
       debit: 100,
       credit: 0,
       running: 100,
+      account_code: "1.1.2",
+      account_name: "Bancos",
     },
   ],
 };
@@ -62,7 +62,16 @@ const loaded = (): LedgerRead => ({
   data: ledgerData,
   refetch: vi.fn(),
 });
-const h = vi.hoisted(() => ({ ledger: null as unknown }));
+const LEAF = [{ id: "acc-1", parent_id: null, code: "1.1", name: "Caja" }];
+const h = vi.hoisted(() => ({
+  ledger: null as unknown,
+  accounts: [] as {
+    id: string;
+    parent_id: string | null;
+    code: string;
+    name: string;
+  }[],
+}));
 
 vi.mock("../hooks/use-libro-mayor", () => ({
   LEDGER_MAX_ROWS: 5000,
@@ -77,6 +86,7 @@ const { LibroMayorPage } = await import("./libro-mayor-page");
 afterEach(cleanup);
 beforeEach(() => {
   h.ledger = loaded();
+  h.accounts = LEAF;
 });
 
 function chooseAccount(ledger: LedgerRead) {
@@ -96,6 +106,21 @@ describe("LibroMayorPage", () => {
     for (const cell of document.querySelectorAll("td.sticky, th.sticky")) {
       expect((cell as HTMLTableCellElement).colSpan).toBe(1);
     }
+  });
+
+  it("shows each line's subaccount when the account groups others", () => {
+    h.accounts = [
+      ...LEAF,
+      { id: "acc-2", parent_id: "acc-1", code: "1.1.2", name: "Bancos" },
+    ];
+    chooseAccount(loaded());
+    expect(screen.getByRole("columnheader", { name: "Cuenta" })).toBeTruthy();
+    expect(screen.getByText("1.1.2")).toBeTruthy();
+  });
+
+  it("has no subaccount column for an account that takes entries", () => {
+    chooseAccount(loaded());
+    expect(screen.queryByRole("columnheader", { name: "Cuenta" })).toBeNull();
   });
 
   it("shows no totals while the ledger loads", () => {
