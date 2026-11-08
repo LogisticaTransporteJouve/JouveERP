@@ -92,21 +92,41 @@ export function ChequesTable({
     const cartera = items.filter((c) => c.status === "en_cartera");
     const picked: string[] = [];
     const missing: string[] = [];
+    // A check that already left the cartera (usually sold by this same
+    // receipt) is not "missing": loading it again would duplicate it.
+    const elsewhere: string[] = [];
+    const sameCheck = (ch: (typeof r.cheques)[number]) => (c: CheckListItem) =>
+      checkNumberKey(c.check_number) === checkNumberKey(ch.check_number) &&
+      Math.abs(Number(c.amount) - ch.amount) < 0.005;
     for (const ch of r.cheques) {
       const found = cartera.find(
-        (c) =>
-          !picked.includes(c.id) &&
-          checkNumberKey(c.check_number) === checkNumberKey(ch.check_number) &&
-          Math.abs(Number(c.amount) - ch.amount) < 0.005,
+        (c) => !picked.includes(c.id) && sameCheck(ch)(c),
       );
-      if (found) picked.push(found.id);
-      else
-        missing.push(`${ch.check_number} (${formatMoney(ch.amount, "ARS")})`);
+      if (found) {
+        picked.push(found.id);
+        continue;
+      }
+      const label = `${ch.check_number} (${formatMoney(ch.amount, "ARS")})`;
+      const left = items.find(
+        (c) => c.status !== "en_cartera" && sameCheck(ch)(c),
+      );
+      if (left)
+        elsewhere.push(
+          `${label}: ${CHECK_STATUS_LABEL[left.status].toLowerCase()}`,
+        );
+      else missing.push(label);
     }
-    if (missing.length > 0) {
-      toast.error(
-        `Faltan en la cartera: ${missing.join(", ")}. Cargalos y volvé a subir el comprobante.`,
-      );
+    if (missing.length > 0 || elsewhere.length > 0) {
+      const parts: string[] = [];
+      if (elsewhere.length > 0)
+        parts.push(
+          `Ya no están en la cartera: ${elsewhere.join(", ")}. Si el comprobante ya se cargó, no hace falta subirlo de nuevo.`,
+        );
+      if (missing.length > 0)
+        parts.push(
+          `Faltan en la cartera: ${missing.join(", ")}. Cargalos y volvé a subir el comprobante.`,
+        );
+      toast.error(parts.join(" "));
       return;
     }
     setSelected(new Set(picked));
