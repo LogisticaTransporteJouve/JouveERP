@@ -1,3 +1,4 @@
+import { checkNumberKey } from "@/lib/checks/check-number";
 import { addDaysIso } from "@/lib/date-range";
 import { isValidCuit } from "@/lib/validation/cuit";
 
@@ -771,14 +772,15 @@ export function findCarteraCheck(
 ): StatementCarteraCheck | null {
   const cents = Math.round(line.amount * 100);
   const same = checks.filter((c) => Math.round(c.amount * 100) === cents);
-  const digits = (s: string) => s.replace(/\D/g, "").replace(/^0+/, "");
   const numbers = [
     ...line.description.matchAll(/(?:Q|Nro\.?)\s*0*(\d{3,})/gi),
-  ].map((m) => digits(m[1]!));
+  ].map((m) => checkNumberKey(m[1]!));
   // A line that names its cheque is that cheque or none: another cheque of
   // the same amount is not it.
   if (numbers.length > 0) {
-    return same.find((c) => numbers.includes(digits(c.check_number))) ?? null;
+    return (
+      same.find((c) => numbers.includes(checkNumberKey(c.check_number))) ?? null
+    );
   }
   return same.length === 1 ? same[0]! : null;
 }

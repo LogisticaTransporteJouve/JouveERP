@@ -1,5 +1,6 @@
 "use client";
 
+import { checkNumberKey } from "@/lib/checks/check-number";
 import { FileUp, HandCoins } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -88,7 +89,6 @@ export function ChequesTable({
       return;
     }
     const r = parsed.receipt;
-    const digits = (n: string) => n.replace(/\D/g, "").replace(/^0+/, "");
     const cartera = items.filter((c) => c.status === "en_cartera");
     const picked: string[] = [];
     const missing: string[] = [];
@@ -96,7 +96,7 @@ export function ChequesTable({
       const found = cartera.find(
         (c) =>
           !picked.includes(c.id) &&
-          digits(c.check_number) === digits(ch.check_number) &&
+          checkNumberKey(c.check_number) === checkNumberKey(ch.check_number) &&
           Math.abs(Number(c.amount) - ch.amount) < 0.005,
       );
       if (found) picked.push(found.id);

@@ -166,6 +166,8 @@ export type AccountMovement = {
   payroll_entry_id: string | null;
   /** The rendición whose difference it posted. */
   driver_settlement_id: string | null;
+  /** Paid with a card statement: undone from the statement. */
+  card_statement: boolean;
 };
 
 /** Where a movement comes from, for what the card lets the user do. */
@@ -177,8 +179,17 @@ export function movementSource(
     | "purchase_invoice_id"
     | "payroll_entry_id"
     | "driver_settlement_id"
+    | "card_statement"
   >,
-): "cash" | "purchase" | "payroll" | "settlement" | "forgiveness" | "manual" {
+):
+  | "cash"
+  | "card"
+  | "purchase"
+  | "payroll"
+  | "settlement"
+  | "forgiveness"
+  | "manual" {
+  if (m.card_statement) return "card";
   if (m.payroll_entry_id) return "payroll";
   if (m.driver_settlement_id) return "settlement";
   if (m.purchase_invoice_id) return "purchase";

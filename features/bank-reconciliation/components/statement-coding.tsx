@@ -624,8 +624,8 @@ export function BankCodesDialog({
                         colSpan={4}
                         className="text-muted-foreground px-3 py-4"
                       >
-                        Todavía no hay códigos. Cargá los de Banco Macro o
-                        agregá uno.
+                        Todavía no hay códigos. Cargá los de tu banco o agregá
+                        uno.
                       </td>
                     </tr>
                   )}

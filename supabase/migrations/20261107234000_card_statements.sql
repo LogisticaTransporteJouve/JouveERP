@@ -306,7 +306,7 @@ as $$
         on g.treatment = a.treatment
        and g.chart_account_id is not distinct from a.chart_account_id
        and g.employee_id is not distinct from a.employee_id
-     order by g.total desc, a.amount desc
+     order by g.total desc, a.amount desc, a.id
      limit 1
   )
   select b.id, b.treatment, b.chart_account_id, b.employee_id,

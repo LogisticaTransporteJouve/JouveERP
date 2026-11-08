@@ -37,7 +37,8 @@ export type ListPendingComprobantes = (
  *
  * The caller has already checked `receipts:write` (and `retentions:write`
  * when it carries retentions) and parsed the input with
- * `ReceiptCreateSchema`: «Nuevo recibo» and an accepted assistant proposal.
+ * `ReceiptCreateSchema`: «Nuevo recibo», an accepted assistant proposal and
+ * the eCheq listado import.
  */
 export async function createReceipt(
   actorId: string,

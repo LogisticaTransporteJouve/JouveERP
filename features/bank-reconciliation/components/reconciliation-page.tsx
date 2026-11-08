@@ -262,7 +262,12 @@ function ReconciliationBody({
 }) {
   const { canWrite, canPayTaxes } = gates;
   const { data } = useReconciliation(accountId, from, to);
-  const { proposals } = useLineProposals(accountId, from, to, data.lines);
+  const { coding, proposals } = useLineProposals(
+    accountId,
+    from,
+    to,
+    data.lines,
+  );
   const [codes, setCodes] = useState<{ draft: CodeDraft | null } | null>(null);
   const accept = useAcceptSuggestions();
   const unmatch = useUnmatchLine();
@@ -440,6 +445,21 @@ function ReconciliationBody({
       )}
 
       <section className="space-y-2">
+        {coding.isError && !coding.data && (
+          <p className="text-sm">
+            {coding.error.message} Las líneas quedan sin propuestas.{" "}
+            <Button
+              type="button"
+              variant="link"
+              size="sm"
+              className="h-auto px-0"
+              disabled={coding.isFetching}
+              onClick={() => void coding.refetch()}
+            >
+              Reintentar
+            </Button>
+          </p>
+        )}
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-base font-semibold">Extracto</h2>
           <div className="flex flex-wrap gap-2">

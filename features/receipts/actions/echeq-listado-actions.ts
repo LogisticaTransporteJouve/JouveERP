@@ -1,5 +1,6 @@
 "use server";
 
+import { checkNumberKey } from "@/lib/checks/check-number";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCanAll } from "@/lib/auth/permissions";
 import {
@@ -21,13 +22,8 @@ import {
   listPendingComprobantesForClientAction,
 } from "./receipts-actions";
 
-// A receipt with an eCheq: the receipt, the check into the cartera and the
-// treasury movement of the cartera.
-const PERMISSIONS = [
-  "receipts:write",
-  "cheques:write",
-  "transactions:write",
-] as const;
+import { ECHEQ_LISTADO_PERMISSIONS } from "../lib/echeq-listado-permissions";
+
 const MAX_BYTES = 5 * 1024 * 1024;
 
 export type EcheqListadoRow = ListedEcheq & {
@@ -41,8 +37,6 @@ export type EcheqListadoPreview = {
   ready: number;
   cartera_account: string | null;
 };
-
-const digits = (s: string) => s.replace(/\D/g, "").replace(/^0+/, "");
 
 async function prepare(
   formData: FormData,
@@ -125,7 +119,7 @@ async function prepare(
   const numbers = [
     ...new Set(
       toLoad.flatMap((c) => {
-        const n = digits(c.check_number);
+        const n = checkNumberKey(c.check_number);
         return [c.check_number, n, n.padStart(8, "0")];
       }),
     ),
@@ -158,14 +152,14 @@ async function prepare(
   const clientByCuit = new Map(clients.data.map((c) => [c.cuit, c.id]));
   const loaded = new Set(
     checks.data.map(
-      (c) => `${digits(c.check_number)}|${Number(c.amount).toFixed(2)}`,
+      (c) => `${checkNumberKey(c.check_number)}|${Number(c.amount).toFixed(2)}`,
     ),
   );
 
   const listed = new Set<string>();
   const rows: EcheqListadoRow[] = toLoad.map((c) => {
     const client_id = clientByCuit.get(c.client_cuit) ?? null;
-    const key = `${digits(c.check_number)}|${c.amount.toFixed(2)}`;
+    const key = `${checkNumberKey(c.check_number)}|${c.amount.toFixed(2)}`;
     // A cheque listed twice is loaded once.
     const repeated = listed.has(key);
     listed.add(key);
@@ -197,7 +191,7 @@ export async function previewEcheqListadoAction(
   formData: FormData,
 ): Promise<ActionResult<EcheqListadoPreview>> {
   const ctx = await requireUserContext();
-  if (!userCanAll(ctx.access, PERMISSIONS)) {
+  if (!userCanAll(ctx.access, ECHEQ_LISTADO_PERMISSIONS)) {
     return { ok: false, error: "Sin permiso para cargar cobros con cheques." };
   }
   const prepared = await prepare(formData, ctx.userId);
@@ -212,7 +206,7 @@ export async function importEcheqListadoAction(
   formData: FormData,
 ): Promise<ActionResult<{ created: number; failed: string[] }>> {
   const ctx = await requireUserContext();
-  if (!userCanAll(ctx.access, PERMISSIONS)) {
+  if (!userCanAll(ctx.access, ECHEQ_LISTADO_PERMISSIONS)) {
     return { ok: false, error: "Sin permiso para cargar cobros con cheques." };
   }
   const prepared = await prepare(formData, ctx.userId);
