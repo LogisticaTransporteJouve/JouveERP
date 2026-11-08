@@ -1365,6 +1365,11 @@ export const treasuryPage: GuidePage = {
                 "La línea ya está conciliada o marcada como que no corresponde",
               fix: "Actualizá la pantalla.",
             },
+            {
+              message:
+                "No se pudieron leer los cheques o las tarjetas de la cuenta.",
+              fix: "Hacé clic en {{Reintentar}}. Mientras tanto ninguna línea muestra {{Pagar cuota}}, {{Pagar resumen}}, {{Crear recibo}} ni las demás propuestas, pero podés conciliar a mano. El mismo aviso aparece si fallan los códigos del banco, las cuentas contables, los clientes o las cuotas de préstamos.",
+            },
           ],
           related: ["crear-movimiento-desde-extracto", "desconciliar-linea"],
           keywords: ["conciliar", "matchear", "puntear extracto"],
