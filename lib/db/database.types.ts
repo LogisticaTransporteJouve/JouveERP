@@ -3198,7 +3198,6 @@ export type Database = {
       }
       employee_salary_changes: {
         Row: {
-          component: string
           created_at: string
           created_by: string | null
           effective_month: string
@@ -3210,7 +3209,6 @@ export type Database = {
           reason: string | null
         }
         Insert: {
-          component?: string
           created_at?: string
           created_by?: string | null
           effective_month: string
@@ -3222,7 +3220,6 @@ export type Database = {
           reason?: string | null
         }
         Update: {
-          component?: string
           created_at?: string
           created_by?: string | null
           effective_month?: string
@@ -5977,7 +5974,6 @@ export type Database = {
           description: string
           entry_id: string
           id: string
-          is_recurring: boolean
           sort_order: number
         }
         Insert: {
@@ -5987,7 +5983,6 @@ export type Database = {
           description: string
           entry_id: string
           id?: string
-          is_recurring?: boolean
           sort_order?: number
         }
         Update: {
@@ -5997,7 +5992,6 @@ export type Database = {
           description?: string
           entry_id?: string
           id?: string
-          is_recurring?: boolean
           sort_order?: number
         }
         Relationships: [
@@ -10505,10 +10499,6 @@ export type Database = {
         Returns: undefined
       }
       employee_salary_for_month: {
-        Args: { p_employee_id: string; p_month: string }
-        Returns: number
-      }
-      employee_viatico_for_month: {
         Args: { p_employee_id: string; p_month: string }
         Returns: number
       }
