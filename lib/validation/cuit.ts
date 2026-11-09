@@ -27,3 +27,14 @@ export function formatCuitInput(value: string): string {
   if (digits.length <= 10) return `${digits.slice(0, 2)}-${digits.slice(2)}`;
   return `${digits.slice(0, 2)}-${digits.slice(2, 10)}-${digits.slice(10)}`;
 }
+
+/** Shows an 11-digit CUIT as XX-XXXXXXXX-X; anything else as it is. */
+export function formatCuit(value: string): string;
+export function formatCuit(value: string | null | undefined): string | null;
+export function formatCuit(value: string | null | undefined): string | null {
+  if (value == null) return null;
+  const digits = value.replace(/\D/g, "");
+  return digits.length === 11
+    ? `${digits.slice(0, 2)}-${digits.slice(2, 10)}-${digits.slice(10)}`
+    : value;
+}

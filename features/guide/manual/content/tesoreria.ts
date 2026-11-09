@@ -1223,7 +1223,7 @@ export const treasuryPage: GuidePage = {
           permission: ["imports:write", "transactions:write"],
           prerequisites: [
             "Ser owner o admin: el importador ([[/admin/imports]]) es solo para esos roles; sin el permiso, el botón {{Subir extracto}} no aparece.",
-            "El extracto como lo baja el banco: planilla .xlsx (se lee la primera hoja), .csv o .txt (el de Banco Provincia, con su encabezado y totales, se lee tal cual; en el .xlsx de Banco Galicia se suman a la descripción el nombre y el CUIT de «Leyendas Adicionales», y las líneas «Pendiente» no se importan hasta que el banco las imputa), con una fila de títulos y hasta 5000 filas. Columnas: fecha y descripción (obligatorias), el importe con signo (negativo = débito) o dos columnas de débito y crédito, y si las trae, saldo, referencia y el código del banco (en Macro, «Código Causal»).",
+            "El extracto como lo baja el banco: planilla .xlsx o .xls (se lee la primera hoja), el PDF del resumen o de los últimos movimientos (se toma cada renglón que empieza con una fecha y termina con el importe y el saldo; si es débito o crédito sale de cómo cambia el saldo, así que el PDF tiene que traer la columna de saldo), .csv o .txt (el de Banco Provincia, con su encabezado y totales, se lee tal cual; en el .xlsx de Banco Galicia se suman a la descripción el nombre y el CUIT de «Leyendas Adicionales», y las líneas «Pendiente» no se importan hasta que el banco las imputa), con una fila de títulos y hasta 5000 filas. Columnas: fecha y descripción (obligatorias), el importe con signo (negativo = débito) o dos columnas de débito y crédito, y si las trae, saldo, referencia y el código del banco (en Macro, «Código Causal»).",
             "La cuenta del extracto activa y de tipo banco, billetera, efectivo o inversión (no una cartera de cheques).",
           ],
           screens: [
@@ -1231,7 +1231,7 @@ export const treasuryPage: GuidePage = {
               kind: "dialog",
               title: "Subir extracto",
               description:
-                "Subí el extracto que bajaste del banco (.csv, .txt o .xlsx). Las líneas que ya estaban cargadas se saltean.",
+                "Subí el extracto que bajaste del banco (.pdf, .xlsx, .xls, .csv o .txt). Las líneas que ya estaban cargadas se saltean.",
               fields: [{ label: "Archivo", kind: "input", marker: 2 }],
               footer: [
                 { label: "Cancelar", variant: "outline" },

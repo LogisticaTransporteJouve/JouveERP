@@ -193,7 +193,7 @@ export const accountingPage: GuidePage = {
         {
           title: "Categoría EERR",
           body: [
-            "Texto libre (por ejemplo `gastos_operativos`) que agrupa las cuentas de resultado en la pestaña {{Estado de Resultados}} de [[/accounting/balance]]. Las cuentas sin categoría van a `sin_categoria`.",
+            "Texto libre (por ejemplo `gastos_operativos`) que agrupa las cuentas de resultado en la pestaña {{Estado de Resultados}} de [[/accounting/balance]]. Las cuentas sin categoría, o con una que la cascada no conoce, van a «Otros ingresos y egresos». Las categorías que arman la cascada son `ingresos_operativos`, `costo`, `gastos_operativos`, `gastos_administrativos`, `ingresos_financieros`, `gastos_financieros`, `otros_ingresos` e `impuesto_ganancias`.",
           ],
         },
       ],
@@ -1112,7 +1112,7 @@ export const accountingPage: GuidePage = {
           steps: [
             "En [[/accounting/balance]], elegí el {{Período de corte}} y, para ver un mes o un rango, {{Desde (opcional)}}. Para el ejercicio, usá {{Ejercicio actual}} o {{Ejercicio anterior}}.",
             "Abrí la pestaña {{Estado de Resultados}}.",
-            "Revisá {{Ingresos}} y {{Gastos}}, agrupados por categoría EERR; hacé clic en una categoría para ver sus cuentas.",
+            "Leé la cascada de arriba hacia abajo: {{Ventas}}, {{Costo de los servicios}}, {{Resultado bruto}}, gastos operativos y de administración, {{Resultado operativo}}, resultados financieros y otros, y {{Resultado antes de impuestos}}. Los gastos van en negativo. Cada renglón sale de la categoría EERR de sus cuentas; hacé clic en uno para ver sus cuentas. Una cuenta con una categoría que la cascada no conoce, o sin categoría, va a «Otros ingresos y egresos».",
           ],
           after: [
             "Al pie, {{Resultado del período}} con la marca {{Ganancia}} o {{Pérdida}}. Sin {{Desde (opcional)}}, el resultado es el del ejercicio hasta el corte (desde su primer mes); para ver el ejercicio anterior completo, usá {{Ejercicio anterior}}.",

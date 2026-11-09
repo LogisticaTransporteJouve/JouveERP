@@ -1,3 +1,4 @@
+import { formatCuit } from "@/lib/validation/cuit";
 // The layout the three surfaces of each libro IVA share (screen, PDF and
 // Excel): title, short voucher codes, the IVA condition column and the amount
 // columns, in the order the legacy book prints them.
@@ -338,11 +339,7 @@ export type BookModel<F> = {
 
 /** "30-71234567-8" for an 11-digit CUIT; any other document as stored. */
 export function formatDocNumber(doc: string | null): string {
-  if (!doc) return "";
-  const digits = doc.replace(/\D/g, "");
-  return digits.length === 11
-    ? `${digits.slice(0, 2)}-${digits.slice(2, 10)}-${digits.slice(10)}`
-    : doc;
+  return doc ? formatCuit(doc) : "";
 }
 
 export function ventasBook(

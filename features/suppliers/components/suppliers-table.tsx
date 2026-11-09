@@ -1,5 +1,6 @@
 "use client";
 
+import { formatCuit } from "@/lib/validation/cuit";
 import Link from "next/link";
 import {
   Suspense,
@@ -256,7 +257,9 @@ function buildColumns({
       enableSorting: false,
       meta: { mobile: "secondary" },
       cell: ({ row }) => (
-        <span className="font-mono text-xs">{row.original.cuit ?? "—"}</span>
+        <span className="font-mono text-xs">
+          {formatCuit(row.original.cuit) ?? "—"}
+        </span>
       ),
     },
     {

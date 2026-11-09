@@ -5,6 +5,7 @@ import type { Notification } from "../types";
 import {
   formatNotificationTime,
   getNotificationHref,
+  getNotificationLead,
   getNotificationPreview,
   getNotificationTitle,
 } from "./format";
@@ -104,5 +105,43 @@ describe("formatNotificationTime", () => {
   it("returns a non-empty string", () => {
     const out = formatNotificationTime(new Date().toISOString());
     expect(out.length).toBeGreaterThan(0);
+  });
+});
+
+describe("getNotificationLead", () => {
+  const base = {
+    id: "n",
+    recipient_id: "r",
+    read_at: null,
+    created_at: "2026-11-08T10:00:00Z",
+    sender_first_name: null,
+    sender_last_name: null,
+    sender_email: null,
+    sender_avatar_path: null,
+    sender_avatar_color: null,
+    sender_avatar_url: null,
+  };
+
+  it("leads a system notification with its title alone", () => {
+    expect(
+      getNotificationLead(
+        {
+          ...base,
+          sender_id: null,
+          type: "task_due",
+          metadata: { stage: "overdue" },
+        },
+        "Usuario",
+      ),
+    ).toEqual({ name: null, title: "Tarea vencida" });
+  });
+
+  it("keeps the sender's name on a person's notification", () => {
+    expect(
+      getNotificationLead(
+        { ...base, sender_id: "u", type: "chat_mention", metadata: {} },
+        "Ana",
+      ),
+    ).toEqual({ name: "Ana", title: "te mencionó" });
   });
 });

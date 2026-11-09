@@ -197,6 +197,35 @@ export function useCreateLineTransaction() {
   });
 }
 
+/** Many lines at once ("Aceptar impuestos y gastos"): one after the other,
+ *  refreshing the statement, Caja and the books once at the end. Refreshing
+ *  after each line made every next line wait for the whole statement. */
+export function useCreateLineTransactions() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (inputs: readonly CreateLineTransactionInput[]) => {
+      let done = 0;
+      const failed: string[] = [];
+      for (const input of inputs) {
+        try {
+          await runAction(() => createLineTransactionAction(input));
+          done += 1;
+        } catch (err) {
+          failed.push(err instanceof Error ? err.message : String(err));
+        }
+      }
+      return { done, failed };
+    },
+    onSettled: () => {
+      invalidateKeys(qc, [
+        reconciliationKeys.all,
+        ...CASH_KEYS,
+        ...LEDGER_KEYS,
+      ]);
+    },
+  });
+}
+
 /** The open tax documents a debit line can pay; only fetched while the
  *  create dialog offers "Pago de impuesto". */
 export function usePayableTaxDocuments(enabled: boolean) {

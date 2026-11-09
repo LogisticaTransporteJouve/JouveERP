@@ -1,5 +1,6 @@
 "use client";
 
+import { formatCuit } from "@/lib/validation/cuit";
 import Link from "next/link";
 
 import { Link2, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
@@ -101,7 +102,9 @@ export function DriversTable({
         accessorKey: "cuit",
         header: "CUIT",
         cell: ({ row }) => (
-          <span className="font-mono text-xs">{row.original.cuit ?? "—"}</span>
+          <span className="font-mono text-xs">
+            {formatCuit(row.original.cuit) ?? "—"}
+          </span>
         ),
         meta: { headerClassName: "w-40" },
       },

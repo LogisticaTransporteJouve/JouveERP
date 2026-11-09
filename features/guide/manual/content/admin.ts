@@ -817,7 +817,7 @@ export const adminPage: GuidePage = {
         {
           title: "Cómo lee la planilla",
           body: [
-            "Acepta .xlsx (lee la primera hoja), .csv o .txt (el texto separado que bajan los bancos), de hasta 4 MB y 5000 filas. Busca la fila de títulos y propone qué columna corresponde a cada dato; los títulos pueden variar (se reconocen sinónimos, listados abajo).",
+            "Acepta .xlsx o .xls (lee la primera hoja), .csv o .txt (el texto separado que bajan los bancos), de hasta 4 MB y 5000 filas. Busca la fila de títulos y propone qué columna corresponde a cada dato; los títulos pueden variar (se reconocen sinónimos, listados abajo).",
             "Nada se guarda hasta que confirmás. Cada fila queda {{Lista}}, {{Ya existe}} (ya estaba cargada o se repite en el archivo: se saltea) o {{Con error}} (queda afuera, con el motivo).",
             "En tarifas, préstamos, cheques y saldos iniciales, una fila que se repite en el archivo es un error en todas sus repeticiones: hay que dejar una sola con el importe total.",
             "Importar dos veces el mismo archivo no duplica nada: lo que ya está cargado se saltea, y el diálogo avisa si ese archivo ya se importó antes.",
@@ -853,7 +853,7 @@ export const adminPage: GuidePage = {
               kind: "dialog",
               title: "Importar planilla",
               description:
-                "Subí un .xlsx (primera hoja) o .csv con una fila de títulos. Nada se guarda hasta que confirmes; las filas con error quedan afuera y las que ya están cargadas se saltean.",
+                "Subí un .xlsx o .xls (primera hoja) o .csv con una fila de títulos. Nada se guarda hasta que confirmes; las filas con error quedan afuera y las que ya están cargadas se saltean.",
               fields: [
                 {
                   label: "Qué importar",
@@ -886,7 +886,7 @@ export const adminPage: GuidePage = {
           steps: [
             "En [[/admin/imports]], hacé clic en {{Importar planilla}}.",
             "En {{Qué importar}}, elegí el tipo. Debajo se ve qué hace ese tipo y qué columnas lee.",
-            "En {{Archivo}}, elegí el .xlsx o .csv.",
+            "En {{Archivo}}, elegí el .xlsx, .xls o .csv.",
             {
               text: "Si el tipo lo pide, elegí la cuenta y el canal.",
               substeps: [
@@ -921,12 +921,7 @@ export const adminPage: GuidePage = {
               fix: "Dividí la planilla en varios archivos.",
             },
             {
-              message:
-                "El formato .xls no se puede leer: guardalo como .xlsx o .csv.",
-              fix: "Abrilo en Excel y guardalo como .xlsx o .csv.",
-            },
-            {
-              message: "Subí el archivo en .xlsx o .csv.",
+              message: "Subí el archivo en .xlsx, .xls o .csv.",
               fix: "Convertí la planilla a uno de esos formatos.",
             },
             {
