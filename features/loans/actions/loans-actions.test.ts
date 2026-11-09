@@ -18,9 +18,14 @@ vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => clientOverride ?? fake.client,
 }));
 vi.mock("@/lib/actions/audit", () => ({ logAudit: vi.fn() }));
+const rpc = vi.fn();
+vi.mock("@/lib/supabase/service", () => ({
+  getServiceClient: () => ({ rpc }),
+}));
 
 const {
   adoptInstallmentPaymentAction,
+  applyInstallmentStatementAction,
   cancelLoanAction,
   createLoanAction,
   listLoansAction,
@@ -249,6 +254,88 @@ describe("updateInstallmentAction", () => {
       ["status", "pendiente"],
       ["capital_amount", null],
     ]);
+  });
+});
+
+describe("applyInstallmentStatementAction", () => {
+  const statement = {
+    loan_id: "00000000-0000-4000-8000-000000000001",
+    operation: "139499",
+    installment_number: 21,
+    capital: 2190131.3,
+    interest: 2178903.39,
+    iva: 917497.28,
+    charges: [
+      {
+        concept: "seguro",
+        description: "Seguro automotor",
+        amount: 381897.45,
+        iva_amount: 76452.3,
+      },
+    ],
+  };
+  // loans → loan_number; loan_installments → the cuota.
+  function client(loanNumber: string, cuota: { id: string; status: string }) {
+    const row = (table: string) =>
+      table === "loans" ? { loan_number: loanNumber } : cuota;
+    return {
+      from: (table: string) => {
+        const q = {
+          select: () => q,
+          eq: () => q,
+          maybeSingle: async () => ({ data: row(table), error: null }),
+        };
+        return q;
+      },
+    };
+  }
+
+  beforeEach(() => rpc.mockReset());
+
+  it("sets the pending cuota from the statement, through the gated RPC", async () => {
+    clientOverride = client("139499", { id: "c21", status: "pendiente" });
+    rpc.mockResolvedValue({ data: 5744881.72, error: null });
+    const res = await applyInstallmentStatementAction(statement);
+    expect(res).toEqual({
+      ok: true,
+      data: { installment_number: 21, amount: 5744881.72 },
+    });
+    expect(rpc).toHaveBeenCalledWith("set_loan_installment_charges", {
+      p_installment_id: "c21",
+      p_split: {
+        capital: 2190131.3,
+        interest: 2178903.39,
+        iva: 917497.28,
+        perception: 0,
+      },
+      p_charges: statement.charges,
+    });
+  });
+
+  it("refuses a statement of another contract", async () => {
+    clientOverride = client("140000", { id: "c21", status: "pendiente" });
+    const res = await applyInstallmentStatementAction(statement);
+    expect(res).toEqual({
+      ok: false,
+      error: "El resumen es de la operación 139499, no de 140000.",
+    });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("refuses a cuota already paid", async () => {
+    clientOverride = client("139499", { id: "c21", status: "pagada" });
+    const res = await applyInstallmentStatementAction(statement);
+    expect(res).toEqual({ ok: false, error: "La cuota 21 ya está pagada." });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("needs accounting:write", async () => {
+    denied = ["accounting:write"];
+    const res = await applyInstallmentStatementAction(statement);
+    expect(res).toEqual({
+      ok: false,
+      error: "Sin permiso para editar cuotas.",
+    });
   });
 });
 

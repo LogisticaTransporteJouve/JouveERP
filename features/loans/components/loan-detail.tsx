@@ -20,6 +20,7 @@ import { formatArgentineDate, formatMoney, todayInAR } from "@/lib/format";
 
 import { useLoan } from "../hooks/use-loans";
 import {
+  LOAN_CHARGE_CONCEPT_LABEL,
   LOAN_KIND_LABEL,
   LOAN_STATUS_LABEL,
   type LoanInstallment,
@@ -30,6 +31,7 @@ import {
   AdoptInstallmentPaymentDialog,
   RecordDisbursementDialog,
 } from "./loan-movement-dialogs";
+import { LeasingStatementUpload } from "./leasing-statement-upload";
 import { LoanBankPayments } from "./loan-bank-payments";
 import { PayInstallmentDialog } from "./pay-installment-dialog";
 
@@ -233,7 +235,20 @@ export function LoanDetail({
       </div>
 
       <section className="space-y-2">
-        <h2 className="text-sm font-medium">Plan de cuotas</h2>
+        <div className="flex flex-wrap items-end justify-between gap-2">
+          <div>
+            <h2 className="text-sm font-medium">Plan de cuotas</h2>
+            {loan.kind === "leasing" && (
+              <p className="text-muted-foreground text-xs">
+                «Otros» incluye seguro, patentes y mora. El resumen de cuota del
+                dador completa la cuota que vence.
+              </p>
+            )}
+          </div>
+          {loan.kind === "leasing" && loan.status === "active" && canWrite && (
+            <LeasingStatementUpload loan={loan} />
+          )}
+        </div>
         <div className="bg-card overflow-x-auto rounded-lg border">
           <Table className="min-w-[56rem]">
             <TableHeader>
@@ -269,6 +284,16 @@ export function LoanDetail({
                   </TableCell>
                   <TableCell className="text-right font-mono tabular-nums">
                     {i.split ? money(i.split.other + i.split.perception) : "—"}
+                    {i.charges.length > 0 && (
+                      <span className="text-muted-foreground block font-sans text-xs whitespace-nowrap">
+                        {i.charges
+                          .map(
+                            (c) =>
+                              `${c.description ?? LOAN_CHARGE_CONCEPT_LABEL[c.concept]} ${money(c.amount + c.iva_amount)}`,
+                          )
+                          .join(" · ")}
+                      </span>
+                    )}
                   </TableCell>
                   <TableCell className="text-right font-mono tabular-nums">
                     {i.split ? money(i.split.iva) : "—"}

@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { LEASING_CHARGE_CONCEPTS } from "@/lib/loans/leasing-statement";
+
 export const LOAN_KINDS = ["prestamo", "leasing"] as const;
 export type LoanKind = (typeof LOAN_KINDS)[number];
 export const LOAN_KIND_LABEL: Record<LoanKind, string> = {
@@ -33,6 +35,34 @@ export interface LoanInstallment {
   split: InstallmentSplit | null;
   /** Paid before the loan was loaded: no movement in Caja. */
   paid_outside: boolean;
+  /** What «otros» is made of (seguro, patentes, mora…); empty = no detail. */
+  charges: LoanInstallmentCharge[];
+}
+
+export type LoanChargeConcept = (typeof LEASING_CHARGE_CONCEPTS)[number];
+
+export const LOAN_CHARGE_CONCEPT_LABEL: Record<LoanChargeConcept, string> = {
+  seguro: "Seguro",
+  patentes: "Patentes",
+  mora: "Mora",
+  valor_residual: "Valor residual",
+  otro: "Otro cargo",
+};
+
+export interface LoanInstallmentCharge {
+  id: string;
+  concept: LoanChargeConcept;
+  description: string | null;
+  /** Without IVA. */
+  amount: number;
+  iva_amount: number;
+}
+
+export function isLoanChargeConcept(v: unknown): v is LoanChargeConcept {
+  return (
+    typeof v === "string" &&
+    (LEASING_CHARGE_CONCEPTS as readonly string[]).includes(v)
+  );
 }
 
 export interface InstallmentSplit {
@@ -294,6 +324,27 @@ export const RecordBankPaymentsSchema = z.object({
     )
     .min(1, "Elegí al menos un comprobante.")
     .max(500),
+});
+
+/** A cuota as the lender's statement bills it: its split and each charge. */
+export const ApplyInstallmentStatementSchema = z.object({
+  loan_id: z.string().uuid(),
+  /** The contract number on the statement, checked against the loan's. */
+  operation: z.string().max(40).nullable(),
+  installment_number: z.number().int().min(1).max(600),
+  capital: cents,
+  interest: cents,
+  iva: cents,
+  charges: z
+    .array(
+      z.object({
+        concept: z.enum(LEASING_CHARGE_CONCEPTS),
+        description: z.string().trim().min(1).max(200),
+        amount: cents,
+        iva_amount: cents,
+      }),
+    )
+    .max(50),
 });
 
 export const BookLoanOpeningSchema = z.object({ loan_id: z.string().uuid() });
