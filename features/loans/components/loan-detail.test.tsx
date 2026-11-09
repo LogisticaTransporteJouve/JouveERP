@@ -68,7 +68,11 @@ vi.mock("next/link", () => ({
 vi.mock("@/features/accounts/actions/accounts-actions", () => ({
   listAccountsAction: h.listAccounts,
 }));
-vi.mock("../hooks/use-loans", () => ({ useLoan: () => ({ data: loan }) }));
+let current: Loan = loan;
+vi.mock("../hooks/use-loans", () => ({
+  useLoan: () => ({ data: current }),
+  useApplyInstallmentStatement: () => ({ mutate: vi.fn(), isPending: false }),
+}));
 vi.mock("./loan-bank-payments", () => ({ LoanBankPayments: () => null }));
 vi.mock("./pay-installment-dialog", () => ({
   PayInstallmentDialog: () => null,
@@ -85,6 +89,7 @@ const { LoanDetail } = await import("./loan-detail");
 
 afterEach(() => {
   cleanup();
+  current = loan;
   h.listAccounts.mockReset();
 });
 
@@ -131,5 +136,55 @@ describe("LoanDetail accounts", () => {
     expect(
       screen.getByRole("button", { name: "Registrar desembolso" }),
     ).toBeTruthy();
+  });
+});
+
+describe("LoanDetail leasing", () => {
+  it("shows each charge under «Otros» and offers the cuota statement", async () => {
+    h.listAccounts.mockResolvedValue({ ok: true, data: [] });
+    const cuota = loan.installments[0];
+    if (!cuota) throw new Error("fixture");
+    current = {
+      ...loan,
+      kind: "leasing",
+      installments: [
+        {
+          ...cuota,
+          amount: 5744881.72,
+          split: {
+            capital: 2190131.3,
+            interest: 2178903.39,
+            iva: 917497.28,
+            perception: 0,
+            other: 458349.75,
+          },
+          charges: [
+            {
+              id: "c1",
+              concept: "seguro",
+              description: "Seguro automotor",
+              amount: 381897.45,
+              iva_amount: 76452.3,
+            },
+          ],
+        },
+      ],
+    };
+    renderDetail();
+    expect(
+      await screen.findByText(/Seguro automotor \$\s?458\.349,75/),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: /Cargar resumen de cuota/ }),
+    ).toBeTruthy();
+  });
+
+  it("does not offer the statement on a loan", async () => {
+    h.listAccounts.mockResolvedValue({ ok: true, data: [] });
+    renderDetail();
+    await screen.findByText("Plan de cuotas");
+    expect(
+      screen.queryByRole("button", { name: /Cargar resumen de cuota/ }),
+    ).toBeNull();
   });
 });
