@@ -54,6 +54,7 @@ const loan: Loan = {
       notes: null,
       split: null,
       paid_outside: false,
+      charges: [],
     },
   ],
 };

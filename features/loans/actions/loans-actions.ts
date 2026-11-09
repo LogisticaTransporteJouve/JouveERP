@@ -29,6 +29,7 @@ const BankPaymentsResultSchema = z.object({
 import { LOAN_CASH_PERMISSIONS } from "../lib/loan-cash";
 import {
   AdoptInstallmentPaymentSchema,
+  ApplyInstallmentStatementSchema,
   CancelLoanSchema,
   BookLoanOpeningSchema,
   CreateLoanSchema,
@@ -42,6 +43,8 @@ import {
   type LoanInstallment,
   type LoanListItem,
   isInstallmentStatus,
+  isLoanChargeConcept,
+  type LoanInstallmentCharge,
   isLoanKind,
   isLoanStatus,
 } from "../schema";
@@ -303,6 +306,36 @@ export async function getLoanAction(
     });
     return { ok: false, error: "No se pudo cargar el préstamo." };
   }
+  const { data: chargeRows, error: chargesError } = await supabase
+    .from("loan_installment_charges")
+    .select(
+      "id, installment_id, concept, description, amount, iva_amount, created_at, installment:loan_installments!inner(loan_id)",
+    )
+    .eq("installment.loan_id", id)
+    .order("created_at")
+    .order("id")
+    .limit(5000);
+  if (chargesError) {
+    logger.error("loans.detail.charges_failed", {
+      userId: ctx.userId,
+      error: chargesError,
+    });
+    return { ok: false, error: "No se pudo cargar el préstamo." };
+  }
+  const chargesOf = new Map<string, LoanInstallmentCharge[]>();
+  for (const c of chargeRows ?? []) {
+    if (!isLoanChargeConcept(c.concept)) continue;
+    chargesOf.set(c.installment_id, [
+      ...(chargesOf.get(c.installment_id) ?? []),
+      {
+        id: c.id,
+        concept: c.concept,
+        description: c.description,
+        amount: Number(c.amount),
+        iva_amount: Number(c.iva_amount),
+      },
+    ]);
+  }
   const installments: LoanInstallment[] = (insts ?? []).map((i) => ({
     id: i.id,
     loan_id: i.loan_id,
@@ -316,6 +349,7 @@ export async function getLoanAction(
     notes: i.notes,
     split: readSplit(i),
     paid_outside: i.paid_outside,
+    charges: chargesOf.get(i.id) ?? [],
   }));
   const agg = summarize(
     installments.map((i) => ({
@@ -484,6 +518,106 @@ export async function recordBankPaymentsAction(
   return { ok: true, data: { ...result.data, other } };
 }
 
+/** Sets a pending cuota as the lender's statement bills it (read from its
+ *  PDF in the browser): capital, interest, their IVA and each charge. */
+export async function applyInstallmentStatementAction(
+  input: unknown,
+): Promise<ActionResult<{ installment_number: number; amount: number }>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.access, "accounting:write")) {
+    return { ok: false, error: "Sin permiso para editar cuotas." };
+  }
+  const parsed = ApplyInstallmentStatementSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
+    };
+  }
+  const d = parsed.data;
+  const supabase = await createSupabaseClient();
+  const loan = await supabase
+    .from("loans")
+    .select("loan_number")
+    .eq("id", d.loan_id)
+    .maybeSingle();
+  if (loan.error || !loan.data) {
+    return { ok: false, error: "No se encontró el préstamo." };
+  }
+  if (
+    d.operation &&
+    loan.data.loan_number &&
+    d.operation !== loan.data.loan_number
+  ) {
+    return {
+      ok: false,
+      error: `El resumen es de la operación ${d.operation}, no de ${loan.data.loan_number}.`,
+    };
+  }
+  const inst = await supabase
+    .from("loan_installments")
+    .select("id, status")
+    .eq("loan_id", d.loan_id)
+    .eq("number", d.installment_number)
+    .maybeSingle();
+  if (inst.error) {
+    logger.error("loans.statement.installment_read_failed", {
+      userId: ctx.userId,
+      error: inst.error,
+    });
+    return { ok: false, error: "No se pudo leer la cuota." };
+  }
+  if (!inst.data) {
+    return {
+      ok: false,
+      error: `El préstamo no tiene la cuota ${d.installment_number}.`,
+    };
+  }
+  if (inst.data.status !== "pendiente") {
+    return {
+      ok: false,
+      error: `La cuota ${d.installment_number} ya está pagada.`,
+    };
+  }
+  // The RPC is service-role only: the gate above is the authorization.
+  const { data: amount, error } = await getServiceClient().rpc(
+    "set_loan_installment_charges",
+    {
+      p_installment_id: inst.data.id,
+      p_split: {
+        capital: d.capital,
+        interest: d.interest,
+        iva: d.iva,
+        perception: 0,
+      },
+      p_charges: d.charges,
+    },
+  );
+  if (error || amount === null) {
+    const guardError = mapDbGuardError(error, {
+      slug: "loans.statement.rejected",
+      userId: ctx.userId,
+    });
+    if (guardError) return { ok: false, error: guardError };
+    logger.error("loans.statement.failed", { userId: ctx.userId, error });
+    return { ok: false, error: "No se pudo actualizar la cuota." };
+  }
+  await logAudit(
+    "loan.installment_statement_applied",
+    ctx.userId,
+    {
+      installment_number: d.installment_number,
+      amount: Number(amount),
+      charges: d.charges.length,
+    },
+    inst.data.id,
+  );
+  return {
+    ok: true,
+    data: { installment_number: d.installment_number, amount: Number(amount) },
+  };
+}
+
 /** Books the capital the loan owed at the start of the fiscal year. */
 export async function bookLoanOpeningAction(
   input: unknown,
@@ -621,6 +755,39 @@ export async function updateInstallmentAction(
   if (!inst) return { ok: false, error: "No se encontró la cuota." };
   if (inst.status === "pagada") {
     return { ok: false, error: "No se puede editar una cuota ya pagada." };
+  }
+  // «Otros» of a cuota with charges is their sum: changing it would leave
+  // them out of its entry.
+  if (split) {
+    const charges = await supabase
+      .from("loan_installment_charges")
+      .select("amount, iva_amount")
+      .eq("installment_id", id)
+      .limit(100);
+    if (charges.error) {
+      logger.error("loans.installment.charges_read_failed", {
+        userId: ctx.userId,
+        id,
+        error: charges.error,
+      });
+      return { ok: false, error: "No se pudo leer la cuota." };
+    }
+    const chargesTotal =
+      Math.round(
+        charges.data.reduce(
+          (s, c) => s + Number(c.amount) + Number(c.iva_amount),
+          0,
+        ) * 100,
+      ) / 100;
+    if (
+      charges.data.length > 0 &&
+      Math.abs(split.other - chargesTotal) > 0.005
+    ) {
+      return {
+        ok: false,
+        error: `«Otros» son los cargos de la cuota (${chargesTotal.toFixed(2)}): para cambiarlos cargá el resumen de cuota.`,
+      };
+    }
   }
   if (
     split === undefined &&
