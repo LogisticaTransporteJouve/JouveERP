@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { formatCuitInput, isValidCuit, normalizeCuit } from "./cuit";
+import {
+  formatCuit,
+  formatCuitInput,
+  isValidCuit,
+  normalizeCuit,
+} from "./cuit";
 
 describe("isValidCuit", () => {
   it("accepts valid CUITs (check digit correct)", () => {
@@ -42,5 +47,17 @@ describe("formatCuitInput", () => {
     expect(formatCuitInput("20-12345678-6")).toBe("20-12345678-6");
     expect(formatCuitInput("2012345678612345")).toBe("20-12345678-6");
     expect(formatCuitInput("20a12")).toBe("20-12");
+  });
+});
+
+describe("formatCuit", () => {
+  it("shows an 11-digit CUIT with dashes", () => {
+    expect(formatCuit("30710065744")).toBe("30-71006574-4");
+    expect(formatCuit("30-71006574-4")).toBe("30-71006574-4");
+  });
+
+  it("leaves anything else as it is", () => {
+    expect(formatCuit("123")).toBe("123");
+    expect(formatCuit(null)).toBeNull();
   });
 });

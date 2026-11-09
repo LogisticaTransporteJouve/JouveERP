@@ -1,6 +1,13 @@
 "use client";
 
-import { Bell, Check } from "lucide-react";
+import {
+  Bell,
+  CalendarClock,
+  Check,
+  FileWarning,
+  type LucideIcon,
+  Sparkles,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -29,7 +36,7 @@ import {
   formatNotificationTime,
   getNotificationHref,
   getNotificationPreview,
-  getNotificationTitle,
+  getNotificationLead,
 } from "../lib/format";
 import type { Notification } from "../types";
 
@@ -145,27 +152,22 @@ export function NotificationBell({ currentUserId }: Props) {
                     )}
                     onClick={() => handleClick(notif)}
                   >
-                    <UserAvatar
-                      firstName={notif.sender_first_name}
-                      lastName={notif.sender_last_name}
-                      email={notif.sender_email}
-                      avatarUrl={notif.sender_avatar_url}
-                      color={notif.sender_avatar_color}
-                      size="sm"
-                    />
+                    {notif.sender_id ? (
+                      <UserAvatar
+                        firstName={notif.sender_first_name}
+                        lastName={notif.sender_last_name}
+                        email={notif.sender_email}
+                        avatarUrl={notif.sender_avatar_url}
+                        color={notif.sender_avatar_color}
+                        size="sm"
+                      />
+                    ) : (
+                      <SystemNotificationIcon type={notif.type} />
+                    )}
                     <div className="min-w-0 flex-1">
                       <div className="flex items-baseline gap-2">
                         <p className="truncate text-sm">
-                          <span className="font-medium">
-                            {getDisplayName(
-                              notif.sender_first_name,
-                              notif.sender_last_name,
-                              notif.sender_email,
-                            )}
-                          </span>{" "}
-                          <span className="text-muted-foreground">
-                            {getNotificationTitle(notif)}
-                          </span>
+                          <NotificationLead notif={notif} />
                         </p>
                         <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">
                           {formatNotificationTime(notif.created_at)}
@@ -189,5 +191,38 @@ export function NotificationBell({ currentUserId }: Props) {
         </ScrollArea>
       </PopoverContent>
     </Popover>
+  );
+}
+
+function NotificationLead({ notif }: { notif: Notification }) {
+  const lead = getNotificationLead(
+    notif,
+    getDisplayName(
+      notif.sender_first_name,
+      notif.sender_last_name,
+      notif.sender_email,
+    ),
+  );
+  if (!lead.name) return <span className="font-medium">{lead.title}</span>;
+  return (
+    <>
+      <span className="font-medium">{lead.name}</span>{" "}
+      <span className="text-muted-foreground">{lead.title}</span>
+    </>
+  );
+}
+
+const SYSTEM_ICON: Record<string, LucideIcon> = {
+  task_due: CalendarClock,
+  document_expiring: FileWarning,
+  ai_workflow_run: Sparkles,
+};
+
+function SystemNotificationIcon({ type }: { type: string }) {
+  const Icon = SYSTEM_ICON[type] ?? Bell;
+  return (
+    <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+      <Icon className="size-3.5" />
+    </span>
   );
 }

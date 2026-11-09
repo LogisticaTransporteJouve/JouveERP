@@ -1,5 +1,6 @@
 "use client";
 
+import { formatCuit } from "@/lib/validation/cuit";
 import {
   Dialog,
   DialogContent,
@@ -73,7 +74,7 @@ export function ArcaVoucherDetailDialog({
         <DialogHeader>
           <DialogTitle className="font-mono">{number}</DialogTitle>
           <DialogDescription>
-            {v.issuer_name} · CUIT {v.issuer_cuit}
+            {v.issuer_name} · CUIT {formatCuit(v.issuer_cuit)}
           </DialogDescription>
         </DialogHeader>
 

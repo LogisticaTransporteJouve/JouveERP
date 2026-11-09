@@ -1,5 +1,6 @@
 "use client";
 
+import { formatCuit } from "@/lib/validation/cuit";
 import { Download, Eye, Pencil, Plus, Trash2, Wallet } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -473,7 +474,7 @@ export function ClientAccountTab({
               params={{
                 clientId,
                 name: client.cuit
-                  ? `${client.display_name ?? client.legal_name} · CUIT ${client.cuit}`
+                  ? `${client.display_name ?? client.legal_name} · CUIT ${formatCuit(client.cuit)}`
                   : (client.display_name ?? client.legal_name),
               }}
               label="Exportar resumen"

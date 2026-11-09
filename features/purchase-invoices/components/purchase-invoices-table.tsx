@@ -1,5 +1,6 @@
 "use client";
 
+import { formatCuit } from "@/lib/validation/cuit";
 import { Eye } from "lucide-react";
 import Link from "next/link";
 import { Suspense, useDeferredValue, useMemo } from "react";
@@ -118,7 +119,7 @@ function usePurchaseInvoiceColumns({
               </Link>
               {inv.supplier_cuit && (
                 <div className="font-mono text-xs text-muted-foreground">
-                  CUIT {inv.supplier_cuit}
+                  CUIT {formatCuit(inv.supplier_cuit)}
                 </div>
               )}
             </div>
