@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, CheckCircle2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronRight } from "lucide-react";
 import { Suspense, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -277,53 +277,56 @@ function SaldosTab({ rows }: { rows: AccountBalanceRow[] }) {
 function EERRTab({ rows }: { rows: AccountBalanceRow[] }) {
   const eerr = useMemo(() => computeEERR(rows), [rows]);
   return (
-    <div className="space-y-6">
-      <Section title={eerr.ingresos.title} total={eerr.ingresos.total}>
-        {eerr.ingresos.categories.map((c) => (
-          <CategoryBlock
-            key={c.name}
-            name={c.name}
-            total={c.total}
-            rows={c.rows}
-            sign={-1}
-          />
-        ))}
-        {eerr.ingresos.categories.length === 0 && (
-          <p className="px-3 py-4 text-sm text-muted-foreground">
-            Sin ingresos en el período.
-          </p>
-        )}
-      </Section>
-
-      <Section title={eerr.gastos.title} total={eerr.gastos.total}>
-        {eerr.gastos.categories.map((c) => (
-          <CategoryBlock
-            key={c.name}
-            name={c.name}
-            total={c.total}
-            rows={c.rows}
-            sign={1}
-          />
-        ))}
-        {eerr.gastos.categories.length === 0 && (
-          <p className="px-3 py-4 text-sm text-muted-foreground">
-            Sin gastos en el período.
-          </p>
-        )}
-      </Section>
-
-      <div
-        className={cn(
-          "rounded-lg border p-4 text-center text-lg font-semibold",
-          eerr.resultado >= 0
-            ? "border-border bg-muted text-muted-foreground dark:text-muted-foreground"
-            : "border-border bg-muted text-foreground dark:text-foreground",
-        )}
-      >
-        Resultado del período: {signed(eerr.resultado)}
-        <Badge variant="outline" className="ml-2">
-          {eerr.resultado >= 0 ? "Ganancia" : "Pérdida"}
-        </Badge>
+    <div className="divide-y rounded-lg border bg-card text-sm">
+      {eerr.steps.map((step) =>
+        step.kind === "subtotal" ? (
+          <div
+            key={step.label}
+            className="flex items-center justify-between bg-muted/30 px-4 py-2 font-semibold"
+          >
+            <span>{step.label}</span>
+            <span className="font-mono">{signed(step.total)}</span>
+          </div>
+        ) : (
+          <details key={step.key} className="group px-4 py-2">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+              <span className="flex items-center gap-1.5">
+                <ChevronRight className="size-3.5 text-muted-foreground transition-transform group-open:rotate-90" />
+                {step.label}
+              </span>
+              <span className="font-mono">{signed(step.total)}</span>
+            </summary>
+            {step.rows.length === 0 ? (
+              <p className="mt-2 pl-5 text-xs text-muted-foreground">
+                Sin movimientos en el período.
+              </p>
+            ) : (
+              <ul className="mt-2 space-y-1 pl-5 text-xs">
+                {step.rows.map(({ row, amount }) => (
+                  <li
+                    key={row.account_id}
+                    className="flex justify-between gap-3 text-muted-foreground"
+                  >
+                    <span className="min-w-0">
+                      <span className="mr-2 font-mono">{row.account_code}</span>
+                      {row.account_name}
+                    </span>
+                    <span className="font-mono">{signed(amount)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </details>
+        ),
+      )}
+      <div className="flex items-center justify-between px-4 py-3 text-base font-semibold">
+        <span className="flex items-center gap-2">
+          Resultado del período
+          <Badge variant="outline">
+            {eerr.resultado >= 0 ? "Ganancia" : "Pérdida"}
+          </Badge>
+        </span>
+        <span className="font-mono">{signed(eerr.resultado)}</span>
       </div>
     </div>
   );
@@ -389,63 +392,6 @@ function BGTab({
         </div>
       </div>
     </div>
-  );
-}
-
-function Section({
-  title,
-  total,
-  children,
-}: {
-  title: string;
-  total: number;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="rounded-lg border bg-card">
-      <div className="flex items-center justify-between border-b bg-muted/30 px-4 py-2">
-        <h2 className="text-sm font-semibold">{title}</h2>
-        <span className="font-mono font-medium">{signed(total)}</span>
-      </div>
-      <div className="divide-y">{children}</div>
-    </div>
-  );
-}
-
-function CategoryBlock({
-  name,
-  total,
-  rows,
-  sign,
-}: {
-  name: string;
-  total: number;
-  rows: AccountBalanceRow[];
-  sign: 1 | -1;
-}) {
-  return (
-    <details className="px-4 py-2">
-      <summary className="flex cursor-pointer items-center justify-between text-sm">
-        <span className="font-medium">{name}</span>
-        <span className="font-mono">{signed(total)}</span>
-      </summary>
-      <ul className="mt-2 space-y-1 pl-3 text-xs">
-        {rows.map((r) => (
-          <li
-            key={r.account_id}
-            className="flex justify-between text-muted-foreground"
-          >
-            <span>
-              <span className="mr-2 font-mono">{r.account_code}</span>
-              {r.account_name}
-            </span>
-            <span className="font-mono">
-              {signed(Number(r.balance) * sign)}
-            </span>
-          </li>
-        ))}
-      </ul>
-    </details>
   );
 }
 

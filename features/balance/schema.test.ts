@@ -6,6 +6,7 @@ import {
   computeBalanceTotals,
   computeEERR,
   groupByType,
+  netResult,
   resultsStart,
   type AccountBalanceRow,
 } from "./schema";
@@ -50,44 +51,61 @@ describe("groupByType", () => {
 });
 
 describe("computeEERR", () => {
-  it("calcula resultado = ingresos - gastos invirtiendo signos de positivos", () => {
+  const res = (
+    type: "resultado_positivo" | "resultado_negativo",
+    eerr_category: string | null,
+    balance: number,
+    account_code = "4.1.1",
+  ) => row({ account_type: type, eerr_category, balance, account_code });
+
+  it("cascades from sales to the period's result", () => {
     const eerr = computeEERR([
-      row({
-        account_type: "resultado_positivo",
-        eerr_category: "ventas",
-        balance: -10000, // credit → income of 10000
-      }),
-      row({
-        account_type: "resultado_negativo",
-        eerr_category: "gastos_op",
-        balance: 3000, // debit → expense of 3000
-      }),
+      res("resultado_positivo", "ingresos_operativos", -10000),
+      res("resultado_negativo", "costo", 4000),
+      res("resultado_negativo", "gastos_operativos", 1000),
+      res("resultado_negativo", "gastos_administrativos", 500),
+      res("resultado_positivo", "ingresos_financieros", -300),
+      res("resultado_negativo", "gastos_financieros", 800),
+      row({ account_type: "activo", balance: 99999 }),
     ]);
-    expect(eerr.ingresos.total).toBe(10000);
-    expect(eerr.gastos.total).toBe(3000);
-    expect(eerr.resultado).toBe(7000);
+    expect(
+      eerr.steps.map((s) => [
+        s.kind === "subtotal" ? "=" : "",
+        s.label,
+        s.total,
+      ]),
+    ).toEqual([
+      ["", "Ventas", 10000],
+      ["", "Costo de los servicios", -4000],
+      ["=", "Resultado bruto", 6000],
+      ["", "Gastos operativos", -1000],
+      ["", "Gastos de administración", -500],
+      ["=", "Resultado operativo", 4500],
+      ["", "Resultados financieros", -500],
+      ["=", "Resultado antes de impuestos", 4000],
+    ]);
+    expect(eerr.resultado).toBe(4000);
   });
 
-  it("agrupa ingresos por eerr_category", () => {
+  it("puts an unknown or missing category in other results, so the total closes", () => {
     const eerr = computeEERR([
-      row({
-        account_type: "resultado_positivo",
-        eerr_category: "ventas",
-        balance: -1000,
-      }),
-      row({
-        account_type: "resultado_positivo",
-        eerr_category: "ventas",
-        balance: -500,
-      }),
-      row({
-        account_type: "resultado_positivo",
-        eerr_category: "otros",
-        balance: -200,
-      }),
+      res("resultado_positivo", "ventas_viejas", -700),
+      res("resultado_negativo", null, 200),
     ]);
-    const ventas = eerr.ingresos.categories.find((c) => c.name === "ventas");
-    expect(ventas?.total).toBe(1500);
+    const otros = eerr.steps.find(
+      (s) => s.label === "Otros ingresos y egresos",
+    );
+    expect(otros?.total).toBe(500);
+    expect(eerr.resultado).toBe(500);
+  });
+
+  it("matches the net result of the same accounts", () => {
+    const rows = [
+      res("resultado_positivo", "ingresos_operativos", -1234.56),
+      res("resultado_negativo", "costo", 234.5),
+      res("resultado_negativo", "x", 10),
+    ];
+    expect(computeEERR(rows).resultado).toBeCloseTo(netResult(rows), 6);
   });
 });
 
