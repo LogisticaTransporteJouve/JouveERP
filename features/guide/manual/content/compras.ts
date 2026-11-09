@@ -776,7 +776,7 @@ export const purchasesPage: GuidePage = {
         "Del lado fiscal, la pantalla se llama {{Comprobantes}} (como en Ventas): facturas, notas de crédito y notas de débito que te mandan los proveedores de Compras, con su IVA, percepciones y cuenta de gasto. Del lado interno se llama {{Remitos internos de compra}}: compras a proveedores de Otras compras sin factura, que no van al Libro IVA.",
         "Columnas: {{Comprobante}} (tipo y número), {{Proveedor}}, {{Tipo}} ({{Fiscal}} o {{Interno}}), {{Fecha}}, {{Total}}, {{Estado}} ({{Recibida}} o {{Anulada}}) y {{Acciones}}. Arriba podés buscar por proveedor, CUIT o número, filtrar por fechas y por estado ({{Cualquier estado}}).",
         "Del lado fiscal, quien puede cargar compras ve además el botón {{Recibidos de ARCA}}, con la cantidad de comprobantes pendientes: ver [[/purchases/arca]].",
-        "El detalle de una compra muestra el proveedor (con CAE, vencimiento del CAE y vencimiento de pago), los {{Totales}} ({{Neto}}, no gravado, exento, {{IVA}}, {{Otros tributos}} y su reparto, {{Total}}, {{Pagado}}, {{Acreditado}} y {{Saldo}}), los {{Ítems}} (o {{Sin detalle (cargada solo por totales)}}), el motivo si es NC/ND, las {{Órdenes de pago imputadas}}, los {{Remitos internos imputados}}, las notas y los adjuntos.",
+        "El detalle de una compra muestra el proveedor (con CAE, vencimiento del CAE y vencimiento de pago), los {{Totales}} ({{Neto}}, no gravado, exento, {{IVA}}, {{Otros tributos}} y su reparto, {{Total}}, {{Pagado}}, {{Acreditado}} y {{Saldo}}), los {{Ítems}} (o {{Sin detalle (cargada solo por totales)}}), el motivo si es NC/ND, las {{Órdenes de pago imputadas}}, los {{Remitos internos imputados}}, las notas, los adjuntos y, con permiso de auditoría, el {{Historial}} de cambios.",
       ],
       screens: [
         {
@@ -2042,7 +2042,7 @@ export const purchasesPage: GuidePage = {
       intro: [
         "Una orden de pago (OP) registra un pago a un proveedor: de qué cuentas sale la plata (transferencia, efectivo, cheque propio o cheque de terceros endosado) y a qué facturas se imputa. Cada canal tiene su propia numeración: `OP0003-00000041`.",
         "Columnas: {{OP}} (tachada si está anulada), {{Proveedor}}, {{Fecha}}, {{Total}}, {{Estado}} ({{Emitida}} o {{Anulada}}) y {{Acciones}}. Arriba podés buscar por proveedor o número, filtrar por fechas y por estado.",
-        "El detalle de una OP muestra el proveedor, los {{Totales}} ({{Pago real}}, {{Total}}, {{Imputado}} y {{A cuenta}}), los {{Medios de pago}} (cuenta, cheque propio con su estado o cheque endosado), las {{Imputaciones}}, las notas, los adjuntos y el botón {{PDF}}.",
+        "El detalle de una OP muestra el proveedor, los {{Totales}} ({{Pago real}}, {{Total}}, {{Imputado}} y {{A cuenta}}), los {{Medios de pago}} (cuenta, cheque propio con su estado o cheque endosado), las {{Imputaciones}}, las notas, los adjuntos, el botón {{PDF}} y, con permiso de auditoría, el {{Historial}} de cambios.",
       ],
       screens: [
         {

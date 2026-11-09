@@ -518,7 +518,7 @@ export const accountingPage: GuidePage = {
               text: "En [[/accounting/journal]], usá los filtros (al entrar muestra el mes actual):",
               substeps: [
                 "{{Período (YYYY-MM)}}: el mes de devengamiento. {{Hoy}} vuelve al mes actual y {{Limpiar}} saca el filtro para ver todos los meses.",
-                "{{Origen}}: {{Todos los orígenes}}, {{Movimiento de caja}}, {{Comprobante emitido}}, {{Comprobante de compra}}, {{Recibo}}, {{Orden de pago}}, {{Cheque recibido}} o {{Cheque propio}}. Los asientos manuales solo se ven con {{Todos los orígenes}}.",
+                "{{Origen}}: {{Todos los orígenes}}, {{Movimiento de caja}}, {{Comprobante emitido}}, {{Comprobante de compra}}, {{Recibo}}, {{Orden de pago}}, {{Cheque recibido}} o {{Cheque propio}}. Los asientos manuales y los de préstamos bancarios (la deuda inicial y los comprobantes de pago de cuotas, que se ven con origen «Otro origen») solo aparecen con {{Todos los orígenes}}.",
                 "{{Canal}}: {{Todos los canales}} o uno puntual.",
               ],
             },
@@ -746,7 +746,7 @@ export const accountingPage: GuidePage = {
               substeps: [
                 "Arriba, {{Total Debe}}, {{Total Haber}} y {{Saldo final}}.",
                 "Con {{Desde}}, la primera fila es el {{Saldo anterior}} a esa fecha.",
-                "Cada fila tiene fecha, período, descripción, origen, Debe, Haber y el saldo acumulado; si el asiento viene de un comprobante emitido, un comprobante de compra, un recibo, una orden de pago o un movimiento de caja, el origen enlaza a ese documento (el movimiento de caja, a [[/transactions]] mostrando solo ese movimiento); los de cheques muestran el origen sin enlace y los manuales, «—». Las reversas se ven sombreadas.",
+                "Cada fila tiene fecha, período, descripción, origen, Debe, Haber y el saldo acumulado; si el asiento viene de un comprobante emitido, un comprobante de compra, un recibo, una orden de pago o un movimiento de caja, el origen enlaza a ese documento (el movimiento de caja, a [[/transactions]] mostrando solo ese movimiento); los de cheques y los de préstamos bancarios («Otro origen») muestran el origen sin enlace y los manuales, «—». Las reversas se ven sombreadas.",
               ],
             },
           ],
@@ -923,6 +923,7 @@ export const accountingPage: GuidePage = {
           after: [
             "Se descargan dos archivos: `LIBRO_IVA_DIGITAL_VENTAS_CBTE_…` y `LIBRO_IVA_DIGITAL_VENTAS_ALICUOTAS_…` (o los de `COMPRAS`). El TXT siempre incluye todos los canales fiscales, aunque la pantalla esté filtrada por uno.",
             "Cada comprobante va con su moneda y su cotización. El aviso de éxito dice cuántos comprobantes se exportaron. Queda registrado en la auditoría.",
+            "Una compra traída de ARCA que era un recibo, una liquidación o un comprobante M se declara con su propio código AFIP, aunque en [[/purchases]] figure como factura.",
           ],
           errors: [
             {

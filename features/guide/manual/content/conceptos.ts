@@ -34,7 +34,7 @@ export const conceptsPage: GuidePage = {
         {
           title: "Cómo leer una tarea",
           body: [
-            "**Quién puede** lista los roles que tienen el permiso según la matriz de roles; el owner además puede quitarle un módulo a un usuario puntual (ver [[#roles-y-permisos]]).",
+            "**Quién puede** lista los roles que tienen el permiso según la matriz de roles; el owner además puede quitarle a un usuario puntual un módulo entero o una acción (ver [[#roles-y-permisos]]).",
             "**Antes** es lo que tiene que existir para empezar. Los **pasos** siguen el orden de la pantalla; los números en los dibujos marcan dónde hacer clic en cada paso.",
             "**Qué pasa después** cuenta los efectos: asientos, saldos, CAE de AFIP, avisos, qué queda bloqueado. **Si aparece un error** lista los mensajes exactos que puede mostrar el sistema y qué hacer con cada uno.",
           ],
@@ -57,9 +57,9 @@ export const conceptsPage: GuidePage = {
           body: [
             "**Owner**: acceso total; es el único que asigna el rol owner, edita los accesos por usuario, borra movimientos de caja y carga saldos de apertura.",
             "**Admin**: acceso total excepto dar o quitar el rol owner, editar los accesos por usuario, borrar movimientos de caja y cargar saldos de apertura.",
-            "**Finanzas**: clientes y proveedores, comprobantes, compras, cobranzas y pagos, caja y bancos, contabilidad, impuestos y sueldos.",
-            "**Operaciones**: flota, viajes, cargas, combustible, mantenimientos y documentos de flota.",
-            "**Depósito**: pallets, productos, movimientos de stock.",
+            "**Finanzas**: clientes y proveedores, comprobantes, compras, cobranzas y pagos, caja y bancos, contabilidad, impuestos y sueldos; también la facturación de depósito, las tarifas de flete, las tareas y el asistente (con Documentos).",
+            "**Operaciones**: flota, viajes, cargas, combustible, mantenimientos, documentos de flota y km recorridos; ve (sin editar) clientes, proveedores y tarifas de flete; también las tareas y el asistente (con Documentos).",
+            "**Depósito**: depósitos, pallets, productos, movimientos de stock y tareas.",
             "**Chofer**: por ahora solo ve los viajes.",
             "**Contador externo**: solo lectura de lo fiscal: clientes, proveedores, comprobantes, compras, libros IVA, contabilidad e impuestos. Siempre ve solo el lado fiscal.",
           ],
@@ -67,7 +67,7 @@ export const conceptsPage: GuidePage = {
         {
           title: "Accesos por usuario",
           body: [
-            "El owner puede quitarle a un usuario un módulo que su rol sí trae (por ejemplo, que alguien de Finanzas no vea Sueldos). Quitar la lectura de un módulo lo oculta entero del menú y de las consultas del asistente; los datos que otro módulo muestra con su propio permiso se siguen viendo ahí.",
+            "El owner puede quitarle a un usuario un módulo que su rol sí trae (por ejemplo, que alguien de Finanzas no vea Sueldos) o solo una acción de ese módulo (por ejemplo, que vea los comprobantes pero no los pueda anular). Quitar la lectura de un módulo lo oculta entero del menú y de las consultas del asistente; los datos que otro módulo muestra con su propio permiso se siguen viendo ahí.",
             "Un owner no se puede quitar accesos a sí mismo ni a otro owner. Los cambios se hacen en [[/admin/users]].",
           ],
         },
@@ -101,7 +101,7 @@ export const conceptsPage: GuidePage = {
           title: "Ventas y Otras ventas, Compras y Otras compras",
           body: [
             "En la barra lateral, {{Ventas}} y {{Otras ventas}} abren las mismas pantallas, una por lado: {{Clientes}}, {{Comprobantes}} (en el lado interno, {{Remitos internos}}), {{Recibos}} ({{Recibos internos}}) y {{Aging clientes}}.",
-            "Lo mismo con {{Compras}} y {{Otras compras}}: {{Proveedores}}, {{Categorías}}, {{Compras}} (en el lado interno, {{Remitos de compra}}), {{Órdenes de pago}} y {{Aging proveedores}}.",
+            "Lo mismo con {{Compras}} y {{Otras compras}}: {{Proveedores}}, {{Categorías}}, {{Comprobantes}} (en el lado interno, {{Remitos de compra}}), {{Órdenes de pago}} y {{Aging proveedores}}.",
             "Al hacer clic en un ítem de una de esas secciones, el sistema pasa a ese lado: la lista muestra solo lo de ese lado y un alta nueva queda en su canal. El encabezado dice en qué sección estás, y el lado elegido queda recordado en ese navegador.",
             "La ficha de un cliente o proveedor se muestra siempre en su propio lado, aunque la abras desde otra pantalla.",
           ],

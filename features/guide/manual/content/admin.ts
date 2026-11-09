@@ -817,7 +817,7 @@ export const adminPage: GuidePage = {
         {
           title: "Cómo lee la planilla",
           body: [
-            "Acepta .xlsx (lee la primera hoja) o .csv, de hasta 4 MB y 5000 filas. Busca la fila de títulos y propone qué columna corresponde a cada dato; los títulos pueden variar (se reconocen sinónimos, listados abajo).",
+            "Acepta .xlsx (lee la primera hoja), .csv o .txt (el texto separado que bajan los bancos), de hasta 4 MB y 5000 filas. Busca la fila de títulos y propone qué columna corresponde a cada dato; los títulos pueden variar (se reconocen sinónimos, listados abajo).",
             "Nada se guarda hasta que confirmás. Cada fila queda {{Lista}}, {{Ya existe}} (ya estaba cargada o se repite en el archivo: se saltea) o {{Con error}} (queda afuera, con el motivo).",
             "En tarifas, préstamos, cheques y saldos iniciales, una fila que se repite en el archivo es un error en todas sus repeticiones: hay que dejar una sola con el importe total.",
             "Importar dos veces el mismo archivo no duplica nada: lo que ya está cargado se saltea, y el diálogo avisa si ese archivo ya se importó antes.",
@@ -832,7 +832,7 @@ export const adminPage: GuidePage = {
             "**Préstamos al arranque** crea los préstamos con sus cuotas pendientes; no registra el desembolso (la deuda entra con el ajuste inicial). Pide el canal.",
             "**Cheques en cartera al arranque** entra los cheques de terceros a la cuenta de cartera elegida con contrapartida en ajustes de caja. Pide la cuenta y el canal. Si ya cargaste el saldo inicial de esa cuenta, no lo dupliques.",
             "**Saldos iniciales de clientes** carga lo que debe cada cliente al corte, en pesos; no crea recibos, movimientos ni asientos.",
-            "**Extracto bancario** carga las líneas del extracto de la cuenta elegida para conciliarlas en Tesorería; no crea movimientos.",
+            "**Extracto bancario** carga las líneas del extracto de la cuenta elegida para conciliarlas en Tesorería; no crea movimientos. Las líneas que ya estaban (por ejemplo, de un extracto superpuesto) se saltean; si una ya cargada no tenía el código del banco, se lo completa. El extracto de una cuenta también se sube con {{Subir extracto}} en [[/treasury/reconciliation]], sin elegir tipo ni cuenta.",
             "Las diferencias de saldos se corrigen con el ajuste inicial.",
           ],
         },
@@ -891,7 +891,7 @@ export const adminPage: GuidePage = {
               text: "Si el tipo lo pide, elegí la cuenta y el canal.",
               substeps: [
                 "Cheques en cartera: {{Cuenta de cartera}} (una cuenta de cheques) y {{Canal}}.",
-                "Extracto bancario: {{Cuenta del extracto}} (banco, billetera, caja o inversión).",
+                "Extracto bancario: {{Cuenta del extracto}} (banco, billetera, caja o inversión) y, si querés, el período en {{Desde}} y {{Hasta}}: las líneas con fecha fuera de ese período quedan afuera.",
                 "Préstamos: {{Canal}}.",
               ],
             },
@@ -899,14 +899,14 @@ export const adminPage: GuidePage = {
               text: "El archivo se lee solo: revisá el resultado.",
               substeps: [
                 "En {{Columnas}}, cada dato muestra la columna elegida; cambiala si está mal o elegí {{No está}}. Las obligatorias llevan * o (falta). Si cambiaste alguna, hacé clic en {{Volver a leer con estas columnas}}.",
-                "La línea de conteo dice cuántas filas están listas, ya cargadas y con error.",
+                "La línea de conteo dice cuántas filas están listas, ya cargadas y con error; en un extracto, también cuántas completan el código del banco y cuántas quedaron fuera del período.",
                 "La tabla muestra cada {{Fila}} con su {{Registro}} y {{Estado}}, y debajo los errores o advertencias de esa fila.",
               ],
             },
             "Hacé clic en el botón **Importar N filas** del pie. Solo se habilita si no faltan columnas, hay filas listas, el archivo no pasa de 5000 filas y no cambiaste columnas sin volver a leer.",
           ],
           after: [
-            "Un aviso dice cuántas filas se importaron, cuántas ya estaban y cuántas con error quedaron afuera. La importación aparece en {{Importaciones}} como {{Confirmada}}.",
+            "Un aviso dice cuántas filas se importaron, cuántas ya estaban y cuántas con error quedaron afuera (en un extracto, también cuántos códigos del banco se completaron). La importación aparece en {{Importaciones}} como {{Confirmada}}.",
             "Las filas listas se guardan todas juntas: si una falla, no se guarda ninguna.",
             "Queda registrado en [[/admin/audit]] como `import_run.committed`.",
             "Si algo quedó mal, podés [[#deshacer-importacion]] mientras nadie haya tocado lo importado.",

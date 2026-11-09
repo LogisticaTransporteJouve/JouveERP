@@ -1641,7 +1641,7 @@ export const salesPage: GuidePage = {
       intro: [
         "Cada recibo registra un cobro: junta los medios de pago (en qué cuenta entró la plata), las retenciones sufridas y a qué comprobantes se imputa. La numeración es independiente por canal. Desde {{Otras ventas}} se llaman {{Recibos internos}} e imputan remitos internos.",
         "Columnas de la lista: {{Recibo}} (tachado si está anulado), {{Cliente}}, {{Fecha}}, {{Total}}, {{Estado}} ({{Emitido}} o {{Anulado}}) y {{Acciones}}. Filtros: búsqueda por cliente o número, período y estado; se puede agrupar por día, semana o mes.",
-        "El detalle de un recibo (con {{Ver recibo}}) muestra los {{Medios de pago}}, los {{Totales}} ({{Pago real}}, {{Retenciones}}, {{Total}}, {{Imputado}}, {{A cuenta}}), las {{Retenciones / Percepciones}} con su certificado, las {{Imputaciones}}, las notas, el {{PDF}} y los {{Adjuntos}}.",
+        "El detalle de un recibo (con {{Ver recibo}}) muestra los {{Medios de pago}}, los {{Totales}} ({{Pago real}}, {{Retenciones}}, {{Total}}, {{Imputado}}, {{A cuenta}}), las {{Retenciones / Percepciones}} con su certificado, las {{Imputaciones}}, las notas, el {{PDF}}, los {{Adjuntos}} y, con permiso de auditoría, el {{Historial}} de cambios.",
       ],
       screens: [
         {
