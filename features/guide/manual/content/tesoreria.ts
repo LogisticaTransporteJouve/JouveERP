@@ -1151,7 +1151,7 @@ export const treasuryPage: GuidePage = {
       permission: "transactions:read",
       intro: [
         "Compara, por cuenta y por mes, las líneas del extracto del banco con los movimientos de Caja de esa cuenta. Se concilian bancos, billeteras, cajas e inversiones (no las carteras de cheques).",
-        "Arriba elegís {{Cuenta}} y {{Mes}}. Las tarjetas muestran {{Saldo según extracto}} (el último saldo que trae el extracto del mes), {{Saldo según libros}}, la {{Diferencia}} con lo que la explica (pendientes del extracto y movimientos sin conciliar) y {{Líneas}} conciliadas sobre el total.",
+        "Arriba elegís {{Cuenta}} y el período, con el mismo selector que la pestaña {{Movimientos}} («Este mes», «Mes anterior», un rango a mano o «Todas las fechas»). Las tarjetas muestran {{Saldo según extracto}} (el último saldo que trae el extracto en el período), {{Saldo según libros}}, la {{Diferencia}} con lo que la explica (pendientes del extracto y movimientos sin conciliar) y {{Líneas}} conciliadas sobre el total.",
         "Debajo: las {{Sugerencias}} (si hay), la tabla {{Extracto}} con {{Fecha}}, {{Descripción}}, {{Importe}}, {{Saldo}} y {{Estado}} ({{Pendiente}}, {{Conciliada}}, {{No corresponde}}), y la tabla {{Movimientos del mes sin conciliar}}: lo que está en Caja y ninguna línea explica (cheques sin cobrar, transferencias en tránsito o un error de carga).",
         "Debajo de cada línea {{Pendiente}} se lee qué es según los códigos del banco de la cuenta (por ejemplo «Impuesto a los débitos (Ley 25.413) → …», «Cobro de …» o «Cuota 7/12 — …») y el botón que la registra con un clic ([[#registrar-linea-desde-propuesta]]). Si la línea no tiene código configurado dice «Código … sin configurar» o «Concepto sin configurar» ([[#configurar-codigos-del-banco]]).",
         "La misma conciliación está en la pestaña {{Extracto}} de cada cuenta ([[/accounts/[id]]]), que se abre con un clic en el nombre de la cuenta en [[/treasury]].",
@@ -1167,7 +1167,7 @@ export const treasuryPage: GuidePage = {
               kind: "select",
               value: "Banco Galicia ARS · Cuenta bancaria · ARS",
             },
-            { label: "Mes", kind: "input", value: "octubre 2026" },
+            { label: "Período", kind: "input", value: "Mes anterior" },
           ],
           stats: [
             { label: "Saldo según extracto", value: "$ 4.512.300,00" },
@@ -1241,7 +1241,7 @@ export const treasuryPage: GuidePage = {
           ],
           steps: [
             "En [[/treasury]], hacé clic en el nombre de la cuenta del banco y, en la pestaña {{Extracto}}, en {{Subir extracto}}. (También sirve [[/treasury/reconciliation]] con la {{Cuenta}} elegida.)",
-            "{{Desde}} y {{Hasta}} vienen con el mes elegido en {{Mes}}: las líneas con fecha fuera de ese período no se importan. Cambialos si el extracto es de otro período.",
+            "{{Desde}} y {{Hasta}} vienen con el período elegido: las líneas con fecha fuera de ese período no se importan. Cambialos si el extracto es de otro período.",
             "En {{Archivo}}, elegí la planilla. Se lee sola y todavía no se guarda nada: arriba del botón dice cuántas filas están listas, cuántas ya estaban cargadas y cuántas tienen error.",
             {
               text: "Si falta una columna o alguna fila tiene error, aparecen {{Columnas}} y la tabla de filas para corregirlo.",
@@ -1251,7 +1251,7 @@ export const treasuryPage: GuidePage = {
               ],
             },
             "Hacé clic en el botón «Importar … filas» (cuenta solo las listas; si el archivo trae el código del banco de líneas que ya estaban cargadas sin él, dice también «y completar … códigos»).",
-            "Elegí el {{Mes}} del extracto para ver sus líneas.",
+            "Elegí el período del extracto para ver sus líneas. El selector junto a {{Extracto}} muestra todas las líneas, solo las pendientes, las conciliadas o las que no corresponden.",
           ],
           after: [
             "Las líneas aparecen en la tabla {{Extracto}} como {{Pendiente}}. No se crea ningún movimiento en Caja ni asiento.",
@@ -1292,7 +1292,7 @@ export const treasuryPage: GuidePage = {
             "Haber importado el extracto ([[#importar-extracto-bancario]]).",
           ],
           steps: [
-            "En [[/treasury/reconciliation]], elegí la {{Cuenta}} y el {{Mes}}.",
+            "En [[/treasury/reconciliation]], elegí la {{Cuenta}} y el período.",
             "En {{Sugerencias}}, revisá cada pareja (columnas {{Extracto}}, {{Movimiento}} e {{Importe}}).",
             "Hacé clic en {{Aceptar}} en una fila, o en {{Aceptar todas}}.",
           ],
@@ -1325,7 +1325,7 @@ export const treasuryPage: GuidePage = {
             "Cada botón aparece solo con el permiso de lo que crea: recibos (y ver cuentas) para {{Crear recibo}}, escritura en Contabilidad para {{Pagar cuota}}, ver tesorería para {{Registrar transferencia}} y {{Pagar resumen}}, y cheques para depositar un e-cheq.",
           ],
           steps: [
-            "Abrí la pestaña {{Extracto}} de la cuenta (o [[/treasury/reconciliation]]) y elegí el {{Mes}}.",
+            "Abrí la pestaña {{Extracto}} de la cuenta (o [[/treasury/reconciliation]]) y elegí el período.",
             {
               text: "Debajo de la descripción de cada línea {{Pendiente}} está lo que es y su botón:",
               substeps: [

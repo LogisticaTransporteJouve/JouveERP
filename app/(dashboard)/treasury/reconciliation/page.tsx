@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { listReconciliationAccountsAction } from "@/features/bank-reconciliation/actions/reconciliation-actions";
 import { ReconciliationPage } from "@/features/bank-reconciliation/components/reconciliation-page";
 import { reconciliationGates } from "@/features/bank-reconciliation/lib/gates";
-import { monthParam } from "@/features/bank-reconciliation/lib/month";
+import { statementPeriodParam } from "@/features/bank-reconciliation/lib/statement-period";
 import { reconciliationKeys } from "@/features/bank-reconciliation/lib/reconciliation-keys";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
@@ -23,7 +23,7 @@ export default async function ReconciliationRoute({
   if (!userCan(ctx.access, "transactions:read")) {
     redirect("/dashboard");
   }
-  const { month } = await searchParams;
+  const search = await searchParams;
   const dehydratedState = await prefetchQueries([
     {
       queryKey: reconciliationKeys.accounts(),
@@ -34,7 +34,7 @@ export default async function ReconciliationRoute({
     <Hydrate state={dehydratedState}>
       <ReconciliationPage
         today={todayInAR()}
-        initialMonth={monthParam(month)}
+        initialPeriod={statementPeriodParam(search)}
         gates={reconciliationGates(ctx.access)}
       />
     </Hydrate>
