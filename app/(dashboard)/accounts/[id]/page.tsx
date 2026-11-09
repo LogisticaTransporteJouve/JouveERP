@@ -10,9 +10,9 @@ import { AccountStatement } from "@/features/bank-reconciliation/components/reco
 import { reconciliationGates } from "@/features/bank-reconciliation/lib/gates";
 import { getReconciliationAction } from "@/features/bank-reconciliation/actions/reconciliation-actions";
 import {
-  monthParam,
-  monthRange,
-} from "@/features/bank-reconciliation/lib/month";
+  statementPeriodParam,
+  statementRange,
+} from "@/features/bank-reconciliation/lib/statement-period";
 import { reconciliationKeys } from "@/features/bank-reconciliation/lib/reconciliation-keys";
 import { listTransactionsAction } from "@/features/transactions/actions/transactions-actions";
 import { TransactionsTable } from "@/features/transactions/components/transactions-table";
@@ -57,8 +57,8 @@ export default async function CuentaPage({
   const canReadMovements = userCan(ctx.access, "transactions:read");
   const hasStatement = canReadMovements && !isCheckAccount(account.type);
   const today = todayInAR();
-  const month = monthParam(search.month);
-  const { from, to } = monthRange(month ?? today.slice(0, 7));
+  const statementPeriod = statementPeriodParam(search);
+  const { from, to } = statementRange(statementPeriod, today);
 
   // The movements open on the current month unless the URL picks a period.
   const periodChosen = !!(search.period || search.from || search.to);
@@ -136,7 +136,7 @@ export default async function CuentaPage({
                 <AccountStatement
                   accountId={account.id}
                   today={today}
-                  initialMonth={month}
+                  initialPeriod={statementPeriod}
                   gates={reconciliationGates(ctx.access)}
                 />
               </TabsContent>

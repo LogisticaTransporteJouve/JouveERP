@@ -25,7 +25,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MonthPicker } from "@/components/ui/month-picker";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -46,7 +45,9 @@ import {
 } from "@/components/ui/table";
 import { ACCOUNT_TYPE_LABEL, isAccountType } from "@/features/accounts/schema";
 import { ImportDialog } from "@/features/imports/components/import-dialog";
+import { PeriodFilter } from "@/components/period-filter";
 import { useListParams } from "@/hooks/use-list-params";
+import type { PeriodSelection } from "@/lib/list-period";
 import {
   formatArgentineDate,
   formatMoney,
@@ -80,7 +81,10 @@ import {
   useLineProposals,
   type CodeDraft,
 } from "./statement-coding";
-import { isMonth, monthRange } from "../lib/month";
+import {
+  STATEMENT_DEFAULT_PERIOD,
+  statementRange,
+} from "../lib/statement-period";
 
 /** Lists read newest first, as everywhere in the app; the action returns them
  *  in the bank's order, which the balances need. */
@@ -90,13 +94,13 @@ function newestFirst<T>(rows: readonly T[]): T[] {
 
 export function ReconciliationPage({
   today,
-  initialMonth,
+  initialPeriod,
   gates,
 }: {
   /** The Argentine today, YYYY-MM-DD. */
   today: string;
-  /** The month in the URL (`?month=YYYY-MM`), if any. */
-  initialMonth: string | null;
+  /** The period in the URL (`?period&from&to`). */
+  initialPeriod: PeriodSelection;
   gates: ReconciliationGates;
 }) {
   const [accountId, setAccountId] = useState("");
@@ -109,7 +113,7 @@ export function ReconciliationPage({
         </h1>
         <p className="text-muted-foreground max-w-2xl text-sm">
           Las líneas del extracto de una cuenta contra sus movimientos de Caja,
-          por mes. Un movimiento conciliado no se edita ni se borra hasta
+          por período. Un movimiento conciliado no se edita ni se borra hasta
           desconciliar su línea.
         </p>
       </div>
@@ -125,7 +129,7 @@ export function ReconciliationPage({
         <AccountStatement
           accountId={accountId}
           today={today}
-          initialMonth={initialMonth}
+          initialPeriod={initialPeriod}
           gates={gates}
         />
       ) : (
@@ -137,49 +141,47 @@ export function ReconciliationPage({
   );
 }
 
-type MonthParams = { month: string };
+type PeriodParams = { period: PeriodSelection };
 
-function monthToUrl(params: MonthParams): Record<string, string | null> {
-  return { month: params.month };
+function periodToUrl(params: PeriodParams): Record<string, string | null> {
+  return {
+    period: params.period.preset,
+    from: params.period.from,
+    to: params.period.to,
+  };
 }
 
-/** One account's statement for a month: its lines against the account's
- *  movements, and the upload of a new statement into that account. */
+/** One account's statement for a period (the same picker as its
+ *  movements): its lines against the account's movements, and the upload of
+ *  a new statement into that account. */
 export function AccountStatement({
   accountId,
   today,
-  initialMonth,
+  initialPeriod,
   gates,
 }: {
   accountId: string;
   /** The Argentine today, YYYY-MM-DD. */
   today: string;
-  /** The month in the URL (`?month=YYYY-MM`), if any. */
-  initialMonth: string | null;
+  /** The period in the URL (`?period&from&to`). */
+  initialPeriod: PeriodSelection;
   gates: ReconciliationGates;
 }) {
-  const currentMonth = today.slice(0, 7);
-  const { params, update } = useListParams<MonthParams>({
-    initial: { month: initialMonth ?? currentMonth },
-    defaults: { month: currentMonth },
-    toUrl: monthToUrl,
+  const { params, update } = useListParams<PeriodParams>({
+    initial: { period: initialPeriod },
+    defaults: { period: STATEMENT_DEFAULT_PERIOD },
+    toUrl: periodToUrl,
   });
   const [importOpen, setImportOpen] = useState(false);
-  const { from, to } = monthRange(params.month);
+  const { from, to } = statementRange(params.period, today);
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="w-48 space-y-1.5">
-          <Label htmlFor="recon-month">Mes</Label>
-          <MonthPicker
-            id="recon-month"
-            value={params.month}
-            onChange={(value) => {
-              if (isMonth(value)) update({ month: value });
-            }}
-          />
-        </div>
+        <PeriodFilter
+          value={params.period}
+          onChange={(period) => update({ period })}
+        />
         {gates.canImport && (
           <Button
             type="button"
@@ -271,6 +273,11 @@ function ReconciliationBody({
     data.lines,
   );
   const [codes, setCodes] = useState<{ draft: CodeDraft | null } | null>(null);
+  const [statusFilter, setStatusFilter] = useState<LineStatusFilter>("all");
+  const shownLines =
+    statusFilter === "all"
+      ? data.lines
+      : data.lines.filter((l) => l.status === statusFilter);
   const accept = useAcceptSuggestions();
   const unmatch = useUnmatchLine();
   const restore = useRestoreLine();
@@ -463,7 +470,30 @@ function ReconciliationBody({
           </p>
         )}
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-base font-semibold">Extracto</h2>
+          <div className="flex flex-wrap items-center gap-3">
+            <h2 className="text-base font-semibold">Extracto</h2>
+            <Select
+              value={statusFilter}
+              onValueChange={(v) => {
+                if (isLineStatusFilter(v)) setStatusFilter(v);
+              }}
+            >
+              <SelectTrigger
+                size="sm"
+                className="w-44"
+                aria-label="Estado de las líneas"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {LINE_STATUS_FILTERS.map((f) => (
+                  <SelectItem key={f} value={f}>
+                    {LINE_STATUS_FILTER_LABELS[f]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <div className="flex flex-wrap gap-2">
             {canWrite && (
               <AcceptReadyButton
@@ -510,17 +540,19 @@ function ReconciliationBody({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {data.lines.length === 0 && (
+              {shownLines.length === 0 && (
                 <TableRow>
                   <TableCell
                     colSpan={canWrite ? 7 : 6}
                     className="text-muted-foreground text-center text-sm"
                   >
-                    No hay líneas de extracto importadas para este mes.
+                    {data.lines.length === 0
+                      ? "No hay líneas de extracto importadas en este período."
+                      : "No hay líneas con este estado en el período."}
                   </TableCell>
                 </TableRow>
               )}
-              {newestFirst(data.lines).map((line) => (
+              {newestFirst(shownLines).map((line) => (
                 <TableRow key={line.id}>
                   <TableCell className="align-top text-sm whitespace-nowrap">
                     {formatArgentineDate(line.line_date)}
@@ -870,3 +902,14 @@ function DebitCreditCells({
     </>
   );
 }
+
+const LINE_STATUS_FILTERS = ["all", "open", "matched", "ignored"] as const;
+type LineStatusFilter = (typeof LINE_STATUS_FILTERS)[number];
+const LINE_STATUS_FILTER_LABELS: Record<LineStatusFilter, string> = {
+  all: "Todas las líneas",
+  open: "Pendientes",
+  matched: "Conciliadas",
+  ignored: "No corresponden",
+};
+const isLineStatusFilter = (v: string): v is LineStatusFilter =>
+  (LINE_STATUS_FILTERS as readonly string[]).includes(v);
