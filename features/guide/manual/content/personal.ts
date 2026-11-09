@@ -367,7 +367,7 @@ export const hrPage: GuidePage = {
       routes: ["/employees/[id]"],
       permission: "hr:read",
       intro: [
-        "La ficha reúne todo lo del empleado. Arriba, el nombre, la posición, la frecuencia de pago y las marcas {{Monotributo}} e {{Inactivo}} (con la fecha de baja), y los botones {{Editar}} y {{Dar de baja}} (o {{Reactivar}}).",
+        "La ficha reúne todo lo del empleado. Arriba, el nombre, la posición, la frecuencia de pago y las marcas {{Monotributo}} e {{Inactivo}} (con la fecha de baja), y los botones {{Editar}} y {{Dar de baja}} (o {{Reactivar}}). Si el empleado es chofer, {{Ver viajes y km}} abre su página de Flota ([[#flota-km-mensual]]) con sus viajes y los km de cada día.",
         "Debajo, en orden: {{Datos}} (CUIL, CBU, ingreso y egreso), {{Sueldo}} ({{Sueldo base}} y {{Viático mensual}}), {{Datos formales}}, {{Notas}}, {{Vacaciones y licencias}}, {{Cuenta corriente}}, {{Embargos}}, {{Historial de sueldo}}, {{Extras por viajes}}, {{Liquidación final}} (solo de un empleado dado de baja) y {{Documentos}}.",
         "Sin permiso de escritura en Personal la ficha se ve sin botones para cambiar nada y sin la tarjeta de liquidación final.",
       ],
@@ -377,7 +377,7 @@ export const hrPage: GuidePage = {
           body: [
             "Lleva lo que el empleado le debe a la empresa (o a un socio), por moneda: adelantos, compras a su cargo y deudas. No es costo: se devuelve con descuentos de planilla o con pagos.",
             "Arriba muestra el saldo de cada moneda: {{Debe}} si el empleado debe, o {{A favor del empleado}} si pagó de más; y, si corresponde, cuánto de eso es con socios.",
-            "Cada movimiento tiene un tipo ({{Adelanto}}, {{Cargo}}, {{Descuento de planilla}}, {{Pago}}, {{Condonación}}) y un origen ({{Caja}}, {{Tarjeta}}, {{Compra}}, {{Planilla}}, {{Rendición}}, {{Plan}}, {{Manual}}). Adelantos y cargos van al {{Debe}}; lo demás, al {{Haber}}.",
+            "Cada movimiento tiene un tipo ({{Adelanto}}, {{Cargo}}, {{Descuento de planilla}}, {{Pago}}, {{Condonación}}) y un origen ({{Caja}}, {{Tarjeta}}, {{Compra}}, {{Planilla}}, {{Rendición}}, {{Plan}}, {{Manual}}). Adelantos y cargos van al {{Debe}}; lo demás, al {{Haber}}. Un adelanto que se devuelve en cuotas se muestra como {{Préstamo}}, y su plan lleva la misma marca.",
             "Solo se borran desde acá los movimientos de origen {{Manual}} o {{Caja}}. Los demás se manejan desde lo que los generó: una compra «a cargo de empleado», un resumen de tarjeta ({{Deshacer pago}} en [[/card-statements]]), el cierre de la planilla, una rendición o el plan condonado.",
             "Un **plan** dice cómo se devuelve una deuda: un total y una cuota mensual desde un mes. La cuota de cada plan activo en pesos es lo que la planilla descuenta por defecto en la columna {{Deudas}}; los planes en dólares no se descuentan en la planilla y se saldan con pagos. Un plan ya pagado se ve como {{Saldado}}.",
             "Se muestran los 500 movimientos más recientes; el saldo siempre incluye todos.",

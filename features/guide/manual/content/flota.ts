@@ -534,7 +534,7 @@ export const fleetPage: GuidePage = {
       permission: "trips:read",
       intro: [
         "Cada viaje de la flota con {{Fecha}}, {{Chofer}}, {{Vehículo}}, {{Origen → Destino}}, {{Estado}} e {{Ingreso manual}}. Un viaje junta las cargas que lleva: desde el menú ⋯ de la fila, {{Ver cargas}} abre la página del viaje.",
-        "La página del viaje (`Viaje del <fecha>`) muestra el chofer y la patente, y la tabla {{Cargas del viaje}} con {{Cliente}}, {{Ruta}}, {{Estado}} y {{Flete}} de cada carga.",
+        "La página del viaje (`Viaje del <fecha>`) muestra el chofer y la patente, y la tabla {{Cargas del viaje}} con {{Cliente}}, {{Ruta}}, {{Estado}} y {{Flete}} de cada carga. Quien puede ver la auditoría ve además el {{Historial}} del viaje: quién lo creó o editó y cuándo ({{Ver detalle}} abre cada cambio).",
         "Un usuario con el rol Chofer vinculado a un chofer ve solo los viajes de ese chofer.",
       ],
       screens: [
