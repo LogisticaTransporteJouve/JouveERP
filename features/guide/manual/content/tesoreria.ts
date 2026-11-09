@@ -3,14 +3,15 @@ import { PAYMENT_ORDER_FORM_PERMISSIONS } from "@/features/payment-orders/lib/pa
 import type { GuidePage } from "../types";
 
 // Treasury chapter: the summary and its shortcuts, cash flow, accounts, Caja,
-// bank reconciliation, received and own checks, recurring payments and loans.
+// bank statements and reconciliation, received and own checks, recurring
+// payments, credit cards and loans.
 
 const TREASURY_READ = ["accounting:read", "accounts:read"] as const;
 
 export const treasuryPage: GuidePage = {
   file: "tesoreria.html",
   title: "Tesorería",
-  lead: "La plata de la empresa: saldos de cajas y bancos, movimientos, conciliación con el extracto, cheques recibidos y propios, pagos fijos y préstamos.",
+  lead: "La plata de la empresa: saldos de cajas y bancos, movimientos, el extracto del banco y su conciliación, cheques recibidos y propios, pagos fijos, tarjetas de crédito y préstamos.",
   sections: [
     // ── Resumen ──────────────────────────────────────────────────────────
     {
@@ -1152,6 +1153,8 @@ export const treasuryPage: GuidePage = {
         "Compara, por cuenta y por mes, las líneas del extracto del banco con los movimientos de Caja de esa cuenta. Se concilian bancos, billeteras, cajas e inversiones (no las carteras de cheques).",
         "Arriba elegís {{Cuenta}} y {{Mes}}. Las tarjetas muestran {{Saldo según extracto}} (el último saldo que trae el extracto del mes), {{Saldo según libros}}, la {{Diferencia}} con lo que la explica (pendientes del extracto y movimientos sin conciliar) y {{Líneas}} conciliadas sobre el total.",
         "Debajo: las {{Sugerencias}} (si hay), la tabla {{Extracto}} con {{Fecha}}, {{Descripción}}, {{Importe}}, {{Saldo}} y {{Estado}} ({{Pendiente}}, {{Conciliada}}, {{No corresponde}}), y la tabla {{Movimientos del mes sin conciliar}}: lo que está en Caja y ninguna línea explica (cheques sin cobrar, transferencias en tránsito o un error de carga).",
+        "Debajo de cada línea {{Pendiente}} se lee qué es según los códigos del banco de la cuenta (por ejemplo «Impuesto a los débitos (Ley 25.413) → …», «Cobro de …» o «Cuota 7/12 — …») y el botón que la registra con un clic ([[#registrar-linea-desde-propuesta]]). Si la línea no tiene código configurado dice «Código … sin configurar» o «Concepto sin configurar» ([[#configurar-codigos-del-banco]]).",
+        "La misma conciliación está en la pestaña {{Extracto}} de cada cuenta ([[/accounts/[id]]]), que se abre con un clic en el nombre de la cuenta en [[/treasury]].",
       ],
       screens: [
         {
@@ -1200,6 +1203,14 @@ export const treasuryPage: GuidePage = {
           body: [
             "Los importes tienen que coincidir al centavo. Una conciliación es una línea con uno o varios movimientos, o un movimiento con varias líneas; nunca varias de cada lado.",
             "Mientras un movimiento está conciliado no se borra ni cambia monto, fecha, cuenta, tipo, moneda o canal. Desconciliar una línea de un movimiento partido desconcilia todas sus líneas.",
+          ],
+        },
+        {
+          title: "Cómo se reconoce cada línea",
+          body: [
+            "Banco Macro trae en cada línea su código («Código Causal»), y cada código de la cuenta dice qué es ([[#configurar-codigos-del-banco]]).",
+            "Banco Provincia y Banco Galicia no traen código: las líneas se reconocen por el texto del concepto (en Provincia, por ejemplo, «PAGO CUOTA DE PRESTAMO», «IMPUESTO DEBITO - LEY 25413» o «RETENCION ARBA»; en Galicia, «Imp. Deb. Ley 25413», «Ing. Brutos S/ Cred», el interés, el IVA y los sellos de un descuento de cheques o «Transferencia De Terceros»).",
+            "Una línea con el CUIT de la empresa se propone siempre como transferencia entre cuentas propias, la llame como la llame el banco.",
           ],
         },
       ],
@@ -1301,6 +1312,163 @@ export const treasuryPage: GuidePage = {
             },
           ],
           related: ["conciliar-linea"],
+        },
+        {
+          id: "registrar-linea-desde-propuesta",
+          title:
+            "Registrar una línea con un clic (impuestos, gastos, cobros, cuotas, tarjetas)",
+          summary:
+            "Cada línea pendiente propone qué registrar según su código del banco (o, en Provincia y Galicia, el texto del concepto): un clic crea el movimiento o el documento y deja la línea conciliada.",
+          permission: "transactions:write",
+          prerequisites: [
+            "El extracto importado ([[#importar-extracto-bancario]]) y los códigos del banco de la cuenta. La primera vez que se sube un extracto de Banco Macro, Banco Provincia o Banco Galicia a una cuenta sin códigos, los del banco se cargan solos; si no, cargalos desde {{Códigos del banco}} ([[#configurar-codigos-del-banco]]).",
+            "Cada botón aparece solo con el permiso de lo que crea: recibos (y ver cuentas) para {{Crear recibo}}, escritura en Contabilidad para {{Pagar cuota}}, ver tesorería para {{Registrar transferencia}} y {{Pagar resumen}}, y cheques para depositar un e-cheq.",
+          ],
+          steps: [
+            "Abrí la pestaña {{Extracto}} de la cuenta (o [[/treasury/reconciliation]]) y elegí el {{Mes}}.",
+            {
+              text: "Debajo de la descripción de cada línea {{Pendiente}} está lo que es y su botón:",
+              substeps: [
+                "Un impuesto o gasto bancario con su cuenta contable (Ley 25.413, SIRCREB, IVA, comisiones): {{Aceptar}}. Arriba de la tabla, «Aceptar impuestos y gastos (…)» acepta todas las listas de una vez, salvo las que ya tienen una sugerencia (un movimiento cargado que puede ser el mismo). Van al canal fiscal; las que van a una cuenta de impuestos a favor piden también permiso de impuestos.",
+                "Un débito de una cuota de préstamo: {{Pagar cuota}} con su número (ver [[#pagar-cuota-prestamo]]; si el importe no coincide abre el desglose y se confirma con {{Pagar y conciliar}}).",
+                "Un débito del pago de la tarjeta: {{Pagar resumen}} (ver [[#pagar-resumen-tarjeta]]). Si al resumen le faltan consumos por definir, el botón queda deshabilitado y dice cuántos faltan.",
+                "Un cobro (transferencia recibida): {{Crear recibo}}. Abre el recibo con la fecha, el importe y la cuenta de la línea, y el cliente elegido si su CUIT está en la línea; si no (por ejemplo, un cliente interno, que no tiene CUIT), elegí el lado y el cliente, o crealo con {{Nuevo}} (viene con el nombre que trae el banco). Al emitirlo, la línea queda conciliada con el recibo.",
+                "Una transferencia entre cuentas de la empresa (con el CUIT de la empresa, o «Transf. Ctas Propias»): elegí en «¿A qué cuenta fue?» o «¿De qué cuenta vino?» la otra cuenta (de la misma moneda) y hacé clic en {{Registrar transferencia}}.",
+                "Un e-cheq depositado («G. de Echeq Q<número>» en Galicia): «Depositar cheque …» con su número, si el cheque está en cartera por ese importe.",
+                "El crédito de un descuento de cheques («Credito Descuento Documento»): {{Conciliar}}, con los cheques vendidos que suman ese crédito.",
+              ],
+            },
+          ],
+          after: [
+            "Un impuesto o gasto crea en Caja un egreso de la cuenta con la fecha y el importe de la línea, con su asiento contra la cuenta contable del código, y lo deja conciliado («Línea registrada y conciliada.»).",
+            "Una transferencia queda registrada en las dos cuentas. La línea de la otra cuenta se concilia sola si su extracto ya está cargado y tiene una sola línea igual (mismo importe, hasta 3 días de diferencia); si no, queda en sus sugerencias.",
+            "Un e-cheq se deposita en la cuenta, se marca acreditado y la línea queda conciliada.",
+            "Cuando falta algo para proponer el botón, la línea lo dice: por ejemplo «Elegí la cuenta contable.», que no hay una cuota pendiente por ese importe, que no hay un resumen de tarjeta pendiente o que no hay un cheque en cartera con ese número e importe.",
+          ],
+          errors: [
+            {
+              message: "No tenés permiso para registrar impuestos.",
+              fix: "La cuenta contable del código es un impuesto a favor: hace falta permiso de impuestos además del de Caja.",
+            },
+            {
+              message: "Las dos cuentas tienen que ser de la misma moneda.",
+              fix: "Elegí como otra cuenta una de la misma moneda que la del extracto.",
+            },
+            {
+              message: "No tenés permiso para pagar cuotas de préstamos.",
+              fix: "Hace falta permiso de escritura en Contabilidad y en movimientos de Caja.",
+            },
+            {
+              message: "No tenés permiso para depositar cheques.",
+              fix: "Hace falta permiso de cheques además del de tesorería y Caja.",
+            },
+            {
+              message: "El desglose suma … y el débito es ….",
+              fix: "Corregí el desglose de la cuota hasta que sume el débito de la línea.",
+            },
+            {
+              message: "La línea ya está resuelta.",
+              fix: "Otro usuario ya la registró: actualizá la pantalla.",
+            },
+          ],
+          related: [
+            "configurar-codigos-del-banco",
+            "pagar-cuota-prestamo",
+            "pagar-resumen-tarjeta",
+            "cargar-echeqs-galicia",
+          ],
+          keywords: [
+            "propuesta",
+            "Ley 25413",
+            "impuesto al cheque",
+            "SIRCREB",
+            "transferencia entre cuentas propias",
+            "recibo desde el extracto",
+            "Galicia",
+            "Provincia",
+            "Macro",
+          ],
+        },
+        {
+          id: "configurar-codigos-del-banco",
+          title: "Configurar los códigos del banco de una cuenta",
+          summary:
+            "Qué es cada código (o concepto) del extracto: un impuesto o gasto va a su cuenta contable, un cobro se convierte en recibo, una cuota en el pago del préstamo.",
+          permission: "transactions:write",
+          screens: [
+            {
+              kind: "dialog",
+              title: "Códigos del banco",
+              description:
+                "Qué es cada código del extracto de esta cuenta. Un impuesto o un gasto bancario va a su cuenta contable (y a su lugar en Gestión); un cobro se convierte en recibo del cliente con el CUIT de la línea.",
+              fields: [
+                {
+                  label: "Código del banco (vacío si el banco no tiene)",
+                  kind: "input",
+                  marker: 3,
+                },
+                {
+                  label: "El concepto dice (palabras enteras)",
+                  kind: "input",
+                  value: "~IMPUESTO DEBITO - LEY 25413",
+                  marker: 3,
+                },
+                {
+                  label: "Qué es",
+                  kind: "select",
+                  value: "Impuesto",
+                  marker: 4,
+                },
+                {
+                  label: "Nombre",
+                  kind: "input",
+                  value: "~Impuesto a los débitos (Ley 25.413)",
+                  marker: 4,
+                },
+                {
+                  label: "Cuenta contable",
+                  kind: "select",
+                  marker: 4,
+                  wide: true,
+                },
+              ],
+              footer: [
+                { label: "Cancelar", variant: "outline" },
+                { label: "Guardar", variant: "primary", marker: 5 },
+              ],
+            },
+          ],
+          steps: [
+            "En la pestaña {{Extracto}} de la cuenta, hacé clic en {{Códigos del banco}}. Desde una línea sin configurar, {{Configurar código}} (o {{Configurar concepto}} si el banco no trae código) abre el mismo formulario ya completado con esa línea.",
+            "Para cargar de una vez los códigos conocidos de un banco, hacé clic en «Cargar códigos de …» (Banco Macro, Banco Provincia o Banco Galicia). Los que ya estaban no se duplican.",
+            "Para uno nuevo, hacé clic en {{Agregar código}} y escribí el {{Código del banco (vacío si el banco no tiene)}}. Sin código, completá {{El concepto dice (palabras enteras)}} con el texto fijo de la descripción; con código, ese texto es opcional y sirve para distinguir dos usos del mismo código.",
+            "Elegí {{Qué es}} ({{Impuesto}}, {{Gasto bancario}}, {{Cobro de cliente}}, {{Pago a proveedor}}, {{Transferencia entre cuentas}}, {{Cuota de préstamo}}, {{Descuento de cheques}}, {{Pago de tarjeta}}, {{Depósito de cheque}} o {{No corresponde}}), un {{Nombre}} y, en un impuesto o gasto, la {{Cuenta contable}}. Si la cuenta no existe y tenés permiso de contabilidad, {{Nueva cuenta}} la crea ahí.",
+            "Hacé clic en {{Guardar}}.",
+          ],
+          after: [
+            "«Código guardado.»: las líneas del mes con ese código (o ese concepto) muestran la propuesta nueva. En la tabla, un código sin cuenta contable se ve como {{Sin cuenta}} y uno que se reconoce por el texto, como {{Por texto}}.",
+            "Con el lápiz se edita y con el tacho se borra un código; borrarlo no cambia lo ya registrado.",
+          ],
+          errors: [
+            {
+              message:
+                "Ese código (con ese texto) ya está configurado en la cuenta.",
+              fix: "Editá el código existente en la tabla en lugar de agregar otro.",
+            },
+            {
+              message: "El código ya no existe.",
+              fix: "Otro usuario lo borró: actualizá la pantalla.",
+            },
+          ],
+          related: ["registrar-linea-desde-propuesta"],
+          keywords: [
+            "código causal",
+            "concepto del extracto",
+            "Macro",
+            "Provincia",
+            "Galicia",
+            "clasificar extracto",
+          ],
         },
         {
           id: "conciliar-linea",
@@ -1571,6 +1739,7 @@ export const treasuryPage: GuidePage = {
         "La cartera de cheques de terceros, físicos y e-cheq. La mayoría entra sola con un recibo que cobra con cheque; también se cargan a mano.",
         "Arriba hay una tarjeta con el total por estado. La tabla muestra {{Tipo}}, {{Número}}, {{Banco}}, {{Firmante}} (y el cliente del que vino), {{Vencimiento}}, {{Monto}}, {{Estado}} y, en {{Acciones}}, los botones que el estado permite. Se ven todos los cheques en cartera y depositados; de los demás, los más recientes (el resto, con {{Exportar}}).",
         "Abajo está {{Ventas de cheques}}, con las ventas hechas y los cheques vendidos que rebotaron y hay que pagarle al comprador.",
+        "Arriba también están {{Cargar e-cheq de Galicia}} (los e-cheq del listado del banco, como recibos: [[#cargar-echeqs-galicia]]) y {{Vender con comprobante}} (una venta armada desde el PDF del descuento: [[#vender-cheques-con-comprobante]]).",
         "Toda operación que mueve plata (cargar, depositar, acreditar, rechazar, vender, anular una venta, pagar al comprador) pide, además del permiso de cheques, permiso para cargar movimientos de Caja.",
       ],
       screens: [
@@ -1578,7 +1747,8 @@ export const treasuryPage: GuidePage = {
           kind: "page",
           title: "Cheques",
           actions: [
-            { label: "Vender", variant: "outline" },
+            { label: "Cargar e-cheq de Galicia", variant: "outline" },
+            { label: "Vender con comprobante", variant: "outline" },
             { label: "Exportar", variant: "outline" },
             { label: "Nuevo cheque", variant: "primary" },
           ],
@@ -2005,9 +2175,6 @@ export const treasuryPage: GuidePage = {
           after: [
             "Los cheques pasan a {{Vendido}}, el neto entra en la cuenta elegida y los intereses y comisiones quedan como gasto financiero (en el canal fiscal, con sus asientos).",
             "La venta aparece en {{Ventas de cheques}} y lo vendido sin vencer se ve como pasivo contingente en [[/treasury]].",
-            "Los e-cheq que recibe Galicia se cargan con {{Cargar e-cheq de Galicia}} (en [[/checks]]): subís el «Listado de cheques recibidos», y cada e-cheq en custodia, en depósito, con el endoso recibido o pagado desde la fecha elegida entra como el recibo del cliente que te lo endosó (o del librador, si te lo emitió a vos), con la fecha del endoso (o la de emisión, si no tuvo endoso). En el extracto, cada «G. de Echeq Q<número>» propone {{Depositar cheque}} con su número: lo deposita en la cuenta, lo acredita y concilia la línea.",
-            "Con el comprobante del banco es más rápido: {{Vender con comprobante}} lee el PDF del descuento (el «Comprobante final» de Banco Galicia), marca los cheques de la cartera que vende (por número e importe) y abre la venta con el comprador, la fecha, la operación y, si la reconoce, la cuenta. Si falta algún cheque en la cartera, dice cuál: cargalo y volvé a subirlo. Los intereses, el IVA, los sellos y el IIBB quedan en cero en la venta porque el banco los debita como líneas aparte del extracto, que se aceptan ahí.",
-            "En el extracto, cada «Credito Descuento Documento» (uno por N° de préstamo del comprobante) propone {{Conciliar}} con los cheques vendidos que suman ese crédito.",
           ],
           errors: [
             {
@@ -2049,6 +2216,105 @@ export const treasuryPage: GuidePage = {
           ],
           related: ["anular-venta-cheques", "rechazar-cheque"],
           keywords: ["descuento de cheques", "vender cheques", "financiera"],
+        },
+        {
+          id: "vender-cheques-con-comprobante",
+          title: "Vender cheques con el comprobante del banco",
+          summary:
+            "Con el PDF del descuento (el «Comprobante final» de Banco Galicia) la venta se arma sola: marca los cheques y completa comprador, fecha y operación.",
+          permission: ["cheques:write", "transactions:write", "accounts:read"],
+          prerequisites: [
+            "Los cheques del comprobante {{En cartera}} (mismo número e importe).",
+          ],
+          steps: [
+            "En [[/checks]], hacé clic en {{Vender con comprobante}} y elegí el PDF.",
+            "Se abre la venta con los cheques marcados, el comprador y la fecha del comprobante, la cuenta si la reconoce, y en las notas la operación con sus intereses, IVA, sellos e IIBB. Elegí la cuenta si falta y revisá el resto.",
+            "Hacé clic en {{Vender}}.",
+          ],
+          after: [
+            "Queda la venta como en [[#vender-cheques]]. Los intereses, el IVA, los sellos y el IIBB quedan en cero en la venta porque el banco los debita como líneas aparte del extracto, que se aceptan ahí ([[#registrar-linea-desde-propuesta]]).",
+            "En el extracto, cada «Credito Descuento Documento» (uno por N° de préstamo del comprobante) propone {{Conciliar}} con los cheques vendidos que suman ese crédito.",
+          ],
+          errors: [
+            {
+              message:
+                "No es un comprobante de descuento de cheques (falta el detalle de la operación o de los cheques).",
+              fix: "Subí el «Comprobante final» del descuento, no otro PDF del banco.",
+            },
+            {
+              message: "No se pudo leer el PDF.",
+              fix: "Bajá de nuevo el comprobante del home banking y volvé a subirlo.",
+            },
+            {
+              message:
+                "Faltan en la cartera: …. Cargalos y volvé a subir el comprobante.",
+              fix: "Cargá los cheques que nombra ([[#cargar-cheque-recibido]] o [[#cargar-echeqs-galicia]]) y subí el PDF otra vez.",
+            },
+            {
+              message:
+                "Ya no están en la cartera: …. Si el comprobante ya se cargó, no hace falta subirlo de nuevo.",
+              fix: "Esos cheques ya se vendieron (o salieron de la cartera): revisá {{Ventas de cheques}}.",
+            },
+          ],
+          related: ["vender-cheques", "registrar-linea-desde-propuesta"],
+          keywords: ["descuento de cheques", "comprobante final", "Galicia"],
+        },
+        {
+          id: "cargar-echeqs-galicia",
+          title: "Cargar los e-cheq recibidos de Galicia",
+          summary:
+            "Del «Listado de cheques recibidos» de Galicia: cada e-cheq entra como el recibo del cliente que te lo endosó, e imputa a sus comprobantes más viejos.",
+          permission: ["receipts:write", "cheques:write", "transactions:write"],
+          prerequisites: [
+            "Una cuenta {{e-cheq en cartera}} activa y un canal fiscal activo.",
+            "Los clientes cargados con su CUIT (del lado fiscal).",
+            "El listado como lo baja Galicia (.xlsx).",
+          ],
+          steps: [
+            "En [[/checks]], hacé clic en {{Cargar e-cheq de Galicia}}.",
+            "En {{Listado}}, elegí el archivo y en {{Pagados desde}} la fecha desde la que se cargan los e-cheq ya pagados.",
+            "Hacé clic en {{Leer listado}}. La tabla muestra cada cheque con {{Cliente}}, {{Recibido}}, {{Vence}}, {{Importe}} y, en {{Estado}}, si está listo o por qué no se carga.",
+            "Hacé clic en el botón «Cargar … cobros».",
+          ],
+          after: [
+            "Se cargan los e-cheq en custodia, en depósito o con el endoso recibido, y los pagados desde la fecha elegida. Cada uno crea un recibo fiscal del cliente que te lo endosó (o del librador, si te lo emitió a vos), con la fecha del endoso (o la de emisión, si no tuvo endoso), en el orden en que se recibieron: el cheque entra a la cartera de e-cheq y el recibo cancela los comprobantes más viejos del cliente (lo que sobra queda a cuenta).",
+            "Cuando el banco lo acredita, la línea «G. de Echeq Q<número>» del extracto propone depositarlo ([[#registrar-linea-desde-propuesta]]).",
+            "Si alguno falla, el aviso dice cuántos se cargaron y cuáles no.",
+          ],
+          errors: [
+            {
+              message: "No es el listado de cheques recibidos de Galicia.",
+              fix: "Subí el «Listado de cheques recibidos» de Galicia, no otro archivo.",
+            },
+            {
+              message:
+                "No hay un cliente con el CUIT …: crealo en Ventas › Clientes.",
+              fix: "Dalo de alta en [[/clients]] y volvé a leer el listado.",
+            },
+            {
+              message: "Ya está cargado.",
+              fix: "Ese cheque ya está en la cartera: no se vuelve a cargar.",
+            },
+            {
+              message: "No hay una cartera de e-cheq activa.",
+              fix: "Creá una cuenta {{e-cheq en cartera}} ([[#crear-cuenta]]).",
+            },
+            {
+              message: "Sin permiso para cargar cobros con cheques.",
+              fix: "Hace falta permiso de recibos, cheques y movimientos de Caja.",
+            },
+          ],
+          related: [
+            "cargar-cheque-recibido",
+            "registrar-linea-desde-propuesta",
+          ],
+          keywords: [
+            "echeq",
+            "e-cheq",
+            "Galicia",
+            "listado de cheques",
+            "endoso",
+          ],
         },
         {
           id: "anular-venta-cheques",
@@ -2603,6 +2869,10 @@ export const treasuryPage: GuidePage = {
             "Si pagaste con el débito equivocado, en el resumen deshacé el pago de los pesos (o de los dólares) y confirmá con {{Deshacer pago}}: borra sus egresos y adelantos con sus asientos, la línea del extracto vuelve a pendiente y los consumos se pueden cambiar otra vez.",
             "Después de pagar podés seguir cambiando qué es cada consumo en su fila: el pago de esa parte se vuelve a registrar solo, contra el mismo débito, con los egresos y adelantos nuevos. Si el cambio no se puede pagar (por ejemplo, una devolución que queda sola en una cuenta), no cambia nada y te avisa por qué.",
           ],
+          related: [
+            "cargar-resumen-tarjeta",
+            "registrar-linea-desde-propuesta",
+          ],
           keywords: ["pago tarjeta", "visa", "debito automatico"],
         },
       ],
@@ -2948,9 +3218,7 @@ export const treasuryPage: GuidePage = {
           after: [
             "La cuota pasa a {{Pagada}} con su fecha e importe, y se registra el egreso en Caja con su asiento (ver «Qué asientos hace un préstamo»). Ese egreso se corrige desde el préstamo, no desde Caja.",
             "Cuando se paga la última cuota, el préstamo pasa a {{Cancelado}}.",
-            "Si el banco ya debitó la cuota, es más rápido desde el extracto: en la pestaña {{Extracto}} de la cuenta, la línea del débito (en Macro, código 361) muestra la cuota que paga y el botón {{Pagar cuota}}. Paga la cuota con la fecha y el importe de la línea, desde la cuenta del extracto, y deja la línea conciliada. Aparece si el préstamo tiene esa {{Cuenta de débito}} y una cuota pendiente que vence hasta 31 días antes o después, por el mismo importe o con hasta un 10 % de diferencia. Si el importe no coincide (el banco cobró interés por días, punitorios o impuestos), {{Pagar cuota}} abre el desglose: Capital, Intereses, Intereses exceso (punitorios), IVA e Impuestos; cargalo como el detalle de la cuota del home banking, tiene que sumar el débito, y hacé clic en {{Pagar y conciliar}}.",
-            "Una transferencia entre cuentas de la empresa (por ejemplo «Transf Inmed Cp» a DZ & Sons, o «Transf. Ctas Propias») muestra a qué cuenta fue o de cuál vino: elegila y {{Registrar transferencia}} la registra en las dos cuentas y concilia la línea; la de la otra cuenta se concilia sola si su extracto ya está cargado y tiene una sola línea igual (mismo importe, hasta 3 días de diferencia); si no, queda sugerida y la conciliás desde ahí.",
-            "En Banco Provincia el extracto no trae código: las líneas se reconocen por el texto del concepto (por ejemplo «PAGO CUOTA DE PRESTAMO», «IMPUESTO DEBITO - LEY 25413», «RETENCION ARBA»). Una transferencia con el CUIT de la empresa se propone como transferencia entre cuentas propias. Galicia tampoco trae código y se lee igual, por el texto («Imp. Deb. Ley 25413», «Ing. Brutos S/ Cred», el interés, el IVA y los sellos de un descuento de cheques, «Transferencia De Terceros»). La primera vez que se sube un extracto de Macro, Provincia o Galicia a una cuenta sin códigos, los del banco se cargan solos. Una transferencia recibida muestra {{Crear recibo}}: con el cliente ya elegido si su CUIT está en la línea; si no (por ejemplo, un cliente interno, que no tiene CUIT), elegí el lado y el cliente, o crealo con {{Nuevo}}.",
+            "Si el banco ya debitó la cuota, es más rápido desde el extracto: en la pestaña {{Extracto}} de la cuenta, la línea del débito (en Macro, código 361) muestra la cuota que paga y el botón {{Pagar cuota}}. Paga la cuota con la fecha y el importe de la línea, desde la cuenta del extracto, y deja la línea conciliada. Aparece si el préstamo tiene esa {{Cuenta de débito}} y una cuota pendiente que vence hasta 31 días antes o después, por el mismo importe o con hasta un 10 % de diferencia. Si el importe no coincide (el banco cobró interés por días, punitorios o impuestos), {{Pagar cuota}} abre el desglose: Capital, Intereses, Intereses exceso (punitorios), IVA e Impuestos; cargalo como el detalle de la cuota del home banking, tiene que sumar el débito, y hacé clic en {{Pagar y conciliar}}. Las demás propuestas del extracto están en [[#registrar-linea-desde-propuesta]].",
           ],
           errors: [
             {
