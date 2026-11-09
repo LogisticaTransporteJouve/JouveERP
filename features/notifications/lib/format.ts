@@ -42,6 +42,16 @@ export function getNotificationTitle(notif: Notification): string {
   }
 }
 
+/** The row's lead: who sent it, or the title alone when the system did. */
+export function getNotificationLead(
+  notif: Notification,
+  senderName: string,
+): { name: string | null; title: string } {
+  const title = getNotificationTitle(notif);
+  if (notif.sender_id) return { name: senderName, title };
+  return { name: null, title: title.charAt(0).toUpperCase() + title.slice(1) };
+}
+
 export function getNotificationPreview(notif: Notification): string {
   return getMetadataString(notif.metadata, "preview") ?? "";
 }

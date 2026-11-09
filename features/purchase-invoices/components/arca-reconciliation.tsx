@@ -1,5 +1,6 @@
 "use client";
 
+import { formatCuit } from "@/lib/validation/cuit";
 import { QueryErrorResetBoundary } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight, RefreshCw } from "lucide-react";
 import Link from "next/link";
@@ -466,7 +467,7 @@ function IssueSection({
                         {r.issuer_name ?? "—"}
                       </p>
                       <p className="font-mono text-xs text-muted-foreground">
-                        {r.issuer_cuit ?? "—"}
+                        {formatCuit(r.issuer_cuit) ?? "—"}
                       </p>
                     </div>
                   </td>

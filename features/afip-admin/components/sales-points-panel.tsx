@@ -1,5 +1,6 @@
 "use client";
 
+import { formatCuit } from "@/lib/validation/cuit";
 import {
   CheckCircle2,
   Info,
@@ -68,7 +69,9 @@ export function SalesPointsPanel() {
               {diagnostics.env === "prod" ? "Producción" : "Homologación"}
             </Badge>
           )}
-          {cuit && <span className="font-mono text-xs">CUIT {cuit}</span>}
+          {cuit && (
+            <span className="font-mono text-xs">CUIT {formatCuit(cuit)}</span>
+          )}
         </div>
         <div className="flex flex-wrap gap-2">
           <Button

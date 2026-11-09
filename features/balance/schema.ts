@@ -92,63 +92,105 @@ export function groupByType(rows: readonly AccountBalanceRow[]): GroupedByType {
 }
 
 /**
- * EERR: groups positive results (income) and negative results (expenses) by
- * eerr_category. Returns net profit = income - expenses. Convention:
- * resultado_positivo accounts have a negative balance (Σdebit-Σcredit; with
- * more credit → negative balance). We flip the sign to display them
- * positively.
+ * EERR as a cascade: sales, cost, gross result, operating expenses, operating
+ * result, financial and other results, result before tax, income tax, result
+ * of the period. Each line groups the result accounts of its eerr_category;
+ * an amount is what the account adds to the result (−balance: income
+ * positive, expenses negative). A category the cascade doesn't know, or none,
+ * goes to "Otros ingresos y egresos", so the period's result always closes.
  */
-export type EERRSection = {
-  title: string;
-  categories: Array<{ name: string; total: number; rows: AccountBalanceRow[] }>;
+export type EERRLine = {
+  kind: "line";
+  key: string;
+  label: string;
   total: number;
+  rows: Array<{ row: AccountBalanceRow; amount: number }>;
+};
+export type EERRSubtotal = { kind: "subtotal"; label: string; total: number };
+export type EERRStep = EERRLine | EERRSubtotal;
+
+const EERR_LINES: Array<{ key: string; label: string; categories: string[] }> =
+  [
+    { key: "ventas", label: "Ventas", categories: ["ingresos_operativos"] },
+    { key: "costo", label: "Costo de los servicios", categories: ["costo"] },
+    {
+      key: "gastos_operativos",
+      label: "Gastos operativos",
+      categories: ["gastos_operativos"],
+    },
+    {
+      key: "gastos_administrativos",
+      label: "Gastos de administración",
+      categories: ["gastos_administrativos"],
+    },
+    {
+      key: "financieros",
+      label: "Resultados financieros",
+      categories: ["ingresos_financieros", "gastos_financieros"],
+    },
+    { key: "otros", label: "Otros ingresos y egresos", categories: [] },
+    {
+      key: "impuesto_ganancias",
+      label: "Impuesto a las ganancias",
+      categories: ["impuesto_ganancias"],
+    },
+  ];
+
+const SUBTOTAL_AFTER: Record<string, string> = {
+  costo: "Resultado bruto",
+  gastos_administrativos: "Resultado operativo",
+  otros: "Resultado antes de impuestos",
 };
 
+/** Lines that show even without accounts, so the cascade keeps its shape. */
+const ALWAYS_SHOWN = new Set(["ventas", "costo"]);
+
 export function computeEERR(rows: readonly AccountBalanceRow[]): {
-  ingresos: EERRSection;
-  gastos: EERRSection;
+  steps: EERRStep[];
   resultado: number;
 } {
-  const posByCat = new Map<string, AccountBalanceRow[]>();
-  const negByCat = new Map<string, AccountBalanceRow[]>();
+  const lineOf = new Map<string, string>();
+  for (const l of EERR_LINES)
+    for (const c of l.categories) lineOf.set(c, l.key);
 
+  const byLine = new Map<string, EERRLine["rows"]>();
   for (const r of rows) {
-    if (r.account_type === "resultado_positivo") {
-      const cat = r.eerr_category ?? "sin_categoria";
-      const arr = posByCat.get(cat) ?? [];
-      arr.push(r);
-      posByCat.set(cat, arr);
-    } else if (r.account_type === "resultado_negativo") {
-      const cat = r.eerr_category ?? "sin_categoria";
-      const arr = negByCat.get(cat) ?? [];
-      arr.push(r);
-      negByCat.set(cat, arr);
-    }
+    if (
+      r.account_type !== "resultado_positivo" &&
+      r.account_type !== "resultado_negativo"
+    )
+      continue;
+    const key = lineOf.get(r.eerr_category ?? "") ?? "otros";
+    const arr = byLine.get(key) ?? [];
+    arr.push({ row: r, amount: -Number(r.balance) });
+    byLine.set(key, arr);
   }
 
-  const buildSection = (
-    title: string,
-    map: Map<string, AccountBalanceRow[]>,
-    sign: 1 | -1,
-  ): EERRSection => {
-    const categories = Array.from(map.entries())
-      .map(([name, rs]) => {
-        const total = rs.reduce((a, r) => a + Number(r.balance) * sign, 0);
-        return { name, total, rows: rs };
-      })
-      .sort((a, b) => b.total - a.total);
-    const total = categories.reduce((a, c) => a + c.total, 0);
-    return { title, categories, total };
-  };
+  const steps: EERRStep[] = [];
+  let running = 0;
+  for (const l of EERR_LINES) {
+    const lineRows = (byLine.get(l.key) ?? []).sort((a, b) =>
+      a.row.account_code.localeCompare(b.row.account_code, "es", {
+        numeric: true,
+      }),
+    );
+    const total = lineRows.reduce((a, r) => a + r.amount, 0);
+    running += total;
+    if (lineRows.length > 0 || ALWAYS_SHOWN.has(l.key)) {
+      steps.push({
+        kind: "line",
+        key: l.key,
+        label: l.label,
+        total,
+        rows: lineRows,
+      });
+    }
+    const subtotal = SUBTOTAL_AFTER[l.key];
+    if (subtotal)
+      steps.push({ kind: "subtotal", label: subtotal, total: running });
+  }
 
-  const ingresos = buildSection("Ingresos", posByCat, -1); // credit → positive
-  const gastos = buildSection("Gastos", negByCat, 1);
-
-  return {
-    ingresos,
-    gastos,
-    resultado: ingresos.total - gastos.total,
-  };
+  return { steps, resultado: running };
 }
 
 /** Net result (income − expenses) of the result accounts in `rows`. */

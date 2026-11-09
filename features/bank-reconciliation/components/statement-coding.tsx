@@ -35,6 +35,7 @@ import { PayLoanFromLineDialog } from "./pay-loan-from-line-dialog";
 
 import {
   useCreateLineTransaction,
+  useCreateLineTransactions,
   useMatchLine,
   useMatchLineToReceipt,
   usePayCardFromLine,
@@ -420,50 +421,47 @@ export function AcceptReadyButton({
   proposals: ReadonlyMap<string, LineProposal>;
   suggested: ReadonlySet<string>;
 }) {
-  const create = useCreateLineTransaction();
+  const createMany = useCreateLineTransactions();
   const fiscal = useFiscalChannel();
-  const [running, setRunning] = useState(false);
   const ready = lines.filter(
     (l) => proposals.get(l.id)?.ready && !suggested.has(l.id),
   );
   if (ready.length === 0) return null;
 
-  async function run() {
-    setRunning(true);
-    let done = 0;
-    const failed: string[] = [];
-    for (const l of ready) {
+  function run() {
+    const inputs = ready.flatMap((l) => {
       const accountId = proposals.get(l.id)?.code?.chart_account_id;
-      if (!accountId) continue;
-      try {
-        await create.mutateAsync({
-          line_id: l.id,
-          channel_id: fiscal,
-          expense_account_id: accountId,
-          description: l.description,
-        });
-        done += 1;
-      } catch (err) {
-        failed.push(err instanceof Error ? err.message : String(err));
-      }
-    }
-    setRunning(false);
-    if (failed.length === 0) {
-      toast.success(`${done} líneas registradas y conciliadas.`);
-    } else {
-      toast.error(`${done} registradas; ${failed.length} no: ${failed[0]}`);
-    }
+      return accountId
+        ? [
+            {
+              line_id: l.id,
+              channel_id: fiscal,
+              expense_account_id: accountId,
+              description: l.description,
+            },
+          ]
+        : [];
+    });
+    createMany.mutate(inputs, {
+      onSuccess: ({ done, failed }) => {
+        if (failed.length === 0) {
+          toast.success(`${done} líneas registradas y conciliadas.`);
+        } else {
+          toast.error(`${done} registradas; ${failed.length} no: ${failed[0]}`);
+        }
+      },
+    });
   }
 
   return (
     <Button
       type="button"
       size="sm"
-      disabled={running || !fiscal}
+      disabled={createMany.isPending || !fiscal}
       onClick={() => void run()}
     >
       <Check className="size-4" />
-      {running
+      {createMany.isPending
         ? "Registrando…"
         : `Aceptar impuestos y gastos (${ready.length})`}
     </Button>

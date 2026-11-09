@@ -1,5 +1,6 @@
 "use client";
 
+import { formatCuit } from "@/lib/validation/cuit";
 import Link from "next/link";
 import {
   Suspense,
@@ -116,7 +117,9 @@ const FISCAL_COLUMNS: ColumnDef<Client>[] = [
     header: "CUIT",
     enableSorting: false,
     cell: ({ row }) => (
-      <span className="font-mono text-xs">{row.original.cuit ?? "—"}</span>
+      <span className="font-mono text-xs">
+        {formatCuit(row.original.cuit) ?? "—"}
+      </span>
     ),
   },
   {

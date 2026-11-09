@@ -1,5 +1,6 @@
 "use client";
 
+import { formatCuit } from "@/lib/validation/cuit";
 import { ExportButton } from "@/components/export-button";
 import { ListToolbar } from "@/components/list-toolbar";
 import { Ban, CheckCircle2, XCircle } from "lucide-react";
@@ -130,7 +131,7 @@ export function IssuedChecksTable({
             </div>
             {row.original.beneficiary_cuit && (
               <div className="font-mono text-xs text-muted-foreground">
-                CUIT {row.original.beneficiary_cuit}
+                CUIT {formatCuit(row.original.beneficiary_cuit)}
               </div>
             )}
           </>

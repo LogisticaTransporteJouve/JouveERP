@@ -1,4 +1,5 @@
 import { Users } from "lucide-react";
+import { formatCuit } from "@/lib/validation/cuit";
 import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
@@ -44,7 +45,7 @@ export function TopDebtorsCard({
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-medium">{d.name}</span>
                     <span className="block truncate font-mono text-xs text-muted-foreground">
-                      {d.cuit}
+                      {formatCuit(d.cuit)}
                     </span>
                   </span>
                   {d.oldest_days > 90 && (
