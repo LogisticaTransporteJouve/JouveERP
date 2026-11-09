@@ -1,5 +1,6 @@
 "use client";
 
+import { formatCuit } from "@/lib/validation/cuit";
 import { Pencil } from "lucide-react";
 import { useState } from "react";
 
@@ -42,7 +43,9 @@ export function EditPurchaseInvoiceDialog({
           </DialogTitle>
           <DialogDescription>
             {invoice.supplier_legal_name}
-            {invoice.supplier_cuit ? ` · CUIT ${invoice.supplier_cuit}` : ""}
+            {invoice.supplier_cuit
+              ? ` · CUIT ${formatCuit(invoice.supplier_cuit)}`
+              : ""}
           </DialogDescription>
         </DialogHeader>
         <PurchaseInvoiceForm

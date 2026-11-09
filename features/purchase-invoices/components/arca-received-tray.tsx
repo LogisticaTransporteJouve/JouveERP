@@ -1,5 +1,6 @@
 "use client";
 
+import { formatCuit } from "@/lib/validation/cuit";
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
 import {
   AlertTriangle,
@@ -200,7 +201,7 @@ function VoucherTable({ status }: { status: ReceivedVoucherStatus }) {
                 row.original.issuer_name}
             </p>
             <p className="font-mono text-xs text-muted-foreground">
-              {row.original.issuer_cuit}
+              {formatCuit(row.original.issuer_cuit)}
               {row.original.supplier ? "" : " · proveedor nuevo"}
             </p>
           </div>

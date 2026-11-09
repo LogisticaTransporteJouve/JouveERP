@@ -1,5 +1,6 @@
 "use client";
 
+import { formatCuit } from "@/lib/validation/cuit";
 import { Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -82,7 +83,7 @@ export function DeleteSupplierDialog({ supplier }: { supplier: Supplier }) {
           <DialogTitle>Eliminar proveedor</DialogTitle>
           <DialogDescription>
             {supplier.legal_name}
-            {supplier.cuit ? ` · CUIT ${supplier.cuit}` : ""}
+            {supplier.cuit ? ` · CUIT ${formatCuit(supplier.cuit)}` : ""}
           </DialogDescription>
         </DialogHeader>
 
