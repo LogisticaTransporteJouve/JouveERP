@@ -14,6 +14,7 @@ import { runAction } from "@/lib/query/run-action";
 
 import {
   adoptInstallmentPaymentAction,
+  applyInstallmentStatementAction,
   bookLoanOpeningAction,
   cancelLoanAction,
   createLoanAction,
@@ -60,6 +61,16 @@ export function useUpdateInstallment() {
     mutationFn: (input: unknown) =>
       runAction(() => updateInstallmentAction(input)),
     onSuccess: () => invalidate(qc),
+  });
+}
+
+/** A cuota set from the lender's statement: no Caja, no entry yet. */
+export function useApplyInstallmentStatement() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: unknown) =>
+      runAction(() => applyInstallmentStatementAction(input)),
+    onSuccess: () => invalidateKeys(qc, [loansKeys.all]),
   });
 }
 

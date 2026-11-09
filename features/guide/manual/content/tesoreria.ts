@@ -2932,6 +2932,14 @@ export const treasuryPage: GuidePage = {
             "En un préstamo en dólares, el capital se da de baja a la cotización del desembolso y la diferencia con la del pago va a diferencia de cambio.",
           ],
         },
+        {
+          title: "Qué asientos hace un leasing",
+          body: [
+            "Un leasing no trae dinero: trae el bien. Su deuda va a «Deudas por leasing» (2.1.5), no a Préstamos financieros, y el bien a «Rodados» (1.2.1.1, Bienes de uso) por el monto financiado.",
+            "La deuda de apertura de un leasing en curso asienta Rodados por el monto financiado contra Deudas por leasing (el capital que se debía ese día) y Resultados no asignados (el capital ya pagado antes).",
+            "Al pagar una cuota, el capital baja Deudas por leasing; el interés y la mora van a Intereses pagados; el seguro a «Seguros de vehículos» (5.2.5), las patentes a «Patentes» (5.2.6) y el valor residual a la deuda; todo el IVA va a IVA Crédito Fiscal.",
+          ],
+        },
       ],
       tasks: [
         {
@@ -3078,6 +3086,50 @@ export const treasuryPage: GuidePage = {
             "préstamo en curso",
             "cierre de ejercicio",
             "asientos de préstamo",
+          ],
+        },
+        {
+          id: "resumen-cuota-leasing",
+          title: "Cargar el resumen de cuota de un leasing",
+          summary:
+            "El resumen del dador completa la cuota que vence con lo que realmente cobra: capital, interés, IVA, seguro, patentes y mora.",
+          permission: "accounting:write",
+          prerequisites: [
+            "El leasing cargado con su {{Número de préstamo}} (la «Operación» del resumen) y la cuota pendiente ([[#crear-prestamo]]).",
+            "El resumen en PDF: en la web de Mercedes-Benz Compañía Financiera, «Resumen de cuenta» o «Consulta de cuenta on line», descargalo.",
+          ],
+          steps: [
+            "Abrí el leasing en [[/loans]].",
+            "En {{Plan de cuotas}}, hacé clic en {{Cargar resumen de cuota}} y elegí el PDF.",
+          ],
+          after: [
+            "La cuota del resumen toma su capital, su interés y su IVA, y en {{Otros}} cada cargo: seguro, patentes, y la deuda anterior y los intereses compensatorios y punitorios como mora. Debajo del importe de {{Otros}} se ve el detalle.",
+            "El total de la cuota pasa a ser el del resumen. Después pagala como siempre ([[#pagar-cuota-prestamo]]) o desde el extracto: el asiento manda cada parte a su cuenta.",
+            "Si el resumen trae deuda anterior y esa cuota sigue pendiente en el sistema, no la pagues dos veces.",
+          ],
+          errors: [
+            {
+              message:
+                "No es un resumen de cuota de Mercedes-Benz Compañía Financiera.",
+              fix: "Elegí el resumen de cuenta del leasing, no un comprobante de pago.",
+            },
+            {
+              message: "El resumen es de la operación …, no de …",
+              fix: "Elegí el resumen de este leasing, o corregí su número de préstamo.",
+            },
+            {
+              message: "La cuota … ya está pagada.",
+              fix: "Un resumen completa solo una cuota pendiente.",
+            },
+          ],
+          related: ["crear-prestamo", "pagar-cuota-prestamo"],
+          keywords: [
+            "leasing",
+            "resumen de cuota",
+            "seguro",
+            "patentes",
+            "mora",
+            "Mercedes-Benz",
           ],
         },
         {

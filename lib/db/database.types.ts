@@ -5071,6 +5071,61 @@ export type Database = {
           },
         ]
       }
+      loan_installment_charges: {
+        Row: {
+          amount: number
+          chart_account_id: string | null
+          concept: string
+          created_at: string
+          description: string | null
+          id: string
+          installment_id: string
+          iva_amount: number
+        }
+        Insert: {
+          amount: number
+          chart_account_id?: string | null
+          concept: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          installment_id: string
+          iva_amount?: number
+        }
+        Update: {
+          amount?: number
+          chart_account_id?: string | null
+          concept?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          installment_id?: string
+          iva_amount?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loan_installment_charges_chart_account_id_fkey"
+            columns: ["chart_account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loan_installment_charges_chart_account_id_fkey"
+            columns: ["chart_account_id"]
+            isOneToOne: false
+            referencedRelation: "expense_leaf_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loan_installment_charges_installment_id_fkey"
+            columns: ["installment_id"]
+            isOneToOne: false
+            referencedRelation: "loan_installments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       loan_installments: {
         Row: {
           amount: number
@@ -10971,6 +11026,10 @@ export type Database = {
         }
         Returns: Json
       }
+      loan_liability_role: {
+        Args: { p_loan_id: string }
+        Returns: Database["public"]["Enums"]["coa_system_role"]
+      }
       management_invoice_asset_share: {
         Args: { p_invoice_id: string }
         Returns: number
@@ -11613,6 +11672,10 @@ export type Database = {
         Args: { p_line_id: string; p_reason: string; p_user_id: string }
         Returns: undefined
       }
+      set_loan_installment_charges: {
+        Args: { p_charges: Json; p_installment_id: string; p_split: Json }
+        Returns: number
+      }
       set_strix_credentials: {
         Args: { p_password?: string; p_user_id: string; p_username: string }
         Returns: undefined
@@ -11935,12 +11998,16 @@ export type Database = {
         | "cheques_cartera"
         | "cheques_rechazados"
         | "anticipos_personal"
+        | "rodados"
         | "cheques_diferidos_emitidos"
         | "prestamos"
+        | "deudas_leasing"
         | "caja_apertura"
         | "ajustes_caja"
         | "sueldos"
         | "intereses_pagados"
+        | "seguros"
+        | "patentes"
         | "diferencia_cambio"
       employee_document_kind:
         | "licencia_conducir"
@@ -12132,12 +12199,16 @@ export const Constants = {
         "cheques_cartera",
         "cheques_rechazados",
         "anticipos_personal",
+        "rodados",
         "cheques_diferidos_emitidos",
         "prestamos",
+        "deudas_leasing",
         "caja_apertura",
         "ajustes_caja",
         "sueldos",
         "intereses_pagados",
+        "seguros",
+        "patentes",
         "diferencia_cambio",
       ],
       employee_document_kind: [

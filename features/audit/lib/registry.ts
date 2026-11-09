@@ -1053,6 +1053,11 @@ const AUDIT_ACTIONS: Record<string, Spec> = {
     say: () =>
       "cambió el desglose (capital, intereses, impuestos) de una cuota de préstamo",
   },
+  "loan.installment_statement_applied": {
+    group: "treasury",
+    say: (c) =>
+      `cargó el resumen de ${typeof c.p.installment_number === "number" ? `la cuota ${c.p.installment_number}` : "una cuota"} de un leasing por ${money(c.p.amount) ?? "—"}`,
+  },
   "recurring_payment.created": {
     group: "treasury",
     subject: "recurring_payment",

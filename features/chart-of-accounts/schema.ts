@@ -46,12 +46,16 @@ export const COA_SYSTEM_ROLES = [
   "cheques_cartera",
   "cheques_rechazados",
   "anticipos_personal",
+  "rodados",
   "cheques_diferidos_emitidos",
   "prestamos",
+  "deudas_leasing",
   "caja_apertura",
   "ajustes_caja",
   "sueldos",
   "intereses_pagados",
+  "seguros",
+  "patentes",
   "diferencia_cambio",
 ] as const;
 
@@ -78,12 +82,16 @@ export const COA_SYSTEM_ROLE_LABEL: Record<CoaSystemRole, string> = {
   cheques_cartera: "Cheques en cartera",
   cheques_rechazados: "Deudores por cheques rechazados",
   anticipos_personal: "Anticipos al personal",
+  rodados: "Rodados",
   cheques_diferidos_emitidos: "Cheques diferidos emitidos",
   prestamos: "Préstamos",
+  deudas_leasing: "Deudas por leasing",
   caja_apertura: "Apertura de caja",
   ajustes_caja: "Ajustes de caja",
   sueldos: "Sueldos y jornales",
   intereses_pagados: "Intereses pagados",
+  seguros: "Seguros de vehículos",
+  patentes: "Patentes",
   diferencia_cambio: "Diferencias de cambio",
 };
 
