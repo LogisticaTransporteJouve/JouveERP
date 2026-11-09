@@ -58,7 +58,7 @@ export function PickerTrigger({
       // An aria-label replaces the button text: keep the value audible.
       aria-label={ariaLabel && display ? `${ariaLabel}: ${display}` : ariaLabel}
       className={cn(
-        "h-9 w-full justify-between font-normal",
+        "flex h-9 w-full justify-between font-normal",
         !display && "text-muted-foreground",
         className,
       )}

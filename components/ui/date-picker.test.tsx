@@ -62,6 +62,19 @@ describe("Calendar", () => {
 });
 
 describe("DatePicker", () => {
+  it("is a block under its label, also with a fixed width", () => {
+    render(
+      <DatePicker
+        value="2026-11-05"
+        onChange={vi.fn()}
+        className="w-[160px]"
+      />,
+    );
+    const trigger = screen.getByRole("button", { name: /05\/11\/2026/ });
+    expect(trigger.className.split(" ")).toContain("flex");
+    expect(trigger.className).not.toContain("inline-flex");
+  });
+
   it("shows dd/mm/yyyy and emits YYYY-MM-DD", () => {
     const onChange = vi.fn();
     render(<DatePicker value="2026-11-05" onChange={onChange} />);
