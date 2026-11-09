@@ -18,7 +18,7 @@ export const assistantPage: GuidePage = {
       intro: [
         "El chat con el asistente. Le preguntás en tus palabras («¿cómo viene la caja?», «¿quién me debe más?») y responde con los datos que tu usuario puede ver en la app, con tablas, gráficos y calendarios cuando ayudan. También le podés preguntar cómo se hace algo en el sistema.",
         "Arriba a la izquierda, {{Historial}} abre las conversaciones ({{Nuevo chat}}, agrupadas en {{Hoy}}, {{Ayer}} y {{Anteriores}}) y el lápiz ({{Nuevo chat}}) empieza una. Arriba a la derecha, {{Insights}} (las alertas del analista), {{Fijados}} y el consumo de IA del día.",
-        "El chat ocupa todo el ancho hasta que el asistente arma una tabla, un gráfico o un calendario: se abre a la derecha del chat, en un panel propio, y en el mensaje queda una tarjeta con su título para volver a abrirlo. Se ve uno por vez; el más nuevo reemplaza al anterior. En pantallas angostas (celular, tablet) el panel tapa el chat y {{Volver al chat}} lo cierra.",
+        "El chat ocupa todo el ancho hasta que el asistente arma una tabla, un gráfico o un calendario: se abre a la derecha del chat, en un panel propio, y en el mensaje queda una tarjeta con su título para volver a abrirlo. Una tabla que escribe dentro de la respuesta también pasa al panel, con la aclaración «De la respuesta del asistente». Se ve uno por vez; el más nuevo reemplaza al anterior. En pantallas angostas (celular, tablet) el panel tapa el chat y {{Volver al chat}} lo cierra.",
       ],
       concepts: [
         {
@@ -45,7 +45,7 @@ export const assistantPage: GuidePage = {
         {
           title: "Límite diario",
           body: [
-            "El consumo de IA tiene un tope por día para todo el equipo (lo que usa uno descuenta del total). El medidor de arriba a la derecha muestra lo gastado hoy en pesos (al dólar oficial cargado) contra el tope; al llegar al tope, el cuadro de texto dice {{Límite diario alcanzado}} hasta el día siguiente.",
+            "El consumo de IA tiene un tope por día para todo el equipo (lo que usa uno descuenta del total): US$ 10. El medidor de arriba a la derecha muestra lo gastado hoy contra el tope («$ 803 de $ 14.500 hoy»), en pesos al dólar oficial cargado; al pasar el mouse muestra el gasto en dólares y de qué día es el dólar usado. Si no hay cotización cargada, el medidor muestra dólares. Al llegar al tope, el cuadro de texto dice {{Límite diario alcanzado}} hasta el día siguiente.",
           ],
         },
       ],
@@ -265,7 +265,7 @@ export const assistantPage: GuidePage = {
             {
               text: "Usá los botones del encabezado del panel:",
               substeps: [
-                "{{Fijar}}: lo guarda en [[/ai/pinned]] para volver a verlo con los datos al día (no aparece en un calendario).",
+                "{{Fijar}}: lo guarda en [[/ai/pinned]] para volver a verlo con los datos al día (no aparece en un calendario). Una tabla que salió del texto de la respuesta no se puede fijar porque no tiene una consulta detrás: el botón queda deshabilitado y, al pasar el mouse, dice que le pidas al asistente que la arme como tabla.",
                 "{{Exportar}} › {{CSV}} o {{Excel}}: descarga los datos.",
                 "En un gráfico, {{Tabla}} (al lado del título) muestra los mismos datos como tabla ({{Gráfico}} vuelve).",
                 "{{Cerrar}} (la cruz) oculta el panel y el chat vuelve a ocupar todo el ancho; en pantallas angostas es {{Volver al chat}}.",

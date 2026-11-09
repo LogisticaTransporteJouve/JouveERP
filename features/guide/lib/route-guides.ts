@@ -45,6 +45,18 @@ export const ROUTE_GUIDES: readonly RouteGuide[] = [
       "Preguntale al asistente por ventas, cobranzas, costos o caja: responde con los datos que tu usuario puede ver.",
   },
   {
+    prefix: "/ai/pinned",
+    title: "Fijados de IA",
+    summary:
+      "Las tablas y gráficos que fijaste desde el asistente, recalculados con los datos de hoy.",
+  },
+  {
+    prefix: "/ai/tasks",
+    title: "Tareas IA",
+    summary:
+      "Pedidos que el asistente corre solo cada día, semana o mes, con tus permisos de lectura; cada corrida deja su resultado.",
+  },
+  {
     prefix: "/documentos",
     title: "Documentos",
     summary:
@@ -146,7 +158,7 @@ export const ROUTE_GUIDES: readonly RouteGuide[] = [
     summary:
       "Por cuenta y mes: cada línea del extracto contra los movimientos de caja.",
     steps: [
-      "Importá el extracto con el importador (tipo Extracto bancario).",
+      "Subí el extracto que bajaste del banco con Subir extracto (entra a la cuenta y el mes elegidos).",
       "Aceptá las sugerencias o elegí los movimientos a mano.",
       "Creá el movimiento que falta (comisiones, intereses) desde la línea.",
     ],
@@ -155,7 +167,7 @@ export const ROUTE_GUIDES: readonly RouteGuide[] = [
     prefix: "/accounts",
     title: "Cuentas",
     summary:
-      "Cajas, bancos y billeteras con su moneda y su saldo inicial. También se crean pidiéndoselo al asistente.",
+      "Cajas, bancos y billeteras con su moneda y su saldo. Cada cuenta abre sus movimientos y, en un banco, su extracto. También se crean pidiéndoselo al asistente.",
   },
   {
     prefix: "/transactions",
@@ -351,6 +363,12 @@ export const ROUTE_GUIDES: readonly RouteGuide[] = [
     summary: "Ingresos, egresos, ubicación y bloqueo de pallets.",
   },
   {
+    prefix: "/pallets/trazabilidad",
+    title: "Trazabilidad de pallets",
+    summary:
+      "Cuándo entró y salió cada pallet y cuántos días estuvo almacenado. Solo de consulta.",
+  },
+  {
     prefix: "/storage-tariffs",
     title: "Tarifas de depósito",
     summary: "Tarifas de almacenaje con su historial de aumentos.",
@@ -390,7 +408,7 @@ export const ROUTE_GUIDES: readonly RouteGuide[] = [
     prefix: "/admin/users",
     title: "Usuarios",
     summary:
-      "Invitá usuarios y asignales roles. El owner puede ocultarle módulos a un usuario.",
+      "Invitá usuarios y asignales roles. El owner puede ocultarle módulos o denegarle acciones a un usuario.",
   },
   {
     prefix: "/admin/padron",
@@ -428,7 +446,8 @@ export const ROUTE_GUIDES: readonly RouteGuide[] = [
   {
     prefix: "/admin/audit",
     title: "Auditoría",
-    summary: "Quién hizo qué y cuándo.",
+    summary:
+      "Quién hizo qué y cuándo, en frases. Buscá por cliente, proveedor, número de comprobante o patente y filtrá por fechas, usuario y tipo de tarea.",
   },
   {
     prefix: "/admin/backups",
