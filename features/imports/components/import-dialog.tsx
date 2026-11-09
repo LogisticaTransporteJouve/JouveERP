@@ -43,6 +43,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatArgentineDateTime } from "@/lib/format";
+import { readPdfLines } from "@/lib/pdf/pdf-text";
+import {
+  statementRowsFromPdfLines,
+  statementRowsToCsv,
+} from "@/lib/tables/pdf-statement";
 
 import type { ImportPreview } from "../actions/import-actions";
 import { useCommitImport, usePreviewImport } from "../hooks/use-imports";
@@ -157,6 +162,7 @@ export function ImportDialog({
   const activeChannels = channels.filter((c) => c.is_active);
   const [kind, setKind] = useState<ImportKind | null>(kinds[0] ?? null);
   const [file, setFile] = useState<File | null>(null);
+  const [readingPdf, setReadingPdf] = useState(false);
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [mapping, setMapping] = useState<ImportMapping | null>(null);
   const [accountId, setAccountId] = useState(fixedAccountId ?? "");
@@ -276,8 +282,8 @@ export function ImportDialog({
           </DialogTitle>
           <DialogDescription>
             {simple
-              ? "Subí el extracto que bajaste del banco (.csv, .txt o .xlsx). Las líneas que ya estaban cargadas se saltean."
-              : "Subí un .xlsx (primera hoja) o .csv con una fila de títulos. Nada se guarda hasta que confirmes; las filas con error quedan afuera y las que ya están cargadas se saltean."}
+              ? "Subí el extracto que bajaste del banco (.pdf, .xlsx, .xls, .csv o .txt). Las líneas que ya estaban cargadas se saltean."
+              : "Subí un .xlsx o .xls (primera hoja) o .csv con una fila de títulos. Nada se guarda hasta que confirmes; las filas con error quedan afuera y las que ya están cargadas se saltean."}
           </DialogDescription>
         </DialogHeader>
 
@@ -315,14 +321,30 @@ export function ImportDialog({
             <Input
               id="import-file"
               type="file"
-              accept=".xlsx,.csv,.txt,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              accept={
+                kind === "bank_statement"
+                  ? ".xlsx,.xls,.csv,.txt,.pdf,text/csv,text/plain,application/pdf,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                  : ".xlsx,.xls,.csv,.txt,text/csv,text/plain,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              }
               onChange={(e) => {
-                setFile(e.target.files?.[0] ?? null);
+                const chosen = e.target.files?.[0] ?? null;
                 setPreview(null);
                 setMapping(null);
+                if (chosen && kind === "bank_statement" && isPdf(chosen)) {
+                  setFile(null);
+                  setReadingPdf(true);
+                  void statementPdfAsCsv(chosen)
+                    .then((csv) => {
+                      if (typeof csv === "string") toast.error(csv);
+                      else setFile(csv);
+                    })
+                    .finally(() => setReadingPdf(false));
+                  return;
+                }
+                setFile(chosen);
               }}
             />
-            {previewMut.isPending && (
+            {(previewMut.isPending || readingPdf) && (
               <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
                 <Loader2 className="size-3.5 animate-spin" />
                 Leyendo el archivo…
@@ -632,4 +654,23 @@ export function ImportDialog({
       </DialogContent>
     </Dialog>
   );
+}
+
+const isPdf = (f: File) =>
+  f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf");
+
+/** A statement PDF read in the browser, as the CSV the import reads; or the
+ *  message for the user. */
+async function statementPdfAsCsv(pdf: File): Promise<File | string> {
+  let lines: string[];
+  try {
+    lines = await readPdfLines(pdf);
+  } catch {
+    return "No se pudo leer el PDF.";
+  }
+  const read = statementRowsFromPdfLines(lines);
+  if ("error" in read) return read.error;
+  return new File([statementRowsToCsv(read.rows)], `${pdf.name}.csv`, {
+    type: "text/csv",
+  });
 }

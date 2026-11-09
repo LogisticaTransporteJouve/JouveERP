@@ -7,6 +7,7 @@ import {
   type ParsedTable,
   type TableLimits,
 } from "./csv";
+import { readXlsFirstSheet } from "./xls";
 import { XlsxReadError, readXlsxFirstSheet } from "./xlsx";
 
 /** UTF-8 when the bytes are valid UTF-8, else windows-1252 (what ARCA and a
@@ -19,7 +20,7 @@ export function decodeText(bytes: Uint8Array): string {
   }
 }
 
-/** An uploaded .xlsx (first sheet) or .csv as a text table, or the message
+/** An uploaded .xlsx or .xls (first sheet) or .csv as a text table, or the message
  *  for the user when it cannot be read. A CSV is read as UTF-8 unless
  *  `decode` says otherwise. */
 export function readUploadedTable(
@@ -38,10 +39,10 @@ export function readUploadedTable(
   },
 ): ParsedTable | string {
   const name = fileName.toLowerCase();
-  if (name.endsWith(".xls")) {
-    return "El formato .xls no se puede leer: guardalo como .xlsx o .csv.";
-  }
   try {
+    if (name.endsWith(".xls")) {
+      return readXlsFirstSheet(bytes, limits);
+    }
     if (name.endsWith(".xlsx")) {
       return readXlsxFirstSheet(bytes, limits);
     }
@@ -79,5 +80,5 @@ export function readUploadedTable(
     if (err instanceof XlsxReadError) return "No se pudo leer el Excel.";
     throw err;
   }
-  return "Subí el archivo en .xlsx o .csv.";
+  return "Subí el archivo en .xlsx, .xls o .csv.";
 }
