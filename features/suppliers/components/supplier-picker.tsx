@@ -1,5 +1,6 @@
 "use client";
 
+import { formatCuit } from "@/lib/validation/cuit";
 import { Building2, Plus, Search, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -229,7 +230,10 @@ export function SupplierPicker({
                 Crear proveedor «{suggestedNew.legal_name ?? "sin razón social"}
                 »
                 {suggestedNew.cuit && (
-                  <span className="font-mono"> · CUIT {suggestedNew.cuit}</span>
+                  <span className="font-mono">
+                    {" "}
+                    · CUIT {formatCuit(suggestedNew.cuit)}
+                  </span>
                 )}
               </span>
             </Button>
@@ -327,7 +331,9 @@ function ResultsList({
                   <span className="mr-2">{supplier.display_name}</span>
                 )}
                 {supplier.cuit && (
-                  <span className="font-mono">CUIT {supplier.cuit}</span>
+                  <span className="font-mono">
+                    CUIT {formatCuit(supplier.cuit)}
+                  </span>
                 )}
               </p>
             </div>

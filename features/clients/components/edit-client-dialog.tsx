@@ -1,5 +1,6 @@
 "use client";
 
+import { formatCuit } from "@/lib/validation/cuit";
 import { Pencil } from "lucide-react";
 import { useState } from "react";
 
@@ -30,7 +31,9 @@ export function EditClientDialog({ client }: { client: Client }) {
         <DialogHeader>
           <DialogTitle>{client.legal_name}</DialogTitle>
           <DialogDescription>
-            {client.cuit ? `CUIT ${client.cuit}` : "Sin CUIT · interno"}
+            {client.cuit
+              ? `CUIT ${formatCuit(client.cuit)}`
+              : "Sin CUIT · interno"}
             {!client.is_active && " · Inactivo"}
           </DialogDescription>
         </DialogHeader>

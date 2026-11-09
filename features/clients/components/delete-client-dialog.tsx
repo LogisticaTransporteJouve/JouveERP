@@ -1,5 +1,6 @@
 "use client";
 
+import { formatCuit } from "@/lib/validation/cuit";
 import { Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -82,7 +83,7 @@ export function DeleteClientDialog({ client }: { client: Client }) {
           <DialogTitle>Eliminar cliente</DialogTitle>
           <DialogDescription>
             {client.legal_name}
-            {client.cuit ? ` · CUIT ${client.cuit}` : ""}
+            {client.cuit ? ` · CUIT ${formatCuit(client.cuit)}` : ""}
           </DialogDescription>
         </DialogHeader>
 

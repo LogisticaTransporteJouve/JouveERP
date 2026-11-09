@@ -1,5 +1,6 @@
 "use client";
 
+import { formatCuit } from "@/lib/validation/cuit";
 import Link from "next/link";
 import { useMemo } from "react";
 
@@ -92,7 +93,7 @@ export function AgingReportView({
             </Link>
             {row.original.cuit && (
               <p className="font-mono text-xs text-muted-foreground">
-                CUIT {row.original.cuit}
+                CUIT {formatCuit(row.original.cuit)}
               </p>
             )}
             {hasAmount(row.original.rejected_checks) && (

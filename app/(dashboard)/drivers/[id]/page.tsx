@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { formatCuit } from "@/lib/validation/cuit";
 import { notFound, redirect } from "next/navigation";
 
 import {
@@ -59,7 +60,7 @@ export default async function DriverDetailPage({
 
   const facts = [
     driver.employee_id ? "Empleado" : "Contratado",
-    driver.cuit ? `CUIT ${driver.cuit}` : "",
+    driver.cuit ? `CUIT ${formatCuit(driver.cuit)}` : "",
     driver.license_number
       ? `Licencia ${driver.license_number}${driver.license_category ? ` (${driver.license_category})` : ""}`
       : "",

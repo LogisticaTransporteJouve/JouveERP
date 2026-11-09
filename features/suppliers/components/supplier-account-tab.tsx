@@ -1,5 +1,6 @@
 "use client";
 
+import { formatCuit } from "@/lib/validation/cuit";
 import { Eye, Pencil, Plus, Trash2, Wallet } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -460,7 +461,7 @@ export function SupplierAccountTab({
               params={{
                 supplierId,
                 name: supplier.cuit
-                  ? `${supplier.display_name ?? supplier.legal_name} · CUIT ${supplier.cuit}`
+                  ? `${supplier.display_name ?? supplier.legal_name} · CUIT ${formatCuit(supplier.cuit)}`
                   : (supplier.display_name ?? supplier.legal_name),
               }}
               label="Exportar resumen"

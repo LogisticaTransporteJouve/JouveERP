@@ -1,5 +1,6 @@
 "use client";
 
+import { formatCuit } from "@/lib/validation/cuit";
 import { Building2, Plus, Search, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -315,7 +316,9 @@ function ResultsList({
                   <span className="mr-2">{client.display_name}</span>
                 )}
                 {client.cuit && (
-                  <span className="font-mono">CUIT {client.cuit}</span>
+                  <span className="font-mono">
+                    CUIT {formatCuit(client.cuit)}
+                  </span>
                 )}
               </p>
             </div>

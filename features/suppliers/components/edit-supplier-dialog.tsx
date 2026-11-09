@@ -1,5 +1,6 @@
 "use client";
 
+import { formatCuit } from "@/lib/validation/cuit";
 import { Pencil } from "lucide-react";
 import { useState } from "react";
 
@@ -30,7 +31,9 @@ export function EditSupplierDialog({ supplier }: { supplier: Supplier }) {
         <DialogHeader>
           <DialogTitle>{supplier.legal_name}</DialogTitle>
           <DialogDescription>
-            {supplier.cuit ? `CUIT ${supplier.cuit}` : "Sin CUIT · interno"}
+            {supplier.cuit
+              ? `CUIT ${formatCuit(supplier.cuit)}`
+              : "Sin CUIT · interno"}
             {!supplier.is_active && " · Inactivo"}
           </DialogDescription>
         </DialogHeader>
