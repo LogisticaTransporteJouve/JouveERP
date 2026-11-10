@@ -2,6 +2,7 @@
 
 import {
   useMutation,
+  useMutationState,
   useQuery,
   useQueryClient,
   useSuspenseQuery,
@@ -21,6 +22,8 @@ import { transactionsKeys } from "@/features/transactions/lib/transactions-keys"
 import { CASH_KEYS } from "@/features/treasury/lib/cash-keys";
 import { loansKeys } from "@/features/loans/lib/loans-keys";
 import { invalidateKeys } from "@/lib/query/invalidate";
+
+import { lineIdsOf } from "../lib/line-ids";
 import { cardStatementsKeys } from "@/features/card-statements/lib/card-statements-keys";
 import { runAction } from "@/lib/query/run-action";
 
@@ -83,14 +86,14 @@ function useReconciliationMutation<I, O>(
   // later step failed (a transfer booked whose line did not match), and the
   // page has to show what was written.
   return useMutation({
+    mutationKey: reconciliationKeys.lineAction(),
     mutationFn: fn,
-    onSettled: () => {
+    onSettled: () =>
       invalidateKeys(qc, [
         reconciliationKeys.all,
         transactionsKeys.all,
         ...alsoKeys,
-      ]);
-    },
+      ]),
   });
 }
 
@@ -185,15 +188,15 @@ export function useRestoreLine() {
 export function useCreateLineTransaction() {
   const qc = useQueryClient();
   return useMutation({
+    mutationKey: reconciliationKeys.lineAction(),
     mutationFn: (input: CreateLineTransactionInput) =>
       runAction(() => createLineTransactionAction(input)),
-    onSuccess: () => {
+    onSuccess: () =>
       invalidateKeys(qc, [
         reconciliationKeys.all,
         ...CASH_KEYS,
         ...LEDGER_KEYS,
-      ]);
-    },
+      ]),
   });
 }
 
@@ -203,6 +206,7 @@ export function useCreateLineTransaction() {
 export function useCreateLineTransactions() {
   const qc = useQueryClient();
   return useMutation({
+    mutationKey: reconciliationKeys.lineAction(),
     mutationFn: async (inputs: readonly CreateLineTransactionInput[]) => {
       let done = 0;
       const failed: string[] = [];
@@ -216,13 +220,12 @@ export function useCreateLineTransactions() {
       }
       return { done, failed };
     },
-    onSettled: () => {
+    onSettled: () =>
       invalidateKeys(qc, [
         reconciliationKeys.all,
         ...CASH_KEYS,
         ...LEDGER_KEYS,
-      ]);
-    },
+      ]),
   });
 }
 
@@ -240,16 +243,29 @@ export function usePayableTaxDocuments(enabled: boolean) {
 export function useCreateLineTaxPayment() {
   const qc = useQueryClient();
   return useMutation({
+    mutationKey: reconciliationKeys.lineAction(),
     mutationFn: (input: CreateLineTaxPaymentInput) =>
       runAction(() => createLineTaxPaymentAction(input)),
-    onSuccess: () => {
+    onSuccess: () =>
       invalidateKeys(qc, [
         reconciliationKeys.all,
         taxesKeys.all,
         tasksKeys.all,
         ...CASH_KEYS,
         ...LEDGER_KEYS,
-      ]);
-    },
+      ]),
   });
+}
+
+/** The statement lines a write is still working on, until the page shows
+ *  its result: their row says so instead of offering what was just done. */
+export function useLinesInFlight(): ReadonlySet<string> {
+  const variables = useMutationState({
+    filters: {
+      mutationKey: reconciliationKeys.lineAction(),
+      status: "pending",
+    },
+    select: (m) => m.state.variables,
+  });
+  return new Set(variables.flatMap(lineIdsOf));
 }

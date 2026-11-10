@@ -7,6 +7,7 @@ import {
   CreditCard,
   FileUp,
   Link2,
+  Loader2,
   MoreHorizontal,
   Plus,
   Settings2,
@@ -57,6 +58,7 @@ import { cn } from "@/lib/utils";
 
 import {
   useAcceptSuggestions,
+  useLinesInFlight,
   useReconciliation,
   useReconciliationAccounts,
   useRestoreLine,
@@ -290,10 +292,14 @@ function ReconciliationBody({
   const s = data.summary;
   const lineById = new Map(data.lines.map((l) => [l.id, l]));
   const movementById = new Map(data.movements.map((m) => [m.id, m]));
-  const suggestedLines = new Set(data.suggestions.map((sg) => sg.line_id));
-  const suggestionByLine = new Map(
-    data.suggestions.map((sg) => [sg.line_id, sg]),
+  // A line a write is still resolving shows that, not the step in between
+  // (its receipt just booked but not matched yet shows as a suggestion).
+  const inFlight = useLinesInFlight();
+  const suggestions = data.suggestions.filter(
+    (sg) => !inFlight.has(sg.line_id),
   );
+  const suggestedLines = new Set(suggestions.map((sg) => sg.line_id));
+  const suggestionByLine = new Map(suggestions.map((sg) => [sg.line_id, sg]));
   const free = data.movements.filter((m) => m.line_ids.length === 0);
   const unmatchedInPeriod = free.filter(
     (m) => m.transaction_date >= from && m.transaction_date <= to,
@@ -376,17 +382,17 @@ function ReconciliationBody({
         </StatTile>
       </StatGrid>
 
-      {canWrite && data.suggestions.length > 0 && (
+      {canWrite && suggestions.length > 0 && (
         <section className="space-y-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-base font-semibold">
-              Sugerencias ({data.suggestions.length})
+              Sugerencias ({suggestions.length})
             </h2>
             <Button
               size="sm"
               variant="outline"
               disabled={accept.isPending}
-              onClick={() => acceptAll(data.suggestions)}
+              onClick={() => acceptAll(suggestions)}
             >
               <CheckCheck className="size-4" />
               Aceptar todas
@@ -407,7 +413,7 @@ function ReconciliationBody({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data.suggestions.map((sg) => {
+                {suggestions.map((sg) => {
                   const line = lineById.get(sg.line_id);
                   const m = movementById.get(sg.transaction_id);
                   if (!line || !m) return null;
@@ -565,7 +571,14 @@ function ReconciliationBody({
                         {line.bank_code ? ` · Cód. ${line.bank_code}` : ""}
                       </span>
                     )}
+                    {line.status === "open" && inFlight.has(line.id) && (
+                      <span className="text-muted-foreground mt-1 flex items-center gap-1.5 text-xs">
+                        <Loader2 className="size-3.5 animate-spin" />
+                        Registrando…
+                      </span>
+                    )}
                     {line.status === "open" &&
+                      !inFlight.has(line.id) &&
                       canWrite &&
                       suggestionByLine.has(line.id) && (
                         <SuggestionInline
@@ -579,6 +592,7 @@ function ReconciliationBody({
                         />
                       )}
                     {line.status === "open" &&
+                      !inFlight.has(line.id) &&
                       !(canWrite && suggestionByLine.has(line.id)) && (
                         <LineProposalView
                           line={line}
