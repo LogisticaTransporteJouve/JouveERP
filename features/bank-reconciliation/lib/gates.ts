@@ -1,5 +1,6 @@
 import { CHECK_CASH_PERMISSIONS } from "@/features/checks/lib/check-cash";
 import { IMPORT_KIND_PERMISSION } from "@/features/imports/schema";
+import { ISSUED_CHECK_CASH_PERMISSIONS } from "@/features/issued-checks/lib/issued-check-cash";
 import { LOAN_CASH_PERMISSIONS } from "@/features/loans/lib/loan-cash";
 import {
   TREASURY_WRITE_PERMISSIONS,
@@ -34,6 +35,9 @@ export type ReconciliationGates = {
   canTreasuryWrite: boolean;
   /** Deposits a cartera cheque from a credit line (+ cheques:write). */
   canDepositChecks: boolean;
+  /** Marks an own cheque cashed from its debit (issued cheques' cash
+   *  permissions + transactions:write). */
+  canDebitIssuedChecks: boolean;
 };
 
 export function reconciliationGates(access: Access): ReconciliationGates {
@@ -58,5 +62,7 @@ export function reconciliationGates(access: Access): ReconciliationGates {
     canDepositChecks:
       userCanAll(access, TREASURY_WRITE_PERMISSIONS) &&
       userCanAll(access, CHECK_CASH_PERMISSIONS),
+    canDebitIssuedChecks:
+      canWrite && userCanAll(access, ISSUED_CHECK_CASH_PERMISSIONS),
   };
 }

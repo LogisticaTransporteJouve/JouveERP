@@ -31,6 +31,7 @@ import {
   type StatementCarteraCheck,
   type StatementCheckSaleTransfer,
   type StatementLoanInstallment,
+  type StatementIssuedCheck,
   type StatementSupplier,
 } from "../schema";
 
@@ -283,16 +284,20 @@ export async function getStatementCodingAction(
   // Each one only for whoever may see it: the cartera with cheques:read,
   // the card statements with the treasury reads (as the loan cuotas).
   const empty = <T>(): Promise<T[]> => Promise.resolve([]);
-  const [saleTransfers, cardStatements, carteraChecks] = await Promise.all([
-    readCheckSaleTransfers(service, account_id),
-    userCanAll(ctx.access, TREASURY_PERMISSIONS)
-      ? readCardStatements(service, account_id)
-      : empty<StatementCardStatement>(),
-    userCan(ctx.access, "cheques:read")
-      ? readCarteraChecks(service)
-      : empty<StatementCarteraCheck>(),
-  ]);
-  if (!saleTransfers || !cardStatements || !carteraChecks) {
+  const [saleTransfers, cardStatements, carteraChecks, issuedChecks] =
+    await Promise.all([
+      readCheckSaleTransfers(service, account_id),
+      userCanAll(ctx.access, TREASURY_PERMISSIONS)
+        ? readCardStatements(service, account_id)
+        : empty<StatementCardStatement>(),
+      userCan(ctx.access, "cheques:read")
+        ? readCarteraChecks(service)
+        : empty<StatementCarteraCheck>(),
+      userCan(ctx.access, "issued_checks:read")
+        ? readIssuedChecks(service, account_id)
+        : empty<StatementIssuedCheck>(),
+    ]);
+  if (!saleTransfers || !cardStatements || !carteraChecks || !issuedChecks) {
     logger.error("reconciliation.coding.cheques_cards_failed", {
       userId: ctx.userId,
       account_id,
@@ -316,6 +321,7 @@ export async function getStatementCodingAction(
       check_sale_transfers: saleTransfers,
       card_statements: cardStatements,
       cartera_checks: carteraChecks,
+      issued_checks: issuedChecks,
     },
   };
 }
@@ -341,6 +347,32 @@ async function readCarteraChecks(
     amount: Number(c.amount),
     due_date: c.due_date,
     drawer_name: c.drawer_name,
+  }));
+}
+
+/** The account's own cheques still emitted, ARS: a debit pays one. */
+async function readIssuedChecks(
+  service: Service,
+  accountId: string,
+): Promise<StatementIssuedCheck[] | null> {
+  const { data, error } = await paginateRange((from, to) =>
+    service
+      .from("issued_checks")
+      .select("id, check_number, amount, due_date, beneficiary_name")
+      .eq("bank_account_id", accountId)
+      .eq("status", "emitted")
+      .eq("currency", "ARS")
+      .order("due_date")
+      .order("id")
+      .range(from, to),
+  );
+  if (error) return null;
+  return data.map((c) => ({
+    id: c.id,
+    check_number: c.check_number,
+    amount: Number(c.amount),
+    due_date: c.due_date,
+    beneficiary_name: c.beneficiary_name ?? "—",
   }));
 }
 

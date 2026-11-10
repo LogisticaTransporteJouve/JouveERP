@@ -12,6 +12,7 @@ import {
   detectBankPreset,
   findCardStatement,
   findCarteraCheck,
+  findIssuedCheck,
   findSaleTransfers,
   findLoanInstallment,
   suggestLoanSplit,
@@ -614,5 +615,70 @@ describe("findCarteraCheck", () => {
     expect(
       findCarteraCheck({ amount: 4612, description: "Deposito" }, cartera),
     ).toBeNull();
+  });
+});
+
+describe("findIssuedCheck", () => {
+  const MIXTEK_577 = {
+    id: "ic577",
+    check_number: "00000577",
+    amount: 1500000,
+    due_date: "2026-10-30",
+    beneficiary_name: "MIXTEK S. R. L.",
+  };
+  const MIXTEK_578 = { ...MIXTEK_577, id: "ic578", check_number: "00000578" };
+
+  it("is the cheque the line names, for its amount", () => {
+    expect(
+      findIssuedCheck(
+        { amount: -1500000, description: "Echeq 48 Hs. Nro.      577" },
+        [MIXTEK_578, MIXTEK_577],
+      )?.id,
+    ).toBe("ic577");
+  });
+
+  it("is none when the amount differs or no number is named", () => {
+    expect(
+      findIssuedCheck(
+        { amount: -1400000, description: "Echeq 48 Hs. Nro. 577" },
+        [MIXTEK_577],
+      ),
+    ).toBeNull();
+    expect(
+      findIssuedCheck({ amount: -1500000, description: "Echeq 48 Hs." }, [
+        MIXTEK_577,
+      ]),
+    ).toBeNull();
+  });
+
+  it("a Galicia cheque debit proposes its own cheque", () => {
+    const codes = GALICIA_CODES.map((c, i) =>
+      code({
+        id: `g${i}`,
+        bank_code: c.bank_code,
+        description_pattern: c.description_pattern,
+        kind: c.kind,
+        chart_account_id: null,
+      }),
+    );
+    const p = proposeLine(
+      {
+        bank_code: null,
+        description: "Echeq 48 Hs. Nro.      577",
+        amount: -1500000,
+        line_date: "2026-11-05",
+      },
+      codes,
+      new Map(),
+      [],
+      null,
+      [],
+      [],
+      [],
+      new Map(),
+      [MIXTEK_577],
+    );
+    expect(p.kind).toBe("issued_check");
+    expect(p.issued_check?.id).toBe("ic577");
   });
 });

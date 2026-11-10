@@ -240,6 +240,7 @@ export const BANK_CODE_KINDS = [
   "check_sale",
   "card_payment",
   "check_deposit",
+  "issued_check",
 ] as const;
 export type BankCodeKind = (typeof BANK_CODE_KINDS)[number];
 
@@ -254,6 +255,7 @@ export const BANK_CODE_KIND_LABEL: Record<BankCodeKind, string> = {
   check_sale: "Descuento de cheques",
   card_payment: "Pago de tarjeta",
   check_deposit: "Depósito de cheque",
+  issued_check: "Cheque propio debitado",
 };
 
 export function isBankCodeKind(value: unknown): value is BankCodeKind {
@@ -422,6 +424,8 @@ export type StatementCoding = {
   check_sale_transfers?: StatementCheckSaleTransfer[];
   card_statements?: StatementCardStatement[];
   cartera_checks?: StatementCarteraCheck[];
+  /** The account's emitted own cheques (issued_checks:read). */
+  issued_checks?: StatementIssuedCheck[];
 };
 
 /** A line that moves money to or from another account of the company:
@@ -464,6 +468,25 @@ export type StatementCarteraCheck = {
   due_date: string;
   drawer_name: string;
 };
+
+/** An own cheque the bank may debit from the statement's account. */
+export type StatementIssuedCheck = {
+  id: string;
+  check_number: string;
+  amount: number;
+  due_date: string;
+  beneficiary_name: string;
+};
+
+/** The debit of an own cheque: it is marked cashed on the line's date and the
+ *  line reconciled with that outflow. */
+export const DebitIssuedCheckFromLineSchema = z.object({
+  line_id: z.string().uuid(),
+  issued_check_id: z.string().uuid(),
+});
+export type DebitIssuedCheckFromLineInput = z.infer<
+  typeof DebitIssuedCheckFromLineSchema
+>;
 
 export const DepositCheckFromLineSchema = z.object({
   line_id: z.string().uuid(),
