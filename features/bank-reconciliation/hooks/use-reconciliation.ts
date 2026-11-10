@@ -22,6 +22,7 @@ import { transactionsKeys } from "@/features/transactions/lib/transactions-keys"
 import { CASH_KEYS } from "@/features/treasury/lib/cash-keys";
 import { loansKeys } from "@/features/loans/lib/loans-keys";
 import { paymentOrdersKeys } from "@/features/payment-orders/lib/payment-orders-keys";
+import { issuedChecksKeys } from "@/features/issued-checks/lib/issued-checks-keys";
 import { invalidateKeys } from "@/lib/query/invalidate";
 
 import { lineIdsOf } from "../lib/line-ids";
@@ -40,6 +41,7 @@ import {
   matchLineToReceiptAction,
   payCardStatementFromLineAction,
   transferFromLineAction,
+  debitIssuedCheckFromLineAction,
   depositCheckFromLineAction,
   payLoanInstallmentFromLineAction,
   matchLinesToMovementAction,
@@ -56,6 +58,7 @@ import type {
   MatchLineToReceiptInput,
   PayCardFromLineInput,
   TransferFromLineInput,
+  DebitIssuedCheckFromLineInput,
   DepositCheckFromLineInput,
   PayLoanFromLineInput,
   MatchLinesToMovementInput,
@@ -133,6 +136,16 @@ export function useDepositCheckFromLine() {
       agingKeys.all,
       receiptsKeys.all,
     ],
+  );
+}
+
+/** A cashed own cheque also changes Cheques propios, the supplier's
+ *  balance and the books. */
+export function useDebitIssuedCheckFromLine() {
+  return useReconciliationMutation(
+    (input: DebitIssuedCheckFromLineInput) =>
+      runAction(() => debitIssuedCheckFromLineAction(input)),
+    [issuedChecksKeys.all, ...CASH_KEYS, ...LEDGER_KEYS],
   );
 }
 

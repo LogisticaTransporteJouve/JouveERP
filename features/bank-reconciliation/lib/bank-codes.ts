@@ -8,6 +8,7 @@ import type {
   StatementCardStatement,
   StatementCarteraCheck,
   StatementCheckSaleTransfer,
+  StatementIssuedCheck,
   BankStatementCode,
   StatementClient,
   StatementSupplier,
@@ -118,6 +119,8 @@ export type LineProposal = {
   sale_transfers?: StatementCheckSaleTransfer[];
   /** The cartera cheque a deposit credit is. */
   cartera_check?: StatementCarteraCheck;
+  /** The own cheque a cheque debit pays. */
+  issued_check?: StatementIssuedCheck;
   /** The card statement (and which part) a card payment debit pays. */
   card?: { statement: StatementCardStatement; currency: "ARS" | "USD" };
   /** Can be accepted in one click: a tax or fee with its account. */
@@ -189,6 +192,7 @@ export function proposeLine(
   cardStatements: readonly StatementCardStatement[] = [],
   carteraChecks: readonly StatementCarteraCheck[] = [],
   suppliersByCuit: ReadonlyMap<string, StatementSupplier> = new Map(),
+  issuedChecks: readonly StatementIssuedCheck[] = [],
 ): LineProposal {
   const code = findBankCode(line, codes);
   // Money from or to the company itself: a transfer between its accounts,
@@ -269,6 +273,23 @@ export function proposeLine(
       missing: check
         ? null
         : "No hay un cheque en cartera con este número e importe: cargalo (Cheques recibidos › Cargar e-cheq de Galicia).",
+    };
+  }
+  if (code.kind === "issued_check") {
+    const check = line.amount < 0 ? findIssuedCheck(line, issuedChecks) : null;
+    return {
+      kind: "issued_check",
+      code,
+      label: check
+        ? `Cheque propio ${check.check_number} a ${check.beneficiary_name}`
+        : label,
+      client: null,
+      installment: null,
+      issued_check: check ?? undefined,
+      ready: false,
+      missing: check
+        ? null
+        : "No hay un cheque propio emitido con este número e importe: cargalo en la orden de pago del proveedor.",
     };
   }
   if (code.kind === "payment") {
@@ -667,6 +688,20 @@ export const GALICIA_CODES: readonly PresetCode[] = [
   },
   {
     bank_code: "",
+    description_pattern: "ECHEQ 48 HS",
+    kind: "issued_check",
+    account: null,
+    label: "Cheque propio debitado",
+  },
+  {
+    bank_code: "",
+    description_pattern: "CHEQUE 48 HS",
+    kind: "issued_check",
+    account: null,
+    label: "Cheque propio debitado",
+  },
+  {
+    bank_code: "",
     description_pattern: "TRANSF. CTAS PROPIAS",
     kind: "transfer",
     account: null,
@@ -792,6 +827,26 @@ export function findCardStatement(
  *  line («G.de Echeq Q10365334», «G. De Echeq Galicia Q 1763») and its
  *  amount; by the amount alone only when the line names no number and one
  *  cheque has it. */
+/** The emitted own cheque a debit is: the number the line names and the
+ *  amount it took. */
+export function findIssuedCheck(
+  line: Pick<StatementLine, "amount" | "description">,
+  checks: readonly StatementIssuedCheck[],
+): StatementIssuedCheck | null {
+  const cents = Math.round(-line.amount * 100);
+  const numbers = [...line.description.matchAll(/Nro\.?\s*0*(\d+)/gi)].map(
+    (m) => checkNumberKey(m[1]!),
+  );
+  if (numbers.length === 0) return null;
+  return (
+    checks.find(
+      (c) =>
+        Math.round(c.amount * 100) === cents &&
+        numbers.includes(checkNumberKey(c.check_number)),
+    ) ?? null
+  );
+}
+
 export function findCarteraCheck(
   line: Pick<StatementLine, "amount" | "description">,
   checks: readonly StatementCarteraCheck[],

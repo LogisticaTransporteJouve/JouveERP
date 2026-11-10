@@ -14,6 +14,7 @@ import {
   userCanAll,
 } from "@/lib/auth/permissions";
 import { CHECK_CASH_PERMISSIONS } from "@/features/checks/lib/check-cash";
+import { ISSUED_CHECK_CASH_PERMISSIONS } from "@/features/issued-checks/lib/issued-check-cash";
 import { LOAN_CASH_PERMISSIONS } from "@/features/loans/lib/loan-cash";
 import { readCardPartDenied } from "@/lib/cards/card-part-access";
 import { createTransfer } from "@/lib/commands/create-transfer";
@@ -46,6 +47,7 @@ import {
   IgnoreLineSchema,
   LineIdSchema,
   MatchLineSchema,
+  DebitIssuedCheckFromLineSchema,
   MatchLineToPaymentOrderSchema,
   MatchLineToReceiptSchema,
   PayCardFromLineSchema,
@@ -492,6 +494,122 @@ export async function matchLineToPaymentOrderAction(
     "payment_order_id",
     parsed.data.payment_order_id,
   );
+}
+
+/** An own cheque the bank debited: marked cashed on the line's date (which
+ *  writes its outflow from the account) and the line reconciled with it. */
+export async function debitIssuedCheckFromLineAction(
+  input: unknown,
+): Promise<ActionResult<{ line_id: string }>> {
+  const ctx = await requireUserContext();
+  // Like «Cobrado» in Cheques propios: the cheque and the treasury money.
+  if (
+    !userCan(ctx.access, "transactions:write") ||
+    !userCanAll(ctx.access, ISSUED_CHECK_CASH_PERMISSIONS)
+  ) {
+    return {
+      ok: false,
+      error: "No tenés permiso para marcar cheques propios como cobrados.",
+    };
+  }
+  const parsed = DebitIssuedCheckFromLineSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Datos inválidos." };
+  const d = parsed.data;
+  const service = getServiceClient();
+  const [line, check] = await Promise.all([
+    service
+      .from("bank_statement_lines")
+      .select("account_id, line_date, amount, status")
+      .eq("id", d.line_id)
+      .maybeSingle(),
+    service
+      .from("issued_checks")
+      .select("amount, check_number, bank_account_id, status, currency")
+      .eq("id", d.issued_check_id)
+      .maybeSingle(),
+  ]);
+  if (line.error || check.error) {
+    logger.error("reconciliation.issued_check.read_failed", {
+      userId: ctx.userId,
+      error: line.error ?? check.error,
+    });
+    return { ok: false, error: "No se pudieron leer la línea y el cheque." };
+  }
+  if (!line.data || !check.data) {
+    return { ok: false, error: "No se encontró la línea o el cheque." };
+  }
+  const l = line.data;
+  const c = check.data;
+  if (l.status !== "open" || Number(l.amount) >= 0) {
+    return { ok: false, error: "La línea ya está resuelta o no es un débito." };
+  }
+  if (c.status !== "emitted") {
+    return {
+      ok: false,
+      error: "El cheque ya no está emitido (se cobró, rechazó o anuló).",
+    };
+  }
+  if (c.bank_account_id !== l.account_id || c.currency !== "ARS") {
+    return { ok: false, error: "El cheque es de otra cuenta." };
+  }
+  if (cents(Number(c.amount)) !== cents(-Number(l.amount))) {
+    return { ok: false, error: "El cheque no es del importe de la línea." };
+  }
+  // Only an emitted cheque moves, so a repeated click cannot cash it twice.
+  const cashed = await service
+    .from("issued_checks")
+    .update({ status: "cashed", cashed_at: l.line_date })
+    .eq("id", d.issued_check_id)
+    .eq("status", "emitted")
+    .select("id");
+  if (cashed.error) {
+    const guardError = mapDbGuardError(cashed.error, {
+      slug: "reconciliation.issued_check.cash_rejected",
+      userId: ctx.userId,
+      id: d.issued_check_id,
+    });
+    if (guardError) return { ok: false, error: guardError };
+    logger.error("reconciliation.issued_check.cash_failed", {
+      userId: ctx.userId,
+      error: cashed.error,
+    });
+    return { ok: false, error: "No se pudo marcar el cheque como cobrado." };
+  }
+  if (!cashed.data || cashed.data.length === 0) {
+    return {
+      ok: false,
+      error: "El cheque ya no está emitido (se cobró, rechazó o anuló).",
+    };
+  }
+  await logAudit(
+    "issued_check.cashed",
+    ctx.userId,
+    { event_date: l.line_date, from: "bank_statement" },
+    d.issued_check_id,
+  );
+  const tx = await service
+    .from("transactions")
+    .select("id")
+    .eq("issued_check_id", d.issued_check_id)
+    .eq("account_id", l.account_id);
+  if (tx.error || !tx.data || tx.data.length === 0) {
+    return {
+      ok: false,
+      error:
+        "Se marcó el cheque como cobrado, pero no se encontró su movimiento en el banco: conciliá la línea con él.",
+    };
+  }
+  const matched = await matchBankLine(ctx.userId, {
+    line_id: d.line_id,
+    transaction_ids: tx.data.map((t) => t.id),
+  });
+  if (!matched.ok) {
+    return {
+      ok: false,
+      error: `Se marcó el cheque como cobrado, pero la línea no se concilió: ${matched.error}`,
+    };
+  }
+  return { ok: true, data: { line_id: d.line_id } };
 }
 
 /** A cartera cheque the bank credited: deposited into the line's account on

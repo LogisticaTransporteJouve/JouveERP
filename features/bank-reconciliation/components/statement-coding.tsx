@@ -42,6 +42,7 @@ import {
   useMatchLineToReceipt,
   usePayCardFromLine,
   useTransferFromLine,
+  useDebitIssuedCheckFromLine,
   useDepositCheckFromLine,
   usePayLoanFromLine,
 } from "../hooks/use-reconciliation";
@@ -103,6 +104,7 @@ export function useLineProposals(
             coding.data.card_statements ?? [],
             coding.data.cartera_checks ?? [],
             suppliersByCuit,
+            coding.data.issued_checks ?? [],
           ),
         );
       }
@@ -175,6 +177,7 @@ export function LineProposalView({
       : proposal.card.statement.undefined_ars
     : 0;
   const depositCheck = useDepositCheckFromLine();
+  const debitIssuedCheck = useDebitIssuedCheckFromLine();
   const [splitting, setSplitting] = useState(false);
   const fiscal = useFiscalChannel();
   if (!proposal) return null;
@@ -265,6 +268,28 @@ export function LineProposalView({
         >
           <Check className="size-3.5" />
           Depositar cheque {proposal.cartera_check.check_number}
+        </Button>
+      )}
+      {gates.canDebitIssuedChecks && proposal.issued_check && (
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-7"
+          disabled={debitIssuedCheck.isPending}
+          onClick={() =>
+            debitIssuedCheck.mutate(
+              { line_id: line.id, issued_check_id: proposal.issued_check!.id },
+              {
+                onSuccess: () =>
+                  toast.success("Cheque propio cobrado y línea conciliada."),
+                onError: (err) => toast.error(err.message),
+              },
+            )
+          }
+        >
+          <Check className="size-3.5" />
+          Cheque {proposal.issued_check.check_number} debitado
         </Button>
       )}
       {gates.canTreasuryWrite && proposal.kind === "transfer" && (
