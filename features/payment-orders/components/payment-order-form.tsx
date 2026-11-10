@@ -44,6 +44,7 @@ import { checksKeys } from "@/features/checks/lib/checks-keys";
 import {
   SupplierPicker,
   type PickedSupplier,
+  type SuggestedNewSupplier,
 } from "@/features/suppliers/components/supplier-picker";
 import {
   useSupplierByIdOptional,
@@ -122,6 +123,7 @@ export function PaymentOrderForm({
   paymentOrder,
   initialSupplier,
   initialAllocations: presetAllocations,
+  fromBankLine,
   onSuccess,
   onCancel,
 }: {
@@ -133,6 +135,16 @@ export function PaymentOrderForm({
   /** Create mode: invoices picked beforehand (e.g. "Pagar" from a purchase);
    *  the form starts in manual allocation. */
   initialAllocations?: AllocationDraft[];
+  /** Create mode from a bank statement debit: its date, and what left the
+   *  account (positive). */
+  fromBankLine?: {
+    date: string;
+    amount: number;
+    account_id: string;
+    channel_id?: string;
+    /** Who the bank line says it went to, when no supplier has its CUIT. */
+    counterparty?: SuggestedNewSupplier | null;
+  };
   onSuccess?: (id: string) => void;
   onCancel?: () => void;
 }) {
@@ -142,7 +154,12 @@ export function PaymentOrderForm({
 
   const defaultChannel = useDefaultChannel();
   const initialChannel =
-    paymentOrder?.paymentOrder.channel_id ?? defaultChannel ?? "";
+    paymentOrder?.paymentOrder.channel_id ??
+    fromBankLine?.channel_id ??
+    defaultChannel ??
+    "";
+  /** A bank line's order goes to the bank's channel: no choice to make. */
+  const channelFixed = mode === "create" && !!fromBankLine?.channel_id;
   const sideChannels = useSideChannels(channels);
   const pageIsFiscal = usePageIsFiscal();
 
@@ -189,8 +206,8 @@ export function PaymentOrderForm({
     : [
         {
           line_kind: "account",
-          account_id: "",
-          amount: "",
+          account_id: fromBankLine?.account_id ?? "",
+          amount: fromBankLine ? amountToInput(fromBankLine.amount) : "",
           reference: "",
         },
       ];
@@ -215,7 +232,10 @@ export function PaymentOrderForm({
     defaultValues: {
       channelId: initialChannel,
       numero: paymentOrder ? String(paymentOrder.paymentOrder.numero) : "",
-      paymentDate: paymentOrder?.paymentOrder.payment_date ?? todayInAR(),
+      paymentDate:
+        paymentOrder?.paymentOrder.payment_date ??
+        fromBankLine?.date ??
+        todayInAR(),
       currency:
         (paymentOrder?.paymentOrder.currency as
           PaymentOrderCurrency | undefined) ?? "ARS",
@@ -508,7 +528,7 @@ export function PaymentOrderForm({
                           // Allocations are per channel — drop picks from the old one.
                           form.setValue("allocations", []);
                         }}
-                        disabled={mode === "edit"}
+                        disabled={mode === "edit" || channelFixed}
                       >
                         <FormControl>
                           <SelectTrigger>
@@ -626,6 +646,7 @@ export function PaymentOrderForm({
                           onChange={field.onChange}
                           isFiscal={pageIsFiscal ?? true}
                           disabled={mode === "edit"}
+                          suggestedNew={fromBankLine?.counterparty}
                         />
                       )}
                     </FormControl>

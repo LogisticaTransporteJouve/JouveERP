@@ -69,6 +69,14 @@ export const MatchLineToReceiptSchema = z.object({
 });
 export type MatchLineToReceiptInput = z.infer<typeof MatchLineToReceiptSchema>;
 
+export const MatchLineToPaymentOrderSchema = z.object({
+  line_id: lineId,
+  payment_order_id: z.string().uuid(),
+});
+export type MatchLineToPaymentOrderInput = z.infer<
+  typeof MatchLineToPaymentOrderSchema
+>;
+
 /** Several lines against one movement (the bank split it): their amounts add
  *  up to the movement's signed amount. */
 export const MatchLinesToMovementSchema = z.object({
@@ -365,6 +373,17 @@ export type StatementClient = {
   is_fiscal: boolean;
 };
 
+/** A supplier found by a CUIT in a line, as the payment order form takes
+ *  it. */
+export type StatementSupplier = {
+  id: string;
+  cuit: string;
+  legal_name: string;
+  display_name: string | null;
+  iva_condition: IvaCondition | null;
+  is_fiscal: boolean;
+};
+
 /** What the page needs to propose each line: the account's codes, the
  *  accounts a code can post to, and the clients whose CUIT is in a line. */
 /** A pending cuota of a loan debited from the statement's account. */
@@ -390,6 +409,8 @@ export type StatementCoding = {
   clients: StatementClient[];
   /** clients:read; without it no client is looked up. */
   can_read_clients: boolean;
+  /** The suppliers whose CUIT is in a line (suppliers:read). */
+  suppliers?: StatementSupplier[];
   /** Pending cuotas of the loans debited from this account (empty without
    *  permission to see loans). */
   loan_installments: StatementLoanInstallment[];

@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import type { BankStatementCode, StatementClient } from "../schema";
+import type {
+  BankStatementCode,
+  StatementClient,
+  StatementSupplier,
+} from "../schema";
 import {
   GALICIA_CODES,
   PROVINCIA_CODES,
@@ -197,6 +201,60 @@ describe("proposeLine", () => {
     );
     expect(p.installment).toBeNull();
     expect(p.missing).toContain("No hay una cuota pendiente");
+  });
+});
+
+describe("a payment to a supplier", () => {
+  const YPF: StatementSupplier = {
+    id: "s1",
+    cuit: "33698461069",
+    legal_name: "YPF AUTOPISTA SA",
+    display_name: "Ypf Autopista",
+    iva_condition: "responsable_inscripto",
+    is_fiscal: true,
+  };
+  const payment = code({
+    bank_code: "",
+    description_pattern: "TRF INMED PROVEED",
+    kind: "payment",
+    chart_account_id: null,
+  });
+
+  it("finds the supplier by the CUIT in the line", () => {
+    const p = proposeLine(
+      {
+        bank_code: null,
+        description: "Trf Inmed Proveed · Ypf Autopista · 33698461069",
+        amount: -990000,
+        line_date: "2026-11-02",
+      },
+      [payment],
+      new Map(),
+      [],
+      null,
+      [],
+      [],
+      [],
+      new Map([[YPF.cuit, YPF]]),
+    );
+    expect(p.kind).toBe("payment");
+    expect(p.supplier?.id).toBe("s1");
+    expect(p.label).toBe("Pago a Ypf Autopista");
+  });
+
+  it("without a supplier for the CUIT, offers none", () => {
+    const p = proposeLine(
+      {
+        bank_code: null,
+        description: "Trf Inmed Proveed · Eduardo Jorge,lopez · 20125806199",
+        amount: -3000000,
+        line_date: "2026-11-04",
+      },
+      [payment],
+      new Map(),
+    );
+    expect(p.kind).toBe("payment");
+    expect(p.supplier).toBeNull();
   });
 });
 

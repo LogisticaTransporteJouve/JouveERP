@@ -31,6 +31,7 @@ import {
   type StatementCarteraCheck,
   type StatementCheckSaleTransfer,
   type StatementLoanInstallment,
+  type StatementSupplier,
 } from "../schema";
 
 const READ_DENIED = "No tenés permiso para ver la conciliación.";
@@ -227,6 +228,42 @@ export async function getStatementCodingAction(
     );
   }
 
+  let suppliers: StatementSupplier[] = [];
+  if (userCan(ctx.access, "suppliers:read")) {
+    const cuits = [
+      ...new Set(lines.data.flatMap((l) => cuitsIn(l.description))),
+    ];
+    const res = await fetchInChunks(cuits, (chunk) =>
+      service
+        .from("suppliers")
+        .select("id, cuit, legal_name, display_name, iva_condition, is_fiscal")
+        .in("cuit", chunk),
+    );
+    if (res.error) {
+      logger.error("reconciliation.coding.suppliers_failed", {
+        userId: ctx.userId,
+        account_id,
+      });
+      return { ok: false, error: "No se pudieron buscar los proveedores." };
+    }
+    suppliers = res.data.flatMap((s) =>
+      s.cuit
+        ? [
+            {
+              id: s.id,
+              cuit: s.cuit,
+              legal_name: s.legal_name,
+              display_name: s.display_name,
+              iva_condition: isIvaCondition(s.iva_condition)
+                ? s.iva_condition
+                : null,
+              is_fiscal: s.is_fiscal,
+            },
+          ]
+        : [],
+    );
+  }
+
   let loanInstallments: StatementLoanInstallment[] = [];
   if (userCanAll(ctx.access, TREASURY_PERMISSIONS)) {
     const read = await readLoanInstallments(service, account_id);
@@ -273,6 +310,7 @@ export async function getStatementCodingAction(
       posting_accounts: postingAccounts,
       clients,
       can_read_clients: canReadClients,
+      suppliers,
       loan_installments: loanInstallments,
       company_cuit: company.data?.cuit ?? null,
       check_sale_transfers: saleTransfers,

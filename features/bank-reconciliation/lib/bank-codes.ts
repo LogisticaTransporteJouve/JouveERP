@@ -10,6 +10,7 @@ import type {
   StatementCheckSaleTransfer,
   BankStatementCode,
   StatementClient,
+  StatementSupplier,
   StatementLine,
   StatementLoanInstallment,
 } from "../schema";
@@ -108,6 +109,8 @@ export type LineProposal = {
   label: string;
   /** The client of a collection, found by the CUIT in the description. */
   client: StatementClient | null;
+  /** The supplier a payment goes to, found by the CUIT in the description. */
+  supplier?: StatementSupplier | null;
   /** The loan cuota a loan debit pays: same amount, the closest due date. */
   installment: StatementLoanInstallment | null;
   /** The transfers of a cheque sale a discount credit is: the cheques of
@@ -185,6 +188,7 @@ export function proposeLine(
   saleTransfers: readonly StatementCheckSaleTransfer[] = [],
   cardStatements: readonly StatementCardStatement[] = [],
   carteraChecks: readonly StatementCarteraCheck[] = [],
+  suppliersByCuit: ReadonlyMap<string, StatementSupplier> = new Map(),
 ): LineProposal {
   const code = findBankCode(line, codes);
   // Money from or to the company itself: a transfer between its accounts,
@@ -265,6 +269,24 @@ export function proposeLine(
       missing: check
         ? null
         : "No hay un cheque en cartera con este número e importe: cargalo (Cheques recibidos › Cargar e-cheq de Galicia).",
+    };
+  }
+  if (code.kind === "payment") {
+    const supplier =
+      cuitsIn(line.description)
+        .map((c) => suppliersByCuit.get(c))
+        .find((s) => s !== undefined) ?? null;
+    return {
+      kind: "payment",
+      code,
+      label: supplier
+        ? `Pago a ${supplier.display_name ?? supplier.legal_name}`
+        : label,
+      client: null,
+      supplier,
+      installment: null,
+      ready: false,
+      missing: null,
     };
   }
   if (code.kind === "card_payment") {
