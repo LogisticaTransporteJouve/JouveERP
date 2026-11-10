@@ -29,6 +29,7 @@ import {
 import { ChartAccountDialog } from "@/features/chart-of-accounts/components/chart-account-dialog";
 import { useAccountOptions } from "@/features/accounts/hooks/use-accounts";
 import { useChartOfAccounts } from "@/features/chart-of-accounts/hooks/use-chart-of-accounts";
+import { PayDialog } from "@/features/payment-orders/components/pay-dialog";
 import { CollectDialog } from "@/features/receipts/components/collect-dialog";
 
 import { PayLoanFromLineDialog } from "./pay-loan-from-line-dialog";
@@ -37,6 +38,7 @@ import {
   useCreateLineTransaction,
   useCreateLineTransactions,
   useMatchLine,
+  useMatchLineToPaymentOrder,
   useMatchLineToReceipt,
   usePayCardFromLine,
   useTransferFromLine,
@@ -84,6 +86,9 @@ export function useLineProposals(
     const map = new Map<string, LineProposal>();
     if (!coding.data) return map;
     const byCuit = new Map(coding.data.clients.map((c) => [c.cuit, c]));
+    const suppliersByCuit = new Map(
+      (coding.data.suppliers ?? []).map((s) => [s.cuit, s]),
+    );
     for (const l of lines) {
       if (l.status === "open") {
         map.set(
@@ -97,6 +102,7 @@ export function useLineProposals(
             coding.data.check_sale_transfers ?? [],
             coding.data.card_statements ?? [],
             coding.data.cartera_checks ?? [],
+            suppliersByCuit,
           ),
         );
       }
@@ -159,6 +165,7 @@ export function LineProposalView({
 }) {
   const create = useCreateLineTransaction();
   const matchToReceipt = useMatchLineToReceipt();
+  const matchToPaymentOrder = useMatchLineToPaymentOrder();
   const payLoan = usePayLoanFromLine();
   const matchLine = useMatchLine();
   const payCard = usePayCardFromLine();
@@ -374,6 +381,42 @@ export function LineProposalView({
           }
         />
       )}
+      {gates.canPay && proposal.kind === "payment" && line.amount < 0 && (
+        // A supplier found by the line's CUIT is the fiscal side's; without
+        // one the user picks the side and the supplier, or creates it.
+        <PayDialog
+          initialSupplier={proposal.supplier ?? null}
+          side={proposal.supplier ? "fiscal" : undefined}
+          fromBankLine={{
+            date: line.line_date,
+            amount: -line.amount,
+            account_id: accountId,
+            channel_id: proposal.supplier ? fiscal || undefined : undefined,
+            counterparty: proposal.supplier
+              ? null
+              : supplierSuggestion(line.description),
+          }}
+          onCreated={(paymentOrderId) =>
+            matchToPaymentOrder.mutate(
+              { line_id: line.id, payment_order_id: paymentOrderId },
+              {
+                onSuccess: () =>
+                  toast.success("Línea conciliada con la orden de pago."),
+                onError: (err) =>
+                  toast.error(
+                    `La orden de pago se emitió pero la línea no se concilió: ${err.message}`,
+                  ),
+              },
+            )
+          }
+          trigger={
+            <Button type="button" size="sm" variant="outline" className="h-7">
+              <FileText className="size-3.5" />
+              Crear orden de pago
+            </Button>
+          }
+        />
+      )}
       {gates.canWrite &&
         (proposal.code === null ||
           (bankCodePosts(proposal.kind ?? "ignore") &&
@@ -407,6 +450,12 @@ export function LineProposalView({
         )}
     </div>
   );
+}
+
+/** The payee the line names, to create the supplier prefilled. */
+function supplierSuggestion(description: string) {
+  const c = counterpartyOf(description);
+  return c ? { cuit: c.cuit, legal_name: c.name || null } : null;
 }
 
 /** "Aceptar todas": books every line whose code already says the account,

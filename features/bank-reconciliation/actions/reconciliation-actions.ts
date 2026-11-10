@@ -46,6 +46,7 @@ import {
   IgnoreLineSchema,
   LineIdSchema,
   MatchLineSchema,
+  MatchLineToPaymentOrderSchema,
   MatchLineToReceiptSchema,
   PayCardFromLineSchema,
   TransferFromLineSchema,
@@ -416,8 +417,49 @@ export async function matchLineAction(
   return matchBankLine(ctx.userId, parsed.data);
 }
 
-/** Reconciles a line with the movements of its account that a receipt
- *  created (the receipt issued from that line). */
+/** Reconciles a line with the movements of its account that a document
+ *  created (the receipt or payment order issued from that line). */
+async function matchLineToDocument(
+  userId: string,
+  lineId: string,
+  column: "receipt_id" | "payment_order_id",
+  documentId: string,
+): Promise<ActionResult<{ line_id: string }>> {
+  const what = column === "receipt_id" ? "del recibo" : "de la orden de pago";
+  const service = getServiceClient();
+  const line = await service
+    .from("bank_statement_lines")
+    .select("account_id")
+    .eq("id", lineId)
+    .maybeSingle();
+  if (line.error || !line.data) {
+    return { ok: false, error: "La línea del extracto ya no existe." };
+  }
+  const txs = await service
+    .from("transactions")
+    .select("id")
+    .eq(column, documentId)
+    .eq("account_id", line.data.account_id);
+  if (txs.error) {
+    logger.error("reconciliation.document_match.read_failed", {
+      userId,
+      column,
+      error: txs.error,
+    });
+    return { ok: false, error: `No se pudo leer el movimiento ${what}.` };
+  }
+  if (txs.data.length === 0) {
+    return {
+      ok: false,
+      error: `El movimiento ${what} no está en la cuenta del extracto.`,
+    };
+  }
+  return matchBankLine(userId, {
+    line_id: lineId,
+    transaction_ids: txs.data.map((t) => t.id),
+  });
+}
+
 export async function matchLineToReceiptAction(
   input: unknown,
 ): Promise<ActionResult<{ line_id: string }>> {
@@ -427,37 +469,29 @@ export async function matchLineToReceiptAction(
   }
   const parsed = MatchLineToReceiptSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Datos inválidos." };
-  const service = getServiceClient();
-  const line = await service
-    .from("bank_statement_lines")
-    .select("account_id")
-    .eq("id", parsed.data.line_id)
-    .maybeSingle();
-  if (line.error || !line.data) {
-    return { ok: false, error: "La línea del extracto ya no existe." };
+  return matchLineToDocument(
+    ctx.userId,
+    parsed.data.line_id,
+    "receipt_id",
+    parsed.data.receipt_id,
+  );
+}
+
+export async function matchLineToPaymentOrderAction(
+  input: unknown,
+): Promise<ActionResult<{ line_id: string }>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.access, "transactions:write")) {
+    return { ok: false, error: WRITE_DENIED };
   }
-  const txs = await service
-    .from("transactions")
-    .select("id")
-    .eq("receipt_id", parsed.data.receipt_id)
-    .eq("account_id", line.data.account_id);
-  if (txs.error) {
-    logger.error("reconciliation.receipt_match.read_failed", {
-      userId: ctx.userId,
-      error: txs.error,
-    });
-    return { ok: false, error: "No se pudo leer el movimiento del recibo." };
-  }
-  if (txs.data.length === 0) {
-    return {
-      ok: false,
-      error: "El recibo no tiene un movimiento en la cuenta del extracto.",
-    };
-  }
-  return matchBankLine(ctx.userId, {
-    line_id: parsed.data.line_id,
-    transaction_ids: txs.data.map((t) => t.id),
-  });
+  const parsed = MatchLineToPaymentOrderSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Datos inválidos." };
+  return matchLineToDocument(
+    ctx.userId,
+    parsed.data.line_id,
+    "payment_order_id",
+    parsed.data.payment_order_id,
+  );
 }
 
 /** A cartera cheque the bank credited: deposited into the line's account on

@@ -20,6 +20,9 @@ export type ReconciliationGates = {
   canReadAccounts: boolean;
   /** Makes a receipt from a collection line (receipts:write + accounts:read). */
   canCollect: boolean;
+  /** Makes a payment order from a payment debit (payment_orders:write +
+   *  accounts:read). */
+  canPay: boolean;
   canEditRetentions: boolean;
   /** Creates a chart account from the bank codes (accounting:write). */
   canManageChart: boolean;
@@ -44,6 +47,9 @@ export function reconciliationGates(access: Access): ReconciliationGates {
     canReadAccounts: userCan(access, "accounts:read"),
     canCollect:
       userCan(access, "receipts:write") && userCan(access, "accounts:read"),
+    canPay:
+      userCan(access, "payment_orders:write") &&
+      userCan(access, "accounts:read"),
     canEditRetentions: userCan(access, "retentions:write"),
     canManageChart:
       userCan(access, "accounting:write") && userCan(access, "accounting:read"),

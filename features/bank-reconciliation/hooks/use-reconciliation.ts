@@ -21,6 +21,7 @@ import { taxesKeys } from "@/features/taxes/lib/taxes-keys";
 import { transactionsKeys } from "@/features/transactions/lib/transactions-keys";
 import { CASH_KEYS } from "@/features/treasury/lib/cash-keys";
 import { loansKeys } from "@/features/loans/lib/loans-keys";
+import { paymentOrdersKeys } from "@/features/payment-orders/lib/payment-orders-keys";
 import { invalidateKeys } from "@/lib/query/invalidate";
 
 import { lineIdsOf } from "../lib/line-ids";
@@ -35,6 +36,7 @@ import {
   ignoreLineAction,
   listReconciliationAccountsAction,
   matchLineAction,
+  matchLineToPaymentOrderAction,
   matchLineToReceiptAction,
   payCardStatementFromLineAction,
   transferFromLineAction,
@@ -50,6 +52,7 @@ import type {
   CreateLineTransactionInput,
   IgnoreLineInput,
   MatchLineInput,
+  MatchLineToPaymentOrderInput,
   MatchLineToReceiptInput,
   PayCardFromLineInput,
   TransferFromLineInput,
@@ -106,6 +109,15 @@ export function useMatchLine() {
 export function useMatchLineToReceipt() {
   return useReconciliationMutation((input: MatchLineToReceiptInput) =>
     runAction(() => matchLineToReceiptAction(input)),
+  );
+}
+
+/** An order paid from a line also changes the supplier's balance. */
+export function useMatchLineToPaymentOrder() {
+  return useReconciliationMutation(
+    (input: MatchLineToPaymentOrderInput) =>
+      runAction(() => matchLineToPaymentOrderAction(input)),
+    [paymentOrdersKeys.all, ...CASH_KEYS, ...LEDGER_KEYS],
   );
 }
 
