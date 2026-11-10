@@ -91,6 +91,10 @@ export function CounterpartyIdentityFields<T extends Counterparty>({
 }) {
   const form = useFormContext<CounterpartyIdentityValues>();
   const [existing, setExisting] = useState<T | null>(null);
+  // When AFIP does not answer for a CUIT, its data is typed by hand: the
+  // fields AFIP would fill unlock.
+  const [manual, setManual] = useState(false);
+  const fromAfip = isFiscal && !manual;
   const { verify, isVerifying } = useCuitVerify<T>({ findByCuit });
 
   async function onVerifyCuit() {
@@ -106,7 +110,10 @@ export function CounterpartyIdentityFields<T extends Counterparty>({
       return;
     }
     if (result.kind === "error") {
-      toast.error(result.error);
+      toast.error(
+        `${result.error.replace(/\.$/, "")}. Podés cargar los datos a mano.`,
+      );
+      setManual(true);
       return;
     }
 
@@ -177,6 +184,17 @@ export function CounterpartyIdentityFields<T extends Counterparty>({
                 </FormItem>
               )}
             />
+            {!manual && !cuitLocked && (
+              <Button
+                type="button"
+                variant="link"
+                size="sm"
+                className="h-auto justify-self-start px-0 text-xs"
+                onClick={() => setManual(true)}
+              >
+                AFIP no lo encuentra: cargar a mano
+              </Button>
+            )}
             {existing && (
               <div className="rounded-md border border-border bg-muted p-3 text-sm">
                 Ya existe el {noun}{" "}
@@ -203,9 +221,9 @@ export function CounterpartyIdentityFields<T extends Counterparty>({
               <FormControl>
                 <Input
                   {...field}
-                  disabled={isFiscal}
+                  disabled={fromAfip}
                   autoComplete="off"
-                  placeholder={isFiscal ? fromCuitPlaceholder : undefined}
+                  placeholder={fromAfip ? fromCuitPlaceholder : undefined}
                 />
               </FormControl>
               <FormMessage />
@@ -235,7 +253,11 @@ export function CounterpartyIdentityFields<T extends Counterparty>({
             <FormItem>
               <FormLabel>Condición frente al IVA</FormLabel>
               <FormControl>
-                <Select value={field.value} disabled>
+                <Select
+                  value={field.value}
+                  onValueChange={field.onChange}
+                  disabled={fromAfip}
+                >
                   <SelectTrigger className="w-full sm:w-[280px]">
                     <SelectValue />
                   </SelectTrigger>
@@ -294,13 +316,15 @@ export function CounterpartyIdentityFields<T extends Counterparty>({
           name="address"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Domicilio fiscal (AFIP)</FormLabel>
+              <FormLabel>
+                {fromAfip ? "Domicilio fiscal (AFIP)" : "Domicilio fiscal"}
+              </FormLabel>
               <FormControl>
                 <Input
                   {...field}
-                  disabled
+                  disabled={fromAfip}
                   autoComplete="off"
-                  placeholder={fromCuitPlaceholder}
+                  placeholder={fromAfip ? fromCuitPlaceholder : undefined}
                 />
               </FormControl>
               <FormMessage />
