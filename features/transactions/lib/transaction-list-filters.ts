@@ -1,4 +1,5 @@
 import {
+  ALL_DATES_PARAM,
   parsePeriodParams,
   resolvePeriod,
   type PeriodSelection,
@@ -60,6 +61,16 @@ export function transactionListParamsToUrl(
     from: params.period.from,
     to: params.period.to,
   };
+}
+
+/** The movements of one account: the period is shared with its statement
+ *  tab through the URL, so «Todas las fechas» is written too (`period=all`)
+ *  instead of left out, which there means the current month. */
+export function accountTransactionListParamsToUrl(
+  params: TransactionListParams,
+): Record<string, string | null> {
+  const url = transactionListParamsToUrl(params);
+  return { ...url, period: url.period ?? ALL_DATES_PARAM };
 }
 
 /** The list's query key and action input (paging added by the hook). */

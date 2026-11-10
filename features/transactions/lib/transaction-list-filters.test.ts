@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  accountTransactionListParamsToUrl,
   parseTransactionListParams,
   transactionListFilters,
   transactionListParamsToUrl,
@@ -18,5 +19,17 @@ describe("Caja `?id=` (one movement)", () => {
 
   it("ignores an id that is not a uuid", () => {
     expect(parseTransactionListParams({ id: "t1" }).id).toBeNull();
+  });
+});
+
+describe("accountTransactionListParamsToUrl", () => {
+  it("writes «Todas las fechas» as period=all, so the statement tab keeps it", () => {
+    const params = parseTransactionListParams({ account: "a1" });
+    expect(accountTransactionListParamsToUrl(params).period).toBe("all");
+    expect(
+      accountTransactionListParamsToUrl(
+        parseTransactionListParams({ account: "a1", period: "last_month" }),
+      ).period,
+    ).toBe("last_month");
   });
 });

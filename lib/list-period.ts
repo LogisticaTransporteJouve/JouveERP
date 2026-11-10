@@ -109,6 +109,21 @@ export function parsePeriodParams(params: {
   return from <= to ? { preset, from, to } : { preset, from: to, to: from };
 }
 
+/** «Todas las fechas» written into a URL that opens on a period when it
+ *  has none (an account's movements and statement): `period=all`. */
+export const ALL_DATES_PARAM = "all";
+
+/** The period a URL names, or null when it names none. */
+export function periodFromSearch(
+  search: Pick<URLSearchParams, "get">,
+): PeriodSelection | null {
+  const period = search.get("period");
+  const from = search.get("from");
+  const to = search.get("to");
+  if (!period && !from && !to) return null;
+  return parsePeriodParams({ period, from, to });
+}
+
 // Calendar math on plain dates, in UTC so no local offset shifts a day.
 function toUtc(iso: string): Date {
   const [y, m, d] = iso.split("-").map(Number);
