@@ -496,6 +496,44 @@ export async function matchLineToPaymentOrderAction(
   );
 }
 
+/** The bank outflow of an own cheque. A hand-loaded one writes it when
+ *  cashed; one from a payment order has it in the order (a line of its
+ *  amount in the account that no statement line explains yet). */
+async function issuedCheckOutflow(
+  service: ReturnType<typeof getServiceClient>,
+  checkId: string,
+  paymentOrderId: string | null,
+  accountId: string,
+  amount: number,
+): Promise<string | null> {
+  if (!paymentOrderId) {
+    const own = await service
+      .from("transactions")
+      .select("id")
+      .eq("issued_check_id", checkId)
+      .eq("account_id", accountId)
+      .limit(1);
+    return own.error ? null : (own.data[0]?.id ?? null);
+  }
+  const order = await service
+    .from("transactions")
+    .select("id, amount")
+    .eq("payment_order_id", paymentOrderId)
+    .eq("account_id", accountId);
+  if (order.error) return null;
+  const candidates = order.data
+    .filter((t) => cents(Number(t.amount)) === cents(amount))
+    .map((t) => t.id);
+  if (candidates.length === 0) return null;
+  const taken = await service
+    .from("bank_statement_matches")
+    .select("transaction_id")
+    .in("transaction_id", candidates);
+  if (taken.error) return null;
+  const used = new Set(taken.data.map((m) => m.transaction_id));
+  return candidates.find((id) => !used.has(id)) ?? null;
+}
+
 /** An own cheque the bank debited: marked cashed on the line's date (which
  *  writes its outflow from the account) and the line reconciled with it. */
 export async function debitIssuedCheckFromLineAction(
@@ -524,7 +562,9 @@ export async function debitIssuedCheckFromLineAction(
       .maybeSingle(),
     service
       .from("issued_checks")
-      .select("amount, check_number, bank_account_id, status, currency")
+      .select(
+        "amount, check_number, bank_account_id, status, currency, payment_order_id",
+      )
       .eq("id", d.issued_check_id)
       .maybeSingle(),
   ]);
@@ -587,12 +627,14 @@ export async function debitIssuedCheckFromLineAction(
     { event_date: l.line_date, from: "bank_statement" },
     d.issued_check_id,
   );
-  const tx = await service
-    .from("transactions")
-    .select("id")
-    .eq("issued_check_id", d.issued_check_id)
-    .eq("account_id", l.account_id);
-  if (tx.error || !tx.data || tx.data.length === 0) {
+  const txId = await issuedCheckOutflow(
+    service,
+    d.issued_check_id,
+    c.payment_order_id,
+    l.account_id,
+    Number(c.amount),
+  );
+  if (!txId) {
     return {
       ok: false,
       error:
@@ -601,7 +643,7 @@ export async function debitIssuedCheckFromLineAction(
   }
   const matched = await matchBankLine(ctx.userId, {
     line_id: d.line_id,
-    transaction_ids: tx.data.map((t) => t.id),
+    transaction_ids: [txId],
   });
   if (!matched.ok) {
     return {

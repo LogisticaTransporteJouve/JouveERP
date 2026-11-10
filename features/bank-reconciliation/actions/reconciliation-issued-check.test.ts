@@ -26,6 +26,8 @@ vi.mock("@/lib/supabase/service", () => ({
       const q = {
         select: () => q,
         eq: () => q,
+        in: () => q,
+        limit: () => q,
         update: (v: Record<string, unknown>) => {
           isUpdate = true;
           updates.push(v);
@@ -69,6 +71,7 @@ beforeEach(() => {
     bank_account_id: "galicia",
     status: "emitted",
     currency: "ARS",
+    payment_order_id: null,
   };
   cashedRows = [{ id: CHECK }];
   txRows = [{ id: "tx1" }];
