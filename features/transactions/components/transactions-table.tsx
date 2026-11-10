@@ -2,6 +2,7 @@
 
 import { Link2, MoreHorizontal, Pencil, Tags, Trash2, X } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   Suspense,
   useCallback,
@@ -41,6 +42,7 @@ import { useListParams } from "@/hooks/use-list-params";
 import type { Access } from "@/lib/auth/permissions";
 import { userCan } from "@/lib/auth/permissions";
 import { formatArgentineDate, formatMoney } from "@/lib/format";
+import { periodFromSearch } from "@/lib/list-period";
 import { toast } from "sonner";
 
 import {
@@ -49,6 +51,7 @@ import {
 } from "../hooks/use-transactions";
 import { transactionsKeys } from "../lib/transactions-keys";
 import {
+  accountTransactionListParamsToUrl,
   DEFAULT_TRANSACTION_LIST_PARAMS,
   transactionListFilters,
   transactionListParamsToUrl,
@@ -324,10 +327,20 @@ export function TransactionsTable({
         : DEFAULT_TRANSACTION_LIST_PARAMS,
     [fixedAccountId],
   );
+  // Inside an account the period is shared with the statement tab: a tab
+  // opened after the other changed it reads it from the URL, not from the
+  // page's first render.
+  const search = useSearchParams();
+  const [startParams] = useState(() => {
+    const period = fixedAccountId ? periodFromSearch(search) : null;
+    return period ? { ...initialParams, period } : initialParams;
+  });
   const { params, committed, update, reset, isFiltered } = useListParams({
-    initial: initialParams,
+    initial: startParams,
     defaults,
-    toUrl: transactionListParamsToUrl,
+    toUrl: fixedAccountId
+      ? accountTransactionListParamsToUrl
+      : transactionListParamsToUrl,
   });
   const isFiscal = useScopeIsFiscal();
   const filters = useMemo(

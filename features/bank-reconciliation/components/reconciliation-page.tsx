@@ -15,6 +15,7 @@ import {
   Unlink,
 } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { toast } from "sonner";
 
@@ -48,7 +49,11 @@ import { ACCOUNT_TYPE_LABEL, isAccountType } from "@/features/accounts/schema";
 import { ImportDialog } from "@/features/imports/components/import-dialog";
 import { PeriodFilter } from "@/components/period-filter";
 import { useListParams } from "@/hooks/use-list-params";
-import type { PeriodSelection } from "@/lib/list-period";
+import {
+  ALL_DATES_PARAM,
+  periodFromSearch,
+  type PeriodSelection,
+} from "@/lib/list-period";
 import {
   formatArgentineDate,
   formatMoney,
@@ -147,7 +152,7 @@ type PeriodParams = { period: PeriodSelection };
 
 function periodToUrl(params: PeriodParams): Record<string, string | null> {
   return {
-    period: params.period.preset,
+    period: params.period.preset ?? ALL_DATES_PARAM,
     from: params.period.from,
     to: params.period.to,
   };
@@ -169,8 +174,14 @@ export function AccountStatement({
   initialPeriod: PeriodSelection;
   gates: ReconciliationGates;
 }) {
+  // Shared with the movements tab through the URL: opened after the other
+  // tab changed it, it reads the URL, not the page's first render.
+  const search = useSearchParams();
+  const [startPeriod] = useState(
+    () => periodFromSearch(search) ?? initialPeriod,
+  );
   const { params, update } = useListParams<PeriodParams>({
-    initial: { period: initialPeriod },
+    initial: { period: startPeriod },
     defaults: { period: STATEMENT_DEFAULT_PERIOD },
     toUrl: periodToUrl,
   });

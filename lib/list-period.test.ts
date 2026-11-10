@@ -6,6 +6,7 @@ import {
   listGroupParam,
   parseListGroupParam,
   parsePeriodParams,
+  periodFromSearch,
   resolvePeriod,
 } from "./list-period";
 
@@ -132,5 +133,24 @@ describe("list grouping param", () => {
     expect(listGroupParam("day")).toBe(null);
     expect(listGroupParam(null)).toBe("none");
     expect(listGroupParam("week")).toBe("week");
+  });
+});
+
+describe("periodFromSearch", () => {
+  it("reads the period a URL names, «Todas las fechas» included", () => {
+    expect(periodFromSearch(new URLSearchParams("period=last_month"))).toEqual({
+      preset: "last_month",
+      from: null,
+      to: null,
+    });
+    expect(periodFromSearch(new URLSearchParams("period=all"))).toEqual({
+      preset: null,
+      from: null,
+      to: null,
+    });
+  });
+
+  it("names none when the URL has no period", () => {
+    expect(periodFromSearch(new URLSearchParams("account=x"))).toBeNull();
   });
 });
