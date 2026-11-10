@@ -146,14 +146,36 @@ describe("CounterpartyIdentityFields", () => {
     expect(h.verifyCuitAction).not.toHaveBeenCalled();
   });
 
-  it("shows the AFIP error", async () => {
+  it("shows the AFIP error and unlocks the data to type it by hand", async () => {
     h.verifyCuitAction.mockResolvedValue({ ok: false, error: "CUIT inválido" });
     render(<Harness findByCuit={async () => ({ ok: true, data: null })} />);
+    const razon = screen.getByLabelText("Razón social");
+    expect(razon.hasAttribute("disabled")).toBe(true);
     typeCuitAndVerify("1");
     await waitFor(() =>
-      expect(h.toast.error).toHaveBeenCalledWith("CUIT inválido"),
+      expect(h.toast.error).toHaveBeenCalledWith(
+        "CUIT inválido. Podés cargar los datos a mano.",
+      ),
     );
-    expect(screen.queryByDisplayValue("ACME SA")).toBeNull();
+    expect(screen.getByLabelText("Razón social").hasAttribute("disabled")).toBe(
+      false,
+    );
+    expect(
+      screen.getByLabelText("Domicilio fiscal").hasAttribute("disabled"),
+    ).toBe(false);
+  });
+
+  it("types the data by hand without asking AFIP", () => {
+    render(<Harness findByCuit={async () => ({ ok: true, data: null })} />);
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "AFIP no lo encuentra: cargar a mano",
+      }),
+    );
+    expect(screen.getByLabelText("Razón social").hasAttribute("disabled")).toBe(
+      false,
+    );
+    expect(h.verifyCuitAction).not.toHaveBeenCalled();
   });
 });
 

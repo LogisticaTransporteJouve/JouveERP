@@ -85,14 +85,18 @@ export function counterpartyOf(
   description: string,
 ): { cuit: string | null; name: string } | null {
   const cuit = cuitsIn(description)[0] ?? null;
-  const name = norm(
+  const cleaned = norm(
     description
-      .replace(/^\s*(TRANSF(ERENCIA)? DE|CR\.?\s*TRAN\.?|TEF)\s+/i, "")
+      .replace(/^\s*(TRANSF(ERENCIA)?( DE)?|CR\.?\s*TRAN\.?|TEF)[\s:]+/i, "")
       .replace(/\(.*$/, "")
       .replace(/\d{11}/g, " "),
   )
     .replace(/[\s,.:-]+$/, "")
     .slice(0, 120);
+  // Macro's «TRANSF:LMORZP90G7E5LMW4NEGJ46-…» carries an operation id, not a
+  // name: one word mixing letters and digits is no razón social.
+  const name =
+    /^[A-Z0-9:-]+$/.test(cleaned) && /\d/.test(cleaned) ? "" : cleaned;
   if (!cuit && name === "") return null;
   return { cuit, name };
 }

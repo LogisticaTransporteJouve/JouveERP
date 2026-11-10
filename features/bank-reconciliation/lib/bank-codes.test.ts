@@ -362,6 +362,15 @@ describe("counterpartyOf", () => {
       counterpartyOf("TRANSF DE VALDEZ, MONICA ADRIA (23207269824) VAR VARIOS"),
     ).toEqual({ cuit: "23207269824", name: "VALDEZ, MONICA ADRIA" });
   });
+
+  it("keeps the CUIT but no name when Macro sends an operation id", () => {
+    expect(counterpartyOf("TRANSF:LMORZP90G7E5LMW4NEGJ46-20257442021")).toEqual(
+      {
+        cuit: "20257442021",
+        name: "",
+      },
+    );
+  });
 });
 
 describe("Banco Galicia's codes", () => {
