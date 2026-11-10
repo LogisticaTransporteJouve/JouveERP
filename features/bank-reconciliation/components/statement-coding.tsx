@@ -5,6 +5,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { useScope } from "@/components/providers/scope-provider";
+import { checkNumberKey } from "@/lib/checks/check-number";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -289,7 +290,7 @@ export function LineProposalView({
           }
         >
           <Check className="size-3.5" />
-          Cheque {proposal.issued_check.check_number} debitado
+          Cheque {checkNumberKey(proposal.issued_check.check_number)} debitado
         </Button>
       )}
       {gates.canTreasuryWrite && proposal.kind === "transfer" && (

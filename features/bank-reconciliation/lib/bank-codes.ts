@@ -281,7 +281,7 @@ export function proposeLine(
       kind: "issued_check",
       code,
       label: check
-        ? `Cheque propio ${check.check_number} a ${check.beneficiary_name}`
+        ? `Cheque propio ${checkNumberKey(check.check_number)} a ${check.beneficiary_name}`
         : label,
       client: null,
       installment: null,
