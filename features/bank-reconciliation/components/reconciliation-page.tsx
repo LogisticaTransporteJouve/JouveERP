@@ -186,26 +186,72 @@ export function AccountStatement({
     toUrl: periodToUrl,
   });
   const [importOpen, setImportOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<LineStatusFilter>("all");
+  const [codes, setCodes] = useState<{ draft: CodeDraft | null } | null>(null);
   const { from, to } = statementRange(params.period, today);
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <PeriodFilter
-          value={params.period}
-          onChange={(period) => update({ period })}
-        />
-        {gates.canImport && (
+      {/* One toolbar, like the movements tab: filters left, actions right. */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <PeriodFilter
+            value={params.period}
+            onChange={(period) => update({ period })}
+          />
+          <Select
+            value={statusFilter}
+            onValueChange={(v) => {
+              if (isLineStatusFilter(v)) setStatusFilter(v);
+            }}
+          >
+            <SelectTrigger className="w-48" aria-label="Estado de las líneas">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {LINE_STATUS_FILTERS.map((f) => (
+                <SelectItem key={f} value={f}>
+                  {LINE_STATUS_FILTER_LABELS[f]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             type="button"
             variant="outline"
-            onClick={() => setImportOpen(true)}
+            onClick={() => setCodes({ draft: null })}
           >
-            <FileUp className="size-4" />
-            Subir extracto
+            <Settings2 className="size-4" />
+            Códigos del banco
           </Button>
-        )}
+          {gates.canImport && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setImportOpen(true)}
+            >
+              <FileUp className="size-4" />
+              Subir extracto
+            </Button>
+          )}
+        </div>
       </div>
+
+      {codes && (
+        <BankCodesDialog
+          accountId={accountId}
+          from={from}
+          to={to}
+          gates={gates}
+          open
+          onOpenChange={(o) => {
+            if (!o) setCodes(null);
+          }}
+          initialDraft={codes.draft}
+        />
+      )}
 
       {gates.canImport && (
         <ImportDialog
@@ -225,6 +271,8 @@ export function AccountStatement({
           from={from}
           to={to}
           gates={gates}
+          statusFilter={statusFilter}
+          onConfigure={(draft) => setCodes({ draft })}
         />
       </Suspense>
     </div>
@@ -271,11 +319,16 @@ function ReconciliationBody({
   from,
   to,
   gates,
+  statusFilter,
+  onConfigure,
 }: {
   accountId: string;
   from: string;
   to: string;
   gates: ReconciliationGates;
+  statusFilter: LineStatusFilter;
+  /** Opens «Códigos del banco» on a line's concept. */
+  onConfigure: (draft: CodeDraft) => void;
 }) {
   const { canWrite, canPayTaxes } = gates;
   const { data } = useReconciliation(accountId, from, to);
@@ -285,8 +338,6 @@ function ReconciliationBody({
     to,
     data.lines,
   );
-  const [codes, setCodes] = useState<{ draft: CodeDraft | null } | null>(null);
-  const [statusFilter, setStatusFilter] = useState<LineStatusFilter>("all");
   const shownLines =
     statusFilter === "all"
       ? data.lines
@@ -486,62 +537,14 @@ function ReconciliationBody({
             </Button>
           </p>
         )}
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex flex-wrap items-center gap-3">
-            <h2 className="text-base font-semibold">Extracto</h2>
-            <Select
-              value={statusFilter}
-              onValueChange={(v) => {
-                if (isLineStatusFilter(v)) setStatusFilter(v);
-              }}
-            >
-              <SelectTrigger
-                size="sm"
-                className="w-44"
-                aria-label="Estado de las líneas"
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {LINE_STATUS_FILTERS.map((f) => (
-                  <SelectItem key={f} value={f}>
-                    {LINE_STATUS_FILTER_LABELS[f]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+        {canWrite && (
+          <div className="flex justify-end empty:hidden">
+            <AcceptReadyButton
+              lines={data.lines}
+              proposals={proposals}
+              suggested={suggestedLines}
+            />
           </div>
-          <div className="flex flex-wrap gap-2">
-            {canWrite && (
-              <AcceptReadyButton
-                lines={data.lines}
-                proposals={proposals}
-                suggested={suggestedLines}
-              />
-            )}
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => setCodes({ draft: null })}
-            >
-              <Settings2 className="size-4" />
-              Códigos del banco
-            </Button>
-          </div>
-        </div>
-        {codes && (
-          <BankCodesDialog
-            accountId={accountId}
-            from={from}
-            to={to}
-            gates={gates}
-            open
-            onOpenChange={(o) => {
-              if (!o) setCodes(null);
-            }}
-            initialDraft={codes.draft}
-          />
         )}
         <div className="overflow-x-auto rounded-md border">
           <Table>
@@ -610,7 +613,7 @@ function ReconciliationBody({
                           proposal={proposals.get(line.id)}
                           accountId={accountId}
                           gates={gates}
-                          onConfigure={(draft) => setCodes({ draft })}
+                          onConfigure={onConfigure}
                         />
                       )}
                     {line.transaction_ids.map((id) => (
