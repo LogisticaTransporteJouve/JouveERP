@@ -776,7 +776,7 @@ export const purchasesPage: GuidePage = {
         "Del lado fiscal, la pantalla se llama {{Comprobantes}} (como en Ventas): facturas, notas de crédito y notas de débito que te mandan los proveedores de Compras, con su IVA, percepciones y cuenta de gasto. Del lado interno se llama {{Remitos internos de compra}}: compras a proveedores de Otras compras sin factura, que no van al Libro IVA.",
         "Columnas: {{Comprobante}} (tipo y número), {{Proveedor}}, {{Tipo}} ({{Fiscal}} o {{Interno}}), {{Fecha}}, {{Total}}, {{Estado}} ({{Recibida}} o {{Anulada}}) y {{Acciones}}. Arriba podés buscar por proveedor, CUIT o número, filtrar por fechas y por estado ({{Cualquier estado}}).",
         "Del lado fiscal, quien puede cargar compras ve además el botón {{Recibidos de ARCA}}, con la cantidad de comprobantes pendientes: ver [[/purchases/arca]].",
-        "El detalle de una compra muestra el proveedor (con CAE, vencimiento del CAE y vencimiento de pago), los {{Totales}} ({{Neto}}, no gravado, exento, {{IVA}}, {{Otros tributos}} y su reparto, {{Total}}, {{Pagado}}, {{Acreditado}} y {{Saldo}}), los {{Ítems}} (o {{Sin detalle (cargada solo por totales)}}), el motivo si es NC/ND, las {{Órdenes de pago imputadas}}, los {{Remitos internos imputados}}, las notas, los adjuntos y, con permiso de auditoría, el {{Historial}} de cambios.",
+        "El detalle de una compra muestra el proveedor (con CAE, vencimiento del CAE y vencimiento de pago), los {{Totales}} ({{Neto}}, no gravado, exento, {{IVA}}, {{Otros tributos}} y su reparto, {{Total}}, {{Pagado}}, {{Acreditado}}, {{Cubierto por el crédito de otras NC}} cuando otra nota de crédito del proveedor le pasa su sobrante, y {{Saldo}}), los {{Ítems}} (o {{Sin detalle (cargada solo por totales)}}), el motivo si es NC/ND, las {{Órdenes de pago imputadas}}, los {{Remitos internos imputados}}, las notas, los adjuntos y, con permiso de auditoría, el {{Historial}} de cambios.",
       ],
       screens: [
         {
@@ -1187,6 +1187,7 @@ export const purchasesPage: GuidePage = {
           ],
           after: [
             "Una nota de crédito baja lo que se le debe al proveedor y descuenta el saldo de la factura de origen; una nota de débito suma deuda y se paga como una factura.",
+            "Si las notas de crédito de una factura suman más que lo que la factura debe, el sobrante cancela las otras facturas y notas de débito abiertas del mismo proveedor, del mismo canal y en la misma moneda, de la más vieja a la más nueva. En el detalle de esas facturas aparece {{Cubierto por el crédito de otras NC}} y dejan de figurar en el aging y en el selector de la orden de pago.",
             "Su asiento es el de la factura, al revés en el caso de la nota de crédito.",
           ],
           errors: [

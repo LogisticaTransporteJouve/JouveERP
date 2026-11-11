@@ -505,6 +505,21 @@ Reportes fiscales de solo lectura. Dos RPCs `SECURITY INVOKER`:
   los días desde `fch_vto_pago` (o `fecha` si no tiene); los clientes, desde
   `v_aging_documents.due_date` = `invoice_effective_due_date` (`fch_vto_pago`
   si es posterior a `fecha`, si no `fecha` + 7 días).
+- **Saldo de cada comprobante y sobrante de NC** (decisión
+  [`2026-11-11-credito-de-nc-cancela-comprobantes`](decisions/2026-11-11-credito-de-nc-cancela-comprobantes.md)):
+  una vista base por lado, `v_invoice_open` (ventas) y `v_purchase_invoice_open`
+  (compras), con dos cifras. `own_open_amount` = lo que el comprobante debe por
+  sí solo (total − cobros/pagos − saldo inicial − sus NC); la leen las guardas,
+  el tope de una NC nueva (`invoice_own_open_amount`) y la cancelación de
+  remitos (`settle_billed_remito`, `impute_purchase_remitos`). `open_amount` =
+  lo que realmente debe: en facturas y ND vigentes, `greatest(own, 0)` −
+  `amount_credited_by_nc_spill`, el sobrante de las NC mayores que su origen,
+  repartido por (cliente/proveedor, canal, moneda) del comprobante más viejo al
+  más nuevo (fecha, punto de venta, número). Con saldo inicial en esa moneda, el
+  sobrante de NC hasta el corte solo baja comprobantes hasta el corte (el resto
+  lo absorbe el saldo inicial). `v_aging_documents`,
+  `v_supplier_aging_documents`, el FIFO del saldo inicial, el selector del
+  recibo y el de la OP leen `open_amount`; ningún TS recalcula el sobrante.
 - **Cuenta corriente por moneda:** `v_client_account_movements` /
   `v_supplier_account_movements` traen `currency` (ARS/USD) por movimiento; las
   acciones llevan un saldo corrido por moneda y devuelven `balances: { ARS, USD }`

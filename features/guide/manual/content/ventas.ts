@@ -1076,7 +1076,7 @@ export const salesPage: GuidePage = {
             "Anula o ajusta a la baja una factura fiscal emitida. Es la única forma de corregir una factura con CAE.",
           permission: ["invoices:issue", "credit_debit_notes:issue"],
           prerequisites: [
-            "Una factura fiscal {{Emitido}} con saldo abierto: la nota de crédito no puede superar lo que la factura todavía debe.",
+            "Una factura fiscal {{Emitido}} con saldo abierto: la nota de crédito no puede superar lo que la factura todavía debe por sí sola (su total menos cobros, saldo inicial y sus propias notas de crédito).",
           ],
           screens: [
             {
@@ -1128,6 +1128,7 @@ export const salesPage: GuidePage = {
           after: [
             "El aviso dice «Nota de Crédito en cola — esperando CAE.» y se abre el detalle de la nota. Lleva la misma letra, punto de venta y cliente que la factura (RG 1415).",
             "Con el CAE: la nota descuenta el saldo de la factura en la cuenta corriente y el aging, y su asiento revierte el de la venta (Ventas e IVA débito al Debe, Deudores por ventas al Haber).",
+            "Si las notas de crédito de una factura suman más que lo que la factura debe, el sobrante cancela las otras facturas y notas de débito abiertas del mismo cliente, del mismo canal y en la misma moneda, de la más vieja a la más nueva. Esas facturas bajan en el aging y en el selector de comprobantes del recibo; lo que sobre después de cancelar todo queda como saldo a favor del cliente en la cuenta corriente.",
           ],
           errors: [
             {
@@ -1144,8 +1145,8 @@ export const salesPage: GuidePage = {
             },
             {
               message:
-                "La nota de crédito (…) supera el saldo abierto del comprobante de origen (…).",
-              fix: "Bajá el importe: la factura ya está cobrada o acreditada en parte.",
+                "La nota de crédito (…) supera lo que el comprobante de origen debe por sí solo (…).",
+              fix: "Bajá el importe: la factura ya está cobrada o acreditada en parte por sus propias notas. El crédito que le pasan otras NC no cuenta para este tope.",
             },
             {
               message:
