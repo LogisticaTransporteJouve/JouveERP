@@ -205,7 +205,7 @@ function useTransactionColumns(
                 <Badge
                   variant="outline"
                   className="mt-0.5 gap-1 text-xs font-normal"
-                  title="Conciliado con el extracto: se desconcilia en Tesorería › Conciliación"
+                  title="Conciliado con el extracto: se desconcilia en el extracto de la cuenta"
                 >
                   <Link2 className="size-3" />
                   Conciliado

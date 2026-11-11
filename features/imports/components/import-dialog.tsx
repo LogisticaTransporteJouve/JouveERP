@@ -86,7 +86,7 @@ const KIND_NOTES: Record<ImportKind, string> = {
   opening_balances:
     "Carga lo que debe cada cliente al corte, en pesos, como el saldo inicial del cliente: no crea recibos, movimientos ni asientos, y se imputa a las facturas anteriores al corte si las hay. Un cliente que ya tiene saldo inicial se saltea. Una fila por cliente.",
   bank_statement:
-    "Carga las líneas del extracto de la cuenta elegida para conciliarlas en Tesorería › Conciliación. No crea movimientos. Las líneas que ya estaban (por ejemplo, de un extracto superpuesto) se saltean.",
+    "Carga las líneas del extracto de la cuenta elegida para conciliarlas en el extracto de la cuenta. No crea movimientos. Las líneas que ya estaban (por ejemplo, de un extracto superpuesto) se saltean.",
 };
 
 /** The accounts a kind's rows can go to. */

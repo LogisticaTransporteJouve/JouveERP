@@ -462,7 +462,7 @@ export function detectUnreconciledLines(
                   label: "Crear tarea para conciliar",
                   input: {
                     title: `Conciliar el extracto de ${main.account_name}`,
-                    description: `${main.lines.length} línea(s) pendientes desde el ${formatArgentineDate(oldestDate(main.lines, today))} (Tesorería › Conciliación).`,
+                    description: `${main.lines.length} línea(s) pendientes desde el ${formatArgentineDate(oldestDate(main.lines, today))} (en el extracto de la cuenta).`,
                     due_date: addDays(today, 3),
                   },
                 },

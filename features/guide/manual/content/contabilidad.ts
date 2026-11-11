@@ -1934,7 +1934,7 @@ export const accountingPage: GuidePage = {
             {
               message:
                 "El pago está conciliado con el extracto bancario: desconciliá la línea antes de deshacerlo",
-              fix: "Desconciliá la línea en [[/treasury/reconciliation]] y volvé a intentar.",
+              fix: "Desconciliá la línea en la pestaña {{Extracto}} de la cuenta ([[/accounts]]) y volvé a intentar.",
             },
             {
               message:

@@ -832,7 +832,7 @@ export const adminPage: GuidePage = {
             "**Préstamos al arranque** crea los préstamos con sus cuotas pendientes; no registra el desembolso (la deuda entra con el ajuste inicial). Pide el canal.",
             "**Cheques en cartera al arranque** entra los cheques de terceros a la cuenta de cartera elegida con contrapartida en ajustes de caja. Pide la cuenta y el canal. Si ya cargaste el saldo inicial de esa cuenta, no lo dupliques.",
             "**Saldos iniciales de clientes** carga lo que debe cada cliente al corte, en pesos; no crea recibos, movimientos ni asientos.",
-            "**Extracto bancario** carga las líneas del extracto de la cuenta elegida para conciliarlas en Tesorería; no crea movimientos. Las líneas que ya estaban (por ejemplo, de un extracto superpuesto) se saltean; si una ya cargada no tenía el código del banco, se lo completa. El extracto de una cuenta también se sube con {{Subir extracto}} en [[/treasury/reconciliation]], sin elegir tipo ni cuenta.",
+            "**Extracto bancario** carga las líneas del extracto de la cuenta elegida para conciliarlas en su pestaña {{Extracto}}; no crea movimientos. Las líneas que ya estaban (por ejemplo, de un extracto superpuesto) se saltean; si una ya cargada no tenía el código del banco, se lo completa. El extracto de una cuenta también se sube con {{Subir extracto}} en la pestaña {{Extracto}} de la cuenta ([[/accounts]]), sin elegir tipo ni cuenta.",
             "Las diferencias de saldos se corrigen con el ajuste inicial.",
           ],
         },
