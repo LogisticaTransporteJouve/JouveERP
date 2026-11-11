@@ -35,7 +35,6 @@ import {
   createLineTransactionAction,
   getReconciliationAction,
   ignoreLineAction,
-  listReconciliationAccountsAction,
   matchLineAction,
   matchLineToPaymentOrderAction,
   matchLineToReceiptAction,
@@ -63,13 +62,6 @@ import type {
   PayLoanFromLineInput,
   MatchLinesToMovementInput,
 } from "../schema";
-
-export function useReconciliationAccounts() {
-  return useSuspenseQuery({
-    queryKey: reconciliationKeys.accounts(),
-    queryFn: () => runAction(() => listReconciliationAccountsAction()),
-  });
-}
 
 export function useReconciliation(accountId: string, from: string, to: string) {
   return useSuspenseQuery({

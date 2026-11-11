@@ -153,21 +153,15 @@ export const ROUTE_GUIDES: readonly RouteGuide[] = [
       "Proyección de cobros y pagos por mes: aging, cheques, préstamos y pagos recurrentes.",
   },
   {
-    prefix: "/treasury/reconciliation",
-    title: "Conciliación bancaria",
+    prefix: "/accounts",
+    title: "Cuentas",
     summary:
-      "Por cuenta y mes: cada línea del extracto contra los movimientos de caja.",
+      "Cajas, bancos y billeteras con su moneda y su saldo. Cada cuenta abre sus movimientos y, en un banco, su extracto para conciliar. También se crean pidiéndoselo al asistente.",
     steps: [
       "Subí el extracto que bajaste del banco con Subir extracto (entra a la cuenta y el mes elegidos).",
       "Aceptá las sugerencias o elegí los movimientos a mano.",
       "Creá el movimiento que falta (comisiones, intereses) desde la línea.",
     ],
-  },
-  {
-    prefix: "/accounts",
-    title: "Cuentas",
-    summary:
-      "Cajas, bancos y billeteras con su moneda y su saldo. Cada cuenta abre sus movimientos y, en un banco, su extracto. También se crean pidiéndoselo al asistente.",
   },
   {
     prefix: "/transactions",

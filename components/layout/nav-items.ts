@@ -17,7 +17,6 @@ import {
   FileText,
   FileUp,
   FolderOpen,
-  GitCompareArrows,
   Fuel,
   Gauge,
   HandCoins,
@@ -220,12 +219,6 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         href: "/transactions",
         label: "Caja",
         icon: ArrowLeftRight,
-        permission: "transactions:read",
-      },
-      {
-        href: "/treasury/reconciliation",
-        label: "Conciliación",
-        icon: GitCompareArrows,
         permission: "transactions:read",
       },
       {

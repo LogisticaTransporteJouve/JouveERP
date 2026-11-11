@@ -51,7 +51,6 @@ const PAGE_TOOLS: Record<string, readonly string[]> = {
   // Tesorería
   "/treasury": ["getTreasurySummary"],
   "/treasury/cash-flow": ["getCashFlow"],
-  "/treasury/reconciliation": ["getBankReconciliation"],
   "/accounts": ["getAccounts"],
   "/accounts/[id]": ["getAccounts", "getTransactions", "getBankReconciliation"],
   "/transactions": ["getTransactions"],

@@ -127,12 +127,12 @@ export function EditTransactionDialog({
         {locked && (
           <p className="rounded-md border px-3 py-2 text-sm text-muted-foreground">
             Está conciliado con el extracto bancario: el monto y las fechas no
-            se cambian hasta desconciliar su línea en{" "}
+            se cambian hasta desconciliar su línea en el{" "}
             <Link
-              href="/treasury/reconciliation"
+              href={`/accounts/${transaction?.account_id ?? ""}`}
               className="font-medium text-foreground underline underline-offset-4"
             >
-              Tesorería › Conciliación
+              extracto de la cuenta
             </Link>
             .
           </p>
