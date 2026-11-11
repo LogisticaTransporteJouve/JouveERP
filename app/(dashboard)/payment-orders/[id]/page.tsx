@@ -33,11 +33,11 @@ import {
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { canChangeAttachments } from "@/lib/files/attachment-targets";
-import { formatArgentineDate, formatMoneyWithCode } from "@/lib/format";
+import { formatArgentineDate, formatMoney } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
-const money = formatMoneyWithCode;
+const money = formatMoney;
 
 export default async function PaymentOrderDetailPage({
   params,
