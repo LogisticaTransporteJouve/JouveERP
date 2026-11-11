@@ -8,6 +8,7 @@ overrides:
   ws@8: 8.20.1
   protobufjs@8: 8.2.0
   cjs-module-lexer@1: 2.2.0
+  react-pdf>pdfjs-dist: 6.5.438
 
 importers:
 
@@ -5298,10 +5299,6 @@ packages:
   path-scurry@2.0.2:
     resolution: {integrity: sha512-3O/iVVsJAPsOnpwWIeD+d6z/7PmqApyQePUtCndjatj/9I5LylHvt5qluFaBT3I5h3r1ejfR056c+FCv+NnNXg==}
     engines: {node: 18 || 20 || >=22}
-
-  pdfjs-dist@6.3.289:
-    resolution: {integrity: sha512-ZHjSVpDa3D6izMq8/04lvkhkATUmL9px6ChPaXc1k6nU2Mrhlg1/7F0bdUqCwUjw3NsPTfPZsMDUU6ZIcRaeQw==}
-    engines: {node: '>=22.13.0 || >=24'}
 
   pdfjs-dist@6.5.438:
     resolution: {integrity: sha512-vg8Pw1x+AFKy4AMDvhuWl5cOYV8d698UoEANoFFhc79hqXDnZQqnOXoxw3HG907WHOg1JYOvLhP756boddFxpA==}
@@ -11504,10 +11501,6 @@ snapshots:
       lru-cache: 11.5.3
       minipass: 7.1.3
 
-  pdfjs-dist@6.3.289:
-    optionalDependencies:
-      '@napi-rs/canvas': 1.1.0
-
   pdfjs-dist@6.5.438:
     optionalDependencies:
       '@napi-rs/canvas': 1.1.0
@@ -11725,7 +11718,7 @@ snapshots:
       make-cancellable-promise: 2.0.0
       make-event-props: 2.0.0
       merge-refs: 2.0.0(@types/react@19.3.0)
-      pdfjs-dist: 6.3.289
+      pdfjs-dist: 6.5.438
       react: 19.3.1
       react-dom: 19.3.1(react@19.3.1)
       tiny-invariant: 1.3.3

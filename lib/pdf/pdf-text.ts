@@ -4,8 +4,8 @@ import type { TextContent } from "pdfjs-dist/types/src/display/api";
 
 /** Each page's text content of a PDF read in the browser. pdfjs is loaded
  *  only when a file is read: the library and its worker both from
- *  pdfjs-dist, so their versions match (react-pdf bundles another pdfjs,
- *  and a worker of another version never answers). */
+ *  pdfjs-dist, so their versions match (a worker of another version never
+ *  answers). */
 async function readPages(file: File): Promise<TextContent[]> {
   const pdfjs = await import("pdfjs-dist");
   pdfjs.GlobalWorkerOptions.workerSrc = new URL(
