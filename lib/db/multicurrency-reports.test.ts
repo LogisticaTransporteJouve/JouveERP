@@ -121,9 +121,8 @@ describe.each([
 
 describe.each([
   ["v_client_aging", "v_aging_documents"],
-  ["v_supplier_aging", "v_supplier_aging_documents"],
   ["v_client_aging_by_scope", "v_aging_documents"],
-  ["v_supplier_aging_by_scope", "v_supplier_aging_documents"],
+  ["v_supplier_aging_by_channel", "v_supplier_aging_documents"],
 ])("%s", (view, source) => {
   const definition = lastStatement(
     new RegExp(
@@ -162,4 +161,34 @@ describe.each([
       ).toMatch(/from public, anon;$/);
     });
   }
+});
+
+// The supplier totals sum v_supplier_aging_by_channel (the only copy of the
+// bucket expressions) without the segregated channels.
+describe.each([
+  ["v_supplier_aging", "group by a.supplier_id;"],
+  ["v_supplier_aging_by_scope", "group by a.supplier_id, a.channel_is_fiscal;"],
+])("%s", (view, groupBy) => {
+  const definition = lastStatement(
+    new RegExp(
+      `create (?:or replace )?view public\\.${view} [\\s\\S]*?;\\n`,
+      "gi",
+    ),
+  );
+
+  it("sums each currency's buckets of the main channels apart", () => {
+    expect(definition).toContain("from public.v_supplier_aging_by_channel a");
+    expect(definition).toContain("where not a.channel_is_segregated");
+    expect(definition).toContain(groupBy);
+    for (const cur of ["ars", "usd"]) {
+      for (const bucket of ["0_30", "30_60", "60_90", "90_plus"]) {
+        expect(definition).toContain(
+          `coalesce(sum(a.${cur}_bucket_${bucket}), 0) as ${cur}_bucket_${bucket}`,
+        );
+      }
+      expect(definition).toContain(
+        `coalesce(sum(a.${cur}_total_open), 0) as ${cur}_total_open`,
+      );
+    }
+  });
 });

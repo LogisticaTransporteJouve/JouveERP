@@ -2388,6 +2388,7 @@ export type Database = {
           phone: string | null
           real_address: string | null
           updated_at: string
+          in_main_scope: boolean | null
         }
         Insert: {
           address?: string | null
@@ -4666,30 +4667,45 @@ export type Database = {
           business_unit_id: string
           created_at: string
           display_color: string | null
+          division_label: string | null
           id: string
           is_active: boolean
           is_fiscal: boolean
+          is_segregated: boolean
           name: string
+          purchase_account_id: string | null
+          sales_account_id: string | null
+          short_label: string | null
           updated_at: string
         }
         Insert: {
           business_unit_id: string
           created_at?: string
           display_color?: string | null
+          division_label?: string | null
           id: string
           is_active?: boolean
           is_fiscal: boolean
+          is_segregated?: boolean
           name: string
+          purchase_account_id?: string | null
+          sales_account_id?: string | null
+          short_label?: string | null
           updated_at?: string
         }
         Update: {
           business_unit_id?: string
           created_at?: string
           display_color?: string | null
+          division_label?: string | null
           id?: string
           is_active?: boolean
           is_fiscal?: boolean
+          is_segregated?: boolean
           name?: string
+          purchase_account_id?: string | null
+          sales_account_id?: string | null
+          short_label?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -4698,6 +4714,34 @@ export type Database = {
             columns: ["business_unit_id"]
             isOneToOne: false
             referencedRelation: "business_units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoicing_channels_purchase_account_id_fkey"
+            columns: ["purchase_account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoicing_channels_purchase_account_id_fkey"
+            columns: ["purchase_account_id"]
+            isOneToOne: false
+            referencedRelation: "expense_leaf_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoicing_channels_sales_account_id_fkey"
+            columns: ["sales_account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoicing_channels_sales_account_id_fkey"
+            columns: ["sales_account_id"]
+            isOneToOne: false
+            referencedRelation: "expense_leaf_accounts"
             referencedColumns: ["id"]
           },
         ]
@@ -7670,6 +7714,7 @@ export type Database = {
           phone: string | null
           real_address: string | null
           updated_at: string
+          in_main_scope: boolean | null
         }
         Insert: {
           address?: string | null
@@ -8648,6 +8693,7 @@ export type Database = {
           bucket: string | null
           channel_id: string | null
           channel_is_fiscal: boolean | null
+          channel_is_segregated: boolean | null
           channel_name: string | null
           check_number: string | null
           client_id: string | null
@@ -8696,6 +8742,7 @@ export type Database = {
         Row: {
           channel_id: string | null
           channel_is_fiscal: boolean | null
+          channel_is_segregated: boolean | null
           channel_name: string | null
           client_id: string | null
           created_at: string | null
@@ -8962,6 +9009,7 @@ export type Database = {
         Row: {
           channel_id: string | null
           channel_is_fiscal: boolean | null
+          channel_is_segregated: boolean | null
           currency: string | null
           payment_date: string | null
           payment_order_id: string | null
@@ -9113,6 +9161,7 @@ export type Database = {
         Row: {
           channel_id: string | null
           channel_is_fiscal: boolean | null
+          channel_is_segregated: boolean | null
           client_id: string | null
           currency: string | null
           receipt_date: string | null
@@ -9172,6 +9221,7 @@ export type Database = {
         Row: {
           channel_id: string | null
           channel_is_fiscal: boolean | null
+          channel_is_segregated: boolean | null
           channel_name: string | null
           created_at: string | null
           currency: string | null
@@ -9196,6 +9246,50 @@ export type Database = {
           ars_bucket_60_90: number | null
           ars_bucket_90_plus: number | null
           ars_total_open: number | null
+          document_count: number | null
+          oldest_days: number | null
+          supplier_id: string | null
+          usd_bucket_0_30: number | null
+          usd_bucket_30_60: number | null
+          usd_bucket_60_90: number | null
+          usd_bucket_90_plus: number | null
+          usd_total_open: number | null
+          suppliers: {
+            address: string | null
+            category_id: string | null
+            created_at: string
+            created_by: string | null
+            cuit: string | null
+            default_channel_id: string | null
+            default_cost_center_id: string | null
+            default_expense_account_id: string | null
+            default_payment_term_days: number | null
+            display_name: string | null
+            email: string | null
+            id: string
+            import_run_id: string | null
+            is_active: boolean
+            is_fiscal: boolean
+            iva_condition: string | null
+            legal_name: string
+            notes: string | null
+            phone: string | null
+            real_address: string | null
+            updated_at: string
+          } | null
+        }
+        Relationships: []
+      }
+      v_supplier_aging_by_channel: {
+        Row: {
+          ars_bucket_0_30: number | null
+          ars_bucket_30_60: number | null
+          ars_bucket_60_90: number | null
+          ars_bucket_90_plus: number | null
+          ars_total_open: number | null
+          channel_id: string | null
+          channel_is_fiscal: boolean | null
+          channel_is_segregated: boolean | null
           document_count: number | null
           oldest_days: number | null
           supplier_id: string | null
@@ -9280,6 +9374,7 @@ export type Database = {
           bucket: string | null
           channel_id: string | null
           channel_is_fiscal: boolean | null
+          channel_is_segregated: boolean | null
           channel_name: string | null
           check_number: string | null
           days_overdue: number | null
@@ -10083,6 +10178,21 @@ export type Database = {
         }
         Returns: string
       }
+      channel_in_main_scope: {
+        Args: { p_channel_id: string }
+        Returns: boolean
+      }
+      channel_summary: {
+        Args: { p_channel_id: string; p_from: string; p_to: string }
+        Returns: {
+          costs: number
+          margin: number
+          month: string
+          payments: number
+          pending_usd: number
+          sales: number
+        }[]
+      }
       checks_channel_mismatches: {
         Args: never
         Returns: {
@@ -10782,6 +10892,19 @@ export type Database = {
         }
         Returns: string[]
       }
+      in_main_scope:
+        | {
+            Args: { "": Database["public"]["Tables"]["clients"]["Row"] }
+            Returns: {
+              error: true
+            } & "the function public.in_main_scope with parameter or with a single unnamed json/jsonb parameter, but no matches were found in the schema cache"
+          }
+        | {
+            Args: { "": Database["public"]["Tables"]["suppliers"]["Row"] }
+            Returns: {
+              error: true
+            } & "the function public.in_main_scope with parameter or with a single unnamed json/jsonb parameter, but no matches were found in the schema cache"
+          }
       increase_storage_tariffs: {
         Args: { p_percent: number; p_valid_from: string }
         Returns: {
@@ -10795,6 +10918,7 @@ export type Database = {
       }
       invoice_list_totals: {
         Args: {
+          p_channel_id?: string
           p_client_id?: string
           p_client_name?: string
           p_from?: string
@@ -11129,6 +11253,10 @@ export type Database = {
         Returns: boolean
       }
       open_or_create_dm: { Args: { p_other: string }; Returns: string }
+      party_in_main_scope: {
+        Args: { p_kind: string; p_party_id: string }
+        Returns: boolean
+      }
       pay_check_sale_debt: {
         Args: {
           p_account_id: string
@@ -11493,6 +11621,7 @@ export type Database = {
       }
       search_clients: {
         Args: {
+          p_channel_id?: string
           p_is_fiscal?: boolean
           p_limit?: number
           p_offset?: number
@@ -11628,6 +11757,8 @@ export type Database = {
       search_suppliers: {
         Args: {
           p_category_id?: string
+          p_channel_id?: string
+          p_channel_members_only?: boolean
           p_is_fiscal?: boolean
           p_limit?: number
           p_offset?: number
@@ -11828,6 +11959,40 @@ export type Database = {
             }
             SetofOptions: {
               from: "v_supplier_aging"
+              to: "suppliers"
+              isOneToOne: true
+              isSetofReturn: true
+            }
+          }
+        | {
+            Args: {
+              "": Database["public"]["Views"]["v_supplier_aging_by_channel"]["Row"]
+            }
+            Returns: {
+              address: string | null
+              category_id: string | null
+              created_at: string
+              created_by: string | null
+              cuit: string | null
+              default_channel_id: string | null
+              default_cost_center_id: string | null
+              default_expense_account_id: string | null
+              default_payment_term_days: number | null
+              display_name: string | null
+              email: string | null
+              id: string
+              import_run_id: string | null
+              is_active: boolean
+              is_fiscal: boolean
+              iva_condition: string | null
+              legal_name: string
+              notes: string | null
+              phone: string | null
+              real_address: string | null
+              updated_at: string
+            }
+            SetofOptions: {
+              from: "v_supplier_aging_by_channel"
               to: "suppliers"
               isOneToOne: true
               isSetofReturn: true

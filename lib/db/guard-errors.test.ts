@@ -232,6 +232,9 @@ const GUARDS = [
   "payroll_period_post_receipt_gaps",
   "split_matched_movement",
   "merge_matched_movement",
+  "guard_account_channel_reference",
+  "build_invoice_journal_lines",
+  "build_purchase_invoice_journal_lines",
 ];
 
 describe("guard hints in migrations", () => {
