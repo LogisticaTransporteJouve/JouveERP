@@ -6,7 +6,7 @@ import writeXlsxFile, {
 import { AR_OFFSET_MS, formatNumber2 } from "@/lib/format";
 
 /** How a column's plain values are written. Typed cells (`{ money }`,
- *  `{ date }`) are written as such in any column. */
+ *  `{ percent }`, `{ date }`) are written as such in any column. */
 export type XlsxColumnType =
   "text" | "number" | "integer" | "money" | "percent" | "date";
 
@@ -24,6 +24,8 @@ export type XlsxCell =
   | null
   | undefined
   | { money: number; currency: string }
+  /** A percent figure (18.4 is 18,40 %), in any column. */
+  | { percent: number }
   /** `YYYY-MM-DD`, or an ISO timestamp (written in Argentina's time). */
   | { date: string };
 
@@ -167,6 +169,7 @@ function writeCell(
   if (typeof value === "boolean") return textCell(value ? "Sí" : "No");
   if (typeof value === "object") {
     if ("date" in value) return dateCell(value.date);
+    if ("percent" in value) return numberCell(value.percent, FORMAT.percent);
     const written = numberCell(
       value.money,
       moneyFormat(value.currency, headerCurrency),

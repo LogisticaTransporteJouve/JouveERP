@@ -33,14 +33,15 @@ import {
   INTERNAL_USE_NOTICE,
   MANAGEMENT_BASES,
   MANAGEMENT_BASIS_LABEL,
+  MONTH_TABLE_ROWS,
   SIDE_VIEWS,
-  TABLE_LINES,
   buildMonthTable,
   computeKpis,
   computeWaterfall,
   filterByCostCenter,
   isManagementBasis,
   isSideView,
+  monthTableCsvCell,
   monthTableExport,
   unclassifiedAccounts,
   type Kpi,
@@ -58,9 +59,13 @@ const SIDE_LABEL: Record<SideView, string> = {
   internal: "Interno",
 };
 
+function percent(value: number | null): string {
+  return value === null ? "—" : `${formatNumber2(value)} %`;
+}
+
 function kpiValue(kpi: Kpi, value: number | null): string {
   if (value === null) return "—";
-  return kpi.unit === "pct" ? `${formatNumber2(value)} %` : money(value);
+  return kpi.unit === "pct" ? percent(value) : money(value);
 }
 
 function kpiVariance(kpi: Kpi): string {
@@ -256,7 +261,11 @@ function ManagementReportView({
       if (format === "csv") {
         downloadCsv(
           fileBase,
-          toCsv(header, [[INTERNAL_USE_NOTICE], [title, subtitle], ...lines]),
+          toCsv(header, [
+            [INTERNAL_USE_NOTICE],
+            [title, subtitle],
+            ...lines.map((line) => line.map(monthTableCsvCell)),
+          ]),
         );
       } else {
         const { buildXlsx } = await import("@/lib/export/xlsx");
@@ -335,7 +344,7 @@ function ManagementReportView({
       )}
 
       <div className="space-y-2">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {kpis.kpis.map((k) => (
             <div key={k.key} className="rounded-lg border bg-card px-4 py-3">
               <p className="text-xs text-muted-foreground">{k.label}</p>
@@ -451,7 +460,47 @@ function ManagementReportView({
               </tr>
             </thead>
             <tbody>
-              {TABLE_LINES.map((line) => {
+              {MONTH_TABLE_ROWS.map((line) => {
+                if (line.kind === "ratio") {
+                  const ratios = table.ratios.totals[line.key];
+                  return (
+                    <tr
+                      key={line.key}
+                      className="border-t italic text-muted-foreground"
+                    >
+                      <td
+                        className="sticky left-0 bg-card px-3 py-1.5"
+                        style={{ paddingLeft: `${0.75 + line.depth}rem` }}
+                      >
+                        {line.label}
+                      </td>
+                      {data.months.map((m) => (
+                        <td
+                          key={m}
+                          className="px-2 py-1.5 text-right font-mono"
+                        >
+                          {percent(
+                            table.ratios.byMonth[line.key]?.[m]?.[sideView] ??
+                              null,
+                          )}
+                        </td>
+                      ))}
+                      {(["fiscal", "internal", "total"] as const).map(
+                        (side) => (
+                          <td
+                            key={side}
+                            className={cn(
+                              "px-2 py-1.5 text-right font-mono",
+                              side === "fiscal" && "border-l",
+                            )}
+                          >
+                            {percent(ratios?.[side] ?? null)}
+                          </td>
+                        ),
+                      )}
+                    </tr>
+                  );
+                }
                 const totals = table.totals[line.key]!;
                 return (
                   <tr

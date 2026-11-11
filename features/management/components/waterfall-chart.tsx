@@ -14,7 +14,9 @@ type Step = {
 export function waterfallSteps(w: Waterfall): Step[] {
   return [
     { label: "Servicios", value: w.serviceRevenue, total: false },
-    { label: "Costos operativos", value: w.operatingCost, total: false },
+    { label: "Costos directos", value: w.directCost, total: false },
+    { label: "Margen bruto", value: w.grossMargin, total: true },
+    { label: "Gastos de estructura", value: w.structureCost, total: false },
     ...(w.unclassified !== 0
       ? [{ label: "Sin clasificar", value: w.unclassified, total: false }]
       : []),

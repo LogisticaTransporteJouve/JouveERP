@@ -1158,7 +1158,7 @@ export const accountingPage: GuidePage = {
       intro: [
         "Fiscal + interno: ¿la operación deja plata? Es una vista para uso interno ({{Uso interno}}): no es el EERR fiscal y no se presenta a bancos, ARCA ni terceros (para eso, [[#balance-eerr]]). El contador externo no la ve.",
         "Filtros: {{Año fiscal}} (los últimos cinco, según el inicio del ejercicio de [[/accounting/settings]]), {{Base}} ({{Devengado}} o {{Percibido}}) y {{Ajustado por inflación}}. El recuadro {{Limitaciones de esta versión}} explica qué no se calcula todavía.",
-        "La pantalla muestra, en orden: los indicadores ({{Margen operativo %}}, {{Resultado operativo (EBITDA aprox.)}} y {{Generación de caja}}, contra los mismos meses del año anterior), la {{Cascada del año fiscal}} con el {{Comparativo con el año anterior}}, la tabla {{Mes a mes}}, {{Margen por camión}}, {{Sin clasificar}} y {{Sueldos: pagado en el mes vs. liquidado del período}}.",
+        "La pantalla muestra, en orden: los indicadores ({{Margen bruto %}}, {{Margen operativo %}}, {{Resultado operativo (EBITDA aprox.)}} y {{Generación de caja}}, contra los mismos meses del año anterior), la {{Cascada del año fiscal}} con el {{Comparativo con el año anterior}}, la tabla {{Mes a mes}}, {{Margen por camión}}, {{Sin clasificar}} y {{Sueldos: pagado en el mes vs. liquidado del período}}.",
       ],
       screens: [
         {
@@ -1170,6 +1170,7 @@ export const accountingPage: GuidePage = {
             { label: "Ajustado por inflación", kind: "checkbox" },
           ],
           stats: [
+            { label: "Margen bruto %", value: "~41,20 %" },
             { label: "Margen operativo %", value: "~18,40 %" },
             {
               label: "Resultado operativo (EBITDA aprox.)",
@@ -1187,6 +1188,22 @@ export const accountingPage: GuidePage = {
                 "~38.000.000",
                 "~4.500.000",
                 "~42.500.000",
+              ],
+              [
+                "Margen bruto",
+                "~8.200.000",
+                "~9.300.000",
+                "~15.600.000",
+                "~1.900.000",
+                "~17.500.000",
+              ],
+              [
+                "Margen bruto %",
+                "~41,00 %",
+                "~41,33 %",
+                "~41,05 %",
+                "~42,22 %",
+                "~41,18 %",
               ],
               [
                 "Margen operativo",
@@ -1211,7 +1228,8 @@ export const accountingPage: GuidePage = {
         {
           title: "Las líneas",
           body: [
-            "{{Servicios}}; {{Costos operativos}} con su detalle ({{Total personal}}, combustible, mantenimiento, seguros, peajes, etc.); {{Sin clasificar}}; {{Margen operativo}}; {{Costo financiero}}; {{Resultado después de financiación}}; {{Capital de préstamos}}, {{Inversión en flota}}, {{Venta de bienes de uso}} y {{Anticipos al personal}}; {{Generación de caja}}; {{Financiamiento recibido}}; y {{Variación de caja}}.",
+            "{{Servicios}}; los costos directos con su detalle ({{Total personal}}, cargas sociales, combustible, mantenimiento, seguros y peajes) y su subtotal {{Costos directos}}; {{Margen bruto}} (servicios menos costos directos) y {{Margen bruto %}}; los gastos de estructura con su detalle (alquileres, impuestos operativos, administración, pagos a proveedores y otros) y su subtotal {{Gastos de estructura}}; {{Sin clasificar}}; {{Margen operativo}} y {{Margen operativo %}}; {{Costo financiero}}; {{Resultado después de financiación}}; {{Capital de préstamos}}, {{Inversión en flota}}, {{Venta de bienes de uso}} y {{Anticipos al personal}}; {{Generación de caja}}; {{Financiamiento recibido}}; y {{Variación de caja}}.",
+            "{{Margen bruto %}} y {{Margen operativo %}} son el margen sobre los servicios de cada mes (y del año, en las columnas finales, por lado); muestran «—» cuando no hay servicios. No suman en ningún total y no abren documentos.",
             "Cada cuenta del plan va a una de esas «cajas» según el catálogo de clasificación ([[#clasificar-cuentas-de-gestion]]). Una cuenta de resultado sin clasificar suma en {{Sin clasificar}}.",
             "Los movimientos en dólares sin cotización (o, si son fiscales, sin asiento) no se suman: un aviso muestra el neto en US$ y enlaza a [[/accounting/exchange-rates]] y [[/accounting/package]].",
           ],

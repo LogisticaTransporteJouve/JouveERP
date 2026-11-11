@@ -68,6 +68,18 @@ export const OPERATING_SUBBUCKETS = [
   "proveedores",
   "otros",
 ] as const;
+/** The operating subbuckets that go with the service itself (Costos
+ *  directos, above Margen bruto); the rest, and an operating cost without a
+ *  subbucket, are Gastos de estructura. */
+export const DIRECT_COST_SUBBUCKETS = [
+  "sueldos",
+  "sueldos_internos",
+  "cargas_sociales",
+  "combustible",
+  "mantenimiento",
+  "seguros",
+  "peajes",
+] as const satisfies readonly (typeof OPERATING_SUBBUCKETS)[number][];
 export const FINANCING_SUBBUCKETS = [
   "intereses",
   "cargos_bancarios",
@@ -235,13 +247,29 @@ export const SetBucketSchema = z
     { message: "El subrubro no corresponde a esa caja." },
   );
 
+const isDirectCost = (r: ManagementRow) =>
+  r.bucket === "operating_cost" &&
+  r.subbucket !== null &&
+  isOneOf(DIRECT_COST_SUBBUCKETS, r.subbucket);
+const isStructureCost = (r: ManagementRow) =>
+  r.bucket === "operating_cost" && !isDirectCost(r);
+
+/** part over whole, in percent; null without a whole. */
+const percentOf = (part: number, whole: number) =>
+  whole === 0 ? null : round2((part / whole) * 100);
+
 // ---------------------------------------------------------------------------
 // Cascade
 // ---------------------------------------------------------------------------
 
 export type Waterfall = {
   serviceRevenue: number;
+  /** directCost + structureCost. */
   operatingCost: number;
+  directCost: number;
+  /** serviceRevenue + directCost. */
+  grossMargin: number;
+  structureCost: number;
   unclassified: number;
   operatingMargin: number;
   financingCost: number;
@@ -268,12 +296,12 @@ export type Waterfall = {
  *  accounts count in the operating margin so no peso is left out; USD
  *  without a rate and non-cash items stay out of every total. */
 export function computeWaterfall(rows: readonly ManagementRow[]): Waterfall {
-  const sum = (bucket: RowBucket) =>
-    round2(
-      rows.filter((r) => r.bucket === bucket).reduce((a, r) => a + r.amount, 0),
-    );
+  const sumWhere = (keep: (r: ManagementRow) => boolean) =>
+    round2(rows.filter(keep).reduce((a, r) => a + r.amount, 0));
+  const sum = (bucket: RowBucket) => sumWhere((r) => r.bucket === bucket);
   const serviceRevenue = sum("service_revenue");
   const operatingCost = sum("operating_cost");
+  const directCost = sumWhere(isDirectCost);
   const unclassified = sum("unclassified");
   const operatingMargin = round2(serviceRevenue + operatingCost + unclassified);
   const financingCost = sum("financing_cost");
@@ -293,6 +321,9 @@ export function computeWaterfall(rows: readonly ManagementRow[]): Waterfall {
   return {
     serviceRevenue,
     operatingCost,
+    directCost,
+    grossMargin: round2(serviceRevenue + directCost),
+    structureCost: sumWhere(isStructureCost),
     unclassified,
     operatingMargin,
     financingCost,
@@ -343,8 +374,19 @@ const anyOf = (...buckets: RowBucket[]): LineScope => ({
   match: (r) => buckets.includes(r.bucket),
 });
 
-const OPERATING_DETAIL = OPERATING_SUBBUCKETS.filter(
+const operatingLine = (sub: Subbucket): TableLine => ({
+  key: `op:${sub}`,
+  label: SUBBUCKET_LABEL[sub],
+  kind: "line",
+  depth: 1,
+  ...bySub("operating_cost", sub),
+});
+
+const DIRECT_DETAIL = DIRECT_COST_SUBBUCKETS.filter(
   (s) => s !== "sueldos" && s !== "sueldos_internos",
+);
+const STRUCTURE_DETAIL = OPERATING_SUBBUCKETS.filter(
+  (s) => !isOneOf(DIRECT_COST_SUBBUCKETS, s) && s !== "otros",
 );
 
 const CASH_GENERATION_BUCKETS = [
@@ -391,26 +433,37 @@ export const TABLE_LINES: readonly TableLine[] = [
       r.bucket === "operating_cost" &&
       (r.subbucket === "sueldos" || r.subbucket === "sueldos_internos"),
   },
-  ...OPERATING_DETAIL.map((sub): TableLine => ({
-    key: `op:${sub}`,
-    label: SUBBUCKET_LABEL[sub],
-    kind: "line",
-    depth: 1,
-    ...(sub === "otros"
-      ? {
-          buckets: ["operating_cost"],
-          match: (r: ManagementRow) =>
-            r.bucket === "operating_cost" &&
-            (r.subbucket === "otros" || r.subbucket === null),
-        }
-      : bySub("operating_cost", sub)),
-  })),
+  ...DIRECT_DETAIL.map(operatingLine),
   {
-    key: "operating_cost",
-    label: BUCKET_LABEL.operating_cost,
+    key: "direct_cost",
+    label: "Costos directos",
     kind: "subtotal",
     depth: 0,
-    ...byBucket("operating_cost"),
+    buckets: ["operating_cost"],
+    match: isDirectCost,
+  },
+  {
+    key: "gross_margin",
+    label: "Margen bruto",
+    kind: "total",
+    depth: 0,
+    buckets: ["service_revenue", "operating_cost"],
+    match: (r) => r.bucket === "service_revenue" || isDirectCost(r),
+  },
+  ...STRUCTURE_DETAIL.map(operatingLine),
+  {
+    ...operatingLine("otros"),
+    match: (r) =>
+      r.bucket === "operating_cost" &&
+      (r.subbucket === "otros" || r.subbucket === null),
+  },
+  {
+    key: "structure_cost",
+    label: "Gastos de estructura",
+    kind: "subtotal",
+    depth: 0,
+    buckets: ["operating_cost"],
+    match: isStructureCost,
   },
   {
     key: "unclassified",
@@ -496,16 +549,86 @@ export const TABLE_LINES: readonly TableLine[] = [
   },
 ];
 
-export type SideAmounts = { fiscal: number; internal: number; total: number };
+/** A percentage row of the month table: one line over another, per month
+ *  and side. Never summed and never drilled into. */
+export type RatioLine = {
+  key: string;
+  label: string;
+  kind: "ratio";
+  depth: number;
+  numerator: string;
+  denominator: string;
+};
 
-/** amounts[lineKey][month] and the period totals per line, by side. */
+const overServices = (lineKey: string, label: string): RatioLine => ({
+  key: `${lineKey}_pct`,
+  label,
+  kind: "ratio",
+  depth: 0,
+  numerator: lineKey,
+  denominator: "service_revenue",
+});
+
+/** Each percentage row, keyed by the line it goes under. */
+const RATIO_AFTER: Readonly<Partial<Record<string, RatioLine>>> = {
+  gross_margin: overServices("gross_margin", "Margen bruto %"),
+  operating_margin: overServices("operating_margin", "Margen operativo %"),
+};
+
+export type MonthTableRow = TableLine | RatioLine;
+
+/** What the screen and the export show, top to bottom: the lines, with
+ *  each percentage row under its line. */
+export const MONTH_TABLE_ROWS: readonly MonthTableRow[] = TABLE_LINES.flatMap(
+  (line): MonthTableRow[] => {
+    const ratio = RATIO_AFTER[line.key];
+    return ratio ? [line, ratio] : [line];
+  },
+);
+
+const RATIO_LINES = MONTH_TABLE_ROWS.filter(
+  (r): r is RatioLine => r.kind === "ratio",
+);
+
+export type SideAmounts = { fiscal: number; internal: number; total: number };
+/** Percent per side; null when the denominator is 0 on that side. */
+export type SideRatios = {
+  fiscal: number | null;
+  internal: number | null;
+  total: number | null;
+};
+
+const NO_AMOUNTS: SideAmounts = { fiscal: 0, internal: 0, total: 0 };
+
+function sideRatios(
+  part: SideAmounts | undefined,
+  whole: SideAmounts | undefined,
+): SideRatios {
+  const p = part ?? NO_AMOUNTS;
+  const w = whole ?? NO_AMOUNTS;
+  return {
+    fiscal: percentOf(p.fiscal, w.fiscal),
+    internal: percentOf(p.internal, w.internal),
+    total: percentOf(p.total, w.total),
+  };
+}
+
+export type MonthTable = {
+  byMonth: Record<string, Record<string, SideAmounts>>;
+  totals: Record<string, SideAmounts>;
+  /** The percentage rows, apart: never mixed with the amounts. */
+  ratios: {
+    byMonth: Record<string, Record<string, SideRatios>>;
+    totals: Record<string, SideRatios>;
+  };
+};
+
+/** amounts[lineKey][month] and the period totals per line, by side, and
+ *  the percentage rows computed from them. */
 export function buildMonthTable(
   rows: readonly ManagementRow[],
   months: readonly string[],
-): {
-  byMonth: Record<string, Record<string, SideAmounts>>;
-  totals: Record<string, SideAmounts>;
-} {
+): MonthTable {
   const byMonth: Record<string, Record<string, SideAmounts>> = {};
   const totals: Record<string, SideAmounts> = {};
   for (const line of TABLE_LINES) {
@@ -517,7 +640,23 @@ export function buildMonthTable(
       matched.filter((r) => months.includes(r.month)),
     );
   }
-  return { byMonth, totals };
+  const ratios: MonthTable["ratios"] = { byMonth: {}, totals: {} };
+  for (const ratio of RATIO_LINES) {
+    ratios.byMonth[ratio.key] = Object.fromEntries(
+      months.map((m) => [
+        m,
+        sideRatios(
+          byMonth[ratio.numerator]?.[m],
+          byMonth[ratio.denominator]?.[m],
+        ),
+      ]),
+    );
+    ratios.totals[ratio.key] = sideRatios(
+      totals[ratio.numerator],
+      totals[ratio.denominator],
+    );
+  }
+  return { byMonth, totals, ratios };
 }
 
 function sideAmounts(rows: readonly ManagementRow[]): SideAmounts {
@@ -690,22 +829,24 @@ export function shiftPeriod(period: string, years: number): string {
 }
 
 export type Kpi = {
-  key: "operating_margin_pct" | "operating_result" | "cash_generation";
+  key:
+    | "gross_margin_pct"
+    | "operating_margin_pct"
+    | "operating_result"
+    | "cash_generation";
   label: string;
-  /** Percent of services for the margin, pesos for the rest. */
+  /** Percent of services for the margins, pesos for the rest. */
   unit: "pct" | "ars";
   current: number | null;
   /** Same months of the year before; null without data then. */
   previous: number | null;
-  /** current − previous (percentage points for the margin). */
+  /** current − previous (percentage points for the margins). */
   variance: number | null;
 };
 
-const percentOf = (part: number, whole: number) =>
-  whole === 0 ? null : round2((part / whole) * 100);
-
 /**
- * The KPI row: operating margin over services, the operating result (EBITDA
+ * The KPI row: gross and operating margin over services, the operating
+ * result (EBITDA
  * aprox.: the cascade already leaves amortizations and RECPAM out) and cash
  * generation, against the same months of the year before. Only the months
  * up to `currentPeriod` count, so a year in progress compares with the same
@@ -747,6 +888,9 @@ export function computeKpis(
   return {
     months: elapsed,
     kpis: [
+      kpi("gross_margin_pct", "Margen bruto %", "pct", (w) =>
+        percentOf(w.grossMargin, w.serviceRevenue),
+      ),
       kpi("operating_margin_pct", "Margen operativo %", "pct", (w) =>
         percentOf(w.operatingMargin, w.serviceRevenue),
       ),
@@ -1025,19 +1169,43 @@ export const ManagementExportInputSchema = ManagementReportInputSchema.extend({
 });
 export type ManagementExportInput = z.infer<typeof ManagementExportInputSchema>;
 
+/** A cell of the exported month table: a percentage row's figures are
+ *  `{ percent }` (the xlsx writes them with " %"; the CSV, as the number). */
+export type MonthTableCell = CsvCell | { percent: number };
+
+export function monthTableCsvCell(cell: MonthTableCell): CsvCell {
+  return cell !== null && typeof cell === "object" ? cell.percent : cell;
+}
+
+const percentCell = (value: number | null | undefined): MonthTableCell =>
+  value === null || value === undefined ? null : { percent: value };
+
 /** The month table as rows: concept, each month on `side`, and the period
  *  totals by side. The same figures as the screen. */
 export function monthTableExport(
-  table: ReturnType<typeof buildMonthTable>,
+  table: MonthTable,
   months: readonly string[],
   side: SideView,
-): { header: string[]; rows: CsvCell[][] } {
+): { header: string[]; rows: MonthTableCell[][] } {
   return {
     header: ["Concepto", ...months, "Fiscal", "Interno", "Total"],
-    rows: TABLE_LINES.map((line) => {
+    rows: MONTH_TABLE_ROWS.map((line): MonthTableCell[] => {
+      const concept = `${"  ".repeat(line.depth)}${line.label}`;
+      if (line.kind === "ratio") {
+        const totals = table.ratios.totals[line.key];
+        return [
+          concept,
+          ...months.map((m) =>
+            percentCell(table.ratios.byMonth[line.key]?.[m]?.[side]),
+          ),
+          percentCell(totals?.fiscal),
+          percentCell(totals?.internal),
+          percentCell(totals?.total),
+        ];
+      }
       const totals = table.totals[line.key]!;
       return [
-        `${"  ".repeat(line.depth)}${line.label}`,
+        concept,
         ...months.map((m) => table.byMonth[line.key]![m]![side]),
         totals.fiscal,
         totals.internal,
