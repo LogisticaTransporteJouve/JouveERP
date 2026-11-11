@@ -93,7 +93,7 @@ export function LoansTable({
         meta: { align: "right", mobile: "secondary" },
         cell: ({ row }) => (
           <span className="font-mono tabular-nums">
-            {formatMoney(row.original.principal)}
+            {formatMoney(row.original.principal, row.original.currency)}
           </span>
         ),
       },
@@ -103,7 +103,10 @@ export function LoansTable({
         meta: { align: "right", mobile: "secondary" },
         cell: ({ row }) => (
           <span className="font-mono tabular-nums">
-            {formatMoney(row.original.capital_outstanding)}
+            {formatMoney(
+              row.original.capital_outstanding,
+              row.original.currency,
+            )}
           </span>
         ),
       },
@@ -121,7 +124,7 @@ export function LoansTable({
         meta: { align: "right", mobile: "primary" },
         cell: ({ row }) => (
           <span className="font-mono tabular-nums">
-            {formatMoney(row.original.pending_total)}
+            {formatMoney(row.original.pending_total, row.original.currency)}
             <span className="text-muted-foreground ml-1 text-[10px]">
               ({row.original.pending_count})
             </span>
