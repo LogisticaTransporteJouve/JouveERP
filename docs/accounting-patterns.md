@@ -682,8 +682,8 @@ USD pendiente)`; importe > 0 suma al resultado.
     acepta `costCenterId` y devuelve `byCostCenter`.
 - **`get_management_payroll_control`:** por mes, liquidado
   (`v_payroll_entries_resolved`), pagado para ese período y pagado en el mes.
-- **Pantalla:** cascada (Servicios − Costos operativos = Margen operativo −
-  Costo financiero = Resultado después de financiación − Capital de préstamos
+- **Pantalla:** cascada (Servicios − Costos directos = Margen bruto − Gastos
+  de estructura = Margen operativo − Costo financiero = Resultado después de financiación − Capital de préstamos
   − Inversión en flota + Venta de bienes de uso = Generación de caja) del año
   fiscal (desde el mes de inicio del ejercicio, ver abajo) con comparativo del
   anterior, tabla mes a mes (Fiscal /
