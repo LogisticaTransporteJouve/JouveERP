@@ -61,7 +61,7 @@ describe("invoiceListFilters", () => {
   it("resolves the period against today", () => {
     const filters = invoiceListFilters(
       parseInvoiceListParams({ period: "yesterday", q: "  42 " }),
-      true,
+      { isFiscal: true, channelId: null },
       "2026-10-31",
     );
     expect(filters).toMatchObject({

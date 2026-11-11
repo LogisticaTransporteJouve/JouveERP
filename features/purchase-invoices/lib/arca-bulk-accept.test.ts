@@ -170,6 +170,19 @@ describe("formatFiscalAddress", () => {
 describe("pickBulkChannel", () => {
   const fiscal = { id: "jouve_fiscal", is_fiscal: true, is_active: true };
   const internal = { id: "jouve_internal", is_fiscal: false, is_active: true };
+  const dz = {
+    id: "dz_fiscal",
+    is_fiscal: true,
+    is_active: true,
+    is_segregated: true,
+  };
+
+  it("routes a DZ supplier's voucher to DZ, and anyone else's to the main fiscal channel", () => {
+    expect(pickBulkChannel([dz, fiscal, internal], "dz_fiscal")).toBe(
+      "dz_fiscal",
+    );
+    expect(pickBulkChannel([dz, fiscal, internal], null)).toBe("jouve_fiscal");
+  });
 
   it("takes the supplier's default when it is an active fiscal one", () => {
     const other = { id: "other_fiscal", is_fiscal: true, is_active: true };

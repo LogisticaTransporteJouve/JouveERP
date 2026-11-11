@@ -19,6 +19,7 @@ const h = vi.hoisted(() => ({
 }));
 
 vi.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams(),
   usePathname: () => h.pathname,
   useRouter: () => ({ refresh: vi.fn() }),
 }));

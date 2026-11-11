@@ -11,6 +11,7 @@ import {
   type AnomalyFinding,
   type PurchaseRow,
 } from "./detect";
+import { applyChannelScope } from "@/lib/supabase/fiscal-filter";
 
 const LOOKBACK_DAYS = 365;
 
@@ -44,11 +45,16 @@ export async function gatherAnomalies(
   const service = getServiceClient();
   const data = must(
     await paginateRange((from, to) =>
-      service
-        .from("purchase_invoices")
-        .select(
-          "id, supplier_id, imp_total, moneda, fecha, numero, punto_venta, supplier:suppliers(legal_name), channel:invoicing_channels(is_fiscal)",
-        )
+      // Segregated channels (DZ) stay out of the main app's insights.
+      applyChannelScope(
+        service
+          .from("purchase_invoices")
+          .select(
+            "id, supplier_id, imp_total, moneda, fecha, numero, punto_venta, supplier:suppliers(legal_name), channel:invoicing_channels(is_fiscal, is_segregated)",
+          ),
+        { isFiscal: null, channelId: null },
+        "channel",
+      )
         .eq("kind", "factura")
         .eq("status", "received")
         .gte("fecha", minus(LOOKBACK_DAYS, today))

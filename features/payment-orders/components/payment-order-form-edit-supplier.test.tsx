@@ -15,6 +15,7 @@ const h = vi.hoisted(() => ({
 }));
 
 vi.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams(),
   usePathname: () => "/payment-orders",
   useRouter: () => ({ refresh: vi.fn() }),
 }));
@@ -90,7 +91,6 @@ function renderEdit() {
     <ScopeProvider channels={[FISCAL]} initialFiscalFilter="fiscal">
       <PaymentOrderForm
         mode="edit"
-        channels={[FISCAL]}
         accounts={[]}
         paymentOrder={PAYMENT_ORDER as never}
       />

@@ -5,7 +5,7 @@ import { loadChannelPos } from "@/lib/channel-pos";
 import { createPaymentOrder } from "@/lib/commands/create-payment-order";
 import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
-import { userCan } from "@/lib/auth/permissions";
+import { scopeIsFiscalFor, userCan } from "@/lib/auth/permissions";
 import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { round2 } from "@/lib/format";
 import {
@@ -21,7 +21,7 @@ import {
 import { parseSearchTerm } from "@/lib/list-search";
 import { logger } from "@/lib/logger";
 import { containsPattern } from "@/lib/supabase/like-pattern";
-import { applyFiscalFilter } from "@/lib/supabase/fiscal-filter";
+import { applyChannelScope } from "@/lib/supabase/fiscal-filter";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { IsoDateSchema } from "@/lib/validation/common";
@@ -68,6 +68,8 @@ export async function listPaymentOrdersAction(input?: {
   limit?: number;
   /** Scope filter (`isFiscalFor`): null/undefined = every channel. */
   isFiscal?: boolean | null;
+  /** A segregated channel's section; null/undefined = the main app. */
+  channelId?: string | null;
   /** OP number (digits) or supplier legal name (`parseSearchTerm`). */
   query?: string | null;
   status?: PaymentOrderStatus | null;
@@ -89,13 +91,16 @@ export async function listPaymentOrdersAction(input?: {
   // come back cut and look complete.
   const limit = Math.min(200, Math.max(1, Math.trunc(input?.limit ?? 100)));
   const supabase = await createSupabaseClient();
-  let query = applyFiscalFilter(
+  let query = applyChannelScope(
     supabase.from("payment_orders").select(
       // !inner so the supplier-name search narrows the orders; every order
       // has a supplier by FK.
-      `${COLUMNS}, suppliers!inner ( legal_name ), channel:invoicing_channels ( is_fiscal )`,
+      `${COLUMNS}, suppliers!inner ( legal_name ), channel:invoicing_channels ( is_fiscal, is_segregated )`,
     ),
-    input?.isFiscal,
+    {
+      isFiscal: scopeIsFiscalFor(ctx.access, input?.isFiscal),
+      channelId: input?.channelId ?? null,
+    },
     "channel",
   )
     .order("payment_date", { ascending: false })

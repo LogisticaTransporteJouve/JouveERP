@@ -47,6 +47,7 @@ import {
   createPurchaseInvoice,
 } from "@/lib/commands/create-purchase-invoice";
 import { formatArgentineDate, formatMoney, round2 } from "@/lib/format";
+import { isMainChannel } from "@/lib/scope";
 
 import {
   PURCHASE_LABELS,
@@ -112,8 +113,9 @@ async function pickChannel(
       result: { kind: "error", error: "No se pudieron leer los canales." },
     };
   }
+  // The AI works on the main app: a segregated channel is never proposed.
   const active = read.channels.filter(
-    (c) => c.is_active && (!onlyFiscal || c.is_fiscal),
+    (c) => c.is_active && isMainChannel(c) && (!onlyFiscal || c.is_fiscal),
   );
   const q = said ? norm(said) : null;
   const named = q

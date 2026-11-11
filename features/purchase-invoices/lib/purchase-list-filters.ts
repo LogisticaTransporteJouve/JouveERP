@@ -3,6 +3,7 @@ import {
   resolvePeriod,
   type PeriodSelection,
 } from "@/lib/list-period";
+import type { ChannelScope } from "@/lib/scope";
 
 import { isPurchaseInvoiceStatus, type PurchaseInvoiceStatus } from "../schema";
 import type { PurchaseInvoicesFilters } from "./purchase-invoices-keys";
@@ -43,19 +44,21 @@ export function purchaseListParamsToUrl(
   };
 }
 
+/** `scope.channelId`: a segregated channel's section; null lists the main
+ *  app (the search RPC leaves segregated channels out). */
 export function purchaseListFilters(
   params: PurchaseListParams,
-  isFiscal: boolean | null,
+  scope: ChannelScope,
   today?: string,
 ): PurchaseInvoicesFilters {
   const range = resolvePeriod(params.period, today);
   return {
     query: params.query.trim(),
     supplierId: null,
-    channelId: null,
+    channelId: scope.channelId,
     status: params.status,
     fechaFrom: range?.from ?? null,
     fechaTo: range?.to ?? null,
-    isFiscal,
+    isFiscal: scope.isFiscal,
   };
 }

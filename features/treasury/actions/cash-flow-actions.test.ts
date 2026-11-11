@@ -22,6 +22,8 @@ function builder(rows: Row[]) {
     lte: () => b,
     lt: () => b,
     order: () => b,
+    // Segregated channels (DZ) are left out in SQL: the fake rows are main.
+    not: () => b,
     range: async () => ({ data: rows, error: null }),
   };
   return b;

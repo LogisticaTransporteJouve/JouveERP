@@ -11,7 +11,8 @@ import {
   ListToolbar,
 } from "@/components/list-toolbar";
 import { PeriodFilter } from "@/components/period-filter";
-import { useScopeIsFiscal } from "@/components/providers/scope-provider";
+import { usePageChannelScope } from "@/components/providers/scope-provider";
+import { scopedHref } from "@/lib/scope";
 import { Badge } from "@/components/ui/badge";
 import { IconButton } from "@/components/ui/icon-button";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
@@ -51,19 +52,19 @@ import { CancelPaymentOrderDialog } from "./cancel-payment-order-dialog";
 import { EditPaymentOrderDialog } from "./edit-payment-order-dialog";
 import { ImputePaymentOrderDialog } from "./impute-payment-order-dialog";
 import { NewPaymentOrderDialog } from "./new-payment-order-dialog";
-import type { ChannelOption } from "./payment-order-form";
 
 type PaymentOrderListItem = PaymentOrder & { supplier_legal_name: string };
 
 const ANY = "__any__";
 
 function buildPaymentOrderColumns({
-  channels,
   accounts,
   canWrite,
   canPickAccount,
+  channelId,
 }: {
-  channels: ChannelOption[];
+  /** Inside a segregated channel's section, details open in it. */
+  channelId: string | null;
   accounts: Account[];
   canWrite: boolean;
   /** Editing an OP picks its accounts (accounts:read). */
@@ -145,7 +146,7 @@ function buildPaymentOrderColumns({
         return (
           <div className="flex items-center justify-end gap-1">
             <IconButton label="Ver detalle" asChild variant="ghost">
-              <Link href={`/payment-orders/${op.id}`}>
+              <Link href={scopedHref(`/payment-orders/${op.id}`, channelId)}>
                 <Eye className="size-4" />
               </Link>
             </IconButton>
@@ -160,7 +161,6 @@ function buildPaymentOrderColumns({
                 paymentOrderId={op.id}
                 numero={op.numero}
                 puntoVenta={op.punto_venta}
-                channels={channels}
                 accounts={accounts}
               />
             )}
@@ -179,11 +179,9 @@ function buildPaymentOrderColumns({
 }
 
 export function PaymentOrdersTable({
-  channels,
   actorAccess,
   initialParams,
 }: {
-  channels: ChannelOption[];
   actorAccess: Access;
   initialParams: PaymentOrderListParams;
 }) {
@@ -203,10 +201,10 @@ export function PaymentOrdersTable({
     defaults: DEFAULT_PAYMENT_ORDER_LIST_PARAMS,
     toUrl: paymentOrderListParamsToUrl,
   });
-  const isFiscal = useScopeIsFiscal();
+  const scope = usePageChannelScope();
   const filters = useMemo(
-    () => paymentOrderListFilters(committed, isFiscal),
-    [committed, isFiscal],
+    () => paymentOrderListFilters(committed, scope),
+    [committed, scope],
   );
   const deferredFilters = useDeferredValue(filters);
 
@@ -220,12 +218,12 @@ export function PaymentOrdersTable({
   const columns = useMemo(
     () =>
       buildPaymentOrderColumns({
-        channels,
         accounts,
         canWrite,
         canPickAccount,
+        channelId: scope.channelId,
       }),
-    [channels, accounts, canWrite, canPickAccount],
+    [accounts, canWrite, canPickAccount, scope.channelId],
   );
 
   return (
@@ -243,7 +241,7 @@ export function PaymentOrdersTable({
               />
             )}
             {canWrite && canPickAccount && (
-              <NewPaymentOrderDialog channels={channels} accounts={accounts} />
+              <NewPaymentOrderDialog accounts={accounts} />
             )}
           </>
         }

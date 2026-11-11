@@ -1,7 +1,7 @@
 "use client";
 
 import { Banknote } from "lucide-react";
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useState } from "react";
 
 import {
   PageSideProvider,
@@ -125,13 +125,6 @@ function PayForm({
 }) {
   const { channels } = useScope();
   const { data: accounts } = useAccountsList();
-  const options = useMemo(
-    () =>
-      channels
-        .filter((c) => c.is_active)
-        .map((c) => ({ id: c.id, name: c.name })),
-    [channels],
-  );
   // A bank line whose side the user picks here goes to that side's channel.
   const sideChannel = channels.find(
     (c) => c.is_active && c.is_fiscal === (side === "fiscal"),
@@ -144,7 +137,6 @@ function PayForm({
     <PageSideProvider side={side}>
       <PaymentOrderForm
         mode="create"
-        channels={options}
         accounts={accounts}
         initialSupplier={initialSupplier}
         initialAllocations={initialAllocations}

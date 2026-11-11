@@ -16,12 +16,10 @@ import {
 } from "@/features/payment-orders/lib/payment-orders-keys";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
-import { getActiveInvoicingChannels } from "@/lib/channels";
 import { Hydrate } from "@/lib/query/hydrate";
 import { prefetchQueries } from "@/lib/query/prefetch";
 import { runAction } from "@/lib/query/run-action";
-import { isFiscalFor } from "@/lib/scope";
-import { readScopeCookie } from "@/lib/scope-server";
+import { readPageChannelScope } from "@/lib/scope-server";
 
 import Loading from "./loading";
 
@@ -37,18 +35,11 @@ export default async function PaymentOrdersPage({
     redirect("/dashboard");
   }
 
-  // Shared (React cache) with the dashboard layout's channel read.
-  const channelsData = await getActiveInvoicingChannels();
-
-  const channels = channelsData.map((c) => ({
-    id: c.id,
-    name: c.name,
-  }));
-
-  const params = parsePaymentOrderListParams(await searchParams);
+  const rawParams = await searchParams;
+  const params = parsePaymentOrderListParams(rawParams);
   const filters = paymentOrderListFilters(
     params,
-    isFiscalFor(await readScopeCookie()),
+    await readPageChannelScope(rawParams),
   );
   const dehydratedState = await prefetchQueries([
     {
@@ -88,11 +79,7 @@ export default async function PaymentOrdersPage({
       </div>
       <Hydrate state={dehydratedState}>
         <Suspense fallback={<Loading />}>
-          <PaymentOrdersTable
-            channels={channels}
-            actorAccess={ctx.access}
-            initialParams={params}
-          />
+          <PaymentOrdersTable actorAccess={ctx.access} initialParams={params} />
         </Suspense>
       </Hydrate>
     </div>

@@ -5,6 +5,7 @@ import {
   BookCheck,
   BookOpen,
   Boxes,
+  Building2,
   CalendarDays,
   CalendarClock,
   CarFront,
@@ -72,6 +73,9 @@ export type NavItem = {
   scope?: Exclude<FiscalFilter, "all">;
   /** Other paths that belong to this item (an account opens from Resumen). */
   also?: readonly string[];
+  /** The item opens its page inside this segregated channel's section
+   *  (`?channel=`); it never switches the side. */
+  channelId?: string;
 };
 
 export type NavSection = {
@@ -525,11 +529,66 @@ export function canSee(access: Access, item: NavItem): boolean {
   return !item.permission || userCanAll(access, item.permission);
 }
 
-export function visibleSections(access: Access): NavSection[] {
-  return NAV_SECTIONS.map((section) => ({
-    ...section,
-    items: section.items.filter((item) => canSee(access, item)),
-  })).filter((section) => section.items.length > 0);
+/** One section per segregated channel (DZ Instalaciones), labelled with its
+ *  name: the only place its documents show. The pages are the main app's,
+ *  opened inside the channel (`?channel=`). */
+export function channelSections(
+  channels: readonly { id: string; name: string }[],
+): NavSection[] {
+  return channels.map((channel) => ({
+    label: channel.name,
+    items: [
+      {
+        href: `/channel-summary/${channel.id}`,
+        label: "Resumen",
+        icon: Building2,
+        permission: "management:read",
+        channelId: channel.id,
+      },
+      {
+        href: "/purchases",
+        label: "Comprobantes de compra",
+        icon: ShoppingCart,
+        permission: "purchase_invoices:read",
+        channelId: channel.id,
+      },
+      {
+        href: "/payment-orders",
+        label: "Órdenes de pago",
+        icon: CreditCard,
+        permission: "payment_orders:read",
+        channelId: channel.id,
+      },
+      {
+        href: "/invoices",
+        label: "Ventas",
+        icon: ReceiptText,
+        permission: "invoices:read",
+        channelId: channel.id,
+      },
+      {
+        href: "/suppliers",
+        label: "Proveedores",
+        icon: Truck,
+        permission: "suppliers:read",
+        channelId: channel.id,
+      },
+    ],
+  }));
+}
+
+/** The menu a user sees: the main sections, then one per segregated channel
+ *  (`channelSections`), last. */
+export function visibleSections(
+  access: Access,
+  extra: readonly NavSection[] = [],
+): NavSection[] {
+  return [...NAV_SECTIONS, ...extra]
+    .map((section) => ({
+      ...section,
+      items: section.items.filter((item) => canSee(access, item)),
+    }))
+    .filter((section) => section.items.length > 0);
 }
 
 // The deepest item whose href is the path or one of its ancestors, so
@@ -539,17 +598,25 @@ export function visibleSections(access: Access): NavSection[] {
 export function navItemForPath(
   pathname: string,
   scope: FiscalFilter = "all",
+  channelId: string | null = null,
+  extra: readonly NavSection[] = [],
 ): NavItem | undefined {
+  // Inside a segregated channel's section only its items match a shared path
+  // (/purchases); its own pages (/channel-summary/<id>) match by path alone.
+  const rank = (item: NavItem) =>
+    ((item.channelId ?? null) === channelId ? 2 : 0) +
+    (item.scope === scope ? 1 : 0);
   let best: { item: NavItem; length: number } | undefined;
   const under = (base: string) =>
     pathname === base || pathname.startsWith(`${base}/`);
-  for (const item of ALL_ITEMS) {
+  for (const item of [...ALL_ITEMS, ...extra.flatMap((s) => s.items)]) {
+    if (channelId && item.channelId !== channelId) continue;
     const base = [item.href, ...(item.also ?? [])].find(under);
     if (!base) continue;
     if (
       !best ||
       base.length > best.length ||
-      (base.length === best.length && item.scope === scope)
+      (base.length === best.length && rank(item) > rank(best.item))
     ) {
       best = { item, length: base.length };
     }
@@ -557,6 +624,11 @@ export function navItemForPath(
   return best?.item;
 }
 
-export function navSectionForItem(item: NavItem): NavSection | undefined {
-  return NAV_SECTIONS.find((section) => section.items.includes(item));
+export function navSectionForItem(
+  item: NavItem,
+  extra: readonly NavSection[] = [],
+): NavSection | undefined {
+  return [...NAV_SECTIONS, ...extra].find((section) =>
+    section.items.includes(item),
+  );
 }

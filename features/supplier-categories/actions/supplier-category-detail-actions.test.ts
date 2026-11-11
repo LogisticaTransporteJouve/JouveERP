@@ -153,6 +153,7 @@ describe("listSupplierCategoryPurchasesAction", () => {
     expect(from).toHaveBeenCalledWith("purchase_invoices");
     expect(eqArgs()).toEqual([
       ["suppliers.category_id", CATEGORY],
+      ["invoicing_channels.is_segregated", false],
       ["status", "received"],
       ["invoicing_channels.is_fiscal", true],
     ]);

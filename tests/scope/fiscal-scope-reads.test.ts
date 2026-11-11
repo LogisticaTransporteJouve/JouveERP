@@ -105,6 +105,8 @@ const viewReads: [string, string, string, Read][] = [
   ],
 ];
 
+const MAIN_SCOPE_TABLES = new Set(["invoices", "receipts", "payment_orders"]);
+
 function callOn(table: string): RecordedCall {
   const call = fake.calls.find((c) => c.table === table);
   if (!call) throw new Error(`no query on ${table}`);
@@ -125,12 +127,22 @@ describe.each(embedReads)("%s", (_name, table, read) => {
     },
   );
 
-  it("with null (Todos) adds no scope filter", async () => {
+  it("with null (Todos) adds no side filter", async () => {
     await read(null);
-    const scoped = callOn(table).filters.filter(
-      ([, column]) => column === "channel.is_fiscal" || column === "channel",
+    const filters = callOn(table).filters;
+    expect(
+      filters.filter(([, column]) => column === "channel.is_fiscal"),
+    ).toEqual([]);
+    // The document lists leave segregated channels (DZ) out; treasury keeps
+    // them (it marks them instead).
+    const segregated = filters.filter(
+      ([, column]) => column === "channel.is_segregated",
     );
-    expect(scoped).toEqual([]);
+    expect(segregated).toEqual(
+      MAIN_SCOPE_TABLES.has(table)
+        ? [["eq", "channel.is_segregated", false]]
+        : [],
+    );
   });
 });
 

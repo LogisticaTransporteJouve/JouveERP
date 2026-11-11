@@ -60,7 +60,9 @@ export async function listRecurringPaymentsAction(
     let query = applyFiscalFilter(
       supabase
         .from("recurring_payments")
-        .select(`${SELECT_COLUMNS}, channel:invoicing_channels ( is_fiscal )`),
+        .select(
+          `${SELECT_COLUMNS}, channel:invoicing_channels ( is_fiscal, is_segregated )`,
+        ),
       input.isFiscal,
       "channel",
     )
@@ -77,7 +79,10 @@ export async function listRecurringPaymentsAction(
     return { ok: false, error: "No se pudieron listar los pagos recurrentes." };
   }
 
+  // The channel is nullable here, so the segregated ones are dropped in JS
+  // (a payment with no channel stays).
   const rows = (data ?? [])
+    .filter((row) => row.channel?.is_segregated !== true)
     .map((row) => narrow(row))
     .filter((row): row is RecurringPayment => row !== null);
   return { ok: true, data: rows };

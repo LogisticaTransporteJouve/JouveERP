@@ -26,6 +26,7 @@ import {
   matchBankLines,
   type BankMatchesResult,
 } from "@/lib/commands/match-bank-line";
+import { readMainFiscalChannelId } from "@/lib/channels";
 import { addDaysIso } from "@/lib/date-range";
 import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { logger } from "@/lib/logger";
@@ -68,25 +69,19 @@ const READ_DENIED = "No tenés permiso para ver la conciliación.";
 const WRITE_DENIED = "No tenés permiso para conciliar.";
 const cents = (n: number) => Math.round(n * 100);
 
-/** The fiscal channel a bank line's movement goes to (the company has one). */
+/** The fiscal channel a bank line's movement goes to: the main app's (a
+ *  segregated channel is never picked for a loose bank movement). */
 async function fiscalChannel(
   service: ReturnType<typeof getServiceClient>,
   userId: string,
 ): Promise<ActionResult<string>> {
-  const { data, error } = await service
-    .from("invoicing_channels")
-    .select("id")
-    .eq("is_fiscal", true)
-    .eq("is_active", true)
-    .order("id")
-    .limit(1)
-    .maybeSingle();
-  if (error) {
-    logger.error("reconciliation.channel.read_failed", { userId, error });
-    return { ok: false, error: "No se pudo leer el canal fiscal." };
+  const res = await readMainFiscalChannelId(service);
+  if (!res.ok) {
+    logger.error("reconciliation.channel.read_failed", { userId });
+    return res;
   }
-  return data
-    ? { ok: true, data: data.id }
+  return res.data
+    ? { ok: true, data: res.data }
     : { ok: false, error: "No hay un canal fiscal activo." };
 }
 
@@ -236,7 +231,7 @@ export async function getReconciliationAction(
       service
         .from("v_transactions_tagged")
         .select(
-          "id, transaction_date, kind, amount, description, source_document",
+          "id, transaction_date, kind, amount, description, source_document, channel_id",
         )
         .eq("account_id", account_id)
         .gte("transaction_date", windowFrom)
@@ -332,6 +327,7 @@ export async function getReconciliationAction(
             signed_amount: signed(t.kind, Number(t.amount)),
             description: t.description,
             source_document: t.source_document,
+            channel_id: t.channel_id,
             line_ids: linesOfTx.get(t.id) ?? [],
           },
         ]

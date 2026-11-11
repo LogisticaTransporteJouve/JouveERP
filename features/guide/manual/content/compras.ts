@@ -2616,6 +2616,44 @@ export const purchasesPage: GuidePage = {
       ],
     },
 
+    // ── DZ Instalaciones ──────────────────────────────────────────────────
+    {
+      id: "dz-instalaciones",
+      title: "DZ Instalaciones",
+      menuPath: "DZ Instalaciones",
+      routes: ["/channel-summary/[channelId]"],
+      permission: "management:read",
+      intro: [
+        "DZ Instalaciones es una división de la misma empresa (el mismo CUIT) con un canal propio. Cuando ese canal está activo, la barra lateral muestra al final un bloque **DZ Instalaciones** con {{Resumen}}, {{Comprobantes de compra}}, {{Órdenes de pago}}, {{Ventas}} y {{Proveedores}}: las mismas pantallas de siempre, pero solo con lo de DZ.",
+        "Fuera de ese bloque, lo de DZ no aparece: ni en las listas de Compras y Ventas, ni en los selectores de canal, ni en el resultado de gestión, el flujo de caja, el aging, las tareas o el asistente. Lo incluyen el Libro IVA, el libro diario, el mayor y el balance, porque el CUIT es uno, y Tesorería: sus movimientos, cheques y la conciliación llevan la marca «DZ».",
+      ],
+      concepts: [
+        {
+          title: "Qué se carga desde el bloque",
+          body: [
+            "Un formulario abierto desde el bloque (una factura de compra, una orden de pago, un proveedor nuevo) ya viene con el canal de DZ y no ofrece otro. Una compra o un proveedor de DZ abierto desde otro lado conserva su canal.",
+            "Las compras de DZ sin cuenta propia van a «Costo de mercadería vendida (Instalaciones)» y sus ventas a «Venta de productos (Instalaciones)», no a las cuentas de Logística Jouve.",
+            "Las ventas de DZ llegan desde ARCA, por su punto de venta: en el bloque, {{Ventas}} no tiene {{Nuevo comprobante}}.",
+          ],
+        },
+      ],
+      tasks: [
+        {
+          id: "ver-resumen-de-dz",
+          title: "Ver el resumen de DZ Instalaciones",
+          permission: "management:read",
+          steps: [
+            "En la barra lateral, abrí **DZ Instalaciones › Resumen**.",
+            "Arriba están las {{Ventas netas}}, los {{Costos}}, el {{Margen}} y lo {{Pagado a proveedores}} de los últimos doce meses; abajo, el detalle {{Por mes}} y los {{Saldos con proveedores}} de DZ.",
+          ],
+          after: [
+            "Las cifras salen de los asientos de DZ, con sus propias cuentas de ventas y costos. Los saldos con proveedores se ven si además tenés acceso al aging de proveedores.",
+          ],
+          keywords: ["dz", "instalaciones", "división", "resultado de dz"],
+        },
+      ],
+    },
+
     // ── Aging de proveedores ──────────────────────────────────────────────
     {
       id: "aging-de-proveedores",

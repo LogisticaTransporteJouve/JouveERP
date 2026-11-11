@@ -42,7 +42,7 @@ export async function buildReceiptTemplateData(
   const { data: receipt, error: rErr } = await supabase
     .from("receipts")
     .select(
-      "id, channel_id, client_id, punto_venta, numero, receipt_date, total_amount, currency, notes, status, channel:invoicing_channels(name, is_fiscal, business_unit_id), client:clients(legal_name, cuit, iva_condition)",
+      "id, channel_id, client_id, punto_venta, numero, receipt_date, total_amount, currency, notes, status, channel:invoicing_channels(name, is_fiscal, business_unit_id, division_label), client:clients(legal_name, cuit, iva_condition)",
     )
     .eq("id", receiptId)
     .maybeSingle();
@@ -62,6 +62,7 @@ export async function buildReceiptTemplateData(
     isFiscal,
     emisor: await loadEmisor(supabase, {
       business_unit_id: channel?.business_unit_id ?? null,
+      division_label: channel?.division_label ?? null,
     }),
   });
 

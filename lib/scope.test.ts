@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   channelIsFiscal,
+  channelsForScope,
   defaultChannelFor,
+  isMainChannel,
+  scopedHref,
+  segregatedChannelFor,
   FISCAL_FILTERS,
   isFiscalFilter,
   isFiscalFor,
@@ -162,5 +166,78 @@ describe("toScopeSide", () => {
     expect(
       toScopeSide(parseFiscalFilter(JSON.stringify({ fiscalFilter: "all" }))),
     ).toBe("fiscal");
+  });
+});
+
+describe("canales segregados", () => {
+  const jouve = {
+    id: "jouve_fiscal",
+    is_fiscal: true,
+    is_active: true,
+    is_segregated: false,
+  };
+  const internal = {
+    id: "jouve_internal",
+    is_fiscal: false,
+    is_active: true,
+    is_segregated: false,
+  };
+  const dz = {
+    id: "dz_fiscal",
+    is_fiscal: true,
+    is_active: true,
+    is_segregated: true,
+  };
+  const dzInternal = {
+    id: "dz_internal",
+    is_fiscal: false,
+    is_active: true,
+    is_segregated: true,
+  };
+  const all = [dz, dzInternal, jouve, internal];
+
+  it("isMainChannel: un canal sin el campo es de la app principal", () => {
+    expect(isMainChannel(jouve)).toBe(true);
+    expect(isMainChannel({})).toBe(true);
+    expect(isMainChannel(dz)).toBe(false);
+  });
+
+  it("scopedHref agrega el canal codificado, o deja la ruta", () => {
+    expect(scopedHref("/purchases", "dz_fiscal")).toBe(
+      "/purchases?channel=dz_fiscal",
+    );
+    expect(scopedHref("/purchases?q=1", "a b")).toBe(
+      "/purchases?q=1&channel=a%20b",
+    );
+    expect(scopedHref("/purchases", null)).toBe("/purchases");
+  });
+
+  it("segregatedChannelFor solo abre un canal segregado activo", () => {
+    expect(segregatedChannelFor(all, "dz_fiscal", false)).toBe(dz);
+    expect(segregatedChannelFor(all, "jouve_fiscal", false)).toBeNull();
+    expect(segregatedChannelFor(all, "nope", false)).toBeNull();
+    expect(segregatedChannelFor(all, null, false)).toBeNull();
+    expect(
+      segregatedChannelFor([{ ...dz, is_active: false }], "dz_fiscal", false),
+    ).toBeNull();
+  });
+
+  it("un usuario solo fiscal no abre un canal segregado interno", () => {
+    expect(segregatedChannelFor(all, "dz_internal", true)).toBeNull();
+    expect(segregatedChannelFor(all, "dz_fiscal", true)).toBe(dz);
+  });
+
+  it("channelsForScope: el canal de la sección, o los de la app principal", () => {
+    expect(channelsForScope(all, dz)).toEqual([dz]);
+    expect(channelsForScope(all, null)).toEqual([jouve, internal]);
+  });
+
+  it("defaultChannelFor con los canales principales sigue eligiendo Jouve aunque haya otro fiscal segregado", () => {
+    expect(defaultChannelFor("fiscal", channelsForScope(all, null))).toBe(
+      "jouve_fiscal",
+    );
+    expect(defaultChannelFor("fiscal", channelsForScope(all, dz))).toBe(
+      "dz_fiscal",
+    );
   });
 });

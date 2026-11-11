@@ -7,7 +7,7 @@ import { readLatestUsdRate, toArs } from "@/lib/fx";
 import { readInvoicingChannels } from "@/lib/channels";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
-import { channelIsFiscal } from "@/lib/scope";
+import { channelIsFiscal, isMainChannel } from "@/lib/scope";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 
@@ -138,6 +138,11 @@ export async function getCashFlowAction(input: {
   const allChannels = channelsRes.channels;
   const scopeOfChannel = (channelId: string | null) =>
     cashScope(channelIsFiscal(channelId, allChannels));
+  // Loans and recurring payments of a segregated channel (DZ) stay out of the
+  // main projection; no channel stays in.
+  const inMainApp = (channelId: string | null) =>
+    !channelId ||
+    allChannels.every((c) => c.id !== channelId || isMainChannel(c));
 
   // Latest official USD rate — everything USD is valued at this rate (it's a
   // projection tool, not accounting; the ledger converts per-document).
@@ -230,6 +235,8 @@ export async function getCashFlowAction(input: {
     supabase
       .from("v_aging_documents")
       .select("open_amount, channel_is_fiscal, due_date, fecha, moneda")
+      // Segregated channels (DZ) project in their own section only.
+      .not("channel_is_segregated", "is", true)
       .order("document_id", { ascending: true })
       .range(from, to),
   );
@@ -254,6 +261,8 @@ export async function getCashFlowAction(input: {
       supabase
         .from("v_receipt_unapplied")
         .select("unapplied_amount, channel_is_fiscal, currency")
+        // Segregated channels (DZ) project in their own section only.
+        .not("channel_is_segregated", "is", true)
         .order("receipt_id", { ascending: true })
         .range(from, to),
   );
@@ -270,6 +279,8 @@ export async function getCashFlowAction(input: {
     supabase
       .from("v_supplier_aging_documents")
       .select("open_amount, channel_is_fiscal, fch_vto_pago, fecha, moneda")
+      // Segregated channels (DZ) project in their own section only.
+      .not("channel_is_segregated", "is", true)
       .order("document_id", { ascending: true })
       .range(from, to),
   );
@@ -292,6 +303,8 @@ export async function getCashFlowAction(input: {
       supabase
         .from("v_payment_order_unapplied")
         .select("unapplied_amount, channel_is_fiscal, currency")
+        // Segregated channels (DZ) project in their own section only.
+        .not("channel_is_segregated", "is", true)
         .order("payment_order_id", { ascending: true })
         .range(from, to),
   );
@@ -341,6 +354,7 @@ export async function getCashFlowAction(input: {
   if (loansErr) return failed("loans", loansErr);
   const loanInfo = new Map<string, { scope: CashScope; currency: string }>();
   for (const l of activeLoans) {
+    if (!inMainApp(l.channel_id)) continue;
     loanInfo.set(l.id, {
       scope: scopeOfChannel(l.channel_id),
       currency: l.currency,
@@ -392,6 +406,7 @@ export async function getCashFlowAction(input: {
   );
   if (recurringErr) return failed("recurring", recurringErr);
   for (const rp of recurring) {
+    if (!inMainApp(rp.channel_id)) continue;
     // A recurring "Préstamo" next to a loaded loan of the same channel is
     // the same payment its installments already project: count it once.
     if (

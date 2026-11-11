@@ -13,7 +13,7 @@ import { agingKeys } from "@/features/aging/lib/aging-keys";
 import { receiptsKeys } from "@/features/receipts/lib/receipts-keys";
 import { getMutationId } from "@/lib/query/get-mutation-id";
 import { invalidateKeys } from "@/lib/query/invalidate";
-import { useScopeIsFiscal } from "@/components/providers/scope-provider";
+import { usePageChannelScope } from "@/components/providers/scope-provider";
 import { runAction } from "@/lib/query/run-action";
 
 import {
@@ -135,10 +135,11 @@ export function useClientReferences(
 }
 
 export function useClientAccount(id: string) {
-  const isFiscal = useScopeIsFiscal();
+  const { isFiscal, channelId } = usePageChannelScope();
   return useSuspenseQuery({
-    queryKey: clientsKeys.accountByScope(id, isFiscal),
-    queryFn: () => runAction(() => getClientAccountAction(id, { isFiscal })),
+    queryKey: clientsKeys.accountByScope(id, isFiscal, channelId),
+    queryFn: () =>
+      runAction(() => getClientAccountAction(id, { isFiscal, channelId })),
   });
 }
 

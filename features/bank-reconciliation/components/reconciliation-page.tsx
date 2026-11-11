@@ -46,6 +46,7 @@ import {
 } from "@/components/ui/table";
 import { ImportDialog } from "@/features/imports/components/import-dialog";
 import { PeriodFilter } from "@/components/period-filter";
+import { ChannelBadge } from "@/components/channel-badge";
 import { useListParams } from "@/hooks/use-list-params";
 import {
   ALL_DATES_PARAM,
@@ -405,6 +406,7 @@ function ReconciliationBody({
                       <TableCell className="align-top text-sm">
                         <span className="block">
                           {m.description || "(sin descripción)"}
+                          <ChannelBadge channelId={m.channel_id} />
                         </span>
                         <span className="text-muted-foreground text-xs">
                           {formatArgentineDate(m.transaction_date)}
@@ -707,6 +709,7 @@ function ReconciliationBody({
                   </TableCell>
                   <TableCell className="text-sm">
                     {m.description || "(sin descripción)"}
+                    <ChannelBadge channelId={m.channel_id} />
                   </TableCell>
                   <DebitCreditCells
                     amount={m.signed_amount}
@@ -784,7 +787,8 @@ function MatchedMovement({
   return (
     <span className="text-muted-foreground block text-xs">
       ↳ {formatArgentineDate(movement.transaction_date)} ·{" "}
-      {movement.description || "(sin descripción)"} ·{" "}
+      {movement.description || "(sin descripción)"}
+      <ChannelBadge channelId={movement.channel_id} /> ·{" "}
       {formatMoneySigned(movement.signed_amount, currency)}
       {movement.line_ids.length > 1
         ? ` · partido en ${movement.line_ids.length} líneas`

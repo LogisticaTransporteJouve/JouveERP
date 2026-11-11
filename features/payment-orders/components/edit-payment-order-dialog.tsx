@@ -18,19 +18,17 @@ import type { Account } from "@/features/accounts/schema";
 
 import { usePaymentOrderDetail } from "../hooks/use-payment-orders";
 import { formatPaymentOrderNumber } from "../schema";
-import { PaymentOrderForm, type ChannelOption } from "./payment-order-form";
+import { PaymentOrderForm } from "./payment-order-form";
 
 export function EditPaymentOrderDialog({
   paymentOrderId,
   numero,
   puntoVenta,
-  channels,
   accounts,
 }: {
   paymentOrderId: string;
   numero: number;
   puntoVenta: number;
-  channels: ChannelOption[];
   accounts: Account[];
 }) {
   const [open, setOpen] = useState(false);
@@ -69,7 +67,6 @@ export function EditPaymentOrderDialog({
         ) : (
           <PaymentOrderForm
             mode="edit"
-            channels={channels}
             accounts={accounts}
             paymentOrder={detail}
             onSuccess={() => setOpen(false)}

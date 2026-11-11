@@ -11,16 +11,22 @@ import {
 
 const h = vi.hoisted(() => ({
   pathname: "/invoices",
+  search: "",
   refresh: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams(h.search),
   usePathname: () => h.pathname,
   useRouter: () => ({ refresh: h.refresh }),
 }));
 
 const {
+  PageChannelProvider,
   ScopeProvider,
+  useChannelOptions,
+  useDefaultChannel,
+  usePageChannelScope,
   usePageIsFiscal,
   usePageScope,
   useScope,
@@ -54,6 +60,7 @@ function wrapper({
 
 beforeEach(() => {
   h.pathname = "/invoices";
+  h.search = "";
   h.refresh.mockClear();
   window.localStorage.clear();
   document.cookie = `${SCOPE_COOKIE}=; path=/; max-age=0`;
@@ -226,4 +233,115 @@ describe("setFiscalFilter while navigating", () => {
       expect(h.refresh).not.toHaveBeenCalled();
     },
   );
+});
+
+describe("a segregated channel's section", () => {
+  const ALL: InvoicingChannelSummary[] = [
+    ...CHANNELS,
+    {
+      id: "dz_fiscal",
+      name: "DZ Instalaciones",
+      is_fiscal: true,
+      is_active: true,
+      is_segregated: true,
+      short_label: "DZ",
+    },
+    {
+      id: "dz_internal",
+      name: "DZ Interno",
+      is_fiscal: false,
+      is_active: true,
+      is_segregated: true,
+    },
+  ];
+  function sectionWrapper({
+    initial = "fiscal",
+    locked = false,
+    pinned = null,
+  }: {
+    initial?: ScopeSide;
+    locked?: boolean;
+    pinned?: string | null;
+  }) {
+    return function Wrapper({ children }: { children: React.ReactNode }) {
+      return (
+        <ScopeProvider
+          channels={ALL}
+          initialFiscalFilter={initial}
+          locked={locked}
+        >
+          <PageChannelProvider channelId={pinned}>
+            {children}
+          </PageChannelProvider>
+        </ScopeProvider>
+      );
+    };
+  }
+  const useSection = () => ({
+    channels: useScope().channels.map((c) => c.id),
+    defaultChannel: useDefaultChannel(),
+    scope: usePageChannelScope(),
+  });
+
+  it("without the param: main channels, default Jouve", () => {
+    h.pathname = "/purchases";
+    const { result } = renderHook(useSection, { wrapper: sectionWrapper({}) });
+    expect(result.current.channels).toEqual(["jouve_fiscal", "jouve_internal"]);
+    expect(result.current.defaultChannel).toBe("jouve_fiscal");
+    expect(result.current.scope).toEqual({ isFiscal: true, channelId: null });
+  });
+
+  it("?channel=dz_fiscal on a split page: only DZ, default DZ, its side", () => {
+    h.pathname = "/purchases";
+    h.search = "channel=dz_fiscal";
+    const { result } = renderHook(useSection, {
+      wrapper: sectionWrapper({ initial: "internal" }),
+    });
+    expect(result.current.channels).toEqual(["dz_fiscal"]);
+    expect(result.current.defaultChannel).toBe("dz_fiscal");
+    expect(result.current.scope).toEqual({
+      isFiscal: true,
+      channelId: "dz_fiscal",
+    });
+  });
+
+  it("the param on a shared page (treasury) opens nothing", () => {
+    h.pathname = "/treasury";
+    h.search = "channel=dz_fiscal";
+    const { result } = renderHook(useSection, { wrapper: sectionWrapper({}) });
+    expect(result.current.channels).toEqual(["jouve_fiscal", "jouve_internal"]);
+    expect(result.current.scope.channelId).toBeNull();
+  });
+
+  it("a fiscal-only user opens a fiscal segregated channel, not an internal one", () => {
+    h.pathname = "/purchases";
+    h.search = "channel=dz_fiscal";
+    const fiscal = renderHook(useSection, {
+      wrapper: sectionWrapper({ locked: true }),
+    });
+    expect(fiscal.result.current.channels).toEqual(["dz_fiscal"]);
+    cleanup();
+    h.search = "channel=dz_internal";
+    const internal = renderHook(useSection, {
+      wrapper: sectionWrapper({ locked: true }),
+    });
+    expect(internal.result.current.scope.channelId).toBeNull();
+  });
+
+  it("a record page pins its channel; a form keeps a stored channel", () => {
+    h.pathname = "/purchases/abc";
+    const pinned = renderHook(useSection, {
+      wrapper: sectionWrapper({ pinned: "dz_fiscal" }),
+    });
+    expect(pinned.result.current.channels).toEqual(["dz_fiscal"]);
+    cleanup();
+    const options = renderHook(() => useChannelOptions("dz_fiscal"), {
+      wrapper: sectionWrapper({}),
+    });
+    expect(options.result.current.map((c) => c.id)).toEqual([
+      "jouve_fiscal",
+      "jouve_internal",
+      "dz_fiscal",
+    ]);
+  });
 });

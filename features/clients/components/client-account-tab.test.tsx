@@ -110,7 +110,6 @@ describe("account tabs — the receipt and OP forms pick an account", () => {
       <SupplierAccountTab
         supplierId="s1"
         supplier={party}
-        channels={[]}
         accounts={[]}
         actorAccess={access}
       />,

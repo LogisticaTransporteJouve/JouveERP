@@ -12,7 +12,8 @@ import {
   ListToolbar,
 } from "@/components/list-toolbar";
 import { PeriodFilter } from "@/components/period-filter";
-import { useScopeIsFiscal } from "@/components/providers/scope-provider";
+import { usePageChannelScope } from "@/components/providers/scope-provider";
+import { scopedHref } from "@/lib/scope";
 import { SendByEmailDialog } from "@/components/send-by-email-dialog";
 import { Badge } from "@/components/ui/badge";
 import { IconButton } from "@/components/ui/icon-button";
@@ -78,6 +79,7 @@ interface ChannelOption {
 
 function buildInvoiceColumns(
   canSendEmail: boolean,
+  channelId: string | null,
 ): ColumnDef<InvoiceListItem>[] {
   return [
     {
@@ -143,7 +145,7 @@ function buildInvoiceColumns(
         return (
           <div className="flex items-center justify-end gap-1">
             <IconButton label="Ver detalle" asChild variant="ghost">
-              <Link href={`/invoices/${invoice.id}`}>
+              <Link href={scopedHref(`/invoices/${invoice.id}`, channelId)}>
                 <Eye className="size-4" />
               </Link>
             </IconButton>
@@ -179,10 +181,11 @@ export function ComprobantesTable({
     viewKeys: VIEW_KEYS,
   });
 
-  const isFiscal = useScopeIsFiscal();
+  const scope = usePageChannelScope();
+  const isFiscal = scope.isFiscal;
   const filters = useMemo(
-    () => invoiceListFilters(committed, isFiscal),
-    [committed, isFiscal],
+    () => invoiceListFilters(committed, scope),
+    [committed, scope],
   );
   const deferredFilters = useDeferredValue(filters);
   const group = useDeferredValue(committed.group);
@@ -213,7 +216,10 @@ export function ComprobantesTable({
               onChange={(next) => update({ group: next })}
             />
             <ExportButton resource="invoices" />
-            {canIssue && <NewInvoiceDialog channels={channels} />}
+            {/* A segregated channel's sales come from ARCA (its POS). */}
+            {canIssue && !scope.channelId && (
+              <NewInvoiceDialog channels={channels} />
+            )}
           </>
         }
       >
@@ -290,8 +296,8 @@ function ComprobantesTableRows({
   );
 
   const columns = useMemo(
-    () => buildInvoiceColumns(canSendEmail),
-    [canSendEmail],
+    () => buildInvoiceColumns(canSendEmail, filters.channelId),
+    [canSendEmail, filters.channelId],
   );
   const byBucket = useMemo(() => totalsByBucket(totalRows ?? []), [totalRows]);
 
@@ -333,7 +339,7 @@ function ComprobantesTableRows({
 function ComprobantesTableSkeleton() {
   return (
     <DataTable
-      columns={buildInvoiceColumns(false)}
+      columns={buildInvoiceColumns(false, null)}
       data={[]}
       isLoading
       skeletonRows={6}

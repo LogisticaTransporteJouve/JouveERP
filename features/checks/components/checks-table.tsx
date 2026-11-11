@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { ExportButton } from "@/components/export-button";
 import { ListToolbar } from "@/components/list-toolbar";
 import { SETTLED_LIST_CAP } from "@/lib/supabase/open-and-recent";
+import { ChannelBadge } from "@/components/channel-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -216,7 +217,10 @@ export function ChequesTable({
         header: "Número",
         meta: { mobile: "primary" },
         cell: ({ row }) => (
-          <span className="font-mono text-xs">{row.original.check_number}</span>
+          <span className="font-mono text-xs">
+            {row.original.check_number}
+            <ChannelBadge channelId={row.original.channel_id} />
+          </span>
         ),
       },
       {

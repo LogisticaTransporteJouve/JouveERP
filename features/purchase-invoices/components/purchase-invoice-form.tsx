@@ -9,6 +9,7 @@ import { toast } from "sonner";
 
 import { FormColumn, FormColumns } from "@/components/form-columns";
 import {
+  useChannelOptions,
   useDefaultChannel,
   usePageIsFiscal,
   useScope,
@@ -302,11 +303,14 @@ export function PurchaseInvoiceForm({
   onCancel?: () => void;
 }) {
   const router = useRouter();
-  const { channels, channelsFailed } = useScope();
-  // Edit keeps the invoice's own channel among the options even if it was retired.
+  const { channels, allChannels, channelsFailed } = useScope();
+  // The page's channels (a segregated channel's section offers only it); edit
+  // keeps the invoice's own channel among them even if it was retired or is
+  // a segregated one opened from elsewhere.
   const pageIsFiscal = usePageIsFiscal();
+  const scopeOptions = useChannelOptions(invoice?.channel_id);
   const channelOptions = useSideChannels(
-    channels.filter((c) => c.is_active || c.id === invoice?.channel_id),
+    scopeOptions.filter((c) => c.is_active || c.id === invoice?.channel_id),
   );
   const scopeDefaultChannel = useDefaultChannel();
   const defaultChannelId = invoice?.channel_id ?? scopeDefaultChannel ?? "";
@@ -666,7 +670,7 @@ export function PurchaseInvoiceForm({
     name: "channel_id",
   });
   const watchedChannelIsFiscal =
-    channelIsFiscal(watchedChannelId, channels) ?? true;
+    channelIsFiscal(watchedChannelId, allChannels) ?? true;
   const isInternalChannel = !watchedChannelIsFiscal;
   const showsExempt = watchedChannelIsFiscal && watchedLetter === "A";
 
@@ -860,7 +864,7 @@ export function PurchaseInvoiceForm({
 
     // If the channel is internal, we force letter/CAE to null even if the form
     // was left with values (e.g. you changed channel after typing).
-    const channelFiscal = channelIsFiscal(values.channel_id, channels);
+    const channelFiscal = channelIsFiscal(values.channel_id, allChannels);
     if (channelFiscal === null) {
       toast.error(
         channelsFailed
@@ -1166,7 +1170,10 @@ export function PurchaseInvoiceForm({
               noneLabel={
                 isNcOrNd
                   ? "La del comprobante de origen"
-                  : "Sin cuenta (Compras)"
+                  : allChannels.find((c) => c.id === watchedChannelId)
+                        ?.purchase_account_id
+                    ? "Sin cuenta (la del canal)"
+                    : "Sin cuenta (Compras)"
               }
             />
           </FormControl>

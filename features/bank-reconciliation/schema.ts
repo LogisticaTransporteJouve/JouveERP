@@ -168,6 +168,8 @@ export type BookMovement = {
   description: string | null;
   /** The document that owns it (v_transactions_tagged.source_document). */
   source_document: string | null;
+  /** Its channel: a segregated one (DZ) shows its mark. */
+  channel_id: string | null;
   /** The statement lines it is reconciled with: none, one, or several when
    *  the bank split it (each of them matched with this movement alone). */
   line_ids: string[];

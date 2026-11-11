@@ -23,9 +23,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  usePageChannelScope,
   useScope,
-  useScopeIsFiscal,
 } from "@/components/providers/scope-provider";
+import { scopedHref } from "@/lib/scope";
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
 import { useListParams } from "@/hooks/use-list-params";
 import type { Access } from "@/lib/auth/permissions";
@@ -64,10 +65,13 @@ function usePurchaseInvoiceColumns({
   canWrite,
   canCancel,
   channelsById,
+  channelId,
 }: {
   canWrite: boolean;
   canCancel: boolean;
   channelsById: ChannelLookup;
+  /** Inside a segregated channel's section, details open in it. */
+  channelId: string | null;
 }): ColumnDef<PurchaseInvoice>[] {
   return useMemo<ColumnDef<PurchaseInvoice>[]>(
     () => [
@@ -217,7 +221,7 @@ function usePurchaseInvoiceColumns({
               )}
             >
               <IconButton label="Ver detalle" asChild variant="ghost">
-                <Link href={`/purchases/${inv.id}`}>
+                <Link href={scopedHref(`/purchases/${inv.id}`, channelId)}>
                   <Eye className="size-4" />
                 </Link>
               </IconButton>
@@ -243,7 +247,7 @@ function usePurchaseInvoiceColumns({
         },
       },
     ],
-    [canWrite, canCancel, channelsById],
+    [canWrite, canCancel, channelsById, channelId],
   );
 }
 
@@ -259,23 +263,24 @@ export function PurchaseInvoicesTable({
     defaults: DEFAULT_PURCHASE_LIST_PARAMS,
     toUrl: purchaseListParamsToUrl,
   });
-  const isFiscal = useScopeIsFiscal();
+  const scope = usePageChannelScope();
   const filters = useMemo(
-    () => purchaseListFilters(committed, isFiscal),
-    [committed, isFiscal],
+    () => purchaseListFilters(committed, scope),
+    [committed, scope],
   );
   const deferredFilters = useDeferredValue(filters);
 
   const canWrite = userCan(actorAccess, "purchase_invoices:write");
   const canCancel = userCan(actorAccess, "purchase_invoices:cancel");
 
-  const { channels } = useScope();
-  const channelsById = Object.fromEntries(channels.map((c) => [c.id, c]));
+  const { allChannels } = useScope();
+  const channelsById = Object.fromEntries(allChannels.map((c) => [c.id, c]));
 
   const columns = usePurchaseInvoiceColumns({
     canWrite,
     canCancel,
     channelsById,
+    channelId: scope.channelId,
   });
 
   return (

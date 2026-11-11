@@ -30,7 +30,6 @@ import { IconButton } from "@/components/ui/icon-button";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import type { Account } from "@/features/accounts/schema";
 import { NewPaymentOrderDialog } from "@/features/payment-orders/components/new-payment-order-dialog";
-import type { ChannelOption } from "@/features/payment-orders/components/payment-order-form";
 import { PAYMENT_ORDER_FORM_PERMISSIONS } from "@/features/payment-orders/lib/payment-order-form";
 import { NewPurchaseInvoiceDialog } from "@/features/purchase-invoices/components/new-purchase-invoice-dialog";
 import type { PickedSupplier } from "@/features/suppliers/components/supplier-picker";
@@ -88,13 +87,11 @@ function balanceLabel(balance: number): {
 export function SupplierAccountTab({
   supplierId,
   supplier,
-  channels,
   accounts,
   actorAccess,
 }: {
   supplierId: string;
   supplier: PickedSupplier;
-  channels: ChannelOption[];
   accounts: Account[];
   actorAccess: Access;
 }) {
@@ -490,7 +487,6 @@ export function SupplierAccountTab({
             )}
             {canWriteOP && (
               <NewPaymentOrderDialog
-                channels={channels}
                 accounts={accounts}
                 initialSupplier={supplier}
                 trigger={

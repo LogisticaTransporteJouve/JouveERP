@@ -26,7 +26,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useScopeIsFiscal } from "@/components/providers/scope-provider";
+import { usePageChannelScope } from "@/components/providers/scope-provider";
+import { scopedHref } from "@/lib/scope";
 import { useSupplierCategoriesList } from "@/features/supplier-categories/hooks/use-supplier-categories";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
@@ -174,6 +175,7 @@ function SuppliersTableRows({
   categoriesById: Record<string, string>;
   canWrite: boolean;
 }) {
+  const { isFiscal, channelId } = usePageChannelScope();
   const {
     items: suppliers,
     fetchNextPage,
@@ -183,7 +185,8 @@ function SuppliersTableRows({
     query,
     onlyActive,
     categoryId,
-    isFiscal: useScopeIsFiscal(),
+    isFiscal,
+    channelId,
   });
 
   const sentinelRef = useIntersectionObserver<HTMLDivElement>(
@@ -194,8 +197,8 @@ function SuppliersTableRows({
   );
 
   const columns = useMemo<ColumnDef<Supplier>[]>(
-    () => buildColumns({ categoriesById, canWrite }),
-    [categoriesById, canWrite],
+    () => buildColumns({ categoriesById, canWrite, channelId }),
+    [categoriesById, canWrite, channelId],
   );
 
   return (
@@ -221,9 +224,12 @@ function SuppliersTableRows({
 function buildColumns({
   categoriesById,
   canWrite,
+  channelId,
 }: {
   categoriesById: Record<string, string>;
   canWrite: boolean;
+  /** Inside a segregated channel's section, rows open in it. */
+  channelId: string | null;
 }): ColumnDef<Supplier>[] {
   return [
     {
@@ -237,7 +243,7 @@ function buildColumns({
         return (
           <div className={!supplier.is_active ? "opacity-60" : undefined}>
             <Link
-              href={`/suppliers/${supplier.id}`}
+              href={scopedHref(`/suppliers/${supplier.id}`, channelId)}
               className="font-medium hover:underline"
             >
               {supplier.legal_name}
@@ -335,7 +341,7 @@ function buildColumns({
 
 function SuppliersTableSkeleton({ canWrite }: { canWrite: boolean }) {
   const columns = useMemo<ColumnDef<Supplier>[]>(
-    () => buildColumns({ categoriesById: {}, canWrite }),
+    () => buildColumns({ categoriesById: {}, canWrite, channelId: null }),
     [canWrite],
   );
   return <DataTable columns={columns} data={[]} isLoading skeletonRows={6} />;

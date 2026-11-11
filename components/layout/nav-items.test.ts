@@ -5,6 +5,7 @@ import { isScopedPath } from "@/lib/scope";
 
 import {
   canSee,
+  channelSections,
   NAV_SECTIONS,
   navItemForPath,
   navSectionForItem,
@@ -138,5 +139,50 @@ describe("canSee / visibleSections for a fiscal-only user", () => {
         "Otras compras",
       ]),
     );
+  });
+});
+
+describe("segregated channel sections", () => {
+  const dz = channelSections([{ id: "dz_fiscal", name: "DZ Instalaciones" }]);
+
+  it("adds one section per channel, last, labelled with its name", () => {
+    const sections = visibleSections(resolveAccess(["owner"]), dz);
+    expect(sections.at(-1)?.label).toBe("DZ Instalaciones");
+    expect(sections.at(-1)?.items.map((i) => i.label)).toEqual([
+      "Resumen",
+      "Comprobantes de compra",
+      "Órdenes de pago",
+      "Ventas",
+      "Proveedores",
+    ]);
+    expect(dz[0]?.items.every((i) => i.channelId === "dz_fiscal")).toBe(true);
+  });
+
+  it("adds none without segregated channels", () => {
+    expect(visibleSections(resolveAccess(["owner"]))).toEqual(
+      visibleSections(resolveAccess(["owner"]), channelSections([])),
+    );
+  });
+
+  it("hides each item without its permission", () => {
+    const labels = visibleSections(resolveAccess(["operations"]), dz)
+      .find((s) => s.label === "DZ Instalaciones")
+      ?.items.map((i) => i.label);
+    expect(labels ?? []).not.toContain("Resumen");
+  });
+
+  it("resolves a shared page to the section's item inside the channel only", () => {
+    const inside = navItemForPath("/purchases", "fiscal", "dz_fiscal", dz);
+    expect(inside?.channelId).toBe("dz_fiscal");
+    expect(navSectionForItem(inside!, dz)?.label).toBe("DZ Instalaciones");
+    const outside = navItemForPath("/purchases", "fiscal", null, dz);
+    expect(outside?.channelId).toBeUndefined();
+    expect(navSectionForItem(outside!, dz)?.label).toBe("Compras");
+  });
+
+  it("finds the channel's Resumen by its path", () => {
+    expect(
+      navItemForPath("/channel-summary/dz_fiscal", "fiscal", null, dz)?.label,
+    ).toBe("Resumen");
   });
 });

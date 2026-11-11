@@ -3,17 +3,21 @@ import "server-only";
 import { z } from "zod";
 
 import { AGING_BUCKETS, type AgingBucket, type AgingReport } from "@/lib/aging";
+import { getCurrentUserContext } from "@/lib/auth/context";
 import type { Permission } from "@/lib/auth/permissions";
 import { exportSlug } from "@/lib/export/download";
 import type { XlsxCell, XlsxSheet } from "@/lib/export/xlsx";
 import { formatArgentineDate, formatNumber2 } from "@/lib/format";
 import type { TableReportColumn } from "@/lib/pdf/table-report-template";
 import {
+  CHANNEL_PARAM,
   FISCAL_FILTERS,
   isFiscalFor,
   SCOPE_LABEL,
+  type ChannelScope,
   type FiscalFilter,
 } from "@/lib/scope";
+import { resolveChannelScope } from "@/lib/scope-server";
 
 export const money = (n: number) => `$${formatNumber2(n)}`;
 
@@ -30,6 +34,19 @@ export function exportScope(params: URLSearchParams): {
   const parsed = ScopeParam.safeParse(params.get("scope") ?? undefined);
   if (!parsed.success) throw new ExportInputError("Alcance inválido.");
   return { scope: parsed.data, isFiscal: isFiscalFor(parsed.data) };
+}
+
+/** The segregated channel's section the export button sent (`channel=`),
+ *  validated like the page's (`resolveChannelScope`); without it, the main
+ *  app on `isFiscal`'s side. */
+export async function exportChannelScope(
+  params: URLSearchParams,
+  isFiscal: boolean | null,
+): Promise<ChannelScope> {
+  const raw = params.get(CHANNEL_PARAM);
+  if (!raw) return { isFiscal, channelId: null };
+  const access = (await getCurrentUserContext())?.access;
+  return resolveChannelScope(raw, access, isFiscal);
 }
 
 /** The scope label, plus the exporter's own subtitle when it has one. */

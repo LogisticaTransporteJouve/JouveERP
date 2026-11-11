@@ -408,7 +408,12 @@ type SupplierDefaults = {
 type ChunkContext = {
   service: Service;
   suppliers: Map<string, SupplierDefaults>;
-  channels: { id: string; is_fiscal: boolean; is_active: boolean }[];
+  channels: {
+    id: string;
+    is_fiscal: boolean;
+    is_active: boolean;
+    is_segregated: boolean;
+  }[];
   costOptions: Parameters<typeof supplierCostDefaults>[1];
   rates: Map<string, Awaited<ReturnType<typeof fetchUsdRateOnOrBefore>>>;
 };
@@ -460,7 +465,9 @@ async function readChunk(
         "id, default_channel_id, default_payment_term_days, default_expense_account_id, default_cost_center_id",
       )
       .in("id", supplierIds),
-    service.from("invoicing_channels").select("id, is_fiscal, is_active"),
+    service
+      .from("invoicing_channels")
+      .select("id, is_fiscal, is_active, is_segregated"),
     latestTributeSplits(service, supplierIds),
   ]);
   if (supplierRows.error) {

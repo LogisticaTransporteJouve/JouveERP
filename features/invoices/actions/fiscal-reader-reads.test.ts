@@ -85,10 +85,13 @@ describe("listInvoicesAction for a fiscal_reader", () => {
     },
   );
 
-  it("leaves a finance user's Todos scope untouched", async () => {
+  it("leaves a finance user's Todos scope on every side, without segregated channels", async () => {
     h.access = resolveAccess(["finance"]);
     await listInvoicesAction({ isFiscal: null });
-    expect(scopeFilters()).toEqual([]);
+    expect(scopeFilters()).toEqual([
+      ["eq", "channel.is_segregated", false],
+      ["not", "channel", ["is", null]],
+    ]);
   });
 });
 

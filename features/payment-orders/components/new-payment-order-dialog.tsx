@@ -16,15 +16,13 @@ import { LIST_FORM_DIALOG } from "@/components/form-columns";
 import type { Account } from "@/features/accounts/schema";
 import type { PickedSupplier } from "@/features/suppliers/components/supplier-picker";
 
-import { PaymentOrderForm, type ChannelOption } from "./payment-order-form";
+import { PaymentOrderForm } from "./payment-order-form";
 
 export function NewPaymentOrderDialog({
-  channels,
   accounts,
   initialSupplier,
   trigger,
 }: {
-  channels: ChannelOption[];
   accounts: Account[];
   initialSupplier?: PickedSupplier | null;
   trigger?: React.ReactNode;
@@ -51,7 +49,6 @@ export function NewPaymentOrderDialog({
         </DialogHeader>
         <PaymentOrderForm
           mode="create"
-          channels={channels}
           accounts={accounts}
           initialSupplier={initialSupplier ?? null}
           onSuccess={() => setOpen(false)}

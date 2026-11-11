@@ -20,6 +20,7 @@ vi.mock("@/hooks/use-realtime-invalidate", () => ({
 }));
 vi.mock("@/components/providers/scope-provider", () => ({
   useScopeIsFiscal: () => null,
+  usePageChannelScope: () => ({ isFiscal: null, channelId: null }),
 }));
 vi.mock("@/components/export-button", () => ({ ExportButton: () => null }));
 vi.mock("@/features/accounts/actions/accounts-actions", () => ({
@@ -77,7 +78,6 @@ function renderTables() {
         initialParams={DEFAULT_RECEIPT_LIST_PARAMS}
       />
       <PaymentOrdersTable
-        channels={[]}
         actorAccess={access}
         initialParams={DEFAULT_PAYMENT_ORDER_LIST_PARAMS}
       />

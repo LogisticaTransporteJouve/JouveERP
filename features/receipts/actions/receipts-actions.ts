@@ -15,7 +15,7 @@ import {
 } from "@/lib/fx";
 import { logger } from "@/lib/logger";
 import { containsPattern } from "@/lib/supabase/like-pattern";
-import { applyFiscalFilter } from "@/lib/supabase/fiscal-filter";
+import { applyChannelScope } from "@/lib/supabase/fiscal-filter";
 import { isListGroup, type ListGroup } from "@/lib/list-period";
 import { parseSearchTerm } from "@/lib/list-search";
 import type { ListTotalRow } from "@/lib/list-totals";
@@ -103,7 +103,7 @@ export async function listReceiptsAction(input?: {
     .select(
       // !inner so the client-name search narrows the receipts; every receipt
       // has a client by FK.
-      `${RECEIPT_COLUMNS}, clients!inner ( legal_name ), channel:invoicing_channels ( is_fiscal )`,
+      `${RECEIPT_COLUMNS}, clients!inner ( legal_name ), channel:invoicing_channels ( is_fiscal, is_segregated )`,
     )
     .order("receipt_date", { ascending: false })
     .order("numero", { ascending: false })
@@ -113,8 +113,12 @@ export async function listReceiptsAction(input?: {
     .range(offset, offset + limit - 1);
 
   if (input?.status) query = query.eq("status", input.status);
-  if (input?.channelId) query = query.eq("channel_id", input.channelId);
-  query = applyFiscalFilter(query, input?.isFiscal, "channel");
+  // Without a channel, the main app: segregated channels are left out.
+  query = applyChannelScope(
+    query,
+    { isFiscal: input?.isFiscal, channelId: input?.channelId },
+    "channel",
+  );
   if (input?.clientId) query = query.eq("client_id", input.clientId);
   if (input?.from) query = query.gte("receipt_date", input.from);
   if (input?.to) query = query.lte("receipt_date", input.to);

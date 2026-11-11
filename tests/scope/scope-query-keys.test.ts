@@ -31,13 +31,19 @@ describe.each(FISCAL_FILTERS)("scope %s", (scope) => {
     expect(
       hashKey(
         invoicesKeys.searchInfinite(
-          invoiceListFilters(parseInvoiceListParams({}), fromCookie),
+          invoiceListFilters(parseInvoiceListParams({}), {
+            isFiscal: fromCookie,
+            channelId: null,
+          }),
         ),
       ),
     ).toBe(
       hashKey(
         invoicesKeys.searchInfinite(
-          invoiceListFilters(parseInvoiceListParams({}), fromProvider),
+          invoiceListFilters(parseInvoiceListParams({}), {
+            isFiscal: fromProvider,
+            channelId: null,
+          }),
         ),
       ),
     );

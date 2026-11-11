@@ -8,6 +8,7 @@ import { useMemo } from "react";
 import { toast } from "sonner";
 
 import { useConfirm } from "@/components/providers/confirm-provider";
+import { ChannelBadge } from "@/components/channel-badge";
 import { Badge } from "@/components/ui/badge";
 import { IconButton } from "@/components/ui/icon-button";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
@@ -100,7 +101,10 @@ export function IssuedChecksTable({
         header: "Cheque",
         cell: ({ row }) => (
           <div className="font-mono text-xs">
-            <div className="font-medium">#{row.original.check_number}</div>
+            <div className="font-medium">
+              #{row.original.check_number}
+              <ChannelBadge channelId={row.original.channel_id} />
+            </div>
             <div className="text-muted-foreground">
               {row.original.bank_name}
             </div>

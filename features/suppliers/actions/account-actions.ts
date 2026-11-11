@@ -28,7 +28,10 @@ import {
   type CurrencyBalances,
   type StatementCurrency,
 } from "@/lib/allocations";
-import { applyFiscalFilter } from "@/lib/supabase/fiscal-filter";
+import {
+  applyChannelScope,
+  applyFiscalFilter,
+} from "@/lib/supabase/fiscal-filter";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import {
@@ -263,7 +266,7 @@ export interface SupplierAccountResult {
  *  unapplied credits. */
 export async function getSupplierAccountAction(
   supplierId: string,
-  input?: { isFiscal?: boolean | null },
+  input?: { isFiscal?: boolean | null; channelId?: string | null },
 ): Promise<ActionResult<SupplierAccountResult>> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "suppliers:read")) {
@@ -287,7 +290,7 @@ export async function getSupplierAccountAction(
         supabase
           .from("v_supplier_account_movements")
           .select(
-            "source_type, source_id, movement_date, created_at, kind, letter, punto_venta, numero, signed_amount, gross_amount, channel_id, channel_name, channel_is_fiscal, currency",
+            "source_type, source_id, movement_date, created_at, kind, letter, punto_venta, numero, signed_amount, gross_amount, channel_id, channel_name, channel_is_fiscal, channel_is_segregated, currency",
           )
           .eq("supplier_id", supplierId)
           .order("movement_date", { ascending: true })
@@ -398,7 +401,13 @@ export async function getSupplierAccountAction(
   const running = zeroBalances();
   const openingTargets = new Map<StatementCurrency, number>();
   const movements: SupplierAccountMovement[] = [];
-  for (const r of movementsRes.data) {
+  // Inside a segregated channel's section, only that channel's movements;
+  // elsewhere, the main app's (the opening balance included).
+  const channelId = input?.channelId ?? null;
+  const inScope = movementsRes.data.filter((r) =>
+    channelId ? r.channel_id === channelId : r.channel_is_segregated !== true,
+  );
+  for (const r of inScope) {
     if (
       r.source_type == null ||
       r.movement_date == null ||
@@ -525,50 +534,72 @@ export async function getSupplierAccountAction(
 
 const SUPPLIER_AGING_SELECT = `supplier_id, ${AGING_VIEW_AMOUNT_COLUMNS}, suppliers!inner(legal_name, cuit)`;
 
-// `isFiscal` null reads every channel (v_supplier_aging); a boolean reads that
-// scope only (v_supplier_aging_by_scope, one row per supplier).
+// `isFiscal` null reads every main channel (v_supplier_aging); a boolean reads
+// that scope only (v_supplier_aging_by_scope, one row per supplier). Both
+// leave segregated channels out; `channelId` reads that segregated channel
+// alone (v_supplier_aging_by_channel), for its section's Resumen.
 export async function getSupplierAgingAction(input?: {
   isFiscal?: boolean | null;
+  channelId?: string | null;
 }): Promise<ActionResult<AgingReport>> {
   const ctx = await requireUserContext();
   if (!userCanAll(ctx.access, SUPPLIER_AGING_PERMISSIONS)) {
     return { ok: false, error: "No tenés permiso." };
   }
 
+  const channelId = input?.channelId ?? null;
   const isFiscal = input?.isFiscal ?? null;
   const supabase = await createSupabaseClient();
 
+  const agingRead = () => {
+    if (channelId) {
+      return paginateRange((from, to) =>
+        applyFiscalFilter(
+          supabase
+            .from("v_supplier_aging_by_channel")
+            .select(SUPPLIER_AGING_SELECT)
+            .eq("channel_id", channelId),
+          isFiscal,
+        )
+          .order("supplier_id", { ascending: true })
+          .range(from, to),
+      );
+    }
+    if (isFiscal === null) {
+      return paginateRange((from, to) =>
+        supabase
+          .from("v_supplier_aging")
+          .select(SUPPLIER_AGING_SELECT)
+          .order("supplier_id", { ascending: true })
+          .range(from, to),
+      );
+    }
+    return paginateRange((from, to) =>
+      applyFiscalFilter(
+        supabase
+          .from("v_supplier_aging_by_scope")
+          .select(SUPPLIER_AGING_SELECT),
+        isFiscal,
+      )
+        .order("supplier_id", { ascending: true })
+        .range(from, to),
+    );
+  };
+
   // Drained past max_rows (1000) — one row per supplier with open documents.
   const [{ data: agingRows, error }, usdRate, unapplied] = await Promise.all([
-    isFiscal === null
-      ? paginateRange((from, to) =>
-          supabase
-            .from("v_supplier_aging")
-            .select(SUPPLIER_AGING_SELECT)
-            .order("supplier_id", { ascending: true })
-            .range(from, to),
-        )
-      : paginateRange((from, to) =>
-          applyFiscalFilter(
-            supabase
-              .from("v_supplier_aging_by_scope")
-              .select(SUPPLIER_AGING_SELECT),
-            isFiscal,
-          )
-            .order("supplier_id", { ascending: true })
-            .range(from, to),
-        ),
+    agingRead(),
     fetchLatestUsdRate(supabase),
     // What each supplier was paid a cuenta and is not applied yet: shown
     // apart from the buckets.
     paginateRange((from, to) =>
-      applyFiscalFilter(
+      applyChannelScope(
         supabase
           .from("v_payment_order_unapplied")
           .select(
             "party_id:supplier_id, currency, unapplied_amount, party:suppliers!inner(legal_name, cuit)",
           ),
-        isFiscal,
+        { isFiscal, channelId },
       )
         .order("payment_order_id", { ascending: true })
         .range(from, to),

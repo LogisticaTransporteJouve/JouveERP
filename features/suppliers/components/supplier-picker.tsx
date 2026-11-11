@@ -23,6 +23,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { useSectionChannelId } from "@/components/providers/scope-provider";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 
 import { getSupplierByIdAction } from "../actions/suppliers-actions";
@@ -84,8 +85,16 @@ export function SupplierPicker({
   const readDenied = access?.canRead === false;
   const canCreate = access?.canCreate === true;
 
+  // Inside a segregated channel's section its own suppliers are offered too.
+  const channelId = useSectionChannelId();
   const searchQuery = useSuppliersSearch(
-    { query: debouncedQuery, onlyActive: true, limit: RESULT_LIMIT, isFiscal },
+    {
+      query: debouncedQuery,
+      onlyActive: true,
+      limit: RESULT_LIMIT,
+      isFiscal,
+      channelId,
+    },
     { enabled: open && !readDenied },
   );
   const results = searchQuery.data?.suppliers ?? [];

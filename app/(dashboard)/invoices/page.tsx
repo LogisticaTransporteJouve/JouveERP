@@ -20,9 +20,11 @@ import { isFiscalOnly, userCan } from "@/lib/auth/permissions";
 import { Hydrate } from "@/lib/query/hydrate";
 import { prefetchQueries } from "@/lib/query/prefetch";
 import { runAction } from "@/lib/query/run-action";
-import { isFiscalFor } from "@/lib/scope";
-import { readScopeCookie } from "@/lib/scope-server";
-import { getServiceClient } from "@/lib/supabase/service";
+import {
+  getActiveInvoicingChannels,
+  getSegregatedChannels,
+} from "@/lib/channels";
+import { readPageChannelScope } from "@/lib/scope-server";
 
 export const dynamic = "force-dynamic";
 
@@ -36,21 +38,21 @@ export default async function ComprobantesPage({
     redirect("/dashboard");
   }
 
-  const params = parseInvoiceListParams(await searchParams);
-  const supabase = getServiceClient();
-  const { data: channels } = await supabase
-    .from("invoicing_channels")
-    .select("id, name, is_fiscal, is_active")
-    .eq("is_active", true)
-    .order("name");
-  const visibleChannels = (channels ?? []).filter(
-    (c) => !isFiscalOnly(ctx.access) || c.is_fiscal,
+  const rawParams = await searchParams;
+  const params = parseInvoiceListParams(rawParams);
+  const scope = await readPageChannelScope(rawParams);
+  // The issue form's channels: the section's own, else the main app's.
+  const visibleChannels = (
+    await (scope.channelId
+      ? getSegregatedChannels()
+      : getActiveInvoicingChannels())
+  ).filter(
+    (c) =>
+      (!scope.channelId || c.id === scope.channelId) &&
+      (!isFiscalOnly(ctx.access) || c.is_fiscal),
   );
 
-  const filters = invoiceListFilters(
-    params,
-    isFiscalFor(await readScopeCookie()),
-  );
+  const filters = invoiceListFilters(params, scope);
   const isFiscalSide = filters.isFiscal !== false;
 
   const dehydratedState = await prefetchQueries([

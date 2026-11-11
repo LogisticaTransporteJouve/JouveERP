@@ -12,7 +12,10 @@ import { useMemo } from "react";
 import { paymentOrdersKeys } from "@/features/payment-orders/lib/payment-orders-keys";
 import { getMutationId } from "@/lib/query/get-mutation-id";
 import { invalidateKeys } from "@/lib/query/invalidate";
-import { useScopeIsFiscal } from "@/components/providers/scope-provider";
+import {
+  usePageChannelScope,
+  useScopeIsFiscal,
+} from "@/components/providers/scope-provider";
 import { runAction } from "@/lib/query/run-action";
 
 import {
@@ -52,6 +55,8 @@ export function useSuppliersSearchInfinite(filters: SuppliersSearchFilters) {
           onlyActive: filters.onlyActive,
           categoryId: filters.categoryId,
           isFiscal: filters.isFiscal,
+          channelId: filters.channelId ?? null,
+          channelMembersOnly: !!filters.channelId,
           offset: pageParam,
           limit: SUPPLIERS_PAGE_SIZE,
         }),
@@ -75,6 +80,8 @@ export function useSuppliersSearch(
     onlyActive: boolean;
     limit: number;
     isFiscal: boolean | null;
+    /** A segregated channel's section: its suppliers are offered too. */
+    channelId?: string | null;
   },
   options: { enabled?: boolean } = {},
 ) {
@@ -86,6 +93,7 @@ export function useSuppliersSearch(
           query: filters.query,
           onlyActive: filters.onlyActive,
           isFiscal: filters.isFiscal,
+          channelId: filters.channelId ?? null,
           offset: 0,
           limit: filters.limit,
         }),
@@ -174,18 +182,22 @@ export function useDeleteSupplier() {
 }
 
 export function useSupplierAccount(id: string) {
-  const isFiscal = useScopeIsFiscal();
+  const { isFiscal, channelId } = usePageChannelScope();
   return useSuspenseQuery({
-    queryKey: suppliersKeys.accountByScope(id, isFiscal),
-    queryFn: () => runAction(() => getSupplierAccountAction(id, { isFiscal })),
+    queryKey: suppliersKeys.accountByScope(id, isFiscal, channelId),
+    queryFn: () =>
+      runAction(() => getSupplierAccountAction(id, { isFiscal, channelId })),
   });
 }
 
-export function useSupplierAging() {
+/** The supplier aging of the page scope; `channelId` reads one segregated
+ *  channel (its section's Resumen). */
+export function useSupplierAging(channelId: string | null = null) {
   const isFiscal = useScopeIsFiscal();
   return useSuspenseQuery({
-    queryKey: suppliersKeys.aging(isFiscal),
-    queryFn: () => runAction(() => getSupplierAgingAction({ isFiscal })),
+    queryKey: suppliersKeys.aging(isFiscal, channelId),
+    queryFn: () =>
+      runAction(() => getSupplierAgingAction({ isFiscal, channelId })),
   });
 }
 

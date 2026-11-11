@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 // failed read under the select instead of an empty «Canal».
 
 vi.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams(),
   usePathname: () => "/loans",
   useRouter: () => ({ refresh: vi.fn() }),
 }));

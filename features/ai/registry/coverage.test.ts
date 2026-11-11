@@ -128,6 +128,10 @@ const PAGE_TOOLS: Record<string, readonly string[]> = {
 
 /** Pages with no read tool, and why. */
 const NO_TOOL: Record<string, string> = {
+  // A segregated channel's (DZ Instalaciones) own summary: the AI CFO works
+  // on the main app and leaves segregated channels out.
+  "/channel-summary/[channelId]":
+    "a segregated channel's section, out of the AI",
   // Card statements are read here and paid from the bank statement; their
   // movements are ordinary expenses and advances the treasury tools read.
   "/card-statements": "card statements, paid as treasury movements",

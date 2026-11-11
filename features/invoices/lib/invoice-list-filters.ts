@@ -8,6 +8,8 @@ import {
   type PeriodSelection,
 } from "@/lib/list-period";
 
+import type { ChannelScope } from "@/lib/scope";
+
 import type { ListComprobantesFilters } from "../actions/invoices-actions";
 import { isInvoiceStatus, type InvoiceStatus } from "../schema";
 
@@ -59,6 +61,8 @@ export function invoiceTypesOrFilter(types: readonly string[]): string | null {
 /** What the comprobantes list filters on: its query key and action input. */
 export interface InvoiceListFilters {
   isFiscal: boolean | null;
+  /** A segregated channel's section; null = the main app. */
+  channelId: string | null;
   status: InvoiceStatus | null;
   query: string;
   /** Empty: every type. */
@@ -106,12 +110,13 @@ export function invoiceListParamsToUrl(
 
 export function invoiceListFilters(
   params: InvoiceListParams,
-  isFiscal: boolean | null,
+  scope: ChannelScope,
   today?: string,
 ): InvoiceListFilters {
   const range = resolvePeriod(params.period, today);
   return {
-    isFiscal,
+    isFiscal: scope.isFiscal,
+    channelId: scope.channelId,
     status: params.status,
     query: params.query.trim(),
     types: params.types,
@@ -128,6 +133,7 @@ export function invoiceListActionInput(
 ): ListComprobantesFilters {
   return {
     isFiscal: filters.isFiscal,
+    channel_id: filters.channelId,
     status: filters.status,
     types: filters.types,
     fecha_desde: filters.from,

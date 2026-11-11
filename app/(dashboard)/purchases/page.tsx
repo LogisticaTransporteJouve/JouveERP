@@ -17,8 +17,7 @@ import { userCan } from "@/lib/auth/permissions";
 import { Hydrate } from "@/lib/query/hydrate";
 import { prefetchQueries } from "@/lib/query/prefetch";
 import { runAction } from "@/lib/query/run-action";
-import { isFiscalFor } from "@/lib/scope";
-import { readScopeCookie } from "@/lib/scope-server";
+import { readPageChannelScope } from "@/lib/scope-server";
 
 export const dynamic = "force-dynamic";
 
@@ -32,9 +31,11 @@ export default async function PurchasesPage({
     redirect("/dashboard");
   }
 
-  const params = parsePurchaseListParams(await searchParams);
-  const isFiscalSide = isFiscalFor(await readScopeCookie());
-  const filters = purchaseListFilters(params, isFiscalSide);
+  const rawParams = await searchParams;
+  const params = parsePurchaseListParams(rawParams);
+  const scope = await readPageChannelScope(rawParams);
+  const isFiscalSide = scope.isFiscal;
+  const filters = purchaseListFilters(params, scope);
 
   const dehydratedState = await prefetchQueries([
     {
@@ -71,9 +72,12 @@ export default async function PurchasesPage({
               : "Compras a proveedores de Otras compras, sin factura: no van al Libro IVA."}
           </p>
         </div>
-        {isFiscalSide && userCan(ctx.access, "purchase_invoices:write") && (
-          <ArcaReceivedLink />
-        )}
+        {/* The ARCA tray lives in Compras: it routes each voucher by supplier. */}
+        {isFiscalSide &&
+          !scope.channelId &&
+          userCan(ctx.access, "purchase_invoices:write") && (
+            <ArcaReceivedLink />
+          )}
       </div>
       <Hydrate state={dehydratedState}>
         <PurchaseInvoiceFileAssistBinding access={ctx.access}>

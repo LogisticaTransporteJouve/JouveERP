@@ -134,9 +134,11 @@ export async function listSupplierCategoryPurchasesAction(
   let query = supabase
     .from("purchase_invoices")
     .select(
-      "id, kind, letter, punto_venta, numero, fecha, imp_total, moneda, supplier_id, suppliers!inner(legal_name, category_id), invoicing_channels!inner(is_fiscal)",
+      "id, kind, letter, punto_venta, numero, fecha, imp_total, moneda, supplier_id, suppliers!inner(legal_name, category_id), invoicing_channels!inner(is_fiscal, is_segregated)",
     )
     .eq("suppliers.category_id", v.categoryId)
+    // Segregated channels (DZ) stay out of the main app's reports.
+    .eq("invoicing_channels.is_segregated", false)
     .eq("status", "received")
     .gte("fecha", v.from)
     .lte("fecha", v.to);

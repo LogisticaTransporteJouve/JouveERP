@@ -20,8 +20,6 @@ const DELEGATES: Record<string, string | null> = {
   // Picks the fiscal channel for one-click accepts and the receipt form.
   "features/bank-reconciliation/components/statement-coding.tsx":
     "features/receipts/components/receipt-form.tsx",
-  // A list's channel labels, under the layout's banner (no dialog).
-  "features/purchase-invoices/components/purchase-invoices-table.tsx": null,
 };
 
 function componentFiles(dir: string): string[] {

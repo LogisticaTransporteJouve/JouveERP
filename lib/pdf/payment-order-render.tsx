@@ -40,7 +40,7 @@ export async function buildPaymentOrderTemplateData(
   const { data: op, error: opErr } = await supabase
     .from("payment_orders")
     .select(
-      "id, channel_id, supplier_id, punto_venta, numero, payment_date, total_amount, currency, notes, status, channel:invoicing_channels(name, is_fiscal, business_unit_id), supplier:suppliers(legal_name, cuit, iva_condition)",
+      "id, channel_id, supplier_id, punto_venta, numero, payment_date, total_amount, currency, notes, status, channel:invoicing_channels(name, is_fiscal, business_unit_id, division_label), supplier:suppliers(legal_name, cuit, iva_condition)",
     )
     .eq("id", paymentOrderId)
     .maybeSingle();
@@ -60,6 +60,7 @@ export async function buildPaymentOrderTemplateData(
     isFiscal,
     emisor: await loadEmisor(supabase, {
       business_unit_id: channel?.business_unit_id ?? null,
+      division_label: channel?.division_label ?? null,
     }),
   });
 
