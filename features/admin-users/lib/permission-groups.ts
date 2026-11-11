@@ -25,7 +25,6 @@ export const PERMISSION_GROUPS: Record<Resource, string> = {
   accounting: "Contabilidad",
   taxes: "Impuestos",
   management: "Resultado de gestión",
-  storage_billing: "Facturación de depósito",
   drivers: "Choferes",
   vehicles: "Vehículos",
   trips: "Viajes",

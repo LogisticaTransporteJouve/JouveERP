@@ -49,63 +49,26 @@ const optionalUuid = z
   .nullable()
   .optional();
 
-const optionalText = (max: number) =>
-  z
-    .string()
-    .trim()
-    .max(max)
-    .transform((v) => (v.length === 0 ? null : v))
-    .nullable()
-    .optional();
-
-const optionalChannel = z
+const TripDateSchema = z
   .string()
-  .trim()
-  .max(60)
-  .transform((v) => (v.length === 0 ? null : v))
-  .nullable()
-  .optional();
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha requerida.");
 
-const optionalAmount = z
-  .union([z.literal(""), z.coerce.number().min(0)])
-  .transform((v) => (v === "" ? null : v))
-  .nullable()
-  .optional();
-
+/** What the trip form writes: date, status, driver and vehicle. */
 export const TripCreateSchema = z.object({
-  trip_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha requerida."),
+  trip_date: TripDateSchema,
   driver_id: optionalUuid,
   vehicle_id: optionalUuid,
-  channel_id: optionalChannel,
-  origin: optionalText(160),
-  destination: optionalText(160),
-  cargo_description: optionalText(500),
   status: z.enum(TRIP_STATUSES).default("planned"),
-  km: optionalAmount,
-  revenue: optionalAmount,
-  cost: optionalAmount,
-  notes: optionalText(2000),
 });
 
 export type TripCreateInput = z.infer<typeof TripCreateSchema>;
 
 export const TripUpdateSchema = z.object({
   id: z.string().uuid(),
-  trip_date: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha requerida.")
-    .optional(),
+  trip_date: TripDateSchema.optional(),
   driver_id: optionalUuid,
   vehicle_id: optionalUuid,
-  channel_id: optionalChannel,
-  origin: optionalText(160),
-  destination: optionalText(160),
-  cargo_description: optionalText(500),
   status: z.enum(TRIP_STATUSES).optional(),
-  km: optionalAmount,
-  revenue: optionalAmount,
-  cost: optionalAmount,
-  notes: optionalText(2000),
 });
 
 /** Optional filters of the trips list (by trip_date); none = every trip. */

@@ -29,6 +29,8 @@ export const ANALYST_KINDS = [
   "fleet_doc_expiry",
   "trip_margin",
   ...INDICATOR_KINDS,
+  // Retired (Rendiciones were removed): listed so a run clears its open cards.
+  "pending_driver_settlements",
 ] as const;
 
 export type InsightRow = {

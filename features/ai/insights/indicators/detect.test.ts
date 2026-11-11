@@ -8,7 +8,6 @@ import {
   detectLateInterestUncharged,
   detectLoanInstallmentsDue,
   detectOverdueGrowth,
-  detectPendingSettlements,
   detectUnreconciledLines,
   detectVehicleCostPerKm,
 } from "./detect";
@@ -220,36 +219,6 @@ describe("detectUnreconciledLines", () => {
       const [f] = detectUnreconciledLines(lines, TODAY, hint);
       expect(f?.proposal?.action).toBe("proposeTask");
     }
-  });
-});
-
-describe("detectPendingSettlements", () => {
-  it("flags old cash-on-delivery cargas and stale drafts", () => {
-    const [f] = detectPendingSettlements(
-      [
-        {
-          shipment_id: "s1",
-          driver_name: "Juan",
-          delivery_date: "2026-10-20",
-          cod_amount: 5000,
-        },
-        {
-          shipment_id: "s2",
-          driver_name: "Juan",
-          delivery_date: TODAY,
-          cod_amount: 9000,
-        },
-      ],
-      [{ id: "d1", driver_name: "Ana", settlement_date: "2026-10-01" }],
-      TODAY,
-    );
-    expect(f?.metrics).toMatchObject({
-      shipment_count: 1,
-      total_amount: 5000,
-      draft_count: 1,
-    });
-    expect(f?.source_refs).toEqual(["d1", "s1"]);
-    expect(f?.proposal?.input.title).toBe("Rendir las cobranzas de Juan");
   });
 });
 

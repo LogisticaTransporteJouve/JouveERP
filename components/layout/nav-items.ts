@@ -19,7 +19,6 @@ import {
   FolderOpen,
   Fuel,
   Gauge,
-  HandCoins,
   History,
   IdCard,
   KeyRound,
@@ -55,7 +54,6 @@ import {
 
 import {
   CLIENT_AGING_PERMISSIONS,
-  FLEET_PROFITABILITY_PERMISSIONS,
   isFiscalOnly,
   SUPPLIER_AGING_PERMISSIONS,
   TREASURY_PERMISSIONS,
@@ -364,18 +362,6 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         permission: "freight_tariffs:read",
       },
       {
-        href: "/liquidaciones",
-        label: "Liquidaciones",
-        icon: FileText,
-        permission: "invoices:read",
-      },
-      {
-        href: "/rendiciones",
-        label: "Rendiciones",
-        icon: HandCoins,
-        permission: "receipts:read",
-      },
-      {
         href: "/fuel",
         label: "Combustible",
         icon: Fuel,
@@ -398,12 +384,6 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         label: "Vencimientos",
         icon: CalendarClock,
         permission: "fleet_documents:read",
-      },
-      {
-        href: "/fleet-reports",
-        label: "Rentabilidad",
-        icon: TrendingUp,
-        permission: FLEET_PROFITABILITY_PERMISSIONS,
       },
     ],
   },
@@ -433,18 +413,6 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         label: "Trazabilidad",
         icon: History,
         permission: "pallets:read",
-      },
-      {
-        href: "/storage-tariffs",
-        label: "Tarifas",
-        icon: Tags,
-        permission: "storage_billing:read",
-      },
-      {
-        href: "/storage-billing",
-        label: "Facturación",
-        icon: LineChart,
-        permission: "storage_billing:read",
       },
     ],
   },

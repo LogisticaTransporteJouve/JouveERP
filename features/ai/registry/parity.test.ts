@@ -97,12 +97,6 @@ const PARITY: Row[] = [
     gate: all("suppliers:read"),
   },
   {
-    tool: "getClientTariffs",
-    file: "features/client-tariffs/actions/client-tariffs-actions.ts",
-    fn: "listClientTariffsAction",
-    gate: all("storage_billing:read"),
-  },
-  {
     tool: "getFreightTariffs",
     file: "features/freight-tariffs/actions/freight-tariffs-actions.ts",
     fn: "listFreightTariffsAction",
@@ -521,38 +515,6 @@ const PROPOSAL_PARITY: Row[] = [
     file: "features/taxes/actions/tax-documents-actions.ts",
     fn: "payTaxDocumentAction",
     gate: all("taxes:write", "transactions:write"),
-  },
-  {
-    tool: "proposeFreightSettlementConfirm",
-    file: "features/freight-settlements/actions/freight-settlements-actions.ts",
-    fn: "confirmFreightSettlementAction",
-    gate: all("invoices:issue"),
-  },
-  {
-    tool: "proposeStorageInvoice",
-    file: "features/storage-billing/actions/billing-actions.ts",
-    fn: "invoiceStorageAction",
-    gate: all("storage_billing:issue", "invoices:issue"),
-  },
-  {
-    tool: "proposeDriverSettlement",
-    file: "features/driver-settlements/actions/driver-settlements-actions.ts",
-    fn: "saveDriverSettlementAction",
-    gate: all("receipts:write"),
-  },
-  {
-    tool: "proposeDriverSettlementConfirm",
-    file: "features/driver-settlements/actions/driver-settlements-actions.ts",
-    fn: "confirmDriverSettlementAction",
-    gate: all("receipts:write"),
-  },
-  // Charging the driver also needs CHARGE_DRIVER_PERMISSIONS, which the
-  // proposal checks on the record (prepare and accept), as the action does.
-  {
-    tool: "proposeDriverSettlementDifference",
-    file: "features/driver-settlements/actions/driver-settlements-actions.ts",
-    fn: "postDriverSettlementDifferenceAction",
-    gate: all("receipts:write"),
   },
 ];
 

@@ -17,16 +17,12 @@ import {
   getClientAccountAction,
   getClientOpeningBalanceAction,
 } from "@/features/clients/actions/account-actions";
-import { listClientTariffsAction } from "@/features/client-tariffs/actions/client-tariffs-actions";
-import { ClientTariffsTab } from "@/features/client-tariffs/components/client-tariffs-tab";
-import { clientTariffsKeys } from "@/features/client-tariffs/lib/client-tariffs-keys";
 import { getClientByIdAction } from "@/features/clients/actions/clients-actions";
 import { ClientAccountTab } from "@/features/clients/components/client-account-tab";
 import { ClientForm } from "@/features/clients/components/client-form";
 import { clientsKeys } from "@/features/clients/lib/clients-keys";
 import { counterpartyIdentityLabel } from "@/features/clients/schema";
 import { AttachmentsZone } from "@/features/files/components/attachments-zone";
-import { listStorageAreasAction } from "@/features/warehouses/actions/storage-areas-actions";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { getActiveInvoicingChannels } from "@/lib/channels";
@@ -59,33 +55,21 @@ export default async function ClientDetailPage({
   // A client lives on one side: its page shows that side, whatever the menu
   // last chose (a dashboard link can land on either).
   const isFiscal = result.data.is_fiscal;
-  // Pricing (the client's tariffs) is gated like storage billing.
-  const canReadTariffs = userCan(ctx.access, "storage_billing:read");
-  const [activeChannels, accountsResult, areasResult, dehydratedState] =
-    await Promise.all([
-      getActiveInvoicingChannels(),
-      listAccountsAction(),
-      canReadTariffs ? listStorageAreasAction() : null,
-      prefetchQueries([
-        {
-          queryKey: clientsKeys.accountByScope(id, isFiscal),
-          queryFn: () =>
-            runAction(() => getClientAccountAction(id, { isFiscal })),
-        },
-        {
-          queryKey: clientsKeys.openingBalance(id),
-          queryFn: () => runAction(() => getClientOpeningBalanceAction(id)),
-        },
-        ...(canReadTariffs
-          ? [
-              {
-                queryKey: clientTariffsKeys.byClient(id),
-                queryFn: () => runAction(() => listClientTariffsAction(id)),
-              },
-            ]
-          : []),
-      ]),
-    ]);
+  const [activeChannels, accountsResult, dehydratedState] = await Promise.all([
+    getActiveInvoicingChannels(),
+    listAccountsAction(),
+    prefetchQueries([
+      {
+        queryKey: clientsKeys.accountByScope(id, isFiscal),
+        queryFn: () =>
+          runAction(() => getClientAccountAction(id, { isFiscal })),
+      },
+      {
+        queryKey: clientsKeys.openingBalance(id),
+        queryFn: () => runAction(() => getClientOpeningBalanceAction(id)),
+      },
+    ]),
+  ]);
 
   const client = result.data;
   const canWrite = userCan(ctx.access, "clients:write");
@@ -98,13 +82,6 @@ export default async function ClientDetailPage({
     is_fiscal: c.is_fiscal,
   }));
   const accounts = accountsResult.ok ? accountsResult.data : [];
-  const areaOptions = areasResult?.ok
-    ? areasResult.data.map((a) => ({
-        id: a.id,
-        label: `${a.warehouse_name} · ${a.name}`,
-        is_active: a.is_active,
-      }))
-    : [];
 
   return (
     <PageSideProvider side={isFiscal ? "fiscal" : "internal"}>
@@ -134,9 +111,6 @@ export default async function ClientDetailPage({
           <TabsList>
             <TabsTrigger value="account">Cuenta corriente</TabsTrigger>
             <TabsTrigger value="data">Datos</TabsTrigger>
-            {canReadTariffs && (
-              <TabsTrigger value="tariffs">Tarifario</TabsTrigger>
-            )}
             <TabsTrigger value="files">Adjuntos</TabsTrigger>
           </TabsList>
 
@@ -170,20 +144,6 @@ export default async function ClientDetailPage({
               </div>
             )}
           </TabsContent>
-
-          {canReadTariffs && (
-            <TabsContent value="tariffs" className="mt-4 max-w-4xl">
-              <Hydrate state={dehydratedState}>
-                <Suspense fallback={<Loading />}>
-                  <ClientTariffsTab
-                    clientId={id}
-                    canWrite={userCan(ctx.access, "storage_billing:issue")}
-                    areaOptions={areaOptions}
-                  />
-                </Suspense>
-              </Hydrate>
-            </TabsContent>
-          )}
 
           <TabsContent value="files" className="mt-4 max-w-3xl">
             <div className="rounded-lg border bg-card p-4">

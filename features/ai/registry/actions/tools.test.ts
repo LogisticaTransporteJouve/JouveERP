@@ -199,7 +199,6 @@ const MIGRATED_TOOLS = [
   "getFuelLoads",
   "getMaintenance",
   "getFleetDocuments",
-  "getFleetProfitability",
 ];
 
 describe("ai action registry", () => {

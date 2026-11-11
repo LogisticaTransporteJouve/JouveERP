@@ -10,7 +10,6 @@ import {
 } from "./actions/accounting";
 import {
   getClientAccount,
-  getClientTariffs,
   getFreightTariffs,
   getSupplierAccount,
 } from "./actions/account-statements";
@@ -18,11 +17,9 @@ import { getBackups, getImportRuns, getUsers } from "./actions/admin";
 import { getAfipStatus } from "./actions/afip";
 import { getAuditEvents } from "./actions/audit";
 import {
-  getClientMargin,
   getClientPaymentBehavior,
   getDriverActivity,
   getTopCosts,
-  getVehicleEconomics,
 } from "./actions/cross";
 import {
   getAccounts,
@@ -59,7 +56,6 @@ import {
   getDrivers,
   getFleetDocuments,
   getFleetMargin,
-  getFleetProfitability,
   getFuelLoads,
   getMaintenance,
   getShipmentsSummary,
@@ -73,13 +69,6 @@ import {
   getVehicleUsage,
 } from "./actions/fleet-detail";
 import {
-  proposeDriverSettlement,
-  proposeDriverSettlementConfirm,
-  proposeDriverSettlementDifference,
-} from "./actions/driver-settlement-proposals";
-import {
-  proposeFreightSettlement,
-  proposeFreightSettlementConfirm,
   proposeFuelLoad,
   proposeMaintenance,
   proposeShipment,
@@ -87,7 +76,6 @@ import {
   proposeTrip,
 } from "./actions/fleet-proposals";
 import { getAttachments, searchFiles } from "./actions/general";
-import { proposeStorageInvoice } from "./actions/storage-proposals";
 import { searchGuide } from "./actions/guide";
 import {
   proposeAttendance,
@@ -160,7 +148,6 @@ import { getMonthlyPackageStatus } from "./actions/monthly-package";
 import {
   getLateInterestCandidates,
   proposeBankMatches,
-  proposeClientTariff,
   proposeLateInterestNd,
   proposeTask,
 } from "./actions/operations-proposals";
@@ -171,10 +158,6 @@ import {
   proposeInvoice,
   proposeInvoiceEmail,
 } from "./actions/sales-proposals";
-import {
-  getDriverSettlements,
-  getFreightSettlements,
-} from "./actions/settlements";
 import {
   proposeCheckDeposit,
   proposeIssuedCheck,
@@ -200,9 +183,6 @@ import {
   getPallets,
   getPalletsSummary,
   getProducts,
-  getStorageBilling,
-  getStorageBillingRuns,
-  getStorageTariffs,
   getWarehouses,
 } from "./actions/warehouse";
 import { getAiWorkflows, proposeAiWorkflow } from "./actions/workflows";
@@ -221,7 +201,6 @@ export const AI_ACTIONS: readonly AiAction[] = [
   searchClients,
   getClientAccount,
   getClientSalesSummary,
-  getClientMargin,
   getClientPaymentBehavior,
   getLateInterestCandidates,
   proposeLateInterestNd,
@@ -232,9 +211,6 @@ export const AI_ACTIONS: readonly AiAction[] = [
   proposeInvoiceEmail,
   proposeReceipt,
   proposeReceiptEmail,
-  getFreightSettlements,
-  proposeFreightSettlement,
-  proposeFreightSettlementConfirm,
   // Compras / cuentas por pagar
   getSupplierAging,
   getPurchaseInvoices,
@@ -263,7 +239,6 @@ export const AI_ACTIONS: readonly AiAction[] = [
   getChecks,
   getIssuedChecks,
   getRecurringPayments,
-  getDriverSettlements,
   getBankReconciliation,
   proposeBankMatches,
   proposeTreasuryAccount,
@@ -272,9 +247,6 @@ export const AI_ACTIONS: readonly AiAction[] = [
   proposeManualCheck,
   proposeCheckDeposit,
   proposeIssuedCheck,
-  proposeDriverSettlement,
-  proposeDriverSettlementConfirm,
-  proposeDriverSettlementDifference,
   // Contabilidad
   getTrialBalance,
   getLedger,
@@ -338,9 +310,7 @@ export const AI_ACTIONS: readonly AiAction[] = [
   getMaintenance,
   getFleetDocuments,
   getVehicleKm,
-  getFleetProfitability,
   getFleetMargin,
-  getVehicleEconomics,
   getDriverActivity,
   getDrivers,
   getShipmentsSummary,
@@ -356,12 +326,6 @@ export const AI_ACTIONS: readonly AiAction[] = [
   getPallets,
   getWarehouses,
   getProducts,
-  getStorageTariffs,
-  getStorageBilling,
-  getStorageBillingRuns,
-  proposeStorageInvoice,
-  getClientTariffs,
-  proposeClientTariff,
   getFreightTariffs,
   // AFIP
   getAfipStatus,

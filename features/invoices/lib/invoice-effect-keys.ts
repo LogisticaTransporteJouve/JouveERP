@@ -1,17 +1,15 @@
 import { agingKeys } from "@/features/aging/lib/aging-keys";
 import { clientsKeys } from "@/features/clients/lib/clients-keys";
-import { freightSettlementsKeys } from "@/features/freight-settlements/lib/freight-settlements-keys";
 import { LEDGER_KEYS } from "@/features/journal-entries/lib/ledger-keys";
 import { libroIvaKeys } from "@/features/libro-iva/lib/libro-iva-keys";
 import { receiptsKeys } from "@/features/receipts/lib/receipts-keys";
 import { shipmentsKeys } from "@/features/shipments/lib/shipments-keys";
-import { storageBillingKeys } from "@/features/storage-billing/lib/storage-billing-keys";
 
 import { invoicesKeys } from "./invoices-keys";
 
 /** What an emitted or cancelled invoice changes beyond its own list: the
  *  client's cuenta corriente and aging, the receipts picker, the fiscal
- *  books and the shipment, liquidación or storage period it bills. */
+ *  books and the shipment it bills. */
 export const INVOICE_EFFECT_KEYS = [
   invoicesKeys.all,
   agingKeys.all,
@@ -20,6 +18,4 @@ export const INVOICE_EFFECT_KEYS = [
   libroIvaKeys.all,
   ...LEDGER_KEYS,
   shipmentsKeys.all,
-  freightSettlementsKeys.all,
-  storageBillingKeys.all,
 ] as const;

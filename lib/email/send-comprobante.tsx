@@ -11,11 +11,10 @@ import {
   getResendClient,
   isEmailConfigured,
 } from "./client";
-import { FreightSettlementEmail } from "./templates/freight-settlement-email";
 import { InvoiceEmail } from "./templates/invoice-email";
 import { ReceiptEmail } from "./templates/receipt-email";
 
-export type EntityType = "invoice" | "receipt" | "freight_settlement";
+export type EntityType = "invoice" | "receipt";
 
 export interface SendComprobanteByEmailInput {
   entity_type: EntityType;
@@ -64,16 +63,7 @@ export async function sendComprobanteByEmail(
   }
 
   const html = await render(
-    input.entity_type === "freight_settlement" ? (
-      <FreightSettlementEmail
-        emisor_name={input.emisor_name}
-        client_legal_name={input.client_legal_name}
-        numero_label={input.numero_label}
-        fecha={input.fecha}
-        total_label={input.total_label}
-        custom_body={input.body}
-      />
-    ) : input.entity_type === "invoice" ? (
+    input.entity_type === "invoice" ? (
       <InvoiceEmail
         emisor_name={input.emisor_name}
         internal={input.internal ?? false}
@@ -153,8 +143,7 @@ export async function sendComprobanteByEmail(
     return { ok: false, error: sendError };
   }
 
-  // Bump notified_at only if the send succeeded. A liquidación has no
-  // notified_at: its log row is the record.
+  // Bump notified_at only if the send succeeded.
   if (input.entity_type === "invoice") {
     await supabase
       .from("invoices")

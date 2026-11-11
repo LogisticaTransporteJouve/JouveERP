@@ -828,7 +828,6 @@ export const adminPage: GuidePage = {
           body: [
             "**Clientes**, **Proveedores**, **Empleados** y **Vehículos** crean los que no existen (se compara por CUIT, CUIL o patente; sin ese dato, por nombre). Un existente no se actualiza. Un empleado chofer crea también su ficha de chofer con la licencia.",
             "**Sueldos históricos** y **Viajes históricos** son solo de referencia: no generan asientos, pagos, facturas, cuenta corriente ni entran en Gestión ni en los libros.",
-            "**Tarifas por cliente** crea las tarifas con su vigencia, como el tarifario del cliente.",
             "**Préstamos al arranque** crea los préstamos con sus cuotas pendientes; no registra el desembolso (la deuda entra con el ajuste inicial). Pide el canal.",
             "**Cheques en cartera al arranque** entra los cheques de terceros a la cuenta de cartera elegida con contrapartida en ajustes de caja. Pide la cuenta y el canal. Si ya cargaste el saldo inicial de esa cuenta, no lo dupliques.",
             "**Saldos iniciales de clientes** carga lo que debe cada cliente al corte, en pesos; no crea recibos, movimientos ni asientos.",
@@ -1021,16 +1020,6 @@ export const adminPage: GuidePage = {
               message:
                 "No se puede deshacer la importación: sus … ya se usan en otros datos (…)",
               fix: "Hay comprobantes, movimientos u otros datos que usan lo importado: corregí a mano.",
-            },
-            {
-              message:
-                "No se puede deshacer la importación: alguna tarifa se editó después de importarla",
-              fix: "Corregí las tarifas desde el tarifario del cliente.",
-            },
-            {
-              message:
-                "No se puede deshacer la importación: ya se facturó almacenaje con estas tarifas",
-              fix: "Las tarifas ya se usaron para facturar: cerralas o corregilas desde el tarifario.",
             },
             {
               message:

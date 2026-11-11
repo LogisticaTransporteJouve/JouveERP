@@ -62,7 +62,6 @@ vi.mock("@/features/clients/actions/sales-report-actions", async (orig) => ({
   ...(await orig<
     typeof import("@/features/clients/actions/sales-report-actions")
   >()),
-  getClientNetRevenueAction: stub("getClientNetRevenueAction"),
   getClientSalesSummaryAction: stub("getClientSalesSummaryAction"),
 }));
 vi.mock("@/features/aging/actions/aging-actions", async (orig) => ({
@@ -414,34 +413,6 @@ vi.mock("@/features/shipments/actions/shipments-actions", async (orig) => ({
   listShipmentsAction: stub("listShipmentsAction"),
   listShipmentsByTripAction: stub("listShipmentsByTripAction"),
 }));
-vi.mock(
-  "@/features/freight-settlements/actions/freight-settlements-actions",
-  async (orig) => ({
-    ...(await orig<
-      typeof import("@/features/freight-settlements/actions/freight-settlements-actions")
-    >()),
-    listFreightSettlementCandidatesAction: stub(
-      "listFreightSettlementCandidatesAction",
-    ),
-    getFreightSettlementAction: stub("getFreightSettlementAction"),
-  }),
-);
-vi.mock("@/features/storage-billing/actions/billing-actions", async (orig) => ({
-  ...(await orig<
-    typeof import("@/features/storage-billing/actions/billing-actions")
-  >()),
-  getStorageBillingAction: stub("getStorageBillingAction"),
-}));
-vi.mock(
-  "@/features/driver-settlements/actions/driver-settlements-actions",
-  async (orig) => ({
-    ...(await orig<
-      typeof import("@/features/driver-settlements/actions/driver-settlements-actions")
-    >()),
-    listCodPendingAction: stub("listCodPendingAction"),
-    getDriverSettlementAction: stub("getDriverSettlementAction"),
-  }),
-);
 vi.mock("@/features/pallets/actions/pallets-actions", async (orig) => ({
   ...(await orig<
     typeof import("@/features/pallets/actions/pallets-actions")

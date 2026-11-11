@@ -8,7 +8,7 @@ import { CHECK_CASH_PERMISSIONS } from "@/features/checks/lib/check-cash";
 // record. Master data (clients, suppliers, employees, vehicles) lands in its
 // own table; historic payroll and trips land in tables of their own that
 // nothing else reads (supabase/migrations/20261103110000_import_runs.sql).
-// The go-live items (tariffs, loans, cartera checks, client opening balances)
+// The go-live items (loans, cartera checks, client opening balances)
 // and bank statements land where the app's own forms put them
 // (supabase/migrations/20261103140100_import_opening_items.sql).
 
@@ -19,7 +19,6 @@ export const IMPORT_KINDS = [
   "vehicles",
   "historic_payroll",
   "historic_trips",
-  "client_tariffs",
   "loans",
   "checks",
   "opening_balances",
@@ -34,7 +33,6 @@ export const IMPORT_KIND_LABELS: Record<ImportKind, string> = {
   vehicles: "Vehículos",
   historic_payroll: "Sueldos históricos",
   historic_trips: "Viajes históricos",
-  client_tariffs: "Tarifas por cliente",
   loans: "Préstamos al arranque",
   checks: "Cheques en cartera al arranque",
   opening_balances: "Saldos iniciales de clientes",
@@ -54,7 +52,6 @@ export const IMPORT_KIND_PERMISSION: Record<
   vehicles: "vehicles:write",
   historic_payroll: "hr:write",
   historic_trips: "trips:write",
-  client_tariffs: "storage_billing:issue",
   loans: "accounting:write",
   checks: CHECK_CASH_PERMISSIONS,
   opening_balances: "opening_balances:write",
@@ -79,7 +76,6 @@ export function kindNeedsChannel(kind: ImportKind): boolean {
 /** Money items with one row per key: a key repeated in the file is an error
  *  in both rows (skipping one would drop an amount silently). */
 const STRICT_KEY_KINDS: readonly ImportKind[] = [
-  "client_tariffs",
   "loans",
   "checks",
   "opening_balances",

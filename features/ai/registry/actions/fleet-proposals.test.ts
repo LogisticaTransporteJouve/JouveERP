@@ -6,16 +6,10 @@ const listVehiclesAction = vi.fn();
 const listDriversAction = vi.fn();
 const searchClientsAction = vi.fn();
 const listShipmentsAction = vi.fn();
-const findShipmentRemitoConflictAction = vi.fn();
 const createTrip = vi.fn();
 const changeShipmentStatus = vi.fn();
 const createFuelLoad = vi.fn();
-const listFreightSettlementCandidatesAction = vi.fn();
-const getFreightSettlementAction = vi.fn();
-const saveFreightSettlement = vi.fn();
-const confirmFreightSettlement = vi.fn();
 const userDb = { kind: "user-client" };
-const serviceDb = { kind: "service-client" };
 
 vi.mock("@/features/vehicles/actions/vehicles-actions", () => ({
   listVehiclesAction,
@@ -28,25 +22,8 @@ vi.mock("@/features/clients/actions/clients-actions", () => ({
 }));
 vi.mock("@/features/shipments/actions/shipments-actions", () => ({
   listShipmentsAction,
-  findShipmentRemitoConflictAction,
-}));
-vi.mock(
-  "@/features/freight-settlements/actions/freight-settlements-actions",
-  () => ({
-    getFreightSettlementAction,
-    listFreightSettlementCandidatesAction,
-  }),
-);
-vi.mock("@/lib/commands/save-freight-settlement", () => ({
-  saveFreightSettlement,
-}));
-vi.mock("@/lib/commands/confirm-freight-settlement", () => ({
-  confirmFreightSettlement,
 }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: async () => userDb }));
-vi.mock("@/lib/supabase/service", () => ({
-  getServiceClient: () => serviceDb,
-}));
 vi.mock("@/lib/commands/create-trip", () => ({ createTrip }));
 vi.mock("@/lib/commands/create-shipment", () => ({ createShipment: vi.fn() }));
 vi.mock("@/lib/commands/change-shipment-status", () => ({
@@ -58,8 +35,6 @@ vi.mock("@/lib/commands/create-maintenance", () => ({
 }));
 
 const {
-  proposeFreightSettlement,
-  proposeFreightSettlementConfirm,
   proposeFuelLoad,
   proposeMaintenance,
   proposeShipment,
@@ -98,7 +73,6 @@ beforeEach(() => {
     ok: true,
     data: { clients: [{ id: CLIENT, legal_name: "Acme SA", cuit: null }] },
   });
-  findShipmentRemitoConflictAction.mockResolvedValue({ ok: true, data: null });
   listShipmentsAction.mockResolvedValue({ ok: true, data: [shipment] });
 });
 
@@ -108,9 +82,6 @@ describe("proposeTrip", () => {
       trip_date: "2026-11-06",
       vehicle: "ab 123 cd",
       driver: "Pérez",
-      origin: "Rosario",
-      destination: "Córdoba",
-      revenue: 850_000,
     });
     expect(prepared?.kind).toBe("draft");
     if (prepared?.kind !== "draft") return;
@@ -119,16 +90,10 @@ describe("proposeTrip", () => {
       vehicle_id: TRUCK,
       driver_id: DRIVER,
       status: "planned",
-      revenue: 850_000,
-      cost: null,
     });
     expect(prepared.summary).toContainEqual({
       label: "Vehículo",
       value: "AB123CD",
-    });
-    expect(prepared.summary).toContainEqual({
-      label: "Recorrido",
-      value: "Rosario → Córdoba",
     });
   });
 
@@ -154,40 +119,24 @@ describe("proposeTrip", () => {
 });
 
 describe("proposeShipment", () => {
-  it("refuses a remito the client already has on another carga", async () => {
-    findShipmentRemitoConflictAction.mockResolvedValue({
-      ok: true,
-      data: { id: "other", status: "not_started" },
-    });
-    const prepared = await proposeShipment.proposal?.prepareDraft(ctx, {
-      client: "Acme SA",
-      remito_number: "R-100",
-    });
-    expect(prepared).toEqual({
-      kind: "issues",
-      issues: [
-        {
-          field: "remito_number",
-          message: "Ese número de remito ya está en otra carga del cliente.",
-        },
-      ],
-    });
-  });
-
   it("drafts the carga for the resolved client", async () => {
     const prepared = await proposeShipment.proposal?.prepareDraft(ctx, {
       client: "acme sa",
-      remito_number: "R-101",
-      freight_amount: 120_000,
+      description: "Pallets",
+      destination: "Av. Corrientes 1234, CABA",
     });
     expect(prepared?.kind).toBe("draft");
     if (prepared?.kind !== "draft") return;
     expect(prepared.draft).toMatchObject({
       client_id: CLIENT,
-      remito_number: "R-101",
-      freight_amount: 120_000,
+      description: "Pallets",
+      destination: "Av. Corrientes 1234, CABA",
     });
     expect(prepared.summary[0]).toEqual({ label: "Cliente", value: "Acme SA" });
+    expect(prepared.summary).toContainEqual({
+      label: "Dirección",
+      value: "Av. Corrientes 1234, CABA",
+    });
   });
 });
 
@@ -287,173 +236,5 @@ describe("proposeMaintenance", () => {
       description: "Cambio de aceite y filtros",
       cost: 180_000,
     });
-  });
-});
-
-describe("proposeFreightSettlement", () => {
-  const finance = { userId: "u1", access: resolveAccess(["finance"]) };
-  const candidate = (id: string, amount: number | null) => ({
-    shipment_id: id,
-    remito_number: id,
-    service_date: "2026-10-10",
-    origin: null,
-    destination: null,
-    description: null,
-    amount,
-    price_source: amount === null ? null : "shipment",
-  });
-
-  it("takes the priced cargas and says which ones stay out", async () => {
-    const A = "00000000-0000-4000-8000-0000000000b1";
-    const B = "00000000-0000-4000-8000-0000000000b2";
-    listFreightSettlementCandidatesAction.mockResolvedValue({
-      ok: true,
-      data: [candidate(A, 100_000), candidate(B, null)],
-    });
-    const prepared = await proposeFreightSettlement.proposal?.prepareDraft(
-      finance,
-      {
-        client: "Acme SA",
-        period_start: "2026-10-01",
-        period_end: "2026-10-31",
-      },
-    );
-    expect(prepared?.kind).toBe("draft");
-    if (prepared?.kind !== "draft") return;
-    expect(prepared.draft).toMatchObject({
-      client_id: CLIENT,
-      shipment_ids: [A],
-    });
-    expect(prepared.summary).toContainEqual({
-      label: "Total estimado",
-      value: "$ 100.000,00",
-    });
-    expect(prepared.summary.map((r) => r.label)).toContain("Atención");
-  });
-
-  it("refuses when no carga can be settled", async () => {
-    listFreightSettlementCandidatesAction.mockResolvedValue({
-      ok: true,
-      data: [],
-    });
-    const prepared = await proposeFreightSettlement.proposal?.prepareDraft(
-      finance,
-      {
-        client: "Acme SA",
-        period_start: "2026-10-01",
-        period_end: "2026-10-31",
-      },
-    );
-    expect(prepared?.kind).toBe("error");
-    expect(saveFreightSettlement).not.toHaveBeenCalled();
-  });
-});
-
-describe("proposeFreightSettlementConfirm", () => {
-  const finance = { userId: "u1", access: resolveAccess(["finance"]) };
-  const SETTLEMENT = "00000000-0000-4000-8000-0000000000e1";
-  const A = "00000000-0000-4000-8000-0000000000b1";
-  const B = "00000000-0000-4000-8000-0000000000b2";
-  const detail = (over: Record<string, unknown> = {}) => ({
-    ok: true,
-    data: {
-      id: SETTLEMENT,
-      client_id: CLIENT,
-      client_name: "Acme SA",
-      client_is_fiscal: true,
-      period_start: "2026-10-01",
-      period_end: "2026-10-31",
-      status: "draft",
-      total: 250_000,
-      items: [
-        { shipment_id: A, remito_number: "R-1" },
-        { shipment_id: B, remito_number: "R-2" },
-      ],
-      ...over,
-    },
-  });
-  const priced = (a: number | null, b: number | null) => ({
-    ok: true,
-    data: [
-      { shipment_id: A, amount: a },
-      { shipment_id: B, amount: b },
-    ],
-  });
-
-  it("shows the total the confirm will price and passes it to the command", async () => {
-    getFreightSettlementAction.mockResolvedValue(detail());
-    // A tariff changed since the draft was saved: B is priced at 160.000 now.
-    listFreightSettlementCandidatesAction.mockResolvedValue(
-      priced(100_000, 160_000),
-    );
-    const prepared =
-      await proposeFreightSettlementConfirm.proposal?.prepareDraft(finance, {
-        settlement_id: SETTLEMENT,
-      });
-    if (prepared?.kind !== "draft") throw new Error("no draft");
-    expect(prepared.draft).toEqual({
-      id: SETTLEMENT,
-      expected_total: 260_000,
-    });
-    expect(listFreightSettlementCandidatesAction).toHaveBeenCalledWith(
-      expect.objectContaining({ settlement_id: SETTLEMENT }),
-    );
-    expect(prepared.summary).toContainEqual({
-      label: "Total",
-      value: "$ 260.000,00",
-    });
-    expect(prepared.summary.map((r) => r.label)).toContain("Atención");
-
-    confirmFreightSettlement.mockResolvedValue({
-      ok: true,
-      data: { channel: "fiscal", number: "R9002-00000007" },
-    });
-    const res = await proposeFreightSettlementConfirm.proposal?.executeDraft(
-      finance,
-      prepared.draft,
-    );
-    expect(confirmFreightSettlement).toHaveBeenCalledWith(
-      "u1",
-      SETTLEMENT,
-      260_000,
-    );
-    expect(res).toEqual({
-      ok: true,
-      data: { id: SETTLEMENT, note: "Remito R9002-00000007" },
-    });
-  });
-
-  it("refuses a carga with no price, an internal or a confirmed liquidación", async () => {
-    getFreightSettlementAction.mockResolvedValue(detail());
-    listFreightSettlementCandidatesAction.mockResolvedValue(
-      priced(100_000, null),
-    );
-    const unpriced =
-      await proposeFreightSettlementConfirm.proposal?.prepareDraft(finance, {
-        settlement_id: SETTLEMENT,
-      });
-    expect(unpriced).toMatchObject({ kind: "error" });
-
-    getFreightSettlementAction.mockResolvedValue(
-      detail({ client_is_fiscal: false }),
-    );
-    const internal =
-      await proposeFreightSettlementConfirm.proposal?.prepareDraft(finance, {
-        settlement_id: SETTLEMENT,
-      });
-    expect(internal).toMatchObject({ kind: "error" });
-
-    getFreightSettlementAction.mockResolvedValue(
-      detail({ status: "confirmed" }),
-    );
-    const confirmed =
-      await proposeFreightSettlementConfirm.proposal?.prepareDraft(finance, {
-        settlement_id: SETTLEMENT,
-      });
-    expect(confirmed).toMatchObject({
-      kind: "error",
-      error: "La liquidación ya está confirmada.",
-    });
-    expect(confirmFreightSettlement).not.toHaveBeenCalled();
   });
 });

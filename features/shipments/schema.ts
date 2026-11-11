@@ -45,8 +45,6 @@ export interface Shipment {
   delivery_date: string | null;
   failure_reason: string | null;
   freight_amount: number | null;
-  /** Cash on delivery: what the driver collects at delivery (null = no). */
-  cod_amount: number | null;
   invoice_id: string | null;
   /** invoice_id points at an invoice that no longer bills the carga (a
    *  fiscal factura credited in full): it can be invoiced again. */
@@ -88,31 +86,6 @@ const optionalText = (max: number) =>
     .nullable()
     .optional();
 
-const optionalChannel = z
-  .string()
-  .trim()
-  .max(60)
-  .transform((v) => (v.length === 0 ? null : v))
-  .nullable()
-  .optional();
-
-const optionalAmount = z
-  .union([z.literal(""), z.coerce.number().min(0)])
-  .transform((v) => (v === "" ? null : v))
-  .nullable()
-  .optional();
-
-/** Empty = not cash-on-delivery; otherwise a positive amount
- *  (shipments_cod_amount_positive). */
-const optionalCodAmount = z
-  .union([
-    z.literal(""),
-    z.coerce.number().positive("El monto a cobrar tiene que ser mayor a 0."),
-  ])
-  .transform((v) => (v === "" ? null : v))
-  .nullable()
-  .optional();
-
 const optionalDate = z
   .union([
     z.literal(""),
@@ -122,58 +95,29 @@ const optionalDate = z
   .nullable()
   .optional();
 
-/** The client's remito number: unique per client among live cargas
- *  (shipments_client_remito_unique), compared trimmed and case-insensitive. */
+/** The longest remito number a carga holds (the scanned-remito search). */
 export const REMITO_NUMBER_MAX = 60;
 
-export const ShipmentCreateSchema = z.object({
+/** What the carga form writes: client, description, scheduled date and
+ *  dirección (the destination column). An assistant proposal can also put
+ *  the new carga on a trip. */
+const shipmentFields = {
   client_id: optionalUuid,
-  trip_id: optionalUuid,
-  channel_id: optionalChannel,
-  remito_number: optionalText(REMITO_NUMBER_MAX),
-  origin: optionalText(160),
   destination: optionalText(160),
   description: optionalText(500),
   scheduled_date: optionalDate,
-  freight_amount: optionalAmount,
-  cod_amount: optionalCodAmount,
-  notes: optionalText(2000),
+};
+
+export const ShipmentCreateSchema = z.object({
+  ...shipmentFields,
+  trip_id: optionalUuid,
 });
 export type ShipmentCreateInput = z.infer<typeof ShipmentCreateSchema>;
 
 export const ShipmentUpdateSchema = z.object({
   id: z.string().uuid(),
-  client_id: optionalUuid,
-  trip_id: optionalUuid,
-  channel_id: optionalChannel,
-  remito_number: optionalText(REMITO_NUMBER_MAX),
-  origin: optionalText(160),
-  destination: optionalText(160),
-  description: optionalText(500),
-  scheduled_date: optionalDate,
-  freight_amount: optionalAmount,
-  cod_amount: optionalCodAmount,
-  notes: optionalText(2000),
+  ...shipmentFields,
 });
-
-/** The duplicate check the carga form runs before saving. */
-export const ShipmentRemitoCheckSchema = z.object({
-  client_id: z.string().uuid(),
-  remito_number: z.string().trim().min(1).max(REMITO_NUMBER_MAX),
-  exclude_id: z.string().uuid().nullable().optional(),
-});
-export type ShipmentRemitoCheckInput = z.input<
-  typeof ShipmentRemitoCheckSchema
->;
-
-/** A live carga of the client that already holds a remito number. */
-export interface ShipmentRemitoConflict {
-  id: string;
-  scheduled_date: string | null;
-  status: string;
-  origin: string | null;
-  destination: string | null;
-}
 
 /** Assigns cargas to a trip (tripId) or takes them off it (null). */
 export const ShipmentTripAssignSchema = z.object({
@@ -222,14 +166,6 @@ export const ShipmentStatusChangeSchema = z.object({
 export type ShipmentStatusChangeInput = z.infer<
   typeof ShipmentStatusChangeSchema
 >;
-
-/** Input for "facturar flete": which shipment, on which channel + POS. */
-export const FreightInvoiceSchema = z.object({
-  shipmentId: z.string().uuid(),
-  channel_id: z.string().min(1),
-  punto_venta: z.coerce.number().int().min(1).max(99999),
-});
-export type FreightInvoiceInput = z.infer<typeof FreightInvoiceSchema>;
 
 /** Input of the shipments summary read; `.describe()` doubles as the
  *  assistant's tool parameter docs. */

@@ -1,12 +1,3 @@
-/** "Origen → Destino", with a dash for the missing end. */
-export function formatRoute(
-  origin: string | null,
-  destination: string | null,
-): string {
-  if (!origin && !destination) return "—";
-  return `${origin ?? "—"} → ${destination ?? "—"}`;
-}
-
 /** Lowercase, no accents, spaces collapsed: how the list search compares. */
 function fold(v: string): string {
   return v
@@ -17,13 +8,13 @@ function fold(v: string): string {
     .trim();
 }
 
-/** The carga list search: its client's remito (ignoring spaces, as the
- *  unique index does), client, origin, destination or description. Blank
- *  matches everything. */
+/** The carga list search: client, description or dirección (the
+ *  destination column). A remito number still matches (ignoring spaces, as
+ *  the unique index does) so a scanned remito's link (?q=) finds its carga.
+ *  Blank matches everything. */
 export function matchesShipmentSearch(
   s: {
     remito_number: string | null;
-    origin: string | null;
     destination: string | null;
     description: string | null;
     client: { legal_name: string; display_name: string | null } | null;
@@ -42,9 +33,8 @@ export function matchesShipmentSearch(
   return [
     s.client?.legal_name,
     s.client?.display_name,
-    s.origin,
-    s.destination,
     s.description,
+    s.destination,
   ].some((v) => v !== null && v !== undefined && fold(v).includes(q));
 }
 

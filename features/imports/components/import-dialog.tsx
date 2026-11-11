@@ -76,9 +76,7 @@ const KIND_NOTES: Record<ImportKind, string> = {
   historic_payroll:
     "Sueldos de meses anteriores al sistema, solo de referencia: no generan asientos, pagos ni cuenta corriente del empleado. Los empleados tienen que estar cargados.",
   historic_trips:
-    "Viajes anteriores al sistema, solo de referencia: no generan facturas, extras de chofer ni rentabilidad. Vehículo, chofer y cliente se buscan por patente, nombre o CUIT; si no se encuentran se guarda el texto.",
-  client_tariffs:
-    "Crea las tarifas por cliente con su vigencia, como el tarifario del cliente: para todas las áreas, o para un área si la fila la nombra (se busca por nombre dentro del depósito). Una tarifa que se superpone con otra del mismo concepto y área queda con error; la misma tarifa con el mismo inicio se saltea. Los clientes tienen que estar cargados.",
+    "Viajes anteriores al sistema, solo de referencia: no generan facturas ni extras de chofer. Vehículo, chofer y cliente se buscan por patente, nombre o CUIT; si no se encuentran se guarda el texto.",
   loans:
     "Crea los préstamos vigentes al arranque con sus cuotas pendientes, como el alta de préstamo. No registra el desembolso: la deuda entra con el ajuste inicial. Cada cuota se edita o desglosa después.",
   checks:

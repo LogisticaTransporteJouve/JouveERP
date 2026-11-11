@@ -1,7 +1,6 @@
 import { z } from "zod";
 
 import { getClientAccountAction } from "@/features/clients/actions/account-actions";
-import { listClientTariffsAction } from "@/features/client-tariffs/actions/client-tariffs-actions";
 import { listFreightTariffsAction } from "@/features/freight-tariffs/actions/freight-tariffs-actions";
 import { getSupplierAccountAction } from "@/features/suppliers/actions/account-actions";
 import type { CurrencyBalances } from "@/lib/allocations";
@@ -148,22 +147,6 @@ export const getSupplierAccount = defineAiAction({
       res.data,
       input,
     );
-  },
-});
-
-export const getClientTariffs = defineAiAction({
-  name: "getClientTariffs",
-  domain: "deposito",
-  permission: "storage_billing:read",
-  sideEffect: "read",
-  sources: ["client_tariffs"],
-  description:
-    "Tarifario propio de UN cliente (de su ficha) por su UUID: concepto, precio, moneda y vigencia, la más nueva primero.",
-  input: z.object({ clientId: UuidSchema.describe("UUID del cliente.") }),
-  run: async (_ctx, input) => {
-    const res = await listClientTariffsAction(input.clientId);
-    if (!res.ok) return errResult(res.error);
-    return okResult(`${res.data.length} tarifas del cliente.`, res.data);
   },
 });
 

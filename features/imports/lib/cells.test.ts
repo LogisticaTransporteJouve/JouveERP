@@ -4,8 +4,6 @@ import {
   parseCheckKind,
   parseCurrency,
   parseLoanKind,
-  parseTariffConcept,
-  parseTariffUnit,
   parseIvaCondition,
   parseNumberCell,
   parsePayFrequency,
@@ -91,17 +89,6 @@ describe("parsePayrollKind / parseNumberCell", () => {
 });
 
 describe("go-live cells", () => {
-  it("reads tariff concepts and units", () => {
-    expect(parseTariffConcept("Almacenaje")).toBe("storage");
-    expect(parseTariffConcept("Descarga")).toBe("handling_out");
-    expect(parseTariffConcept("Flete")).toBe("freight");
-    expect(parseTariffConcept("otra cosa")).toBeNull();
-    expect(parseTariffUnit("", "storage")).toBe("pallet_month");
-    expect(parseTariffUnit("por pallet por día", "storage")).toBe("pallet_day");
-    expect(parseTariffUnit("", "freight")).toBe("shipment");
-    expect(parseTariffUnit("por kilo", "storage")).toBeNull();
-  });
-
   it("reads currencies, check and loan kinds with their fallback", () => {
     expect(parseCurrency("", "USD")).toBe("USD");
     expect(parseCurrency("$", "USD")).toBe("ARS");

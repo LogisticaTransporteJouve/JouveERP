@@ -15,13 +15,6 @@ vi.mock("@/features/receipts/actions/send-receipt-email", () => ({
   getReceiptEmailDefaultsAction: vi.fn(),
   sendReceiptByEmailAction: vi.fn(),
 }));
-vi.mock(
-  "@/features/freight-settlements/actions/send-freight-settlement-email",
-  () => ({
-    getFreightSettlementEmailDefaultsAction: vi.fn(),
-    sendFreightSettlementByEmailAction: vi.fn(),
-  }),
-);
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 import { SendByEmailDialog } from "./send-by-email-dialog";

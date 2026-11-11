@@ -68,16 +68,6 @@ export function historicPayrollKey(row: {
   return `${row.employee_id}|${row.period}|${row.kind}`;
 }
 
-/** A client tariff: client, concept, area (none = every area) and start. */
-export function clientTariffKey(row: {
-  client_id: string;
-  concept: string;
-  area_id: string | null;
-  valid_from: string;
-}): string {
-  return `${row.client_id}|${row.concept}|${row.area_id ?? ""}|${row.valid_from}`;
-}
-
 /** A loan: description, lender and first due date (commit_import_run
  *  compares the same). */
 export function loanKey(row: {

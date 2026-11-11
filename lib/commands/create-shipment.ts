@@ -9,11 +9,8 @@ import type { Database } from "@/lib/db/database.types";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 
-import { REMITO_TAKEN_ERROR, isRemitoTaken } from "./shipment-remito";
-
 /**
- * Inserts a carga and audits it; a remito number another live carga of the
- * client holds is refused. The caller has already checked `shipments:write`
+ * Inserts a carga and audits it. The caller has already checked `shipments:write`
  * and parsed the input with `ShipmentCreateSchema`: the carga dialog and an
  * accepted assistant proposal. `db` is the user's client (shipments' RLS).
  */
@@ -27,20 +24,13 @@ export async function createShipment(
     .insert({
       client_id: d.client_id ?? null,
       trip_id: d.trip_id ?? null,
-      channel_id: d.channel_id ?? null,
-      remito_number: d.remito_number ?? null,
-      origin: d.origin ?? null,
       destination: d.destination ?? null,
       description: d.description ?? null,
       scheduled_date: d.scheduled_date ?? null,
-      freight_amount: d.freight_amount ?? null,
-      cod_amount: d.cod_amount ?? null,
-      notes: d.notes ?? null,
       created_by: actorId,
     })
     .select("id")
     .single();
-  if (isRemitoTaken(error)) return { ok: false, error: REMITO_TAKEN_ERROR };
   if (error) {
     logger.error("shipments.create.failed", { userId: actorId, error });
     return { ok: false, error: "No se pudo crear la carga." };

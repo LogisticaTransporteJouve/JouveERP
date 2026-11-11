@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/features/clients/actions/sales-report-actions", () => ({
-  getClientNetRevenueAction: vi.fn(),
   getClientSalesSummaryAction: vi.fn(),
 }));
 vi.mock("@/features/aging/actions/aging-actions", () => ({
@@ -11,64 +10,35 @@ vi.mock("@/features/fleet-reports/actions/margin-actions", () => ({
   getFleetMarginAction: vi.fn(),
 }));
 vi.mock("@/features/fleet-reports/actions/activity-actions", () => ({
-  getVehicleActivityAction: vi.fn(),
   getDriverActivityAction: vi.fn(),
 }));
 vi.mock("@/features/management/actions/management-actions", () => ({
   getManagementPnlAction: vi.fn(),
-  getVehicleMarginAction: vi.fn(),
   listManagementCostCentersAction: vi.fn(),
   getManagementDrillAction: vi.fn(),
 }));
-vi.mock(
-  "@/features/driver-settlements/actions/driver-settlements-actions",
-  () => ({
-    listCodPendingAction: vi.fn(),
-    listAllDriverSettlementsAction: vi.fn(),
-  }),
-);
 
 import { getAgingSummaryAction } from "@/features/aging/actions/aging-actions";
-import {
-  listCodPendingAction,
-  listAllDriverSettlementsAction,
-} from "@/features/driver-settlements/actions/driver-settlements-actions";
-import type { DriverSettlement } from "@/features/driver-settlements/schema";
-import {
-  getClientNetRevenueAction,
-  getClientSalesSummaryAction,
-} from "@/features/clients/actions/sales-report-actions";
-import {
-  getDriverActivityAction,
-  getVehicleActivityAction,
-} from "@/features/fleet-reports/actions/activity-actions";
+import { getClientSalesSummaryAction } from "@/features/clients/actions/sales-report-actions";
+import { getDriverActivityAction } from "@/features/fleet-reports/actions/activity-actions";
 import { getFleetMarginAction } from "@/features/fleet-reports/actions/margin-actions";
 import type {
   DriverActivityRow,
   FleetMarginRow,
-  VehicleActivityRow,
 } from "@/features/fleet-reports/schema";
 import {
   getManagementPnlAction,
-  getVehicleMarginAction,
   listManagementCostCentersAction,
 } from "@/features/management/actions/management-actions";
-import type {
-  ManagementRow,
-  VehicleMarginRow,
-} from "@/features/management/schema";
+import type { ManagementRow } from "@/features/management/schema";
 import { resolveAccess, type Role } from "@/lib/auth/permissions";
 import type { AgingPartyRow, AgingReport } from "@/lib/aging";
 
 import {
-  getClientMargin,
   getClientPaymentBehavior,
   getDriverActivity,
   getTopCosts,
-  codByDriver,
-  getVehicleEconomics,
   groupCosts,
-  kmBasis,
   pageOf,
 } from "./cross";
 import { getManagementPnL } from "./management";
@@ -113,7 +83,7 @@ function margin(
 
 type Data = { rows: Record<string, unknown>[]; [k: string]: unknown };
 
-function okData(res: Awaited<ReturnType<typeof getClientMargin.execute>>) {
+function okData(res: Awaited<ReturnType<typeof getDriverActivity.execute>>) {
   expect(res.ok).toBe(true);
   if (!res.ok) throw new Error(res.error);
   return { data: res.data as Data, meta: res.meta, summary: res.summary };
@@ -121,69 +91,7 @@ function okData(res: Awaited<ReturnType<typeof getClientMargin.execute>>) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(listCodPendingAction).mockResolvedValue({
-    ok: true,
-    data: { shipments: [], byDriver: [] },
-  });
-  vi.mocked(listAllDriverSettlementsAction).mockResolvedValue({
-    ok: true,
-    data: { settlements: [], complete: true },
-  });
-  vi.mocked(getVehicleMarginAction).mockResolvedValue({
-    ok: true,
-    data: {
-      vehicles: [],
-      withoutVehicle: null,
-      unattributed: [],
-      partial: false,
-    },
-  });
 });
-
-function vehicleMargin(v: Partial<VehicleMarginRow>): VehicleMarginRow {
-  return {
-    kind: "vehicle",
-    vehicleId: null,
-    patente: null,
-    isActive: true,
-    costCenterId: null,
-    trips: 0,
-    revenue: 0,
-    tripCost: 0,
-    fuelCost: 0,
-    maintenanceCost: 0,
-    maintenanceWithoutCost: 0,
-    centerCost: 0,
-    net: 0,
-    marginPct: null,
-    pendingUsd: 0,
-    uninvoicedShipments: 0,
-    ...v,
-  };
-}
-
-function settlement(v: Partial<DriverSettlement>): DriverSettlement {
-  return {
-    id: "s1",
-    numero: 1,
-    driver_id: "d1",
-    driver_name: "Juan",
-    settlement_date: "2026-10-10",
-    status: "confirmed",
-    notes: null,
-    expected_total: 1000,
-    received_total: 950,
-    difference: -50,
-    cargas: 2,
-    receipts: [],
-    receipts_out_of_sync: false,
-    difference_charged_to: null,
-    difference_posted: null,
-    driver_employee_id: null,
-    created_at: "2026-10-10T12:00:00Z",
-    ...v,
-  };
-}
 
 describe("pageOf", () => {
   it("slices and says whether more rows follow", () => {
@@ -193,181 +101,6 @@ describe("pageOf", () => {
       page: { offset: 0, limit: 2, total: 5, hasMore: true },
     });
     expect(pageOf(rows, { limit: 2, offset: 4 }).page.hasMore).toBe(false);
-  });
-});
-
-describe("kmBasis", () => {
-  it("prefers the odometer, then the trips' km, flagging trips without km", () => {
-    expect(
-      kmBasis({ odometer_km: 900, trip_km: 800, trips_without_km_count: 0 }),
-    ).toEqual({ km: 900, source: "Strix" });
-    expect(
-      kmBasis({ odometer_km: null, trip_km: 800, trips_without_km_count: 2 }),
-    ).toEqual({ km: 800, source: "viajes (incompleto)" });
-    expect(
-      kmBasis({ odometer_km: null, trip_km: 0, trips_without_km_count: 0 }),
-    ).toEqual({ km: null, source: null });
-  });
-});
-
-describe("getClientMargin", () => {
-  beforeEach(() => {
-    vi.mocked(getClientNetRevenueAction).mockResolvedValue({
-      ok: true,
-      data: [
-        {
-          client_id: "c1",
-          legal_name: "Acme",
-          net_revenue_ars: 1000,
-          invoices: 2,
-          credit_notes: 0,
-          debit_notes: 0,
-          pending_foreign: 0,
-          total_clients: 1,
-          total_net_revenue_ars: 1000,
-          total_pending_foreign: 0,
-        },
-      ],
-    });
-  });
-
-  it("subtracts each client's direct trip costs and keeps the unassigned ones apart", async () => {
-    vi.mocked(getFleetMarginAction).mockImplementation(async (input) => {
-      const groupBy = (input as { groupBy: string }).groupBy;
-      return {
-        ok: true,
-        data:
-          groupBy === "client"
-            ? [
-                margin(
-                  "c1",
-                  "Acme",
-                  { trips: 3, trip_cost: 200, fuel_cost: 100 },
-                  3,
-                ),
-                margin(
-                  "c2",
-                  "Beta",
-                  { trips: 1, trip_cost: 50, fuel_cost: 0 },
-                  3,
-                ),
-                margin(
-                  "none",
-                  "Sin cliente asignado",
-                  { trip_cost: 30, fuel_cost: 20 },
-                  3,
-                ),
-              ]
-            : [
-                margin("v1", "AA123BB", {
-                  fuel_cost: 180,
-                  maintenance_cost: 70,
-                }),
-              ],
-      };
-    });
-    const { data, meta } = okData(
-      await getClientMargin.execute(ctx(["owner"]), RANGE),
-    );
-    expect(data.rows).toEqual([
-      expect.objectContaining({
-        client: "Acme",
-        net_revenue_ars: 1000,
-        direct_cost_ars: 300,
-        contribution_ars: 700,
-        contribution_pct: 70,
-      }),
-      // Costs but nothing invoiced in the range: shown, never hidden.
-      expect.objectContaining({
-        client: "Beta",
-        net_revenue_ars: 0,
-        direct_cost_ars: 50,
-        contribution_ars: -50,
-        contribution_pct: null,
-      }),
-    ]);
-    expect(data.totals).toEqual(
-      expect.objectContaining({
-        direct_cost_ars: 400,
-        direct_cost_without_client_ars: 50,
-        // 180 of fuel by vehicle − 120 tied to trips + 70 maintenance.
-        fleet_cost_not_assigned_ars: 130,
-      }),
-    );
-    expect(meta.partial).toBe(false);
-  });
-
-  it("carries the cargas still to invoice per client and says the margin is not final", async () => {
-    vi.mocked(getFleetMarginAction).mockImplementation(async (input) => {
-      const groupBy = (input as { groupBy: string }).groupBy;
-      return {
-        ok: true,
-        data:
-          groupBy === "client"
-            ? [
-                margin("c1", "Acme", {
-                  trips: 1,
-                  trip_cost: 900,
-                  uninvoiced_shipments: 2,
-                }),
-              ]
-            : [margin("v1", "AA123BB", {})],
-      };
-    });
-    const { data, meta } = okData(
-      await getClientMargin.execute(ctx(["owner"]), RANGE),
-    );
-    expect(data.rows[0]).toEqual(
-      expect.objectContaining({ client: "Acme", uninvoiced_shipments: 2 }),
-    );
-    expect(meta.note).toContain(
-      "1 cliente(s) con cargas sin facturar en sus viajes",
-    );
-  });
-
-  it("leaves the costs out (null, not 0) and says so without trips and shipments", async () => {
-    const { data, meta } = okData(
-      await getClientMargin.execute(ctx(["finance"]), RANGE),
-    );
-    expect(getFleetMarginAction).not.toHaveBeenCalled();
-    expect(data.rows[0]).toEqual(
-      expect.objectContaining({
-        direct_cost_ars: null,
-        contribution_ars: null,
-        uninvoiced_shipments: null,
-      }),
-    );
-    expect(meta.note).toContain("Costos directos omitidos");
-  });
-
-  it("is partial when the revenue read did not cover every client", async () => {
-    vi.mocked(getClientNetRevenueAction).mockResolvedValue({
-      ok: true,
-      data: [
-        {
-          client_id: "c1",
-          legal_name: "Acme",
-          net_revenue_ars: 1000,
-          invoices: 1,
-          credit_notes: 0,
-          debit_notes: 0,
-          pending_foreign: 0,
-          total_clients: 900,
-          total_net_revenue_ars: 5000,
-          total_pending_foreign: 0,
-        },
-      ],
-    });
-    const { meta } = okData(
-      await getClientMargin.execute(ctx(["finance"]), RANGE),
-    );
-    expect(meta.partial).toBe(true);
-  });
-
-  it("is not offered to a role without invoices", async () => {
-    const res = await getClientMargin.execute(ctx(["operations"]), RANGE);
-    expect(res.ok).toBe(false);
-    expect(getClientNetRevenueAction).not.toHaveBeenCalled();
   });
 });
 
@@ -450,203 +183,6 @@ describe("getClientPaymentBehavior", () => {
   });
 });
 
-function vehicleActivity(
-  // The generated type says string; the RPC's "without vehicle" row is NULL.
-  v: Omit<Partial<VehicleActivityRow>, "vehicle_id"> & {
-    vehicle_id: string | null;
-  },
-): VehicleActivityRow {
-  return {
-    patente: "",
-    is_active: true,
-    trips: 0,
-    trip_km: 0,
-    trips_without_km: 0,
-    unassigned_revenue: 0,
-    fuel_loads: 0,
-    fuel_liters: 0,
-    odometer_start: 0,
-    odometer_end: 0,
-    odometer_km: 0,
-    ...v,
-  } as VehicleActivityRow;
-}
-
-describe("getVehicleEconomics", () => {
-  beforeEach(() => {
-    vi.mocked(getVehicleActivityAction).mockResolvedValue({
-      ok: true,
-      data: [
-        vehicleActivity({
-          vehicle_id: null,
-          trips: 2,
-          trip_km: 300,
-          unassigned_revenue: 400,
-        }),
-        vehicleActivity({
-          vehicle_id: "v1",
-          patente: "AA123BB",
-          trips: 4,
-          trip_km: 1000,
-          fuel_liters: 350,
-          odometer_km: 1200,
-        }),
-      ],
-    });
-    vi.mocked(getFleetMarginAction).mockResolvedValue({
-      ok: true,
-      data: [
-        margin("v1", "AA123BB", {
-          revenue: 6000,
-          trip_cost: 1000,
-          fuel_cost: 1200,
-          maintenance_cost: 400,
-          net: 3400,
-        }),
-      ],
-    });
-  });
-
-  it("puts revenue, costs, liters and km per vehicle and the trips without one apart", async () => {
-    const { data, meta } = okData(
-      await getVehicleEconomics.execute(ctx(["operations"]), RANGE),
-    );
-    expect(data.rows).toEqual([
-      expect.objectContaining({
-        vehicle: "AA123BB",
-        km_used: 1200,
-        km_source: "Strix",
-        liters_per_100km: 29.17,
-        revenue_per_km_ars: 5,
-        cost_per_km_ars: 2.17,
-        margin_pct: 56.7,
-      }),
-    ]);
-    expect(data.withoutVehicle).toEqual({
-      trips: 2,
-      trip_km: 300,
-      revenue_ars: 400,
-    });
-    expect(data.rows[0]).toEqual(
-      expect.objectContaining({
-        cost_center_cost_ars: null,
-        cost_center_linked: null,
-      }),
-    );
-    expect(meta.note).toContain("hace falta el permiso de gestión");
-    expect(getVehicleMarginAction).not.toHaveBeenCalled();
-  });
-
-  it("carries each vehicle's freight still to invoice and says its net is not final", async () => {
-    vi.mocked(getFleetMarginAction).mockResolvedValue({
-      ok: true,
-      data: [
-        margin("v1", "AA123BB", {
-          revenue: 6000,
-          net: 3400,
-          uninvoiced_freight: 800,
-          total_uninvoiced_freight: 800,
-          uninvoiced_shipments: 2,
-          total_uninvoiced_shipments: 2,
-          maintenance_without_cost: 1,
-          total_maintenance_without_cost: 1,
-        }),
-        // The trips without a vehicle: not a vehicle row.
-        margin("none", "Sin vehículo", { revenue: 100, net: 100 }),
-      ],
-    });
-    const { data, meta } = okData(
-      await getVehicleEconomics.execute(ctx(["operations"]), RANGE),
-    );
-    expect(data.rows[0]).toEqual(
-      expect.objectContaining({
-        uninvoiced_freight_ars: 800,
-        uninvoiced_shipments: 2,
-        maintenance_without_cost: 1,
-        net_ars: 3400,
-      }),
-    );
-    expect(data.rows.map((r) => r.vehicle_id)).not.toContain("none");
-    expect(meta.note).toContain("2 carga(s) sin facturar (flete $800;");
-    expect(meta.note).toContain("1 service(s) sin costo cargado");
-  });
-
-  it("adds the cost of the truck's cost center with management:read, and keeps the rest apart", async () => {
-    vi.mocked(getVehicleMarginAction).mockResolvedValue({
-      ok: true,
-      data: {
-        vehicles: [
-          vehicleMargin({
-            vehicleId: "v1",
-            patente: "AA123BB",
-            costCenterId: "cc1",
-            centerCost: 600,
-          }),
-          vehicleMargin({
-            vehicleId: "v2",
-            patente: "CC456DD",
-            costCenterId: "cc2",
-            centerCost: 250,
-          }),
-        ],
-        withoutVehicle: null,
-        unattributed: [
-          vehicleMargin({ kind: "no_center", centerCost: 70 }),
-          vehicleMargin({
-            kind: "unlinked_center",
-            costCenterId: "cc9",
-            centerCost: 30,
-          }),
-        ],
-        partial: false,
-      },
-    });
-    const { data, meta } = okData(
-      await getVehicleEconomics.execute(ctx(["admin"]), RANGE),
-    );
-    expect(getVehicleMarginAction).toHaveBeenCalledWith({
-      fromPeriod: "2026-10",
-      toPeriod: "2026-10",
-    });
-    expect(data.rows).toEqual([
-      expect.objectContaining({
-        vehicle_id: "v1",
-        cost_center_cost_ars: 600,
-        cost_center_linked: true,
-        net_ars: 2800,
-      }),
-      // Only its center's costs (insurance) in the range.
-      expect.objectContaining({
-        vehicle_id: "v2",
-        cost_center_cost_ars: 250,
-        net_ars: -250,
-      }),
-    ]);
-    expect(data.unattributed_cost_ars).toBe(100);
-    expect(meta.note).not.toContain("meses completos");
-  });
-
-  it("says the center part covers whole months when the range does not", async () => {
-    const { meta } = okData(
-      await getVehicleEconomics.execute(ctx(["admin"]), {
-        from: "2026-10-05",
-        to: "2026-10-20",
-      }),
-    );
-    expect(meta.note).toContain("meses completos 2026-10→2026-10");
-  });
-
-  it("names the parts a per-user deny leaves out", async () => {
-    const { meta } = okData(
-      await getVehicleEconomics.execute(
-        ctx(["operations"], ["fuel:read"]),
-        RANGE,
-      ),
-    );
-    expect(meta.note).toContain("litros (permiso de combustible)");
-  });
-});
-
 describe("getDriverActivity", () => {
   const driver = (v: Partial<DriverActivityRow>): DriverActivityRow =>
     ({
@@ -703,101 +239,6 @@ describe("getDriverActivity", () => {
       expect.objectContaining({ extras_ars: 50, advances_ars: 20 }),
     );
     expect(meta.note).not.toContain("permiso de RRHH");
-  });
-
-  it("brings the driver's cash-on-delivery rendiciones with receipts:read", async () => {
-    vi.mocked(getDriverActivityAction).mockResolvedValue({
-      ok: true,
-      data: [driver({})],
-    });
-    vi.mocked(getFleetMarginAction).mockResolvedValue({ ok: true, data: [] });
-    vi.mocked(listCodPendingAction).mockResolvedValue({
-      ok: true,
-      data: {
-        shipments: [],
-        byDriver: [
-          {
-            driver_id: "d1",
-            driver_name: "Juan",
-            cargas: 2,
-            amount: 300,
-            drafts: 1,
-          },
-          {
-            driver_id: null,
-            driver_name: "Sin chofer",
-            cargas: 1,
-            amount: 80,
-            drafts: 0,
-          },
-        ],
-      },
-    });
-    vi.mocked(listAllDriverSettlementsAction).mockResolvedValue({
-      ok: true,
-      data: {
-        settlements: [
-          settlement({}),
-          settlement({ id: "s2", status: "draft", numero: null }),
-          settlement({ id: "s3", settlement_date: "2026-09-30" }),
-          settlement({ id: "s4", status: "cancelled" }),
-        ],
-        complete: true,
-      },
-    });
-    const { data, meta } = okData(
-      await getDriverActivity.execute(ctx(["admin"]), RANGE),
-    );
-    expect(data.rows[0]).toEqual(
-      expect.objectContaining({
-        cod_pending_cargas: 2,
-        cod_pending_ars: 300,
-        cod_draft_settlements: 1,
-        cod_draft_ars: 1000,
-        cod_settlements: 1,
-        cod_settled_expected_ars: 1000,
-        cod_settled_received_ars: 950,
-        cod_settled_difference_ars: -50,
-      }),
-    );
-    expect(meta.note).toContain("sin chofer: $80");
-  });
-
-  it("leaves the rendiciones out (null) without receipts:read", async () => {
-    vi.mocked(getDriverActivityAction).mockResolvedValue({
-      ok: true,
-      data: [driver({})],
-    });
-    vi.mocked(getFleetMarginAction).mockResolvedValue({ ok: true, data: [] });
-    const { data, meta } = okData(
-      await getDriverActivity.execute(ctx(["operations"]), RANGE),
-    );
-    expect(data.rows[0]).toEqual(
-      expect.objectContaining({ cod_pending_ars: null, cod_settlements: null }),
-    );
-    expect(meta.note).toContain("permiso de recibos");
-    expect(listCodPendingAction).not.toHaveBeenCalled();
-  });
-});
-
-describe("codByDriver", () => {
-  it("counts a confirmed rendición only inside the range, and a draft always", () => {
-    const out = codByDriver(
-      { shipments: [], byDriver: [] },
-      [
-        settlement({ settlement_date: "2026-10-31" }),
-        settlement({ id: "s2", settlement_date: "2026-11-01" }),
-        settlement({
-          id: "s3",
-          status: "draft",
-          settlement_date: "2025-01-01",
-        }),
-      ],
-      RANGE,
-    );
-    expect(out.get("d1")).toEqual(
-      expect.objectContaining({ settled: 1, drafts: 1, draftArs: 1000 }),
-    );
   });
 });
 

@@ -20,24 +20,21 @@ import { todayInAR } from "@/lib/format";
 import { useChangeShipmentStatus } from "../hooks/use-shipments";
 import { type Shipment, type ShipmentStatus } from "../schema";
 
-export type ShipmentStatusAction = "start" | "deliver" | "cancel" | "reprogram";
+export type ShipmentStatusAction = "deliver" | "cancel" | "reprogram";
 
 const ACTION_STATUS: Record<ShipmentStatusAction, ShipmentStatus> = {
-  start: "in_progress",
   deliver: "delivered",
   cancel: "cancelled",
   reprogram: "reprogrammed",
 };
 
 const ACTION_TITLE: Record<ShipmentStatusAction, string> = {
-  start: "Iniciar carga",
   deliver: "Entregar carga",
   cancel: "Cancelar carga",
   reprogram: "Reprogramar carga",
 };
 
 const ACTION_DESCRIPTION: Record<ShipmentStatusAction, string> = {
-  start: "La carga pasa a estar en progreso.",
   deliver: "Registrá la fecha de entrega.",
   cancel: "Indicá el motivo de la cancelación.",
   reprogram: "Definí la nueva fecha y el motivo.",

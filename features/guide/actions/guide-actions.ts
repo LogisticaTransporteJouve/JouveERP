@@ -38,7 +38,6 @@ const PROBES: Record<SetupItemKey, (db: Service) => Probe[]> = {
   imports: (db) => [
     db.from("import_runs").select("id").eq("status", "committed").limit(1),
   ],
-  client_tariffs: (db) => [db.from("client_tariffs").select("id").limit(1)],
   opening_balances: (db) => [
     db.from("account_opening_balances").select("account_id").limit(1),
     db.from("client_opening_balances").select("client_id").limit(1),

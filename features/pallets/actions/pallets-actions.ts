@@ -260,8 +260,7 @@ export async function createPalletsBulkAction(
  * Bulk OUT: mark the selected pallets as despachado with an exit date. Only
  * pallets still en_deposito and not blocked are dispatched (idempotent re-runs
  * are no-ops); the blocked ones are counted and left in place. The exit date
- * drives storage-billing: it caps the stored days and triggers the descarga
- * (handling_out) charge for the period it falls in.
+ * is the pallet's last stored day.
  */
 export async function dispatchPalletsBulkAction(
   input: unknown,

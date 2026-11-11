@@ -135,17 +135,7 @@ export async function updateTripAction(input: unknown): Promise<ActionResult> {
       ...(rest.trip_date !== undefined && { trip_date: rest.trip_date }),
       ...(rest.driver_id !== undefined && { driver_id: rest.driver_id }),
       ...(rest.vehicle_id !== undefined && { vehicle_id: rest.vehicle_id }),
-      ...(rest.channel_id !== undefined && { channel_id: rest.channel_id }),
-      ...(rest.origin !== undefined && { origin: rest.origin }),
-      ...(rest.destination !== undefined && { destination: rest.destination }),
-      ...(rest.cargo_description !== undefined && {
-        cargo_description: rest.cargo_description,
-      }),
       ...(rest.status !== undefined && { status: rest.status }),
-      ...(rest.km !== undefined && { km: rest.km }),
-      ...(rest.revenue !== undefined && { revenue: rest.revenue }),
-      ...(rest.cost !== undefined && { cost: rest.cost }),
-      ...(rest.notes !== undefined && { notes: rest.notes }),
     })
     .eq("id", id)
     .select("id");

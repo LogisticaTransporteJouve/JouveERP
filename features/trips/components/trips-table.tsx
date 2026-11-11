@@ -24,11 +24,6 @@ import { TRIP_STATUS_LABELS, type Trip } from "../schema";
 
 import { TripDialog } from "./trip-dialog";
 
-function formatMoney(n: number | null) {
-  if (n === null) return "—";
-  return `$${n.toLocaleString("es-AR")}`;
-}
-
 export function TripsTable({
   actorAccess,
   driverOptions,
@@ -106,17 +101,6 @@ export function TripsTable({
         meta: { headerClassName: "w-32", mobile: "secondary" },
       },
       {
-        id: "route",
-        header: "Origen → Destino",
-        enableSorting: false,
-        cell: ({ row }) => (
-          <span className="text-sm">
-            {row.original.origin ?? "—"} → {row.original.destination ?? "—"}
-          </span>
-        ),
-        meta: { mobile: "primary" },
-      },
-      {
         accessorKey: "status",
         header: "Estado",
         cell: ({ row }) => (
@@ -125,17 +109,6 @@ export function TripsTable({
           </Badge>
         ),
         meta: { headerClassName: "w-32", mobile: "primary" },
-      },
-      {
-        accessorKey: "revenue",
-        // The typed figure. Rentabilidad de flota counts the invoiced freight
-        // of the trip's cargas (v_trip_revenue), and this one only for a trip
-        // without cargas.
-        header: "Ingreso manual",
-        cell: ({ row }) => (
-          <span className="text-sm">{formatMoney(row.original.revenue)}</span>
-        ),
-        meta: { headerClassName: "w-32", mobile: "secondary" },
       },
       {
         id: "actions",
@@ -189,7 +162,7 @@ export function TripsTable({
     <>
       <PageHeader
         title="Viajes"
-        description="Viajes de la flota con chofer, vehículo y resultado."
+        description="Viajes de la flota con fecha, estado, chofer y vehículo."
         actions={
           canWrite && (
             <Button onClick={() => setDialog({ mode: "create" })}>

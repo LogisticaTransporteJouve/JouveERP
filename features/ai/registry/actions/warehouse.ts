@@ -4,20 +4,14 @@ import { listPalletsAction } from "@/features/pallets/actions/pallets-actions";
 import { getPalletsSummaryAction } from "@/features/pallets/actions/pallets-summary-actions";
 import { PALLET_STATUSES } from "@/features/pallets/schema";
 import { listProductsAction } from "@/features/products/actions/products-actions";
-import {
-  getStorageBillingAction,
-  listStorageBillingRunsAction,
-} from "@/features/storage-billing/actions/billing-actions";
-import { listStorageTariffsAction } from "@/features/storage-tariffs/actions/storage-tariffs-actions";
 import { listWarehousesAction } from "@/features/warehouses/actions/warehouses-actions";
-import { SCOPE_LABEL } from "@/lib/scope";
 import { IsoDateSchema } from "@/lib/validation/common";
 
 import { defineAiAction } from "../define";
-import { errResult, money, okResult, reachedCap } from "../result";
+import { errResult, okResult, reachedCap } from "../result";
 
 // Warehouse / storage reads. Each wraps a gated read action
-// (warehouses / products / pallets / storage_billing :read).
+// (warehouses / products / pallets :read).
 
 const PALLETS_DEFAULT = 100;
 const PALLETS_MAX = 500;
@@ -150,86 +144,5 @@ export const getProducts = defineAiAction({
     const res = await listProductsAction();
     if (!res.ok) return errResult(res.error);
     return okResult(`${res.data.length} productos.`, res.data);
-  },
-});
-
-export const getStorageTariffs = defineAiAction({
-  name: "getStorageTariffs",
-  domain: "deposito",
-  permission: "storage_billing:read",
-  sideEffect: "read",
-  sources: ["storage_tariffs"],
-  description:
-    "Tarifas de almacenaje por cliente: precio por pallet, período, cargos de ingreso/egreso y vigencia. Sin parámetros.",
-  input: z.object({}),
-  run: async () => {
-    const res = await listStorageTariffsAction();
-    if (!res.ok) return errResult(res.error);
-    const active = res.data.filter((t) => t.is_active).length;
-    return okResult(
-      `${res.data.length} tarifas (${active} activas).`,
-      res.data,
-    );
-  },
-});
-
-export const getStorageBilling = defineAiAction({
-  name: "getStorageBilling",
-  domain: "deposito",
-  permission: "storage_billing:read",
-  sideEffect: "read",
-  sources: ["pallets", "storage_tariffs", "client_tariffs", "clients"],
-  description:
-    "Facturación de almacenaje calculada para un rango de fechas (con el tarifario propio de cada cliente donde lo tiene, por área del depósito si la tarifa la tiene, y la tarifa de almacenaje en el resto): por cliente pallets y cargo, total de almacenaje y movimientos, pallets sin tarifa y pallets con tarifa en USD sin cotización. Es un cálculo previo a facturar: no tiene canal, así que no se separa por alcance (fiscal/interno).",
-  input: z
-    .object({
-      periodStart: IsoDateSchema.describe("Fecha desde, YYYY-MM-DD."),
-      periodEnd: IsoDateSchema.describe("Fecha hasta, YYYY-MM-DD (inclusive)."),
-    })
-    .refine((v) => v.periodStart <= v.periodEnd, "Rango de fechas invertido."),
-  run: async (_ctx, input) => {
-    const res = await getStorageBillingAction(input);
-    if (!res.ok) return errResult(res.error);
-    const d = res.data;
-    return okResult(
-      `${SCOPE_LABEL.all} (sin canal hasta facturar): almacenaje ${input.periodStart}→${input.periodEnd}: ${money(d.total)} ` +
-        `(almacenaje ${money(d.storage_total)} + movimientos ${money(d.handling_total)}) · ` +
-        `${d.byClient.length} clientes · ${d.pallets_without_tariff} pallets sin tarifa · ${d.pallets_without_rate} sin cotización USD.`,
-      {
-        byClient: d.byClient,
-        totals: {
-          total: d.total,
-          storage_total: d.storage_total,
-          handling_total: d.handling_total,
-        },
-        pallets_without_tariff: d.pallets_without_tariff,
-        pallets_without_rate: d.pallets_without_rate,
-      },
-      {
-        currency: "ARS",
-        note: "El canal (fiscal o interno) se elige al facturar la liquidación; este cálculo no lo tiene.",
-      },
-    );
-  },
-});
-
-export const getStorageBillingRuns = defineAiAction({
-  name: "getStorageBillingRuns",
-  domain: "deposito",
-  permission: "storage_billing:read",
-  sideEffect: "read",
-  sources: ["storage_billing_runs"],
-  description:
-    "Historial de liquidaciones de almacenaje ya generadas: cliente, período, totales y factura asociada. Sin parámetros.",
-  input: z.object({}),
-  run: async () => {
-    const res = await listStorageBillingRunsAction();
-    if (!res.ok) return errResult(res.error);
-    const pending = res.data.filter((r) => r.invoice_id === null).length;
-    return okResult(
-      `${res.data.length} liquidaciones de almacenaje (${pending} sin facturar).`,
-      res.data,
-      { currency: "ARS" },
-    );
   },
 });

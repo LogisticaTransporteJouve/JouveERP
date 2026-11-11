@@ -3,11 +3,6 @@ import {
   CHECK_KIND_LABEL,
   ManualChequeCreateSchema,
 } from "@/features/checks/schema";
-import {
-  CLIENT_TARIFF_CONCEPT_LABELS,
-  CLIENT_TARIFF_UNIT_LABELS,
-  ClientTariffCreateSchema,
-} from "@/features/client-tariffs/schema";
 import { ClientCreateSchema } from "@/features/clients/schema";
 import { EmployeeCreateSchema, isDriverPosition } from "@/features/hr/schema";
 import { CreateLoanSchema, LOAN_KIND_LABEL } from "@/features/loans/schema";
@@ -47,15 +42,12 @@ import {
   parsePayrollKind,
   parsePeriod,
   parsePosition,
-  parseTariffConcept,
-  parseTariffUnit,
   parseVehicleType,
   parseYesNo,
 } from "./cells";
 import { IMPORT_FIELDS, fieldLabel } from "./fields";
 import {
   checkKey,
-  clientTariffKey,
   counterpartyKey,
   employeeKey,
   historicPayrollKey,
@@ -126,8 +118,6 @@ export type ImportLookups = {
   account: ImportAccount | null;
   /** The channel the user picked (loans, checks), or null. */
   channelId: string | null;
-  /** The tariffs already loaded (every area), for the overlap check. */
-  tariffs: readonly ExistingTariff[];
   /** Supplier categories, for a supplier's default category. */
   supplierCategories: readonly {
     id: string;
@@ -142,16 +132,6 @@ export type ImportLookups = {
     name: string;
     is_active: boolean;
   }[];
-  /** Warehouse areas, for a per-area client tariff. */
-  areas: readonly ImportArea[];
-};
-
-export type ImportArea = {
-  id: string;
-  name: string;
-  is_active: boolean;
-  warehouse_id: string;
-  warehouse_name: string;
 };
 
 export type ImportAccount = {
@@ -161,22 +141,12 @@ export type ImportAccount = {
   currency: "ARS" | "USD";
 };
 
-export type ExistingTariff = {
-  client_id: string;
-  concept: string;
-  area_id: string | null;
-  valid_from: string;
-  valid_to: string | null;
-};
-
 type Cells = Record<string, string>;
 
 /** State across the rows of one file. */
 type FileState = {
   fuelCards: Map<string, string>;
   tripOccurrences: Map<string, number>;
-  /** client|concept|area → the ranges earlier rows of the file take. */
-  tariffRanges: Map<string, { from: string; to: string | null }[]>;
   lineOccurrences: Map<string, number>;
 };
 
@@ -997,206 +967,6 @@ function matchClient(raw: string, lookups: ImportLookups): Match<ImportClient> {
   };
 }
 
-function rangesOverlap(
-  a: { from: string; to: string | null },
-  b: { from: string; to: string | null },
-): boolean {
-  return (a.to === null || a.to >= b.from) && (b.to === null || b.to >= a.from);
-}
-
-/** The area a tariff row names: by name within the warehouse the row names,
- *  or among every warehouse's areas when it names none. */
-function matchArea(
-  areaRaw: string,
-  warehouseRaw: string,
-  lookups: ImportLookups,
-): Match<ImportArea> {
-  const pool = warehouseRaw
-    ? lookups.areas.filter(
-        (a) =>
-          normalizeHeader(a.warehouse_name) === normalizeHeader(warehouseRaw),
-      )
-    : lookups.areas;
-  if (warehouseRaw && pool.length === 0) {
-    return {
-      found: null,
-      error: `No hay un depósito "${warehouseRaw}" con áreas.`,
-    };
-  }
-  const hits = pool.filter(
-    (a) => normalizeHeader(a.name) === normalizeHeader(areaRaw),
-  );
-  const only = hits.length === 1 ? hits[0] : undefined;
-  if (only) return { found: only, error: null };
-  if (hits.length === 0) {
-    return {
-      found: null,
-      error: warehouseRaw
-        ? `No hay un área "${areaRaw}" en el depósito ${warehouseRaw}.`
-        : `No hay un área "${areaRaw}".`,
-    };
-  }
-  return {
-    found: null,
-    error: `Hay un área "${areaRaw}" en más de un depósito: agregá la columna Depósito.`,
-  };
-}
-
-function buildClientTariff(
-  cells: Cells,
-  lookups: ImportLookups,
-  state: FileState,
-): Built {
-  const kind = "client_tariffs";
-  const errors: string[] = [];
-  const warnings: string[] = [];
-  const reported = new Set<string>();
-
-  const client = matchClient(text(cells, "client"), lookups);
-  if (client.error) errors.push(client.error);
-  const conceptRaw = text(cells, "concept");
-  const concept = parseTariffConcept(conceptRaw);
-  if (!concept) {
-    errors.push(
-      conceptRaw
-        ? `Concepto desconocido: "${conceptRaw}".`
-        : "Falta el concepto.",
-    );
-    reported.add("concept");
-  }
-  const areaRaw = text(cells, "area");
-  const warehouseRaw = text(cells, "warehouse");
-  let area: ImportArea | null = null;
-  if (areaRaw && concept === "freight") {
-    // client_tariffs_area_concept: flete prices cargas, not stored pallets.
-    errors.push("El flete no lleva área.");
-    reported.add("area_id");
-  } else if (areaRaw) {
-    const m = matchArea(areaRaw, warehouseRaw, lookups);
-    if (m.error) {
-      errors.push(m.error);
-      reported.add("area_id");
-    }
-    area = m.found;
-  } else if (warehouseRaw) {
-    warnings.push(
-      "Tiene depósito pero no área: la tarifa es para todas las áreas.",
-    );
-  }
-  const unit = concept ? parseTariffUnit(text(cells, "unit"), concept) : null;
-  if (concept && !unit) {
-    errors.push(`Unidad desconocida: "${text(cells, "unit")}".`);
-    reported.add("unit");
-  }
-  const price = numberCell(kind, cells, "price", errors, reported);
-  if (price === null && !reported.has("price")) {
-    errors.push("Falta el precio.");
-    reported.add("price");
-  }
-  const currency = parseCurrency(text(cells, "currency"), "ARS");
-  if (!currency) {
-    errors.push(`Moneda desconocida: "${text(cells, "currency")}".`);
-    reported.add("currency");
-  }
-  const from = dateCell(kind, cells, "valid_from", errors, reported, true);
-  const to = dateCell(kind, cells, "valid_to", errors, reported, false);
-
-  const label = client.found?.legal_name ?? (text(cells, "client") || "—");
-  if (errors.length > 0 || !client.found || !concept || !from) {
-    return invalid(label, errors, warnings);
-  }
-  const parsed = ClientTariffCreateSchema.safeParse({
-    client_id: client.found.id,
-    concept,
-    unit: unit ?? "",
-    price: price ?? "",
-    currency: currency ?? "",
-    valid_from: from,
-    valid_to: to ?? "",
-    notes: text(cells, "notes"),
-    area_id: area?.id ?? "",
-  });
-  if (!parsed.success) {
-    return invalid(
-      label,
-      issueErrors(kind, parsed.error.issues, reported),
-      warnings,
-    );
-  }
-  const d = parsed.data;
-  const areaId = d.area_id ?? null;
-  const range = { from: d.valid_from, to: d.valid_to ?? null };
-  const key = clientTariffKey({ ...d, area_id: areaId });
-  // The same start is the same tariff (a re-import skips it); any other
-  // overlap in the same area (or among the every-area ones) would be refused
-  // by guard_client_tariff_overlap.
-  const clash = lookups.tariffs.find(
-    (t) =>
-      t.client_id === d.client_id &&
-      t.concept === d.concept &&
-      t.area_id === areaId &&
-      t.valid_from !== d.valid_from &&
-      rangesOverlap(range, { from: t.valid_from, to: t.valid_to }),
-  );
-  if (clash) {
-    return invalid(
-      label,
-      [
-        `Se superpone con la tarifa vigente del ${formatArgentineDate(clash.valid_from)} ${clash.valid_to ? `al ${formatArgentineDate(clash.valid_to)}` : "sin fin"}: cerrala antes.`,
-      ],
-      warnings,
-    );
-  }
-  const lineKey = `${d.client_id}|${d.concept}|${areaId ?? ""}`;
-  const taken = state.tariffRanges.get(lineKey) ?? [];
-  if (taken.some((r) => r.from !== range.from && rangesOverlap(r, range))) {
-    return invalid(
-      label,
-      [
-        area
-          ? "Se superpone con otra tarifa del archivo del mismo cliente, concepto y área."
-          : "Se superpone con otra tarifa del archivo del mismo cliente y concepto.",
-      ],
-      warnings,
-    );
-  }
-  state.tariffRanges.set(lineKey, [...taken, range]);
-  if (area) {
-    warnings.push(
-      `Tarifa del área ${area.name}: pisa a la general del cliente para los pallets de esa área.`,
-    );
-    if (!area.is_active) warnings.push(`El área ${area.name} está inactiva.`);
-  }
-  return {
-    label,
-    detail: [
-      CLIENT_TARIFF_CONCEPT_LABELS[d.concept],
-      area ? `Área ${area.name} (${area.warehouse_name})` : null,
-      CLIENT_TARIFF_UNIT_LABELS[d.unit],
-      formatMoney(d.price, d.currency),
-      d.valid_to
-        ? `${formatArgentineDate(d.valid_from)} al ${formatArgentineDate(d.valid_to)}`
-        : `desde ${formatArgentineDate(d.valid_from)}`,
-    ]
-      .filter(Boolean)
-      .join(" · "),
-    errors,
-    warnings,
-    key,
-    payload: {
-      client_id: d.client_id,
-      concept: d.concept,
-      unit: d.unit,
-      price: d.price,
-      currency: d.currency,
-      valid_from: d.valid_from,
-      valid_to: d.valid_to ?? null,
-      notes: d.notes ?? null,
-      area_id: areaId,
-    },
-  };
-}
-
 function buildLoan(cells: Cells, lookups: ImportLookups): Built {
   const kind = "loans";
   const errors: string[] = [];
@@ -1614,8 +1384,6 @@ function buildOne(
       return buildHistoricPayroll(cells, lookups);
     case "historic_trips":
       return buildHistoricTrip(cells, lookups, state);
-    case "client_tariffs":
-      return buildClientTariff(cells, lookups, state);
     case "loans":
       return buildLoan(cells, lookups);
     case "checks":
@@ -1699,7 +1467,6 @@ export function buildRows(input: {
   const state: FileState = {
     fuelCards: new Map(),
     tripOccurrences: new Map(),
-    tariffRanges: new Map(),
     lineOccurrences: new Map(),
   };
   const keys = IMPORT_FIELDS[input.kind]

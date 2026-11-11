@@ -14,11 +14,6 @@ import {
   ManualChequeCreateSchema,
 } from "@/features/checks/schema";
 import {
-  CLIENT_TARIFF_CONCEPT_LABELS,
-  CLIENT_TARIFF_UNIT_LABELS,
-  ClientTariffCreateSchema,
-} from "@/features/client-tariffs/schema";
-import {
   ClientCreateSchema,
   ClientUpdateSchema,
   isIvaCondition,
@@ -34,17 +29,6 @@ import {
   type RateReference,
 } from "@/features/exchange-rates/lib/rate-jump";
 import { ExchangeRateCreateSchema } from "@/features/exchange-rates/schema";
-import {
-  DIFFERENCE_CHARGED_TO,
-  DriverSettlementConfirmSchema,
-  DriverSettlementDifferenceSchema,
-  DriverSettlementSaveSchema,
-  settlementDifference,
-} from "@/features/driver-settlements/schema";
-import {
-  FreightSettlementConfirmSchema,
-  FreightSettlementSaveSchema,
-} from "@/features/freight-settlements/schema";
 import { FuelLoadCreateSchema } from "@/features/fuel/schema";
 import {
   ACCOUNT_MOVEMENT_KIND_LABEL,
@@ -116,7 +100,6 @@ import {
   ShipmentCreateSchema,
   ShipmentStatusChangeSchema,
 } from "@/features/shipments/schema";
-import { StorageInvoiceProposalSchema } from "@/features/storage-billing/schema";
 import {
   SupplierCreateSchema,
   SupplierUpdateSchema,
@@ -563,33 +546,6 @@ export const taskProposalSpec = defineProposalSpec({
   ],
 });
 
-export const clientTariffProposalSpec = defineProposalSpec({
-  title: "Cargar tarifa del cliente",
-  draft: ClientTariffCreateSchema,
-  fields: [
-    { key: "price", label: "Precio", kind: "number" },
-    { key: "valid_from", label: "Vigente desde", kind: "date" },
-    { key: "notes", label: "Notas", kind: "textarea" },
-  ],
-  confirmLabel: "Cargar tarifa",
-  declineLabel: "Descartar",
-  summarize: (d, labels) => [
-    { label: "Cliente", value: labels[d.client_id] ?? d.client_id },
-    { label: "Concepto", value: CLIENT_TARIFF_CONCEPT_LABELS[d.concept] },
-    { label: "Unidad", value: CLIENT_TARIFF_UNIT_LABELS[d.unit] },
-    { label: "Precio", value: formatMoney(d.price, d.currency) },
-    { label: "Vigente desde", value: formatArgentineDate(d.valid_from) },
-    {
-      label: "Hasta",
-      value: d.valid_to ? formatArgentineDate(d.valid_to) : "Sin fecha de fin",
-    },
-    ...(d.area_id
-      ? [{ label: "Área", value: labels[d.area_id] ?? d.area_id }]
-      : []),
-    ...(d.notes ? [{ label: "Notas", value: d.notes }] : []),
-  ],
-});
-
 /** Up to this many suggested matches go in one proposal (the page accepts
  *  up to 200 at once; a card lists each one). */
 export const MAX_PROPOSED_MATCHES = 30;
@@ -744,23 +700,11 @@ function rowIf(
   return value ? [{ label, value }] : [];
 }
 
-/** "Origen → Destino", or the one that is set. */
-function routeText(
-  origin: string | null | undefined,
-  destination: string | null | undefined,
-): string | null {
-  if (origin && destination) return `${origin} → ${destination}`;
-  return origin ?? destination ?? null;
-}
-
 export const tripProposalSpec = defineProposalSpec({
   title: "Crear viaje",
   draft: TripCreateSchema,
   fields: [
     { key: "trip_date", label: "Fecha", kind: "date" },
-    { key: "origin", label: "Origen", kind: "text" },
-    { key: "destination", label: "Destino", kind: "text" },
-    { key: "cargo_description", label: "Carga", kind: "textarea" },
     {
       key: "status",
       label: "Estado",
@@ -770,10 +714,6 @@ export const tripProposalSpec = defineProposalSpec({
         label: TRIP_STATUS_LABELS[s],
       })),
     },
-    { key: "km", label: "Km", kind: "number", decimals: 0 },
-    { key: "revenue", label: "Ingreso", kind: "number" },
-    { key: "cost", label: "Costo", kind: "number" },
-    { key: "notes", label: "Notas", kind: "textarea" },
   ],
   confirmLabel: "Crear viaje",
   declineLabel: "Descartar",
@@ -787,13 +727,7 @@ export const tripProposalSpec = defineProposalSpec({
       "Chofer",
       d.driver_id ? (labels[d.driver_id] ?? d.driver_id) : null,
     ),
-    ...rowIf("Recorrido", routeText(d.origin, d.destination)),
-    ...rowIf("Carga", d.cargo_description),
     { label: "Estado", value: TRIP_STATUS_LABELS[d.status] },
-    ...rowIf("Km", d.km != null ? kmText(d.km) : null),
-    ...rowIf("Ingreso", d.revenue != null ? formatMoney(d.revenue) : null),
-    ...rowIf("Costo", d.cost != null ? formatMoney(d.cost) : null),
-    ...rowIf("Notas", d.notes),
   ],
 });
 
@@ -801,14 +735,9 @@ export const shipmentProposalSpec = defineProposalSpec({
   title: "Crear carga",
   draft: ShipmentCreateSchema,
   fields: [
-    { key: "remito_number", label: "Remito", kind: "text" },
-    { key: "scheduled_date", label: "Fecha programada", kind: "date" },
-    { key: "origin", label: "Origen", kind: "text" },
-    { key: "destination", label: "Destino", kind: "text" },
     { key: "description", label: "Descripción", kind: "textarea" },
-    { key: "freight_amount", label: "Flete", kind: "number" },
-    { key: "cod_amount", label: "Contra entrega", kind: "number" },
-    { key: "notes", label: "Notas", kind: "textarea" },
+    { key: "scheduled_date", label: "Fecha programada", kind: "date" },
+    { key: "destination", label: "Dirección", kind: "text" },
   ],
   confirmLabel: "Crear carga",
   declineLabel: "Descartar",
@@ -817,22 +746,12 @@ export const shipmentProposalSpec = defineProposalSpec({
       label: "Cliente",
       value: d.client_id ? (labels[d.client_id] ?? d.client_id) : "Sin cliente",
     },
-    ...rowIf("Remito", d.remito_number),
+    ...rowIf("Descripción", d.description),
     ...rowIf(
       "Fecha programada",
       d.scheduled_date ? formatArgentineDate(d.scheduled_date) : null,
     ),
-    ...rowIf("Recorrido", routeText(d.origin, d.destination)),
-    ...rowIf("Descripción", d.description),
-    ...rowIf(
-      "Flete",
-      d.freight_amount != null ? formatMoney(d.freight_amount) : null,
-    ),
-    ...rowIf(
-      "Contra entrega",
-      d.cod_amount != null ? formatMoney(d.cod_amount) : null,
-    ),
-    ...rowIf("Notas", d.notes),
+    ...rowIf("Dirección", d.destination),
     { label: "Estado", value: SHIPMENT_STATUS_LABELS.not_started },
   ],
 });
@@ -994,284 +913,6 @@ export const maintenanceProposalSpec = defineProposalSpec({
     ...rowIf("Proveedor", d.provider),
     ...rowIf("Notas", d.notes),
   ],
-});
-
-/** Keys of the display labels a liquidación draft carries (the client's id
- *  carries its name). */
-export const FREIGHT_SETTLEMENT_LABELS = {
-  total: "fs_total",
-  unpriced: "fs_unpriced",
-} as const;
-
-export const freightSettlementProposalSpec = defineProposalSpec({
-  title: "Armar liquidación de fletes",
-  draft: FreightSettlementSaveSchema,
-  fields: [{ key: "notes", label: "Notas", kind: "textarea" }],
-  confirmLabel: "Guardar borrador",
-  declineLabel: "Descartar",
-  summarize: (d, labels) => {
-    const unpriced = Number(labels[FREIGHT_SETTLEMENT_LABELS.unpriced] ?? 0);
-    return [
-      { label: "Cliente", value: labels[d.client_id] ?? d.client_id },
-      {
-        label: "Período",
-        value: `${formatArgentineDate(d.period_start)} al ${formatArgentineDate(d.period_end)}`,
-      },
-      { label: "Cargas", value: String(d.shipment_ids.length) },
-      ...rowIf("Total estimado", labels[FREIGHT_SETTLEMENT_LABELS.total]),
-      ...(unpriced > 0
-        ? [
-            {
-              label: PROPOSAL_WARNING_LABEL,
-              value: `${unpriced} ${unpriced === 1 ? "carga entregada queda" : "cargas entregadas quedan"} afuera: no tienen flete ni tarifa de flete vigente.`,
-            },
-          ]
-        : []),
-      ...rowIf("Notas", d.notes),
-      {
-        label: "Qué pasa",
-        value:
-          "Queda en borrador en Liquidaciones de fletes, como al guardarla a mano: cada carga se valoriza al guardar. Confirmarla y facturarla se hace desde la liquidación.",
-      },
-    ];
-  },
-});
-
-/** Keys of the labels a liquidación confirm carries (the client's id
- *  carries its name). */
-export const FREIGHT_CONFIRM_LABELS = {
-  period: "fsc_period",
-  cargas: "fsc_cargas",
-  savedTotal: "fsc_saved_total",
-} as const;
-
-export const freightSettlementConfirmProposalSpec = defineProposalSpec({
-  title: "Confirmar liquidación de fletes",
-  draft: FreightSettlementConfirmSchema,
-  // Accepted as shown: the total is the server's, checked again on accept.
-  fields: [],
-  confirmLabel: "Confirmar y emitir remito R",
-  declineLabel: "Descartar",
-  summarize: (d, labels) => {
-    const saved = labels[FREIGHT_CONFIRM_LABELS.savedTotal];
-    return [
-      ...rowIf("Cliente", labels[d.id]),
-      ...rowIf("Período", labels[FREIGHT_CONFIRM_LABELS.period]),
-      ...rowIf("Cargas", labels[FREIGHT_CONFIRM_LABELS.cargas]),
-      { label: "Total", value: formatMoney(d.expected_total) },
-      ...(saved
-        ? [
-            {
-              label: PROPOSAL_WARNING_LABEL,
-              value: `El borrador decía ${saved}: un flete o una tarifa cambió y se confirma al precio vigente.`,
-            },
-          ]
-        : []),
-      {
-        label: "Qué pasa",
-        value:
-          "Se valoriza cada carga con su flete o la tarifa vigente, se emite el Remito R con su número y la liquidación ya no se edita, como al confirmarla a mano. Si el total cambia antes de aceptar, no se confirma. Facturarla se hace desde la liquidación.",
-      },
-    ];
-  },
-});
-
-// ─── Storage billing ─────────────────────────────────────────────────────────
-
-/** Keys of the labels a storage invoice carries (the client's id carries
- *  its name). */
-export const STORAGE_INVOICE_LABELS = {
-  channel: "si_channel",
-  storage: "si_storage",
-  loading: "si_loading",
-  unloading: "si_unloading",
-  pallets: "si_pallets",
-} as const;
-
-export const storageInvoiceProposalSpec = defineProposalSpec({
-  title: "Facturar almacenaje",
-  draft: StorageInvoiceProposalSchema,
-  // Accepted as shown: the total is recomputed and compared on accept.
-  fields: [],
-  confirmLabel: "Facturar",
-  declineLabel: "Descartar",
-  summarize: (d, labels) => [
-    { label: "Cliente", value: labels[d.client_id] ?? d.client_id },
-    {
-      label: "Período",
-      value: `${formatArgentineDate(d.period_start)} al ${formatArgentineDate(d.period_end)}`,
-    },
-    {
-      label: "Canal",
-      value: `${labels[STORAGE_INVOICE_LABELS.channel] ?? d.channel_id} · punto de venta ${d.punto_venta}`,
-    },
-    ...rowIf("Pallets", labels[STORAGE_INVOICE_LABELS.pallets]),
-    ...rowIf("Almacenaje", labels[STORAGE_INVOICE_LABELS.storage]),
-    ...rowIf("Carga", labels[STORAGE_INVOICE_LABELS.loading]),
-    ...rowIf("Descarga", labels[STORAGE_INVOICE_LABELS.unloading]),
-    { label: "Total neto", value: formatMoney(d.expected_total) },
-    {
-      label: "Qué pasa",
-      value:
-        "Se emite el comprobante del período (con CAE de AFIP en el canal fiscal, remito interno en el interno), más IVA 21%, y el período queda facturado para el cliente en ese canal, como con «Facturar» en Facturación de almacenaje. Si el almacenaje del período cambia antes de aceptar, no se emite.",
-    },
-  ],
-});
-
-// ─── Driver settlements ──────────────────────────────────────────────────────
-
-/** Keys of the labels a rendición carries (the driver's, the accounts' and
- *  the cargas' ids carry their names). */
-export const DRIVER_SETTLEMENT_LABELS = {
-  expected: "ds_expected",
-  drafts: "ds_drafts",
-  settlement: "ds_settlement",
-  driver: "ds_driver",
-  date: "ds_date",
-  cargas: "ds_cargas",
-  difference: "ds_difference",
-  employee: "ds_employee",
-} as const;
-
-/** Cargas listed one by one on a rendición card; past it, a count. */
-const DRIVER_SETTLEMENT_ROWS = 10;
-
-/** A rendición's difference as the Rendiciones page words it: what the
- *  driver handed in short (faltante) or over (sobrante); none when even. */
-function differenceRows(difference: number, tail = ""): ProposalSummaryRow[] {
-  if (!difference) return [];
-  return [
-    {
-      label: difference < 0 ? "Faltante" : "Sobrante",
-      value: `${formatMoney(Math.abs(difference))}${tail}`,
-    },
-  ];
-}
-
-export const driverSettlementProposalSpec = defineProposalSpec({
-  title: "Armar rendición de chofer",
-  draft: DriverSettlementSaveSchema,
-  fields: [
-    { key: "settlement_date", label: "Fecha", kind: "date" },
-    { key: "notes", label: "Notas", kind: "textarea" },
-  ],
-  confirmLabel: "Guardar borrador",
-  declineLabel: "Descartar",
-  summarize: (d, labels) => {
-    const received = d.items.reduce(
-      (s, i) => s + i.lines.reduce((t, l) => t + l.amount, 0),
-      0,
-    );
-    const expected = Number(labels[DRIVER_SETTLEMENT_LABELS.expected] ?? NaN);
-    const byAccount = new Map<string, number>();
-    for (const item of d.items) {
-      for (const l of item.lines) {
-        byAccount.set(
-          l.account_id,
-          (byAccount.get(l.account_id) ?? 0) + l.amount,
-        );
-      }
-    }
-    const drafts = Number(labels[DRIVER_SETTLEMENT_LABELS.drafts] ?? 0);
-    const listed = d.items.length <= DRIVER_SETTLEMENT_ROWS;
-    return [
-      { label: "Chofer", value: labels[d.driver_id] ?? d.driver_id },
-      { label: "Fecha", value: formatArgentineDate(d.settlement_date) },
-      { label: "Cargas", value: String(d.items.length) },
-      ...(listed
-        ? d.items.map((item) => ({
-            label: labels[item.shipment_id] ?? item.shipment_id,
-            value: `entregó ${formatMoney(item.lines.reduce((t, l) => t + l.amount, 0))}`,
-          }))
-        : []),
-      ...(Number.isFinite(expected)
-        ? [{ label: "Tenía que cobrar", value: formatMoney(expected) }]
-        : []),
-      { label: "Entregó", value: formatMoney(received) },
-      ...(Number.isFinite(expected)
-        ? differenceRows(settlementDifference(expected, received))
-        : []),
-      ...[...byAccount].map(([id, amount]) => ({
-        label: `En ${labels[id] ?? id}`,
-        value: formatMoney(amount),
-      })),
-      ...(drafts > 0
-        ? [
-            {
-              label: PROPOSAL_WARNING_LABEL,
-              value: `El chofer ya tiene ${drafts === 1 ? "una rendición" : `${drafts} rendiciones`} en borrador.`,
-            },
-          ]
-        : []),
-      ...rowIf("Notas", d.notes),
-      {
-        label: "Qué pasa",
-        value:
-          "Queda en borrador en Rendiciones, como al guardarla a mano. Confirmarla genera los recibos.",
-      },
-    ];
-  },
-});
-
-export const driverSettlementConfirmProposalSpec = defineProposalSpec({
-  title: "Confirmar rendición de chofer",
-  draft: DriverSettlementConfirmSchema,
-  // Accepted as shown: the totals are the server's, checked again on accept.
-  fields: [],
-  confirmLabel: "Confirmar rendición",
-  declineLabel: "Descartar",
-  summarize: (d, labels) => {
-    return [
-      ...rowIf("Chofer", labels[DRIVER_SETTLEMENT_LABELS.driver]),
-      ...rowIf("Fecha", labels[DRIVER_SETTLEMENT_LABELS.date]),
-      ...rowIf("Cargas", labels[DRIVER_SETTLEMENT_LABELS.cargas]),
-      { label: "Tenía que cobrar", value: formatMoney(d.expected_total) },
-      { label: "Entregó", value: formatMoney(d.received_total) },
-      ...differenceRows(
-        settlementDifference(d.expected_total, d.received_total),
-        ": después se resuelve si queda a cargo del chofer o del cliente.",
-      ),
-      {
-        label: "Qué pasa",
-        value:
-          "Se genera un recibo por cliente y canal con lo que entregó, aplicado a la factura de cada carga, y la rendición ya no se edita, como al confirmarla a mano. Si cambia antes de aceptar, no se confirma.",
-      },
-    ];
-  },
-});
-
-export const DIFFERENCE_CHARGED_TO_LABEL = {
-  driver: "Chofer",
-  client: "Cliente",
-} as const satisfies Record<(typeof DIFFERENCE_CHARGED_TO)[number], string>;
-
-export const driverSettlementDifferenceProposalSpec = defineProposalSpec({
-  title: "Resolver diferencia de rendición",
-  draft: DriverSettlementDifferenceSchema,
-  // Accepted as shown: who bears it was asked and checked against the
-  // user's permissions.
-  fields: [],
-  confirmLabel: "Asentar",
-  declineLabel: "Descartar",
-  summarize: (d, labels) => {
-    const difference = Number(labels[DRIVER_SETTLEMENT_LABELS.difference] ?? 0);
-    const amount = formatMoney(Math.abs(difference));
-    const driver = labels[DRIVER_SETTLEMENT_LABELS.driver] ?? "el chofer";
-    return [
-      ...rowIf("Rendición", labels[DRIVER_SETTLEMENT_LABELS.settlement]),
-      ...differenceRows(difference),
-      { label: "A cargo de", value: DIFFERENCE_CHARGED_TO_LABEL[d.charged_to] },
-      {
-        label: "Qué pasa",
-        value:
-          d.charged_to === "driver"
-            ? `Se emite un recibo que salda el faltante de ${amount} en la cuenta del cliente, y se carga como adelanto pagado con la caja en la cuenta corriente de ${driver}.`
-            : difference < 0
-              ? `El faltante de ${amount} queda abierto en la cuenta del cliente. No se toca la cuenta corriente del chofer.`
-              : `El sobrante de ${amount} queda a cuenta del cliente. No se toca la cuenta corriente del chofer.`,
-      },
-    ];
-  },
 });
 
 // ─── Clients ─────────────────────────────────────────────────────────────────
@@ -2611,7 +2252,6 @@ export const PROPOSAL_SPECS: Readonly<Record<string, ProposalSpec>> = {
   proposeAiWorkflow: workflowProposalSpec,
   proposeDocumentScan: documentScanProposalSpec,
   proposeTask: taskProposalSpec,
-  proposeClientTariff: clientTariffProposalSpec,
   proposeBankMatches: bankMatchesProposalSpec,
   proposeLateInterestNd: lateInterestNdProposalSpec,
   proposeRecategorizeExpense: recategorizeExpenseProposalSpec,
@@ -2620,12 +2260,6 @@ export const PROPOSAL_SPECS: Readonly<Record<string, ProposalSpec>> = {
   proposeShipmentStatus: shipmentStatusProposalSpec,
   proposeFuelLoad: fuelLoadProposalSpec,
   proposeMaintenance: maintenanceProposalSpec,
-  proposeFreightSettlement: freightSettlementProposalSpec,
-  proposeFreightSettlementConfirm: freightSettlementConfirmProposalSpec,
-  proposeStorageInvoice: storageInvoiceProposalSpec,
-  proposeDriverSettlement: driverSettlementProposalSpec,
-  proposeDriverSettlementConfirm: driverSettlementConfirmProposalSpec,
-  proposeDriverSettlementDifference: driverSettlementDifferenceProposalSpec,
   proposeClient: clientCreateProposalSpec,
   proposeClientUpdate: clientUpdateProposalSpec,
   proposeInvoice: invoiceProposalSpec,

@@ -80,8 +80,7 @@ export function StorageAreasDialog({
         <DialogHeader>
           <DialogTitle>Áreas de {warehouse.name}</DialogTitle>
           <DialogDescription>
-            Zonas del depósito (cámara de frío, a granel, rack). El tarifario
-            del cliente puede tener un precio por área.
+            Zonas del depósito (cámara de frío, a granel, rack).
           </DialogDescription>
         </DialogHeader>
 

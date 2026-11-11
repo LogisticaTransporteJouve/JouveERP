@@ -222,8 +222,8 @@ export function HistoricTripsView({ currentMonth }: { currentMonth: string }) {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <p className="text-muted-foreground max-w-2xl text-sm">
           Viajes de antes del sistema, importados de planillas. Son solo de
-          referencia: no generan facturas, extras de chofer ni entran en la
-          rentabilidad de flota, Gestión ni los libros.
+          referencia: no generan facturas, extras de chofer ni entran en Gestión
+          ni en los libros.
         </p>
         <MonthPicker
           aria-label="Mes"

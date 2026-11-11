@@ -19,7 +19,6 @@ const { createTrip } = await import("./create-trip");
 const { createShipment } = await import("./create-shipment");
 const { changeShipmentStatus } = await import("./change-shipment-status");
 const { createFuelLoad } = await import("./create-fuel-load");
-const { saveFreightSettlement } = await import("./save-freight-settlement");
 
 type Result = { data: unknown; error: unknown };
 
@@ -84,20 +83,22 @@ describe("createTrip", () => {
 });
 
 describe("createShipment", () => {
-  it("refuses a remito number another carga of the client holds", async () => {
-    const { db } = fakeDb({
-      data: null,
-      error: {
-        code: "23505",
-        message:
-          'duplicate key value violates unique constraint "shipments_client_remito_unique"',
-      },
+  it("inserts the carga as the actor and audits it", async () => {
+    const { db, calls } = fakeDb({ data: { id: "s1" }, error: null });
+    const res = await createShipment(db, "u1", {
+      description: "Pallets",
+      destination: "Av. Corrientes 1234, CABA",
     });
-    const res = await createShipment(db, "u1", { remito_number: "R-1" });
-    expect(res).toEqual({
-      ok: false,
-      error: "Ese número de remito ya está en otra carga del cliente.",
+    expect(res).toEqual({ ok: true, data: { id: "s1" } });
+    expect(calls[0]?.payload).toEqual({
+      client_id: null,
+      trip_id: null,
+      destination: "Av. Corrientes 1234, CABA",
+      description: "Pallets",
+      scheduled_date: null,
+      created_by: "u1",
     });
+    expect(logAudit).toHaveBeenCalledWith("shipment.created", "u1", {}, "s1");
   });
 });
 
@@ -165,50 +166,5 @@ describe("createFuelLoad", () => {
       error: "No tenés permiso para vincular facturas de compra.",
     });
     expect(calls).toHaveLength(0);
-  });
-});
-
-describe("saveFreightSettlement", () => {
-  const input = {
-    client_id: "00000000-0000-4000-8000-0000000000c1",
-    period_start: "2026-10-01",
-    period_end: "2026-10-31",
-    shipment_ids: [SHIPMENT],
-    notes: null,
-  };
-
-  it("creates the draft and audits it", async () => {
-    serviceRpc.mockResolvedValue({ data: "fs1", error: null });
-    const res = await saveFreightSettlement("u1", input);
-    expect(res).toEqual({ ok: true, data: { id: "fs1" } });
-    expect(serviceRpc).toHaveBeenCalledWith(
-      "save_freight_settlement",
-      expect.objectContaining({ p_user_id: "u1", p_notes: "" }),
-    );
-    expect(logAudit).toHaveBeenCalledWith(
-      "freight_settlement.created",
-      "u1",
-      expect.objectContaining({ shipments: 1 }),
-      "fs1",
-    );
-  });
-
-  it("returns the guard's message for an unpriced carga", async () => {
-    serviceRpc.mockResolvedValue({
-      data: null,
-      error: {
-        code: "23514",
-        hint: "jouve_guard",
-        message:
-          "La carga R-1 no tiene flete ni tarifa de flete vigente: cargá uno de los dos.",
-      },
-    });
-    const res = await saveFreightSettlement("u1", input);
-    expect(res).toEqual({
-      ok: false,
-      error:
-        "La carga R-1 no tiene flete ni tarifa de flete vigente: cargá uno de los dos.",
-    });
-    expect(logAudit).not.toHaveBeenCalled();
   });
 });

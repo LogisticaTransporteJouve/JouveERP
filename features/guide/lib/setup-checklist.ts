@@ -11,7 +11,6 @@ export const SETUP_ITEM_KEYS = [
   "accounts",
   "afip_points_of_sale",
   "imports",
-  "client_tariffs",
   "opening_balances",
   "initial_adjustment",
   "users",
@@ -51,14 +50,6 @@ export const SETUP_ITEMS: readonly SetupItem[] = [
       "Clientes, proveedores, empleados, vehículos, préstamos y cheques en cartera desde planillas, con el importador.",
     href: "/admin/imports",
     permission: "imports:write",
-  },
-  {
-    key: "client_tariffs",
-    label: "Tarifas por cliente",
-    description:
-      "El tarifario de cada cliente con su vigencia, en la ficha del cliente (también se importa).",
-    href: "/clients",
-    permission: ["clients:read", "storage_billing:issue"],
   },
   {
     key: "opening_balances",

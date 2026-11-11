@@ -12,7 +12,6 @@ import { agingKeys } from "@/features/aging/lib/aging-keys";
 import { reconciliationKeys } from "@/features/bank-reconciliation/lib/reconciliation-keys";
 import { checksKeys } from "@/features/checks/lib/checks-keys";
 import { clientsKeys } from "@/features/clients/lib/clients-keys";
-import { driverSettlementsKeys } from "@/features/driver-settlements/lib/driver-settlements-keys";
 import { invoicesKeys } from "@/features/invoices/lib/invoices-keys";
 import { LEDGER_KEYS } from "@/features/journal-entries/lib/ledger-keys";
 import { CASH_KEYS } from "@/features/treasury/lib/cash-keys";
@@ -162,8 +161,6 @@ const RECEIPT_EFFECT_KEYS = [
   invoicesKeys.all,
   checksKeys.all,
   ...LEDGER_KEYS,
-  // A rendición lists its receipts and whether they were cancelled.
-  driverSettlementsKeys.all,
   // A receipt made from a statement line shows there as a match.
   reconciliationKeys.all,
 ] as const;

@@ -2,10 +2,7 @@ import { z } from "zod";
 
 import { listDriversAction } from "@/features/drivers/actions/drivers-actions";
 import { getFleetMarginAction } from "@/features/fleet-reports/actions/margin-actions";
-import {
-  getFleetProfitabilityAction,
-  listTripRevenueAction,
-} from "@/features/fleet-reports/actions/profitability-actions";
+import { listTripRevenueAction } from "@/features/fleet-reports/actions/trip-revenue-actions";
 import { FleetMarginInputSchema } from "@/features/fleet-reports/schema";
 import { listFleetDocumentsAction } from "@/features/fleet-documents/actions/fleet-documents-actions";
 import { listFuelLoadsAction } from "@/features/fuel/actions/fuel-actions";
@@ -57,7 +54,7 @@ export function pendingFreightNote(pending: {
 }
 
 /** The services with no cost typed: unknown, not $0. Null when none. */
-export function maintenanceWithoutCostNote(count: number): string | null {
+function maintenanceWithoutCostNote(count: number): string | null {
   if (!(count > 0)) return null;
   return `${count} service(s) sin costo cargado: no están en el mantenimiento (costo desconocido, no $0).`;
 }
@@ -188,9 +185,8 @@ export function capNote(rows: number, cap: number): string {
     : "";
 }
 
-/** Trips with the revenue «Rentabilidad de flota» counts (v_trip_revenue)
- *  and the manual figure apart; the total leaves out cancelled trips. The
- *  revenue needs shipments:read, as in getFleetProfitability. */
+/** Trips with their revenue (v_trip_revenue) and the manual figure apart;
+ *  the total leaves out cancelled trips. The revenue needs shipments:read. */
 export async function runTrips(
   access: Access,
   input: FleetListInput = {},
@@ -273,13 +269,13 @@ export const getTrips = defineAiAction({
     "date range and limit: date, origin/destination, vehicle, driver, " +
     "status, km, cost, revenue and manual_revenue, with the km of the not " +
     "cancelled ones summed. revenue is the invoiced freight of the " +
-    "trip's shipments (without shipments, the manual figure), as in " +
-    "getFleetProfitability; the total leaves out cancelled trips; without " +
+    "trip's shipments (without shipments, the manual figure); the total " +
+    "leaves out cancelled trips; without " +
     "shipments:read, revenue is null and there is no total. " +
     PENDING_FREIGHT_RULE +
     " For queries about trips or transport. The km and the drivers of ONE " +
-    "vehicle in a period are in getVehicleUsage; per-trip net and " +
-    "per-vehicle margin in getFleetProfitability and getFleetMargin.",
+    "vehicle in a period are in getVehicleUsage; the margin per trip, " +
+    "driver, vehicle or client in getFleetMargin.",
   input: z.object({
     ...fleetListShape,
     driver: z
@@ -425,72 +421,6 @@ export const getVehicleKm = defineAiAction({
       res.data,
     );
   },
-});
-
-export async function runFleetProfitability(input: {
-  periodStart: string;
-  periodEnd: string;
-}): Promise<AiRunResult> {
-  if (!DATE_RE.test(input.periodStart) || !DATE_RE.test(input.periodEnd)) {
-    return errResult("Invalid date range (use YYYY-MM-DD).");
-  }
-  const res = await getFleetProfitabilityAction(input);
-  if (!res.ok) return errResult(res.error);
-  const { totals, trips, vehicles, without_vehicle } = res.data;
-  const pending = pendingFreightNote({
-    amount: totals.uninvoiced_freight,
-    shipments: totals.uninvoiced_shipments,
-    trips: totals.pending_invoicing_trips,
-  });
-  const noCost = maintenanceWithoutCostNote(totals.maintenance_without_cost);
-  return okResult(
-    `Fleet profitability ${input.periodStart}→${input.periodEnd}: ` +
-      `${trips.length} trips, ${vehicles.length} vehicles` +
-      (without_vehicle
-        ? ` (+ ${without_vehicle.trips} trip(s) without a vehicle, in the totals)`
-        : "") +
-      ` · net $${totals.net.toLocaleString("es-AR")} ` +
-      `(revenue $${totals.revenue.toLocaleString("es-AR")} − cost $${totals.cost.toLocaleString(
-        "es-AR",
-      )}; invoiced $${totals.invoiced_revenue.toLocaleString("es-AR")}, ` +
-      `manual $${totals.manual_revenue.toLocaleString("es-AR")}).` +
-      (pending ? ` ${pending}` : "") +
-      (noCost ? ` ${noCost}` : ""),
-    res.data,
-  );
-}
-
-export const getFleetProfitability = defineAiAction({
-  name: "getFleetProfitability",
-  domain: "flota",
-  permission: ["trips:read", "shipments:read"],
-  sideEffect: "read",
-  sources: [
-    "trips",
-    "v_trip_revenue",
-    "shipments",
-    "fuel_loads",
-    "maintenance_records",
-    "vehicles",
-  ],
-  description:
-    "Fleet profitability over a date range: net per trip " +
-    "(revenue − cost − every fuel load tied to the trip, whatever its " +
-    "date) and per vehicle (its fuel and maintenance dated in the range). " +
-    "A trip with shipments earns the freight of its invoiced shipments; " +
-    "without shipments, its manual revenue. Both figures (invoiced, manual) " +
-    "come per trip, per vehicle and in the totals. The trips without a " +
-    "vehicle come in without_vehicle, and the totals cover them too. " +
-    PENDING_FREIGHT_RULE +
-    " The totals give it with the count of such trips " +
-    "(pending_invoicing_trips). maintenance_without_cost counts services " +
-    "with no cost typed: unknown, not in the maintenance cost. " +
-    "Requires date from and to (YYYY-MM-DD). For trip or truck profitability.",
-  input: z.object({
-    periodStart: z.string().describe("Date from, format YYYY-MM-DD."),
-    periodEnd: z.string().describe("Date to, format YYYY-MM-DD."),
-  }),
-  run: (_ctx, input) => runFleetProfitability(input),
 });
 
 export const getFleetMargin = defineAiAction({
