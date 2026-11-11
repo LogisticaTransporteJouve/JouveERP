@@ -31,7 +31,7 @@ export const TAX_KIND_LABEL: Record<TaxKind, string> = {
   otro: "Otro",
 };
 
-/** Short name used in tables, the calendar and the payment description;
+/** Short name used in tables, tasks and the payment description;
  *  the SQL twin is public.tax_document_label. */
 const TAX_KIND_SHORT: Record<TaxKind, string> = {
   iva: "IVA",
@@ -445,32 +445,4 @@ export function sumIva(
   perRate: Record<number, { neto: number; iva: number }>,
 ): number {
   return Object.values(perRate).reduce((acc, r) => acc + r.iva, 0);
-}
-
-// ─── Calendar ───────────────────────────────────────────────────────────────
-
-/** The weeks (Monday first) of the month of `month` (YYYY-MM), each day as
- *  YYYY-MM-DD or null outside the month. */
-export function monthGrid(month: string): (string | null)[][] {
-  const [y, m] = month.split("-").map(Number);
-  if (!y || !m) return [];
-  const first = new Date(Date.UTC(y, m - 1, 1));
-  const days = new Date(Date.UTC(y, m, 0)).getUTCDate();
-  const lead = (first.getUTCDay() + 6) % 7;
-  const cells: (string | null)[] = Array.from({ length: lead }, () => null);
-  for (let d = 1; d <= days; d++) {
-    cells.push(`${month}-${String(d).padStart(2, "0")}`);
-  }
-  while (cells.length % 7 !== 0) cells.push(null);
-  const weeks: (string | null)[][] = [];
-  for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
-  return weeks;
-}
-
-/** "2026-11" ± n months. */
-export function shiftMonth(month: string, delta: number): string {
-  const [y, m] = month.split("-").map(Number);
-  if (!y || !m) return month;
-  const index = y * 12 + (m - 1) + delta;
-  return `${Math.floor(index / 12)}-${String((index % 12) + 1).padStart(2, "0")}`;
 }

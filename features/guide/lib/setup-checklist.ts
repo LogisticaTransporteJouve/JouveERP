@@ -79,7 +79,7 @@ export const SETUP_ITEMS: readonly SetupItem[] = [
     key: "taxes",
     label: "Vencimientos de impuestos",
     description:
-      "Cargá los impuestos del mes (IVA, IIBB, F931…) para que aparezcan en el calendario y en Tareas.",
+      "Cargá los impuestos del mes (IVA, IIBB, F931…) para que aparezcan en la lista de impuestos y en Tareas.",
     href: "/taxes",
     permission: "taxes:write",
   },

@@ -7,12 +7,10 @@ import {
   computeIvaPosition,
   isTaxDocumentOverdue,
   LinkTaxPaymentSchema,
-  monthGrid,
   PayTaxDocumentSchema,
   previousIvaCreditBalance,
   previousPeriod,
   rankTaxPaymentCandidates,
-  shiftMonth,
   sumIva,
   TAX_KINDS,
   TAX_STATUSES,
@@ -189,24 +187,6 @@ describe("labels and dates", () => {
     expect(previousPeriod("2026-11")).toBe("2026-10");
     expect(addOneMonth("2026-01-31")).toBe("2026-02-28");
     expect(addOneMonth("2026-12-18")).toBe("2027-01-18");
-    expect(shiftMonth("2026-12", 1)).toBe("2027-01");
-    expect(shiftMonth("2026-01", -1)).toBe("2025-12");
-  });
-
-  it("lays a month out in Monday-first weeks", () => {
-    // November 2026 starts on a Sunday.
-    const weeks = monthGrid("2026-11");
-    expect(weeks[0]).toEqual([
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      "2026-11-01",
-    ]);
-    expect(weeks.flat().filter(Boolean)).toHaveLength(30);
-    expect(weeks.every((w) => w.length === 7)).toBe(true);
   });
 });
 
