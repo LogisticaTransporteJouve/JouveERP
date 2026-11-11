@@ -1,12 +1,6 @@
 import { z } from "zod";
 
 import { getReconciliationAction } from "@/features/bank-reconciliation/actions/reconciliation-actions";
-import {
-  CLIENT_TARIFF_CONCEPTS,
-  CLIENT_TARIFF_CURRENCIES,
-  CLIENT_TARIFF_UNITS,
-  UNITS_BY_CONCEPT,
-} from "@/features/client-tariffs/schema";
 import { isoDate } from "@/features/exchange-rates/schema";
 import { issueFiscalInvoiceAction } from "@/features/invoices/actions/invoices-actions";
 import { listLateInterestCandidatesAction } from "@/features/late-interest/actions/late-interest-actions";
@@ -15,7 +9,6 @@ import {
   computeLateInterest,
 } from "@/features/late-interest/lib/late-interest";
 import { MONEDA } from "@/lib/afip/codes";
-import { createClientTariff } from "@/lib/commands/create-client-tariff";
 import { createTask } from "@/lib/commands/create-task";
 import { issueLateInterestNd } from "@/lib/commands/issue-late-interest-nd";
 import { matchBankLines } from "@/lib/commands/match-bank-line";
@@ -26,7 +19,6 @@ import {
   LATE_INTEREST_LABELS,
   MAX_PROPOSED_MATCHES,
   bankMatchesProposalSpec,
-  clientTariffProposalSpec,
   lateInterestNdProposalSpec,
   taskProposalSpec,
 } from "../../lib/proposal-specs";
@@ -35,7 +27,7 @@ import { defineAiProposal } from "../propose";
 import { errResult, money, okResult } from "../result";
 import { readScope } from "../scope";
 
-import { MAX_CANDIDATES, resolveClient } from "./resolve-client";
+import { MAX_CANDIDATES } from "./resolve-client";
 import { findReconciliationAccount } from "./treasury";
 
 // 6.3 proposals over existing writes. Each `prepare` resolves names with the
@@ -86,87 +78,6 @@ export const proposeTask = defineAiProposal({
   },
   execute: (ctx, draft) => createTask(ctx.userId, draft),
 });
-
-// ─── Client tariffs ──────────────────────────────────────────────────────────
-
-export const proposeClientTariff = defineAiProposal({
-  name: "proposeClientTariff",
-  domain: "deposito",
-  permission: ["storage_billing:issue", "storage_billing:read", "clients:read"],
-  sources: ["clients", "client_tariffs"],
-  description:
-    "Propose loading a client's tariff (tarifario: almacenaje, carga, " +
-    "descarga or flete) for the user to accept on a card. The overlap guard " +
-    "refuses a tariff whose vigencia crosses another one of the same concept. " +
-    "Writes nothing by itself.",
-  input: z.object({
-    client: z
-      .string()
-      .trim()
-      .min(1)
-      .max(160)
-      .describe("Client name or CUIT, as the user said it."),
-    concept: z.enum(CLIENT_TARIFF_CONCEPTS),
-    unit: z
-      .enum(CLIENT_TARIFF_UNITS)
-      .optional()
-      .describe(
-        "storage: pallet_month or pallet_day; handling_in/out: pallet; freight: shipment.",
-      ),
-    price: z.number().finite().min(0).max(999_999_999_999.99),
-    currency: z.enum(CLIENT_TARIFF_CURRENCIES).optional(),
-    valid_from: isoDate,
-    valid_to: isoDate.optional(),
-    notes: z.string().trim().max(500).optional(),
-  }),
-  spec: clientTariffProposalSpec,
-  prepare: async (_ctx, input) => {
-    const units = UNITS_BY_CONCEPT[input.concept];
-    const unit = input.unit ?? (units.length === 1 ? units[0] : undefined);
-    if (!unit) {
-      return {
-        kind: "issues",
-        issues: [
-          {
-            field: "unit",
-            message:
-              "Falta la unidad: por pallet por mes o por pallet por día.",
-          },
-        ],
-        candidates: [
-          {
-            field: "unit",
-            options: [
-              { value: "pallet_month", label: "Por pallet por mes" },
-              { value: "pallet_day", label: "Por pallet por día" },
-            ],
-          },
-        ],
-      };
-    }
-    const found = await resolveClient(input.client);
-    if (!found.ok) return found.result;
-    const pick = found.client;
-    return {
-      kind: "draft",
-      draft: {
-        client_id: pick.id,
-        concept: input.concept,
-        unit,
-        price: input.price,
-        currency: input.currency ?? "ARS",
-        valid_from: input.valid_from,
-        valid_to: input.valid_to ?? null,
-        notes: input.notes ?? null,
-        area_id: null,
-      },
-      labels: { [pick.id]: pick.legal_name },
-    };
-  },
-  execute: (ctx, draft) => createClientTariff(ctx.userId, draft),
-});
-
-// ─── Bank reconciliation ─────────────────────────────────────────────────────
 
 export const proposeBankMatches = defineAiProposal({
   name: "proposeBankMatches",

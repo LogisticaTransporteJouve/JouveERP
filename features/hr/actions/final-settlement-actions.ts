@@ -9,6 +9,7 @@ import { logger } from "@/lib/logger";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
 import { finalSettlement, sacStillOwed } from "../lib/final-settlement";
+import { isPayMode, type PayMode } from "../schema";
 import {
   ApplyFinalSettlementSchema,
   formatPayrollPeriod,
@@ -39,6 +40,9 @@ export type FinalSettlementSuggestion = {
    *  one): the suggested sac_amount is net of it. */
   sac_in_sac_planilla: number;
   sac_amount: number;
+  /** recibo: the final recibo already pays the unused vacations and the
+   *  proportional SAC, so applying adds neither. */
+  pay_mode: PayMode;
 };
 
 async function previousMonthSalary(
@@ -78,7 +82,7 @@ async function loadSuggestion(
 > {
   const { data: employee, error: empErr } = await supabase
     .from("employees")
-    .select("id, hire_date, termination_date")
+    .select("id, hire_date, termination_date, pay_mode")
     .eq("id", employeeId)
     .maybeSingle();
   if (empErr) return { ok: false, error: "No se pudo leer el empleado." };
@@ -200,6 +204,7 @@ async function loadSuggestion(
       sac_half: half,
       sac_in_sac_planilla: sacInSacPlanilla,
       sac_amount: sacStillOwed(Number(sacRes.data ?? 0), sacInSacPlanilla),
+      pay_mode: isPayMode(employee.pay_mode) ? employee.pay_mode : "acordado",
     },
   };
 }
@@ -248,6 +253,14 @@ export async function applyFinalSettlementAction(
     };
   }
 
+  // A «por recibo» employee's final recibo already holds the unused vacations
+  // and the proportional SAC: neither is added on top. The prorated salary is
+  // a placeholder the final recibo replaces once loaded (the database copies
+  // the recibo into the sueldo).
+  const byRecibo = base.data.pay_mode === "recibo";
+  const vacationAmount = byRecibo ? 0 : v.vacation_amount;
+  const sacAmount = byRecibo ? 0 : v.sac_amount;
+
   // One transaction: the planilla (created when missing), the employee's line
   // and its settlement extras are written together or not at all.
   const { data: entryId, error } = await supabase.rpc(
@@ -257,9 +270,9 @@ export async function applyFinalSettlementAction(
       p_year: year,
       p_month: month,
       p_sueldo_neto: v.prorated_salary,
-      p_vacaciones_monto: v.vacation_amount,
+      p_vacaciones_monto: vacationAmount,
       p_extra_prefix: EXTRA_PREFIX,
-      p_sac_amount: v.sac_amount,
+      p_sac_amount: sacAmount,
       p_sac_description: `${EXTRA_PREFIX} SAC proporcional (${formatPayrollPeriod(year, sacMonth(sac_half), "sac")})`,
     },
   );
@@ -287,8 +300,9 @@ export async function applyFinalSettlementAction(
       month,
       prorated_salary: v.prorated_salary,
       vacation_days: v.vacation_days,
-      vacation_amount: v.vacation_amount,
-      sac_amount: v.sac_amount,
+      vacation_amount: vacationAmount,
+      sac_amount: sacAmount,
+      pay_mode: base.data.pay_mode,
     },
     entryId,
   );

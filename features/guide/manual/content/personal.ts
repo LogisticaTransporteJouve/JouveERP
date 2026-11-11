@@ -121,6 +121,11 @@ export const hrPage: GuidePage = {
                   kind: "select",
                   value: "Mensual",
                 },
+                {
+                  label: "Modalidad",
+                  kind: "select",
+                  value: "Sueldo acordado",
+                },
                 { label: "CUIL", kind: "input", value: "20123456784" },
                 { label: "CBU", kind: "input" },
                 {
@@ -152,6 +157,7 @@ export const hrPage: GuidePage = {
                 "{{Apellido y nombre}}: obligatorio, al menos 2 letras (por ejemplo «Pérez, Juan»).",
                 "{{Posición}}: elegí una de la lista ({{Chofer / Acompañante}}, {{Administrativo}}, {{Mecánico}}, {{Depósito}}, {{Socio / Dirección}}, {{Otro}}).",
                 "{{Frecuencia de pago}}: {{Semanal}}, {{Mensual}} o {{Mixto}}.",
+                "{{Modalidad}}: {{Por recibo}} (el sueldo sale del recibo del liquidador: al cargar el recibo en la planilla queda como sueldo, las vacaciones van dentro del recibo y los aumentos por % no lo tocan) o {{Sueldo acordado}} (se carga a mano y se aumenta por %). Viene en {{Sueldo acordado}}.",
                 "{{CUIL}}: 11 dígitos, opcional (se aceptan guiones y espacios).",
                 "{{CBU}}: 22 dígitos, opcional, pero hace falta para pagarle por transferencia.",
               ],
@@ -309,7 +315,7 @@ export const hrPage: GuidePage = {
               ],
             },
             "Cargá el {{Aumento (%)}} (mayor a 0 y hasta 100; acepta coma decimal) y elegí {{Desde el mes}}. Opcional: {{Motivo (opcional)}}.",
-            "Revisá la lista de abajo: para cada empleado del grupo muestra el sueldo actual → el nuevo, con una casilla tildada. Destildá a los que no reciben el aumento (la casilla de arriba tilda o destilda a todos); arriba dice cuántos quedan elegidos. Solo entran los activos con sueldo base cargado. {{Aplicar aumento}} se habilita cuando el porcentaje es válido y hay al menos un empleado tildado.",
+            "Revisá la lista de abajo: para cada empleado del grupo muestra el sueldo actual → el nuevo, con una casilla tildada. Destildá a los que no reciben el aumento (la casilla de arriba tilda o destilda a todos); arriba dice cuántos quedan elegidos. Solo entran los activos con sueldo base cargado y con modalidad {{Sueldo acordado}}: los empleados {{Por recibo}} no entran, su sueldo sale del recibo. {{Aplicar aumento}} se habilita cuando el porcentaje es válido y hay al menos un empleado tildado.",
             "Hacé clic en {{Aplicar aumento}}.",
           ],
           after: [
@@ -378,7 +384,7 @@ export const hrPage: GuidePage = {
             "Lleva lo que el empleado le debe a la empresa (o a un socio), por moneda: adelantos, compras a su cargo y deudas. No es costo: se devuelve con descuentos de planilla o con pagos.",
             "Arriba muestra el saldo de cada moneda: {{Debe}} si el empleado debe, o {{A favor del empleado}} si pagó de más; y, si corresponde, cuánto de eso es con socios.",
             "Cada movimiento tiene un tipo ({{Adelanto}}, {{Cargo}}, {{Descuento de planilla}}, {{Pago}}, {{Condonación}}) y un origen ({{Caja}}, {{Tarjeta}}, {{Compra}}, {{Planilla}}, {{Rendición}}, {{Plan}}, {{Manual}}). Adelantos y cargos van al {{Debe}}; lo demás, al {{Haber}}. Un adelanto que se devuelve en cuotas se muestra como {{Préstamo}}, y su plan lleva la misma marca.",
-            "Solo se borran desde acá los movimientos de origen {{Manual}} o {{Caja}}. Los demás se manejan desde lo que los generó: una compra «a cargo de empleado», un resumen de tarjeta ({{Deshacer pago}} en [[/card-statements]]), el cierre de la planilla, una rendición o el plan condonado.",
+            "Solo se borran desde acá los movimientos de origen {{Manual}} o {{Caja}}. Los demás se manejan desde lo que los generó: una compra «a cargo de empleado», un resumen de tarjeta ({{Deshacer pago}} en [[/card-statements]]), el cierre de la planilla o el plan condonado.",
             "Un **plan** dice cómo se devuelve una deuda: un total y una cuota mensual desde un mes. La cuota de cada plan activo en pesos es lo que la planilla descuenta por defecto en la columna {{Deudas}}; los planes en dólares no se descuentan en la planilla y se saldan con pagos. Un plan ya pagado se ve como {{Saldado}}.",
             "Se muestran los 500 movimientos más recientes; el saldo siempre incluye todos.",
           ],
@@ -1104,11 +1110,13 @@ export const hrPage: GuidePage = {
           steps: [
             "En la ficha del empleado, bajá hasta {{Liquidación final}}. El texto dice la fecha de baja, el sueldo de base y en qué planilla se va a cargar (con un enlace).",
             "Revisá y corregí los cuatro montos sugeridos: sueldo por los días trabajados, días y monto de vacaciones no gozadas, y SAC proporcional.",
+            "Si el empleado es {{Por recibo}}, la tarjeta no muestra los montos de vacaciones ni de SAC: «Por recibo: las vacaciones no gozadas y el SAC proporcional van dentro del recibo final; cargalo en la planilla.» Se carga el sueldo proporcional como referencia y, al cargar el recibo final en la planilla, el recibo pasa a ser el sueldo.",
             "Hacé clic en {{Cargar en la planilla}}.",
           ],
           after: [
             "Si la planilla del mes de la baja no existía, se genera. En la fila del empleado, {{Sueldo}} queda con el sueldo proporcional y {{Vacaciones}} con el monto de vacaciones, y se agrega un extra «Liquidación final: SAC proporcional (…)» si el SAC es mayor a cero.",
             "Volver a cargarla reemplaza los montos y el extra anteriores.",
+            "En un empleado {{Por recibo}} no se agregan vacaciones ni SAC, y si el recibo final ya estaba cargado queda como sueldo.",
             "Los pagos se registran después en la planilla como cualquier otro ([[#registrar-pago-sueldo]]).",
           ],
           errors: [
@@ -1462,11 +1470,22 @@ export const hrPage: GuidePage = {
           title: "Las columnas",
           body: [
             "{{Sueldo}} (en el SAC, {{SAC}}): el sueldo pactado del mes. {{Recibo}}: el neto del recibo del liquidador; vacío = sin recibo cargado. {{Otros}}: sueldo pactado − neto del recibo.",
+            "Un empleado {{Por recibo}} lleva la marca «recibo» junto al nombre: con el recibo cargado, su {{Sueldo}} es el recibo y no se edita («Sale del recibo»); su {{Vacaciones}} queda vacía porque van dentro del recibo.",
             "{{Extras}}: la suma de las líneas de extras ([[#cargar-extras-planilla]]). {{Vacaciones}}, {{Viáticos}} y {{Teléfono}}: montos del mes.",
             "{{Deudas}}: la cuota de los planes activos en pesos de la cuenta corriente del empleado. Editable por mes; al cerrar el período pasa a su cuenta corriente.",
             "{{Embargo}}: lo que suman los embargos vigentes del empleado ese mes (un porcentaje se calcula sobre el {{Recibo}}, o sobre el {{Sueldo}} mientras no haya recibo).",
             "{{Total}} = Sueldo + Extras + Vacaciones + Viáticos − Deudas − Teléfono − Embargo. {{Pagado}}: la suma de los pagos registrados. {{Saldo}} = Total − Pagado; hacé clic en el saldo para ver y cargar los pagos.",
             "{{Transf. / Efectivo}}: cómo se sugiere pagar el total. Transferencia = recibo − embargo − descuentos (deudas y teléfono), sin pasar el total; efectivo = el resto del total. Sin recibo cargado muestra «—».",
+          ],
+        },
+        {
+          title: "A qué canal va cada pago",
+          body: [
+            "El canal de cada pago lo asigna el sistema, sea transferencia o efectivo: a libros (canal fiscal, cuenta Sueldos y jornales) va el neto del recibo menos el embargo, sin pasar el {{Total}}; el resto (otros, extras, viáticos) va a gestión (canal interno, sin asiento). Sin recibo cargado, todo va a gestión hasta que lo cargues.",
+            "Los pagos llenan la parte de libros por orden de fecha. El pago que la cruza queda partido en dos: una parte a libros y otra a gestión. En la lista de pagos se ve como un solo pago, con «Libros $ · Gestión $» debajo. Si después cambian el recibo, el embargo, los descuentos o los extras, los pagos se reparten de nuevo solos.",
+            "Pasando el mouse por {{Pagado}} se ve cuánto fue a libros y cuánto a gestión.",
+            "Si las deudas y el teléfono superan a los extras y los viáticos, lo pagado a libros queda por debajo del recibo. Al cerrar la planilla, la diferencia se asienta como sueldo contra la deuda del empleado (Debe Sueldos y jornales / Haber Anticipos al personal), con origen «Planilla de sueldos»; al reabrirla, ese asiento se anula. Gestión no lo vuelve a contar: ya cuenta el descuento de la planilla.",
+            "Las planillas cerradas antes de este reparto conservan el canal que se eligió en cada pago.",
           ],
         },
         {
@@ -1486,7 +1505,7 @@ export const hrPage: GuidePage = {
         {
           title: "Los pagos y la contabilidad",
           body: [
-            "Cada pago de sueldo crea un egreso en pesos en la caja o banco elegido, con la descripción «Sueldo Apellido, Nombre (MM/AAAA)» (o «SAC … (… semestre AAAA)») y el mes de la planilla como mes de devengo. Su asiento debita **Sueldos y jornales**. Editar el pago actualiza ese movimiento; borrarlo lo borra.",
+            "Cada pago de sueldo crea un egreso en pesos en la caja o banco elegido, con la descripción «Sueldo Apellido, Nombre (MM/AAAA)» (o «SAC … (… semestre AAAA)») y el mes de la planilla como mes de devengo. La parte que va a libros asienta un débito a **Sueldos y jornales**; la que va a gestión no lleva asiento (ver «A qué canal va cada pago»). Un pago partido en dos tiene dos movimientos, uno por canal. Editar el pago actualiza sus movimientos; borrarlo los borra.",
           ],
         },
       ],
@@ -1503,6 +1522,8 @@ export const hrPage: GuidePage = {
           ],
           after: [
             "La fila recalcula {{Otros}}, {{Total}}, {{Transf. / Efectivo}} y {{Saldo}}, y la fila de {{Totales}}.",
+            "En un empleado {{Por recibo}}, cargar el {{Recibo}} fija su {{Sueldo}} y, en una planilla mensual no anterior a su último cambio de sueldo, también su sueldo base (queda en el historial como «Recibo MM/AAAA»). En un SAC fija el SAC de la fila, no el sueldo base.",
+            "Si ya tiene pagos, cambiar el {{Recibo}}, el {{Embargo}}, las {{Deudas}}, el {{Teléfono}} o los extras los reparte de nuevo entre libros y gestión ([[#registrar-pago-sueldo]]).",
             "Cambiar {{Sueldo}} o {{Recibo}} recalcula el {{Embargo}} si es un porcentaje. Escribir a mano {{Deudas}} o {{Embargo}} deja ese valor fijo para la fila.",
           ],
           errors: [
@@ -1510,6 +1531,11 @@ export const hrPage: GuidePage = {
               message:
                 "Período cerrado: no se pueden modificar entries (period_id=…)",
               fix: "La planilla se cerró mientras la tenías abierta: actualizá la pantalla; para cambiarla hay que reabrirla ([[#reabrir-planilla]]).",
+            },
+            {
+              message:
+                "El período contable de este sueldo está cerrado: reabrilo para cargar el recibo",
+              fix: "El cambio movería pagos ya hechos a libros o fuera de ellos en un mes contable cerrado. Reabrí el período en Contabilidad, cargá el cambio y volvé a cerrarlo.",
             },
             {
               message: "Sin permiso para editar la planilla.",
@@ -1674,12 +1700,18 @@ export const hrPage: GuidePage = {
           after: [
             "La planilla queda {{Cerrado}}: no se pueden cambiar montos, extras ni filas. Los pagos se siguen pudiendo registrar.",
             "Las {{Deudas}} de cada fila pasan a la cuenta corriente de cada empleado como {{Descuento de planilla}} y bajan lo que resta de sus planes.",
+            "Si en una fila lo que se puede pagar a libros queda por debajo del recibo (las deudas y el teléfono superan a los extras y los viáticos), la diferencia se asienta como sueldo contra la deuda del empleado (Debe Sueldos y jornales / Haber Anticipos al personal), con origen «Planilla de sueldos».",
             "Solo un owner o un admin la puede reabrir.",
           ],
           errors: [
             {
               message: "El período ya estaba cerrado o no existe.",
               fix: "Actualizá la pantalla.",
+            },
+            {
+              message:
+                "El período contable de … está cerrado: reabrilo para cerrar la planilla",
+              fix: "Hay que asentar la parte del recibo que salda deuda en un mes contable cerrado: reabrí el período en Contabilidad, cerrá la planilla y volvé a cerrarlo.",
             },
             {
               message: "Sin permiso para cerrar períodos.",
@@ -1696,13 +1728,18 @@ export const hrPage: GuidePage = {
           prerequisites: ["Ser owner o admin."],
           steps: ["En la planilla cerrada, hacé clic en {{Reabrir}}."],
           after: [
-            "Vuelve a {{Borrador}} y se puede editar. Los {{Descuento de planilla}} que el cierre había escrito en las cuentas corrientes se borran; se vuelven a escribir al cerrarla de nuevo.",
+            "Vuelve a {{Borrador}} y se puede editar. Los {{Descuento de planilla}} que el cierre había escrito en las cuentas corrientes se borran; se vuelven a escribir al cerrarla de nuevo. Los asientos de la parte del recibo que salda deuda se anulan.",
           ],
           errors: [
             {
               message:
                 "Solo un owner o un admin pueden reabrir una liquidación cerrada.",
               fix: "Pedile la reapertura a un owner o admin.",
+            },
+            {
+              message:
+                "El período contable de … está cerrado: reabrilo para reabrir la planilla",
+              fix: "Anularía asientos de un mes contable cerrado: reabrí primero el período en Contabilidad.",
             },
             {
               message: "El período ya estaba en borrador o no existe.",
@@ -1739,7 +1776,6 @@ export const hrPage: GuidePage = {
                   value: "Banco Galicia",
                   marker: 2,
                 },
-                { label: "Canal", kind: "select", value: "Jouve", marker: 2 },
                 {
                   label: "Método",
                   kind: "select",
@@ -1762,13 +1798,13 @@ export const hrPage: GuidePage = {
           ],
           steps: [
             "En la fila del empleado, hacé clic en el monto de la columna {{Saldo}}. Se abre la lista de pagos ya hechos y el formulario.",
-            "Elegí {{Cuenta}} (solo cajas y bancos activos en pesos), {{Canal}}, {{Método}} ({{Transferencia}} o {{Efectivo}}) y {{Fecha}}. El {{Monto}} viene con el saldo pendiente: cambialo si pagás una parte. Opcional: {{Notas}}.",
+            "Elegí {{Cuenta}} (solo cajas y bancos activos en pesos), {{Método}} ({{Transferencia}} o {{Efectivo}}) y {{Fecha}}. El {{Monto}} viene con el saldo pendiente: cambialo si pagás una parte. Opcional: {{Notas}}. El canal no se elige: el neto del recibo (menos embargo) va a libros y el resto a gestión ([[#planilla-sueldos]]).",
             "Si el monto supera el saldo, aparece {{Pagar más que el saldo}}: tildalo solo si es un adelanto o un pago a cuenta del mes siguiente.",
             "Hacé clic en {{Registrar pago}}.",
           ],
           after: [
-            "El pago queda en la lista y la fila actualiza {{Pagado}} y {{Saldo}}.",
-            "Se crea un egreso en pesos en la cuenta elegida con su asiento en Sueldos y jornales (ver «Los pagos y la contabilidad» arriba).",
+            "El pago queda en la lista y la fila actualiza {{Pagado}} y {{Saldo}}. Debajo dice si fue a {{Libros}}, a {{Gestión}} o, si cruzó la parte del recibo, cuánto a cada uno.",
+            "Se crea un egreso en pesos en la cuenta elegida; la parte de libros, con su asiento en Sueldos y jornales (ver «Los pagos y la contabilidad» arriba).",
           ],
           errors: [
             {
@@ -1799,8 +1835,18 @@ export const hrPage: GuidePage = {
               fix: "Cargá un monto mayor a cero.",
             },
             {
-              message: "Faltan cuenta y canal.",
-              fix: "Elegí la cuenta y el canal.",
+              message: "Falta la cuenta.",
+              fix: "Elegí la cuenta.",
+            },
+            {
+              message:
+                "El período contable de este sueldo está cerrado: reabrilo para cargar el recibo",
+              fix: "El pago iría a libros en un mes contable cerrado. Reabrí el período en Contabilidad o cargá el pago después de reabrirlo.",
+            },
+            {
+              message:
+                "La cuenta del pago está inactiva: activala para que el sistema reparta el pago entre libros y gestión",
+              fix: "Activá la cuenta en Tesorería o borrá el pago y cargalo desde otra cuenta.",
             },
             {
               message: "Sin permiso para registrar pagos.",
@@ -1826,10 +1872,11 @@ export const hrPage: GuidePage = {
           steps: [
             "En la fila del empleado, hacé clic en el {{Saldo}}.",
             "En la lista de pagos, hacé clic en el lápiz del pago ({{Editar pago}}): el formulario se carga con sus datos.",
-            "Cambiá lo que necesites y hacé clic en {{Guardar cambios}} (o {{Cancelar}} para dejarlo como estaba).",
+            "Cambiá lo que necesites y hacé clic en {{Guardar cambios}} (o {{Cancelar}} para dejarlo como estaba). Un pago partido en libros y gestión se edita entero: el {{Monto}} es la suma de las dos partes.",
+            "Si el pago está conciliado con el extracto, el {{Monto}} no se puede cambiar («Conciliado: desconciliá para cambiar el monto»); las notas y el método sí.",
           ],
           after: [
-            "El movimiento de caja del pago se actualiza (cuenta, canal, monto y fecha) y su asiento con él.",
+            "Los movimientos de caja del pago se actualizan (cuenta, monto y fecha) con sus asientos, y el sistema vuelve a repartirlo entre libros y gestión.",
           ],
           errors: [
             {
@@ -1840,6 +1887,20 @@ export const hrPage: GuidePage = {
             {
               message: "El pago ya no existe.",
               fix: "Actualizá la pantalla.",
+            },
+            {
+              message: "Editá el pago completo, no su parte interna.",
+              fix: "Abrí el pago desde la lista: se edita entero.",
+            },
+            {
+              message:
+                "El pago está conciliado: desconciliá su línea en la pestaña «Extracto» de su cuenta para cambiar el monto",
+              fix: "Desconciliá la línea en la pestaña {{Extracto}} de la cuenta ([[/accounts]]), corregí el monto y volvé a conciliar.",
+            },
+            {
+              message:
+                "El pago de sueldo está conciliado de una forma que el reparto automático no puede mantener: desconciliá su línea en la pestaña «Extracto» de su cuenta, cargá el cambio y volvé a conciliar",
+              fix: "El pago está conciliado con varias líneas del extracto o solo una de sus partes lo está. Desconciliá, cargá el cambio y volvé a conciliar.",
             },
             {
               message:
@@ -1862,7 +1923,7 @@ export const hrPage: GuidePage = {
             "Hacé clic en la papelera del pago ({{Borrar pago}}). Se borra sin pedir confirmación.",
           ],
           after: [
-            "Se borra también su movimiento de caja y su asiento; el {{Saldo}} de la fila vuelve a subir.",
+            "Se borran también sus movimientos de caja (los dos, si estaba partido en libros y gestión) y su asiento; el {{Saldo}} de la fila vuelve a subir y los demás pagos se reparten de nuevo.",
           ],
           errors: [
             {
@@ -1895,7 +1956,7 @@ export const hrPage: GuidePage = {
               kind: "dialog",
               title: "Pago masivo de sueldos",
               description:
-                "Un pago por empleado, cada uno con su monto. Con el neto del recibo cargado se sugiere la transferencia (recibo − embargo − descuentos) o el efectivo (el resto); sin recibo, el saldo.",
+                "Un pago por empleado, cada uno con su monto. Con el neto del recibo cargado se sugiere la transferencia (recibo − embargo − descuentos) o el efectivo (el resto); sin recibo, el saldo. Canal automático: el neto del recibo (menos embargo) va a libros; el resto, a gestión.",
               fields: [
                 {
                   label: "Método",
@@ -1928,7 +1989,7 @@ export const hrPage: GuidePage = {
             "En la planilla, hacé clic en {{Pago masivo}}.",
             "Elegí el {{Método}} y la {{Fecha}}. Al cambiar el método se vuelven a sugerir los montos: con transferencia, la parte de transferencia pendiente de cada uno; con efectivo, la de efectivo; sin recibo, el saldo.",
             "En la lista de {{Empleados}}, tildá o destildá a cada uno (la casilla de arriba elige a todos) y corregí el monto si hace falta.",
-            "Elegí la {{Cuenta en pesos}}, el {{Canal}} y, opcional, {{Notas (opcional)}}. Abajo se ven la cantidad de empleados y el total. Si alguno quedaría con saldo negativo, aparece {{Pagar más que el saldo}} para confirmarlo.",
+            "Elegí la {{Cuenta en pesos}} y, opcional, {{Notas (opcional)}}. El canal lo asigna el sistema a cada pago. Abajo se ven la cantidad de empleados y el total. Si alguno quedaría con saldo negativo, aparece {{Pagar más que el saldo}} para confirmarlo.",
             "Hacé clic en **Registrar N pagos**. Se habilita con al menos un empleado tildado y un monto mayor a cero en cada uno (abajo dice cuántos quedan «sin monto válido»).",
           ],
           after: [

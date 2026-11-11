@@ -5,11 +5,6 @@ import { Suspense, useEffect, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 
-import { ChannelsReadError } from "@/components/channels-read-error";
-import {
-  useDefaultChannel,
-  useScope,
-} from "@/components/providers/scope-provider";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -63,6 +58,7 @@ import {
 import {
   PAYROLL_PAYMENT_METHOD_LABEL,
   PAYROLL_PAYMENT_METHODS,
+  type PayrollPaymentListed,
   type PayrollPaymentMethod,
 } from "../payroll-schema";
 
@@ -154,7 +150,6 @@ export function PayrollPaymentsDialog({
 
 type AddValues = {
   account_id: string;
-  channel_id: string;
   amount: string;
   method: PayrollPaymentMethod;
   paid_at: string;
@@ -194,20 +189,17 @@ function PaymentsBody({
     refetch: refetchPayments,
   } = usePayrollPayments(entryId);
   const payments = paymentsData ?? [];
-  const { channels } = useScope();
-  const defaultChannel = useDefaultChannel();
+  const groups = paymentGroups(payments);
   const createMut = useCreatePayrollPayment();
   const updateMut = useUpdatePayrollPayment();
   const deleteMut = useDeletePayrollPayment();
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const payableAccounts = payrollPayableAccounts(accounts);
-  const activeChannels = channels.filter((c) => c.is_active);
-  const editing = payments.find((p) => p.id === editingId) ?? null;
+  const editing = groups.find((g) => g.parent.id === editingId) ?? null;
 
   const emptyValues: AddValues = {
     account_id: payableAccounts[0]?.id ?? "",
-    channel_id: defaultChannel ?? "",
     amount: saldo > 0 ? amountToInput(saldo) : "",
     method: "transferencia",
     paid_at: todayInAR(),
@@ -227,7 +219,7 @@ function PaymentsBody({
   }, [firstAccountId, editingId, form]);
 
   // Editing a payment frees its own amount, so it counts toward the balance.
-  const available = saldo + (editing ? Number(editing.amount) : 0);
+  const available = saldo + (editing ? editing.total : 0);
   const typedAmount = parseArAmount(
     useWatch({ control: form.control, name: "amount" }),
   );
@@ -235,13 +227,13 @@ function PaymentsBody({
     typedAmount !== null && exceedsBalance(typedAmount, available);
 
   function startEdit(id: string) {
-    const payment = payments.find((p) => p.id === id);
-    if (!payment) return;
+    const group = groups.find((g) => g.parent.id === id);
+    if (!group) return;
+    const payment = group.parent;
     setEditingId(id);
     form.reset({
       account_id: payment.account_id,
-      channel_id: payment.channel_id,
-      amount: amountToInput(Number(payment.amount)),
+      amount: amountToInput(group.total),
       method: payment.method,
       paid_at: payment.paid_at,
       notes: payment.notes ?? "",
@@ -260,13 +252,12 @@ function PaymentsBody({
       toast.error("Monto inválido.");
       return;
     }
-    if (!values.account_id || !values.channel_id) {
-      toast.error("Faltan cuenta y canal.");
+    if (!values.account_id) {
+      toast.error("Falta la cuenta.");
       return;
     }
     const payload = {
       account_id: values.account_id,
-      channel_id: values.channel_id,
       amount,
       method: values.method,
       paid_at: values.paid_at,
@@ -278,7 +269,7 @@ function PaymentsBody({
     };
     if (editing) {
       updateMut.mutate(
-        { ...payload, id: editing.id },
+        { ...payload, id: editing.parent.id },
         {
           onSuccess: () => {
             toast.success("Pago actualizado.");
@@ -330,10 +321,11 @@ function PaymentsBody({
               onRetry={() => void refetchPayments()}
             />
           </li>
-        ) : payments.length === 0 ? (
+        ) : groups.length === 0 ? (
           <li className="text-sm text-muted-foreground">Sin pagos todavía.</li>
         ) : (
-          payments.map((payment) => {
+          groups.map((group) => {
+            const payment = group.parent;
             const account = accounts.find((a) => a.id === payment.account_id);
             return (
               <li
@@ -352,10 +344,11 @@ function PaymentsBody({
                     {account?.name ?? "(cuenta)"}
                     {payment.notes ? ` · ${payment.notes}` : ""}
                   </div>
+                  <div className="text-xs text-muted-foreground">
+                    {sidesLabel(group)}
+                  </div>
                 </div>
-                <span className="font-mono">
-                  {money(Number(payment.amount))}
-                </span>
+                <span className="font-mono">{money(group.total)}</span>
                 {!disabled && (
                   <>
                     {canPickAccount && (
@@ -407,177 +400,204 @@ function PaymentsBody({
         </p>
       )}
 
-      {!disabled &&
-        canPickAccount &&
-        payableAccounts.length > 0 &&
-        activeChannels.length > 0 && (
-          <Form {...form}>
-            <form
-              onSubmit={form.handleSubmit(onSubmit)}
-              className="grid grid-cols-2 gap-3 border-t pt-4"
-            >
-              <FormField
-                control={form.control}
-                name="account_id"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Cuenta</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {payableAccounts.map((a) => (
-                          <SelectItem key={a.id} value={a.id}>
-                            {a.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="channel_id"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Canal</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {activeChannels.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>
-                            {c.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <ChannelsReadError inline />
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="method"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Método</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {PAYROLL_PAYMENT_METHODS.map((m) => (
-                          <SelectItem key={m} value={m}>
-                            {PAYROLL_PAYMENT_METHOD_LABEL[m]}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="paid_at"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Fecha</FormLabel>
+      {!disabled && canPickAccount && payableAccounts.length > 0 && (
+        <Form {...form}>
+          <form
+            onSubmit={form.handleSubmit(onSubmit)}
+            className="grid grid-cols-2 gap-3 border-t pt-4"
+          >
+            <FormField
+              control={form.control}
+              name="account_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Cuenta</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
-                      <DatePicker {...field} />
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
                     </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="amount"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Monto</FormLabel>
-                    <FormControl>
-                      <MoneyInput {...field} className="text-right font-mono" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="notes"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Notas</FormLabel>
-                    <FormControl>
-                      <Input {...field} autoComplete="off" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              {overpays && (
-                <FormField
-                  control={form.control}
-                  name="allow_overpay"
-                  render={({ field }) => (
-                    <FormItem className="col-span-2 space-y-1">
-                      <div className="flex items-center gap-2">
-                        <FormControl>
-                          <Checkbox
-                            checked={field.value}
-                            onCheckedChange={(v) => field.onChange(v === true)}
-                          />
-                        </FormControl>
-                        <FormLabel className="font-normal">
-                          Pagar más que el saldo
-                        </FormLabel>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        El monto supera el saldo pendiente (
-                        {money(Math.max(available, 0))}). Marcalo solo si es un
-                        adelanto o un pago a cuenta del mes siguiente.
-                      </p>
-                    </FormItem>
-                  )}
-                />
+                    <SelectContent>
+                      {payableAccounts.map((a) => (
+                        <SelectItem key={a.id} value={a.id}>
+                          {a.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
               )}
-              <div className="col-span-2 flex justify-end gap-2">
-                {editing && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={cancelEdit}
-                    disabled={saving}
-                  >
-                    Cancelar
-                  </Button>
+            />
+            <FormField
+              control={form.control}
+              name="method"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Método</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {PAYROLL_PAYMENT_METHODS.map((m) => (
+                        <SelectItem key={m} value={m}>
+                          {PAYROLL_PAYMENT_METHOD_LABEL[m]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="paid_at"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Fecha</FormLabel>
+                  <FormControl>
+                    <DatePicker {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="amount"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Monto</FormLabel>
+                  <FormControl>
+                    <MoneyInput
+                      {...field}
+                      className="text-right font-mono"
+                      disabled={editing?.reconciled === true}
+                    />
+                  </FormControl>
+                  {editing?.reconciled && (
+                    <p className="text-xs text-muted-foreground">
+                      Conciliado: desconciliá para cambiar el monto
+                    </p>
+                  )}
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="notes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Notas</FormLabel>
+                  <FormControl>
+                    <Input {...field} autoComplete="off" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            {overpays && (
+              <FormField
+                control={form.control}
+                name="allow_overpay"
+                render={({ field }) => (
+                  <FormItem className="col-span-2 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={(v) => field.onChange(v === true)}
+                        />
+                      </FormControl>
+                      <FormLabel className="font-normal">
+                        Pagar más que el saldo
+                      </FormLabel>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      El monto supera el saldo pendiente (
+                      {money(Math.max(available, 0))}). Marcalo solo si es un
+                      adelanto o un pago a cuenta del mes siguiente.
+                    </p>
+                  </FormItem>
                 )}
-                <Button type="submit" disabled={saving}>
-                  {editing
-                    ? updateMut.isPending
-                      ? "Guardando…"
-                      : "Guardar cambios"
-                    : createMut.isPending
-                      ? "Registrando…"
-                      : "Registrar pago"}
+              />
+            )}
+            <p className="col-span-2 text-xs text-muted-foreground">
+              Canal automático: el neto del recibo (menos embargo) va a libros;
+              el resto, a gestión.
+            </p>
+            <div className="col-span-2 flex justify-end gap-2">
+              {editing && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={cancelEdit}
+                  disabled={saving}
+                >
+                  Cancelar
                 </Button>
-              </div>
-            </form>
-          </Form>
-        )}
+              )}
+              <Button type="submit" disabled={saving}>
+                {editing
+                  ? updateMut.isPending
+                    ? "Guardando…"
+                    : "Guardar cambios"
+                  : createMut.isPending
+                    ? "Registrando…"
+                    : "Registrar pago"}
+              </Button>
+            </div>
+          </form>
+        </Form>
+      )}
     </div>
   );
+}
+
+type PaymentGroup = {
+  parent: PayrollPaymentListed;
+  /** The internal piece the database split off (beyond the books' share). */
+  child: PayrollPaymentListed | null;
+  total: number;
+  reconciled: boolean;
+};
+
+/** Payments as the user loaded them: each parent with its internal piece. */
+function paymentGroups(
+  payments: readonly PayrollPaymentListed[],
+): PaymentGroup[] {
+  const childOf = new Map(
+    payments
+      .filter((p) => p.split_parent_id !== null)
+      .map((p) => [p.split_parent_id, p]),
+  );
+  return payments
+    .filter((p) => p.split_parent_id === null)
+    .map((parent) => {
+      const child = childOf.get(parent.id) ?? null;
+      return {
+        parent,
+        child,
+        total: Number(parent.amount) + Number(child?.amount ?? 0),
+        reconciled: parent.reconciled || child?.reconciled === true,
+      };
+    });
+}
+
+function sidesLabel({ parent, child }: PaymentGroup): string {
+  if (!child) return parent.is_fiscal ? "Libros" : "Gestión";
+  const pieces = [parent, child];
+  const books = pieces
+    .filter((p) => p.is_fiscal)
+    .reduce((sum, p) => sum + Number(p.amount), 0);
+  const management = pieces
+    .filter((p) => !p.is_fiscal)
+    .reduce((sum, p) => sum + Number(p.amount), 0);
+  return `Libros ${money(books)} · Gestión ${money(management)}`;
 }

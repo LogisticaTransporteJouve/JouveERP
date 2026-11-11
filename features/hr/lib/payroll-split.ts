@@ -2,7 +2,8 @@ import type { PayrollPaymentMethod } from "../payroll-schema";
 
 // How an entry's total splits between bank transfer and cash (decision D5):
 // the transfer matches the liquidador's receipt net, less the garnishment and
-// the discounts; the rest of the total goes in cash.
+// the discounts; the rest of the total goes in cash. A method suggestion only:
+// the channel of each payment (books or management) is the database's.
 
 type SplitFields = {
   recibo_neto: number | null;
@@ -35,6 +36,10 @@ export function suggestedSplit(
 ): { transferencia: number; efectivo: number } | null {
   if (e.recibo_neto === null) return null;
   const total = Math.max(e.total_a_pagar, 0);
+  // Transfer suggestion, not the books' share (payroll_fiscal_share): deudas
+  // and teléfono net out of what is sent by bank; the books still carry the
+  // full recibo − embargo (the recibo gap is posted at planilla close). Merge
+  // with the share if the owner decides the transfer must equal it.
   const transfer = Math.min(
     Math.max(e.recibo_neto - e.embargo - e.deudas - e.telefono, 0),
     total,

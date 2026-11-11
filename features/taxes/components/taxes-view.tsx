@@ -3,10 +3,8 @@
 import {
   AlertTriangle,
   Ban,
-  CalendarDays,
   Copy,
   Link2,
-  List,
   MoreHorizontal,
   Paperclip,
   Pencil,
@@ -39,7 +37,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   formatArgentineDate,
   formatMoney,
@@ -66,7 +63,6 @@ import {
 import { LinkTaxPaymentDialog } from "./link-tax-payment-dialog";
 import { PayTaxDocumentDialog } from "./pay-tax-document-dialog";
 import { TaxAttachmentsDialog } from "./tax-attachments-dialog";
-import { TaxCalendar } from "./tax-calendar";
 import { TaxDocumentDialog } from "./tax-document-dialog";
 
 export function TaxesView({
@@ -93,7 +89,6 @@ export function TaxesView({
 }) {
   const today = todayInAR();
   const [year, setYear] = useState(initialYear);
-  const [month, setMonth] = useState(today.slice(0, 7));
   const [editing, setEditing] = useState<TaxDocument | null>(null);
   const [creating, setCreating] = useState(false);
   const [paying, setPaying] = useState<TaxDocument | null>(null);
@@ -160,53 +155,33 @@ export function TaxesView({
         )}
       </div>
 
-      <Tabs defaultValue="list">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <TabsList>
-            <TabsTrigger value="list">
-              <List />
-              Lista
-            </TabsTrigger>
-            <TabsTrigger value="calendar">
-              <CalendarDays />
-              Calendario
-            </TabsTrigger>
-          </TabsList>
-          <Select
-            value={String(year)}
-            onValueChange={(v) => setYear(Number(v))}
-          >
-            <SelectTrigger className="w-28" aria-label="Año">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {years.map((y) => (
-                <SelectItem key={y} value={String(y)}>
-                  {y}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <Suspense fallback={<Skeleton className="h-64 w-full" />}>
-          <TaxesContent
-            year={year}
-            month={month}
-            today={today}
-            canWrite={canWrite}
-            canLinkPayment={canLinkPayment}
-            canMovePayment={canMovePayment}
-            onMonthChange={(m) => {
-              setMonth(m);
-              setYear(Number(m.slice(0, 4)));
-            }}
-            onEdit={setEditing}
-            onPay={setPaying}
-            onLink={setLinking}
-            onViewFiles={setViewingFiles}
-          />
-        </Suspense>
-      </Tabs>
+      <div className="flex justify-end">
+        <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
+          <SelectTrigger className="w-28" aria-label="Año">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {years.map((y) => (
+              <SelectItem key={y} value={String(y)}>
+                {y}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <Suspense fallback={<Skeleton className="h-64 w-full" />}>
+        <TaxesContent
+          year={year}
+          today={today}
+          canWrite={canWrite}
+          canLinkPayment={canLinkPayment}
+          canMovePayment={canMovePayment}
+          onEdit={setEditing}
+          onPay={setPaying}
+          onLink={setLinking}
+          onViewFiles={setViewingFiles}
+        />
+      </Suspense>
 
       {!canWrite && (
         <TaxAttachmentsDialog
@@ -250,24 +225,20 @@ export function TaxesView({
 
 function TaxesContent({
   year,
-  month,
   today,
   canWrite,
   canLinkPayment,
   canMovePayment,
-  onMonthChange,
   onEdit,
   onPay,
   onLink,
   onViewFiles,
 }: {
   year: number;
-  month: string;
   today: string;
   canWrite: boolean;
   canLinkPayment: boolean;
   canMovePayment: boolean;
-  onMonthChange: (month: string) => void;
   onEdit: (doc: TaxDocument) => void;
   onPay: (doc: TaxDocument) => void;
   onLink: (doc: TaxDocument) => void;
@@ -297,7 +268,7 @@ function TaxesContent({
       const ok = await confirm({
         title: `Anular ${taxDocumentLabel(doc)} de ${formatPeriod(doc.period)}`,
         description:
-          "Queda anulado y sale del calendario y de las tareas. No se puede deshacer; si hace falta, cargalo de nuevo.",
+          "Queda anulado y sale de la lista y de las tareas. No se puede deshacer; si hace falta, cargalo de nuevo.",
         confirmLabel: "Anular",
         tone: "destructive",
       });
@@ -532,7 +503,7 @@ function TaxesContent({
 
   return (
     <>
-      <TabsContent value="list" className="space-y-2">
+      <div className="space-y-2">
         <DataTable
           columns={columns}
           data={visible}
@@ -548,19 +519,7 @@ function TaxesContent({
             {annulled} anulado{annulled === 1 ? "" : "s"} sin mostrar.
           </p>
         )}
-      </TabsContent>
-      <TabsContent value="calendar">
-        <TaxCalendar
-          docs={docs}
-          month={month}
-          today={today}
-          onMonthChange={onMonthChange}
-          onSelect={(doc) => {
-            if (!canWrite) onViewFiles(doc);
-            else if (doc.status !== "anulado") onEdit(doc);
-          }}
-        />
-      </TabsContent>
+      </div>
     </>
   );
 }

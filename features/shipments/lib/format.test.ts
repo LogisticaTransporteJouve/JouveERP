@@ -9,9 +9,8 @@ import {
 
 const carga = {
   remito_number: "0001 - 00001234",
-  origin: "Rosario",
-  destination: "Córdoba",
-  description: null,
+  destination: "Bv. Oroño 1200, Rosario",
+  description: "Leche en polvo",
   client: { legal_name: "Lácteos del Sur SA", display_name: null },
 };
 
@@ -22,9 +21,11 @@ describe("matchesShipmentSearch", () => {
     expect(matchesShipmentSearch(carga, "9999")).toBe(false);
   });
 
-  it("finds it by client or route, without accents or case", () => {
+  it("finds it by client, description or dirección, without accents or case", () => {
     expect(matchesShipmentSearch(carga, "lacteos")).toBe(true);
-    expect(matchesShipmentSearch(carga, "CORDOBA")).toBe(true);
+    expect(matchesShipmentSearch(carga, "POLVO")).toBe(true);
+    expect(matchesShipmentSearch(carga, "orono")).toBe(true);
+    expect(matchesShipmentSearch(carga, "cordoba")).toBe(false);
     expect(matchesShipmentSearch(carga, "  ")).toBe(true);
   });
 });

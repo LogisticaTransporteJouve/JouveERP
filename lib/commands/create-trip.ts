@@ -26,15 +26,7 @@ export async function createTrip(
       trip_date: d.trip_date,
       driver_id: d.driver_id ?? null,
       vehicle_id: d.vehicle_id ?? null,
-      channel_id: d.channel_id ?? null,
-      origin: d.origin ?? null,
-      destination: d.destination ?? null,
-      cargo_description: d.cargo_description ?? null,
       status: d.status,
-      km: d.km ?? null,
-      revenue: d.revenue ?? null,
-      cost: d.cost ?? null,
-      notes: d.notes ?? null,
       created_by: actorId,
     })
     .select("id")

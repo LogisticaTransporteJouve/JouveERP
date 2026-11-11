@@ -6,15 +6,7 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
-import {
-  FormColumn,
-  FormColumns,
-  WIDE_FORM_DIALOG,
-} from "@/components/form-columns";
-import { ChannelsReadError } from "@/components/channels-read-error";
 import { DisabledHint, NO_CHANGES_REASON } from "@/components/disabled-hint";
-import { useScope } from "@/components/providers/scope-provider";
-import { MoneyInput } from "@/components/money-input";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -27,14 +19,12 @@ import {
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
 import { DatePicker } from "@/components/ui/date-picker";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -42,8 +32,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { amountToInput, parseArAmount } from "@/lib/format";
 
 import { useCreateTrip, useUpdateTrip } from "../hooks/use-trips";
 import { TRIP_STATUSES, TRIP_STATUS_LABELS, type Trip } from "../schema";
@@ -54,15 +42,7 @@ const FormSchema = z.object({
   trip_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha requerida."),
   driver_id: z.string(),
   vehicle_id: z.string(),
-  channel_id: z.string(),
-  origin: z.string().trim().max(160),
-  destination: z.string().trim().max(160),
-  cargo_description: z.string().trim().max(500),
   status: z.enum(TRIP_STATUSES),
-  km: z.string(),
-  revenue: z.string(),
-  cost: z.string(),
-  notes: z.string().trim().max(2000),
 });
 
 type FormValues = z.infer<typeof FormSchema>;
@@ -72,15 +52,7 @@ function toDefaults(trip?: Trip): FormValues {
     trip_date: trip?.trip_date ?? "",
     driver_id: trip?.driver_id ?? "",
     vehicle_id: trip?.vehicle_id ?? "",
-    channel_id: trip?.channel_id ?? "",
-    origin: trip?.origin ?? "",
-    destination: trip?.destination ?? "",
-    cargo_description: trip?.cargo_description ?? "",
     status: trip?.status ?? "planned",
-    km: trip?.km != null ? amountToInput(trip.km) : "",
-    revenue: trip?.revenue != null ? amountToInput(trip.revenue) : "",
-    cost: trip?.cost != null ? amountToInput(trip.cost) : "",
-    notes: trip?.notes ?? "",
   };
 }
 
@@ -99,8 +71,6 @@ export function TripDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const { channels } = useScope();
-  const activeChannels = channels.filter((c) => c.is_active);
   const createMut = useCreateTrip();
   const updateMut = useUpdateTrip();
   const isSaving = createMut.isPending || updateMut.isPending;
@@ -116,22 +86,8 @@ export function TripDialog({
   }, [open, trip, form]);
 
   function onSubmit(values: FormValues) {
-    const payload = {
-      trip_date: values.trip_date,
-      driver_id: values.driver_id,
-      vehicle_id: values.vehicle_id,
-      channel_id: values.channel_id,
-      origin: values.origin,
-      destination: values.destination,
-      cargo_description: values.cargo_description,
-      status: values.status,
-      km: parseArAmount(values.km) ?? "",
-      revenue: parseArAmount(values.revenue) ?? "",
-      cost: parseArAmount(values.cost) ?? "",
-      notes: values.notes,
-    };
     if (mode === "create") {
-      createMut.mutate(payload, {
+      createMut.mutate(values, {
         onSuccess: () => {
           toast.success("Viaje creado.");
           onOpenChange(false);
@@ -140,7 +96,7 @@ export function TripDialog({
       });
     } else if (trip) {
       updateMut.mutate(
-        { id: trip.id, ...payload },
+        { id: trip.id, ...values },
         {
           onSuccess: () => {
             toast.success("Cambios guardados.");
@@ -154,256 +110,112 @@ export function TripDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={WIDE_FORM_DIALOG}>
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>{isEdit ? "Editar viaje" : "Nuevo viaje"}</DialogTitle>
           <DialogDescription>
-            Viaje de la flota: chofer, vehículo, origen/destino y resultado
-            económico.
+            Viaje de la flota: fecha, estado, chofer y vehículo.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormColumns>
-              <FormColumn>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <FormField
-                    control={form.control}
-                    name="trip_date"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Fecha</FormLabel>
-                        <FormControl>
-                          <DatePicker {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="status"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Estado</FormLabel>
-                        <Select
-                          value={field.value}
-                          onValueChange={field.onChange}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {TRIP_STATUSES.map((s) => (
-                              <SelectItem key={s} value={s}>
-                                {TRIP_STATUS_LABELS[s]}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <FormField
-                    control={form.control}
-                    name="driver_id"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Chofer</FormLabel>
-                        <Select
-                          value={field.value === "" ? NONE : field.value}
-                          onValueChange={(v) =>
-                            field.onChange(v === NONE ? "" : v)
-                          }
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Ninguno" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value={NONE}>Ninguno</SelectItem>
-                            {driverOptions.map((d) => (
-                              <SelectItem key={d.id} value={d.id}>
-                                {d.full_name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="vehicle_id"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Vehículo</FormLabel>
-                        <Select
-                          value={field.value === "" ? NONE : field.value}
-                          onValueChange={(v) =>
-                            field.onChange(v === NONE ? "" : v)
-                          }
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Ninguno" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value={NONE}>Ninguno</SelectItem>
-                            {vehicleOptions.map((v) => (
-                              <SelectItem key={v.id} value={v.id}>
-                                {v.patente}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                <FormField
-                  control={form.control}
-                  name="channel_id"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Canal (opcional)</FormLabel>
-                      <Select
-                        value={field.value === "" ? NONE : field.value}
-                        onValueChange={(v) =>
-                          field.onChange(v === NONE ? "" : v)
-                        }
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Ninguno" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value={NONE}>Ninguno</SelectItem>
-                          {activeChannels.map((c) => (
-                            <SelectItem key={c.id} value={c.id}>
-                              {c.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <ChannelsReadError inline />
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <FormField
-                    control={form.control}
-                    name="origin"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Origen</FormLabel>
-                        <FormControl>
-                          <Input {...field} placeholder="Buenos Aires" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="destination"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Destino</FormLabel>
-                        <FormControl>
-                          <Input {...field} placeholder="Córdoba" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              </FormColumn>
-              <FormColumn>
-                <FormField
-                  control={form.control}
-                  name="cargo_description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Carga</FormLabel>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="trip_date"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Fecha</FormLabel>
+                    <FormControl>
+                      <DatePicker {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="status"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Estado</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
                       <FormControl>
-                        <Input {...field} placeholder="Materiales de obra" />
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
                       </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                  <FormField
-                    control={form.control}
-                    name="km"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Km</FormLabel>
-                        <FormControl>
-                          <MoneyInput {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="revenue"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Ingreso manual</FormLabel>
-                        <FormControl>
-                          <MoneyInput {...field} />
-                        </FormControl>
-                        <FormDescription className="text-xs">
-                          Si el viaje tiene cargas, Rentabilidad usa su flete
-                          facturado.
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="cost"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Costo</FormLabel>
-                        <FormControl>
-                          <MoneyInput {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                <FormField
-                  control={form.control}
-                  name="notes"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Notas</FormLabel>
+                      <SelectContent>
+                        {TRIP_STATUSES.map((s) => (
+                          <SelectItem key={s} value={s}>
+                            {TRIP_STATUS_LABELS[s]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="driver_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Chofer</FormLabel>
+                    <Select
+                      value={field.value === "" ? NONE : field.value}
+                      onValueChange={(v) => field.onChange(v === NONE ? "" : v)}
+                    >
                       <FormControl>
-                        <Textarea {...field} rows={2} />
+                        <SelectTrigger>
+                          <SelectValue placeholder="Ninguno" />
+                        </SelectTrigger>
                       </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </FormColumn>
-            </FormColumns>
+                      <SelectContent>
+                        <SelectItem value={NONE}>Ninguno</SelectItem>
+                        {driverOptions.map((d) => (
+                          <SelectItem key={d.id} value={d.id}>
+                            {d.full_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="vehicle_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Vehículo</FormLabel>
+                    <Select
+                      value={field.value === "" ? NONE : field.value}
+                      onValueChange={(v) => field.onChange(v === NONE ? "" : v)}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Ninguno" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value={NONE}>Ninguno</SelectItem>
+                        {vehicleOptions.map((v) => (
+                          <SelectItem key={v.id} value={v.id}>
+                            {v.patente}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
             <DialogFooter>
               <Button
                 type="button"

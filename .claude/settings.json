@@ -1,5 +1,6 @@
 {
   "permissions": {
+    "allow": ["mcp__Supabase__execute_sql"],
     "deny": [
       "Bash(*supabase*db push*)",
       "Bash(*supabase*db reset*--linked*)",

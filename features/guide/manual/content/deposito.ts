@@ -7,7 +7,7 @@ import type { GuidePage } from "../types";
 export const warehousePage: GuidePage = {
   file: "deposito.html",
   title: "Depósito",
-  lead: "El almacenaje de mercadería de los clientes: depósitos y áreas, productos, ingreso y despacho de pallets, bloqueos, tarifas de almacenaje y la facturación del almacenaje de cada cliente.",
+  lead: "El almacenaje de mercadería de los clientes: depósitos y áreas, productos, ingreso y despacho de pallets, bloqueos y su trazabilidad.",
   sections: [
     // ── Depósitos ──────────────────────────────────────────────────────────
     {
@@ -207,7 +207,7 @@ export const warehousePage: GuidePage = {
               kind: "dialog",
               title: "~Áreas de Depósito Central",
               description:
-                "Zonas del depósito (cámara de frío, a granel, rack). El tarifario del cliente puede tener un precio por área.",
+                "Zonas del depósito (cámara de frío, a granel, rack).",
               fields: [
                 {
                   label: "Nombre del área",
@@ -226,7 +226,7 @@ export const warehousePage: GuidePage = {
           ],
           after: [
             "Aparece el aviso {{Área creada.}} y el área se suma a la lista del diálogo, activa.",
-            "Desde ese momento se puede elegir en {{Área (opcional)}} al cargar un pallet de ese depósito, y en el tarifario de un cliente para cobrarle un precio por área.",
+            "Desde ese momento se puede elegir en {{Área (opcional)}} al cargar un pallet de ese depósito.",
             "Si el depósito no tiene áreas, el diálogo dice «Sin áreas. Los pallets quedan en el depósito sin área.».",
           ],
           errors: [
@@ -531,7 +531,7 @@ export const warehousePage: GuidePage = {
       intro: [
         "Cada pallet es una unidad física guardada en un depósito para un cliente. La lista muestra {{Código}}, {{Depósito}}, {{Cliente}}, {{Producto}}, {{Área}}, {{Lote}} (con su vencimiento), {{Cant.}}, {{Estado}}, {{Ingreso}} y {{Salida}}, de la entrada más reciente a la más vieja.",
         "Arriba de la tabla, el selector {{Todos los clientes}} filtra los pallets de un cliente; {{Limpiar}} saca el filtro.",
-        "Desde acá se registran los **movimientos de stock**: el ingreso de pallets (uno o varios), el despacho, el borrado y los cambios de depósito, estado, cantidad o fechas. Las fechas de ingreso y salida son las que usa la facturación del almacenaje ([[#facturacion-almacenaje]]).",
+        "Desde acá se registran los **movimientos de stock**: el ingreso de pallets (uno o varios), el despacho, el borrado y los cambios de depósito, estado, cantidad o fechas. Las fechas de ingreso y salida dicen cuántos días estuvo guardado cada pallet ([[#trazabilidad-pallets]]).",
       ],
       screens: [
         {
@@ -592,8 +592,8 @@ export const warehousePage: GuidePage = {
         {
           title: "Estados de un pallet",
           body: [
-            "{{En depósito}}: está guardado; suma días de almacenaje y se puede despachar o bloquear.",
-            "{{Despachado}}: ya salió. Su {{Salida}} corta los días de almacenaje y, si cae en el período que se factura, se cobra la descarga.",
+            "{{En depósito}}: está guardado; se puede despachar o bloquear.",
+            "{{Despachado}}: ya salió. Su {{Salida}} es el último día que estuvo guardado.",
             "{{Bloqueado}} se muestra además del estado: el pallet sigue en depósito pero no se puede despachar ni borrar hasta que alguien lo desbloquee (mercadería dañada, retenida por el cliente, control de calidad…).",
           ],
         },
@@ -683,7 +683,7 @@ export const warehousePage: GuidePage = {
                 "{{Estado}}: viene en {{En depósito}}.",
                 "{{Lote (opcional)}} y {{Vencimiento del lote}}.",
                 "{{Cantidad}}: opcional, un número mayor o igual a 0 (admite decimales).",
-                "{{Ingreso}}: obligatorio, la fecha en que entró. Desde ese día cuenta el almacenaje.",
+                "{{Ingreso}}: obligatorio, la fecha en que entró.",
                 "{{Egreso (opcional)}}: solo si el pallet ya salió.",
                 "{{Notas}}: opcional.",
               ],
@@ -692,7 +692,6 @@ export const warehousePage: GuidePage = {
           ],
           after: [
             "Aparece el aviso {{Pallet creado.}} y el pallet entra en la lista y en [[/pallets/trazabilidad]].",
-            "Si su {{Ingreso}} cae dentro del período que se factura, se cobra la carga (por pallet) además de los días de almacenaje ([[#facturacion-almacenaje]]).",
           ],
           errors: [
             {
@@ -862,7 +861,7 @@ export const warehousePage: GuidePage = {
           ],
           after: [
             "Aparece el aviso {{Cambios guardados.}}.",
-            "Un cambio de {{Ingreso}} o {{Egreso (opcional)}} cambia los días de almacenaje y en qué período se cobran la carga y la descarga.",
+            "Un cambio de {{Ingreso}} o {{Egreso (opcional)}} cambia los días que estuvo guardado.",
           ],
           errors: [
             {
@@ -923,7 +922,7 @@ export const warehousePage: GuidePage = {
             "Hacé clic en {{Guardar}}.",
           ],
           after: [
-            "La columna {{Área}} (y {{Depósito}}) muestran la nueva ubicación. El área decide qué precio por área se cobra (el del tarifario del cliente o, si no tiene, una tarifa general de esa área); la facturación usa el área que el pallet tiene al momento de facturar, para todo el período.",
+            "La columna {{Área}} (y {{Depósito}}) muestran la nueva ubicación.",
           ],
           errors: [
             {
@@ -941,15 +940,14 @@ export const warehousePage: GuidePage = {
         {
           id: "despachar-pallets",
           title: "Despachar pallets",
-          summary:
-            "Da salida a uno o varios pallets en una fecha: corta el almacenaje y cobra la descarga.",
+          summary: "Da salida a uno o varios pallets en una fecha.",
           permission: ["pallets:write", "stock_movements:write"],
           screens: [
             {
               kind: "dialog",
               title: "Despachar pallets",
               description:
-                "~Vas a dar salida a 3 pallets. Se cobra la descarga y se corta el almacenaje en la fecha de salida.",
+                "~Vas a dar salida a 3 pallets en la fecha de salida.",
               fields: [
                 {
                   label: "Fecha de salida",
@@ -974,7 +972,6 @@ export const warehousePage: GuidePage = {
           after: [
             "Los pallets pasan a {{Despachado}} con esa fecha en {{Salida}}. El aviso dice cuántos se despacharon.",
             "Si alguno se bloqueó mientras tanto, queda en depósito y un segundo aviso dice cuántos quedaron por estar bloqueados.",
-            "En la facturación, la fecha de salida es el último día de almacenaje del pallet y, si cae en el período, se cobra la descarga.",
           ],
           errors: [
             {
@@ -998,7 +995,7 @@ export const warehousePage: GuidePage = {
               fix: "Volvé a intentar.",
             },
           ],
-          related: ["bloquear-pallet", "facturar-almacenaje"],
+          related: ["bloquear-pallet"],
           keywords: ["egreso", "salida", "despacho", "retiro de mercadería"],
         },
         {
@@ -1039,7 +1036,7 @@ export const warehousePage: GuidePage = {
           after: [
             "El pallet muestra {{Bloqueado}} junto a su estado (al pasar el mouse se ve el motivo) y pierde su casilla de despacho.",
             "Queda en el historial quién lo bloqueó, cuándo y por qué.",
-            "Sigue sumando días de almacenaje: el bloqueo no corta la facturación.",
+            "Sigue en el depósito: el bloqueo no le da salida.",
           ],
           errors: [
             {
@@ -1117,7 +1114,7 @@ export const warehousePage: GuidePage = {
             "Confirmá con {{Borrar}}.",
           ],
           after: [
-            "Aparece el aviso {{Pallet borrado.}}. Deja de contar en la facturación de almacenaje y en la trazabilidad.",
+            "Aparece el aviso {{Pallet borrado.}}. Deja de contar en la trazabilidad.",
           ],
           errors: [
             {
@@ -1236,634 +1233,12 @@ export const warehousePage: GuidePage = {
           after: [
             "Los totales de arriba se recalculan con el filtro: por ejemplo, {{Días almacenados}} de un cliente suma los días de todos sus pallets.",
           ],
-          related: ["pallets", "facturacion-almacenaje"],
+          related: ["pallets"],
           keywords: [
             "historial de pallets",
             "días de almacenaje",
             "movimientos",
             "ingresos y egresos",
-          ],
-        },
-      ],
-    },
-
-    // ── Tarifas ────────────────────────────────────────────────────────────
-    {
-      id: "tarifas-almacenaje",
-      title: "Tarifas de almacenaje",
-      menuPath: "Depósito › Tarifas",
-      routes: ["/storage-tariffs"],
-      permission: "storage_billing:read",
-      intro: [
-        "Las tarifas por pallet que usa la facturación del almacenaje, con su vigencia. Una tarifa sin cliente es **general** y aplica a todos los clientes que no tengan una propia.",
-        "Columnas: {{Cliente}} (o {{General}}, con el área si la tiene), {{Tarifa}} (por pallet, {{Diario}} o {{Mensual}}), {{Carga}} y {{Descarga}} (por pallet), {{Vigencia}} (desde → hasta), {{Estado}} ({{Vigente}}, {{Vencida}} o {{Futura}} según la fecha de hoy) y el interruptor {{Activo}}.",
-        "Las tarifas viejas no se borran al aumentar: quedan como historial con su vigencia cerrada.",
-      ],
-      screens: [
-        {
-          kind: "page",
-          title: "Tarifas de almacenaje",
-          subtitle:
-            "Tarifas por pallet con vigencia. Una tarifa sin cliente aplica como general para todos.",
-          actions: [
-            { label: "Exportar", variant: "outline" },
-            { label: "Aumentar %", variant: "outline" },
-            { label: "Nueva tarifa", variant: "primary" },
-          ],
-          table: {
-            columns: [
-              "Cliente",
-              "Tarifa",
-              "Carga",
-              "Descarga",
-              "Vigencia",
-              "Estado",
-              "Activo",
-            ],
-            rows: [
-              [
-                "General",
-                "~$1.500/pallet Mensual",
-                "~$800",
-                "~$800",
-                "2026-10-01 → —",
-                "Vigente",
-                "Sí",
-              ],
-              [
-                "General",
-                "~$1.300/pallet Mensual",
-                "~$700",
-                "~$700",
-                "2026-01-01 → 2026-09-30",
-                "Vencida",
-                "Sí",
-              ],
-            ],
-            rowMenu: true,
-          },
-        },
-      ],
-      concepts: [
-        {
-          title: "Qué tarifa se aplica",
-          body: [
-            "Primero manda el tarifario del cliente (en el detalle del cliente), día por día: la tarifa del cliente para el área del pallet y, si no, la del cliente para todas las áreas.",
-            "Los días, cargas y descargas que el tarifario no cubre se valorizan con una sola tarifa de esta pantalla para todo el período que se factura: la del cliente si tiene; si no, la general del área del pallet; si no, la general para todas las áreas. Entre las de un mismo nivel, la de inicio más reciente que se superponga con el período. Por eso, si un período cruza la fecha de un aumento, todo el período se cobra con la tarifa nueva: facturá hasta el día anterior al aumento y después el resto.",
-            "Una tarifa general con área se cobra solo a los pallets de esa área; los pallets de otra área o sin área usan la general para todas las áreas. La vista previa y la factura aplican la misma regla.",
-            "Una tarifa de cliente nunca lleva área: los precios por área de un cliente van en su tarifario, en el detalle del cliente.",
-            "Una tarifa con el interruptor {{Activo}} apagado no se usa para facturar.",
-          ],
-        },
-        {
-          title: "Tarifas pasadas al tarifario del cliente",
-          body: [
-            "Una fila con la leyenda {{En el tarifario del cliente (se edita ahí)}} ya se copió al tarifario del cliente con los mismos precios y vigencia. Queda como respaldo: su precio y vigencia no se cambian acá, y el aumento masivo la saltea.",
-          ],
-        },
-        {
-          title: "Mensual y diaria",
-          body: [
-            "Una tarifa {{Mensual}} se cobra por día como la tarifa dividida 30; una {{Diario}}, por día tal cual. La carga se cobra una vez, el día de ingreso; la descarga una vez, el día de salida.",
-          ],
-        },
-      ],
-      tasks: [
-        {
-          id: "crear-tarifa-almacenaje",
-          title: "Crear una tarifa de almacenaje",
-          permission: "storage_billing:issue",
-          screens: [
-            {
-              kind: "dialog",
-              title: "Nueva tarifa",
-              description:
-                "Tarifa de almacenaje por pallet con vigencia. Dejá el cliente en general para una tarifa por defecto.",
-              fields: [
-                {
-                  label: "Cliente (opcional)",
-                  kind: "select",
-                  value: "General (todos)",
-                  marker: 2,
-                  wide: true,
-                },
-                {
-                  label: "Área (opcional)",
-                  kind: "select",
-                  value: "Todas las áreas",
-                  marker: 2,
-                  wide: true,
-                },
-                {
-                  label: "Tarifa por pallet",
-                  kind: "money",
-                  value: "1.500",
-                  marker: 2,
-                },
-                {
-                  label: "Período",
-                  kind: "select",
-                  value: "Mensual",
-                  marker: 2,
-                },
-                { label: "Carga (por pallet)", kind: "money", value: "800" },
-                { label: "Descarga (por pallet)", kind: "money", value: "800" },
-                {
-                  label: "Vigente desde",
-                  kind: "date",
-                  value: "01/11/2026",
-                  marker: 2,
-                },
-                { label: "Vigente hasta (opcional)", kind: "date" },
-                { label: "Notas", kind: "textarea", wide: true },
-              ],
-              footer: [
-                { label: "Cancelar", variant: "outline" },
-                { label: "Crear", variant: "primary", marker: 3 },
-              ],
-            },
-          ],
-          steps: [
-            "En [[/storage-tariffs]], hacé clic en {{Nueva tarifa}}.",
-            {
-              text: "Completá:",
-              substeps: [
-                "{{Cliente (opcional)}}: un cliente, o {{General (todos)}} para la tarifa por defecto.",
-                "{{Área (opcional)}}: aparece solo en una tarifa general. {{Todas las áreas}}, o un área («Depósito · Área»). Con un área, la tarifa se cobra solo a los pallets de esa área (ver [[#tarifas-almacenaje]]).",
-                "{{Tarifa por pallet}}: obligatoria, mayor a 0.",
-                "{{Período}}: {{Mensual}} o {{Diario}}.",
-                "{{Carga (por pallet)}} y {{Descarga (por pallet)}}: vienen en 0; montos de 0 o más.",
-                "{{Vigente desde}}: obligatoria. {{Vigente hasta (opcional)}}: vacía = sin fin; no puede ser anterior al inicio.",
-                "{{Notas}}: opcional.",
-              ],
-            },
-            "Hacé clic en {{Crear}}.",
-          ],
-          after: [
-            "Aparece el aviso {{Tarifa creada.}}. La facturación de almacenaje la usa para los días dentro de su vigencia.",
-          ],
-          errors: [
-            {
-              message: "La tarifa debe ser mayor a 0.",
-              fix: "Cargá un monto positivo en {{Tarifa por pallet}}.",
-            },
-            {
-              message: "Monto inválido.",
-              fix: "Revisá {{Carga (por pallet)}} y {{Descarga (por pallet)}}.",
-            },
-            {
-              message: "Fecha requerida.",
-              fix: "Completá {{Vigente desde}}.",
-            },
-            {
-              message: "El fin de vigencia no puede ser anterior al inicio.",
-              fix: "Corregí {{Vigente hasta (opcional)}} o dejalo vacío.",
-            },
-            {
-              message:
-                "La tarifa por área es general: la de un cliente va en su tarifario.",
-              fix: "Para un precio por área de un cliente, cargalo en el tarifario del cliente.",
-            },
-            {
-              message: "No tenés permiso para crear tarifas.",
-              fix: "Pedíselo a alguien con rol Finanzas, admin u owner.",
-            },
-            {
-              message: "No se pudo crear la tarifa.",
-              fix: "Volvé a intentar.",
-            },
-          ],
-          related: ["aumentar-tarifas-almacenaje", "facturar-almacenaje"],
-          keywords: ["precio por pallet", "tarifa general", "tarifa por área"],
-        },
-        {
-          id: "editar-tarifa-almacenaje",
-          title: "Editar una tarifa",
-          summary:
-            "Para corregir una tarifa. Para un aumento, mejor usá [[#aumentar-tarifas-almacenaje]], que guarda el historial.",
-          permission: "storage_billing:issue",
-          steps: [
-            "En [[/storage-tariffs]], en la fila de la tarifa, abrí el menú ⋯ y elegí {{Editar}}.",
-            "Cambiá los datos.",
-            "Hacé clic en {{Guardar}}.",
-          ],
-          after: [
-            "Aparece el aviso {{Cambios guardados.}}. Las facturas de almacenaje ya emitidas no cambian; los períodos que se facturen después usan el valor nuevo.",
-          ],
-          errors: [
-            {
-              message:
-                "Esta tarifa pasó al tarifario del cliente: cambiala en el detalle del cliente › Tarifario.",
-              fix: "La fila dice {{En el tarifario del cliente (se edita ahí)}}: su precio y vigencia se cambian en el tarifario del cliente (en el detalle del cliente).",
-            },
-            {
-              message: "No se pudo actualizar la tarifa.",
-              fix: "Volvé a intentar.",
-            },
-            {
-              message: "No tenés permiso para editar tarifas.",
-              fix: "Pedíselo a alguien con rol Finanzas, admin u owner.",
-            },
-          ],
-          related: ["aumentar-tarifas-almacenaje"],
-        },
-        {
-          id: "aumentar-tarifas-almacenaje",
-          title: "Aumentar todas las tarifas un porcentaje",
-          summary:
-            "Aplica un aumento a todas las tarifas vigentes desde una fecha, sin perder las anteriores.",
-          permission: "storage_billing:issue",
-          screens: [
-            {
-              kind: "dialog",
-              title: "Aumentar tarifas",
-              description:
-                "Se crea una tarifa nueva por cada vigente (tarifa y carga/descarga ajustadas por el porcentaje) y la anterior se cierra el día anterior. El historial queda en la tabla.",
-              fields: [
-                { label: "Porcentaje", value: "15", marker: 2 },
-                {
-                  label: "Vigente desde",
-                  kind: "date",
-                  value: "01/12/2026",
-                  marker: 2,
-                },
-              ],
-              footer: [
-                { label: "Cancelar", variant: "outline" },
-                { label: "Aplicar aumento", variant: "primary", marker: 3 },
-              ],
-            },
-          ],
-          steps: [
-            "En [[/storage-tariffs]], hacé clic en {{Aumentar %}}.",
-            "Escribí el {{Porcentaje}} (por ejemplo `15`; admite decimales y negativos para una baja, mayor a -100) y la fecha {{Vigente desde}} (viene con hoy). Debajo se lista a qué tarifas afecta.",
-            "Hacé clic en {{Aplicar aumento}}.",
-          ],
-          after: [
-            "Por cada tarifa activa que empezó antes de esa fecha y sigue vigente en ella se crea una nueva, sin fin, con la tarifa, la carga y la descarga multiplicadas por el porcentaje (redondeadas a centavos) y una nota «Aumento 15% s/ $…». La anterior se cierra el día previo y queda como historial.",
-            "Las tarifas que empiezan en esa fecha o después se saltean (editalas a mano); el aviso dice cuántas se actualizaron y cuántas se saltearon.",
-            "Las tarifas pasadas al tarifario del cliente no se aumentan acá ni aparecen en la lista del diálogo: se aumentan en el tarifario.",
-          ],
-          errors: [
-            {
-              message:
-                "No hay tarifas vigentes anteriores a esa fecha para aumentar.",
-              fix: "Elegí una fecha posterior al inicio de las tarifas vigentes.",
-            },
-            {
-              message: "El porcentaje no puede ser 0.",
-              fix: "Escribí un porcentaje distinto de 0.",
-            },
-            {
-              message: "El porcentaje no puede ser -100% o menor.",
-              fix: "Para una baja, usá un porcentaje mayor a -100.",
-            },
-            {
-              message: "Porcentaje demasiado alto.",
-              fix: "El máximo es 1000%.",
-            },
-            {
-              message: "No tenés permiso para editar tarifas.",
-              fix: "Pedíselo a alguien con rol Finanzas, admin u owner.",
-            },
-            {
-              message: "No se pudo aplicar el aumento.",
-              fix: "Volvé a intentar: no se cambió ninguna tarifa.",
-            },
-          ],
-          related: ["crear-tarifa-almacenaje"],
-          keywords: [
-            "actualizar tarifas",
-            "aumento",
-            "inflación",
-            "ajuste de precios",
-            "historial de tarifas",
-          ],
-        },
-        {
-          id: "activar-desactivar-tarifa-almacenaje",
-          title: "Desactivar o reactivar una tarifa",
-          permission: "storage_billing:issue",
-          steps: [
-            "En [[/storage-tariffs]], en la fila de la tarifa, hacé clic en el interruptor de {{Activo}}.",
-          ],
-          after: [
-            "Una tarifa inactiva deja de usarse para facturar y el aumento masivo la saltea. Si no queda otra que cubra esos días, la facturación avisa que hay pallets sin tarifa.",
-          ],
-          errors: [
-            {
-              message: "No tenés permiso para editar tarifas.",
-              fix: "Pedíselo a alguien con rol Finanzas, admin u owner.",
-            },
-            {
-              message: "No se pudo cambiar el estado.",
-              fix: "Volvé a intentar.",
-            },
-          ],
-        },
-        {
-          id: "borrar-tarifa-almacenaje",
-          title: "Borrar una tarifa",
-          permission: "storage_billing:issue",
-          steps: [
-            "En [[/storage-tariffs]], en la fila de la tarifa, abrí el menú ⋯ y elegí {{Borrar}}.",
-            "Confirmá con {{Borrar}} («Se elimina la tarifa. No se puede deshacer.»).",
-          ],
-          after: [
-            "Aparece el aviso {{Tarifa borrada.}}. Las facturas ya emitidas no cambian.",
-          ],
-          errors: [
-            {
-              message: "No tenés permiso para borrar tarifas.",
-              fix: "Pedíselo a alguien con rol Finanzas, admin u owner.",
-            },
-            {
-              message: "No se pudo borrar la tarifa.",
-              fix: "Volvé a intentar.",
-            },
-          ],
-          related: ["activar-desactivar-tarifa-almacenaje"],
-        },
-        {
-          id: "exportar-tarifas-almacenaje",
-          title: "Exportar las tarifas",
-          permission: "storage_billing:read",
-          steps: [
-            "En [[/storage-tariffs]], hacé clic en {{Exportar}}.",
-            "Elegí {{PDF}} o {{Excel}} y hacé clic en {{Descargar período}} (tarifas que empiezan entre {{Desde}} y {{Hasta}}) o en {{Todo el historial}}.",
-          ],
-          related: ["exportar-depositos"],
-          keywords: ["lista de precios", "tarifario"],
-        },
-      ],
-    },
-
-    // ── Facturación ────────────────────────────────────────────────────────
-    {
-      id: "facturacion-almacenaje",
-      title: "Facturación de almacenaje",
-      menuPath: "Depósito › Facturación",
-      routes: ["/storage-billing"],
-      permission: "storage_billing:read",
-      intro: [
-        "Calcula cuánto facturarle a cada cliente por el almacenaje de sus pallets en un rango de fechas y emite la factura. Al abrir, el rango es del 1 del mes a hoy; se cambia con {{Desde}} y {{Hasta}}.",
-        "Arriba se ven los totales del rango: {{Almacenaje:}}, {{Carga + descarga:}} y {{Total:}}.",
-        "{{Por cliente}}: {{Cliente}}, {{Pallets}}, {{A facturar}}, {{Facturado hasta}} (el último día ya facturado, en cualquier canal) y el botón {{Facturar}}.",
-        "{{Detalle por pallet}}: {{Pallet}}, {{Cliente}}, {{Días}}, {{Tarifa/día}}, {{Carga}}, {{Descarga}} y {{Cargo}}. Un cargo con {{(parcial)}} tiene días sin precio; {{sin tarifa}} o {{sin cotización}} indican que no se pudo valorizar.",
-      ],
-      screens: [
-        {
-          kind: "page",
-          title: "Facturación de almacenaje",
-          subtitle:
-            "Días-pallet del rango × tarifa vigente (la específica del cliente gana sobre la general), agrupado por cliente.",
-          toolbar: [
-            { label: "Desde", kind: "date", value: "01/10/2026" },
-            { label: "Hasta", kind: "date", value: "31/10/2026" },
-          ],
-          stats: [
-            { label: "Almacenaje:", value: "$450.000" },
-            { label: "Carga + descarga:", value: "$32.000" },
-            { label: "Total:", value: "$482.000" },
-          ],
-          table: {
-            columns: [
-              "Cliente",
-              "Pallets",
-              "A facturar",
-              "Facturado hasta",
-              "",
-            ],
-            rows: [
-              [
-                "~Construcciones SA",
-                "30",
-                "$482.000",
-                "30/09/2026",
-                "Facturar",
-              ],
-            ],
-          },
-        },
-      ],
-      concepts: [
-        {
-          title: "Cómo se calcula",
-          body: [
-            "Por cada pallet: los días que estuvo guardado dentro del rango (desde el ingreso o el inicio del rango, hasta la salida o el fin del rango, inclusive) por la tarifa diaria de cada día (una mensual se divide por 30), más la carga si el ingreso cae en el rango, más la descarga si la salida cae en el rango. El precio de cada día sale de la tarifa que corresponda ese día (ver [[#tarifas-almacenaje]]).",
-            "Si hay pallets con días sin tarifa vigente, aparece el aviso «… pallet(s) con días sin tarifa vigente — cargá una tarifa para que se facturen.». Si el cliente tiene tarifas en USD y no hay cotización del dólar al cierre del rango, el aviso lo dice: cargala en [[/accounting/exchange-rates]].",
-          ],
-        },
-        {
-          title: "Continuidad: no facturar dos veces ni dejar huecos",
-          body: [
-            "Cada factura de almacenaje registra el período que facturó. Al facturar, el {{Desde}} se propone en el día siguiente al último facturado del cliente.",
-            "Si el {{Desde}} deja días sin facturar después del último período, el diálogo avisa «Te falta facturar del … al …»; podés seguir si es a propósito.",
-            "Un período que se superpone con otro ya facturado al cliente en el mismo canal no se puede emitir: el diálogo avisa «Ese período ya fue facturado (total o parcialmente) para este cliente en este canal.» y el botón queda deshabilitado.",
-          ],
-        },
-        {
-          title: "Deshacer una factura de almacenaje",
-          body: [
-            "El período queda libre para facturarlo de nuevo cuando su factura falla, cuando se anula (una interna) o cuando se le emite una nota de crédito por el total (una fiscal: las fiscales no se anulan). Ver [[#liberar-periodo-almacenaje]].",
-          ],
-        },
-      ],
-      tasks: [
-        {
-          id: "consultar-facturacion-almacenaje",
-          title: "Ver cuánto facturar a cada cliente",
-          permission: "storage_billing:read",
-          steps: [
-            "Entrá en [[/storage-billing]].",
-            "Ajustá {{Desde}} y {{Hasta}} al período que querés ver.",
-            "Revisá {{Por cliente}} (lo que va a facturar cada uno y hasta cuándo ya se le facturó) y {{Detalle por pallet}} (días y cargos de cada pallet).",
-          ],
-          after: [
-            "Es un cálculo en el momento: no guarda nada. Al emitir, el total se vuelve a calcular.",
-          ],
-          errors: [
-            {
-              message: "No se pudo cargar la facturación de almacenaje.",
-              fix: "Hacé clic en reintentar del aviso.",
-            },
-            {
-              message: "No se pudo leer hasta cuándo se facturó cada cliente.",
-              fix: "Reintentá: hasta que cargue, {{Facturar}} queda deshabilitado.",
-            },
-          ],
-          related: ["facturar-almacenaje", "consultar-trazabilidad-pallets"],
-          keywords: ["días pallet", "cuánto cobrar", "reporte de almacenaje"],
-        },
-        {
-          id: "facturar-almacenaje",
-          title: "Facturar el almacenaje de un cliente",
-          summary:
-            "Emite la factura del almacenaje, carga y descarga de un cliente por un período.",
-          permission: ["storage_billing:issue", "invoices:issue"],
-          prerequisites: [
-            "Una tarifa vigente para los días a facturar ([[#crear-tarifa-almacenaje]]).",
-            "Un cliente de Ventas necesita CUIT y condición de IVA cargados; uno de Otras ventas no.",
-            "Un punto de venta habilitado para el canal.",
-          ],
-          screens: [
-            {
-              kind: "dialog",
-              title: "Facturar almacenaje",
-              description: "~Construcciones SA — facturado hasta 30/09/2026",
-              fields: [
-                {
-                  label: "Desde",
-                  kind: "date",
-                  value: "01/10/2026",
-                  marker: 2,
-                },
-                {
-                  label: "Hasta",
-                  kind: "date",
-                  value: "31/10/2026",
-                  marker: 2,
-                },
-                {
-                  label: "Canal",
-                  kind: "select",
-                  value: "Logística Jouve (fiscal)",
-                  marker: 3,
-                  wide: true,
-                },
-                {
-                  label: "Punto de venta",
-                  kind: "select",
-                  value: "0003",
-                  marker: 3,
-                  wide: true,
-                },
-              ],
-              table: {
-                columns: ["~Concepto", "~Importe"],
-                rows: [
-                  ["Almacenaje", "$450.000"],
-                  ["Carga", "$16.000"],
-                  ["Descarga", "$16.000"],
-                  ["Total", "$482.000"],
-                ],
-              },
-              footer: [
-                { label: "Cancelar", variant: "outline" },
-                { label: "Emitir factura", variant: "primary", marker: 5 },
-              ],
-            },
-          ],
-          steps: [
-            "En [[/storage-billing]], en la fila del cliente en {{Por cliente}}, hacé clic en {{Facturar}}.",
-            "Revisá {{Desde}} (propuesto el día siguiente al último facturado) y {{Hasta}} (el fin del rango de la pantalla). Leé los avisos de hueco o superposición si aparecen.",
-            "Elegí el {{Canal}} (solo los del lado del cliente: fiscal para un cliente de Ventas, interno para uno de Otras ventas; si hay uno solo, viene elegido). El {{Punto de venta}} viene elegido: es el único habilitado del canal.",
-            "Revisá el resumen: {{Almacenaje}}, {{Carga}}, {{Descarga}} y {{Total}} se recalculan con el período.",
-            "Hacé clic en {{Emitir factura}}. Se habilita cuando el período es válido, no se superpone con uno facturado, el total es mayor a 0 y hay canal y punto de venta.",
-          ],
-          after: [
-            "Aparece el aviso {{Factura de almacenaje emitida.}}. Se crea una factura con fecha de hoy, concepto servicios con el período facturado, en pesos, con hasta tres líneas con IVA 21%: «Almacenaje dd/mm/aaaa–dd/mm/aaaa», «Carga …» y «Descarga …» (solo las que tienen importe).",
-            "En un canal fiscal se pide el CAE a AFIP; en uno interno se numera sin AFIP. La factura aparece entre los comprobantes del cliente, como cualquier otra factura.",
-            "El período queda registrado: {{Facturado hasta}} se actualiza y ese período ya no se puede facturar de nuevo en el mismo canal. Se guardan las tarifas que se usaron.",
-          ],
-          errors: [
-            {
-              message:
-                "Ese período ya fue facturado (total o parcialmente) para este cliente en este canal.",
-              fix: "Corregí {{Desde}} y {{Hasta}} para que empiecen después de lo ya facturado.",
-            },
-            {
-              message: "No hay nada para facturar en ese período.",
-              fix: "El cliente no tiene días, cargas ni descargas con precio en el período: revisá las fechas o las tarifas.",
-            },
-            {
-              message:
-                "Falta la cotización del dólar al … (o anterior) para las tarifas en USD del cliente. Cargala en Contabilidad › Cotización USD y volvé a facturar.",
-              fix: "Cargá la cotización en [[/accounting/exchange-rates]] y volvé a facturar.",
-            },
-            {
-              message: "El cliente necesita un CUIT para facturar.",
-              fix: "Cargá el CUIT en la ficha del cliente.",
-            },
-            {
-              message: "La condición de IVA del cliente es inválida.",
-              fix: "Corregí la condición de IVA en la ficha del cliente.",
-            },
-            {
-              message: "El hasta no puede ser anterior al desde.",
-              fix: "Corregí las fechas.",
-            },
-            {
-              message:
-                "Punto de venta … no está configurado o no pertenece a ….",
-              fix: "Ese punto de venta ya no está habilitado para el canal: pedile a un owner o admin que lo revise en [[/admin/afip/puntos-de-venta]].",
-            },
-            {
-              message:
-                "La fecha no puede ser anterior a la del último comprobante de este tipo en el punto de venta (…).",
-              fix: "Ya hay un comprobante posterior en ese punto de venta: consultalo con el administrador.",
-            },
-            {
-              message: "El cliente está inactivo.",
-              fix: "Reactivá el cliente para facturarle.",
-            },
-            {
-              message:
-                "Ese período ya está facturado: se registró la factura que había quedado sin vincular. La encontrás entre los comprobantes del cliente: Ventas › Comprobantes, u Otras ventas › Remitos internos si es interna.",
-              fix: "No emitas otra: la factura de un intento anterior ya cubre el período y quedó registrada.",
-            },
-            {
-              message:
-                "La factura se emitió pero el período no quedó registrado. No la emitas de nuevo: pasados 15 minutos, «Facturar» el mismo período registra esta factura sin emitir otra.",
-              fix: "Esperá 15 minutos y volvé a {{Facturar}} el mismo período: se vincula la factura ya emitida.",
-            },
-            {
-              message:
-                "La factura falló o se anuló antes de registrar el período: el período quedó libre para facturarlo de nuevo.",
-              fix: "Revisá el motivo en el comprobante y volvé a facturar.",
-            },
-            {
-              message: "No tenés permiso para facturar almacenaje.",
-              fix: "Hace falta `storage_billing:issue` y `invoices:issue`: pedíselo a alguien con rol Finanzas, admin u owner.",
-            },
-            {
-              message: "No se pudo calcular el almacenaje.",
-              fix: "Volvé a intentar.",
-            },
-          ],
-          related: [
-            "consultar-facturacion-almacenaje",
-            "liberar-periodo-almacenaje",
-          ],
-          keywords: [
-            "facturar depósito",
-            "factura mensual",
-            "almacenaje del mes",
-            "cobrar pallets",
-          ],
-        },
-        {
-          id: "liberar-periodo-almacenaje",
-          title: "Deshacer una factura de almacenaje",
-          summary:
-            "Para refacturar un período mal facturado: se libera anulando la factura interna o con una nota de crédito por el total de la fiscal.",
-          permission: {
-            anyOf: ["invoices:cancel", "credit_debit_notes:issue"],
-          },
-          steps: [
-            "Buscá la factura de almacenaje del cliente en [[/invoices]] (las internas, en remitos internos).",
-            "Si es interna, anulala con {{Anular}}. Si es fiscal, emití una nota de crédito por el total de la factura.",
-            "Volvé a [[/storage-billing]]: el período ya no cuenta como facturado y {{Facturar}} lo propone de nuevo.",
-          ],
-          after: [
-            "La factura anulada o acreditada por el total deja de cubrir el período. Una nota de crédito por menos del total no libera el período.",
-          ],
-          related: ["facturar-almacenaje"],
-          keywords: [
-            "anular factura de almacenaje",
-            "nota de crédito almacenaje",
-            "refacturar",
-            "corregir facturación",
           ],
         },
       ],

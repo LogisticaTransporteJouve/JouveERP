@@ -19,6 +19,7 @@ import {
   filterByCostCenter,
   shiftPeriod,
 } from "@/features/management/schema";
+import { round2 } from "@/lib/format";
 import { PeriodSchema } from "@/lib/validation/common";
 
 import { defineAiAction } from "../define";
@@ -85,7 +86,7 @@ export const getManagementPnL = defineAiAction({
     "cost_centers",
   ],
   description:
-    "Resultado de gestión (uso interno): ¿la operación deja plata? Suma lo fiscal y lo interno en una cascada (servicios, costos operativos con sueldos y sueldos internos (extras) aparte, margen operativo, costo financiero, capital de préstamos, inversión en flota, venta de bienes de uso, anticipos al personal (solo percibido), generación de caja; en percibido, debajo, financiamiento recibido (desembolsos de préstamos) y variación de caja = generación de caja + financiamiento), la tabla por mes, la apertura por centro de costo (camión, depósito, administración; lo cargado sin centro va aparte), con filtro opcional por un centro, y los indicadores (margen operativo %, resultado operativo tipo EBITDA, generación de caja sin financiamiento) contra los mismos meses del año anterior. Las compras a cargo de empleados y los adelantos no son costo operativo en ninguna base: el costo aparece cuando la planilla los descuenta. byMonth trae una fila por mes (servicios, costos operativos, margen operativo, costo financiero y generación de caja, en pesos; costos con signo negativo) para graficar con renderChart y dataset 'byMonth'. Para ver qué comprobantes forman una cifra usar getManagementPnLDocuments; para el ranking de costos por rubro o centro, getTopCosts. Gestión = uso interno; para bancos/ARCA usar el EERR fiscal (getIncomeStatement) o el balance (getBalanceSheet). Nunca ofrecer estos datos para presentar a terceros.",
+    "Resultado de gestión (uso interno): ¿la operación deja plata? Suma lo fiscal y lo interno en una cascada (servicios, costos directos (sueldos y sueldos internos (extras) aparte, cargas sociales, combustible, mantenimiento, seguros, peajes), margen bruto, gastos de estructura (alquileres, impuestos operativos, administración, pagos a proveedores, otros), margen operativo, costo financiero, capital de préstamos, inversión en flota, venta de bienes de uso, anticipos al personal (solo percibido), generación de caja; en percibido, debajo, financiamiento recibido (desembolsos de préstamos) y variación de caja = generación de caja + financiamiento), la tabla por mes, la apertura por centro de costo (camión, depósito, administración; lo cargado sin centro va aparte), con filtro opcional por un centro, y los indicadores (margen bruto %, margen operativo %, resultado operativo tipo EBITDA, generación de caja sin financiamiento) contra los mismos meses del año anterior. Las compras a cargo de empleados y los adelantos no son costo operativo en ninguna base: el costo aparece cuando la planilla los descuenta. byMonth trae una fila por mes (servicios, costos directos, margen bruto, costos operativos (directos + estructura), margen operativo, costo financiero y generación de caja, en pesos; costos con signo negativo) para graficar con renderChart y dataset 'byMonth'. Para ver qué comprobantes forman una cifra usar getManagementPnLDocuments; para el ranking de costos por rubro o centro, getTopCosts. Gestión = uso interno; para bancos/ARCA usar el EERR fiscal (getIncomeStatement) o el balance (getBalanceSheet). Nunca ofrecer estos datos para presentar a terceros.",
   input: ManagementPnlToolInputSchema,
   run: async (_ctx, input): Promise<AiRunResult> => {
     const [res, previousRes, centersRes] = await Promise.all([
@@ -120,7 +121,12 @@ export const getManagementPnL = defineAiAction({
     const byMonth = months.map((month) => ({
       month,
       service_revenue_ars: lineMonths.service_revenue?.[month]?.total ?? 0,
-      operating_cost_ars: lineMonths.operating_cost?.[month]?.total ?? 0,
+      direct_cost_ars: lineMonths.direct_cost?.[month]?.total ?? 0,
+      gross_margin_ars: lineMonths.gross_margin?.[month]?.total ?? 0,
+      operating_cost_ars: round2(
+        (lineMonths.direct_cost?.[month]?.total ?? 0) +
+          (lineMonths.structure_cost?.[month]?.total ?? 0),
+      ),
       operating_margin_ars: lineMonths.operating_margin?.[month]?.total ?? 0,
       financing_cost_ars: lineMonths.financing_cost?.[month]?.total ?? 0,
       cash_generation_ars: lineMonths.cash_generation?.[month]?.total ?? 0,

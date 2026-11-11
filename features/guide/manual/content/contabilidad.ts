@@ -1026,7 +1026,7 @@ export const accountingPage: GuidePage = {
       permission: "accounting:read",
       intro: [
         "Los saldos contables hasta el cierre de un período, calculados desde los asientos, en tres pestañas: {{Balance de saldos}}, {{Estado de Resultados}} y {{Balance General}}.",
-        "Filtros: {{Período de corte}} (por defecto el mes actual), {{Desde (opcional)}} para ver solo los movimientos de un rango ({{Limpiar rango}} lo saca).",
+        "Filtros: {{Período de corte}} y {{Desde (opcional)}}. Al abrir, muestran el ejercicio en curso: desde su primer mes hasta el mes actual. {{Limpiar rango}} saca el {{Desde (opcional)}}.",
         "Atajos: {{Ejercicio actual}} pone el rango desde el primer mes del ejercicio en curso hasta el mes actual; {{Ejercicio anterior}}, el ejercicio anterior completo. Debajo de los filtros, una línea dice qué suma cada pestaña (por ejemplo, «resultados del ejercicio 2025/26 (oct 2025 – mar 2026)»).",
       ],
       screens: [
@@ -1158,7 +1158,7 @@ export const accountingPage: GuidePage = {
       intro: [
         "Fiscal + interno: ¿la operación deja plata? Es una vista para uso interno ({{Uso interno}}): no es el EERR fiscal y no se presenta a bancos, ARCA ni terceros (para eso, [[#balance-eerr]]). El contador externo no la ve.",
         "Filtros: {{Año fiscal}} (los últimos cinco, según el inicio del ejercicio de [[/accounting/settings]]), {{Base}} ({{Devengado}} o {{Percibido}}) y {{Ajustado por inflación}}. El recuadro {{Limitaciones de esta versión}} explica qué no se calcula todavía.",
-        "La pantalla muestra, en orden: los indicadores ({{Margen operativo %}}, {{Resultado operativo (EBITDA aprox.)}} y {{Generación de caja}}, contra los mismos meses del año anterior), la {{Cascada del año fiscal}} con el {{Comparativo con el año anterior}}, la tabla {{Mes a mes}}, {{Margen por camión}}, {{Sin clasificar}} y {{Sueldos: pagado en el mes vs. liquidado del período}}.",
+        "La pantalla muestra, en orden: los indicadores ({{Margen bruto %}}, {{Margen operativo %}}, {{Resultado operativo (EBITDA aprox.)}} y {{Generación de caja}}, contra los mismos meses del año anterior), la {{Cascada del año fiscal}} con el {{Comparativo con el año anterior}}, la tabla {{Mes a mes}}, {{Margen por camión}}, {{Sin clasificar}} y {{Sueldos: pagado en el mes vs. liquidado del período}}.",
       ],
       screens: [
         {
@@ -1170,6 +1170,7 @@ export const accountingPage: GuidePage = {
             { label: "Ajustado por inflación", kind: "checkbox" },
           ],
           stats: [
+            { label: "Margen bruto %", value: "~41,20 %" },
             { label: "Margen operativo %", value: "~18,40 %" },
             {
               label: "Resultado operativo (EBITDA aprox.)",
@@ -1187,6 +1188,22 @@ export const accountingPage: GuidePage = {
                 "~38.000.000",
                 "~4.500.000",
                 "~42.500.000",
+              ],
+              [
+                "Margen bruto",
+                "~8.200.000",
+                "~9.300.000",
+                "~15.600.000",
+                "~1.900.000",
+                "~17.500.000",
+              ],
+              [
+                "Margen bruto %",
+                "~41,00 %",
+                "~41,33 %",
+                "~41,05 %",
+                "~42,22 %",
+                "~41,18 %",
               ],
               [
                 "Margen operativo",
@@ -1211,7 +1228,8 @@ export const accountingPage: GuidePage = {
         {
           title: "Las líneas",
           body: [
-            "{{Servicios}}; {{Costos operativos}} con su detalle ({{Total personal}}, combustible, mantenimiento, seguros, peajes, etc.); {{Sin clasificar}}; {{Margen operativo}}; {{Costo financiero}}; {{Resultado después de financiación}}; {{Capital de préstamos}}, {{Inversión en flota}}, {{Venta de bienes de uso}} y {{Anticipos al personal}}; {{Generación de caja}}; {{Financiamiento recibido}}; y {{Variación de caja}}.",
+            "{{Servicios}}; los costos directos con su detalle ({{Total personal}}, cargas sociales, combustible, mantenimiento, seguros y peajes) y su subtotal {{Costos directos}}; {{Margen bruto}} (servicios menos costos directos) y {{Margen bruto %}}; los gastos de estructura con su detalle (alquileres, impuestos operativos, administración, pagos a proveedores y otros) y su subtotal {{Gastos de estructura}}; {{Sin clasificar}}; {{Margen operativo}} y {{Margen operativo %}}; {{Costo financiero}}; {{Resultado después de financiación}}; {{Capital de préstamos}}, {{Inversión en flota}}, {{Venta de bienes de uso}} y {{Anticipos al personal}}; {{Generación de caja}}; {{Financiamiento recibido}}; y {{Variación de caja}}.",
+            "{{Margen bruto %}} y {{Margen operativo %}} son el margen sobre los servicios de cada mes (y del año, en las columnas finales, por lado); muestran «—» cuando no hay servicios. No suman en ningún total y no abren documentos.",
             "Cada cuenta del plan va a una de esas «cajas» según el catálogo de clasificación ([[#clasificar-cuentas-de-gestion]]). Una cuenta de resultado sin clasificar suma en {{Sin clasificar}}.",
             "Los movimientos en dólares sin cotización (o, si son fiscales, sin asiento) no se suman: un aviso muestra el neto en US$ y enlaza a [[/accounting/exchange-rates]] y [[/accounting/package]].",
           ],
@@ -1389,7 +1407,7 @@ export const accountingPage: GuidePage = {
       permission: "taxes:read",
       intro: [
         "Cada obligación es un documento con período, vencimiento, importe y estado: IVA, Ingresos Brutos, anticipos de Ganancias, SICORE, cargas sociales (F931), monotributo u otro. Pagarlo registra el egreso en caja y su asiento.",
-        "Dos pestañas: {{Lista}} (con las columnas {{Impuesto}}, {{Período}}, {{Vence}}, {{Importe}}, {{Estado}} y {{Pago}}) y {{Calendario}} (los vencimientos del mes en una grilla). El selector de año filtra ambas. Un impuesto por pagar con el vencimiento pasado se marca {{Vencido}}; uno sin importe dice {{Sin liquidar}}, y uno calculado desde el libro IVA lleva {{(estimado)}}.",
+        "Una lista con las columnas {{Impuesto}}, {{Período}}, {{Vence}}, {{Importe}}, {{Estado}} y {{Pago}}. El selector de año la filtra. Un impuesto por pagar con el vencimiento pasado se marca {{Vencido}}; uno sin importe dice {{Sin liquidar}}, y uno calculado desde el libro IVA lleva {{(estimado)}}.",
         "Los anulados no se muestran en la lista; debajo se informa cuántos hay.",
       ],
       screens: [
@@ -1400,7 +1418,6 @@ export const accountingPage: GuidePage = {
             { label: "Preparar el mes", variant: "outline" },
             { label: "Nuevo impuesto", variant: "primary" },
           ],
-          tabs: { labels: ["Lista", "Calendario"], active: 0 },
           table: {
             columns: [
               "Impuesto",
@@ -1559,7 +1576,7 @@ export const accountingPage: GuidePage = {
             "Hacé clic en {{Cargar}}.",
           ],
           after: [
-            "El impuesto queda {{Pendiente}} en la lista y en el calendario. Para adjuntarle el VEP o la DDJJ, abrilo de nuevo ([[#adjuntar-vep-ddjj]]).",
+            "El impuesto queda {{Pendiente}} en la lista. Para adjuntarle el VEP o la DDJJ, abrilo de nuevo ([[#adjuntar-vep-ddjj]]).",
           ],
           errors: [
             {
@@ -1674,7 +1691,7 @@ export const accountingPage: GuidePage = {
             },
           ],
           steps: [
-            "En [[/taxes]], abrí el menú ⋯ del impuesto y elegí {{Editar y adjuntar}} (en uno pagado dice {{Notas y adjuntos}}). En {{Calendario}}, hacer clic en el impuesto hace lo mismo.",
+            "En [[/taxes]], abrí el menú ⋯ del impuesto y elegí {{Editar y adjuntar}} (en uno pagado dice {{Notas y adjuntos}}).",
             "Corregí los datos que hagan falta. En uno pagado solo se pueden cambiar las {{Notas}}.",
             "En {{VEP, DDJJ y comprobantes}}, elegí el {{Tipo:}} ({{VEP}}, {{DDJJ}}, {{Comprobante de pago}} u {{Otro}}) y arrastrá el archivo o elegilo desde el dispositivo.",
             "Hacé clic en {{Guardar}} si cambiaste datos (los adjuntos se guardan al subirlos).",
@@ -1934,7 +1951,7 @@ export const accountingPage: GuidePage = {
             {
               message:
                 "El pago está conciliado con el extracto bancario: desconciliá la línea antes de deshacerlo",
-              fix: "Desconciliá la línea en [[/treasury/reconciliation]] y volvé a intentar.",
+              fix: "Desconciliá la línea en la pestaña {{Extracto}} de la cuenta ([[/accounts]]) y volvé a intentar.",
             },
             {
               message:
@@ -1958,7 +1975,7 @@ export const accountingPage: GuidePage = {
             "Confirmá con {{Anular}}.",
           ],
           after: [
-            "Queda {{Anulado}}: sale de la lista, del calendario y de las tareas. No se puede deshacer; si hace falta, cargalo de nuevo.",
+            "Queda {{Anulado}}: sale de la lista y de las tareas. No se puede deshacer; si hace falta, cargalo de nuevo.",
             "Un impuesto pagado no se anula: primero deshacé el pago.",
           ],
           errors: [
@@ -1969,21 +1986,6 @@ export const accountingPage: GuidePage = {
           ],
           related: ["cargar-impuesto", "deshacer-pago-de-impuesto"],
           keywords: ["anular impuesto", "borrar impuesto", "sin saldo a pagar"],
-        },
-        {
-          id: "ver-calendario-de-impuestos",
-          title: "Ver los vencimientos en el calendario",
-          permission: "taxes:read",
-          steps: [
-            "En [[/taxes]], abrí la pestaña {{Calendario}}.",
-            "Movete de mes con las flechas {{Mes anterior}} y {{Mes siguiente}}.",
-            "Hacé clic en un impuesto para abrirlo (para editarlo, o para ver sus adjuntos si solo tenés lectura).",
-          ],
-          after: [
-            "Los vencidos se ven remarcados y los pagados, atenuados. En el celular, el calendario se muestra como lista.",
-          ],
-          related: ["adjuntar-vep-ddjj"],
-          keywords: ["calendario impositivo", "vencimientos"],
         },
         {
           id: "ver-adjuntos-de-impuesto",

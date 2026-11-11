@@ -64,10 +64,6 @@ const ALLOWED = new Map<string, { count: number; why: string }>([
     { count: 1, why: "voucher number" },
   ],
   [
-    "features/storage-tariffs/components/increase-tariffs-dialog.tsx",
-    { count: 2, why: "percentage" },
-  ],
-  [
     "features/suppliers/components/supplier-form.tsx",
     { count: 1, why: "payment term days" },
   ],

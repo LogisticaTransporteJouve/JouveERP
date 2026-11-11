@@ -2,40 +2,23 @@
 
 import { logAudit } from "@/lib/actions/audit";
 import type { JsonValue } from "@/lib/actions/audit";
-import { CONCEPTO, IVA_RATE, MONEDA, voucherReceptor } from "@/lib/afip/codes";
 import { requireUserContext } from "@/lib/auth/context";
-import { readInvoicingChannels } from "@/lib/channels";
-import { round2, todayInAR } from "@/lib/format";
 import { userCan } from "@/lib/auth/permissions";
 import { changeShipmentStatus } from "@/lib/commands/change-shipment-status";
 import { createShipment } from "@/lib/commands/create-shipment";
-import {
-  REMITO_TAKEN_ERROR,
-  isRemitoTaken,
-} from "@/lib/commands/shipment-remito";
 import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
-import { findSourceInvoiceSlot, invoiceIsVoid } from "@/lib/source-invoice-key";
 import { drainOrFirst, fetchInChunks } from "@/lib/supabase/paginate";
 import { containsPattern } from "@/lib/supabase/like-pattern";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { getServiceClient } from "@/lib/supabase/service";
 
-type SupabaseServerClient = Awaited<ReturnType<typeof createSupabaseClient>>;
-
-import { isIvaCondition } from "@/features/clients/schema";
-import { issueFiscalInvoiceAction } from "@/features/invoices/actions/invoices-actions";
 import {
   ASSIGNABLE_SHIPMENT_STATUSES,
-  FreightInvoiceSchema,
-  type FreightInvoiceInput,
   ShipmentCreateSchema,
   ShipmentListFilterSchema,
-  ShipmentRemitoCheckSchema,
   type ShipmentListFilter,
-  type ShipmentRemitoCheckInput,
-  type ShipmentRemitoConflict,
   ShipmentStatusChangeSchema,
   ShipmentTripAssignSchema,
   ShipmentUpdateSchema,
@@ -43,17 +26,15 @@ import {
   type Shipment,
   type ShipmentHistoryEntry,
 } from "../schema";
-import { freightInvoiceDates } from "../lib/freight-invoice";
 
 const UNASSIGNED_LIMIT = 200;
 
 const SELECT_COLUMNS =
-  "id, client_id, trip_id, channel_id, remito_number, origin,destination, description, scheduled_date, status, delivery_date, failure_reason, freight_amount, cod_amount, invoice_id, notes, created_at, updated_at, client:clients(legal_name, display_name, cuit, iva_condition, is_fiscal), trip:trips(trip_date)";
+  "id, client_id, trip_id, channel_id, remito_number, origin,destination, description, scheduled_date, status, delivery_date, failure_reason, freight_amount, invoice_id, notes, created_at, updated_at, client:clients(legal_name, display_name, cuit, iva_condition, is_fiscal), trip:trips(trip_date)";
 
 type ShipmentRow = {
   status: string;
   freight_amount: number | null;
-  cod_amount: number | null;
   invoice_id: string | null;
   [key: string]: unknown;
 };
@@ -70,7 +51,6 @@ function narrow(
     ...row,
     freight_amount:
       row.freight_amount === null ? null : Number(row.freight_amount),
-    cod_amount: row.cod_amount === null ? null : Number(row.cod_amount),
     invoice_void: row.invoice_id !== null && voidInvoices.has(row.invoice_id),
   } as Shipment;
 }
@@ -103,47 +83,6 @@ async function narrowRows(
   return rows
     .map((row) => narrow(row, voidInvoices))
     .filter((row): row is Shipment => row !== null);
-}
-
-/**
- * The live carga of the client that already holds this remito number (the
- * one being edited aside), or null: the form warns before saving. The DB
- * index is what refuses the duplicate.
- */
-export async function findShipmentRemitoConflictAction(
-  input: ShipmentRemitoCheckInput,
-): Promise<ActionResult<ShipmentRemitoConflict | null>> {
-  const ctx = await requireUserContext();
-  if (!userCan(ctx.access, "shipments:read")) {
-    return { ok: false, error: "No tenés permiso para ver cargas." };
-  }
-  const parsed = ShipmentRemitoCheckSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, error: "Datos inválidos." };
-  const supabase = await createSupabaseClient();
-  const { data, error } = await supabase.rpc("shipment_remito_conflict", {
-    p_client_id: parsed.data.client_id,
-    p_remito_number: parsed.data.remito_number,
-    ...(parsed.data.exclude_id ? { p_exclude_id: parsed.data.exclude_id } : {}),
-  });
-  if (error) {
-    logger.error("shipments.remito_check.failed", {
-      userId: ctx.userId,
-      error,
-    });
-    return { ok: false, error: "No se pudo verificar el remito." };
-  }
-  const row = data?.[0];
-  if (!row) return { ok: true, data: null };
-  return {
-    ok: true,
-    data: {
-      id: row.id,
-      scheduled_date: row.scheduled_date ?? null,
-      status: row.status,
-      origin: row.origin ?? null,
-      destination: row.destination ?? null,
-    },
-  };
 }
 
 /** Every carga, newest first; `filter` narrows it (the page passes none). */
@@ -182,51 +121,6 @@ export async function listShipmentsAction(
   const rows = await narrowRows(data ?? [], ctx.userId);
   if (!rows) return { ok: false, error: "No se pudieron listar las cargas." };
   return { ok: true, data: rows };
-}
-
-/** Each list is null when its own read failed: the carga form needs only the
- *  trips and «Facturar flete» only the channels, so each reports its own
- *  failure instead of an empty select. */
-type ShipmentOptions = {
-  trips: { id: string; trip_date: string; status: string }[] | null;
-  channels: { id: string; name: string; is_fiscal: boolean }[] | null;
-};
-
-/** Select options for the shipment forms (recent trips, active channels).
- *  Clients are searched on demand with the client picker. */
-export async function listShipmentOptionsAction(): Promise<
-  ActionResult<ShipmentOptions>
-> {
-  const ctx = await requireUserContext();
-  if (!userCan(ctx.access, "shipments:read")) {
-    return { ok: false, error: "No tenés permiso." };
-  }
-  const supabase = await createSupabaseClient();
-  const [trips, channels] = await Promise.all([
-    supabase
-      .from("trips")
-      .select("id, trip_date, status")
-      .order("trip_date", { ascending: false })
-      .limit(200),
-    readInvoicingChannels(),
-  ]);
-  if (trips.error) {
-    logger.error("shipments.options.trips_failed", {
-      userId: ctx.userId,
-      error: trips.error,
-    });
-  }
-  return {
-    ok: true,
-    data: {
-      trips: trips.error ? null : (trips.data ?? []),
-      channels: channels.ok
-        ? channels.channels
-            .filter((c) => c.is_active)
-            .map((c) => ({ id: c.id, name: c.name, is_fiscal: c.is_fiscal }))
-        : null,
-    },
-  };
 }
 
 export async function listShipmentHistoryAction(
@@ -286,26 +180,14 @@ export async function updateShipmentAction(
     .from("shipments")
     .update({
       ...(rest.client_id !== undefined && { client_id: rest.client_id }),
-      ...(rest.trip_id !== undefined && { trip_id: rest.trip_id }),
-      ...(rest.channel_id !== undefined && { channel_id: rest.channel_id }),
-      ...(rest.remito_number !== undefined && {
-        remito_number: rest.remito_number,
-      }),
-      ...(rest.origin !== undefined && { origin: rest.origin }),
       ...(rest.destination !== undefined && { destination: rest.destination }),
       ...(rest.description !== undefined && { description: rest.description }),
       ...(rest.scheduled_date !== undefined && {
         scheduled_date: rest.scheduled_date,
       }),
-      ...(rest.freight_amount !== undefined && {
-        freight_amount: rest.freight_amount,
-      }),
-      ...(rest.cod_amount !== undefined && { cod_amount: rest.cod_amount }),
-      ...(rest.notes !== undefined && { notes: rest.notes }),
     })
     .eq("id", id)
     .select("id");
-  if (isRemitoTaken(error)) return { ok: false, error: REMITO_TAKEN_ERROR };
   if (error) {
     const guardError = mapDbGuardError(error, {
       slug: "shipments.update.rejected",
@@ -486,278 +368,4 @@ export async function setShipmentsTripAction(
     );
   }
   return { ok: true, data: { count: data.length } };
-}
-
-/**
- * "Facturar flete": issues a sales invoice for a shipment's freight, reusing the
- * proven issueFiscalInvoiceAction (handles fiscal AFIP vs internal per channel).
- * A single "Flete" service line at 21% IVA, billed to the shipment's client.
- * Claims the shipment first (claim_shipment_for_invoicing, which also frees a
- * carga whose invoice no longer bills it), so two concurrent clicks cannot
- * both issue, and issues under a key derived from
- * the carga (lib/source-invoice-key), so a click after an expired claim links
- * the invoice already issued; links invoice_id on success and releases the
- * claim on failure.
- */
-export async function invoiceFreightAction(
-  input: unknown,
-): Promise<ActionResult<{ invoiceId: string }>> {
-  const ctx = await requireUserContext();
-  if (
-    !userCan(ctx.access, "shipments:write") ||
-    !userCan(ctx.access, "invoices:issue")
-  ) {
-    return { ok: false, error: "No tenés permiso para facturar el flete." };
-  }
-  const parsed = FreightInvoiceSchema.safeParse(input);
-  if (!parsed.success) {
-    return {
-      ok: false,
-      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
-    };
-  }
-
-  const supabase = await createSupabaseClient();
-  const shipmentId = parsed.data.shipmentId;
-  const claim = await claimShipmentForInvoicing(
-    supabase,
-    shipmentId,
-    ctx.userId,
-  );
-  if (!claim.ok) return claim;
-  // One live invoice per carga: one issued before a lost link is linked now
-  // instead of issuing a second.
-  const slot = await findSourceInvoiceSlot(
-    supabase,
-    "shipment_freight",
-    shipmentId,
-  );
-  const result: ActionResult<{ id: string }> =
-    slot.kind === "live"
-      ? await reusableFreightInvoice(supabase, shipmentId, slot.invoiceId)
-      : slot.kind === "free"
-        ? await issueFreightInvoice(supabase, parsed.data, slot.key)
-        : {
-            ok: false,
-            error:
-              slot.kind === "error"
-                ? "No se pudo verificar si la carga ya tiene factura."
-                : "El flete se facturó demasiadas veces sin éxito: revisá sus comprobantes.",
-          };
-  const releaseClaim = async () => {
-    const { error: releaseErr } = await supabase
-      .from("shipments")
-      .update({ invoicing_claimed_at: null })
-      .eq("id", shipmentId)
-      .is("invoice_id", null);
-    if (releaseErr) {
-      logger.error("shipments.freight_invoice.release_failed", {
-        userId: ctx.userId,
-        shipmentId,
-        error: releaseErr,
-      });
-    }
-  };
-  if (!result.ok) {
-    await releaseClaim();
-    return result;
-  }
-
-  const { error: linkErr } = await supabase
-    .from("shipments")
-    .update({ invoice_id: result.data.id, invoicing_claimed_at: null })
-    .eq("id", shipmentId);
-  if (linkErr) {
-    logger.error("shipments.freight_invoice.link_failed", {
-      userId: ctx.userId,
-      shipmentId,
-      invoiceId: result.data.id,
-      error: linkErr,
-    });
-    // The invoice no longer bills the carga (the link guard refuses it):
-    // nothing bills the carga, so free it now.
-    if (await invoiceIsVoid(supabase, result.data.id)) {
-      await releaseClaim();
-      return {
-        ok: false,
-        error:
-          "La factura falló, se anuló o se acreditó por el total antes de vincularla a la carga: la carga quedó libre para facturarla de nuevo.",
-      };
-    }
-    // Any other error keeps the claim; once it expires, "Facturar flete"
-    // links this same invoice (its key is the carga's).
-    return {
-      ok: false,
-      error:
-        "La factura se emitió pero no se vinculó a la carga. En unos minutos volvé a facturar: se vincula la misma factura, sin emitir otra.",
-    };
-  }
-  await logAudit(
-    "shipment.freight_invoiced",
-    ctx.userId,
-    { invoice_id: result.data.id, reused: slot.kind === "live" },
-    shipmentId,
-  );
-  return { ok: true, data: { invoiceId: result.data.id } };
-}
-
-/** claim_shipment_for_invoicing: claims an unbilled carga (a claim older
- *  than 15 minutes is abandoned), dropping first a link to an invoice that
- *  no longer bills it (a fiscal factura credited in full), which is
- *  audited. */
-async function claimShipmentForInvoicing(
-  supabase: SupabaseServerClient,
-  shipmentId: string,
-  userId: string,
-): Promise<ActionResult> {
-  const { data, error } = await supabase.rpc("claim_shipment_for_invoicing", {
-    p_shipment_id: shipmentId,
-  });
-  if (error) {
-    // A carga in a live liquidación is billed from the liquidación.
-    const guardError = mapDbGuardError(error, {
-      slug: "shipments.freight_invoice.claim_rejected",
-      userId,
-      id: shipmentId,
-    });
-    if (guardError) return { ok: false, error: guardError };
-    logger.error("shipments.freight_invoice.claim_failed", {
-      shipmentId,
-      error,
-    });
-    return { ok: false, error: "No se pudo reservar la carga para facturar." };
-  }
-  const row = data?.[0];
-  if (!row?.claimed) {
-    return {
-      ok: false,
-      error: "La carga ya tiene una factura o se está facturando.",
-    };
-  }
-  if (row.freed_invoice_id) {
-    await logAudit(
-      "shipment.invoice_unlinked",
-      userId,
-      { invoice_id: row.freed_invoice_id, reason: "invoice_void" },
-      shipmentId,
-    );
-  }
-  return { ok: true, data: undefined };
-}
-
-/** The invoice an earlier click issued for the carga, while it still bills
- *  the carga as it is: once the claim expires the carga can be edited, and
- *  an invoice for another client or flete is not its. */
-async function reusableFreightInvoice(
-  supabase: SupabaseServerClient,
-  shipmentId: string,
-  invoiceId: string,
-): Promise<ActionResult<{ id: string }>> {
-  const [shipment, invoice] = await Promise.all([
-    supabase
-      .from("shipments")
-      .select("client_id, freight_amount")
-      .eq("id", shipmentId)
-      .maybeSingle(),
-    supabase
-      .from("invoices")
-      .select("client_id, imp_neto")
-      .eq("id", invoiceId)
-      .maybeSingle(),
-  ]);
-  if (shipment.error || invoice.error || !shipment.data || !invoice.data) {
-    logger.error("shipments.freight_invoice.reuse_read_failed", {
-      shipmentId,
-      invoiceId,
-      error: shipment.error ?? invoice.error,
-    });
-    return {
-      ok: false,
-      error: "No se pudo verificar la factura ya emitida para la carga.",
-    };
-  }
-  if (
-    shipment.data.client_id !== invoice.data.client_id ||
-    round2(Number(shipment.data.freight_amount ?? 0)) !==
-      round2(Number(invoice.data.imp_neto))
-  ) {
-    return {
-      ok: false,
-      error:
-        "La carga tiene una factura emitida sin vincular por otro cliente o flete: volvé la carga a esos datos para vincularla.",
-    };
-  }
-  return { ok: true, data: { id: invoiceId } };
-}
-
-async function issueFreightInvoice(
-  supabase: SupabaseServerClient,
-  input: FreightInvoiceInput,
-  idempotencyKey: string,
-): Promise<ActionResult<{ id: string }>> {
-  const { data: shipment, error: readErr } = await supabase
-    .from("shipments")
-    .select(
-      "id, client_id, channel_id, origin, destination, freight_amount, invoice_id, scheduled_date, delivery_date, client:clients(cuit, iva_condition, is_fiscal)",
-    )
-    .eq("id", input.shipmentId)
-    .maybeSingle();
-  if (readErr || !shipment) {
-    return { ok: false, error: "No se encontró la carga." };
-  }
-  if (shipment.invoice_id) {
-    return { ok: false, error: "La carga ya tiene una factura." };
-  }
-  // A shipment booked on a channel is invoiced on that channel only.
-  if (shipment.channel_id && shipment.channel_id !== input.channel_id) {
-    return {
-      ok: false,
-      error:
-        "La carga está cargada en otro canal: facturala en el canal de la carga.",
-    };
-  }
-  const client = shipment.client;
-  if (!shipment.client_id || !client) {
-    return { ok: false, error: "La carga necesita un cliente." };
-  }
-  // An Otras ventas client has no CUIT: its freight goes on a remito interno.
-  if (client.is_fiscal && !client.cuit) {
-    return { ok: false, error: "La carga necesita un cliente con CUIT." };
-  }
-  if (!shipment.freight_amount || Number(shipment.freight_amount) <= 0) {
-    return { ok: false, error: "Cargá un monto de flete primero." };
-  }
-  const ivaCondition = isIvaCondition(client.iva_condition)
-    ? client.iva_condition
-    : null;
-  if (client.is_fiscal && !ivaCondition) {
-    return { ok: false, error: "La condición de IVA del cliente es inválida." };
-  }
-
-  const dates = freightInvoiceDates(shipment, todayInAR());
-  const ruta = [shipment.origin, shipment.destination]
-    .filter(Boolean)
-    .join(" → ");
-
-  return issueFiscalInvoiceAction({
-    channel_id: input.channel_id,
-    client_id: shipment.client_id,
-    kind: "factura",
-    letter: null,
-    punto_venta: input.punto_venta,
-    ...dates,
-    concepto: CONCEPTO.SERVICIOS,
-    ...voucherReceptor({ cuit: client.cuit, iva_condition: ivaCondition }),
-    moneda: MONEDA.PESOS,
-    cotizacion: 1,
-    items: [
-      {
-        description: ruta ? `Flete ${ruta}` : "Flete",
-        quantity: 1,
-        unit_price: Number(shipment.freight_amount),
-        iva_rate_id: IVA_RATE.TWENTY_ONE,
-      },
-    ],
-    idempotency_key: idempotencyKey,
-  });
 }

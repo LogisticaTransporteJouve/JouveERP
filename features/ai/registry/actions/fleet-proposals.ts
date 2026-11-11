@@ -1,46 +1,25 @@
 import { z } from "zod";
 
-import {
-  getFreightSettlementAction,
-  listFreightSettlementCandidatesAction,
-} from "@/features/freight-settlements/actions/freight-settlements-actions";
 import { MAINTENANCE_KINDS } from "@/features/maintenance/schema";
+import { listShipmentsAction } from "@/features/shipments/actions/shipments-actions";
 import {
-  findShipmentRemitoConflictAction,
-  listShipmentsAction,
-} from "@/features/shipments/actions/shipments-actions";
-import {
-  REMITO_NUMBER_MAX,
   SHIPMENT_NEXT_STATUSES,
   SHIPMENT_STATUS_LABELS,
   SHIPMENT_TARGET_STATUSES,
 } from "@/features/shipments/schema";
 import { TRIP_STATUSES } from "@/features/trips/schema";
-import { userCan } from "@/lib/auth/permissions";
 import { changeShipmentStatus } from "@/lib/commands/change-shipment-status";
-import { confirmFreightSettlement } from "@/lib/commands/confirm-freight-settlement";
 import { createFuelLoad } from "@/lib/commands/create-fuel-load";
 import { createMaintenance } from "@/lib/commands/create-maintenance";
 import { createShipment } from "@/lib/commands/create-shipment";
 import { createTrip } from "@/lib/commands/create-trip";
-import { saveFreightSettlement } from "@/lib/commands/save-freight-settlement";
-import { REMITO_TAKEN_ERROR } from "@/lib/commands/shipment-remito";
-import {
-  formatArgentineDate,
-  formatMoney,
-  round2,
-  todayInAR,
-} from "@/lib/format";
+import { formatArgentineDate, todayInAR } from "@/lib/format";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { IsoDateSchema, UuidSchema } from "@/lib/validation/common";
 
 import {
   CANCEL_REASON_REQUIRED,
-  FREIGHT_CONFIRM_LABELS,
-  FREIGHT_SETTLEMENT_LABELS,
   SHIPMENT_STATUS_LABEL_KEYS,
-  freightSettlementConfirmProposalSpec,
-  freightSettlementProposalSpec,
   fuelLoadProposalSpec,
   maintenanceProposalSpec,
   shipmentProposalSpec,
@@ -98,21 +77,13 @@ export const proposeTrip = defineAiProposal({
   sources: ["trips", "vehicles", "drivers"],
   description:
     "Propose creating a trip (viaje) for the user to accept on a card: date, " +
-    "vehicle and driver as the user said them, origin, destination, cargo, " +
-    "status (default planned), km, revenue and cost if the user gave them. " +
-    "Writes nothing by itself; never invents amounts.",
+    "vehicle and driver as the user said them and status (default planned), " +
+    "the fields of the trip form. Writes nothing by itself.",
   input: z.object({
     trip_date: IsoDateSchema,
     vehicle: vehicleInput.optional(),
     driver: driverInput.optional(),
-    origin: text(160),
-    destination: text(160),
-    cargo_description: text(500),
     status: z.enum(TRIP_STATUSES).optional(),
-    km,
-    revenue: money,
-    cost: money,
-    notes: text(2000),
   }),
   spec: tripProposalSpec,
   prepare: async (ctx, input) => {
@@ -128,15 +99,7 @@ export const proposeTrip = defineAiProposal({
         trip_date: input.trip_date,
         vehicle_id: vehicle?.id ?? null,
         driver_id: driver?.id ?? null,
-        channel_id: null,
-        origin: input.origin ?? null,
-        destination: input.destination ?? null,
-        cargo_description: input.cargo_description ?? null,
         status: input.status ?? "planned",
-        km: input.km ?? null,
-        revenue: input.revenue ?? null,
-        cost: input.cost ?? null,
-        notes: input.notes ?? null,
       },
       labels: {
         ...(vehicle ? labelOf(vehicle) : {}),
@@ -157,22 +120,15 @@ export const proposeShipment = defineAiProposal({
   sources: ["shipments", "clients"],
   description:
     "Propose creating a carga (shipment) for the user to accept on a card: " +
-    "client (name or CUIT), remito number, scheduled date, origin, " +
-    "destination, description, freight and cash-on-delivery amounts if the " +
-    "user gave them, and trip_id (from getTrips) to put it on a trip. A remito " +
-    "number another carga of the client holds is refused. Writes nothing by " +
-    "itself; never invents amounts.",
+    "client (name or CUIT), description, scheduled date and address " +
+    "(dirección: where it goes), the fields of the carga form, and trip_id " +
+    "(from getTrips) to put it on a trip. Writes nothing by itself.",
   input: z.object({
     client: z.string().trim().min(1).max(160).optional(),
-    remito_number: text(REMITO_NUMBER_MAX),
-    scheduled_date: IsoDateSchema.optional(),
-    origin: text(160),
-    destination: text(160),
     description: text(500),
-    freight_amount: money,
-    cod_amount: z.number().finite().positive().max(MONEY_MAX).optional(),
+    scheduled_date: IsoDateSchema.optional(),
+    destination: text(160).describe("Address (dirección) of the carga."),
     trip_id: UuidSchema.optional(),
-    notes: text(2000),
   }),
   spec: shipmentProposalSpec,
   prepare: async (ctx, input) => {
@@ -180,38 +136,14 @@ export const proposeShipment = defineAiProposal({
       ? await resolveClientRef(ctx.access, input.client, "client")
       : null;
     if (client && !client.ok) return client.result;
-    // The form warns before saving; the unique index refuses on accept.
-    if (
-      client &&
-      input.remito_number &&
-      userCan(ctx.access, "shipments:read")
-    ) {
-      const conflict = await findShipmentRemitoConflictAction({
-        client_id: client.id,
-        remito_number: input.remito_number,
-      });
-      if (!conflict.ok) return { kind: "error", error: conflict.error };
-      if (conflict.data) {
-        return {
-          kind: "issues",
-          issues: [{ field: "remito_number", message: REMITO_TAKEN_ERROR }],
-        };
-      }
-    }
     return {
       kind: "draft",
       draft: {
         client_id: client?.id ?? null,
         trip_id: input.trip_id ?? null,
-        channel_id: null,
-        remito_number: input.remito_number ?? null,
-        origin: input.origin ?? null,
         destination: input.destination ?? null,
         description: input.description ?? null,
         scheduled_date: input.scheduled_date ?? null,
-        freight_amount: input.freight_amount ?? null,
-        cod_amount: input.cod_amount ?? null,
-        notes: input.notes ?? null,
       },
       labels: client?.label ? { [client.id]: client.label } : {},
     };
@@ -399,179 +331,4 @@ export const proposeMaintenance = defineAiProposal({
   },
   execute: async (ctx, draft) =>
     createMaintenance(await createSupabaseClient(), ctx, draft),
-});
-
-// ─── Freight settlements ─────────────────────────────────────────────────────
-
-/** Cargas per liquidación (FreightSettlementSaveSchema). */
-const MAX_SETTLEMENT_SHIPMENTS = 500;
-
-export const proposeFreightSettlement = defineAiProposal({
-  name: "proposeFreightSettlement",
-  domain: "ventas",
-  permission: ["invoices:issue", "invoices:read"],
-  sources: ["freight_settlements", "freight_settlement_items", "shipments"],
-  description:
-    "Propose a liquidación de fletes draft for a client and period, for the " +
-    "user to accept on a card: it takes every delivered carga of the period " +
-    "not settled yet that has a flete or a freight tariff, priced by the " +
-    "server. It stays a draft; confirming and invoicing it are done on the " +
-    "liquidación. Writes nothing by itself.",
-  input: z.object({
-    client: z
-      .string()
-      .trim()
-      .min(1)
-      .max(160)
-      .describe("Client name or CUIT, as the user said it."),
-    period_start: IsoDateSchema,
-    period_end: IsoDateSchema,
-    notes: z.string().trim().min(1).max(1000).optional(),
-  }),
-  spec: freightSettlementProposalSpec,
-  prepare: async (ctx, input) => {
-    const client = await resolveClientRef(ctx.access, input.client, "client");
-    if (!client.ok) return client.result;
-    const res = await listFreightSettlementCandidatesAction({
-      client_id: client.id,
-      period_start: input.period_start,
-      period_end: input.period_end,
-    });
-    if (!res.ok) return { kind: "error", error: res.error };
-    const priced = res.data.filter((c) => c.amount !== null && c.amount > 0);
-    if (priced.length === 0) {
-      return {
-        kind: "error",
-        error:
-          res.data.length === 0
-            ? "No hay cargas entregadas sin liquidar de ese cliente en el período."
-            : "Las cargas entregadas del período no tienen flete ni tarifa de flete vigente: cargá uno de los dos.",
-      };
-    }
-    if (priced.length > MAX_SETTLEMENT_SHIPMENTS) {
-      return {
-        kind: "error",
-        error: `Son ${priced.length} cargas: una liquidación lleva hasta ${MAX_SETTLEMENT_SHIPMENTS}. Acortá el período.`,
-      };
-    }
-    const total = priced.reduce((s, c) => s + (c.amount ?? 0), 0);
-    return {
-      kind: "draft",
-      draft: {
-        client_id: client.id,
-        period_start: input.period_start,
-        period_end: input.period_end,
-        shipment_ids: priced.map((c) => c.shipment_id),
-        notes: input.notes ?? null,
-      },
-      labels: {
-        ...(client.label ? { [client.id]: client.label } : {}),
-        [FREIGHT_SETTLEMENT_LABELS.total]: formatMoney(total),
-        [FREIGHT_SETTLEMENT_LABELS.unpriced]: String(
-          res.data.length - priced.length,
-        ),
-      },
-    };
-  },
-  execute: (ctx, draft) => saveFreightSettlement(ctx.userId, draft),
-});
-
-export const proposeFreightSettlementConfirm = defineAiProposal({
-  name: "proposeFreightSettlementConfirm",
-  domain: "ventas",
-  permission: ["invoices:issue", "invoices:read"],
-  sources: [
-    "freight_settlements",
-    "freight_settlement_items",
-    "shipments",
-    "client_tariffs",
-  ],
-  description:
-    "Propose confirming a liquidación de fletes draft of a Ventas client " +
-    "(settlement_id from getFreightSettlements) for the user to accept on a " +
-    "card: each carga is priced at its flete or the freight tariff in force, " +
-    "the card shows that total and confirming emits its Remito R. An Otras " +
-    "ventas liquidación is confirmed when its remito interno is issued, on " +
-    "the liquidación. Writes nothing by itself.",
-  input: z.object({ settlement_id: UuidSchema }),
-  spec: freightSettlementConfirmProposalSpec,
-  prepare: async (_ctx, input) => {
-    const detail = await getFreightSettlementAction(input.settlement_id);
-    if (!detail.ok) return { kind: "error", error: detail.error };
-    const s = detail.data;
-    if (s.status !== "draft") {
-      return {
-        kind: "error",
-        error:
-          s.status === "cancelled"
-            ? "La liquidación está cancelada."
-            : "La liquidación ya está confirmada.",
-      };
-    }
-    if (!s.client_is_fiscal) {
-      return {
-        kind: "error",
-        error:
-          "Es una liquidación de Otras ventas: se confirma al emitir su remito interno, desde la liquidación.",
-      };
-    }
-    if (s.items.length === 0) {
-      return { kind: "error", error: "La liquidación no tiene cargas." };
-    }
-    // The prices the confirm will take: each carga's flete or tariff now.
-    const res = await listFreightSettlementCandidatesAction({
-      client_id: s.client_id,
-      period_start: s.period_start,
-      period_end: s.period_end,
-      settlement_id: s.id,
-    });
-    if (!res.ok) return { kind: "error", error: res.error };
-    const priceOf = new Map(res.data.map((c) => [c.shipment_id, c.amount]));
-    let total = 0;
-    for (const item of s.items) {
-      const amount = priceOf.get(item.shipment_id);
-      const name = item.remito_number ?? item.shipment_id.slice(0, 8);
-      if (amount === undefined) {
-        return {
-          kind: "error",
-          error: `La carga ${name} ya no se puede liquidar en este período: revisá la liquidación.`,
-        };
-      }
-      if (amount === null || amount <= 0) {
-        return {
-          kind: "error",
-          error: `La carga ${name} ya no tiene flete ni tarifa de flete vigente: cargá uno de los dos.`,
-        };
-      }
-      total += amount;
-    }
-    total = round2(total);
-    return {
-      kind: "draft",
-      draft: { id: s.id, expected_total: total },
-      labels: {
-        [s.id]: s.client_name,
-        [FREIGHT_CONFIRM_LABELS.period]: `${formatArgentineDate(s.period_start)} al ${formatArgentineDate(s.period_end)}`,
-        [FREIGHT_CONFIRM_LABELS.cargas]: String(s.items.length),
-        ...(round2(s.total) !== total
-          ? { [FREIGHT_CONFIRM_LABELS.savedTotal]: formatMoney(s.total) }
-          : {}),
-      },
-    };
-  },
-  execute: async (ctx, draft) => {
-    const res = await confirmFreightSettlement(
-      ctx.userId,
-      draft.id,
-      draft.expected_total,
-    );
-    if (!res.ok) return res;
-    return {
-      ok: true,
-      data: {
-        id: draft.id,
-        ...(res.data.number ? { note: `Remito ${res.data.number}` } : {}),
-      },
-    };
-  },
 });

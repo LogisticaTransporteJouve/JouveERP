@@ -87,15 +87,16 @@ export async function runLedger(input: {
     to: input.to ?? null,
   });
   if (!res.ok) return errResult(res.error);
-  const last = res.data.rows.at(-1);
-  const balance = last ? Number(last.running) : res.data.opening;
+  // Rows come newest first; `running` is the balance after each line.
+  const newest = res.data.rows[0];
+  const balance = newest ? Number(newest.running) : res.data.opening;
   const opening = input.from
     ? `opening balance ${money(res.data.opening)} before ${input.from} · `
     : "";
   return okResult(
     `${opening}${res.data.rows.length} movements${
       res.data.truncated
-        ? ` (truncated to the first ${LEDGER_MAX_ROWS} — narrow by date; the balance shown is at the last line returned)`
+        ? ` (truncated to the newest ${LEDGER_MAX_ROWS}, the older ones are missing — narrow by date; the closing balance is the range's)`
         : ""
     } · closing balance ${money(balance)}.`,
     res.data,
@@ -112,7 +113,7 @@ export const getLedger = defineAiAction({
   description:
     "General ledger of ONE ledger account (a grouping account includes all " +
     "its subaccounts, each row's account_code says which): movements with running balance " +
-    "between dates; the running balance starts from `opening` (the balance " +
+    "between dates, newest first; the running balance starts from `opening` (the balance " +
     "before `from`). Requires the account UUID (obtainable from the chart of " +
     "accounts / getTrialBalance).",
   input: z.object({

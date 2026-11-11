@@ -30,11 +30,8 @@ vi.mock("@/lib/commands/issue-late-interest-nd", () => ({
 }));
 vi.mock("@/lib/commands/match-bank-line", () => ({ matchBankLines }));
 vi.mock("@/lib/commands/create-task", () => ({ createTask: vi.fn() }));
-vi.mock("@/lib/commands/create-client-tariff", () => ({
-  createClientTariff: vi.fn(),
-}));
 
-const { proposeBankMatches, proposeClientTariff, proposeLateInterestNd } =
+const { proposeBankMatches, proposeLateInterestNd } =
   await import("./operations-proposals");
 
 const ctx = { userId: "u1", access: resolveAccess(["owner"]) };
@@ -126,53 +123,6 @@ describe("proposeLateInterestNd", () => {
       expect.any(Function),
       3000,
     );
-  });
-});
-
-describe("proposeClientTariff", () => {
-  it("asks for the unit of a storage tariff instead of guessing", async () => {
-    const prepared = await proposeClientTariff.proposal?.prepareDraft(ctx, {
-      client: "Cliente Uno",
-      concept: "storage",
-      price: 1000,
-      valid_from: "2026-12-01",
-    });
-    expect(prepared?.kind).toBe("issues");
-    expect(searchClientsAction).not.toHaveBeenCalled();
-  });
-
-  it("resolves the client by its exact name", async () => {
-    searchClientsAction.mockResolvedValue({
-      ok: true,
-      data: {
-        clients: [
-          {
-            id: "11111111-1111-4111-8111-111111111111",
-            legal_name: "Cliente Uno",
-            cuit: "30",
-          },
-          {
-            id: "22222222-2222-4222-8222-222222222222",
-            legal_name: "Cliente Uno Bis",
-            cuit: "31",
-          },
-        ],
-        nextOffset: null,
-      },
-    });
-    const prepared = await proposeClientTariff.proposal?.prepareDraft(ctx, {
-      client: "cliente uno",
-      concept: "handling_in",
-      price: 500,
-      valid_from: "2026-12-01",
-    });
-    expect(prepared?.kind).toBe("draft");
-    if (prepared?.kind !== "draft") return;
-    expect(prepared.draft).toMatchObject({
-      client_id: "11111111-1111-4111-8111-111111111111",
-      unit: "pallet",
-      currency: "ARS",
-    });
   });
 });
 

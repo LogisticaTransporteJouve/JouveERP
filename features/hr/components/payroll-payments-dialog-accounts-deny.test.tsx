@@ -7,14 +7,6 @@ const h = vi.hoisted(() => ({ listAccounts: vi.fn() }));
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
-vi.mock("@/components/providers/scope-provider", () => ({
-  useScope: () => ({
-    channels: [
-      { id: "jouve_fiscal", name: "Jouve", is_fiscal: true, is_active: true },
-    ],
-  }),
-  useDefaultChannel: () => "jouve_fiscal",
-}));
 vi.mock("@/features/accounts/actions/accounts-actions", () => ({
   listAccountsAction: h.listAccounts,
 }));
@@ -26,6 +18,9 @@ vi.mock("../hooks/use-payroll-payments", () => ({
         id: "p1",
         account_id: "a1",
         channel_id: "jouve_fiscal",
+        split_parent_id: null,
+        is_fiscal: true,
+        reconciled: false,
         amount: 50_000,
         method: "transferencia",
         paid_at: "2026-10-31",

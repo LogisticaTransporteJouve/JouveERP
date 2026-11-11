@@ -76,7 +76,7 @@ export function detectFleetDocExpiry(
 
 /** Trips whose net (revenue − cost − fuel) is negative → losing money. A
  *  trip with cargas still to invoice is left out and counted apart: its
- *  revenue (the invoiced freight, as in «Rentabilidad de flota») is not
+ *  revenue (the invoiced freight of its cargas) is not
  *  known yet, and pending is not a loss. */
 export function detectLossTrips(trips: TripMarginRow[]): FleetFinding[] {
   const pending = trips.filter((t) => t.pendingInvoicing).length;

@@ -9,10 +9,7 @@ const trip = {
   trip_date: "2026-11-01",
   driver: null,
   vehicle: null,
-  origin: "Rosario",
-  destination: "Córdoba",
   status: "planned",
-  revenue: null,
 };
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
@@ -89,8 +86,8 @@ describe("TripsTable: «Ver cargas» follows shipments:read", () => {
   });
 });
 
-describe("TripsTable: the typed income says it is the manual one", () => {
-  it("labels the column «Ingreso manual», not the invoiced freight", () => {
+describe("TripsTable: columns", () => {
+  it("shows only date, driver, vehicle and status", () => {
     render(
       <TripsTable
         actorAccess={resolveAccess(["operations"])}
@@ -98,7 +95,10 @@ describe("TripsTable: the typed income says it is the manual one", () => {
         vehicleOptions={[]}
       />,
     );
-    expect(screen.getAllByText("Ingreso manual").length).toBeGreaterThan(0);
-    expect(screen.queryByText("Ingreso")).toBeNull();
+    const headers = screen
+      .getAllByRole("columnheader")
+      .map((th) => th.textContent?.trim())
+      .filter(Boolean);
+    expect(headers).toEqual(["Fecha", "Chofer", "Vehículo", "Estado"]);
   });
 });

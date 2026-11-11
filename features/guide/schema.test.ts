@@ -13,9 +13,7 @@ describe("guideForPath", () => {
       "Categorías de proveedores",
     );
     expect(guideForPath("/suppliers/123")?.title).toBe("Proveedores");
-    expect(guideForPath("/treasury/reconciliation")?.title).toBe(
-      "Conciliación bancaria",
-    );
+    expect(guideForPath("/accounts/123")?.title).toBe("Cuentas");
     expect(guideForPath("/taxes")?.title).toBe("Impuestos");
     expect(guideForPath("/aging/mora")?.title).toBe("Intereses por mora");
     expect(guideForPath("/aging")?.title).toBe("Aging clientes");

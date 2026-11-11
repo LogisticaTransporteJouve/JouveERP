@@ -214,8 +214,7 @@ function pendingNote(shipments: number, rows: number): string {
   return `${cargas} ${where} («pendiente de facturar»): no están en el ingreso, así que ese neto no es definitivo.`;
 }
 
-/** A net with cargas still to invoice is not final (as in «Rentabilidad de
- *  flota»). */
+/** A net with cargas still to invoice is not final. */
 function NetCell({ value, pending }: { value: number; pending: boolean }) {
   return (
     <td className="px-3 py-1.5 text-right font-mono font-semibold">

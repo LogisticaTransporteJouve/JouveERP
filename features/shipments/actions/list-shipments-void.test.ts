@@ -12,7 +12,6 @@ const row = (id: string, invoiceId: string | null) => ({
   client_id: "c1",
   status: "delivered",
   freight_amount: "100.00",
-  cod_amount: null,
   invoice_id: invoiceId,
 });
 

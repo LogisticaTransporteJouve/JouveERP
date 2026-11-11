@@ -17,7 +17,7 @@ export type InvoicingChannelRow = {
  * name, or `ok: false` when the read fails. Wrapped in React `cache()` so the
  * dashboard layout and the page of the same request share one round trip —
  * callers filter/sort in memory. A caller that computes from the list (cash
- * flow) or offers nothing else to pick (Facturar flete) fails on the error.
+ * flow) fails on the error.
  */
 export const readInvoicingChannels = cache(
   async (): Promise<

@@ -21,10 +21,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
 import {
-  getFreightSettlementEmailDefaultsAction,
-  sendFreightSettlementByEmailAction,
-} from "@/features/freight-settlements/actions/send-freight-settlement-email";
-import {
   getInvoiceEmailDefaultsAction,
   sendInvoiceByEmailAction,
 } from "@/features/invoices/actions/send-invoice-email";
@@ -33,7 +29,7 @@ import {
   sendReceiptByEmailAction,
 } from "@/features/receipts/actions/send-receipt-email";
 
-export type SendByEmailKind = "invoice" | "receipt" | "freight_settlement";
+export type SendByEmailKind = "invoice" | "receipt";
 
 const KIND_COPY: Record<
   SendByEmailKind,
@@ -49,12 +45,6 @@ const KIND_COPY: Record<
     entityNoun: "recibo",
     descriptionNoun: "El cliente recibirá el PDF del recibo adjunto.",
   },
-  freight_settlement: {
-    titleNoun: "Enviar remito por email",
-    entityNoun: "remito",
-    descriptionNoun:
-      "El cliente recibirá el PDF del remito R de la liquidación adjunto.",
-  },
 };
 
 function loadDefaults(kind: SendByEmailKind, id: string) {
@@ -63,8 +53,6 @@ function loadDefaults(kind: SendByEmailKind, id: string) {
       return getInvoiceEmailDefaultsAction(id);
     case "receipt":
       return getReceiptEmailDefaultsAction(id);
-    case "freight_settlement":
-      return getFreightSettlementEmailDefaultsAction(id);
   }
 }
 
@@ -78,11 +66,6 @@ function send(
       return sendInvoiceByEmailAction({ invoice_id: id, ...message });
     case "receipt":
       return sendReceiptByEmailAction({ receipt_id: id, ...message });
-    case "freight_settlement":
-      return sendFreightSettlementByEmailAction({
-        settlement_id: id,
-        ...message,
-      });
   }
 }
 

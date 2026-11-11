@@ -6,9 +6,7 @@ import {
   History,
   MoreHorizontal,
   Pencil,
-  Play,
   Plus,
-  Receipt,
   Trash2,
   XCircle,
 } from "lucide-react";
@@ -31,7 +29,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { userCan, type Access } from "@/lib/auth/permissions";
 
 import { useDeleteShipment, useShipments } from "../hooks/use-shipments";
-import { formatRoute, matchesShipmentSearch } from "../lib/format";
+import { matchesShipmentSearch } from "../lib/format";
 import {
   SHIPMENT_NEXT_STATUSES,
   type Shipment,
@@ -39,7 +37,6 @@ import {
   type ShipmentTargetStatus,
 } from "../schema";
 
-import { FreightInvoiceDialog } from "./freight-invoice-dialog";
 import { ShipmentDialog } from "./shipment-dialog";
 import { ShipmentHistoryDialog } from "./shipment-history-dialog";
 import { ShipmentStatusBadge } from "./shipment-status";
@@ -48,36 +45,35 @@ import {
   type ShipmentStatusAction,
 } from "./shipment-status-dialog";
 
-function formatMoney(n: number | null): string {
-  if (n === null) return "—";
-  return `$${Math.round(n).toLocaleString("es-AR")}`;
-}
-
 function formatDate(value: string | null): string {
   if (!value) return "—";
   return new Date(value).toLocaleDateString("es-AR");
 }
 
-const TARGET_ACTION: Record<ShipmentTargetStatus, ShipmentStatusAction> = {
-  in_progress: "start",
-  delivered: "deliver",
-  cancelled: "cancel",
-  reprogrammed: "reprogram",
-};
+// A carga is not started by hand: an «En progreso» one (older data) can still
+// be delivered, cancelled or reprogrammed.
+const TARGET_ACTION: Record<ShipmentTargetStatus, ShipmentStatusAction | null> =
+  {
+    in_progress: null,
+    delivered: "deliver",
+    cancelled: "cancel",
+    reprogrammed: "reprogram",
+  };
 
 function statusActions(status: ShipmentStatus): ShipmentStatusAction[] {
-  return SHIPMENT_NEXT_STATUSES[status].map((s) => TARGET_ACTION[s]);
+  return SHIPMENT_NEXT_STATUSES[status].flatMap((s) => {
+    const action = TARGET_ACTION[s];
+    return action ? [action] : [];
+  });
 }
 
 const ACTION_LABEL: Record<ShipmentStatusAction, string> = {
-  start: "Iniciar",
   deliver: "Entregar",
   cancel: "Cancelar",
   reprogram: "Reprogramar",
 };
 
-const ACTION_ICON: Record<ShipmentStatusAction, typeof Play> = {
-  start: Play,
+const ACTION_ICON: Record<ShipmentStatusAction, typeof CheckCircle2> = {
   deliver: CheckCircle2,
   cancel: XCircle,
   reprogram: CalendarClock,
@@ -99,9 +95,7 @@ export function ShipmentsTable({
   actorAccess: Access;
   initialSearch?: string;
 }) {
-  // The same permissions as the actions: invoiceFreightAction needs both.
   const canWrite = userCan(actorAccess, "shipments:write");
-  const canInvoice = canWrite && userCan(actorAccess, "invoices:issue");
   const { data: items } = useShipments();
   const [search, setSearch] = useState(initialSearch);
   const visible = useMemo(
@@ -113,7 +107,6 @@ export function ShipmentsTable({
   const [dialog, setDialog] = useState<DialogState>(null);
   const [statusDialog, setStatusDialog] = useState<StatusState>(null);
   const [historyId, setHistoryId] = useState<string | null>(null);
-  const [freightShipment, setFreightShipment] = useState<Shipment | null>(null);
 
   const columns = useMemo<ColumnDef<Shipment>[]>(() => {
     async function handleDelete(s: Shipment) {
@@ -140,23 +133,12 @@ export function ShipmentsTable({
             <span className="font-medium">
               {row.original.client?.legal_name ?? "—"}
             </span>
-            {row.original.remito_number && (
+            {row.original.description && (
               <span className="text-xs text-muted-foreground">
-                Remito {row.original.remito_number}
+                {row.original.description}
               </span>
             )}
           </div>
-        ),
-        meta: { mobile: "secondary" },
-      },
-      {
-        id: "route",
-        header: "Ruta",
-        enableSorting: false,
-        cell: ({ row }) => (
-          <span className="text-sm">
-            {formatRoute(row.original.origin, row.original.destination)}
-          </span>
         ),
         meta: { mobile: "primary" },
       },
@@ -184,31 +166,18 @@ export function ShipmentsTable({
       {
         accessorKey: "status",
         header: "Estado",
-        cell: ({ row }) => <ShipmentStatusBadge status={row.original.status} />,
-        meta: { headerClassName: "w-36", mobile: "primary" },
-      },
-      {
-        accessorKey: "freight_amount",
-        header: "Flete",
         cell: ({ row }) => (
-          <div className="flex items-center justify-end gap-2">
-            <span className="text-sm">
-              {formatMoney(row.original.freight_amount)}
-            </span>
+          <div className="flex flex-col items-start gap-1">
+            <ShipmentStatusBadge status={row.original.status} />
             {row.original.invoice_id && !row.original.invoice_void && (
               <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                 <CheckCircle2 className="size-3.5" />
-                Facturado
-              </span>
-            )}
-            {row.original.cod_amount !== null && (
-              <span className="text-xs text-muted-foreground">
-                Contra entrega {formatMoney(row.original.cod_amount)}
+                Facturada
               </span>
             )}
           </div>
         ),
-        meta: { align: "right", headerClassName: "w-40", mobile: "primary" },
+        meta: { headerClassName: "w-36", mobile: "primary" },
       },
       {
         id: "actions",
@@ -218,12 +187,6 @@ export function ShipmentsTable({
         cell: ({ row }) => {
           const shipment = row.original;
           const actions = canWrite ? statusActions(shipment.status) : [];
-          const canInvoiceFreight = Boolean(
-            canInvoice &&
-            shipment.freight_amount &&
-            shipment.client_id &&
-            (!shipment.invoice_id || shipment.invoice_void),
-          );
           return (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -254,17 +217,6 @@ export function ShipmentsTable({
                     </DropdownMenuItem>
                   );
                 })}
-                {canInvoiceFreight && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onClick={() => setFreightShipment(shipment)}
-                    >
-                      <Receipt className="size-4" />
-                      Facturar flete
-                    </DropdownMenuItem>
-                  </>
-                )}
                 {canWrite && <DropdownMenuSeparator />}
                 <DropdownMenuItem onClick={() => setHistoryId(shipment.id)}>
                   <History className="size-4" />
@@ -285,13 +237,13 @@ export function ShipmentsTable({
         },
       },
     ];
-  }, [canInvoice, canWrite, confirm, deleteMut]);
+  }, [canWrite, confirm, deleteMut]);
 
   return (
     <>
       <PageHeader
         title="Cargas"
-        description="Cargas a transportar con cliente, ruta, viaje y estado de entrega."
+        description="Cargas a transportar con cliente, fecha, viaje y estado de entrega."
         actions={
           canWrite && (
             <Button onClick={() => setDialog({ mode: "create" })}>
@@ -305,7 +257,7 @@ export function ShipmentsTable({
       <ListSearch
         value={search}
         onChange={setSearch}
-        placeholder="Buscar por remito, cliente o ruta…"
+        placeholder="Buscar por cliente, descripción o dirección…"
       />
 
       <DataTable
@@ -342,13 +294,6 @@ export function ShipmentsTable({
         shipmentId={historyId}
         onClose={() => setHistoryId(null)}
       />
-
-      {canInvoice && (
-        <FreightInvoiceDialog
-          shipment={freightShipment}
-          onClose={() => setFreightShipment(null)}
-        />
-      )}
     </>
   );
 }

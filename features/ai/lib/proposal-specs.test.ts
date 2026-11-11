@@ -99,19 +99,13 @@ describe("proposal specs", () => {
     // Accepted as shown: an edit would change the figures the server checks
     // again at accept time (the matches, the ND's interest, an ARCA
     // voucher's amounts), or pick ids the server resolved from names (the
-    // recategorized account and center, a supplier edit's fields), or
-    // confirm at the totals the server showed (a liquidación, a storage
-    // invoice, a rendición and who bears its difference).
+    // recategorized account and center, a supplier edit's fields).
     const asShown = new Set([
       "proposeBankMatches",
       "proposeLateInterestNd",
       "proposeRecategorizeExpense",
       "proposeArcaPurchase",
       "proposeSupplierUpdate",
-      "proposeFreightSettlementConfirm",
-      "proposeStorageInvoice",
-      "proposeDriverSettlementConfirm",
-      "proposeDriverSettlementDifference",
     ]);
     for (const [action, spec] of Object.entries(PROPOSAL_SPECS)) {
       if (asShown.has(action)) {

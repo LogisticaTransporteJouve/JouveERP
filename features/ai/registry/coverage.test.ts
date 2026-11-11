@@ -27,7 +27,7 @@ const PAGE_TOOLS: Record<string, readonly string[]> = {
   "/documentos": ["getDocumentExtractions"],
   // Ventas
   "/clients": ["searchClients", "getClientSalesSummary"],
-  "/clients/[id]": ["getClientAccount", "getClientAging", "getClientTariffs"],
+  "/clients/[id]": ["getClientAccount", "getClientAging"],
   "/invoices": ["getInvoices"],
   "/invoices/[id]": ["getInvoiceDetail"],
   "/receipts": ["getReceipts"],
@@ -51,7 +51,6 @@ const PAGE_TOOLS: Record<string, readonly string[]> = {
   // Tesorería
   "/treasury": ["getTreasurySummary"],
   "/treasury/cash-flow": ["getCashFlow"],
-  "/treasury/reconciliation": ["getBankReconciliation"],
   "/accounts": ["getAccounts"],
   "/accounts/[id]": ["getAccounts", "getTransactions", "getBankReconciliation"],
   "/transactions": ["getTransactions"],
@@ -83,26 +82,21 @@ const PAGE_TOOLS: Record<string, readonly string[]> = {
   // Flota
   "/drivers": ["getDrivers", "getDriverActivity"],
   "/drivers/[id]": ["getDriverActivity", "getVehicleKm"],
-  "/vehicles": ["getVehicles", "getVehicleEconomics", "getVehicleUsage"],
+  "/vehicles": ["getVehicles", "getVehicleUsage"],
   "/vehicles/[id]": ["getVehicleKm", "getVehicleUsage"],
   "/trips": ["getTrips"],
   "/trips/[id]": ["getTripDetail"],
   "/cargas": ["getShipments", "getShipmentsSummary"],
-  "/liquidaciones": ["getFreightSettlements"],
   "/fleet-tariffs": ["getFreightTariffs"],
-  "/rendiciones": ["getDriverSettlements"],
   "/fuel": ["getFuelLoads"],
   "/vehicle-km": ["getVehicleKm", "getVehicleUsage"],
   "/maintenance": ["getMaintenance"],
   "/fleet-documents": ["getFleetDocuments"],
-  "/fleet-reports": ["getFleetProfitability", "getFleetMargin"],
   // Depósito
   "/warehouses": ["getWarehouses"],
   "/products": ["getProducts"],
   "/pallets": ["getPallets", "getPalletsSummary"],
   "/pallets/trazabilidad": ["getPallets"],
-  "/storage-tariffs": ["getStorageTariffs"],
-  "/storage-billing": ["getStorageBilling", "getStorageBillingRuns"],
   // RRHH
   "/employees": ["getEmployees", "searchEmployees"],
   "/employees/[id]": [

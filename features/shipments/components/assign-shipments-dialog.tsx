@@ -20,7 +20,6 @@ import {
   useSetShipmentsTrip,
   useUnassignedShipments,
 } from "../hooks/use-shipments";
-import { formatRoute } from "../lib/format";
 
 /** Picks cargas still without a trip and puts them on this one. */
 export function AssignShipmentsDialog({
@@ -112,9 +111,9 @@ export function AssignShipmentsDialog({
                     {s.client?.legal_name ?? "Sin cliente"}
                   </span>
                   <span className="block truncate text-xs text-muted-foreground">
-                    {formatRoute(s.origin, s.destination)}
-                    {s.scheduled_date ? ` · ${s.scheduled_date}` : ""}
-                    {s.description ? ` · ${s.description}` : ""}
+                    {[s.destination, s.scheduled_date, s.description]
+                      .filter(Boolean)
+                      .join(" · ") || "—"}
                   </span>
                 </span>
               </label>

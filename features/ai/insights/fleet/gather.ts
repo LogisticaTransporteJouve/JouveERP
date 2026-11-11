@@ -55,7 +55,7 @@ export async function gatherFleetDocExpiry(
 }
 
 /** Trips of the last 180 days whose revenue minus cost and tied fuel is a
- *  loss. Same equation as «Rentabilidad de flota»: the revenue comes from
+ *  loss. Same equation as getFleetMargin: the revenue comes from
  *  v_trip_revenue (invoiced freight, else the manual figure) and cancelled
  *  trips are left out. A trip with cargas still to invoice is not judged
  *  (detectLossTrips). */

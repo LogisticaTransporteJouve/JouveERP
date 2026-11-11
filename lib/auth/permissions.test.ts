@@ -617,8 +617,6 @@ describe("full matrix snapshot (guards against silent privilege creep)", () => {
           "recurring_payments:read",
           "recurring_payments:write",
           "retentions:write",
-          "storage_billing:issue",
-          "storage_billing:read",
           "suppliers:read",
           "suppliers:write",
           "tasks:read",

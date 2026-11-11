@@ -43,6 +43,7 @@ const EMPLOYEE: Employee = {
   cuil: null,
   cbu: null,
   pay_frequency: "mensual",
+  pay_mode: "acordado",
   base_salary: 850_000,
   viatico_monthly: 20_000,
   retribucion_formal: null,

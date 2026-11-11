@@ -39,14 +39,16 @@ import { canChangeAttachments } from "@/lib/files/attachment-targets";
 import {
   amountToInput,
   formatArgentineDate,
-  formatMoneyWithCode,
+  formatMoney,
   formatNumber2,
 } from "@/lib/format";
+import { isoCurrency } from "@/lib/list-totals";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-const money = formatMoneyWithCode;
+const money = (value: number | string | null, moneda: string) =>
+  formatMoney(value, isoCurrency(moneda));
 
 export default async function PurchaseInvoiceDetailPage({
   params,

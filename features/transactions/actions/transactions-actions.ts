@@ -55,7 +55,7 @@ export interface TransactionListItem extends Transaction {
   /** The document that owns the movement (v_transactions_tagged); null for a
    *  manual one. The database refuses editing or deleting an owned movement. */
   source_document: string | null;
-  /** Matched with a bank statement line (Tesorería › Conciliación): the
+  /** Matched with a bank statement line (the account's «Extracto» tab): the
    *  database refuses deleting it or changing its amount, dates, account or
    *  kind until the line is unmatched. */
   reconciled: boolean;

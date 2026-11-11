@@ -84,8 +84,8 @@ export function DispatchPalletsDialog({
         <DialogHeader>
           <DialogTitle>Despachar pallets</DialogTitle>
           <DialogDescription>
-            Vas a dar salida a {count} pallet{count === 1 ? "" : "s"}. Se cobra
-            la descarga y se corta el almacenaje en la fecha de salida.
+            Vas a dar salida a {count} pallet{count === 1 ? "" : "s"} en la
+            fecha de salida.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>

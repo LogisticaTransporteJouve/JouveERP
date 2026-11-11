@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 
+import { round2 } from "@/lib/format";
+
 import {
   BUCKET_CHOICES,
+  ManagementDrillInputSchema,
+  MONTH_TABLE_ROWS,
+  OPERATING_SUBBUCKETS,
   SetBucketSchema,
   TABLE_LINES,
   buildMonthTable,
@@ -10,6 +15,7 @@ import {
   costCenterBreakdown,
   drillDocuments,
   filterByCostCenter,
+  monthTableCsvCell,
   monthTableExport,
   narrowManagementDocuments,
   narrowManagementRows,
@@ -106,7 +112,8 @@ describe("buildMonthTable", () => {
     });
     expect(totals["op:personal"]?.total).toBe(-150);
     expect(totals["op:otros"]?.total).toBe(-5);
-    expect(totals["operating_cost"]?.total).toBe(-155);
+    expect(totals["direct_cost"]?.total).toBe(-150);
+    expect(totals["structure_cost"]?.total).toBe(-5);
     expect(byMonth["op:personal"]?.["2026-08"]?.total).toBe(0);
   });
 
@@ -116,6 +123,171 @@ describe("buildMonthTable", () => {
       ["2026-09"],
     );
     expect(totals["service_revenue"]?.total).toBe(0);
+  });
+});
+
+describe("gross margin", () => {
+  const rows = [
+    row({ amount: 1000 }),
+    row({ amount: 200, side: "internal", month: "2026-08" }),
+    row({ bucket: "operating_cost", subbucket: "sueldos", amount: -300 }),
+    row({
+      bucket: "operating_cost",
+      subbucket: "sueldos_internos",
+      side: "internal",
+      month: "2026-08",
+      amount: -50,
+    }),
+    row({ bucket: "operating_cost", subbucket: "combustible", amount: -100 }),
+    row({ bucket: "operating_cost", subbucket: "peajes", amount: -20 }),
+    row({ bucket: "operating_cost", subbucket: "alquileres", amount: -80 }),
+    row({ bucket: "operating_cost", subbucket: "proveedores", amount: -40 }),
+    row({ bucket: "operating_cost", subbucket: null, amount: -10 }),
+    row({ bucket: "unclassified", amount: -5 }),
+    row({ bucket: "financing_cost", subbucket: "intereses", amount: -30 }),
+  ];
+  const months = ["2026-08", "2026-09"];
+
+  it("splits the operating costs into direct and structure costs", () => {
+    const w = computeWaterfall(rows);
+    expect(w.directCost).toBe(-470);
+    expect(w.grossMargin).toBe(730);
+    expect(w.structureCost).toBe(-130);
+    expect(w.operatingCost).toBe(-600);
+    expect(w.directCost + w.structureCost).toBe(w.operatingCost);
+    // Unchanged: services + operating costs + unclassified.
+    expect(w.operatingMargin).toBe(1200 - 600 - 5);
+  });
+
+  it("puts every operating subbucket in exactly one group", () => {
+    const keys = MONTH_TABLE_ROWS.map((l) => l.key);
+    const direct = keys.indexOf("direct_cost");
+    const gross = keys.indexOf("gross_margin");
+    const structure = keys.indexOf("structure_cost");
+    expect(keys.slice(0, 1)).toEqual(["service_revenue"]);
+    expect(keys.slice(direct, structure + 1)).toEqual([
+      "direct_cost",
+      "gross_margin",
+      "gross_margin_pct",
+      "op:alquileres",
+      "op:impuestos",
+      "op:administracion",
+      "op:proveedores",
+      "op:otros",
+      "structure_cost",
+    ]);
+    expect(keys.slice(1, direct)).toEqual([
+      "op:sueldos",
+      "op:sueldos_internos",
+      "op:personal",
+      "op:cargas_sociales",
+      "op:combustible",
+      "op:mantenimiento",
+      "op:seguros",
+      "op:peajes",
+    ]);
+    for (const sub of OPERATING_SUBBUCKETS) {
+      expect(keys, sub).toContain(`op:${sub}`);
+    }
+    expect(gross).toBe(direct + 1);
+    expect(keys.slice(structure + 1, structure + 5)).toEqual([
+      "unclassified",
+      "operating_margin",
+      "operating_margin_pct",
+      "financing_cost",
+    ]);
+  });
+
+  it("adds up the subtotals per month and side, the operating margin unchanged", () => {
+    const { byMonth, totals } = buildMonthTable(rows, months);
+    expect(totals.direct_cost).toEqual({
+      fiscal: -420,
+      internal: -50,
+      total: -470,
+    });
+    expect(totals.gross_margin).toEqual({
+      fiscal: 580,
+      internal: 150,
+      total: 730,
+    });
+    expect(totals.structure_cost!.total).toBe(-130);
+    expect(byMonth.gross_margin!["2026-08"]).toEqual({
+      fiscal: 0,
+      internal: 150,
+      total: 150,
+    });
+    expect(byMonth.gross_margin!["2026-09"]!.total).toBe(580);
+    const w = computeWaterfall(rows);
+    expect(totals.operating_margin!.total).toBe(w.operatingMargin);
+    expect(
+      round2(
+        totals.gross_margin!.total +
+          totals.structure_cost!.total +
+          totals.unclassified!.total,
+      ),
+    ).toBe(totals.operating_margin!.total);
+  });
+
+  it("computes the margin percentages per month, side and period", () => {
+    const { ratios } = buildMonthTable(rows, months);
+    expect(ratios.byMonth.gross_margin_pct!["2026-09"]).toEqual({
+      fiscal: 58,
+      internal: null,
+      total: 58,
+    });
+    expect(ratios.byMonth.gross_margin_pct!["2026-08"]).toEqual({
+      fiscal: null,
+      internal: 75,
+      total: 75,
+    });
+    expect(ratios.totals.gross_margin_pct).toEqual({
+      fiscal: 58,
+      internal: 75,
+      total: round2((730 / 1200) * 100),
+    });
+    expect(ratios.totals.operating_margin_pct!.total).toBe(
+      round2((595 / 1200) * 100),
+    );
+  });
+
+  it("has no percentage without services", () => {
+    const { ratios } = buildMonthTable(
+      [row({ bucket: "operating_cost", subbucket: "sueldos", amount: -100 })],
+      ["2026-09"],
+    );
+    expect(ratios.byMonth.gross_margin_pct!["2026-09"]).toEqual({
+      fiscal: null,
+      internal: null,
+      total: null,
+    });
+    expect(ratios.totals.operating_margin_pct!.total).toBeNull();
+  });
+
+  it("keeps the percentage rows out of the drill-down and the amounts", () => {
+    const { totals } = buildMonthTable(rows, months);
+    expect(totals.gross_margin_pct).toBeUndefined();
+    expect(TABLE_LINES.map((l) => l.key)).not.toContain("gross_margin_pct");
+    expect(
+      ManagementDrillInputSchema.safeParse({
+        fromPeriod: "2026-09",
+        toPeriod: "2026-09",
+        basis: "accrual",
+        lineKey: "gross_margin_pct",
+      }).success,
+    ).toBe(false);
+  });
+
+  it("adds the gross margin KPI next to the operating one", () => {
+    const { kpis } = computeKpis(rows, [], months, "2026-09");
+    expect(kpis.map((k) => k.key).slice(0, 2)).toEqual([
+      "gross_margin_pct",
+      "operating_margin_pct",
+    ]);
+    expect(kpis[0]).toMatchObject({
+      label: "Margen bruto %",
+      unit: "pct",
+      current: round2((730 / 1200) * 100),
+    });
   });
 });
 
@@ -575,11 +747,49 @@ describe("monthTableExport", () => {
       "Interno",
       "Total",
     ]);
-    expect(out.rows).toHaveLength(TABLE_LINES.length);
+    expect(out.rows).toHaveLength(MONTH_TABLE_ROWS.length);
     expect(out.rows[0]).toEqual(["Servicios", 5, 1000, 1005, 0, 1005]);
     expect(out.rows.slice(-2).map((r) => r[0])).toEqual([
       "Financiamiento recibido",
       "Variación de caja",
+    ]);
+  });
+
+  it("writes the percentage rows as percents, empty without services", () => {
+    const rows = [
+      row({ amount: 1000 }),
+      row({ bucket: "operating_cost", subbucket: "combustible", amount: -250 }),
+    ];
+    const months = ["2026-08", "2026-09"];
+    const out = monthTableExport(
+      buildMonthTable(rows, months),
+      months,
+      "total",
+    );
+    const gross = out.rows.find((r) => r[0] === "Margen bruto %")!;
+    expect(gross).toEqual([
+      "Margen bruto %",
+      null,
+      { percent: 75 },
+      { percent: 75 },
+      null,
+      { percent: 75 },
+    ]);
+    expect(gross.map(monthTableCsvCell)).toEqual([
+      "Margen bruto %",
+      null,
+      75,
+      75,
+      null,
+      75,
+    ]);
+    expect(out.rows.find((r) => r[0] === "Margen bruto")).toEqual([
+      "Margen bruto",
+      0,
+      750,
+      750,
+      0,
+      750,
     ]);
   });
 });

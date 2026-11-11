@@ -17,6 +17,7 @@ export const JOURNAL_SOURCE_TABLES = [
   "payment_orders",
   "checks",
   "issued_checks",
+  "payroll_entries",
 ] as const;
 
 export type JournalSourceTable = (typeof JOURNAL_SOURCE_TABLES)[number];
@@ -29,6 +30,7 @@ export const SOURCE_LABEL: Record<JournalSourceTable, string> = {
   payment_orders: "Orden de pago",
   checks: "Cheque recibido",
   issued_checks: "Cheque propio",
+  payroll_entries: "Planilla de sueldos",
 };
 
 /** Only origins with a page that shows the record link out. A cash movement

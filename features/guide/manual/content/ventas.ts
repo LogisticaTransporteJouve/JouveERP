@@ -354,7 +354,7 @@ export const salesPage: GuidePage = {
       routes: ["/clients/[id]"],
       permission: "clients:read",
       intro: [
-        "Se abre haciendo clic en el nombre del cliente. Arriba muestra el CUIT y la condición de IVA (o «Sin CUIT · interno»). Tiene cuatro pestañas: {{Cuenta corriente}}, {{Datos}}, {{Tarifario}} (solo con el permiso de facturación de almacenaje) y {{Adjuntos}}.",
+        "Se abre haciendo clic en el nombre del cliente. Arriba muestra el CUIT y la condición de IVA (o «Sin CUIT · interno»). Tiene tres pestañas: {{Cuenta corriente}}, {{Datos}} y {{Adjuntos}}.",
         "{{Cuenta corriente}} muestra el saldo del cliente en su lado y sus movimientos, del más nuevo al más viejo: facturas, notas de crédito y débito, remitos internos, recibos, cheques recibidos sin recibo, cheques rechazados y el ajuste de saldo. Columnas: {{Fecha}}, {{Tipo}}, {{Documento}}, {{Debe}}, {{Haber}}, {{Saldo}} y {{Acciones}}. Una factura saldada lleva la marca {{Pagada}}; una cobrada en parte, {{Parcial}} y lo que falta en el {{Debe}}.",
         "{{Saldo}} es el saldo acumulado después de cada movimiento, del lado del cliente (Ventas u Otras ventas) y por moneda. Sin ajuste de saldo, acumula desde el primer movimiento; con un ajuste de saldo en 0, antes del ajuste dice «—», en el ajuste es 0 y desde ahí acumula. Si el ajuste es distinto de 0, la columna no aparece: ese saldo no dice cuánto le toca a cada lado.",
         "El filtro de período achica la lista, pero el saldo de arriba siempre es el de todas las fechas. Si el cliente tiene movimientos en dólares, el saldo se muestra en pesos y en dólares por separado.",
@@ -367,7 +367,7 @@ export const salesPage: GuidePage = {
           title: "~Transportes del Sur S.A.",
           subtitle: "CUIT 30714637432 · Responsable Inscripto",
           tabs: {
-            labels: ["Cuenta corriente", "Datos", "Tarifario", "Adjuntos"],
+            labels: ["Cuenta corriente", "Datos", "Adjuntos"],
             active: 0,
           },
           actions: [
@@ -555,145 +555,6 @@ export const salesPage: GuidePage = {
           ],
           related: ["ajustar-saldo-cliente"],
           keywords: ["quitar saldo inicial", "deshacer ajuste"],
-        },
-        {
-          id: "crear-tarifa-cliente",
-          title: "Cargar una tarifa propia del cliente",
-          summary:
-            "Precios de almacenaje, carga, descarga o flete solo para este cliente, con vigencia.",
-          permission: "storage_billing:issue",
-          prerequisites: [
-            "La pestaña {{Tarifario}} se ve con el permiso `storage_billing:read`; cargar, editar o borrar tarifas pide `storage_billing:issue`.",
-          ],
-          screens: [
-            {
-              kind: "dialog",
-              caption: "Ficha del cliente › Tarifario › Nueva tarifa",
-              title: "Nueva tarifa",
-              description:
-                "Precio del cliente para un concepto. Las vigencias de un mismo concepto no se pueden superponer: para cambiar el precio, cerrá la tarifa anterior el día antes.",
-              fields: [
-                {
-                  label: "Concepto",
-                  kind: "select",
-                  value: "Almacenaje",
-                  marker: 2,
-                },
-                {
-                  label: "Unidad",
-                  kind: "select",
-                  value: "Por pallet por mes",
-                  marker: 2,
-                },
-                {
-                  label: "Área del depósito",
-                  kind: "select",
-                  value: "Todas las áreas",
-                  wide: true,
-                  marker: 3,
-                },
-                {
-                  label: "Precio",
-                  kind: "money",
-                  value: "4.500,00",
-                  marker: 4,
-                },
-                { label: "Moneda", kind: "select", value: "ARS", marker: 4 },
-                { label: "Vigente desde", kind: "date", marker: 5 },
-                { label: "Hasta (opcional)", kind: "date", marker: 5 },
-                { label: "Notas", kind: "textarea", wide: true },
-              ],
-              footer: [
-                { label: "Cancelar", variant: "outline" },
-                { label: "Crear", variant: "primary", marker: 6 },
-              ],
-            },
-          ],
-          steps: [
-            "En la ficha del cliente, pestaña {{Tarifario}}, hacé clic en {{Nueva tarifa}}.",
-            {
-              text: "Elegí el {{Concepto}} y su {{Unidad}}:",
-              substeps: [
-                "{{Almacenaje}}: {{Por pallet por mes}} o {{Por pallet por día}}.",
-                "{{Carga (ingreso)}} y {{Descarga (egreso)}}: {{Por pallet}}.",
-                "{{Flete}}: {{Por carga}}, siempre en pesos y sin área. Precia en las liquidaciones las cargas que no tienen flete propio.",
-              ],
-            },
-            "Si la tarifa vale solo para un área, elegila en {{Área del depósito}}; si no, dejá {{Todas las áreas}}.",
-            "Escribí el {{Precio}} y elegí la {{Moneda}} (ARS o USD).",
-            "Elegí {{Vigente desde}} y, si tiene fin, {{Hasta (opcional)}}.",
-            "Hacé clic en {{Crear}}.",
-          ],
-          after: [
-            "En los días que cubre, la tarifa del cliente pisa a las tarifas de almacenaje; fuera de ellos se usa la tarifa de almacenaje del cliente o la general.",
-            "Una tarifa en dólares se convierte con la cotización oficial del último día del período facturado (o la anterior más cercana). Una tarifa de un área pisa, para los pallets de esa área, a la de todas las áreas.",
-            "La columna {{Estado}} la marca {{Vigente}}, {{Vencida}} o {{Futura}}.",
-          ],
-          errors: [
-            {
-              message:
-                "Ya hay una tarifa de ese concepto vigente del … al …: cerrala antes o elegí otras fechas.",
-              fix: "Editá la tarifa anterior y poné en «Hasta (opcional)» el día antes del inicio de la nueva.",
-            },
-            {
-              message: "El fin de vigencia no puede ser anterior al inicio.",
-              fix: "Corregí las fechas.",
-            },
-            {
-              message: "Ingresá un precio (0 o más).",
-              fix: "Escribí el precio.",
-            },
-            {
-              message: "No tenés permiso para editar tarifarios.",
-              fix: "Pedíselo a alguien con rol Finanzas, Admin u Owner.",
-            },
-          ],
-          related: ["editar-tarifa-cliente"],
-          keywords: [
-            "tarifa",
-            "precio de almacenaje",
-            "precio por pallet",
-            "flete",
-            "lista de precios",
-          ],
-        },
-        {
-          id: "editar-tarifa-cliente",
-          title: "Editar o borrar una tarifa del cliente",
-          permission: "storage_billing:issue",
-          screens: [
-            {
-              kind: "menu",
-              caption: "Tarifario › menú de la fila",
-              trigger: "⋯",
-              items: [
-                { label: "Editar", marker: 2 },
-                { label: "Borrar", marker: 3 },
-              ],
-            },
-          ],
-          steps: [
-            "En la pestaña {{Tarifario}}, abrí el menú ⋯ ({{Acciones}}) de la fila.",
-            "{{Editar}} abre {{Editar tarifa}} con los mismos campos que al crearla; cambiá lo necesario y hacé clic en {{Guardar}}.",
-            "{{Borrar}} pide confirmación; confirmá con {{Borrar}}.",
-          ],
-          after: [
-            "Al borrar una tarifa de almacenaje, carga o descarga, en los días que cubría se vuelve a usar la tarifa de almacenaje. Las facturas ya emitidas no cambian.",
-            "Al borrar una de flete, las cargas sin flete de esos días quedan sin precio para liquidar. Las liquidaciones ya confirmadas no cambian.",
-          ],
-          errors: [
-            {
-              message:
-                "Ya hay una tarifa de ese concepto vigente del … al …: cerrala antes o elegí otras fechas.",
-              fix: "Ajustá las fechas para que no se superpongan con otra tarifa del mismo concepto.",
-            },
-            {
-              message: "No se encontró la tarifa.",
-              fix: "Otro usuario la borró: recargá la página.",
-            },
-          ],
-          related: ["crear-tarifa-cliente"],
-          keywords: ["cambiar precio", "cerrar tarifa"],
         },
         {
           id: "adjuntar-archivo-cliente",
@@ -1267,7 +1128,6 @@ export const salesPage: GuidePage = {
           after: [
             "El aviso dice «Nota de Crédito en cola — esperando CAE.» y se abre el detalle de la nota. Lleva la misma letra, punto de venta y cliente que la factura (RG 1415).",
             "Con el CAE: la nota descuenta el saldo de la factura en la cuenta corriente y el aging, y su asiento revierte el de la venta (Ventas e IVA débito al Debe, Deudores por ventas al Haber).",
-            "Si la factura facturaba una carga, una liquidación o un período de almacenaje, una nota de crédito por el total lo vuelve a dejar para facturar.",
           ],
           errors: [
             {
@@ -1368,7 +1228,7 @@ export const salesPage: GuidePage = {
             "Corregí la causa (datos del cliente, fecha, punto de venta) y emití un comprobante nuevo con [[#emitir-factura]]. El comprobante fallido no se edita ni se reintenta.",
           ],
           after: [
-            "El comprobante fallido queda en la lista con estado {{Fallido}}, sin número. Si facturaba una carga, una liquidación o un período de almacenaje, ese ítem vuelve a quedar para facturar.",
+            "El comprobante fallido queda en la lista con estado {{Fallido}}, sin número.",
             "Si AFIP no contestó (en lugar de rechazar), el comprobante queda {{Esperando CAE}} y el sistema vuelve a consultar solo hasta resolverlo: no emitas otro mientras tanto, porque AFIP podría haberlo autorizado.",
             "Un punto de venta de contingencia (CAEA) necesita un CAEA vigente para la fecha: si no lo hay, falla con «No hay CAEA vigente para la fecha del comprobante — solicitalo desde AFIP admin antes de emitir por contingencia.»",
           ],
@@ -1419,7 +1279,7 @@ export const salesPage: GuidePage = {
             "Leé el aviso y confirmá con {{Anular}}.",
           ],
           after: [
-            "Queda {{Cancelado}} y deja de contar para la cuenta corriente y el aging. Si facturaba un flete o un período de almacenaje, vuelve a quedar para facturar. No se puede deshacer.",
+            "Queda {{Cancelado}} y deja de contar para la cuenta corriente y el aging. No se puede deshacer.",
           ],
           errors: [
             {
@@ -2033,11 +1893,6 @@ export const salesPage: GuidePage = {
               message:
                 "El recibo ya estaba anulado o no se encontró. Recargá la página.",
               fix: "Recargá la página.",
-            },
-            {
-              message:
-                "Este recibo salda el faltante de una rendición a cargo del chofer: se anula quitando la diferencia de la rendición.",
-              fix: "Quitá la diferencia desde la rendición del chofer.",
             },
             {
               message:

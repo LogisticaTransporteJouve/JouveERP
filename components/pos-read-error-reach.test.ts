@@ -39,15 +39,18 @@ const channelReaders = files.filter(
 describe("puntos de venta and channel read error reach", () => {
   it("finds the readers", () => {
     expect(posReaders.length).toBeGreaterThanOrEqual(4);
-    expect(channelReaders.length).toBeGreaterThanOrEqual(2);
   });
 
   it.each(posReaders)("%s says a failed puntos-de-venta read", (file) => {
     expect(read(file)).toContain("No se pudieron cargar los puntos de venta");
   });
 
-  it.each(channelReaders)("%s says a failed channel read", (file) => {
-    expect(read(file)).toContain("No se pudieron cargar los canales");
+  // No non-suspense channel reader is left today; one added later must say
+  // a failed read.
+  it("every other channel reader says a failed channel read", () => {
+    for (const file of channelReaders) {
+      expect(read(file), file).toContain("No se pudieron cargar los canales");
+    }
   });
 
   it("every suspense exception still reads the channels", () => {

@@ -17,10 +17,12 @@ import type { ActionResult } from "@/lib/query/run-action";
 import { createClient } from "@/lib/supabase/server";
 
 // "Pagar" and "Pago masivo" of the payroll month: payroll_payments rows, each
-// of which a trigger turns into its Caja movement. With the caller's
-// session (RLS). The callers have already checked HR_CASH_PERMISSIONS
-// (hr:write + transactions:write) and parsed the input with the form's
-// schema: the payroll dialogs and an accepted assistant proposal.
+// of which a trigger turns into its Caja movement. No channel: the database
+// assigns each payment's channel by the recibo and may split it in two. With
+// the caller's session (RLS). The callers have already checked
+// HR_CASH_PERMISSIONS (hr:write + transactions:write) and parsed the input
+// with the form's schema: the payroll dialogs and an accepted assistant
+// proposal.
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -99,7 +101,6 @@ export async function createPayrollPayment(
     .insert({
       entry_id: input.entry_id,
       account_id: input.account_id,
-      channel_id: input.channel_id,
       amount: input.amount,
       method: input.method,
       paid_at: input.paid_at,
@@ -165,7 +166,6 @@ export async function bulkCreatePayrollPayments(
   const rows = input.items.map(({ entry_id, amount }) => ({
     entry_id,
     account_id: input.account_id,
-    channel_id: input.channel_id,
     amount,
     method: input.method,
     paid_at: input.paid_at,

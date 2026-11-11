@@ -60,7 +60,6 @@ const LOOKUPS: ImportLookups = {
   ]),
   account: null,
   channelId: null,
-  tariffs: [],
   supplierCategories: [
     { id: CAT_1, name: "Combustible", is_active: true },
     { id: CAT_2, name: "Viejos", is_active: false },
@@ -74,7 +73,6 @@ const LOOKUPS: ImportLookups = {
     { id: CC_1, code: "FLOTA", name: "Flota", is_active: true },
     { id: CC_2, code: "DEP", name: "Depósito", is_active: false },
   ],
-  areas: [],
 };
 
 /** Builds a file whose header is `columns` (mapped in order). */

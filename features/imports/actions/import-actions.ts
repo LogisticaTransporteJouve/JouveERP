@@ -22,7 +22,6 @@ import { DRIVER_POSITION } from "@/features/hr/schema";
 import { fieldAliases, fieldKeys } from "../lib/fields";
 import {
   checkKey,
-  clientTariffKey,
   existingCounterpartyKeys,
   existingEmployeeKeys,
   historicPayrollKey,
@@ -175,39 +174,10 @@ async function loadLookups(
     realPayroll: new Set(),
     account: targets.account,
     channelId: targets.channelId,
-    tariffs: [],
     supplierCategories: [],
     expenseAccounts: [],
     costCenters: [],
-    areas: [],
   };
-  if (kind === "client_tariffs") {
-    const [tariffs, areas] = await Promise.all([
-      paginateRange((from, to) =>
-        service
-          .from("client_tariffs")
-          .select("client_id, concept, area_id, valid_from, valid_to")
-          .order("id")
-          .range(from, to),
-      ),
-      paginateRange((from, to) =>
-        service
-          .from("storage_areas")
-          .select("id, name, is_active, warehouse_id, warehouses ( name )")
-          .order("id")
-          .range(from, to),
-      ),
-    ]);
-    if (tariffs.error || areas.error) return null;
-    lookups.tariffs = tariffs.data;
-    lookups.areas = areas.data.map((a) => ({
-      id: a.id,
-      name: a.name,
-      is_active: a.is_active,
-      warehouse_id: a.warehouse_id,
-      warehouse_name: a.warehouses?.name ?? "",
-    }));
-  }
   if (kind === "suppliers") {
     const [categories, accounts, centers] = await Promise.all([
       paginateRange((from, to) =>
@@ -289,11 +259,7 @@ async function loadLookups(
       ),
     );
   }
-  if (
-    kind === "historic_trips" ||
-    kind === "client_tariffs" ||
-    kind === "opening_balances"
-  ) {
+  if (kind === "historic_trips" || kind === "opening_balances") {
     const clients = await paginateRange((from, to) =>
       service
         .from("clients")
@@ -390,8 +356,6 @@ async function existingKeys(
       );
       return res.error ? null : new Set(res.data.map((t) => t.source_hash));
     }
-    case "client_tariffs":
-      return new Set(lookups.tariffs.map(clientTariffKey));
     case "loans": {
       const res = await paginateRange((from, to) =>
         service

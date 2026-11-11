@@ -239,6 +239,7 @@ const FIELD_LABELS: Record<string, string> = {
   cbu: "CBU",
   hire_date: "fecha de ingreso",
   pay_frequency: "frecuencia de pago",
+  pay_mode: "modalidad",
   retribucion_formal: "retribución formal",
   viatico_monthly: "viático",
   license_category: "categoría de licencia",

@@ -32,10 +32,8 @@ function firstIssue(error: z.ZodError): string {
 }
 
 /**
- * Areas of every warehouse (or one), for the warehouse page and the pickers
- * of the pallet dialog and the client tariff. Read through the service client
- * after the gate: finance prices areas (storage_billing:read) but the areas
- * RLS, like the warehouses one, leaves it out.
+ * Areas of every warehouse (or one), for the warehouse page and the pallet
+ * dialog's picker. Read through the service client after the gate.
  */
 export async function listStorageAreasAction(
   input: { warehouseId?: string; onlyActive?: boolean } = {},
@@ -43,8 +41,7 @@ export async function listStorageAreasAction(
   const ctx = await requireUserContext();
   if (
     !userCan(ctx.access, "warehouses:read") &&
-    !userCan(ctx.access, "pallets:read") &&
-    !userCan(ctx.access, "storage_billing:read")
+    !userCan(ctx.access, "pallets:read")
   ) {
     return { ok: false, error: "No tenés permiso para ver áreas de depósito." };
   }

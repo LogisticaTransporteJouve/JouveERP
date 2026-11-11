@@ -165,23 +165,49 @@ transacción).
 - **`payroll_entry_extras`** — líneas de texto libre por entry (`amount > 0`,
   `description` 1..200, `sort_order`). Ej: "20% Fijo Tareas Gabriel".
 - **`payroll_payments`** — tramos de pago contra un entry: `account_id`,
-  `channel_id`, `amount`, `method` (enum `payroll_payment_method ∈
+  `channel_id` (lo asigna la base, ver §3.3.1; default
+  `payroll_channel(false)`), `amount`, `method` (enum `payroll_payment_method ∈
   ('transferencia','efectivo')`), `paid_at`, `transaction_id` (FK a
-  `transactions`, mantenido por trigger).
+  `transactions`, mantenido por trigger) y `split_parent_id` (la parte interna
+  de un pago que cruza la parte de libros; FK compuesta `(entry_id,
+  split_parent_id) → (entry_id, id)`, la escribe solo el reparto).
 - **Views:**
   - `v_payroll_entries_resolved`: agrega `extras_total = Σ extras.amount` y
     `total_a_pagar = sueldo_neto + extras_total + vacaciones_monto + viaticos −
     deudas − telefono − embargo`.
   - `v_payroll_entries_with_payments`: + `paid_total = Σ payments.amount`,
-    `saldo = total_a_pagar − paid_total`, `payments_count`, y lo pagado por
-    método (`paid_transferencia`, `paid_efectivo`). Es la fuente del grid.
+    `saldo = total_a_pagar − paid_total`, `payments_count` (pagos, sin contar
+    sus partes internas), lo pagado por método (`paid_transferencia`,
+    `paid_efectivo`), `fiscal_share` (recibo − embargo) y lo pagado por canal
+    (`paid_fiscal`, `paid_internal`). Es la fuente del grid.
 
-**Recibo y reparto (decisión D5).** El liquidador emite el recibo formal; la
-planilla "en mano" suma neto, extras, viáticos y descuentos.
+**Recibo y reparto por método (decisión D5).** El liquidador emite el recibo
+formal; la planilla "en mano" suma neto, extras, viáticos y descuentos.
 `features/hr/lib/payroll-split.ts`: **Otros** = pactado − recibo; reparto
 sugerido **transferencia** = recibo − embargo − deudas − teléfono (entre 0 y el
 total) y **efectivo** = el resto del total. El pago masivo sugiere, por empleado,
-lo que falta de la parte del método elegido (sin recibo, el saldo).
+lo que falta de la parte del método elegido (sin recibo, el saldo). Es solo una
+sugerencia de **método**: el **canal** de cada pago (libros o gestión) no sale de
+acá sino de la base (§3.3.1), y la parte de libros es el recibo − embargo completo
+(sin restar deudas ni teléfono).
+
+**Modalidad (`employees.pay_mode`, `20261111185000`).** `recibo` (convenio: el
+sueldo es el neto del recibo) o `acordado` (default: se carga a mano y se
+aumenta por %). Para `recibo`:
+- `payroll_entries_follow_receipt` (BEFORE): con `recibo_neto` cargado,
+  `sueldo_neto := recibo_neto` (mensual y SAC), así que una escritura posterior
+  de `sueldo_neto` (la liquidación final) no lo pisa; `vacaciones_monto := 0`
+  siempre (van dentro del recibo). Se guarda 0 en vez de enmascarar en la vista:
+  los totales de los períodos cerrados no cambian.
+- `payroll_entries_receipt_sets_base` (AFTER, solo mensual): el recibo de un mes
+  no anterior al último cambio de sueldo pasa a `base_salary`, con historial
+  «Recibo MM/AAAA» desde ese mes. El SAC no toca el sueldo base.
+- Pasar un empleado a `recibo` pone en 0 las vacaciones de sus planillas en
+  borrador (y toma el recibo cargado como sueldo).
+- `apply_salary_raise` y el diálogo de aumento lo dejan afuera.
+- Liquidación final: no se suman vacaciones ni SAC proporcional (los trae el
+  recibo final, decisión A9); el sueldo proporcional queda de referencia hasta
+  cargar el recibo final.
 
 **SAC.** `seed_sac_period(year, half)` crea el período `kind='sac'` (idempotente)
 y `fill_payroll_period` le pone a cada empleado activo (ingresado antes del fin
@@ -197,7 +223,8 @@ SAC proporcional. El sueldo es `employee_salary_for_month` del mes de baja o,
 sin sueldo base, el `sueldo_neto` de la planilla del mes anterior (nunca el del
 mes de baja, que la liquidación pisa). `applyFinalSettlementAction` lo carga en la planilla mensual
 del mes de baja (la crea si falta): `sueldo_neto`, `vacaciones_monto` y un extra
-"Liquidación final: SAC proporcional …" (volver a cargar reemplaza).
+"Liquidación final: SAC proporcional …" (volver a cargar reemplaza). Para un
+empleado por recibo manda vacaciones y SAC en 0.
 
 RLS de las 4 tablas: SELECT/INSERT/UPDATE/DELETE para
 `user_has_role(['owner','admin','finance'])`.
@@ -231,7 +258,48 @@ RLS de las 4 tablas: SELECT/INSERT/UPDATE/DELETE para
   asiento debita `sueldos` (5.3.1 "Sueldos y jornales"), no `gastos`.
 - **AFTER UPDATE**: propaga `account_id/channel_id/amount/transaction_date` a la
   transacción ligada.
-- **BEFORE DELETE**: borra la transacción ligada.
+- **AFTER DELETE**: borra la transacción ligada.
+
+#### 3.3.1 Canal automático por recibo (`20261111185100`..`185300`)
+
+Los libros llevan el recibo; el resto va a gestión (decisiones A2, A5, A7, A8).
+
+- **Resolver (SQL, único lugar):** `payroll_channel(fiscal)` nombra
+  `jouve_fiscal`/`jouve_internal`; `payroll_fiscal_share(recibo, embargo) =
+  greatest(recibo − embargo, 0)`; `payroll_fiscal_cap(share, total_a_pagar) =
+  least(share, greatest(total_a_pagar, 0))`: lo más que los pagos ponen en libros
+  (un sobrepago por encima del total va a gestión).
+- **Reparto:** `payroll_entry_rebalance_channels(entry)` ordena los pagos (padre +
+  parte interna) por `paid_at, created_at, id` y llena el tope fiscal primero; el
+  pago que lo cruza queda fiscal con **una** parte interna (`split_parent_id`); los
+  siguientes, internos. Corre desde triggers: de sentencia sobre
+  `payroll_payments` y `payroll_entry_extras` (insert/update/delete) y de fila
+  sobre `payroll_entries` cuando cambia un insumo de la parte o del total (sin
+  lista de columnas, para ver el `embargo` que reescribe el trigger de embargos).
+  La bandera transaccional `jouve.payroll_rebalancing` silencia esos triggers
+  mientras el propio reparto escribe. Los períodos cerrados antes
+  (`payroll_periods.posts_receipt_gap = false`) conservan el canal elegido.
+- **Conciliados:** un movimiento conciliado se reescribe solo con las primitivas
+  de Tesorería `split_matched_movement` / `merge_matched_movement`, que mantienen
+  el total conciliado de la línea (`matched_line_totals`); el reparto lo
+  verifica antes y después. Si la conciliación no lo permite (varias líneas, o una
+  sola parte conciliada) avisa que hay que desconciliar en la pestaña «Extracto».
+- **Asiento al pasar a libros:** `repost_journal` deja quieto un movimiento sin
+  asiento vigente, así que el reparto asienta (`emit_journal`) el que acaba de
+  pasar al canal fiscal.
+- **Mes contable cerrado (A8):** antes de cambiar una parte fiscal, si el mes del
+  período está en `accounting_closed_periods`, rechaza «El período contable de
+  este sueldo está cerrado: reabrilo para cargar el recibo». Lo interno pasa.
+- **Edición:** `update_payroll_payment` (RPC, owner/admin/finance) edita el pago
+  entero; un pago conciliado no cambia de monto. Crear y borrar siguen siendo
+  escrituras de la tabla (borrar el padre borra su parte interna).
+- **Parte del recibo que salda deuda (A7):** si deudas + teléfono superan extras
+  + viáticos, lo pagado a libros queda por debajo de la parte. Al cerrar la
+  planilla, `payroll_period_post_receipt_gaps` asienta por fila la diferencia
+  `share − payroll_fiscal_cap(share, total_a_pagar)`: Debe `sueldos` / Haber
+  `anticipos_personal`, origen `payroll_entries`, canal fiscal, último día del
+  mes; reabrir la anula. `management_pnl_lines` (devengado) lo saltea: esa plata
+  ya cuenta como sueldo interno por el `payroll_discount` de la cuenta corriente.
 
 ### 3.4 Server actions
 
@@ -241,12 +309,15 @@ month)`, `seedPayrollPeriodAction` (RPC, idempotente, `hr:write`),
 (**`hr:admin`**), `updatePayrollEntryAction` (`hr:write`, patch parcial), y el
 CRUD de extras (`add/update/remove…ExtraAction`, `hr:write`).
 
-`payroll-payments-actions.ts`: `listPayrollPaymentsAction` (`hr:read`),
-`createPayrollPaymentAction`, `updatePayrollPaymentAction`,
-`deletePayrollPaymentAction` (`hr:write`), y `bulkCreatePayrollPaymentsAction`
+`payroll-payments-actions.ts`: `listPayrollPaymentsAction` (`hr:read`; cada
+pago con su lado de canal y si está conciliado), `createPayrollPaymentAction`,
+`updatePayrollPaymentAction` (RPC `update_payroll_payment`, el pago entero),
+`deletePayrollPaymentAction` (`hr:write`; la parte interna no se edita ni se
+borra sola), y `bulkCreatePayrollPaymentsAction`
 (`hr:write`): `items` = `{entry_id, amount}` (un monto por empleado), una cuenta
 en pesos y un método → N `payroll_payments` en un solo `.insert(rows)` → N
-transacciones; **atómico** (si una falla, rollback de todo el lote). Schema
+transacciones; **atómico** (si una falla, rollback de todo el lote). Ninguno
+manda canal: lo asigna la base (§3.3.1). Schema
 `1..100` items; el control de sobrepago aplica a cada uno (`allow_overpay`).
 
 **RPC `seed_payroll_period(p_year, p_month)`** — `SECURITY INVOKER`, re-chequea
@@ -264,7 +335,9 @@ Sueldo / Extras / Vacaciones / Viáticos / Deudas / Teléfono / Total / Pagado /
 Saldo + totales de footer (sumados client-side); edición inline con
 `InlineMoneyInput` (commit en blur/Enter, revert en Escape/inválido); botones
 Close/Reopen; `BulkPayrollPaymentDialog`. `payroll-payments-dialog.tsx` muestra
-el saldo coloreado (verde 0, ámbar >0, rosa <0). Bodies de diálogo montados solo
+el saldo y lista cada pago una vez (padre + parte interna) con «Libros · Gestión»;
+un pago conciliado no deja cambiar el monto. Para un empleado por recibo, Sueldo
+no se edita con el recibo cargado y Vacaciones queda vacía. Bodies de diálogo montados solo
 al abrir (lazy). Hooks en `use-payroll.ts` / `use-payroll-payments.ts`; keys en
 `payroll-keys.ts` (`payrollKeys.period(year,month)` es la clave de invalidación
 central).

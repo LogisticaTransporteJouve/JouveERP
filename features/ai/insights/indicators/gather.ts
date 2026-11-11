@@ -25,7 +25,6 @@ import {
   detectLateInterestUncharged,
   detectLoanInstallmentsDue,
   detectOverdueGrowth,
-  detectPendingSettlements,
   detectUnreconciledLines,
   detectVehicleCostPerKm,
   lateBankLines,
@@ -93,7 +92,7 @@ async function netRevenueByClient(
 }
 
 /** Direct cost per group key (trips + the fuel imputed to them), as
- *  getClientMargin and the profitability report count it. With maintenance,
+ *  ai_fleet_margin counts it. With maintenance,
  *  a group with a service of unknown cost is in `incomplete`: its cost is
  *  not known, not lower (#396). A group with cargas still to invoice is in
  *  `pending`: by client, its revenue or its share of a trip's cost is not
@@ -400,62 +399,6 @@ async function unreconciledLines(today: string): Promise<IndicatorFinding[]> {
   return detectUnreconciledLines(lines, today, hint);
 }
 
-// ─── Driver rendiciones ──────────────────────────────────────────────────────
-
-/** The rule listCodPendingAction applies: a delivered carga with a
- *  cash-on-delivery amount that is in no live rendición. */
-async function pendingSettlements(today: string): Promise<IndicatorFinding[]> {
-  const service = getServiceClient();
-  const [ships, live, drafts] = await Promise.all([
-    paginateRange((from, to) =>
-      service
-        .from("shipments")
-        .select(
-          "id, delivery_date, cod_amount, trip:trips(driver:drivers(full_name))",
-        )
-        .not("cod_amount", "is", null)
-        .eq("status", "delivered")
-        .order("id")
-        .range(from, to),
-    ),
-    paginateRange((from, to) =>
-      service
-        .from("driver_settlement_items")
-        .select("shipment_id")
-        .eq("released", false)
-        .order("id")
-        .range(from, to),
-    ),
-    paginateRange((from, to) =>
-      service
-        .from("driver_settlements")
-        .select("id, settlement_date, driver:drivers(full_name)")
-        .eq("status", "draft")
-        .order("id")
-        .range(from, to),
-    ),
-  ]);
-  const taken = new Set(
-    must(live, "driver_settlement_items").map((l) => l.shipment_id),
-  );
-  return detectPendingSettlements(
-    must(ships, "cod_shipments")
-      .filter((s) => !taken.has(s.id) && s.cod_amount !== null)
-      .map((s) => ({
-        shipment_id: s.id,
-        driver_name: s.trip?.driver?.full_name ?? null,
-        delivery_date: s.delivery_date,
-        cod_amount: Number(s.cod_amount),
-      })),
-    must(drafts, "draft_settlements").map((d) => ({
-      id: d.id,
-      driver_name: d.driver?.full_name ?? "—",
-      settlement_date: d.settlement_date,
-    })),
-    today,
-  );
-}
-
 // ─── Loans ───────────────────────────────────────────────────────────────────
 
 async function loanInstallments(today: string): Promise<IndicatorFinding[]> {
@@ -634,10 +577,6 @@ export async function gatherIndicators(today: string): Promise<IndicatorRun> {
     },
     { kinds: ["late_interest_uncharged"], run: () => lateInterest(today) },
     { kinds: ["unreconciled_bank_lines"], run: () => unreconciledLines(today) },
-    {
-      kinds: ["pending_driver_settlements"],
-      run: () => pendingSettlements(today),
-    },
     { kinds: ["loan_installments_due"], run: () => loanInstallments(today) },
     { kinds: ["cash_vs_financing"], run: () => cashVsFinancing(today) },
     {

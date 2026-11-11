@@ -181,19 +181,6 @@ export const ROUTING_CASES: RoutingCase[] = [
     },
   },
   {
-    id: "client-margin",
-    question: "¿Qué clientes nos dejaron más margen en octubre 2026?",
-    roles: ["finance"],
-    expect: {
-      tool: "getClientMargin",
-      input: { from: "2026-10-01", to: "2026-10-31" },
-    },
-    dispatch: {
-      fn: "getClientNetRevenueAction",
-      args: { from: "2026-10-01", to: "2026-10-31" },
-    },
-  },
-  {
     id: "client-payment-behavior",
     question:
       "¿Cuántos días tardan en pagarnos los clientes en 2026 y quién está más atrasado?",
@@ -246,20 +233,6 @@ export const ROUTING_CASES: RoutingCase[] = [
     dispatch: {
       fn: "getClientSalesSummaryAction",
       args: { from: "2026-01-01", to: "2026-12-31" },
-    },
-  },
-  {
-    id: "vehicle-economics",
-    question:
-      "¿Cuánto nos cuesta por km cada camión en septiembre 2026, con el combustible?",
-    roles: ["operations"],
-    expect: {
-      tool: "getVehicleEconomics",
-      input: { from: "2026-09-01", to: "2026-09-30" },
-    },
-    dispatch: {
-      fn: "getVehicleActivityAction",
-      args: { from: "2026-09-01", to: "2026-09-30" },
     },
   },
   {
@@ -356,7 +329,7 @@ export const ROUTING_CASES: RoutingCase[] = [
   {
     id: "propose-trip",
     question:
-      "Cargá un viaje para el 7 de noviembre de 2026 con el AB123CD y Juan Pérez, de Rosario a Córdoba.",
+      "Cargá un viaje para el 7 de noviembre de 2026 con el AB123CD y Juan Pérez.",
     roles: ["operations"],
     expect: {
       tool: "proposeTrip",
@@ -370,25 +343,21 @@ export const ROUTING_CASES: RoutingCase[] = [
       trip_date: "2026-11-07",
       vehicle: truck.patente,
       driver: driver.name,
-      origin: "Rosario",
-      destination: "Córdoba",
     },
   },
   {
     id: "propose-shipment",
     question:
-      "Creá una carga con remito R-2041 para el 10/11/2026, de Rosario a Rafaela, flete $350.000.",
+      "Creá una carga de pallets de leche para el 10/11/2026 a Bv. Lehmann 300, Rafaela.",
     roles: ["operations"],
     expect: {
       tool: "proposeShipment",
-      input: { remito_number: "R-2041", scheduled_date: "2026-11-10" },
+      input: { scheduled_date: "2026-11-10" },
     },
     scriptedInput: {
-      remito_number: "R-2041",
+      description: "Pallets de leche",
       scheduled_date: "2026-11-10",
-      origin: "Rosario",
-      destination: "Rafaela",
-      freight_amount: 350_000,
+      destination: "Bv. Lehmann 300, Rafaela",
     },
   },
   // The status change reads the carga first; the offline stub refuses it,
@@ -429,84 +398,6 @@ export const ROUTING_CASES: RoutingCase[] = [
       provider: "Taller Ruta 9",
       cost: 180_000,
     },
-  },
-  // The draft reads the client's cargas first; the offline stub refuses.
-  {
-    id: "propose-freight-settlement",
-    question: `Armá la liquidación de fletes de octubre 2026 del cliente ${record}.`,
-    roles: ["finance"],
-    expect: {
-      tool: "proposeFreightSettlement",
-      input: {
-        client: record,
-        period_start: "2026-10-01",
-        period_end: "2026-10-31",
-      },
-    },
-    dispatch: {
-      fn: "listFreightSettlementCandidatesAction",
-      args: { client_id: record, period_start: "2026-10-01" },
-    },
-  },
-  // The confirm reads the draft first; the offline stub refuses.
-  {
-    id: "propose-freight-settlement-confirm",
-    question: `Confirmá la liquidación de fletes ${record} y emití el remito R.`,
-    roles: ["finance"],
-    expect: {
-      tool: "proposeFreightSettlementConfirm",
-      input: { settlement_id: record },
-    },
-    dispatch: { fn: "getFreightSettlementAction", args: {} },
-  },
-  // Storage billing reads the period's computation first; the stub refuses.
-  {
-    id: "propose-storage-invoice",
-    question: "Facturá el almacenaje de octubre 2026 de Acme SA.",
-    roles: ["finance"],
-    expect: {
-      tool: "proposeStorageInvoice",
-      input: {
-        client: EVAL_FIXTURES.client.name,
-        period_start: "2026-10-01",
-        period_end: "2026-10-31",
-      },
-    },
-    dispatch: {
-      fn: "getStorageBillingAction",
-      args: { periodStart: "2026-10-01", periodEnd: "2026-10-31" },
-    },
-  },
-  // Rendiciones read the pending cargas or the rendición first.
-  {
-    id: "propose-driver-settlement",
-    question: "Juan Pérez rindió todo lo que cobró, en efectivo.",
-    roles: ["finance"],
-    expect: {
-      tool: "proposeDriverSettlement",
-      input: { driver: driver.name, all_collected: true },
-    },
-    dispatch: { fn: "listCodPendingAction", args: {} },
-  },
-  {
-    id: "propose-driver-settlement-confirm",
-    question: `Confirmá la rendición ${record}.`,
-    roles: ["finance"],
-    expect: {
-      tool: "proposeDriverSettlementConfirm",
-      input: { settlement_id: record },
-    },
-    dispatch: { fn: "getDriverSettlementAction", args: {} },
-  },
-  {
-    id: "propose-driver-settlement-difference",
-    question: `El faltante de la rendición ${record} va a cargo del chofer.`,
-    roles: ["finance"],
-    expect: {
-      tool: "proposeDriverSettlementDifference",
-      input: { settlement_id: record, charged_to: "driver" },
-    },
-    dispatch: { fn: "getDriverSettlementAction", args: {} },
   },
   {
     id: "propose-client-internal",
@@ -979,7 +870,7 @@ export const ROUTING_CASES: RoutingCase[] = [
   {
     id: "propose-payroll-payment",
     question:
-      "Pagale el sueldo de octubre 2026 a Gómez Ana por transferencia desde el Banco Galicia, canal interno.",
+      "Pagale el sueldo de octubre 2026 a Gómez Ana por transferencia desde el Banco Galicia.",
     roles: ["finance"],
     expect: {
       tool: "proposePayrollPayment",
@@ -987,7 +878,6 @@ export const ROUTING_CASES: RoutingCase[] = [
         period: "2026-10",
         method: "transferencia",
         account: "Banco Galicia",
-        channel: "internal",
       },
     },
     scriptedInput: {
@@ -995,7 +885,6 @@ export const ROUTING_CASES: RoutingCase[] = [
       employees: ["Gómez Ana"],
       method: "transferencia",
       account: "Banco Galicia",
-      channel: "internal",
     },
   },
   {
@@ -1086,12 +975,6 @@ export const DENIED_CASES: DeniedCase[] = [
     ],
   },
   {
-    id: "freight-settlement-operations",
-    question: "Armá la liquidación de fletes de Acme de octubre.",
-    roles: ["operations"],
-    forbiddenTools: ["proposeFreightSettlement", "getFreightSettlements"],
-  },
-  {
     id: "fleet-fiscal-reader",
     question: "¿Cuántos km recorrió el camión AB123CD en octubre?",
     roles: ["fiscal_reader"],
@@ -1110,16 +993,10 @@ export const DENIED_CASES: DeniedCase[] = [
     forbiddenTools: ["getPayrollSummary", "getPayrollConcepts"],
   },
   {
-    id: "client-margin-operations",
-    question: "¿Qué clientes nos dejaron más margen en octubre 2026?",
-    roles: ["operations"],
-    forbiddenTools: ["getClientMargin", "getClientPaymentBehavior"],
-  },
-  {
     id: "costs-fiscal-reader",
     question: "¿En qué se nos fue la plata en 2026?",
     roles: ["fiscal_reader"],
-    forbiddenTools: ["getTopCosts", "getVehicleEconomics", "getDriverActivity"],
+    forbiddenTools: ["getTopCosts", "getDriverActivity"],
   },
   {
     id: "late-interest-operations",
@@ -1129,7 +1006,6 @@ export const DENIED_CASES: DeniedCase[] = [
       "getLateInterestCandidates",
       "proposeLateInterestNd",
       "proposeBankMatches",
-      "proposeClientTariff",
     ],
   },
   {
@@ -1259,29 +1135,6 @@ export const DENIED_CASES: DeniedCase[] = [
       "proposeManualCheck",
       "proposeCheckDeposit",
       "proposeIssuedCheck",
-    ],
-  },
-  {
-    id: "storage-invoice-warehouse",
-    question: "Facturá el almacenaje de octubre de Acme SA.",
-    roles: ["warehouse"],
-    forbiddenTools: ["proposeStorageInvoice", "getStorageBilling"],
-  },
-  {
-    id: "freight-confirm-operations",
-    question: "Confirmá la liquidación de fletes de Acme de octubre.",
-    roles: ["operations"],
-    forbiddenTools: ["proposeFreightSettlementConfirm"],
-  },
-  {
-    id: "driver-settlement-operations",
-    question:
-      "Juan Pérez rindió todo en efectivo: armá y confirmá la rendición.",
-    roles: ["operations"],
-    forbiddenTools: [
-      "proposeDriverSettlement",
-      "proposeDriverSettlementConfirm",
-      "proposeDriverSettlementDifference",
     ],
   },
 ];

@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { LedgerRow } from "@/features/libro-mayor/schema";
+
 vi.mock("@/features/aging/actions/aging-actions", () => ({
   getAgingSummaryAction: vi.fn(),
 }));
@@ -199,7 +201,6 @@ const MIGRATED_TOOLS = [
   "getFuelLoads",
   "getMaintenance",
   "getFleetDocuments",
-  "getFleetProfitability",
 ];
 
 describe("ai action registry", () => {
@@ -286,6 +287,24 @@ describe("runTrialBalance", () => {
   });
 });
 
+const ledgerRow = (running: number): LedgerRow => ({
+  entry_id: "e",
+  line_id: `l-${running}`,
+  entry_date: "2026-05-01",
+  accrual_period: "2026-05",
+  description: "",
+  source_table: null,
+  source_id: null,
+  channel_id: null,
+  is_reversal: false,
+  debit: 0,
+  credit: 0,
+  line_desc: null,
+  running,
+  account_code: "1.1.1.2",
+  account_name: "Bancos",
+});
+
 describe("runLedger", () => {
   it("flags truncation in the summary", async () => {
     vi.mocked(getLedgerAction).mockResolvedValue({
@@ -300,6 +319,19 @@ describe("runLedger", () => {
     });
     expect(r.ok).toBe(true);
     expect(r.summary).toContain("truncated");
+  });
+
+  it("takes the closing balance from the newest line (the first)", async () => {
+    vi.mocked(getLedgerAction).mockResolvedValue({
+      ok: true,
+      data: {
+        rows: [ledgerRow(900), ledgerRow(700)],
+        truncated: false,
+        opening: 0,
+      },
+    });
+    const r = await runLedger({ accountId: "acc-1" });
+    expect(r.summary).toContain("closing balance $900.");
   });
 
   it("reports the opening balance of a dated range", async () => {

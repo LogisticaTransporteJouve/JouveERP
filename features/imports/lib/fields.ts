@@ -174,58 +174,6 @@ const driverLicenseFields: readonly ImportField[] = [
 ];
 
 const GO_LIVE_FIELDS = {
-  client_tariffs: [
-    clientField,
-    {
-      key: "concept",
-      label: "Concepto",
-      required: true,
-      aliases: ["concepto", "servicio", "tipo"],
-      hint: "Almacenaje, carga, descarga o flete.",
-    },
-    {
-      key: "warehouse",
-      label: "Depósito",
-      required: false,
-      aliases: ["deposito", "almacen"],
-      hint: "El depósito del área. Hace falta solo si dos depósitos tienen un área con el mismo nombre.",
-    },
-    {
-      key: "area",
-      label: "Área",
-      required: false,
-      aliases: ["area", "zona", "sector"],
-      hint: "Vacío: todas las áreas. Con área, pisa a la tarifa general para los pallets de esa área (el flete no lleva área).",
-    },
-    {
-      key: "unit",
-      label: "Unidad",
-      required: false,
-      aliases: ["unidad", "por"],
-      hint: "Por pallet por mes o por día (almacenaje; vacío: por mes); carga, descarga y flete tienen una sola.",
-    },
-    {
-      key: "price",
-      label: "Precio",
-      required: true,
-      aliases: ["precio", "tarifa", "importe", "valor"],
-    },
-    currencyField("ARS o USD (vacío: ARS). El flete va en pesos."),
-    {
-      key: "valid_from",
-      label: "Vigente desde",
-      required: true,
-      aliases: ["vigente desde", "desde", "vigencia desde", "fecha desde"],
-    },
-    {
-      key: "valid_to",
-      label: "Vigente hasta",
-      required: false,
-      aliases: ["vigente hasta", "hasta", "vigencia hasta", "fecha hasta"],
-      hint: "Vacío: sin fin.",
-    },
-    notesField,
-  ],
   loans: [
     {
       key: "description",

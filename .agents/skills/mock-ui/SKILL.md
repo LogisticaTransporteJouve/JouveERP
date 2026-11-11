@@ -57,7 +57,7 @@ feature component it renders under `features/<domain>/components/`, and reproduc
   `DataTable`'s `rounded-lg border bg-card` wrapper; list filters follow `components/list-toolbar.tsx`).
 - Primitives: `ui.*` helpers, never hand-written equivalents.
 - Feature-specific labels and states: copy from the feature's schema or lib — e.g.
-  `FREIGHT_SETTLEMENT_STATUS_LABELS` in `features/freight-settlements/schema.ts`. Money as the app
+  `CHECK_STATUS_LABEL` in `features/checks/schema.ts`. Money as the app
   formats it (`formatMoney` in `lib/format.ts`: `$ 1.234,56`), dates as `formatArgentineDate` (`dd/mm/aaaa`).
 - Wording: the app's own Spanish (Argentina) labels, capitalization and empty states.
 - Navigation: `nav` is the route in `nav-items.ts`; the header's breadcrumb (section › item) follows

@@ -66,10 +66,10 @@ export const ROUTE_GUIDES: readonly RouteGuide[] = [
     prefix: "/clients",
     title: "Clientes",
     summary:
-      "Ficha de cada cliente con su cuenta corriente, datos fiscales, tarifario y adjuntos.",
+      "Ficha de cada cliente con su cuenta corriente, datos fiscales y adjuntos.",
     steps: [
       "Buscá el CUIT en el padrón para completar los datos.",
-      "El saldo inicial y el tarifario se cargan desde la ficha.",
+      "El saldo inicial se carga desde la ficha.",
     ],
   },
   {
@@ -153,21 +153,15 @@ export const ROUTE_GUIDES: readonly RouteGuide[] = [
       "Proyección de cobros y pagos por mes: aging, cheques, préstamos y pagos recurrentes.",
   },
   {
-    prefix: "/treasury/reconciliation",
-    title: "Conciliación bancaria",
+    prefix: "/accounts",
+    title: "Cuentas",
     summary:
-      "Por cuenta y mes: cada línea del extracto contra los movimientos de caja.",
+      "Cajas, bancos y billeteras con su moneda y su saldo. Cada cuenta abre sus movimientos y, en un banco, su extracto para conciliar. También se crean pidiéndoselo al asistente.",
     steps: [
       "Subí el extracto que bajaste del banco con Subir extracto (entra a la cuenta y el mes elegidos).",
       "Aceptá las sugerencias o elegí los movimientos a mano.",
       "Creá el movimiento que falta (comisiones, intereses) desde la línea.",
     ],
-  },
-  {
-    prefix: "/accounts",
-    title: "Cuentas",
-    summary:
-      "Cajas, bancos y billeteras con su moneda y su saldo. Cada cuenta abre sus movimientos y, en un banco, su extracto. También se crean pidiéndoselo al asistente.",
   },
   {
     prefix: "/transactions",
@@ -293,30 +287,19 @@ export const ROUTE_GUIDES: readonly RouteGuide[] = [
   {
     prefix: "/trips",
     title: "Viajes",
-    summary:
-      "Cada viaje con su chofer, vehículo, km, sus cargas y el ingreso manual si no tiene cargas facturadas.",
+    summary: "Cada viaje con su fecha, estado, chofer, vehículo y sus cargas.",
   },
   {
     prefix: "/cargas",
     title: "Cargas",
-    summary: "Las cargas transportadas y su remito.",
-  },
-  {
-    prefix: "/liquidaciones",
-    title: "Liquidaciones",
     summary:
-      "Liquidación de los fletes de cada cliente; lo de los choferes está en Rendiciones.",
+      "Las cargas a transportar: cliente, descripción, fecha programada y dirección.",
   },
   {
     prefix: "/fleet-tariffs",
     title: "Tarifas de flete",
     summary:
       "Los precios de flete por período, para seguir los aumentos; no los toman las cargas.",
-  },
-  {
-    prefix: "/rendiciones",
-    title: "Rendiciones",
-    summary: "Lo que cada chofer cobró contra entrega y rindió.",
   },
   {
     prefix: "/fuel",
@@ -342,12 +325,6 @@ export const ROUTE_GUIDES: readonly RouteGuide[] = [
       "VTV, seguros y habilitaciones por vencer; generan tareas automáticas.",
   },
   {
-    prefix: "/fleet-reports",
-    title: "Rentabilidad",
-    summary:
-      "Ingreso y costo por vehículo y por viaje; el ingreso sale del flete facturado de las cargas.",
-  },
-  {
     prefix: "/warehouses",
     title: "Depósitos",
     summary: "Depósitos y sus áreas.",
@@ -367,16 +344,6 @@ export const ROUTE_GUIDES: readonly RouteGuide[] = [
     title: "Trazabilidad de pallets",
     summary:
       "Cuándo entró y salió cada pallet y cuántos días estuvo almacenado. Solo de consulta.",
-  },
-  {
-    prefix: "/storage-tariffs",
-    title: "Tarifas de depósito",
-    summary: "Tarifas de almacenaje con su historial de aumentos.",
-  },
-  {
-    prefix: "/storage-billing",
-    title: "Facturación de depósito",
-    summary: "La facturación mensual del almacenaje de cada cliente.",
   },
   {
     prefix: "/employees",

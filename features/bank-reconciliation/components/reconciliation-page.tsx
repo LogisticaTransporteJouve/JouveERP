@@ -27,7 +27,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -45,7 +44,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ACCOUNT_TYPE_LABEL, isAccountType } from "@/features/accounts/schema";
 import { ImportDialog } from "@/features/imports/components/import-dialog";
 import { PeriodFilter } from "@/components/period-filter";
 import { useListParams } from "@/hooks/use-list-params";
@@ -65,7 +63,6 @@ import {
   useAcceptSuggestions,
   useLinesInFlight,
   useReconciliation,
-  useReconciliationAccounts,
   useRestoreLine,
   useUnmatchLine,
 } from "../hooks/use-reconciliation";
@@ -97,55 +94,6 @@ import {
  *  in the bank's order, which the balances need. */
 function newestFirst<T>(rows: readonly T[]): T[] {
   return [...rows].reverse();
-}
-
-export function ReconciliationPage({
-  today,
-  initialPeriod,
-  gates,
-}: {
-  /** The Argentine today, YYYY-MM-DD. */
-  today: string;
-  /** The period in the URL (`?period&from&to`). */
-  initialPeriod: PeriodSelection;
-  gates: ReconciliationGates;
-}) {
-  const [accountId, setAccountId] = useState("");
-
-  return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Conciliación bancaria
-        </h1>
-        <p className="text-muted-foreground max-w-2xl text-sm">
-          Las líneas del extracto de una cuenta contra sus movimientos de Caja,
-          por período. Un movimiento conciliado no se edita ni se borra hasta
-          desconciliar su línea.
-        </p>
-      </div>
-
-      <div className="max-w-80 min-w-0 space-y-1.5">
-        <Label htmlFor="recon-account">Cuenta</Label>
-        <Suspense fallback={<Skeleton className="h-9 w-full" />}>
-          <AccountPicker value={accountId} onChange={setAccountId} />
-        </Suspense>
-      </div>
-
-      {accountId ? (
-        <AccountStatement
-          accountId={accountId}
-          today={today}
-          initialPeriod={initialPeriod}
-          gates={gates}
-        />
-      ) : (
-        <p className="text-muted-foreground text-sm">
-          Elegí la cuenta que querés conciliar.
-        </p>
-      )}
-    </div>
-  );
 }
 
 type PeriodParams = { period: PeriodSelection };
@@ -276,39 +224,6 @@ export function AccountStatement({
         />
       </Suspense>
     </div>
-  );
-}
-
-function AccountPicker({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (id: string) => void;
-}) {
-  const { data: accounts } = useReconciliationAccounts();
-  if (accounts.length === 0) {
-    return (
-      <p className="text-muted-foreground text-sm">
-        No hay cuentas para conciliar.
-      </p>
-    );
-  }
-  return (
-    <Select value={value || undefined} onValueChange={onChange}>
-      <SelectTrigger id="recon-account" className="w-full min-w-0">
-        <SelectValue placeholder="Elegí la cuenta" />
-      </SelectTrigger>
-      <SelectContent>
-        {accounts.map((a) => (
-          <SelectItem key={a.id} value={a.id}>
-            {a.name} ·{" "}
-            {isAccountType(a.type) ? ACCOUNT_TYPE_LABEL[a.type] : a.type} ·{" "}
-            {a.currency}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
   );
 }
 

@@ -71,8 +71,9 @@ export const ENTITY_HREF: Record<EntityKind, ((id: string) => string) | null> =
     employee: (id) => `/employees/${id}`,
     account: (id) => `/accounts/${id}`,
     user: () => "/admin/users",
-    freight_settlement: () => "/liquidaciones",
-    driver_settlement: () => "/rendiciones",
+    // Their pages were removed; past events still name them, unlinked.
+    freight_settlement: null,
+    driver_settlement: null,
     tax_document: () => "/taxes",
     loan: (id) => `/loans/${id}`,
     task: () => "/tasks",

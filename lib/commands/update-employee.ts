@@ -31,6 +31,7 @@ function employeePatch(rest: Omit<EmployeeUpdateInput, "id">): EmployeeUpdate {
   if (rest.cbu !== undefined) patch.cbu = rest.cbu ?? null;
   if (rest.pay_frequency !== undefined)
     patch.pay_frequency = rest.pay_frequency;
+  if (rest.pay_mode !== undefined) patch.pay_mode = rest.pay_mode;
   if (rest.base_salary !== undefined)
     patch.base_salary = rest.base_salary ?? null;
   if (rest.viatico_monthly !== undefined)

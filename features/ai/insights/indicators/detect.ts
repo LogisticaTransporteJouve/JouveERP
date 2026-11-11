@@ -13,7 +13,6 @@ export const INDICATOR_KINDS = [
   "fuel_consumption_outlier",
   "late_interest_uncharged",
   "unreconciled_bank_lines",
-  "pending_driver_settlements",
   "loan_installments_due",
   "cash_vs_financing",
   "receivables_overdue_growth",
@@ -49,10 +48,6 @@ export const MIN_FUEL_KM = 500;
 export const MIN_FLEET_FOR_OUTLIERS = 4;
 /** Days an open statement line may wait before it counts as late. */
 export const BANK_LINE_MAX_AGE_DAYS = 15;
-/** Days a delivered cash-on-delivery carga may wait to be rendered. */
-export const SETTLEMENT_MAX_AGE_DAYS = 3;
-/** Days a draft rendición may stay unconfirmed. */
-export const DRAFT_SETTLEMENT_MAX_AGE_DAYS = 7;
 /** Days ahead a loan installment counts as due soon. */
 export const LOAN_HORIZON_DAYS = 14;
 /** Days the cash vs financing comparison looks back. */
@@ -462,96 +457,10 @@ export function detectUnreconciledLines(
                   label: "Crear tarea para conciliar",
                   input: {
                     title: `Conciliar el extracto de ${main.account_name}`,
-                    description: `${main.lines.length} línea(s) pendientes desde el ${formatArgentineDate(oldestDate(main.lines, today))} (Tesorería › Conciliación).`,
+                    description: `${main.lines.length} línea(s) pendientes desde el ${formatArgentineDate(oldestDate(main.lines, today))} (en el extracto de la cuenta).`,
                     due_date: addDays(today, 3),
                   },
                 },
-          }
-        : {}),
-    },
-  ];
-}
-
-// ─── Driver rendiciones ──────────────────────────────────────────────────────
-
-export type PendingCod = {
-  shipment_id: string;
-  driver_name: string | null;
-  delivery_date: string | null;
-  cod_amount: number;
-};
-
-export type DraftSettlement = {
-  id: string;
-  driver_name: string;
-  settlement_date: string;
-};
-
-/** Delivered cash-on-delivery cargas nobody rendered within
- *  SETTLEMENT_MAX_AGE_DAYS, and draft rendiciones left unconfirmed. */
-export function detectPendingSettlements(
-  pending: readonly PendingCod[],
-  drafts: readonly DraftSettlement[],
-  today: string,
-): IndicatorFinding[] {
-  const codLimit = addDays(today, -SETTLEMENT_MAX_AGE_DAYS);
-  const draftLimit = addDays(today, -DRAFT_SETTLEMENT_MAX_AGE_DAYS);
-  const late = pending.filter(
-    (p) => p.delivery_date !== null && p.delivery_date < codLimit,
-  );
-  const staleDrafts = drafts.filter((d) => d.settlement_date < draftLimit);
-  if (late.length === 0 && staleDrafts.length === 0) return [];
-
-  const byDriver = new Map<string, number>();
-  for (const p of late) {
-    const who = p.driver_name ?? "Sin chofer";
-    byDriver.set(who, (byDriver.get(who) ?? 0) + p.cod_amount);
-  }
-  const [mainDriver] = [...byDriver.entries()].sort(
-    (a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1),
-  );
-  const amount = round2(late.reduce((s, p) => s + p.cod_amount, 0));
-  const parts = [
-    late.length > 0
-      ? `${late.length} carga(s) contra entrega entregadas hace más de ${SETTLEMENT_MAX_AGE_DAYS} días sin rendir, por ${money(amount)}, de ${byDriver.size} chofer(es)`
-      : null,
-    staleDrafts.length > 0
-      ? `${staleDrafts.length} rendición(es) en borrador de hace más de ${DRAFT_SETTLEMENT_MAX_AGE_DAYS} días`
-      : null,
-  ].filter(Boolean);
-  const target = mainDriver?.[0] ?? staleDrafts[0]?.driver_name ?? null;
-  return [
-    {
-      kind: "pending_driver_settlements",
-      severity: late.length > 0 ? "warning" : "info",
-      title: "Rendiciones de choferes pendientes",
-      finding:
-        `${parts.join("; ")}.` +
-        (mainDriver && mainDriver[1] > 0
-          ? ` El que más debe rendir: ${mainDriver[0]} (${money(mainDriver[1])}).`
-          : ""),
-      metrics: {
-        shipment_count: late.length,
-        total_amount: amount,
-        driver_count: byDriver.size,
-        draft_count: staleDrafts.length,
-      },
-      source_refs: refs([
-        ...late.map((p) => p.shipment_id),
-        ...staleDrafts.map((d) => d.id),
-      ]),
-      ...(target
-        ? {
-            proposal: {
-              action: "proposeTask",
-              label: "Crear tarea de rendición",
-              input: {
-                title: `Rendir las cobranzas de ${target}`,
-                description:
-                  "Cargas contra entrega entregadas sin rendir (Cobranzas › Rendiciones).",
-                due_date: addDays(today, 1),
-              },
-            },
           }
         : {}),
     },

@@ -141,8 +141,6 @@ export const PERMISSIONS = [
   // Entering, dispatching or removing a pallet (with pallets:write); the
   // movements are read with the pallets (pallets:read).
   "stock_movements:write",
-  "storage_billing:read",
-  "storage_billing:issue",
 
   // Tasks (roadmap 1.4/1.5): shared to-dos, recurring and from documents
   "tasks:read",
@@ -225,8 +223,6 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "hr:write",
     "ai:chat",
     "ai:read",
-    "storage_billing:read",
-    "storage_billing:issue",
     "freight_tariffs:read",
     "freight_tariffs:write",
     "tasks:read",
@@ -443,13 +439,6 @@ export const TREASURY_PERMISSIONS = [
 export const TREASURY_WRITE_PERMISSIONS = [
   ...TREASURY_PERMISSIONS,
   "transactions:write",
-] as const satisfies readonly Permission[];
-
-/** Composite gate of the fleet profitability report: a trip's revenue is
- *  the freight of its cargas. */
-export const FLEET_PROFITABILITY_PERMISSIONS = [
-  "trips:read",
-  "shipments:read",
 ] as const satisfies readonly Permission[];
 
 export const SUPPLIER_AGING_PERMISSIONS = [

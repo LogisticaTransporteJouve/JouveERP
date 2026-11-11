@@ -34,7 +34,6 @@ export function usePayrollPayments(entryId: string) {
 type CreateVars = {
   entry_id: string;
   account_id: string;
-  channel_id: string;
   amount: number;
   method: "transferencia" | "efectivo";
   paid_at: string;
@@ -93,7 +92,6 @@ type DeleteVars = {
 type BulkVars = {
   items: { entry_id: string; amount: number }[];
   account_id: string;
-  channel_id: string;
   method: "transferencia" | "efectivo";
   paid_at: string;
   notes?: string | null;

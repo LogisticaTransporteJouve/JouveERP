@@ -29,12 +29,12 @@ describe("waterfall bars", () => {
     ]);
     const bars = waterfallBars(waterfallSteps(w));
     expect(bars[0]).toMatchObject({ start: 0, end: 1000 });
-    expect(bars[1]).toMatchObject({ start: 1000, end: 600 });
-    expect(bars[2]).toMatchObject({
-      label: "Margen operativo",
-      start: 0,
-      end: 600,
-    });
+    expect(bars.slice(1, 5)).toMatchObject([
+      { label: "Costos directos", start: 1000, end: 600 },
+      { label: "Margen bruto", start: 0, end: 600 },
+      { label: "Gastos de estructura", start: 600, end: 600 },
+      { label: "Margen operativo", start: 0, end: 600 },
+    ]);
     expect(bars.at(-1)).toMatchObject({
       label: "Generación de caja",
       end: 600,

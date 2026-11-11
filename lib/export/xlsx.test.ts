@@ -80,6 +80,20 @@ describe("xlsxSheetData", () => {
     ]);
   });
 
+  it("writes a percent cell as a percent in a money column", () => {
+    const { data } = xlsxSheetData({
+      name: "s",
+      columns: [{ header: "Total", type: "money" }],
+      rows: [[1500], [{ percent: 18.4 }]],
+    });
+    expect(data[0]?.[0]).toMatchObject({ value: "Total (ARS)" });
+    expect(data[2]?.[0]).toEqual({
+      type: Number,
+      value: 18.4,
+      format: '#,##0.00" %"',
+    });
+  });
+
   it("names a single currency in the header and a mixed one in each cell", () => {
     const single = xlsxSheetData({
       name: "s",

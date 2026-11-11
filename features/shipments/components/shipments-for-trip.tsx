@@ -20,16 +20,10 @@ import {
   useSetShipmentsTrip,
   useShipmentsByTrip,
 } from "../hooks/use-shipments";
-import { formatRoute } from "../lib/format";
 import { type Shipment } from "../schema";
 
 import { AssignShipmentsDialog } from "./assign-shipments-dialog";
 import { ShipmentStatusBadge } from "./shipment-status";
-
-function formatMoney(n: number | null): string {
-  if (n === null) return "—";
-  return `$${Math.round(n).toLocaleString("es-AR")}`;
-}
 
 export function ShipmentsForTrip({
   tripId,
@@ -119,9 +113,8 @@ function TripShipments({
         <TableHeader>
           <TableRow>
             <TableHead>Cliente</TableHead>
-            <TableHead>Ruta</TableHead>
+            <TableHead>Dirección</TableHead>
             <TableHead className="w-36">Estado</TableHead>
-            <TableHead className="w-28 text-right">Flete</TableHead>
             {canWrite && <TableHead className="w-12" />}
           </TableRow>
         </TableHeader>
@@ -132,13 +125,10 @@ function TripShipments({
                 {shipment.client?.legal_name ?? "—"}
               </TableCell>
               <TableCell className="text-sm">
-                {formatRoute(shipment.origin, shipment.destination)}
+                {shipment.destination ?? "—"}
               </TableCell>
               <TableCell>
                 <ShipmentStatusBadge status={shipment.status} />
-              </TableCell>
-              <TableCell className="text-right text-sm">
-                {formatMoney(shipment.freight_amount)}
               </TableCell>
               {canWrite && (
                 <TableCell>

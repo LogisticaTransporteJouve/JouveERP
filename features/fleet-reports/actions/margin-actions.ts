@@ -8,16 +8,16 @@ import { FleetMarginInputSchema, type FleetMarginRow } from "../schema";
 
 /**
  * Fleet margin per trip / driver / vehicle / client over a date range, with
- * the profitability report's revenue, fuel and maintenance imputation,
- * computed in SQL (ai_fleet_margin, security invoker). Gated like the report:
- * trips:read plus shipments:read, since revenue comes from the shipments.
+ * its revenue, fuel and maintenance imputation computed in SQL
+ * (ai_fleet_margin, security invoker). Gated on trips:read plus
+ * shipments:read, since revenue comes from the shipments.
  */
 export async function getFleetMarginAction(
   input: unknown,
 ): Promise<ActionResult<FleetMarginRow[]>> {
   return gatedRead({
     permissions: ["trips:read", "shipments:read"],
-    denied: "No tenés permiso para ver la rentabilidad.",
+    denied: "No tenés permiso para ver el margen de flota.",
     failure: "No se pudo calcular el margen de flota.",
     schema: FleetMarginInputSchema,
     input,
