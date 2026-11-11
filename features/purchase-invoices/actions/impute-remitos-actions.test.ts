@@ -168,7 +168,7 @@ describe("listImputableRemitosAction", () => {
             purchase_invoice_id: REMITO,
             imp_total: 1000,
             amount_paid: 400,
-            open_amount: 600,
+            own_open_amount: 600,
           },
         ],
         error: null,

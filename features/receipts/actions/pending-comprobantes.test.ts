@@ -111,6 +111,46 @@ describe("listPendingComprobantesForClientAction", () => {
   });
 });
 
+describe("credit an NC spills over other comprobantes", () => {
+  it("lowers the outstanding by the spill and drops the ones it covers", async () => {
+    db.invoices = [
+      invoice("fa", "factura", 200),
+      invoice("fb", "factura", 200),
+      invoice("fc", "factura", 200),
+      invoice("nc", "nc", 450, "fc"),
+    ];
+    db.receipt_allocations = [];
+    db.client_opening_balance_allocations = [];
+    db.v_invoice_open = [
+      {
+        invoice_id: "fa",
+        client_id: CLIENT,
+        channel_id: FISCAL,
+        amount_credited_by_nc_spill: 200,
+      },
+      {
+        invoice_id: "fb",
+        client_id: CLIENT,
+        channel_id: FISCAL,
+        amount_credited_by_nc_spill: 50,
+      },
+      {
+        invoice_id: "fc",
+        client_id: CLIENT,
+        channel_id: FISCAL,
+        amount_credited_by_nc_spill: 0,
+      },
+    ];
+
+    const res = await listPendingComprobantesForClientAction(CLIENT, FISCAL);
+
+    expect(res.ok && res.data.map((d) => [d.id, d.outstanding])).toEqual([
+      ["fb", 150],
+    ]);
+    db.v_invoice_open = [];
+  });
+});
+
 describe("editing a receipt that paid an invoice before a credit note", () => {
   it("keeps the invoice available to that receipt", async () => {
     db.invoices = [

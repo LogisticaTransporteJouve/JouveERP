@@ -525,13 +525,17 @@ export async function listPendingComprobantesForClientAction(
     moneda: string | null;
   };
   // Total order (fecha alone ties → id) so OFFSET pages never repeat/skip.
-  // The four reads are independent → in parallel. Only facturas and NDs are
-  // collected; an emitted NC reduces what its origin still owes.
+  // The reads are independent → in parallel. Only facturas and NDs are
+  // collected; an emitted NC reduces what its origin still owes, and the
+  // credit of an NC beyond its origin lowers the client's other comprobantes
+  // (amount_credited_by_nc_spill of v_invoice_open, the one place that rule
+  // is computed).
   const [
     comprobantesRes,
     allocsRes,
     openingAllocsRes,
     creditNotesRes,
+    spillRes,
     editedReceiptRes,
   ] = await Promise.all([
     paginateRange((from, to) =>
@@ -582,6 +586,15 @@ export async function listPendingComprobantesForClientAction(
         .order("id", { ascending: true })
         .range(from, to),
     ),
+    paginateRange((from, to) =>
+      supabase
+        .from("v_invoice_open")
+        .select("invoice_id, amount_credited_by_nc_spill")
+        .eq("client_id", clientId)
+        .eq("channel_id", channelId)
+        .order("invoice_id", { ascending: true })
+        .range(from, to),
+    ),
     excludeReceiptId
       ? supabase
           .from("receipts")
@@ -605,6 +618,7 @@ export async function listPendingComprobantesForClientAction(
     allocsRes.error ||
     openingAllocsRes.error ||
     creditNotesRes.error ||
+    spillRes.error ||
     editedReceiptRes.error
   ) {
     logger.error("receipts.pending.list_allocations_failed", {
@@ -614,6 +628,7 @@ export async function listPendingComprobantesForClientAction(
         allocsRes.error ??
         openingAllocsRes.error ??
         creditNotesRes.error ??
+        spillRes.error ??
         editedReceiptRes.error,
     });
     return { ok: false, error: "No se pudieron leer las imputaciones." };
@@ -656,12 +671,25 @@ export async function listPendingComprobantesForClientAction(
     );
   }
 
+  // The spill is read as stored: when editing, it was computed with the
+  // edited receipt's allocations in place, so the figures of that receipt's
+  // invoices can show slightly high. That never refuses an allocation (the
+  // guard reads what each invoice owes by itself) and is exact once saved.
+  const spillByComprobante = new Map<string, number>();
+  for (const row of spillRes.data) {
+    const spill = Number(row.amount_credited_by_nc_spill ?? 0);
+    if (row.invoice_id !== null && spill > 0) {
+      spillByComprobante.set(row.invoice_id, spill);
+    }
+  }
+
   const pending: PendingComprobante[] = comprobantes
     .map((c) => {
       const already = allocatedByComprobante.get(c.id) ?? 0;
       const credited = creditedByComprobante.get(c.id) ?? 0;
+      const spill = spillByComprobante.get(c.id) ?? 0;
       const total = Number(c.imp_total ?? 0);
-      const outstanding = Math.max(0, total - already - credited);
+      const outstanding = Math.max(0, total - already - credited - spill);
       return {
         id: c.id,
         document_type: "invoice" as const,

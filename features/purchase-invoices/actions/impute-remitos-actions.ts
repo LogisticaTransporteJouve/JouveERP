@@ -109,7 +109,7 @@ export async function listImputableRemitosAction(
 
   const { data, error } = await supabase
     .from("v_purchase_invoice_open")
-    .select("purchase_invoice_id, imp_total, amount_paid, open_amount")
+    .select("purchase_invoice_id, imp_total, amount_paid, own_open_amount")
     .eq("supplier_id", id.data)
     .in("channel_id", internal)
     .eq("kind", "factura")

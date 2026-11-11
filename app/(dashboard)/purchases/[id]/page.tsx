@@ -335,6 +335,12 @@ export default async function PurchaseInvoiceDetailPage({
                       value={money(open.opening_applied, invoice.moneda)}
                     />
                   )}
+                  {open.credited_spill > 0 && (
+                    <Row
+                      label="Cubierto por el crédito de otras NC"
+                      value={money(open.credited_spill, invoice.moneda)}
+                    />
+                  )}
                   <Row
                     label="Saldo"
                     value={money(Math.max(0, open.open_amount), invoice.moneda)}

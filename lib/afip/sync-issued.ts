@@ -395,7 +395,7 @@ const FACTURA_TIPO_FOR_NOTE: Record<number, number> = {
 const TOTAL_MATCH_CANDIDATES = 100;
 
 /** NC statuses that already take credit off their origin, as in
- *  `invoice_open_amount`. */
+ *  `invoice_own_open_amount`. */
 const CREDITING_NC_STATUSES = ["draft", "emitting", "emitted"];
 
 /** Older NC/ND (before ARCA required CbtesAsoc) carry no reference. The
