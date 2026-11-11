@@ -308,6 +308,19 @@ transaction_date)` (la cotización de esa fecha o la anterior más cercana),
   `is_payroll=true` y el builder de `transactions` lo asienta Debe `sueldos` (5.3.1)
   en vez de `gastos` (5.3.5); si ninguna cuenta activa tiene el rol, cae a `gastos`.
   Los asientos anteriores a `…193031` quedan en 5.3.5 hasta que se re-asienten.
+  El canal del pago lo asigna la base (`20261111185200`): recibo − embargo a libros,
+  el resto a gestión; un pago que cruza esa parte se parte en dos movimientos. El
+  movimiento que pasa al canal fiscal se asienta en el reparto (`repost_journal` no
+  asienta uno que no tenía asiento vigente). Al cerrar la planilla, la parte del
+  recibo que los pagos no llevan (deudas + teléfono sobre extras + viáticos) se
+  asienta Debe `sueldos` / Haber `anticipos_personal` con origen `payroll_entries`
+  (`20261111185300`); reabrir la anula y `management_pnl_lines` la saltea.
+- **Movimientos conciliados:** solo `split_matched_movement` y
+  `merge_matched_movement` (Tesorería, `20261111185100`) cambian monto o canal de un
+  movimiento conciliado, desde un trigger y bajo la GUC
+  `jouve.rewriting_reconciled`, y verifican con `matched_line_totals` que el total
+  conciliado de cada línea no cambie. `guard_transaction_reconciled` rechaza todo lo
+  demás (y siempre el borrado).
 
   Solo canal fiscal. Los gastos bancarios del rechazo, si se cargan, van aparte como
   gasto. Darlo de baja como incobrable es una acción explícita aparte (pendiente).
