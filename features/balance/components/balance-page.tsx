@@ -33,10 +33,11 @@ export function BalancePage({
 }: {
   fiscalYearStartMonth: number;
 }) {
-  const [periodEnd, setPeriodEnd] = useState(currentMonth());
-  const [periodStart, setPeriodStart] = useState("");
-  const costCenterId = null;
   const presets = fiscalYearPresets(currentMonth(), fiscalYearStartMonth);
+  // Opens on the current ejercicio, as «Ejercicio actual» would.
+  const [periodEnd, setPeriodEnd] = useState(presets.current.to);
+  const [periodStart, setPeriodStart] = useState(presets.current.from);
+  const costCenterId = null;
 
   function applyPreset(range: { from: string; to: string }) {
     setPeriodStart(range.from);

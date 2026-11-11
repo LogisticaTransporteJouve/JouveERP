@@ -1026,7 +1026,7 @@ export const accountingPage: GuidePage = {
       permission: "accounting:read",
       intro: [
         "Los saldos contables hasta el cierre de un período, calculados desde los asientos, en tres pestañas: {{Balance de saldos}}, {{Estado de Resultados}} y {{Balance General}}.",
-        "Filtros: {{Período de corte}} (por defecto el mes actual), {{Desde (opcional)}} para ver solo los movimientos de un rango ({{Limpiar rango}} lo saca).",
+        "Filtros: {{Período de corte}} y {{Desde (opcional)}}. Al abrir, muestran el ejercicio en curso: desde su primer mes hasta el mes actual. {{Limpiar rango}} saca el {{Desde (opcional)}}.",
         "Atajos: {{Ejercicio actual}} pone el rango desde el primer mes del ejercicio en curso hasta el mes actual; {{Ejercicio anterior}}, el ejercicio anterior completo. Debajo de los filtros, una línea dice qué suma cada pestaña (por ejemplo, «resultados del ejercicio 2025/26 (oct 2025 – mar 2026)»).",
       ],
       screens: [
