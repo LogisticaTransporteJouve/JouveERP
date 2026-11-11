@@ -15,6 +15,24 @@ export const PAY_FREQUENCY_LABEL: Record<PayFrequency, string> = {
   mixto: "Mixto",
 };
 
+/** «Modalidad»: por recibo, the salary is the payslip's net (the database
+ *  copies the recibo into the sueldo); acordado, it is typed by hand and
+ *  raised by %. */
+export const PAY_MODES = ["recibo", "acordado"] as const;
+export type PayMode = (typeof PAY_MODES)[number];
+
+export const PAY_MODE_LABEL: Record<PayMode, string> = {
+  recibo: "Por recibo",
+  acordado: "Sueldo acordado",
+};
+
+export function isPayMode(value: unknown): value is PayMode {
+  return (
+    typeof value === "string" &&
+    (PAY_MODES as readonly string[]).includes(value)
+  );
+}
+
 // ─── Field helpers ───────────────────────────────────────────────────────────
 
 const trimmedNullable = z
@@ -152,6 +170,7 @@ const baseEmployeeFields = {
   cuil: cuilNullable,
   cbu: cbuNullable,
   pay_frequency: z.enum(PAY_FREQUENCIES),
+  pay_mode: z.enum(PAY_MODES).default("acordado"),
   base_salary: baseSalaryNullable,
   viatico_monthly: viaticoRequired,
   is_monotributo: z.coerce.boolean(),
@@ -184,6 +203,7 @@ export const EmployeeUpdateSchema = z.object({
   cuil: baseEmployeeFields.cuil,
   cbu: baseEmployeeFields.cbu,
   pay_frequency: baseEmployeeFields.pay_frequency.optional(),
+  pay_mode: z.enum(PAY_MODES).optional(),
   base_salary: baseEmployeeFields.base_salary,
   viatico_monthly: baseEmployeeFields.viatico_monthly.optional(),
   is_monotributo: baseEmployeeFields.is_monotributo.optional(),
@@ -210,10 +230,12 @@ export type EmployeeUpdateInput = z.infer<typeof EmployeeUpdateSchema>;
 export type EmployeeTerminateInput = z.infer<typeof EmployeeTerminateSchema>;
 export type EmployeeReactivateInput = z.infer<typeof EmployeeReactivateSchema>;
 
-// Narrow `pay_frequency` to the union enforced by the DB CHECK.
+// Narrow `pay_frequency` and `pay_mode` to the unions enforced by the DB
+// CHECKs.
 type EmployeeRow = Database["public"]["Tables"]["employees"]["Row"];
-export type Employee = Omit<EmployeeRow, "pay_frequency"> & {
+export type Employee = Omit<EmployeeRow, "pay_frequency" | "pay_mode"> & {
   pay_frequency: PayFrequency;
+  pay_mode: PayMode;
 };
 
 export function isPayFrequency(value: unknown): value is PayFrequency {

@@ -15,14 +15,6 @@ const h = vi.hoisted(() => ({
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
-vi.mock("@/components/providers/scope-provider", () => ({
-  useScope: () => ({
-    channels: [
-      { id: "jouve_fiscal", name: "Jouve", is_fiscal: true, is_active: true },
-    ],
-  }),
-  useDefaultChannel: () => "jouve_fiscal",
-}));
 vi.mock("@/features/accounts/actions/accounts-actions", () => ({
   listAccountsAction: h.listAccounts,
 }));
@@ -103,5 +95,51 @@ describe("PayrollPaymentsDialog with late reads", () => {
     expect(screen.queryByText("Sin pagos todavía.")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: /Reintentar/ }));
     expect(h.payments.refetch).toHaveBeenCalled();
+  });
+
+  it("lists a split payment once, with its books and management pieces", async () => {
+    h.listAccounts.mockResolvedValue({ ok: true, data: [galicia] });
+    const piece = {
+      account_id: "a1",
+      channel_id: "jouve_fiscal",
+      method: "transferencia",
+      paid_at: "2026-10-31",
+      notes: null,
+    };
+    h.payments = {
+      isLoading: false,
+      isError: false,
+      data: [
+        {
+          ...piece,
+          id: "p1",
+          split_parent_id: null,
+          is_fiscal: true,
+          reconciled: true,
+          amount: 60_000,
+        },
+        {
+          ...piece,
+          id: "p2",
+          channel_id: "jouve_internal",
+          split_parent_id: "p1",
+          is_fiscal: false,
+          reconciled: true,
+          amount: 40_000,
+        },
+      ],
+      refetch: vi.fn(),
+    };
+    openDialog();
+    expect(
+      await screen.findByText(/Libros .*60\.000.* · Gestión .*40\.000/),
+    ).toBeTruthy();
+    expect(
+      await screen.findAllByRole("button", { name: "Editar pago" }),
+    ).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "Editar pago" }));
+    expect(
+      await screen.findByText("Conciliado: desconciliá para cambiar el monto"),
+    ).toBeTruthy();
   });
 });

@@ -12,9 +12,7 @@ import {
   FormColumns,
   WIDE_FORM_DIALOG,
 } from "@/components/form-columns";
-import { ChannelsReadError } from "@/components/channels-read-error";
 import { DisabledHint, firstReason } from "@/components/disabled-hint";
-import { useDefaultChannel } from "@/components/providers/scope-provider";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -68,11 +66,8 @@ import {
   type PayrollPaymentMethod,
 } from "../payroll-schema";
 
-type ChannelOption = { id: string; name: string };
-
 const FormSchema = z.object({
   account_id: z.string().uuid("Seleccioná una cuenta."),
-  channel_id: z.string().min(1, "Canal requerido."),
   method: z.enum(PAYROLL_PAYMENT_METHODS),
   paid_at: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida."),
   notes: z.string().trim().max(500).optional(),
@@ -100,13 +95,11 @@ function parseAmount(raw: string | undefined): number | null {
 
 export function BulkPayrollPaymentDialog({
   entries,
-  channels,
   year,
   month,
   disabled,
 }: {
   entries: PayrollEntryResolved[];
-  channels: ChannelOption[];
   year: number;
   month: number;
   disabled?: boolean;
@@ -127,13 +120,11 @@ export function BulkPayrollPaymentDialog({
   );
   const [allowOverpay, setAllowOverpay] = useState(false);
   const mut = useBulkCreatePayrollPayments();
-  const defaultChannel = useDefaultChannel() ?? "";
 
   const form = useForm<FormValues>({
     resolver: zodResolver(FormSchema),
     defaultValues: {
       account_id: payableAccounts[0]?.id ?? "",
-      channel_id: defaultChannel,
       method: "transferencia",
       paid_at: todayInAR(),
       notes: "",
@@ -160,7 +151,6 @@ export function BulkPayrollPaymentDialog({
     }
     form.reset({
       account_id: payableAccounts[0]?.id ?? "",
-      channel_id: defaultChannel,
       method: "transferencia",
       paid_at: todayInAR(),
       notes: "",
@@ -222,7 +212,6 @@ export function BulkPayrollPaymentDialog({
       {
         items,
         account_id: values.account_id,
-        channel_id: values.channel_id,
         method: values.method,
         paid_at: values.paid_at,
         notes: values.notes?.trim() ? values.notes : null,
@@ -255,7 +244,8 @@ export function BulkPayrollPaymentDialog({
           <DialogDescription>
             Un pago por empleado, cada uno con su monto. Con el neto del recibo
             cargado se sugiere la transferencia (recibo − embargo − descuentos)
-            o el efectivo (el resto); sin recibo, el saldo.
+            o el efectivo (el resto); sin recibo, el saldo. Canal automático: el
+            neto del recibo (menos embargo) va a libros; el resto, a gestión.
           </DialogDescription>
         </DialogHeader>
         {open && accountsError && (
@@ -381,63 +371,33 @@ export function BulkPayrollPaymentDialog({
                 </div>
               </FormColumn>
               <FormColumn>
-                <div className="grid grid-cols-2 gap-3">
-                  <FormField
-                    control={form.control}
-                    name="account_id"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Cuenta en pesos</FormLabel>
-                        <Select
-                          value={field.value}
-                          onValueChange={field.onChange}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Cuenta" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {payableAccounts.map((a) => (
-                              <SelectItem key={a.id} value={a.id}>
-                                {a.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="channel_id"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Canal</FormLabel>
-                        <Select
-                          value={field.value}
-                          onValueChange={field.onChange}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {channels.map((c) => (
-                              <SelectItem key={c.id} value={c.id}>
-                                {c.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <ChannelsReadError inline />
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+                <FormField
+                  control={form.control}
+                  name="account_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Cuenta en pesos</FormLabel>
+                      <Select
+                        value={field.value}
+                        onValueChange={field.onChange}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Cuenta" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {payableAccounts.map((a) => (
+                            <SelectItem key={a.id} value={a.id}>
+                              {a.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
                 <FormField
                   control={form.control}

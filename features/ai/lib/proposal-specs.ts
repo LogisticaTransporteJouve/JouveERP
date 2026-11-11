@@ -51,8 +51,11 @@ import {
   EmployeeUpdateSchema,
   isDriverPosition,
   isPayFrequency,
+  isPayMode,
   PAY_FREQUENCIES,
   PAY_FREQUENCY_LABEL,
+  PAY_MODE_LABEL,
+  PAY_MODES,
 } from "@/features/hr/schema";
 import {
   CreateLeaveSchema,
@@ -1885,6 +1888,7 @@ const EMPLOYEE_SUMMARY_FIELDS = [
   ["cuil", "CUIL"],
   ["cbu", "CBU"],
   ["pay_frequency", "Frecuencia de pago"],
+  ["pay_mode", "Modalidad"],
   ["base_salary", "Sueldo base"],
   ["viatico_monthly", "Viático mensual"],
   ["is_monotributo", "Monotributista"],
@@ -1920,6 +1924,7 @@ export function employeeFieldText(key: string, value: unknown): string {
   if (key === "pay_frequency" && isPayFrequency(value)) {
     return PAY_FREQUENCY_LABEL[value];
   }
+  if (key === "pay_mode" && isPayMode(value)) return PAY_MODE_LABEL[value];
   return value;
 }
 
@@ -1946,6 +1951,12 @@ const employeeEditableFields: readonly ProposalField[] = [
       value: f,
       label: PAY_FREQUENCY_LABEL[f],
     })),
+  },
+  {
+    key: "pay_mode",
+    label: "Modalidad",
+    kind: "select",
+    options: PAY_MODES.map((m) => ({ value: m, label: PAY_MODE_LABEL[m] })),
   },
   { key: "base_salary", label: "Sueldo base", kind: "number" },
   { key: "viatico_monthly", label: "Viático mensual", kind: "number" },
@@ -2032,7 +2043,7 @@ export const updateEmployeeProposalSpec = defineProposalSpec({
 // ─── Payroll payments ────────────────────────────────────────────────────────
 
 /** Keys of the display labels a payroll payment draft carries (the ids of
- *  the entries, the account and the channel carry their own). */
+ *  the entries and the account carry their own). */
 export const PAYROLL_PAYMENT_LABELS = { period: "period" } as const;
 
 export const payrollPaymentProposalSpec = defineProposalSpec({
@@ -2050,7 +2061,10 @@ export const payrollPaymentProposalSpec = defineProposalSpec({
       value: labels[PAYROLL_PAYMENT_LABELS.period] ?? "—",
     },
     { label: "Cuenta", value: labels[d.account_id] ?? d.account_id },
-    { label: "Canal", value: labels[d.channel_id] ?? d.channel_id },
+    {
+      label: "Canal",
+      value: "Automático (recibo − embargo → libros; resto → gestión)",
+    },
     { label: "Método", value: PAYROLL_PAYMENT_METHOD_LABEL[d.method] },
     { label: "Fecha", value: formatArgentineDate(d.paid_at) },
     ...d.items.map((i) => ({

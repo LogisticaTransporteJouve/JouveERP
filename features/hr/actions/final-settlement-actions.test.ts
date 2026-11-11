@@ -14,6 +14,9 @@ let salaryForMonth: number | null = 1_000_000;
 // payroll_entries.sueldo_neto by period id.
 let entries: Record<string, number> = {};
 let monthlyPeriods: Record<string, string> = {};
+let payMode = "acordado";
+// The last apply_final_settlement call's arguments.
+let applied: Record<string, unknown> | null = null;
 
 function rowFor(table: string, f: Filters): Row | Row[] {
   if (table === "employees") {
@@ -21,6 +24,7 @@ function rowFor(table: string, f: Filters): Row | Row[] {
       id: EMP,
       hire_date: "2020-01-01",
       termination_date: terminationDate,
+      pay_mode: payMode,
     };
   }
   if (table === "payroll_periods") {
@@ -72,6 +76,7 @@ vi.mock("@/lib/supabase/server", () => ({
         const key = `${String(args.p_year)}-${String(args.p_month)}`;
         const periodId = (monthlyPeriods[key] ??= `mon-${key}`);
         entries[periodId] = Number(args.p_sueldo_neto);
+        applied = args;
         return { data: `entry-${periodId}`, error: null };
       }
       // The 2.º semestre suggestion, prorated to Dec 28: 500000 × 181/184.
@@ -90,6 +95,8 @@ beforeEach(() => {
   salaryForMonth = 1_000_000;
   entries = { "mon-2026-12": 1_000_000 };
   monthlyPeriods = { "2026-12": "mon-2026-12" };
+  payMode = "acordado";
+  applied = null;
 });
 
 async function suggestion() {
@@ -180,5 +187,24 @@ describe("final settlement without a base salary", () => {
     entries = {};
     const s = await suggestion();
     expect(s.monthly_salary).toBe(0);
+  });
+});
+
+describe("final settlement of a «por recibo» employee", () => {
+  it("adds neither vacations nor SAC: the final recibo holds them", async () => {
+    payMode = "recibo";
+    const s = await suggestion();
+    expect(s.pay_mode).toBe("recibo");
+    expect(s.vacation_amount).toBeGreaterThan(0);
+    await applySuggestion();
+    expect(applied?.p_vacaciones_monto).toBe(0);
+    expect(applied?.p_sac_amount).toBe(0);
+  });
+
+  it("keeps vacations and SAC for a sueldo acordado", async () => {
+    const s = await suggestion();
+    await applySuggestion();
+    expect(applied?.p_vacaciones_monto).toBe(s.vacation_amount);
+    expect(applied?.p_sac_amount).toBe(s.sac_amount);
   });
 });

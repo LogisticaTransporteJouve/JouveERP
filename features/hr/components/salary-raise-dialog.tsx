@@ -58,7 +58,8 @@ export function SalaryRaiseDialog() {
             Sube el sueldo base de los empleados elegidos desde un mes. Las
             planillas en borrador desde ese mes que tienen el sueldo anterior se
             actualizan; las cerradas no cambian. Queda en el historial de cada
-            empleado.
+            empleado. Los empleados por recibo no entran: su sueldo sale del
+            recibo.
           </DialogDescription>
         </DialogHeader>
         {open && (

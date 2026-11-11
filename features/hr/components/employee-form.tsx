@@ -48,8 +48,11 @@ import {
   isDriverPosition,
   PAY_FREQUENCIES,
   PAY_FREQUENCY_LABEL,
+  PAY_MODES,
+  PAY_MODE_LABEL,
   type Employee,
   type PayFrequency,
+  type PayMode,
 } from "../schema";
 
 type Mode = "create" | "edit";
@@ -60,6 +63,7 @@ type FormValues = {
   cuil: string;
   cbu: string;
   pay_frequency: PayFrequency;
+  pay_mode: PayMode;
   base_salary: string;
   viatico_monthly: string;
   is_monotributo: boolean;
@@ -84,6 +88,7 @@ function employeeToValues(employee: Employee | undefined): FormValues {
     cuil: employee?.cuil ?? "",
     cbu: employee?.cbu ?? "",
     pay_frequency: (employee?.pay_frequency ?? "mensual") as PayFrequency,
+    pay_mode: employee?.pay_mode ?? "acordado",
     base_salary:
       employee?.base_salary != null ? amountToInput(employee.base_salary) : "",
     viatico_monthly:
@@ -122,6 +127,7 @@ function withoutVacationFields(values: FormValues) {
     cuil: values.cuil,
     cbu: values.cbu,
     pay_frequency: values.pay_frequency,
+    pay_mode: values.pay_mode,
     base_salary: moneyField(values.base_salary),
     viatico_monthly: moneyField(values.viatico_monthly),
     is_monotributo: values.is_monotributo,
@@ -299,6 +305,36 @@ export function EmployeeForm({
                 )}
               />
             </div>
+
+            <FormField
+              control={form.control}
+              name="pay_mode"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Modalidad</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger className="sm:w-1/2">
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {PAY_MODES.map((mode) => (
+                        <SelectItem key={mode} value={mode}>
+                          {PAY_MODE_LABEL[mode]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormDescription>
+                    Por recibo: el sueldo sale del recibo del liquidador y las
+                    vacaciones van dentro. Sueldo acordado: se carga a mano y se
+                    aumenta por %.
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <FormField

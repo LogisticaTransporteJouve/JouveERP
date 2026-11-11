@@ -226,6 +226,12 @@ const GUARDS = [
   "guard_billed_shipment",
   "guard_check_import_run",
   "guard_link_file_visible",
+  "guard_payroll_payment_split_parent",
+  "payroll_entry_rebalance_channels",
+  "update_payroll_payment",
+  "payroll_period_post_receipt_gaps",
+  "split_matched_movement",
+  "merge_matched_movement",
 ];
 
 describe("guard hints in migrations", () => {

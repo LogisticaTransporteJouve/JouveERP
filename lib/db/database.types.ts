@@ -3318,6 +3318,7 @@ export type Database = {
           notes: string | null
           obra_social: string | null
           pay_frequency: string
+          pay_mode: string
           position: string | null
           retribucion_formal: number | null
           termination_date: string | null
@@ -3345,6 +3346,7 @@ export type Database = {
           notes?: string | null
           obra_social?: string | null
           pay_frequency: string
+          pay_mode?: string
           position?: string | null
           retribucion_formal?: number | null
           termination_date?: string | null
@@ -3372,6 +3374,7 @@ export type Database = {
           notes?: string | null
           obra_social?: string | null
           pay_frequency?: string
+          pay_mode?: string
           position?: string | null
           retribucion_formal?: number | null
           termination_date?: string | null
@@ -6085,13 +6088,14 @@ export type Database = {
           method: Database["public"]["Enums"]["payroll_payment_method"]
           notes: string | null
           paid_at: string
+          split_parent_id: string | null
           transaction_id: string | null
           updated_at: string
         }
         Insert: {
           account_id: string
           amount: number
-          channel_id: string
+          channel_id?: string
           created_at?: string
           created_by?: string | null
           entry_id: string
@@ -6099,6 +6103,7 @@ export type Database = {
           method: Database["public"]["Enums"]["payroll_payment_method"]
           notes?: string | null
           paid_at: string
+          split_parent_id?: string | null
           transaction_id?: string | null
           updated_at?: string
         }
@@ -6113,6 +6118,7 @@ export type Database = {
           method?: Database["public"]["Enums"]["payroll_payment_method"]
           notes?: string | null
           paid_at?: string
+          split_parent_id?: string | null
           transaction_id?: string | null
           updated_at?: string
         }
@@ -6153,6 +6159,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "payroll_payments_split_parent_fkey"
+            columns: ["entry_id", "split_parent_id"]
+            isOneToOne: false
+            referencedRelation: "payroll_payments"
+            referencedColumns: ["entry_id", "id"]
+          },
+          {
             foreignKeyName: "payroll_payments_transaction_id_fkey"
             columns: ["transaction_id"]
             isOneToOne: false
@@ -6179,6 +6192,7 @@ export type Database = {
           month: number
           notes: string | null
           posts_employee_accounts: boolean
+          posts_receipt_gap: boolean
           status: string
           updated_at: string
           year: number
@@ -6193,6 +6207,7 @@ export type Database = {
           month: number
           notes?: string | null
           posts_employee_accounts?: boolean
+          posts_receipt_gap?: boolean
           status?: string
           updated_at?: string
           year: number
@@ -6207,6 +6222,7 @@ export type Database = {
           month?: number
           notes?: string | null
           posts_employee_accounts?: boolean
+          posts_receipt_gap?: boolean
           status?: string
           updated_at?: string
           year?: number
@@ -9011,9 +9027,12 @@ export type Database = {
           embargo: number | null
           employee_id: string | null
           extras_total: number | null
+          fiscal_share: number | null
           id: string | null
           notes: string | null
           paid_efectivo: number | null
+          paid_fiscal: number | null
+          paid_internal: number | null
           paid_total: number | null
           paid_transferencia: number | null
           payments_count: number | null
@@ -11078,9 +11097,18 @@ export type Database = {
         }
         Returns: undefined
       }
+      matched_line_totals: { Args: { p_line_ids: string[] }; Returns: Json }
       materialize_recurring_tasks: {
         Args: { p_today: string }
         Returns: number
+      }
+      merge_matched_movement: {
+        Args: {
+          p_channel_id: string
+          p_sibling_id: string
+          p_transaction_id: string
+        }
+        Returns: undefined
       }
       migrate_client_storage_tariffs: { Args: never; Returns: number }
       next_internal_invoice_numero_atomic: {
@@ -11132,6 +11160,19 @@ export type Database = {
         Args: {
           p_payment_order: Database["public"]["Tables"]["payment_orders"]["Row"]
         }
+        Returns: number
+      }
+      payroll_channel: { Args: { p_fiscal: boolean }; Returns: string }
+      payroll_entry_rebalance_channels: {
+        Args: { p_entry_id: string }
+        Returns: undefined
+      }
+      payroll_fiscal_cap: {
+        Args: { p_share: number; p_total_a_pagar: number }
+        Returns: number
+      }
+      payroll_fiscal_share: {
+        Args: { p_embargo: number; p_recibo_neto: number }
         Returns: number
       }
       payroll_garnishment_amount: {
@@ -11509,6 +11550,7 @@ export type Database = {
           notes: string | null
           obra_social: string | null
           pay_frequency: string
+          pay_mode: string
           position: string | null
           retribucion_formal: number | null
           termination_date: string | null
@@ -11744,6 +11786,15 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      split_matched_movement: {
+        Args: {
+          p_amount: number
+          p_channel_id: string
+          p_sibling_id: string
+          p_transaction_id: string
+        }
+        Returns: undefined
+      }
       storage_billing_void_run_ids: { Args: never; Returns: string[] }
       storage_invoice_is_void: {
         Args: { p_invoice_id: string }
@@ -11917,6 +11968,17 @@ export type Database = {
           p_payment_date: string
           p_payment_lines: Json
           p_total_amount: number
+        }
+        Returns: undefined
+      }
+      update_payroll_payment: {
+        Args: {
+          p_account_id: string
+          p_amount: number
+          p_id: string
+          p_method: Database["public"]["Enums"]["payroll_payment_method"]
+          p_notes: string
+          p_paid_at: string
         }
         Returns: undefined
       }

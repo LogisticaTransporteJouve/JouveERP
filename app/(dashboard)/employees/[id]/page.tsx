@@ -23,7 +23,7 @@ import { SalaryHistoryCard } from "@/features/hr/components/salary-history-card"
 import { TerminateEmployeeDialog } from "@/features/hr/components/terminate-employee-dialog";
 import { TripRatesCard } from "@/features/hr/components/trip-rates-card";
 import { HR_CASH_PERMISSIONS } from "@/features/hr/lib/hr-cash";
-import { PAY_FREQUENCY_LABEL } from "@/features/hr/schema";
+import { PAY_FREQUENCY_LABEL, PAY_MODE_LABEL } from "@/features/hr/schema";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan, userCanAll } from "@/lib/auth/permissions";
 import { formatArgentineDate, formatNumber2 } from "@/lib/format";
@@ -164,6 +164,7 @@ export default async function EmployeeDetailPage({
             label="Retribución formal"
             value={money(employee.retribucion_formal)}
           />
+          <Row label="Modalidad" value={PAY_MODE_LABEL[employee.pay_mode]} />
         </dl>
       </div>
 

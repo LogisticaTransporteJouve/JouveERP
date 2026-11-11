@@ -2,6 +2,8 @@ import { z } from "zod";
 
 import type { Database } from "@/lib/db/database.types";
 
+import type { PayMode } from "./schema";
+
 // ─── Status ──────────────────────────────────────────────────────────────────
 
 export const PAYROLL_STATUSES = ["draft", "closed"] as const;
@@ -62,10 +64,11 @@ export type SeedPayrollPeriodInput = z.infer<typeof SeedPayrollPeriodSchema>;
 export type ClosePayrollPeriodInput = z.infer<typeof ClosePayrollPeriodSchema>;
 
 type PayrollPeriodRow = Database["public"]["Tables"]["payroll_periods"]["Row"];
-// posts_employee_accounts is the database's alone (closing writes the account).
+// posts_employee_accounts and posts_receipt_gap are the database's alone
+// (closing writes the account and the recibo gap entry).
 export type PayrollPeriod = Omit<
   PayrollPeriodRow,
-  "status" | "kind" | "posts_employee_accounts"
+  "status" | "kind" | "posts_employee_accounts" | "posts_receipt_gap"
 > & {
   status: PayrollStatus;
   kind: PayrollPeriodKind;
@@ -114,6 +117,9 @@ export type PayrollEntryResolved = {
   employee_id: string;
   employee_legal_name: string;
   employee_pay_frequency: string;
+  /** recibo: the database copies the recibo into the sueldo and keeps
+   *  vacaciones at 0. */
+  employee_pay_mode: PayMode;
   employee_is_active: boolean;
   sueldo_neto: number;
   extras_total: number;
@@ -136,6 +142,12 @@ export type PayrollEntryResolved = {
   paid_efectivo: number;
   saldo: number;
   payments_count: number;
+  /** What the books carry: recibo − embargo (payroll_fiscal_share). */
+  fiscal_share: number;
+  /** Paid on the fiscal channel (books) and on the internal one (management);
+   *  the database assigns each payment's channel. */
+  paid_fiscal: number;
+  paid_internal: number;
   notes: string | null;
 };
 
@@ -152,10 +164,13 @@ export const PAYROLL_PAYMENT_METHOD_LABEL: Record<
   efectivo: "Efectivo",
 };
 
+// No channel: the database assigns each payment's channel by the recibo
+// (recibo − embargo to the books, the rest to management) and may split a
+// payment in two. Non-strict objects strip a channel_id sent by older
+// clients or stored assistant drafts.
 export const CreatePayrollPaymentSchema = z.object({
   entry_id: z.string().uuid(),
   account_id: z.string().uuid(),
-  channel_id: z.string().trim().min(1, "Canal requerido."),
   amount: z.coerce.number().positive().max(999999999.99),
   method: z.enum(PAYROLL_PAYMENT_METHODS),
   paid_at: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida."),
@@ -202,7 +217,6 @@ export const BulkCreatePayrollPaymentsSchema = z.object({
       "Un empleado figura dos veces en el pago.",
     ),
   account_id: z.string().uuid(),
-  channel_id: z.string().trim().min(1, "Canal requerido."),
   method: z.enum(PAYROLL_PAYMENT_METHODS),
   paid_at: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida."),
   notes: z.string().trim().max(500).nullable().optional(),
@@ -216,8 +230,17 @@ export type BulkCreatePayrollPaymentsInput = z.infer<
 
 type PayrollPaymentRow =
   Database["public"]["Tables"]["payroll_payments"]["Row"];
+/** split_parent_id set = the internal piece of the payment it names (the
+ *  part beyond the books' share); the user edits and deletes the parent. */
 export type PayrollPayment = Omit<PayrollPaymentRow, "method"> & {
   method: PayrollPaymentMethod;
+};
+
+/** A payment as the payroll dialog lists it: its channel side and whether
+ *  its movement is reconciled with the bank statement. */
+export type PayrollPaymentListed = PayrollPayment & {
+  is_fiscal: boolean;
+  reconciled: boolean;
 };
 
 export function isPayrollPaymentMethod(

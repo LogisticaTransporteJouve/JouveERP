@@ -47,6 +47,7 @@ export async function createEmployee(
       cuil: input.cuil ?? null,
       cbu: input.cbu ?? null,
       pay_frequency: input.pay_frequency,
+      pay_mode: input.pay_mode,
       base_salary: input.base_salary ?? null,
       viatico_monthly: input.viatico_monthly,
       is_monotributo: input.is_monotributo,
@@ -86,6 +87,7 @@ export async function createEmployee(
     {
       legal_name: input.legal_name,
       pay_frequency: input.pay_frequency,
+      pay_mode: input.pay_mode,
       base_salary: input.base_salary ?? null,
     },
     id,

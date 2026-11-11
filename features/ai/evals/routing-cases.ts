@@ -870,7 +870,7 @@ export const ROUTING_CASES: RoutingCase[] = [
   {
     id: "propose-payroll-payment",
     question:
-      "Pagale el sueldo de octubre 2026 a Gómez Ana por transferencia desde el Banco Galicia, canal interno.",
+      "Pagale el sueldo de octubre 2026 a Gómez Ana por transferencia desde el Banco Galicia.",
     roles: ["finance"],
     expect: {
       tool: "proposePayrollPayment",
@@ -878,7 +878,6 @@ export const ROUTING_CASES: RoutingCase[] = [
         period: "2026-10",
         method: "transferencia",
         account: "Banco Galicia",
-        channel: "internal",
       },
     },
     scriptedInput: {
@@ -886,7 +885,6 @@ export const ROUTING_CASES: RoutingCase[] = [
       employees: ["Gómez Ana"],
       method: "transferencia",
       account: "Banco Galicia",
-      channel: "internal",
     },
   },
   {

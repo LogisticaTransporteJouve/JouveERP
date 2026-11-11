@@ -9,6 +9,7 @@ import {
 import {
   EMPLOYEE_POSITIONS,
   PAY_FREQUENCIES,
+  PAY_MODES,
   type Employee,
 } from "@/features/hr/schema";
 import { userCan } from "@/lib/auth/permissions";
@@ -47,6 +48,12 @@ const employeeFields = {
   cuil: text(13).describe("CUIL, 11 dígitos (con o sin guiones)."),
   cbu: text(26).describe("CBU, 22 dígitos."),
   pay_frequency: z.enum(PAY_FREQUENCIES),
+  pay_mode: z
+    .enum(PAY_MODES)
+    .describe(
+      "Modalidad: 'recibo' = el sueldo sale del recibo del liquidador (las " +
+        "vacaciones van dentro); 'acordado' = se carga a mano y se aumenta por %.",
+    ),
   base_salary: money.describe("Sueldo base mensual neto, en pesos."),
   viatico_monthly: money.describe("Viático mensual fijo, en pesos."),
   is_monotributo: z.boolean(),
@@ -139,6 +146,7 @@ export const proposeCreateEmployee = defineAiProposal({
       draft: {
         ...given(input),
         pay_frequency: input.pay_frequency ?? "mensual",
+        pay_mode: input.pay_mode ?? "acordado",
         viatico_monthly: input.viatico_monthly ?? 0,
         is_monotributo: input.is_monotributo ?? false,
       },
@@ -155,6 +163,7 @@ function currentEmployeeFields(e: Employee) {
     cuil: e.cuil,
     cbu: e.cbu,
     pay_frequency: e.pay_frequency,
+    pay_mode: e.pay_mode,
     base_salary: e.base_salary === null ? null : Number(e.base_salary),
     viatico_monthly: Number(e.viatico_monthly),
     is_monotributo: e.is_monotributo,

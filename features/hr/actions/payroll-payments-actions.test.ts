@@ -33,7 +33,6 @@ const PAY = "00000000-0000-4000-8000-000000000003";
 
 const payment = {
   account_id: ACC,
-  channel_id: "jouve_internal",
   amount: 1000,
   method: "transferencia",
   paid_at: "2026-11-04",
@@ -82,7 +81,17 @@ describe("payroll payments move treasury money", () => {
       select: async () => ({ data: [{ id: PAY }], error: null }),
     }));
     createClient.mockResolvedValue({
-      from: () => ({ delete: () => ({ eq }) }),
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            maybeSingle: async () => ({
+              data: { split_parent_id: null },
+              error: null,
+            }),
+          }),
+        }),
+        delete: () => ({ eq }),
+      }),
     });
     const res = await deletePayrollPaymentAction({ id: PAY });
     expect(res).toEqual({ ok: true, data: undefined });
@@ -93,5 +102,55 @@ describe("payroll payments move treasury money", () => {
       {},
       PAY,
     );
+  });
+});
+
+describe("the internal piece of a split payment", () => {
+  function readsChild() {
+    const del = vi.fn();
+    const rpc = vi.fn();
+    createClient.mockResolvedValue({
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            maybeSingle: async () => ({
+              data: {
+                id: PAY,
+                entry_id: ENTRY,
+                account_id: ACC,
+                amount: 500,
+                method: "transferencia",
+                paid_at: "2026-11-04",
+                split_parent_id: "00000000-0000-4000-8000-000000000009",
+              },
+              error: null,
+            }),
+          }),
+        }),
+        delete: del,
+      }),
+      rpc,
+    });
+    return { del, rpc };
+  }
+
+  it("is not edited on its own", async () => {
+    const { rpc } = readsChild();
+    const res = await updatePayrollPaymentAction({ ...payment, id: PAY });
+    expect(res).toEqual({
+      ok: false,
+      error: "Editá el pago completo, no su parte interna.",
+    });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("is not deleted on its own", async () => {
+    const { del } = readsChild();
+    const res = await deletePayrollPaymentAction({ id: PAY });
+    expect(res).toEqual({
+      ok: false,
+      error: "Borrá el pago completo, no su parte interna.",
+    });
+    expect(del).not.toHaveBeenCalled();
   });
 });

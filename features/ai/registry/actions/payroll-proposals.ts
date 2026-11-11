@@ -25,11 +25,7 @@ import {
 } from "../../lib/proposal-specs";
 import { defineAiProposal, type ProposalCandidate } from "../propose";
 
-import {
-  HrChannelInput,
-  resolveChannel,
-  resolveTreasuryAccount,
-} from "./hr-refs";
+import { resolveTreasuryAccount } from "./hr-refs";
 import { MAX_CANDIDATES, norm } from "./resolve-client";
 
 // "Pagar" / "Pago masivo" of a payroll month. The amounts are the planilla's
@@ -108,10 +104,12 @@ export const proposePayrollPayment = defineAiProposal({
   description:
     "Propose paying salaries of a payroll month (Pagar / Pago masivo de la " +
     "planilla) for the user to accept on a card: one employee or several, by " +
-    "transfer or cash, from an ARS cash/bank account, on a channel. Without " +
-    "employees it pays everyone with a pending balance for that method. The " +
-    "amounts are the planilla's suggestion for the method; pass amount only " +
-    "when the user said one, for one employee. Writes nothing by itself.",
+    "transfer or cash, from an ARS cash/bank account. Without employees it " +
+    "pays everyone with a pending balance for that method. The amounts are " +
+    "the planilla's suggestion for the method; pass amount only when the " +
+    "user said one, for one employee. The database assigns the channel: " +
+    "recibo neto minus embargo goes to the books, the rest to management; " +
+    "one payment may be split in two. Writes nothing by itself.",
   input: z.object({
     period: z
       .string()
@@ -139,7 +137,6 @@ export const proposePayrollPayment = defineAiProposal({
       .min(1)
       .max(120)
       .describe("Cash or bank account to pay from, as the user said it."),
-    channel: HrChannelInput,
     paid_at: isoDate.optional().describe("Payment date; default today."),
     notes: z.string().trim().max(500).optional(),
   }),
@@ -241,13 +238,10 @@ export const proposePayrollPayment = defineAiProposal({
       "una cuenta activa en pesos (caja o banco)",
     );
     if (!account.ok) return account.result;
-    const channel = await resolveChannel(input.channel);
-    if (!channel.ok) return channel.result;
 
     const labels: ProposalLabels = {
       [PAYROLL_PAYMENT_LABELS.period]: periodLabel,
       [account.value.id]: account.value.name,
-      [channel.value.id]: channel.value.name,
     };
     for (const { entry } of items) {
       labels[entry.id] =
@@ -261,7 +255,6 @@ export const proposePayrollPayment = defineAiProposal({
           amount,
         })),
         account_id: account.value.id,
-        channel_id: channel.value.id,
         method: input.method,
         paid_at: input.paid_at ?? todayInAR(),
         notes: input.notes ?? null,

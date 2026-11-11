@@ -19,6 +19,7 @@ vi.mock("../hooks/use-employees", () => ({
         base_salary: 1000,
         position: "Chofer",
         convenio: null,
+        pay_mode: "acordado",
       },
       {
         id: "e2",
@@ -27,6 +28,7 @@ vi.mock("../hooks/use-employees", () => ({
         base_salary: 2000,
         position: "Chofer",
         convenio: null,
+        pay_mode: "acordado",
       },
       {
         id: "e3",
@@ -35,6 +37,16 @@ vi.mock("../hooks/use-employees", () => ({
         base_salary: 3000,
         position: "Mecánico",
         convenio: null,
+        pay_mode: "acordado",
+      },
+      {
+        id: "e4",
+        legal_name: "Olmedo Recibo",
+        is_active: true,
+        base_salary: 4000,
+        position: "Chofer",
+        convenio: null,
+        pay_mode: "recibo",
       },
     ],
   }),
@@ -72,6 +84,14 @@ describe("SalaryRaiseDialog", () => {
       expect.objectContaining({ employee_ids: ["e1", "e3"] }),
       expect.anything(),
     );
+  });
+
+  it("leaves out the employees paid por recibo", () => {
+    open();
+    expect(
+      screen.queryByRole("checkbox", { name: /Olmedo Recibo/ }),
+    ).toBeNull();
+    expect(screen.getByText(/Los empleados por recibo no entran/)).toBeTruthy();
   });
 
   it("cannot apply with nobody ticked", () => {

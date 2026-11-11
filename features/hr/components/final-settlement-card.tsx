@@ -123,7 +123,13 @@ export function FinalSettlementCard({ employeeId }: { employeeId: string }) {
               : ""}
             . Volver a cargarla reemplaza los montos anteriores.
           </p>
-          {data.sac_in_sac_planilla > 0 ? (
+          {data.pay_mode === "recibo" ? (
+            <p className="text-muted-foreground">
+              Por recibo: las vacaciones no gozadas y el SAC proporcional van
+              dentro del recibo final; cargalo en la planilla.
+            </p>
+          ) : null}
+          {data.pay_mode !== "recibo" && data.sac_in_sac_planilla > 0 ? (
             <p className="text-muted-foreground">
               La planilla del{" "}
               <Link
@@ -155,20 +161,24 @@ export function FinalSettlementCard({ employeeId }: { employeeId: string }) {
               value={draft.vacation_days}
               onChange={(v) => setDraft({ ...draft, vacation_days: v })}
             />
-            <Field
-              id="fs-vacation-amount"
-              label="Vacaciones no gozadas ($)"
-              money
-              value={draft.vacation_amount}
-              onChange={(v) => setDraft({ ...draft, vacation_amount: v })}
-            />
-            <Field
-              id="fs-sac"
-              label={`SAC proporcional (${formatPayrollPeriod(data.year, sacMonth(data.sac_half), "sac")})`}
-              money
-              value={draft.sac_amount}
-              onChange={(v) => setDraft({ ...draft, sac_amount: v })}
-            />
+            {data.pay_mode !== "recibo" && (
+              <>
+                <Field
+                  id="fs-vacation-amount"
+                  label="Vacaciones no gozadas ($)"
+                  money
+                  value={draft.vacation_amount}
+                  onChange={(v) => setDraft({ ...draft, vacation_amount: v })}
+                />
+                <Field
+                  id="fs-sac"
+                  label={`SAC proporcional (${formatPayrollPeriod(data.year, sacMonth(data.sac_half), "sac")})`}
+                  money
+                  value={draft.sac_amount}
+                  onChange={(v) => setDraft({ ...draft, sac_amount: v })}
+                />
+              </>
+            )}
           </div>
           <div className="flex justify-end">
             <DisabledHint

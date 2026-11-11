@@ -1,10 +1,7 @@
 "use client";
 
 import { Lock, RotateCcw, Unlock, UserPlus } from "lucide-react";
-import { useMemo } from "react";
 import { toast } from "sonner";
-
-import { useScope } from "@/components/providers/scope-provider";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -68,7 +65,6 @@ export function PayrollPeriodGrid({
   const reopenMut = useReopenPayrollPeriod();
   const addMissingMut = useAddMissingPayrollEntries();
   const resetMut = useResetPayrollOverride(year, month);
-  const { channels } = useScope();
 
   const canWrite = userCan(actorAccess, "hr:write");
   const canAdmin = userCan(actorAccess, "hr:admin");
@@ -86,10 +82,6 @@ export function PayrollPeriodGrid({
   // payment (the per-employee dialog says why).
   const canPickAccount = userCan(actorAccess, "accounts:read");
 
-  const activeChannels = useMemo(
-    () => channels.filter((c) => c.is_active),
-    [channels],
-  );
   function commit(
     entryId: string,
     field:
@@ -195,7 +187,6 @@ export function PayrollPeriodGrid({
             {canManagePayments && canPickAccount && entries.length > 0 && (
               <BulkPayrollPaymentDialog
                 entries={entries}
-                channels={activeChannels}
                 year={year}
                 month={month}
               />
@@ -287,7 +278,12 @@ export function PayrollPeriodGrid({
                   Otros
                 </TableHead>
                 <TableHead className="w-32 text-right">Extras</TableHead>
-                <TableHead className="w-32 text-right">Vacaciones</TableHead>
+                <TableHead
+                  className="w-32 text-right"
+                  title="Vacía para los empleados por recibo: las vacaciones van dentro del recibo."
+                >
+                  Vacaciones
+                </TableHead>
                 <TableHead className="w-32 text-right">Viáticos</TableHead>
                 <TableHead
                   className="w-32 text-right"
@@ -300,11 +296,16 @@ export function PayrollPeriodGrid({
                 <TableHead className="w-32 text-right">Total</TableHead>
                 <TableHead
                   className="w-36 text-right"
-                  title="Transferencia = recibo − embargo − descuentos; efectivo = el resto del total."
+                  title="Transferencia sugerida = recibo − embargo − deudas − teléfono; a libros va recibo − embargo."
                 >
                   Transf. / Efectivo
                 </TableHead>
-                <TableHead className="w-32 text-right">Pagado</TableHead>
+                <TableHead
+                  className="w-32 text-right"
+                  title="El canal lo asigna el sistema: recibo − embargo va a libros; el resto, a gestión."
+                >
+                  Pagado
+                </TableHead>
                 <TableHead className="w-32 text-right">Saldo</TableHead>
               </TableRow>
             </TableHeader>
@@ -332,13 +333,31 @@ export function PayrollPeriodGrid({
                       >
                         {e.employee_pay_frequency}
                       </Badge>
+                      {e.employee_pay_mode === "recibo" && (
+                        <Badge
+                          variant="outline"
+                          className="ml-1 text-[10px] font-normal"
+                          title="Por recibo: el sueldo sale del recibo y las vacaciones van dentro."
+                        >
+                          recibo
+                        </Badge>
+                      )}
                     </TableCell>
                     <TableCell className="text-right">
-                      <InlineMoneyInput
-                        value={e.sueldo_neto}
-                        disabled={!canEdit}
-                        onCommit={(v) => commit(e.id, "sueldo_neto", v)}
-                      />
+                      {sueldoFromRecibo(e) ? (
+                        <span
+                          className="font-mono text-muted-foreground"
+                          title="Sale del recibo"
+                        >
+                          {money(e.sueldo_neto)}
+                        </span>
+                      ) : (
+                        <InlineMoneyInput
+                          value={e.sueldo_neto}
+                          disabled={!canEdit}
+                          onCommit={(v) => commit(e.id, "sueldo_neto", v)}
+                        />
+                      )}
                     </TableCell>
                     <TableCell className="text-right">
                       <InlineMoneyInput
@@ -365,11 +384,18 @@ export function PayrollPeriodGrid({
                       />
                     </TableCell>
                     <TableCell className="text-right">
-                      <InlineMoneyInput
-                        value={e.vacaciones_monto}
-                        disabled={!canEdit}
-                        onCommit={(v) => commit(e.id, "vacaciones_monto", v)}
-                      />
+                      {e.employee_pay_mode === "recibo" ? (
+                        <span
+                          className="text-muted-foreground"
+                          title="Va dentro del recibo"
+                        />
+                      ) : (
+                        <InlineMoneyInput
+                          value={e.vacaciones_monto}
+                          disabled={!canEdit}
+                          onCommit={(v) => commit(e.id, "vacaciones_monto", v)}
+                        />
+                      )}
                     </TableCell>
                     <TableCell className="text-right">
                       <InlineMoneyInput
@@ -441,7 +467,10 @@ export function PayrollPeriodGrid({
                     <TableCell className="text-right font-mono text-xs text-muted-foreground">
                       <SplitCell entry={e} />
                     </TableCell>
-                    <TableCell className="text-right font-mono text-muted-foreground">
+                    <TableCell
+                      className="text-right font-mono text-muted-foreground"
+                      title={`Libros ${money(e.paid_fiscal)} · Gestión ${money(e.paid_internal)}`}
+                    >
                       {money(e.paid_total)}
                     </TableCell>
                     <TableCell className="text-right">
@@ -517,6 +546,12 @@ export function PayrollPeriodGrid({
       )}
     </div>
   );
+}
+
+/** A «por recibo» employee with the recibo loaded: the database copies it
+ *  into the sueldo, so the cell is not editable. */
+function sueldoFromRecibo(e: PayrollEntryResolved): boolean {
+  return e.employee_pay_mode === "recibo" && e.recibo_neto !== null;
 }
 
 function SplitCell({ entry }: { entry: PayrollEntryResolved }) {

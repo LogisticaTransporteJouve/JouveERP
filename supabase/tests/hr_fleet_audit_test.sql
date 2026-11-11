@@ -34,17 +34,19 @@ insert into public.employees (id, legal_name, pay_frequency, hire_date) values
 insert into public.payroll_periods (id, year, month) values
   ('00000000-0000-0000-0000-0000000009d1',
    extract(year from current_date)::int, extract(month from current_date)::int);
-insert into public.payroll_entries (id, period_id, employee_id, sueldo_neto) values
+-- With its recibo loaded, the whole payment is fiscal (the database assigns
+-- the channel).
+insert into public.payroll_entries (id, period_id, employee_id, sueldo_neto, recibo_neto) values
   ('00000000-0000-0000-0000-0000000009c1', '00000000-0000-0000-0000-0000000009d1',
-   '00000000-0000-0000-0000-0000000009e1', 500000);
+   '00000000-0000-0000-0000-0000000009e1', 500000, 500000);
 
 set local role authenticated;
 select set_config('request.jwt.claims',
   '{"sub":"00000000-0000-0000-0000-0000000009f1","role":"authenticated"}', true);
 
-insert into public.payroll_payments (id, entry_id, account_id, channel_id, amount, method, paid_at) values
+insert into public.payroll_payments (id, entry_id, account_id, amount, method, paid_at) values
   ('00000000-0000-0000-0000-0000000009b1', '00000000-0000-0000-0000-0000000009c1',
-   '00000000-0000-0000-0000-00000000a901', 'jouve_fiscal', 500000, 'transferencia', current_date);
+   '00000000-0000-0000-0000-00000000a901', 500000, 'transferencia', current_date);
 
 insert into public.transactions
   (id, account_id, channel_id, kind, amount, currency, transaction_date, accrual_month, description)

@@ -87,7 +87,7 @@ describe("payrollDbErrorMessage", () => {
 
   it("keeps another guard's own message on the same SQLSTATE", () => {
     const message =
-      "El movimiento está conciliado con el extracto bancario: desconciliá su línea en Tesorería › Conciliación antes de editarlo.";
+      "El movimiento está conciliado con el extracto bancario: desconciliá su línea en la pestaña «Extracto» de su cuenta antes de editarlo.";
     expect(
       payrollDbErrorMessage(
         { code: "55006", hint: "jouve_guard", message },

@@ -6,6 +6,7 @@ import {
   EmployeeTerminateSchema,
   EmployeeUpdateSchema,
   isPayFrequency,
+  isPayMode,
 } from "./schema";
 
 const UUID = "f47ac10b-58cc-4372-a567-0e02b2c3d479";
@@ -41,6 +42,21 @@ describe("EmployeeCreateSchema", () => {
     ).toBe(false);
   });
 
+  it("pay_mode: sueldo acordado por defecto, por recibo cuando se elige, nada más", () => {
+    const parsed = EmployeeCreateSchema.safeParse(valid);
+    expect(parsed.success && parsed.data.pay_mode).toBe("acordado");
+    const recibo = EmployeeCreateSchema.safeParse({
+      ...valid,
+      pay_mode: "recibo",
+    });
+    expect(recibo.success && recibo.data.pay_mode).toBe("recibo");
+    expect(
+      EmployeeCreateSchema.safeParse({ ...valid, pay_mode: "otro" }).success,
+    ).toBe(false);
+    expect(isPayMode("recibo")).toBe(true);
+    expect(isPayMode("mensual")).toBe(false);
+  });
+
   it("rechaza pay_frequency desconocido", () => {
     expect(
       EmployeeCreateSchema.safeParse({ ...valid, pay_frequency: "diario" })
@@ -56,8 +72,7 @@ describe("EmployeeCreateSchema", () => {
 
   it("acepta CUIL de 11 dígitos", () => {
     expect(
-      EmployeeCreateSchema.safeParse({ ...valid, cuil: "20123456789" })
-        .success,
+      EmployeeCreateSchema.safeParse({ ...valid, cuil: "20123456789" }).success,
     ).toBe(true);
   });
 

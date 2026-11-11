@@ -36,12 +36,14 @@ insert into public.employees (id, legal_name, pay_frequency, hire_date) values
   ('00000000-0000-0000-0000-0000000008b1', 'Empleado IA', 'mensual', '2020-01-01');
 insert into public.payroll_periods (id, year, month) values
   ('00000000-0000-0000-0000-0000000008c1', 2098, 12);
-insert into public.payroll_entries (id, period_id, employee_id, sueldo_neto) values
+-- The database splits the payments: the recibo (300) goes to the fiscal
+-- channel, the rest (200) to the internal one.
+insert into public.payroll_entries (id, period_id, employee_id, sueldo_neto, recibo_neto) values
   ('00000000-0000-0000-0000-0000000008d1', '00000000-0000-0000-0000-0000000008c1',
-   '00000000-0000-0000-0000-0000000008b1', 1000);
-insert into public.payroll_payments (entry_id, account_id, channel_id, amount, method, paid_at) values
-  ('00000000-0000-0000-0000-0000000008d1', '00000000-0000-0000-0000-0000000008a1', 'jouve_fiscal', 300, 'transferencia', current_date),
-  ('00000000-0000-0000-0000-0000000008d1', '00000000-0000-0000-0000-0000000008a1', 'jouve_internal', 200, 'efectivo', current_date);
+   '00000000-0000-0000-0000-0000000008b1', 1000, 300);
+insert into public.payroll_payments (entry_id, account_id, amount, method, paid_at) values
+  ('00000000-0000-0000-0000-0000000008d1', '00000000-0000-0000-0000-0000000008a1', 300, 'transferencia', current_date),
+  ('00000000-0000-0000-0000-0000000008d1', '00000000-0000-0000-0000-0000000008a1', 200, 'efectivo', current_date);
 
 set local role authenticated;
 

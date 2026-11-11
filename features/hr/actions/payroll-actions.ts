@@ -27,10 +27,11 @@ import {
   type PayrollPeriod,
   type PayrollPeriodKind,
 } from "../payroll-schema";
+import { isPayMode, type PayMode } from "../schema";
 
 type PeriodRow = Omit<
   Database["public"]["Tables"]["payroll_periods"]["Row"],
-  "posts_employee_accounts"
+  "posts_employee_accounts" | "posts_receipt_gap"
 >;
 
 function narrowPeriod(row: PeriodRow): PayrollPeriod | null {
@@ -129,7 +130,7 @@ export async function getPayrollPeriodAction(
   const { data: entries, error: entriesErr } = await supabase
     .from("v_payroll_entries_with_payments")
     .select(
-      "id, period_id, employee_id, sueldo_neto, extras_total, vacaciones_monto, viaticos, deudas, telefono, embargo, recibo_neto, total_a_pagar, paid_total, paid_transferencia, paid_efectivo, saldo, payments_count, notes",
+      "id, period_id, employee_id, sueldo_neto, extras_total, vacaciones_monto, viaticos, deudas, telefono, embargo, recibo_neto, total_a_pagar, paid_total, paid_transferencia, paid_efectivo, saldo, payments_count, notes, fiscal_share, paid_fiscal, paid_internal",
     )
     .eq("period_id", period.id);
 
@@ -167,7 +168,7 @@ export async function getPayrollPeriodAction(
 
   const { data: employees, error: empErr } = await supabase
     .from("employees")
-    .select("id, legal_name, pay_frequency, is_active")
+    .select("id, legal_name, pay_frequency, pay_mode, is_active")
     .in(
       "id",
       employeeIds.length > 0
@@ -187,13 +188,19 @@ export async function getPayrollPeriodAction(
   }
   const empById = new Map<
     string,
-    { legal_name: string; pay_frequency: string; is_active: boolean }
+    {
+      legal_name: string;
+      pay_frequency: string;
+      pay_mode: PayMode;
+      is_active: boolean;
+    }
   >(
     (employees ?? []).map((e) => [
       e.id,
       {
         legal_name: e.legal_name,
         pay_frequency: e.pay_frequency,
+        pay_mode: isPayMode(e.pay_mode) ? e.pay_mode : "acordado",
         is_active: e.is_active,
       },
     ]),
@@ -209,6 +216,7 @@ export async function getPayrollPeriodAction(
         employee_id: row.employee_id ?? "",
         employee_legal_name: emp?.legal_name ?? "(sin nombre)",
         employee_pay_frequency: emp?.pay_frequency ?? "mensual",
+        employee_pay_mode: emp?.pay_mode ?? "acordado",
         employee_is_active: emp?.is_active ?? true,
         sueldo_neto: Number(row.sueldo_neto ?? 0),
         extras_total: Number(row.extras_total ?? 0),
@@ -228,6 +236,9 @@ export async function getPayrollPeriodAction(
         paid_efectivo: Number(row.paid_efectivo ?? 0),
         saldo: Number(row.saldo ?? 0),
         payments_count: Number(row.payments_count ?? 0),
+        fiscal_share: Number(row.fiscal_share ?? 0),
+        paid_fiscal: Number(row.paid_fiscal ?? 0),
+        paid_internal: Number(row.paid_internal ?? 0),
         notes: row.notes ?? null,
       };
     })
@@ -488,11 +499,33 @@ export async function updatePayrollEntryAction(
   if (rest.recibo_neto !== undefined) patch.recibo_neto = rest.recibo_neto;
   if (rest.notes !== undefined) patch.notes = rest.notes ?? null;
 
+  const supabase = await createSupabaseClient();
+
+  // A «por recibo» employee's vacaciones are inside the recibo: the database
+  // keeps them at 0, so the field is not written (nor audited) for them.
+  if (patch.vacaciones_monto !== undefined) {
+    const { data: entry, error: entryErr } = await supabase
+      .from("payroll_entries")
+      .select("employees!inner(pay_mode)")
+      .eq("id", id)
+      .maybeSingle();
+    if (entryErr) {
+      return {
+        ok: false,
+        error: dbErrorMessage(
+          entryErr,
+          { slug: "payroll.entry_update.read_failed", userId: ctx.userId, id },
+          "No se pudo guardar la fila.",
+        ),
+      };
+    }
+    if (entry?.employees.pay_mode === "recibo") delete patch.vacaciones_monto;
+  }
+
   if (Object.keys(patch).length === 0) {
     return { ok: true, data: undefined };
   }
 
-  const supabase = await createSupabaseClient();
   const { data, error } = await supabase
     .from("payroll_entries")
     .update(patch)

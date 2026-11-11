@@ -23,6 +23,7 @@ import {
   isPayrollPaymentMethod,
   UpdatePayrollPaymentSchema,
   type PayrollPayment,
+  type PayrollPaymentListed,
 } from "../payroll-schema";
 
 function narrowPayment(row: {
@@ -37,11 +38,11 @@ function narrowPayment(row: {
 }
 
 const COLS =
-  "id, entry_id, account_id, channel_id, amount, method, paid_at, transaction_id, notes, created_by, created_at, updated_at";
+  "id, entry_id, account_id, channel_id, amount, method, paid_at, transaction_id, notes, created_by, created_at, updated_at, split_parent_id";
 
 export async function listPayrollPaymentsAction(
   entryId: string,
-): Promise<ActionResult<PayrollPayment[]>> {
+): Promise<ActionResult<PayrollPaymentListed[]>> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "hr:read")) {
     return { ok: false, error: "Sin permiso para ver pagos." };
@@ -50,20 +51,48 @@ export async function listPayrollPaymentsAction(
   const supabase = await createSupabaseClient();
   const { data, error } = await supabase
     .from("payroll_payments")
-    .select(COLS)
+    .select(`${COLS}, invoicing_channels!inner(is_fiscal)`)
     .eq("entry_id", entryId)
-    .order("paid_at", { ascending: true });
+    .order("paid_at", { ascending: true })
+    .order("created_at", { ascending: true });
 
   if (error) {
     logger.error("payroll_payments.list.failed", { userId: ctx.userId, error });
     return { ok: false, error: "No se pudieron cargar los pagos." };
   }
-  return {
-    ok: true,
-    data: (data ?? [])
-      .map(narrowPayment)
-      .filter((row): row is PayrollPayment => row !== null),
-  };
+
+  const txIds = (data ?? [])
+    .map((row) => row.transaction_id)
+    .filter((id): id is string => id !== null);
+  const reconciled = new Set<string>();
+  if (txIds.length > 0) {
+    const { data: matches, error: matchesErr } = await supabase
+      .from("bank_statement_matches")
+      .select("transaction_id")
+      .in("transaction_id", txIds);
+    if (matchesErr) {
+      logger.error("payroll_payments.list.matches_failed", {
+        userId: ctx.userId,
+        error: matchesErr,
+      });
+      return { ok: false, error: "No se pudieron cargar los pagos." };
+    }
+    for (const m of matches ?? []) reconciled.add(m.transaction_id);
+  }
+
+  const listed: PayrollPaymentListed[] = [];
+  for (const { invoicing_channels, ...row } of data ?? []) {
+    const payment = narrowPayment(row);
+    if (!payment) continue;
+    listed.push({
+      ...payment,
+      is_fiscal: invoicing_channels.is_fiscal,
+      reconciled:
+        payment.transaction_id !== null &&
+        reconciled.has(payment.transaction_id),
+    });
+  }
+  return { ok: true, data: listed };
 }
 
 export async function createPayrollPaymentAction(
@@ -104,13 +133,31 @@ export async function updatePayrollPaymentAction(
   const supabase = await createSupabaseClient();
   const { data: current, error: currentErr } = await supabase
     .from("payroll_payments")
-    .select("id, entry_id, account_id, channel_id, amount, method, paid_at")
+    .select(
+      "id, entry_id, account_id, amount, method, paid_at, split_parent_id",
+    )
     .eq("id", parsed.data.id)
     .maybeSingle();
   if (currentErr) {
     return { ok: false, error: "No se pudo leer el pago." };
   }
   if (!current) return { ok: false, error: "El pago ya no existe." };
+  if (current.split_parent_id !== null) {
+    return { ok: false, error: "Editá el pago completo, no su parte interna." };
+  }
+
+  // A payment the database split in two (books + management) is edited as
+  // one: its amount is the sum of both pieces.
+  const { data: pieces, error: piecesErr } = await supabase
+    .from("payroll_payments")
+    .select("amount")
+    .eq("split_parent_id", current.id);
+  if (piecesErr) {
+    return { ok: false, error: "No se pudo leer el pago." };
+  }
+  const groupAmount =
+    Number(current.amount) +
+    (pieces ?? []).reduce((sum, p) => sum + Number(p.amount), 0);
 
   if (parsed.data.account_id !== current.account_id) {
     const problem = await payrollAccountProblem(
@@ -125,7 +172,7 @@ export async function updatePayrollPaymentAction(
     const entry = balances?.get(current.entry_id);
     if (!entry) return { ok: false, error: "No se encontró la liquidación." };
     // The current payment already counts in `paid`; give its amount back.
-    const available = entry.saldo + Number(current.amount);
+    const available = entry.saldo + groupAmount;
     if (exceedsBalance(parsed.data.amount, available)) {
       return {
         ok: false,
@@ -134,18 +181,14 @@ export async function updatePayrollPaymentAction(
     }
   }
 
-  const { data: updated, error } = await supabase
-    .from("payroll_payments")
-    .update({
-      account_id: parsed.data.account_id,
-      channel_id: parsed.data.channel_id,
-      amount: parsed.data.amount,
-      method: parsed.data.method,
-      paid_at: parsed.data.paid_at,
-      notes: parsed.data.notes ?? null,
-    })
-    .eq("id", parsed.data.id)
-    .select("id");
+  const { error } = await supabase.rpc("update_payroll_payment", {
+    p_id: current.id,
+    p_account_id: parsed.data.account_id,
+    p_amount: parsed.data.amount,
+    p_method: parsed.data.method,
+    p_paid_at: parsed.data.paid_at,
+    p_notes: parsed.data.notes ?? "",
+  });
 
   if (error) {
     logger.error("payroll_payments.update.failed", {
@@ -157,30 +200,25 @@ export async function updatePayrollPaymentAction(
       error: payrollDbErrorMessage(error, "No se pudo editar el pago."),
     };
   }
-  if (!updated || updated.length === 0) {
-    return { ok: false, error: "No se pudo editar el pago." };
-  }
   await logAudit(
     "payroll.payment_updated",
     ctx.userId,
     {
       before: {
         account_id: current.account_id,
-        channel_id: current.channel_id,
-        amount: Number(current.amount),
+        amount: groupAmount,
         method: current.method,
         paid_at: current.paid_at,
       },
       after: {
         account_id: parsed.data.account_id,
-        channel_id: parsed.data.channel_id,
         amount: parsed.data.amount,
         method: parsed.data.method,
         paid_at: parsed.data.paid_at,
       },
       overpay_confirmed: parsed.data.allow_overpay === true,
     },
-    parsed.data.id,
+    current.id,
   );
   return { ok: true, data: undefined };
 }
@@ -216,6 +254,18 @@ export async function deletePayrollPaymentAction(
   if (!parsed.success) return { ok: false, error: "ID inválido." };
 
   const supabase = await createSupabaseClient();
+  const { data: current, error: currentErr } = await supabase
+    .from("payroll_payments")
+    .select("split_parent_id")
+    .eq("id", parsed.data.id)
+    .maybeSingle();
+  if (currentErr) return { ok: false, error: "No se pudo leer el pago." };
+  if (!current) return { ok: false, error: "El pago ya no existe." };
+  // Deleting the parent deletes its internal piece (FK on delete cascade).
+  if (current.split_parent_id !== null) {
+    return { ok: false, error: "Borrá el pago completo, no su parte interna." };
+  }
+
   const { data, error } = await supabase
     .from("payroll_payments")
     .delete()

@@ -4,7 +4,6 @@ import { resolveAccess } from "@/lib/auth/permissions";
 
 const getPayrollPeriodAction = vi.fn();
 const listAccountsAction = vi.fn();
-const readInvoicingChannels = vi.fn();
 const createPayrollPayment = vi.fn();
 const bulkCreatePayrollPayments = vi.fn();
 
@@ -17,7 +16,6 @@ vi.mock("@/features/hr/actions/employees-actions", () => ({
 vi.mock("@/features/accounts/actions/accounts-actions", () => ({
   listAccountsAction,
 }));
-vi.mock("@/lib/channels", () => ({ readInvoicingChannels }));
 vi.mock("@/lib/commands/pay-payroll", () => ({
   createPayrollPayment,
   bulkCreatePayrollPayments,
@@ -38,6 +36,7 @@ function entry(id: string, name: string, saldo: number) {
     employee_id: `emp-${id}`,
     employee_legal_name: name,
     employee_pay_frequency: "mensual",
+    employee_pay_mode: "acordado" as const,
     employee_is_active: true,
     sueldo_neto: saldo,
     extras_total: 0,
@@ -55,6 +54,9 @@ function entry(id: string, name: string, saldo: number) {
     paid_efectivo: 0,
     saldo,
     payments_count: 0,
+    fiscal_share: 0,
+    paid_fiscal: 0,
+    paid_internal: 0,
     notes: null,
   };
 }
@@ -63,7 +65,6 @@ const input = {
   period: "2026-10",
   method: "transferencia",
   account: "galicia",
-  channel: "internal",
   paid_at: "2026-11-05",
 };
 
@@ -95,18 +96,6 @@ beforeEach(() => {
       },
     ],
   });
-  readInvoicingChannels.mockResolvedValue({
-    ok: true,
-    channels: [
-      { id: "jouve_fiscal", name: "Fiscal", is_fiscal: true, is_active: true },
-      {
-        id: "jouve_internal",
-        name: "Interno",
-        is_fiscal: false,
-        is_active: true,
-      },
-    ],
-  });
 });
 
 describe("proposePayrollPayment", () => {
@@ -125,7 +114,6 @@ describe("proposePayrollPayment", () => {
     expect(res.draft).toEqual({
       items: [{ entry_id: E1, amount: 900000 }],
       account_id: GALICIA,
-      channel_id: "jouve_internal",
       method: "transferencia",
       paid_at: "2026-11-05",
       notes: null,
@@ -133,60 +121,11 @@ describe("proposePayrollPayment", () => {
     expect(getPayrollPeriodAction).toHaveBeenCalledWith(2026, 10, "monthly");
   });
 
-  it("asks which channel when the side has two active, and takes the one picked", async () => {
-    readInvoicingChannels.mockResolvedValue({
-      ok: true,
-      channels: [
-        {
-          id: "jouve_fiscal",
-          name: "Fiscal",
-          is_fiscal: true,
-          is_active: true,
-        },
-        {
-          id: "jouve_internal",
-          name: "Interno",
-          is_fiscal: false,
-          is_active: true,
-        },
-        {
-          id: "jouve_internal_2",
-          name: "Interno 2",
-          is_fiscal: false,
-          is_active: true,
-        },
-      ],
-    });
-    const asked = await proposePayrollPayment.proposal?.prepareDraft(
-      ctx,
-      input,
-    );
-    expect(asked).toEqual({
-      kind: "issues",
-      issues: [
-        {
-          field: "channel",
-          message: "Hay más de un canal activo: ¿por cuál va?",
-        },
-      ],
-      candidates: [
-        {
-          field: "channel",
-          options: [
-            { value: "Interno", label: "Interno · interno" },
-            { value: "Interno 2", label: "Interno 2 · interno" },
-          ],
-        },
-      ],
-    });
-    const picked = await proposePayrollPayment.proposal?.prepareDraft(ctx, {
-      ...input,
-      channel: "Interno 2",
-    });
-    expect(picked).toMatchObject({
-      kind: "draft",
-      draft: { channel_id: "jouve_internal_2" },
-    });
+  it("sends no channel: the database assigns it by the recibo", async () => {
+    const res = await proposePayrollPayment.proposal?.prepareDraft(ctx, input);
+    expect(res?.kind).toBe("draft");
+    if (res?.kind !== "draft") return;
+    expect(res.draft).not.toHaveProperty("channel_id");
   });
 
   it("asks when a named employee has nothing due", async () => {
@@ -231,7 +170,6 @@ describe("proposePayrollPayment", () => {
     });
     const draft = {
       account_id: GALICIA,
-      channel_id: "jouve_internal",
       method: "efectivo",
       paid_at: "2026-11-05",
       notes: null,

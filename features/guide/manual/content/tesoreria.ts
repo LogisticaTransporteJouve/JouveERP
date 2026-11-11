@@ -964,7 +964,7 @@ export const treasuryPage: GuidePage = {
             },
             {
               message:
-                "El movimiento está conciliado con el extracto bancario: desconciliá su línea en Tesorería › Conciliación antes de cambiar monto, fecha, cuenta, tipo, moneda o canal",
+                "El movimiento está conciliado con el extracto bancario: desconciliá su línea en la pestaña «Extracto» de su cuenta antes de cambiar monto, fecha, cuenta, tipo, moneda o canal",
               fix: "Desconciliá la línea ([[#desconciliar-linea]]), editá y volvé a conciliar.",
             },
             {
@@ -1042,7 +1042,7 @@ export const treasuryPage: GuidePage = {
             },
             {
               message:
-                "El movimiento está conciliado con el extracto bancario: desconciliá su línea en Tesorería › Conciliación antes de borrarlo",
+                "El movimiento está conciliado con el extracto bancario: desconciliá su línea en la pestaña «Extracto» de su cuenta antes de borrarlo",
               fix: "Desconciliá la línea primero ([[#desconciliar-linea]]).",
             },
             {

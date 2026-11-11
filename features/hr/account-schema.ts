@@ -379,10 +379,13 @@ export type RaiseCandidate = {
   position: string | null;
   convenio: string | null;
   base_salary: number | null;
+  pay_mode: "recibo" | "acordado";
 };
 
-/** The employees a raise reaches: active ones with a base salary, filtered by
- *  position or convenio (case- and space-insensitive). */
+/** The employees a raise reaches: active ones with a base salary and a
+ *  sueldo acordado (a «por recibo» salary comes with the next recibo; the
+ *  database skips them too), filtered by position or convenio (case- and
+ *  space-insensitive). */
 export function raiseTargets<T extends RaiseCandidate>(
   employees: readonly T[],
   scope: RaiseScope,
@@ -393,6 +396,7 @@ export function raiseTargets<T extends RaiseCandidate>(
   if (scope !== "all" && wanted === "") return [];
   return employees.filter((e) => {
     if (e.base_salary === null || e.base_salary <= 0) return false;
+    if (e.pay_mode === "recibo") return false;
     if (scope === "position") return norm(e.position) === wanted;
     if (scope === "convenio") return norm(e.convenio) === wanted;
     return true;

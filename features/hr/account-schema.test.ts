@@ -207,6 +207,7 @@ describe("salary raises", () => {
       position: "Chofer",
       convenio: "Camioneros",
       base_salary: 1000000,
+      pay_mode: "acordado" as const,
     },
     {
       id: "b",
@@ -214,6 +215,7 @@ describe("salary raises", () => {
       position: " chofer ",
       convenio: null,
       base_salary: 900000,
+      pay_mode: "acordado" as const,
     },
     {
       id: "c",
@@ -221,10 +223,19 @@ describe("salary raises", () => {
       position: "Administrativo",
       convenio: "Comercio",
       base_salary: null,
+      pay_mode: "acordado" as const,
+    },
+    {
+      id: "d",
+      legal_name: "D",
+      position: "Chofer",
+      convenio: "Camioneros",
+      base_salary: 800000,
+      pay_mode: "recibo" as const,
     },
   ];
 
-  it("filters by position or convenio, case- and space-insensitive, skipping who has no salary", () => {
+  it("filters by position or convenio, case- and space-insensitive, skipping who has no salary or is paid por recibo", () => {
     expect(raiseTargets(employees, "all", "").map((e) => e.id)).toEqual([
       "a",
       "b",
