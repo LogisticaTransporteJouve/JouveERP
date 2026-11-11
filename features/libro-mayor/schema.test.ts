@@ -22,11 +22,11 @@ const row = (over: Partial<LedgerRow>): LedgerRow => ({
 });
 
 describe("computeLedgerSummary", () => {
-  it("suma debit/credit y toma running de la última fila", () => {
+  it("suma debit/credit y toma running de la fila más nueva (la primera)", () => {
     const s = computeLedgerSummary([
-      row({ debit: 1000, running: 1000 }),
-      row({ credit: 300, running: 700 }),
       row({ debit: 200, running: 900 }),
+      row({ credit: 300, running: 700 }),
+      row({ debit: 1000, running: 1000 }),
     ]);
     expect(s.totalDebit).toBe(1200);
     expect(s.totalCredit).toBe(300);

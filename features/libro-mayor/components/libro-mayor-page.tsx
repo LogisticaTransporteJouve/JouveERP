@@ -156,9 +156,10 @@ export function LibroMayorPage() {
                 <AlertTriangle className="mt-0.5 size-4 shrink-0" />
                 <span>
                   Datos parciales: el rango tiene más de {LEDGER_MAX_ROWS}{" "}
-                  movimientos y se muestran solo los primeros {LEDGER_MAX_ROWS}.
-                  Los totales y el saldo final corresponden a esas líneas, no a
-                  todo el rango. Acotá las fechas para ver el resto.
+                  movimientos y se muestran solo los {LEDGER_MAX_ROWS} más
+                  recientes. Los totales corresponden a esas líneas, no a todo
+                  el rango; el saldo final sí es el del rango. Acotá las fechas
+                  para ver el resto.
                 </span>
               </div>
             )}
@@ -181,23 +182,6 @@ export function LibroMayorPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {from && (
-                    <tr className="border-b bg-muted/30">
-                      <td className="sticky left-0 z-10 bg-card px-2 py-1 font-mono text-xs text-muted-foreground">
-                        {formatArgentineDate(from)}
-                      </td>
-                      <td className="px-2 py-1" />
-                      <td
-                        className="px-2 py-1 font-medium"
-                        colSpan={isGroup ? 5 : 4}
-                      >
-                        Saldo anterior
-                      </td>
-                      <td className="px-2 py-1 text-right font-mono font-medium">
-                        {money(opening)}
-                      </td>
-                    </tr>
-                  )}
                   {rows.map((r) => {
                     const debit = Number(r.debit);
                     const credit = Number(r.credit);
@@ -270,6 +254,23 @@ export function LibroMayorPage() {
                       </tr>
                     );
                   })}
+                  {from && (
+                    <tr className="border-b bg-muted/30">
+                      <td className="sticky left-0 z-10 bg-card px-2 py-1 font-mono text-xs text-muted-foreground">
+                        {formatArgentineDate(from)}
+                      </td>
+                      <td className="px-2 py-1" />
+                      <td
+                        className="px-2 py-1 font-medium"
+                        colSpan={isGroup ? 5 : 4}
+                      >
+                        Saldo anterior
+                      </td>
+                      <td className="px-2 py-1 text-right font-mono font-medium">
+                        {money(opening)}
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
                 <tfoot className="border-t-2 bg-muted/30 font-semibold">
                   <tr>

@@ -50,6 +50,11 @@ export async function getLedgerAction(input: {
         p_date_from: input.from ?? undefined,
         p_date_to: input.to ?? undefined,
       })
+      // Newest first, like the journal. `running` is computed inside the
+      // function over the whole range, so it stays right in any order.
+      .order("entry_date", { ascending: false })
+      .order("entry_id", { ascending: false })
+      .order("line_id", { ascending: false })
       .range(0, LEDGER_MAX_ROWS),
     input.from
       ? supabase.rpc("get_ledger_opening", {
