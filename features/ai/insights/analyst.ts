@@ -8,7 +8,7 @@ import { getServiceClient } from "@/lib/supabase/service";
 
 import { gatherAnomalies } from "./anomalies/gather";
 import { projectCashFlow, type CashFlowProjection } from "./cashflow";
-import { gatherFleetDocExpiry, gatherTripMargins } from "./fleet/gather";
+import { gatherFleetDocExpiry } from "./fleet/gather";
 import { INDICATOR_KINDS } from "./indicators/detect";
 import { gatherIndicators } from "./indicators/gather";
 import { insightFingerprint } from "./lib/fingerprint";
@@ -27,10 +27,11 @@ export const ANALYST_KINDS = [
   "dup_invoice",
   "unusual_amount",
   "fleet_doc_expiry",
-  "trip_margin",
   ...INDICATOR_KINDS,
-  // Retired (Rendiciones were removed): listed so a run clears its open cards.
+  // Retired (Rendiciones and the trip margin were removed): listed so a run
+  // clears their open cards.
   "pending_driver_settlements",
+  "trip_margin",
 ] as const;
 
 export type InsightRow = {
@@ -198,14 +199,9 @@ async function computeInsights(
     });
   }
 
-  const fleet = [
-    ...(await isolated(["fleet_doc_expiry"], failed, () =>
-      gatherFleetDocExpiry(today),
-    )),
-    ...(await isolated(["trip_margin"], failed, () =>
-      gatherTripMargins(today),
-    )),
-  ];
+  const fleet = await isolated(["fleet_doc_expiry"], failed, () =>
+    gatherFleetDocExpiry(today),
+  );
   for (const f of fleet) {
     rows.push({
       kind: f.kind,

@@ -5,18 +5,21 @@ import {
   listShipmentsAction,
   listShipmentsByTripAction,
 } from "@/features/shipments/actions/shipments-actions";
-import { SHIPMENT_STATUSES } from "@/features/shipments/schema";
+import {
+  SHIPMENT_STATUSES,
+  SHIPMENT_STATUS_LABELS,
+} from "@/features/shipments/schema";
 import {
   getTripAction,
   listTripsAction,
 } from "@/features/trips/actions/trips-actions";
-import type { Trip } from "@/features/trips/schema";
+import { TRIP_STATUS_LABELS, type Trip } from "@/features/trips/schema";
 import { userCan } from "@/lib/auth/permissions";
 import { round2 } from "@/lib/format";
 import { IsoDateSchema, UuidSchema } from "@/lib/validation/common";
 
 import { defineAiAction } from "../define";
-import { errResult, money, okResult, reachedCap } from "../result";
+import { errResult, okResult, reachedCap } from "../result";
 
 import { capNote } from "./fleet";
 import { resolveVehicle } from "./fleet-refs";
@@ -193,7 +196,7 @@ export const getTripDetail = defineAiAction({
   sideEffect: "read",
   sources: ["trips", "shipments"],
   description:
-    "Detalle de UN viaje por su UUID (de getTrips): fecha, vehículo, chofer, origen y destino, estado, km, costo e ingreso manual, y sus cargas (remito, cliente, flete, estado y factura; necesita permiso de cargas).",
+    "Detalle de UN viaje por su UUID (de getTrips): fecha, vehículo, chofer, acompañante y estado (ruta y km solo en viajes viejos que los tienen), y sus cargas (cliente, dirección, fecha, estado y remito si tiene; necesita permiso de cargas).",
   input: z.object({ tripId: UuidSchema.describe("UUID del viaje.") }),
   run: async (ctx, input) => {
     const withShipments = userCan(ctx.access, "shipments:read");
@@ -210,7 +213,12 @@ export const getTripDetail = defineAiAction({
     return okResult(
       `Viaje ${t.trip_date} · ${t.vehicle?.patente ?? "sin vehículo"} · ${
         t.driver?.full_name ?? "sin chofer"
-      } · ${t.origin ?? "?"}→${t.destination ?? "?"} · ${t.status}` +
+      }` +
+        (t.companion ? ` · acompañante ${t.companion.legal_name}` : "") +
+        (t.origin || t.destination
+          ? ` · ${t.origin ?? "?"}→${t.destination ?? "?"}`
+          : "") +
+        ` · ${TRIP_STATUS_LABELS[t.status]}` +
         (t.km === null ? "" : ` · ${t.km.toLocaleString("es-AR")} km`) +
         (shipments === null
           ? ". Cargas omitidas: hace falta permiso de cargas."
@@ -230,7 +238,7 @@ export const getShipments = defineAiAction({
   sideEffect: "read",
   sources: ["shipments"],
   description:
-    "Listado de cargas (envíos), las más recientes primero, filtrable por fecha programada, cliente (UUID de searchClients), viaje, estado y número de remito: remito, cliente, origen y destino, fecha, estado, flete, contra entrega y factura. Para encontrar una carga o un remito puntual; los totales por estado y cliente están en getShipmentsSummary.",
+    "Listado de cargas (envíos), las más recientes primero, filtrable por fecha programada, cliente (UUID de searchClients), viaje, estados, asignada o no a un viaje y número de remito: cliente, dirección, fecha, estado, viaje y remito si tiene. Una carga en un viaje pasa sola a En curso el día del viaje. Para encontrar una carga puntual; los totales por estado y cliente están en getShipmentsSummary.",
   input: z.object({
     from: IsoDateSchema.nullish().describe(
       "Fecha programada desde, YYYY-MM-DD.",
@@ -238,7 +246,16 @@ export const getShipments = defineAiAction({
     to: IsoDateSchema.nullish().describe("Fecha programada hasta, YYYY-MM-DD."),
     clientId: UuidSchema.nullish().describe("UUID del cliente."),
     tripId: UuidSchema.nullish().describe("UUID del viaje."),
-    status: z.enum(SHIPMENT_STATUSES).nullish().describe("Estado."),
+    statuses: z
+      .array(z.enum(SHIPMENT_STATUSES))
+      .min(1)
+      .max(SHIPMENT_STATUSES.length)
+      .nullish()
+      .describe("Cualquiera de estos estados."),
+    assigned: z
+      .boolean()
+      .nullish()
+      .describe("true: solo cargas en un viaje; false: solo sin viaje."),
     remito: z
       .string()
       .trim()
@@ -264,16 +281,17 @@ export const getShipments = defineAiAction({
     const res = await listShipmentsAction({ ...input, limit: cap + 1 });
     if (!res.ok) return errResult(res.error);
     const rows = res.data.slice(0, cap);
-    const live = rows.filter((r) => r.status !== "cancelled");
-    const freight = live.reduce((s, r) => s + (r.freight_amount ?? 0), 0);
-    const unpriced = live.filter((r) => r.freight_amount === null).length;
+    const byStatus = SHIPMENT_STATUSES.flatMap((st) => {
+      const n = rows.filter((r) => r.status === st).length;
+      return n > 0 ? [`${n} ${SHIPMENT_STATUS_LABELS[st].toLowerCase()}`] : [];
+    });
     return okResult(
-      `${rows.length} cargas · flete de las no canceladas ${money(freight)}` +
-        (unpriced > 0 ? ` (${unpriced} sin flete todavía)` : "") +
+      `${rows.length} cargas` +
+        (byStatus.length > 0 ? ` (${byStatus.join(", ")})` : "") +
         "." +
         capNote(res.data.length, cap),
       rows,
-      { currency: "ARS", partial: res.data.length > cap },
+      { partial: res.data.length > cap },
     );
   },
 });

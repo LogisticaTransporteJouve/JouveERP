@@ -92,7 +92,9 @@ function tripLabel(t: {
   origin: string | null;
   destination: string | null;
 }) {
-  return `${t.trip_date} ${t.origin ?? ""}→${t.destination ?? ""}`;
+  // Trips made after the route left the form have neither end.
+  if (!t.origin && !t.destination) return t.trip_date;
+  return `${t.trip_date} ${t.origin ?? "?"}→${t.destination ?? "?"}`;
 }
 
 export function FuelDialog({

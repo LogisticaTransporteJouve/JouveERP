@@ -2,15 +2,18 @@
 
 import {
   useMutation,
+  useQuery,
   useQueryClient,
   useSuspenseQuery,
 } from "@tanstack/react-query";
 
+import { shipmentsKeys } from "@/features/shipments/lib/shipments-keys";
 import { runAction } from "@/lib/query/run-action";
 
 import {
   createTripAction,
   deleteTripAction,
+  listTripCompanionOptionsAction,
   listTripsAction,
   updateTripAction,
 } from "../actions/trips-actions";
@@ -23,8 +26,20 @@ export function useTrips() {
   });
 }
 
+/** Active employees for the Acompañante select, read when the form opens. */
+export function useTripCompanionOptions(enabled: boolean) {
+  return useQuery({
+    queryKey: tripsKeys.companionOptions(),
+    queryFn: () => runAction(() => listTripCompanionOptionsAction()),
+    enabled,
+  });
+}
+
+// A trip's date, status or deletion moves its cargas' status, and «Nuevo
+// viaje» assigns cargas: both lists refresh.
 function invalidate(qc: ReturnType<typeof useQueryClient>) {
   qc.invalidateQueries({ queryKey: tripsKeys.all });
+  qc.invalidateQueries({ queryKey: shipmentsKeys.all });
 }
 
 export function useCreateTrip() {

@@ -1,11 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  detectFleetDocExpiry,
-  detectLossTrips,
-  type FleetDocRow,
-  type TripMarginRow,
-} from "./detect";
+import { detectFleetDocExpiry, type FleetDocRow } from "./detect";
 
 const TODAY = "2026-07-01";
 
@@ -42,56 +37,5 @@ describe("detectFleetDocExpiry", () => {
     );
     expect(out[0]?.severity).toBe("warning");
     expect(out[0]?.metrics.expiring_soon).toBe(1);
-  });
-});
-
-const trip = (over: Partial<TripMarginRow>): TripMarginRow => ({
-  id: "t1",
-  label: "2026-06-30 Rosario → CABA",
-  net: 0,
-  pendingInvoicing: false,
-  ...over,
-});
-
-describe("detectLossTrips", () => {
-  it("returns nothing when no trip loses money", () => {
-    expect(detectLossTrips([trip({ net: 1000 }), trip({ net: 0 })])).toEqual(
-      [],
-    );
-  });
-
-  it("flags loss trips and reports the worst", () => {
-    const out = detectLossTrips([
-      trip({ id: "a", net: -5000 }),
-      trip({ id: "b", net: -20000, label: "peor" }),
-      trip({ id: "c", net: 3000 }),
-    ]);
-    expect(out).toHaveLength(1);
-    expect(out[0]?.kind).toBe("trip_margin");
-    expect(out[0]?.metrics.loss_count).toBe(2);
-    expect(out[0]?.metrics.total_loss).toBe(-25000);
-    expect(out[0]?.finding).toContain("peor");
-    expect(out[0]?.source_refs).toEqual(["a", "b"]);
-    expect(out[0]?.finding).not.toContain("sin facturar");
-  });
-
-  it("leaves out a trip with cargas still to invoice and says how many", () => {
-    const out = detectLossTrips([
-      trip({ id: "a", net: -5000 }),
-      trip({ id: "p", net: -30000, pendingInvoicing: true }),
-      trip({ id: "q", net: 100, pendingInvoicing: true }),
-    ]);
-    expect(out[0]?.source_refs).toEqual(["a"]);
-    expect(out[0]?.metrics).toMatchObject({
-      loss_count: 1,
-      total_loss: -5000,
-      pending_invoicing_count: 2,
-    });
-    expect(out[0]?.finding).toContain(
-      "2 viaje(s) con cargas sin facturar no se evaluaron.",
-    );
-    expect(
-      detectLossTrips([trip({ net: -1, pendingInvoicing: true })]),
-    ).toEqual([]);
   });
 });

@@ -28,7 +28,7 @@ vi.mock("./gather", () => ({
     top: [],
   }),
 }));
-const gathers = { anomaliesFail: false, tripsFail: false };
+const gathers = { anomaliesFail: false };
 vi.mock("./anomalies/gather", () => ({
   gatherAnomalies: async () => {
     if (gathers.anomaliesFail) throw new Error("timeout");
@@ -47,10 +47,6 @@ vi.mock("./anomalies/gather", () => ({
 }));
 vi.mock("./fleet/gather", () => ({
   gatherFleetDocExpiry: async () => [],
-  gatherTripMargins: async () => {
-    if (gathers.tripsFail) throw new Error("timeout");
-    return [];
-  },
 }));
 const indicators = {
   failed: [] as string[],
@@ -116,16 +112,15 @@ describe("failed reads keep their previous cards", () => {
     expect(kinds).not.toContain("late_interest_uncharged");
   });
 
-  it("leaves out the anomaly and trip kinds when their reads fail, and keeps the rest", async () => {
+  it("leaves out the anomaly kinds when their reads fail, and keeps the rest", async () => {
     gathers.anomaliesFail = true;
-    gathers.tripsFail = true;
     await regenerateInsights("2026-10-19");
     gathers.anomaliesFail = false;
-    gathers.tripsFail = false;
     const kinds = rpcArg("p_kinds");
     expect(kinds).not.toContain("dup_invoice");
     expect(kinds).not.toContain("unusual_amount");
-    expect(kinds).not.toContain("trip_margin");
+    // Retired: always regenerated, so its open cards are cleared.
+    expect(kinds).toContain("trip_margin");
     expect(kinds).toContain("fleet_doc_expiry");
     expect(kinds).toContain("cashflow");
     const rows = rpcArg("p_rows");

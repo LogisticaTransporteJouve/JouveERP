@@ -1,10 +1,12 @@
 import { listDriversAction } from "@/features/drivers/actions/drivers-actions";
+import { listTripCompanionOptionsAction } from "@/features/trips/actions/trips-actions";
 import { listVehiclesAction } from "@/features/vehicles/actions/vehicles-actions";
 import { type Access, userCan } from "@/lib/auth/permissions";
 import { UuidSchema } from "@/lib/validation/common";
 
-// How the model names a truck or a driver ("AB123CD", "el Scania", "Pérez")
-// → its id, through the vehicles and drivers read actions (their own gates).
+// How the model names a truck, a driver or an Acompañante ("AB123CD", "el
+// Scania", "Pérez") → its id, through the vehicles, drivers and trip
+// companion read actions (their own gates).
 // A UUID passes as is, so a user without those modules can still filter by
 // the id another result gave.
 
@@ -111,6 +113,27 @@ export async function resolveDriver(
   );
   if (!found.ok) return found;
   return { ok: true, id: found.option.id, label: found.option.full_name };
+}
+
+/** A trip's Acompañante by name, among the active employees the trip form
+ *  offers (trips:write, no hr:read). A UUID passes as is: creating the trip
+ *  still refuses one that is not an active employee. */
+export async function resolveCompanion(said: string): Promise<FleetRef> {
+  const ref = said.trim();
+  if (UuidSchema.safeParse(ref).success) {
+    return { ok: true, id: ref, label: null };
+  }
+  const res = await listTripCompanionOptionsAction();
+  if (!res.ok) return { ok: false, error: res.error };
+  const found = pickOne(
+    ref,
+    res.data,
+    (e) => [e.legal_name],
+    (e) => e.legal_name,
+    "un empleado activo",
+  );
+  if (!found.ok) return found;
+  return { ok: true, id: found.option.id, label: found.option.legal_name };
 }
 
 /** Resolves the optional vehicle and driver of a fleet filter. */

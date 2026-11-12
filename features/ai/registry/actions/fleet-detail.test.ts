@@ -57,6 +57,8 @@ function trip(
     updated_at: `${date}T00:00:00Z`,
     driver: driver ? { full_name: driver === "d1" ? "Pérez" : "Gómez" } : null,
     vehicle: { patente: "AB 123 CD" },
+    companion_employee_id: null,
+    companion: null,
   };
 }
 

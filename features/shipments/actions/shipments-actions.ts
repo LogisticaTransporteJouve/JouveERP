@@ -6,6 +6,7 @@ import { requireUserContext } from "@/lib/auth/context";
 import { userCan } from "@/lib/auth/permissions";
 import { changeShipmentStatus } from "@/lib/commands/change-shipment-status";
 import { createShipment } from "@/lib/commands/create-shipment";
+import { setShipmentsTrip } from "@/lib/commands/set-shipments-trip";
 import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
@@ -85,7 +86,8 @@ async function narrowRows(
     .filter((row): row is Shipment => row !== null);
 }
 
-/** Every carga, newest first; `filter` narrows it (the page passes none). */
+/** Every carga, newest first; `filter` narrows it (the page passes the
+ *  URL's filters). */
 export async function listShipmentsAction(
   filter?: ShipmentListFilter,
 ): Promise<ActionResult<Shipment[]>> {
@@ -104,7 +106,9 @@ export async function listShipmentsAction(
     if (f.id) query = query.eq("id", f.id);
     if (f.clientId) query = query.eq("client_id", f.clientId);
     if (f.tripId) query = query.eq("trip_id", f.tripId);
-    if (f.status) query = query.eq("status", f.status);
+    if (f.statuses) query = query.in("status", f.statuses);
+    if (f.assigned === true) query = query.not("trip_id", "is", null);
+    if (f.assigned === false) query = query.is("trip_id", null);
     if (f.remito) {
       query = query.ilike("remito_number", containsPattern(f.remito));
     }
@@ -321,13 +325,13 @@ export async function listUnassignedShipmentsAction(): Promise<
 }
 
 /**
- * Puts cargas on a trip, or takes them off it (tripId null). Assigning only
- * takes cargas still without a trip, so two people assigning at once cannot
- * move a carga another trip already took; the count says how many moved.
+ * Puts cargas on a trip, or takes them off it (tripId null), and syncs their
+ * status (setShipmentsTrip). The count says how many moved; `warning` when
+ * the status did not follow.
  */
 export async function setShipmentsTripAction(
   input: unknown,
-): Promise<ActionResult<{ count: number }>> {
+): Promise<ActionResult<{ count: number; warning: string | null }>> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "shipments:write")) {
     return { ok: false, error: "No tenés permiso para asignar cargas." };
@@ -339,33 +343,14 @@ export async function setShipmentsTripAction(
       error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
     };
   }
-  const { tripId, shipmentIds } = parsed.data;
-  const supabase = await createSupabaseClient();
-  const base = supabase
-    .from("shipments")
-    .update({ trip_id: tripId })
-    .in("id", shipmentIds);
-  const { data, error } = await (
-    tripId
-      ? base.is("trip_id", null).in("status", [...ASSIGNABLE_SHIPMENT_STATUSES])
-      : base
-  ).select("id");
-  if (error) {
-    const guardError = mapDbGuardError(error, {
-      slug: "shipments.trip_set.rejected",
-      userId: ctx.userId,
-    });
-    if (guardError) return { ok: false, error: guardError };
-    logger.error("shipments.trip_set.failed", { userId: ctx.userId, error });
-    return { ok: false, error: "No se pudieron actualizar las cargas." };
-  }
-  for (const row of data) {
-    await logAudit(
-      "shipment.trip_set",
-      ctx.userId,
-      { trip_id: tripId },
-      row.id,
-    );
-  }
-  return { ok: true, data: { count: data.length } };
+  const res = await setShipmentsTrip(
+    await createSupabaseClient(),
+    ctx.userId,
+    parsed.data,
+  );
+  if (!res.ok) return res;
+  return {
+    ok: true,
+    data: { count: res.data.count, warning: res.data.warning },
+  };
 }

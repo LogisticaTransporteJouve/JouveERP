@@ -39,8 +39,18 @@ export interface Trip {
   notes: string | null;
   created_at: string;
   updated_at: string;
+  companion_employee_id: string | null;
   driver: { full_name: string } | null;
   vehicle: { patente: string } | null;
+  /** The Acompañante's name, read for whoever sees the trip (trips:read
+   *  does not need hr:read). */
+  companion: { legal_name: string } | null;
+}
+
+/** An active employee the trip form offers as Acompañante. */
+export interface TripCompanionOption {
+  id: string;
+  legal_name: string;
 }
 
 const optionalUuid = z
@@ -53,20 +63,31 @@ const TripDateSchema = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha requerida.");
 
-/** What the trip form writes: date, status, driver and vehicle. */
+/** A trip's fields: date, status, driver, Acompañante and vehicle. */
 export const TripCreateSchema = z.object({
   trip_date: TripDateSchema,
   driver_id: optionalUuid,
+  companion_employee_id: optionalUuid,
   vehicle_id: optionalUuid,
   status: z.enum(TRIP_STATUSES).default("planned"),
 });
 
 export type TripCreateInput = z.infer<typeof TripCreateSchema>;
 
+/** The most cargas «Nuevo viaje» puts on the trip at once. */
+export const TRIP_SHIPMENTS_MAX = 100;
+
+/** What «Nuevo viaje» sends: the trip plus the cargas without a trip it
+ *  takes. */
+export const TripCreateWithShipmentsSchema = TripCreateSchema.extend({
+  shipment_ids: z.array(UuidSchema).max(TRIP_SHIPMENTS_MAX).default([]),
+});
+
 export const TripUpdateSchema = z.object({
   id: z.string().uuid(),
   trip_date: TripDateSchema.optional(),
   driver_id: optionalUuid,
+  companion_employee_id: optionalUuid,
   vehicle_id: optionalUuid,
   status: z.enum(TRIP_STATUSES).optional(),
 });

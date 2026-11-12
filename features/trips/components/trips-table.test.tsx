@@ -87,7 +87,7 @@ describe("TripsTable: «Ver cargas» follows shipments:read", () => {
 });
 
 describe("TripsTable: columns", () => {
-  it("shows only date, driver, vehicle and status", () => {
+  it("shows only date, driver, companion, vehicle and status", () => {
     render(
       <TripsTable
         actorAccess={resolveAccess(["operations"])}
@@ -99,6 +99,12 @@ describe("TripsTable: columns", () => {
       .getAllByRole("columnheader")
       .map((th) => th.textContent?.trim())
       .filter(Boolean);
-    expect(headers).toEqual(["Fecha", "Chofer", "Vehículo", "Estado"]);
+    expect(headers).toEqual([
+      "Fecha",
+      "Chofer",
+      "Acompañante",
+      "Vehículo",
+      "Estado",
+    ]);
   });
 });

@@ -3,9 +3,9 @@ import { z } from "zod";
 import { MAINTENANCE_KINDS } from "@/features/maintenance/schema";
 import { listShipmentsAction } from "@/features/shipments/actions/shipments-actions";
 import {
+  OFFERED_SHIPMENT_TARGETS,
   SHIPMENT_NEXT_STATUSES,
   SHIPMENT_STATUS_LABELS,
-  SHIPMENT_TARGET_STATUSES,
 } from "@/features/shipments/schema";
 import { TRIP_STATUSES } from "@/features/trips/schema";
 import { changeShipmentStatus } from "@/lib/commands/change-shipment-status";
@@ -30,7 +30,12 @@ import {
 import { defineAiProposal, type AiPrepareResult } from "../propose";
 
 import { resolveClientRef } from "./resolve-client";
-import { resolveDriver, resolveVehicle, type FleetRef } from "./fleet-refs";
+import {
+  resolveCompanion,
+  resolveDriver,
+  resolveVehicle,
+  type FleetRef,
+} from "./fleet-refs";
 
 // Fleet and operations proposals over the forms' writes. Each permission is
 // the form's own gate: a plate, a driver or a client is resolved through
@@ -77,33 +82,48 @@ export const proposeTrip = defineAiProposal({
   sources: ["trips", "vehicles", "drivers"],
   description:
     "Propose creating a trip (viaje) for the user to accept on a card: date, " +
-    "vehicle and driver as the user said them and status (default planned), " +
-    "the fields of the trip form. Writes nothing by itself.",
+    "vehicle, driver and companion (acompañante, an active employee) as the " +
+    "user said them and status (default planned), the fields of the trip " +
+    "form. Cargas are put on the trip from the trip page. Writes nothing by " +
+    "itself.",
   input: z.object({
     trip_date: IsoDateSchema,
     vehicle: vehicleInput.optional(),
     driver: driverInput.optional(),
+    companion: z
+      .string()
+      .trim()
+      .min(1)
+      .max(160)
+      .optional()
+      .describe("Companion (acompañante): an active employee's name or id."),
     status: z.enum(TRIP_STATUSES).optional(),
   }),
   spec: tripProposalSpec,
   prepare: async (ctx, input) => {
-    const [vehicle, driver] = await Promise.all([
+    const [vehicle, driver, companion] = await Promise.all([
       input.vehicle ? resolveVehicle(ctx.access, input.vehicle) : null,
       input.driver ? resolveDriver(ctx.access, input.driver) : null,
+      input.companion ? resolveCompanion(input.companion) : null,
     ]);
     if (vehicle && !vehicle.ok) return refIssue("vehicle", vehicle.error);
     if (driver && !driver.ok) return refIssue("driver", driver.error);
+    if (companion && !companion.ok) {
+      return refIssue("companion", companion.error);
+    }
     return {
       kind: "draft",
       draft: {
         trip_date: input.trip_date,
         vehicle_id: vehicle?.id ?? null,
         driver_id: driver?.id ?? null,
+        companion_employee_id: companion?.id ?? null,
         status: input.status ?? "planned",
       },
       labels: {
         ...(vehicle ? labelOf(vehicle) : {}),
         ...(driver ? labelOf(driver) : {}),
+        ...(companion ? labelOf(companion) : {}),
       },
     };
   },
@@ -159,13 +179,14 @@ export const proposeShipmentStatus = defineAiProposal({
   sources: ["shipments", "shipment_status_history"],
   description:
     "Propose changing a carga's status (shipment_id from getShipments) for " +
-    "the user to accept on a card: in_progress (iniciar), delivered " +
-    "(entregar, delivery_date default today), cancelled (cancelar, needs " +
-    "failure_reason) or reprogrammed (reprogramar, new scheduled_date and " +
-    "optional reason). Writes nothing by itself.",
+    "the user to accept on a card: delivered (entregar, delivery_date " +
+    "default today), cancelled (cancelar, needs failure_reason) or " +
+    "reprogrammed (reprogramar, new scheduled_date and optional reason; an " +
+    "En curso carga goes back to No iniciada and leaves its trip). A carga " +
+    "starts (En curso) by itself on its trip's date. Writes nothing by itself.",
   input: z.object({
     shipment_id: UuidSchema,
-    status: z.enum(SHIPMENT_TARGET_STATUSES),
+    status: z.enum(OFFERED_SHIPMENT_TARGETS),
     delivery_date: IsoDateSchema.optional(),
     scheduled_date: IsoDateSchema.optional(),
     failure_reason: text(1000),

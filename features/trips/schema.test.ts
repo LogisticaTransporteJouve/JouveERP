@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { TripCreateSchema, TripUpdateSchema, isTripStatus } from "./schema";
+import {
+  TripCreateSchema,
+  TripCreateWithShipmentsSchema,
+  TripUpdateSchema,
+  isTripStatus,
+} from "./schema";
 
 describe("TripCreateSchema", () => {
   it("accepts a minimal trip and normalizes empty optionals to null", () => {
@@ -61,5 +66,29 @@ describe("isTripStatus", () => {
   it("narrows known statuses", () => {
     expect(isTripStatus("planned")).toBe(true);
     expect(isTripStatus("nope")).toBe(false);
+  });
+});
+
+describe("TripCreateWithShipmentsSchema", () => {
+  it("takes an optional Acompañante and the cargas to put on the trip", () => {
+    const r = TripCreateWithShipmentsSchema.parse({
+      trip_date: "2026-11-12",
+      companion_employee_id: "",
+    });
+    expect(r.companion_employee_id).toBeNull();
+    expect(r.shipment_ids).toEqual([]);
+  });
+
+  it("caps the cargas of one trip", () => {
+    const ids = Array.from(
+      { length: 101 },
+      (_, i) => `00000000-0000-4000-8000-${String(i).padStart(12, "0")}`,
+    );
+    expect(
+      TripCreateWithShipmentsSchema.safeParse({
+        trip_date: "2026-11-12",
+        shipment_ids: ids,
+      }).success,
+    ).toBe(false);
   });
 });

@@ -21,11 +21,13 @@ import {
   updateShipmentAction,
 } from "../actions/shipments-actions";
 import { shipmentsKeys } from "../lib/shipments-keys";
+import type { ShipmentListFilter } from "../schema";
 
-export function useShipments() {
+/** The cargas list narrowed by `filter` (the Cargas toolbar's). */
+export function useShipments(filter: ShipmentListFilter = {}) {
   return useSuspenseQuery({
-    queryKey: shipmentsKeys.list(),
-    queryFn: () => runAction(() => listShipmentsAction()),
+    queryKey: shipmentsKeys.list(filter),
+    queryFn: () => runAction(() => listShipmentsAction(filter)),
   });
 }
 

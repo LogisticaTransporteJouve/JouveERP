@@ -530,7 +530,7 @@ export const fleetPage: GuidePage = {
       routes: ["/trips", "/trips/[id]"],
       permission: "trips:read",
       intro: [
-        "Cada viaje de la flota con {{Fecha}}, {{Chofer}}, {{Vehículo}} y {{Estado}}. Un viaje junta las cargas que lleva: desde el menú ⋯ de la fila, {{Ver cargas}} abre la página del viaje.",
+        "Cada viaje de la flota con {{Fecha}}, {{Chofer}}, {{Acompañante}}, {{Vehículo}} y {{Estado}}. Un viaje junta las cargas que lleva: desde el menú ⋯ de la fila, {{Ver cargas}} abre la página del viaje.",
         "La página del viaje (`Viaje del <fecha>`) muestra el chofer y la patente, y la tabla {{Cargas del viaje}} con {{Cliente}}, {{Dirección}} y {{Estado}} de cada carga. Quien puede ver la auditoría ve además el {{Historial}} del viaje: quién lo creó o editó y cuándo ({{Ver detalle}} abre cada cambio).",
         "Un usuario con el rol Chofer vinculado a un chofer ve solo los viajes de ese chofer.",
       ],
@@ -540,8 +540,16 @@ export const fleetPage: GuidePage = {
           title: "Viajes",
           actions: [{ label: "Nuevo viaje", variant: "primary" }],
           table: {
-            columns: ["Fecha", "Chofer", "Vehículo", "Estado"],
-            rows: [["~2026-11-03", "~Juan Pérez", "~AB123CD", "~Completado"]],
+            columns: ["Fecha", "Chofer", "Acompañante", "Vehículo", "Estado"],
+            rows: [
+              [
+                "~2026-11-03",
+                "~Juan Pérez",
+                "~Carlos Díaz",
+                "~AB123CD",
+                "~Completado",
+              ],
+            ],
             rowMenu: true,
           },
         },
@@ -550,7 +558,8 @@ export const fleetPage: GuidePage = {
         {
           title: "Estados del viaje",
           body: [
-            "{{Planificado}} (el estado inicial), {{En curso}}, {{Completado}} y {{Cancelado}}. El estado se cambia editando el viaje; es informativo y no cambia el estado de sus cargas.",
+            "{{Planificado}} (el estado inicial), {{En curso}}, {{Completado}} y {{Cancelado}}. El estado se cambia editando el viaje.",
+            "Las cargas de un viaje pasan solas a {{En curso}} el día del viaje (hora argentina), salvo que el viaje esté {{Cancelado}}. Si cambiás la fecha del viaje a un día posterior, lo cancelás o lo borrás, sus cargas en curso vuelven a {{No iniciada}}.",
           ],
         },
       ],
@@ -561,13 +570,14 @@ export const fleetPage: GuidePage = {
           permission: "trips:write",
           prerequisites: [
             "El chofer y el vehículo tienen que estar activos ([[#crear-chofer-contratado]], [[#crear-vehiculo]]); también se puede crear sin ellos y asignarlos después.",
+            "El acompañante es un empleado activo de RRHH; no hace falta permiso de RRHH para elegirlo.",
           ],
           screens: [
             {
               kind: "dialog",
               title: "Nuevo viaje",
               description:
-                "Viaje de la flota: fecha, estado, chofer y vehículo.",
+                "Viaje de la flota: chofer, acompañante y vehículo; elegí las cargas que lleva.",
               fields: [
                 {
                   label: "Fecha",
@@ -577,11 +587,25 @@ export const fleetPage: GuidePage = {
                 },
                 { label: "Estado", kind: "select", value: "Planificado" },
                 { label: "Chofer", kind: "select", value: "Juan Pérez" },
-                { label: "Vehículo", kind: "select", value: "AB123CD" },
+                { label: "Acompañante", kind: "select", value: "Ninguno" },
+                {
+                  label: "Vehículo",
+                  kind: "select",
+                  value: "AB123CD",
+                  wide: true,
+                },
+                {
+                  label:
+                    "~Cargas sin viaje · Ferretería Norte S.A. · Av. Pellegrini 1500, Rosario",
+                  kind: "checkbox",
+                  value: "sí",
+                  wide: true,
+                  marker: 3,
+                },
               ],
               footer: [
                 { label: "Cancelar", variant: "outline" },
-                { label: "Crear", variant: "primary", marker: 3 },
+                { label: "Crear", variant: "primary", marker: 4 },
               ],
             },
           ],
@@ -593,22 +617,38 @@ export const fleetPage: GuidePage = {
                 "{{Fecha}}: obligatoria.",
                 "{{Estado}}: arranca en {{Planificado}}.",
                 "{{Chofer}} y {{Vehículo}}: solo se ofrecen los activos; {{Ninguno}} lo deja sin asignar.",
+                "{{Acompañante}} (opcional): un empleado activo que va con el chofer.",
               ],
             },
+            "En {{Cargas sin viaje}}, marcá las cargas que lleva el viaje (las que no tienen viaje, {{No iniciada}} o {{Reprogramada}}). La lista aparece si podés ver y editar cargas.",
             "Hacé clic en {{Crear}}.",
           ],
           after: [
-            "El viaje aparece en la lista. Para sumarle cargas, abrí {{Ver cargas}} y seguí [[#asignar-cargas-viaje]].",
+            "El viaje aparece en la lista con las cargas marcadas. Si el viaje es de hoy o de un día anterior, esas cargas pasan a {{En curso}}.",
+            "Si alguna carga ya la había tomado otro viaje, el aviso dice cuántas se asignaron; si la asignación falla, el viaje queda creado igual y las cargas se asignan desde la página del viaje ([[#asignar-cargas-viaje]]).",
           ],
           errors: [
             { message: "Fecha requerida.", fix: "Elegí la fecha del viaje." },
             {
+              message: "El acompañante no es un empleado activo.",
+              fix: "Elegí otro acompañante o reactivá al empleado en RRHH.",
+            },
+            {
               message: "No tenés permiso para crear viajes.",
               fix: "Pedíselo a alguien con el rol Operaciones, Admin u Owner.",
             },
+            {
+              message: "No tenés permiso para asignar cargas.",
+              fix: "Creá el viaje sin cargas o pedí el permiso de cargas.",
+            },
           ],
           related: ["asignar-cargas-viaje", "editar-viaje"],
-          keywords: ["nuevo viaje", "programar viaje", "hoja de ruta"],
+          keywords: [
+            "nuevo viaje",
+            "programar viaje",
+            "hoja de ruta",
+            "acompañante",
+          ],
         },
         {
           id: "editar-viaje",
@@ -616,8 +656,11 @@ export const fleetPage: GuidePage = {
           permission: "trips:write",
           steps: [
             "En [[/trips]], en la fila del viaje, abrí el menú ⋯ y elegí {{Editar}}.",
-            "Cambiá los datos; para cambiar el estado usá {{Estado}}.",
+            "Cambiá los datos ({{Fecha}}, {{Estado}}, {{Chofer}}, {{Acompañante}} o {{Vehículo}}). Las cargas se suman desde la página del viaje ([[#asignar-cargas-viaje]]).",
             "Hacé clic en {{Guardar}}.",
+          ],
+          after: [
+            "Si cambiaste la fecha o el estado, las cargas del viaje se actualizan: pasan a {{En curso}} si el viaje es de hoy o anterior, y vuelven a {{No iniciada}} si lo pasaste a un día posterior o lo cancelaste.",
           ],
           errors: [
             {
@@ -671,7 +714,7 @@ export const fleetPage: GuidePage = {
             "Hacé clic en {{Asignar}} (con varias marcadas dice «Asignar N cargas»).",
           ],
           after: [
-            "Las cargas pasan a {{Cargas del viaje}} y en [[/cargas]] la columna {{Viaje}} muestra la fecha del viaje.",
+            "Las cargas pasan a {{Cargas del viaje}} y en [[/cargas]] la columna {{Viaje}} muestra la fecha del viaje. Si el viaje es de hoy o anterior, pasan a {{En curso}}.",
             "Si otro usuario asignó alguna al mismo tiempo a otro viaje, el aviso dice cuántas se asignaron: las demás ya estaban en otro viaje.",
           ],
           errors: [
@@ -695,7 +738,7 @@ export const fleetPage: GuidePage = {
             "En la página del viaje, en la fila de la carga, hacé clic en la X ({{Quitar del viaje}}).",
           ],
           after: [
-            "La carga vuelve a quedar sin viaje y se puede asignar a otro.",
+            "La carga vuelve a quedar sin viaje y se puede asignar a otro; si estaba {{En curso}}, vuelve a {{No iniciada}}.",
           ],
           related: ["asignar-cargas-viaje"],
           keywords: ["sacar carga", "desasignar"],
@@ -709,7 +752,7 @@ export const fleetPage: GuidePage = {
             "Confirmá con {{Borrar}}.",
           ],
           after: [
-            "El viaje se borra y sus cargas quedan sin viaje, listas para asignarse a otro.",
+            "El viaje se borra y sus cargas quedan sin viaje, listas para asignarse a otro; las que estaban {{En curso}} vuelven a {{No iniciada}}.",
           ],
           errors: [
             {
@@ -732,6 +775,7 @@ export const fleetPage: GuidePage = {
       intro: [
         "Las cargas a transportar: {{Cliente}} (con la descripción debajo), {{Fecha programada}}, {{Viaje}} ({{Sin asignar}} si todavía no tiene) y {{Estado}}. Debajo del estado se marca {{Facturada}} cuando la carga ya tiene una factura vigente.",
         "La búsqueda ({{Buscar por cliente, descripción o dirección…}}) filtra por cliente, descripción o dirección. Al abrir una carga desde un remito escaneado, la búsqueda llega cargada con su número de remito.",
+        "Al lado de la búsqueda, los filtros: la fecha programada ({{Todas las fechas}}, hoy, esta semana, este mes o un rango), {{Estado}} (uno o varios: {{No iniciada}}, {{En curso}}, {{Entregada}}, {{Cancelada}}, {{Reprogramada}}), {{Cliente}} y {{Viaje}} ({{Todas}}, {{Asignada}} o {{Sin asignar}}). Quedan en la dirección de la página, así que sobreviven a recargar o compartir el enlace; {{Limpiar}} los saca a todos.",
         "Sin el permiso de escritura de cargas, la pantalla es de solo lectura: el menú ⋯ muestra solo {{Historial}}.",
       ],
       screens: [
@@ -744,6 +788,10 @@ export const fleetPage: GuidePage = {
               label: "~Buscar por cliente, descripción o dirección…",
               kind: "input",
             },
+            { label: "Todas las fechas", kind: "select" },
+            { label: "Cualquier estado", kind: "select" },
+            { label: "~Cliente", kind: "picker" },
+            { label: "Todas", kind: "select" },
           ],
           table: {
             columns: ["Cliente", "Fecha programada", "Viaje", "Estado"],
@@ -769,7 +817,8 @@ export const fleetPage: GuidePage = {
         {
           title: "Estados de la carga",
           body: [
-            "{{No iniciada}} (al crearla) → {{Entregada}} ({{Entregar}}). Desde {{No iniciada}} también se puede {{Cancelar}} o {{Reprogramar}}; una carga {{Cancelada}} o {{Reprogramada}} solo se puede volver a reprogramar. Una carga que ya estaba {{En progreso}} se puede entregar, cancelar o reprogramar.",
+            "{{No iniciada}} (al crearla) → {{En curso}} → {{Entregada}} ({{Entregar}}). Nadie la inicia a mano: una carga asignada a un viaje pasa sola a {{En curso}} el día del viaje (hora argentina), salvo que el viaje esté cancelado.",
+            "Desde {{No iniciada}} o {{En curso}} se puede {{Entregar}}, {{Cancelar}} (por ejemplo, si no se pudo retirar) o {{Reprogramar}}. Reprogramar una carga {{En curso}} pide la nueva fecha, la vuelve a {{No iniciada}} y la saca del viaje, para asignarla a otro; el historial guarda los dos pasos. Una carga {{Cancelada}} o {{Reprogramada}} solo se puede volver a reprogramar.",
             "Para una carga {{Entregada}} el menú ya no ofrece cambios de estado.",
             "Cada cambio de estado queda en el {{Historial}} con su comentario, fecha y hora.",
           ],
@@ -906,7 +955,7 @@ export const fleetPage: GuidePage = {
               substeps: [
                 "{{Entregar carga}}: {{Fecha de entrega}} (hoy por defecto).",
                 "{{Cancelar carga}}: {{Motivo}} obligatorio.",
-                "{{Reprogramar carga}}: {{Nueva fecha programada}} y un {{Motivo}} opcional.",
+                "{{Reprogramar carga}}: {{Nueva fecha programada}} y un {{Motivo}} opcional. Si la carga está {{En curso}}, la fecha es obligatoria y la carga vuelve a {{No iniciada}}, fuera del viaje.",
                 "En todos, el {{Comentario}} es opcional y queda en el historial.",
               ],
             },
@@ -919,6 +968,10 @@ export const fleetPage: GuidePage = {
             {
               message: "El motivo es obligatorio.",
               fix: "Escribí por qué se cancela.",
+            },
+            {
+              message: "Indicá la nueva fecha.",
+              fix: "Elegí la {{Nueva fecha programada}} de la carga en curso.",
             },
             {
               message: "No tenés permiso para cambiar el estado.",

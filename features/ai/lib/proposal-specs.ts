@@ -730,6 +730,12 @@ export const tripProposalSpec = defineProposalSpec({
       "Chofer",
       d.driver_id ? (labels[d.driver_id] ?? d.driver_id) : null,
     ),
+    ...rowIf(
+      "Acompañante",
+      d.companion_employee_id
+        ? (labels[d.companion_employee_id] ?? d.companion_employee_id)
+        : null,
+    ),
     { label: "Estado", value: TRIP_STATUS_LABELS[d.status] },
   ],
 });

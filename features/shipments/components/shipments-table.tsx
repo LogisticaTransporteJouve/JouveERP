@@ -10,10 +10,15 @@ import {
   Trash2,
   XCircle,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useDeferredValue, useMemo, useState } from "react";
 import { toast } from "sonner";
 
-import { ListSearch } from "@/components/list-toolbar";
+import { PeriodFilter } from "@/components/period-filter";
+import {
+  ListPending,
+  ListSearch,
+  ListToolbar,
+} from "@/components/list-toolbar";
 import { useConfirm } from "@/components/providers/confirm-provider";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
@@ -26,10 +31,31 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { PageHeader } from "@/components/ui/page-header";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useClientByIdOptional } from "@/features/clients/hooks/use-clients";
+import {
+  ClientPicker,
+  type PickedClient,
+} from "@/features/invoices/components/client-picker";
+import { useListParams } from "@/hooks/use-list-params";
 import { userCan, type Access } from "@/lib/auth/permissions";
 
 import { useDeleteShipment, useShipments } from "../hooks/use-shipments";
 import { matchesShipmentSearch } from "../lib/format";
+import {
+  DEFAULT_SHIPMENT_LIST_PARAMS,
+  SHIPMENT_TRIP_FILTERS,
+  shipmentListFilter,
+  shipmentListParamsToUrl,
+  type ShipmentListParams,
+  type ShipmentTripFilter,
+} from "../lib/list-params";
 import {
   SHIPMENT_NEXT_STATUSES,
   type Shipment,
@@ -40,6 +66,7 @@ import {
 import { ShipmentDialog } from "./shipment-dialog";
 import { ShipmentHistoryDialog } from "./shipment-history-dialog";
 import { ShipmentStatusBadge } from "./shipment-status";
+import { ShipmentStatusFilter } from "./shipment-status-filter";
 import {
   ShipmentStatusDialog,
   type ShipmentStatusAction,
@@ -50,8 +77,8 @@ function formatDate(value: string | null): string {
   return new Date(value).toLocaleDateString("es-AR");
 }
 
-// A carga is not started by hand: an «En progreso» one (older data) can still
-// be delivered, cancelled or reprogrammed.
+// A carga is not started by hand: it is «En curso» on its trip's date, and
+// from there it can be delivered, cancelled or reprogrammed.
 const TARGET_ACTION: Record<ShipmentTargetStatus, ShipmentStatusAction | null> =
   {
     in_progress: null,
@@ -79,6 +106,17 @@ const ACTION_ICON: Record<ShipmentStatusAction, typeof CheckCircle2> = {
   reprogram: CalendarClock,
 };
 
+const ANY_TRIP = "__any__";
+
+const TRIP_FILTER_LABEL: Record<ShipmentTripFilter, string> = {
+  asignada: "Asignada",
+  sin: "Sin asignar",
+};
+
+function isTripFilter(v: string): v is ShipmentTripFilter {
+  return (SHIPMENT_TRIP_FILTERS as readonly string[]).includes(v);
+}
+
 type DialogState =
   { mode: "create" } | { mode: "edit"; shipment: Shipment } | null;
 
@@ -87,21 +125,53 @@ type StatusState = {
   action: ShipmentStatusAction;
 } | null;
 
-/** `initialSearch`: the ?q= of a link (a scanned remito's carga). */
+/** `initialParams`: the URL's filters (`?q=` also comes from a scanned
+ *  remito's link). Estado, Fecha programada, Cliente and Viaje filter on the
+ *  server; the search box filters the rows already read. */
 export function ShipmentsTable({
   actorAccess,
-  initialSearch = "",
+  initialParams,
 }: {
   actorAccess: Access;
-  initialSearch?: string;
+  initialParams: ShipmentListParams;
 }) {
   const canWrite = userCan(actorAccess, "shipments:write");
-  const { data: items } = useShipments();
-  const [search, setSearch] = useState(initialSearch);
+  const { params, committed, update, reset, isFiltered } = useListParams({
+    initial: initialParams,
+    defaults: DEFAULT_SHIPMENT_LIST_PARAMS,
+    toUrl: shipmentListParamsToUrl,
+  });
+  const filter = useMemo(() => shipmentListFilter(committed), [committed]);
+  const deferredFilter = useDeferredValue(filter);
+  const pending = deferredFilter !== filter;
+  const { data: items } = useShipments(deferredFilter);
+  const search = committed.query;
   const visible = useMemo(
     () => items.filter((s) => matchesShipmentSearch(s, search)),
     [items, search],
   );
+
+  // The picked client's name; after a reload only its id is in the URL.
+  const [picked, setPicked] = useState<PickedClient | null>(null);
+  const pickedMatches = picked !== null && picked.id === params.clientId;
+  const { data: urlClient } = useClientByIdOptional(
+    pickedMatches ? null : params.clientId,
+  );
+  const clientValue: PickedClient | null =
+    params.clientId === null
+      ? null
+      : pickedMatches
+        ? picked
+        : urlClient
+          ? {
+              id: urlClient.id,
+              legal_name: urlClient.legal_name,
+              display_name: urlClient.display_name,
+              cuit: urlClient.cuit,
+              iva_condition: urlClient.iva_condition,
+              is_fiscal: urlClient.is_fiscal,
+            }
+          : null;
   const deleteMut = useDeleteShipment();
   const confirm = useConfirm();
   const [dialog, setDialog] = useState<DialogState>(null);
@@ -254,22 +324,60 @@ export function ShipmentsTable({
         }
       />
 
-      <ListSearch
-        value={search}
-        onChange={setSearch}
-        placeholder="Buscar por cliente, descripción o dirección…"
-      />
+      <ListToolbar isFiltered={isFiltered} onClear={reset}>
+        <ListSearch
+          value={params.query}
+          onChange={(query) => update({ query })}
+          placeholder="Buscar por cliente, descripción o dirección…"
+        />
+        <PeriodFilter
+          value={params.period}
+          onChange={(period) => update({ period })}
+        />
+        <ShipmentStatusFilter
+          value={params.statuses}
+          onChange={(statuses) => update({ statuses })}
+        />
+        <div className="w-full sm:w-72">
+          <ClientPicker
+            value={clientValue}
+            isFiscal={null}
+            onChange={(client) => {
+              setPicked(client);
+              update({ clientId: client?.id ?? null });
+            }}
+          />
+        </div>
+        <Select
+          value={params.trip ?? ANY_TRIP}
+          onValueChange={(v) => update({ trip: isTripFilter(v) ? v : null })}
+        >
+          <SelectTrigger className="w-[150px]" aria-label="Viaje">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent position="popper">
+            <SelectItem value={ANY_TRIP}>Todas</SelectItem>
+            {SHIPMENT_TRIP_FILTERS.map((t) => (
+              <SelectItem key={t} value={t}>
+                {TRIP_FILTER_LABEL[t]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </ListToolbar>
 
-      <DataTable
-        columns={columns}
-        data={visible}
-        getRowId={(s) => s.id}
-        emptyMessage={
-          search.trim() === ""
-            ? "Sin cargas. Creá la primera."
-            : "Ninguna carga coincide con la búsqueda."
-        }
-      />
+      <ListPending pending={pending}>
+        <DataTable
+          columns={columns}
+          data={visible}
+          getRowId={(s) => s.id}
+          emptyMessage={
+            isFiltered
+              ? "No hay cargas con estos filtros."
+              : "Sin cargas. Creá la primera."
+          }
+        />
+      </ListPending>
 
       {canWrite && dialog && (
         <ShipmentDialog

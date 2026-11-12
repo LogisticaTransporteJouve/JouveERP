@@ -56,6 +56,9 @@ export function ShipmentStatusDialog({
   const [scheduledDate, setScheduledDate] = useState("");
 
   const open = shipment !== null && action !== null;
+  // Reprogramming a started carga takes it off its trip (change_shipment_status).
+  const leavesTrip =
+    action === "reprogram" && shipment?.status === "in_progress";
 
   useEffect(() => {
     if (open) {
@@ -74,6 +77,10 @@ export function ShipmentStatusDialog({
     if (!shipment || !action) return;
     if (action === "cancel" && failureReason.trim() === "") {
       toast.error("El motivo es obligatorio.");
+      return;
+    }
+    if (leavesTrip && scheduledDate === "") {
+      toast.error("Indicá la nueva fecha.");
       return;
     }
     const payload = {
@@ -101,6 +108,8 @@ export function ShipmentStatusDialog({
           <DialogTitle>{action ? ACTION_TITLE[action] : ""}</DialogTitle>
           <DialogDescription>
             {action ? ACTION_DESCRIPTION[action] : ""}
+            {leavesTrip &&
+              " La carga vuelve a No iniciada y sale del viaje; asignala a otro viaje."}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">

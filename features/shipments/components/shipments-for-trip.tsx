@@ -74,7 +74,10 @@ function TripShipments({
     unassign.mutate(
       { tripId: null, shipmentIds: [id] },
       {
-        onSuccess: () => toast.success("Carga quitada del viaje."),
+        onSuccess: ({ warning }) => {
+          if (warning) toast.warning(warning);
+          else toast.success("Carga quitada del viaje.");
+        },
         onError: (err) => toast.error(err.message),
       },
     );
