@@ -5239,13 +5239,16 @@ export type Database = {
           interest_amount: number | null
           iva_amount: number | null
           iva_perception_amount: number | null
+          kind: string
           loan_id: string
           notes: string | null
           number: number
           other_charges_amount: number | null
           paid_amount: number | null
+          paid_amount_ars: number | null
           paid_date: string | null
           paid_outside: boolean
+          paid_rate: number | null
           perception_amount: number | null
           status: Database["public"]["Enums"]["loan_installment_status"]
           transaction_id: string | null
@@ -5260,13 +5263,16 @@ export type Database = {
           interest_amount?: number | null
           iva_amount?: number | null
           iva_perception_amount?: number | null
+          kind?: string
           loan_id: string
           notes?: string | null
           number: number
           other_charges_amount?: number | null
           paid_amount?: number | null
+          paid_amount_ars?: number | null
           paid_date?: string | null
           paid_outside?: boolean
+          paid_rate?: number | null
           perception_amount?: number | null
           status?: Database["public"]["Enums"]["loan_installment_status"]
           transaction_id?: string | null
@@ -5281,13 +5287,16 @@ export type Database = {
           interest_amount?: number | null
           iva_amount?: number | null
           iva_perception_amount?: number | null
+          kind?: string
           loan_id?: string
           notes?: string | null
           number?: number
           other_charges_amount?: number | null
           paid_amount?: number | null
+          paid_amount_ars?: number | null
           paid_date?: string | null
           paid_outside?: boolean
+          paid_rate?: number | null
           perception_amount?: number | null
           status?: Database["public"]["Enums"]["loan_installment_status"]
           transaction_id?: string | null
@@ -5331,9 +5340,11 @@ export type Database = {
           id: string
           import_run_id: string | null
           installments_count: number
+          is_open_ended: boolean
           kind: Database["public"]["Enums"]["loan_kind"]
           lender: string | null
           loan_number: string | null
+          monthly_rate: number | null
           notes: string | null
           opening_journal_entry_id: string | null
           original_amount: number | null
@@ -5357,9 +5368,11 @@ export type Database = {
           id?: string
           import_run_id?: string | null
           installments_count: number
+          is_open_ended?: boolean
           kind?: Database["public"]["Enums"]["loan_kind"]
           lender?: string | null
           loan_number?: string | null
+          monthly_rate?: number | null
           notes?: string | null
           opening_journal_entry_id?: string | null
           original_amount?: number | null
@@ -5383,9 +5396,11 @@ export type Database = {
           id?: string
           import_run_id?: string | null
           installments_count?: number
+          is_open_ended?: boolean
           kind?: Database["public"]["Enums"]["loan_kind"]
           lender?: string | null
           loan_number?: string | null
+          monthly_rate?: number | null
           notes?: string | null
           opening_journal_entry_id?: string | null
           original_amount?: number | null
@@ -9743,6 +9758,14 @@ export type Database = {
         Args: { p_installment_id: string; p_transaction_id: string }
         Returns: undefined
       }
+      adopt_loan_installment_payment_core: {
+        Args: {
+          p_allow_paid_outside: boolean
+          p_installment_id: string
+          p_transaction_id: string
+        }
+        Returns: undefined
+      }
       aging_apply_credit: {
         Args: {
           p_b0: number
@@ -10550,6 +10573,10 @@ export type Database = {
               remito_pos: number
             }[]
           }
+      convert_loan_to_open_ended: {
+        Args: { p_loan_id: string; p_monthly_rate: number }
+        Returns: number
+      }
       create_ai_confirmation_revision: {
         Args: {
           p_action: string
@@ -10827,6 +10854,7 @@ export type Database = {
         Args: { p_employee_id: string; p_month: string }
         Returns: number
       }
+      extend_open_ended_loan: { Args: { p_loan_id: string }; Returns: number }
       fail_itemless_invoice_drafts: {
         Args: { p_created_before: string; p_limit?: number }
         Returns: string[]
@@ -11401,6 +11429,15 @@ export type Database = {
         Args: { p_type: string; p_user_id: string }
         Returns: boolean
       }
+      open_ended_loan_interest: { Args: { p_loan_id: string }; Returns: number }
+      open_ended_loan_projection: {
+        Args: { p_until: string }
+        Returns: {
+          amount: number
+          due_date: string
+          loan_id: string
+        }[]
+      }
       open_or_create_dm: { Args: { p_other: string }; Returns: string }
       party_in_main_scope: {
         Args: { p_kind: string; p_party_id: string }
@@ -11415,15 +11452,26 @@ export type Database = {
         }
         Returns: string
       }
-      pay_loan_installment: {
-        Args: {
-          p_account_id: string
-          p_amount: number
-          p_installment_id: string
-          p_paid_date: string
-        }
-        Returns: string
-      }
+      pay_loan_installment:
+        | {
+            Args: {
+              p_account_id: string
+              p_amount: number
+              p_installment_id: string
+              p_paid_date: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_account_amount: number
+              p_account_id: string
+              p_amount: number
+              p_installment_id: string
+              p_paid_date: string
+            }
+            Returns: string
+          }
       pay_tax_document: {
         Args: {
           p_account_id: string
@@ -11702,6 +11750,10 @@ export type Database = {
         }
         Returns: string
       }
+      relink_loan_installment_payment: {
+        Args: { p_installment_id: string; p_transaction_id: string }
+        Returns: undefined
+      }
       remove_driver_settlement_difference: {
         Args: {
           p_allow_driver: boolean
@@ -11711,6 +11763,16 @@ export type Database = {
         Returns: undefined
       }
       reopen_accounting_period: { Args: { p_period: string }; Returns: Json }
+      repay_loan_capital: {
+        Args: {
+          p_account_amount: number
+          p_account_id: string
+          p_amount: number
+          p_date: string
+          p_loan_id: string
+        }
+        Returns: string
+      }
       replace_freight_tariff_lines: {
         Args: { p_lines: Json; p_version_id: string }
         Returns: number

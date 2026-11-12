@@ -52,6 +52,7 @@ const MONEY_RPCS: Array<{ fn: string; permission: Permission }> = [
   { fn: "pay_loan_installment", permission: "accounting:write" },
   { fn: "adopt_loan_installment_payment", permission: "accounting:write" },
   { fn: "record_loan_disbursement", permission: "accounting:write" },
+  { fn: "repay_loan_capital", permission: "accounting:write" },
   { fn: "allocate_receipt", permission: "receipts:write" },
   { fn: "allocate_payment_order", permission: "payment_orders:write" },
   { fn: "pay_tax_document", permission: "taxes:write" },
