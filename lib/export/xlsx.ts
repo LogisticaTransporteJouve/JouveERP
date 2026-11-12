@@ -46,8 +46,8 @@ const FORMAT = {
   money: "#,##0.00",
   integer: "#,##0",
   percent: '#,##0.00" %"',
-  date: "dd/mm/yyyy",
-  dateTime: "dd/mm/yyyy hh:mm",
+  date: "dd-mm-yyyy",
+  dateTime: "dd-mm-yyyy hh:mm",
 };
 
 const BOLD: Pick<CellObject, "fontWeight"> = { fontWeight: "bold" };

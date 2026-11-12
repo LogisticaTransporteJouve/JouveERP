@@ -217,7 +217,7 @@ describe("invoice email", () => {
     emisor_name: "Logística Jouve",
     client_legal_name: "Cliente SA",
     numero_label: "00003-00000011",
-    fecha: "01/10/2026",
+    fecha: "01-10-2026",
     total_label: "$100,00",
     custom_body: null,
   };

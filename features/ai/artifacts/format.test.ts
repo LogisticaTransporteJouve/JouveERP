@@ -92,7 +92,7 @@ describe("pointDetails", () => {
 
   it("lists the label fields formatted, skipping blanks and the point's own label", () => {
     expect(pointDetails(artifact, 0)).toEqual([
-      { label: "Fecha", value: "3 nov 2026" },
+      { label: "Fecha", value: "03-11-2026" },
     ]);
   });
 

@@ -65,7 +65,14 @@ export function formatArgentineDate(value: string | null | undefined): string {
   if (!value) return "—";
   const cal = arCalendarDay(value);
   if (!cal) return "—";
-  return `${cal.day} ${MONTHS_ES[cal.monthIndex] ?? ""} ${cal.year}`;
+  return ddmmyyyy(cal);
+}
+
+/** "17-05-2026": every full day the app shows (owner, 2026-11-12). */
+function ddmmyyyy(cal: CalendarDay): string {
+  const dd = String(cal.day).padStart(2, "0");
+  const mm = String(cal.monthIndex + 1).padStart(2, "0");
+  return `${dd}-${mm}-${cal.year}`;
 }
 
 /**
@@ -198,7 +205,7 @@ export function formatPeriod(value: string): string {
   return m && month ? `${month} ${m[1]}` : value;
 }
 
-/** "17 may 2026, 12:30" in Argentine time. A plain "yyyy-mm-dd" carries no
+/** "17-05-2026 12:30" in Argentine time. A plain "yyyy-mm-dd" carries no
  *  time, so it renders as the date alone rather than an invented hour. */
 export function formatArgentineDateTime(
   value: string | null | undefined,
@@ -208,25 +215,26 @@ export function formatArgentineDateTime(
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "—";
   const ar = new Date(date.getTime() - AR_OFFSET_MS);
-  const day = ar.getUTCDate();
-  const month = MONTHS_ES[ar.getUTCMonth()] ?? "";
-  const year = ar.getUTCFullYear();
+  const day = ddmmyyyy({
+    year: ar.getUTCFullYear(),
+    monthIndex: ar.getUTCMonth(),
+    day: ar.getUTCDate(),
+  });
   const hh = String(ar.getUTCHours()).padStart(2, "0");
   const mm = String(ar.getUTCMinutes()).padStart(2, "0");
-  return `${day} ${month} ${year}, ${hh}:${mm}`;
+  return `${day} ${hh}:${mm}`;
 }
 
-/** "17/5/2026" — short es-AR date (the `toLocaleDateString("es-AR")` shape),
+/** "17-05-2026", as `formatArgentineDate`, for an ISO string or a Date;
  *  built by hand so it does not depend on the runtime's time zone. Used by
- *  emails and attachments where the compact format is preferred over the "17 may 2026"
- *  of `formatArgentineDate`. Accepts an ISO string or Date; invalid → "—". */
+ *  emails and attachments. Invalid → "—". */
 export function formatArDateShort(
   value: string | Date | null | undefined,
 ): string {
   if (!value) return "—";
   const cal = arCalendarDay(value);
   if (!cal) return "—";
-  return `${cal.day}/${cal.monthIndex + 1}/${cal.year}`;
+  return ddmmyyyy(cal);
 }
 
 /** "YYYY-MM-DD" of the current day in Argentine time (UTC-3). Used as the default

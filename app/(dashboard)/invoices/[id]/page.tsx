@@ -57,6 +57,7 @@ import { userCan, userCanAll } from "@/lib/auth/permissions";
 import { canChangeAttachments } from "@/lib/files/attachment-targets";
 import {
   amountToInput,
+  formatArgentineDate,
   formatArgentineDateTime,
   formatNumber2,
 } from "@/lib/format";
@@ -186,7 +187,7 @@ export default async function ComprobanteDetailPage({
               )}
             </h1>
             <p className="text-sm text-muted-foreground">
-              {c.channel.name} · {c.fecha}
+              {c.channel.name} · {formatArgentineDate(c.fecha)}
               {!c.is_operational && <NotJouveBadge className="ml-2" />}
             </p>
             {canIssue && c.channel.is_fiscal && c.status !== "failed" && (

@@ -64,6 +64,6 @@ describe("BlockPalletDialog history", () => {
     );
     // 13:05 UTC is 10:05 in Buenos Aires.
     const item = screen.getByText("Dañado", { exact: false });
-    expect(item.textContent).toContain("el 3 nov 2026, 10:05");
+    expect(item.textContent).toContain("el 03-11-2026 10:05");
   });
 });

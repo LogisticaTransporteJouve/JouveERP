@@ -71,10 +71,10 @@ import {
   ShipmentStatusDialog,
   type ShipmentStatusAction,
 } from "./shipment-status-dialog";
+import { formatArgentineDate } from "@/lib/format";
 
 function formatDate(value: string | null): string {
-  if (!value) return "—";
-  return new Date(value).toLocaleDateString("es-AR");
+  return formatArgentineDate(value);
 }
 
 // A carga is not started by hand: it is «En curso» on its trip's date, and

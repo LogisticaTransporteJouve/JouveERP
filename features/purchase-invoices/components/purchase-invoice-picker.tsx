@@ -12,7 +12,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
-import { formatMoney } from "@/lib/format";
+import { formatArgentineDate, formatMoney } from "@/lib/format";
 
 import { usePurchaseInvoicesSearch } from "../hooks/use-purchase-invoices";
 import {
@@ -102,7 +102,7 @@ export function PurchaseInvoicePicker({
             {formatInvoiceNumber(value)}
           </p>
           <p className="text-xs text-muted-foreground">
-            {value.fecha} · {ARS.format(value.imp_total)}
+            {formatArgentineDate(value.fecha)} · {ARS.format(value.imp_total)}
           </p>
         </div>
         <IconButton
@@ -218,7 +218,7 @@ function ResultsList({
                 {formatInvoiceNumber(inv)}
               </p>
               <p className="truncate text-xs text-muted-foreground">
-                {inv.fecha} · {ARS.format(inv.imp_total)}
+                {formatArgentineDate(inv.fecha)} · {ARS.format(inv.imp_total)}
               </p>
             </div>
           </button>

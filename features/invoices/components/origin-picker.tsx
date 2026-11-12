@@ -13,7 +13,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
-import { formatNumber2 } from "@/lib/format";
+import { formatArgentineDate, formatNumber2 } from "@/lib/format";
 
 import type { InvoiceListItem } from "../actions/invoices-actions";
 import { useOriginSearch } from "../hooks/use-invoices";
@@ -54,7 +54,7 @@ export function OriginPicker({
           </p>
           <p className="truncate font-medium">{value.client_legal_name}</p>
           <p className="font-mono text-xs text-muted-foreground">
-            {value.fecha} · ${formatARS(value.imp_total)}
+            {formatArgentineDate(value.fecha)} · ${formatARS(value.imp_total)}
           </p>
         </div>
         <IconButton
@@ -137,7 +137,9 @@ export function OriginPicker({
                       <span className="font-mono">
                         ${formatARS(it.imp_total)}
                       </span>
-                      <span className="text-muted-foreground">{it.fecha}</span>
+                      <span className="text-muted-foreground">
+                        {formatArgentineDate(it.fecha)}
+                      </span>
                     </div>
                   </button>
                 </li>

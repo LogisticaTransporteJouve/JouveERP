@@ -8,6 +8,7 @@ import { getTripAction } from "@/features/trips/actions/trips-actions";
 import { ShipmentsForTrip } from "@/features/shipments/components/shipments-for-trip";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan, userCanAll } from "@/lib/auth/permissions";
+import { formatArgentineDate } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -47,7 +48,7 @@ export default async function TripDetailPage({
         </IconButton>
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">
-            Viaje del {trip.trip_date}
+            Viaje del {formatArgentineDate(trip.trip_date)}
           </h1>
           {fleet && <p className="text-sm text-muted-foreground">{fleet}</p>}
         </div>

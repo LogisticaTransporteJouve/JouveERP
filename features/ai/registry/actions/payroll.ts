@@ -32,7 +32,7 @@ import {
   PeriodRangeInputSchema,
   VacationOverviewInputSchema,
 } from "@/features/hr/reports-schema";
-import { round2 } from "@/lib/format";
+import { formatArgentineDate, round2 } from "@/lib/format";
 
 import { defineAiAction } from "../define";
 import { errResult, money, okResult, reachedCap } from "../result";
@@ -384,7 +384,7 @@ export const getFinalSettlement = defineAiAction({
     if (!res.ok) return errResult(res.error);
     const d = res.data;
     return okResult(
-      `Liquidación final (baja ${d.termination_date}): sueldo ${money(
+      `Liquidación final (baja ${formatArgentineDate(d.termination_date)}): sueldo ${money(
         d.prorated_salary,
       )} por ${d.days_worked} días · vacaciones ${d.vacation_days} días ${money(
         d.vacation_amount,

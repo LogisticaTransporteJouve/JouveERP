@@ -13,6 +13,7 @@ import { UuidSchema } from "@/lib/validation/common";
 
 import { defineAiAction } from "../define";
 import { errResult, okResult } from "../result";
+import { formatArgentineDate } from "@/lib/format";
 
 // The detail page of each document (/invoices/[id], /receipts/[id],
 // /payment-orders/[id], /purchases/[id]), one tool per kind so each declares
@@ -45,7 +46,7 @@ export const getInvoiceDetail = defineAiAction({
     if (!res.data) return errResult(NOT_FOUND);
     const d = res.data;
     return okResult(
-      `${d.kind.toUpperCase()} ${d.letter} ${number(d.punto_venta, d.numero)} · ${d.client.legal_name} · ${d.fecha} · ` +
+      `${d.kind.toUpperCase()} ${d.letter} ${number(d.punto_venta, d.numero)} · ${d.client.legal_name} · ${formatArgentineDate(d.fecha)} · ` +
         `${d.moneda} ${d.imp_total.toLocaleString("es-AR")} · ${d.items.length} ítem(s) · ${d.status}` +
         (d.cae ? ` · CAE ${d.cae}` : " · sin CAE") +
         ` · canal ${d.channel.name}.`,
@@ -74,7 +75,7 @@ export const getReceiptDetail = defineAiAction({
     if (!res.data) return errResult(NOT_FOUND);
     const r = res.data.receipt;
     return okResult(
-      `Recibo ${number(r.punto_venta, r.numero)} · ${r.receipt_date} · ${r.currency} ${r.total_amount.toLocaleString("es-AR")} · ` +
+      `Recibo ${number(r.punto_venta, r.numero)} · ${formatArgentineDate(r.receipt_date)} · ${r.currency} ${r.total_amount.toLocaleString("es-AR")} · ` +
         `${res.data.payment_lines.length} medio(s) de pago · ${res.data.allocations.length} imputación(es) · ` +
         `${res.data.retentions.length} retención(es) · ${r.status}.`,
       res.data,
@@ -101,7 +102,7 @@ export const getPaymentOrderDetail = defineAiAction({
     if (!res.data) return errResult(NOT_FOUND);
     const op = res.data.paymentOrder;
     return okResult(
-      `OP ${number(op.punto_venta, op.numero)} · ${op.supplier_legal_name} · ${op.payment_date} · ` +
+      `OP ${number(op.punto_venta, op.numero)} · ${op.supplier_legal_name} · ${formatArgentineDate(op.payment_date)} · ` +
         `${op.currency} ${op.total_amount.toLocaleString("es-AR")} · ${res.data.payment_lines.length} medio(s) de pago · ` +
         `${res.data.allocations.length} imputación(es) · ${op.status}.`,
       res.data,
@@ -137,7 +138,7 @@ export const getPurchaseInvoiceDetail = defineAiAction({
     if (!imputations.ok) return errResult(imputations.error);
     const p = invoice.data;
     return okResult(
-      `${p.kind.toUpperCase()} ${p.letter} ${number(p.punto_venta, p.numero)} · ${p.supplier_legal_name} · ${p.fecha} · ` +
+      `${p.kind.toUpperCase()} ${p.letter} ${number(p.punto_venta, p.numero)} · ${p.supplier_legal_name} · ${formatArgentineDate(p.fecha)} · ` +
         `${p.moneda} ${p.imp_total.toLocaleString("es-AR")} · ${items.data.length} ítem(s) · ` +
         `${allocations.data.length} pago(s) imputado(s) · ${p.status}.`,
       {

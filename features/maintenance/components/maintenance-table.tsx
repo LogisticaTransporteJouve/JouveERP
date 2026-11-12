@@ -24,6 +24,7 @@ import { useDeleteMaintenance, useMaintenance } from "../hooks/use-maintenance";
 import { MAINTENANCE_KIND_LABELS, type MaintenanceRecord } from "../schema";
 
 import { MaintenanceDialog } from "./maintenance-dialog";
+import { formatArgentineDate } from "@/lib/format";
 
 function formatMoney(n: number | null) {
   if (n === null) return "—";
@@ -51,7 +52,7 @@ export function MaintenanceTable({
   const columns = useMemo<ColumnDef<MaintenanceRecord>[]>(() => {
     async function handleDelete(r: MaintenanceRecord) {
       const ok = await confirm({
-        title: `Borrar mantenimiento del ${r.service_date}`,
+        title: `Borrar mantenimiento del ${formatArgentineDate(r.service_date)}`,
         description: "Esta acción no se puede deshacer.",
         confirmLabel: "Borrar",
         tone: "destructive",
@@ -68,7 +69,9 @@ export function MaintenanceTable({
         accessorKey: "service_date",
         header: "Fecha",
         cell: ({ row }) => (
-          <span className="font-medium">{row.original.service_date}</span>
+          <span className="font-medium">
+            {formatArgentineDate(row.original.service_date)}
+          </span>
         ),
         meta: { headerClassName: "w-32" },
       },
@@ -108,7 +111,7 @@ export function MaintenanceTable({
       {
         accessorKey: "next_service_date",
         header: "Próx. service",
-        cell: ({ row }) => row.original.next_service_date ?? "—",
+        cell: ({ row }) => formatArgentineDate(row.original.next_service_date),
         meta: { headerClassName: "w-32", cellClassName: "text-sm" },
       },
       {

@@ -32,8 +32,8 @@ describe("vacationStartWarning (LCT art. 151)", () => {
 
   it("warns on any other weekday and names that week's Monday", () => {
     const w = vacationStartWarning("2026-12-09", none);
-    expect(w).toContain("Empieza el miércoles 9 dic 2026");
-    expect(w).toContain("sería el lunes 7 dic 2026");
+    expect(w).toContain("Empieza el miércoles 09-12-2026");
+    expect(w).toContain("sería el lunes 07-12-2026");
   });
 
   it("warns on a weekend", () => {

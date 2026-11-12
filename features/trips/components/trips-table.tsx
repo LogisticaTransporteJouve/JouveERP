@@ -23,6 +23,7 @@ import { useDeleteTrip, useTrips } from "../hooks/use-trips";
 import { TRIP_STATUS_LABELS, type Trip } from "../schema";
 
 import { TripDialog } from "./trip-dialog";
+import { formatArgentineDate } from "@/lib/format";
 
 export function TripsTable({
   actorAccess,
@@ -52,7 +53,7 @@ export function TripsTable({
   const columns = useMemo<ColumnDef<Trip>[]>(() => {
     async function handleDelete(t: Trip) {
       const ok = await confirm({
-        title: `Borrar viaje del ${t.trip_date}`,
+        title: `Borrar viaje del ${formatArgentineDate(t.trip_date)}`,
         description: "Esta acción no se puede deshacer.",
         confirmLabel: "Borrar",
         tone: "destructive",
@@ -72,7 +73,9 @@ export function TripsTable({
         accessorKey: "trip_date",
         header: "Fecha",
         cell: ({ row }) => (
-          <span className="font-medium">{row.original.trip_date}</span>
+          <span className="font-medium">
+            {formatArgentineDate(row.original.trip_date)}
+          </span>
         ),
         meta: { headerClassName: "w-32", mobile: "primary" },
       },

@@ -300,10 +300,10 @@ export const fleetPage: GuidePage = {
                 {
                   label: "Desde",
                   kind: "date",
-                  value: "01/10/2026",
+                  value: "01-10-2026",
                   marker: 3,
                 },
-                { label: "Hasta", kind: "date", value: "31/10/2026" },
+                { label: "Hasta", kind: "date", value: "31-10-2026" },
               ],
               footer: [
                 { label: "Todo el historial", variant: "outline", marker: 4 },
@@ -582,7 +582,7 @@ export const fleetPage: GuidePage = {
                 {
                   label: "Fecha",
                   kind: "date",
-                  value: "03/11/2026",
+                  value: "03-11-2026",
                   marker: 2,
                 },
                 { label: "Estado", kind: "select", value: "Planificado" },
@@ -798,13 +798,13 @@ export const fleetPage: GuidePage = {
             rows: [
               [
                 "~Ferretería Norte S.A. · Materiales de obra",
-                "~03/11/2026",
+                "~03-11-2026",
                 "~2026-11-03",
                 "~Entregada",
               ],
               [
                 "~Agro Sur SRL · Semillas",
-                "~05/11/2026",
+                "~05-11-2026",
                 "~Sin asignar",
                 "~No iniciada",
               ],
@@ -859,7 +859,7 @@ export const fleetPage: GuidePage = {
                 {
                   label: "Fecha programada",
                   kind: "date",
-                  value: "05/11/2026",
+                  value: "05-11-2026",
                   wide: true,
                 },
                 {
@@ -936,7 +936,7 @@ export const fleetPage: GuidePage = {
                 {
                   label: "Fecha de entrega",
                   kind: "date",
-                  value: "05/11/2026",
+                  value: "05-11-2026",
                   wide: true,
                   marker: 2,
                 },
@@ -1135,7 +1135,7 @@ export const fleetPage: GuidePage = {
                 {
                   label: "Fecha",
                   kind: "date",
-                  value: "02/11/2026",
+                  value: "02-11-2026",
                   marker: 2,
                 },
                 {
@@ -1291,7 +1291,7 @@ export const fleetPage: GuidePage = {
                 rows: [
                   [
                     "~2",
-                    "~01/10/2026",
+                    "~01-10-2026",
                     "~AB123CD",
                     "~300,00",
                     "~$330.000",
@@ -1300,7 +1300,7 @@ export const fleetPage: GuidePage = {
                   ],
                   [
                     "~3",
-                    "~01/10/2026",
+                    "~01-10-2026",
                     "~7090001234",
                     "~150,00",
                     "~$165.000",
@@ -1409,8 +1409,8 @@ export const fleetPage: GuidePage = {
           table: {
             columns: ["Vehículo", "Km recorridos", "Días con km", "Último día"],
             rows: [
-              ["~AF679VY", "~4.580", "~22", "~05/11/2026"],
-              ["~AH260UH", "~3.120", "~18", "~05/11/2026"],
+              ["~AF679VY", "~4.580", "~22", "~05-11-2026"],
+              ["~AH260UH", "~3.120", "~18", "~05-11-2026"],
             ],
           },
         },
@@ -1548,7 +1548,7 @@ export const fleetPage: GuidePage = {
                 {
                   label: "Fecha",
                   kind: "date",
-                  value: "20/10/2026",
+                  value: "20-10-2026",
                   marker: 2,
                 },
                 { label: "Tipo", kind: "select", value: "Service", marker: 2 },
@@ -1743,7 +1743,7 @@ export const fleetPage: GuidePage = {
                 {
                   label: "Vencimiento",
                   kind: "date",
-                  value: "20/11/2027",
+                  value: "20-11-2027",
                   marker: 3,
                 },
                 { label: "Notas", kind: "textarea", wide: true },

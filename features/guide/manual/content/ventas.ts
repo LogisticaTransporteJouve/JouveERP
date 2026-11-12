@@ -96,7 +96,7 @@ export const salesPage: GuidePage = {
                 "~30714637432",
                 "~Responsable Inscripto",
                 "~Activo",
-                "~03/11/2026",
+                "~03-11-2026",
                 "~✎ 🗑",
               ],
               [
@@ -104,7 +104,7 @@ export const salesPage: GuidePage = {
                 "~20123456786",
                 "~Monotributo",
                 "~Activo",
-                "~28/10/2026",
+                "~28-10-2026",
                 "~✎ 🗑",
               ],
             ],
@@ -387,7 +387,7 @@ export const salesPage: GuidePage = {
             ],
             rows: [
               [
-                "~04/11/2026",
+                "~04-11-2026",
                 "~Recibo",
                 "~0001-00000045",
                 "",
@@ -396,7 +396,7 @@ export const salesPage: GuidePage = {
                 "~👁 📄 ⬇",
               ],
               [
-                "~20/10/2026",
+                "~20-10-2026",
                 "~Factura A",
                 "~A0003-00000123 · Parcial",
                 "~$1.750.000,00",
@@ -462,7 +462,7 @@ export const salesPage: GuidePage = {
                 {
                   label: "Fecha de corte",
                   kind: "date",
-                  value: "31/12/2025",
+                  value: "31-12-2025",
                   marker: 2,
                 },
                 {
@@ -613,7 +613,7 @@ export const salesPage: GuidePage = {
               [
                 "~A0003-00000124",
                 "~Transportes del Sur S.A.",
-                "~04/11/2026",
+                "~04-11-2026",
                 "~$1.210.000,00",
                 "~Emitido",
                 "~👁 ✉",
@@ -621,7 +621,7 @@ export const salesPage: GuidePage = {
               [
                 "~NC0003-00000008",
                 "~Pérez Juan",
-                "~03/11/2026",
+                "~03-11-2026",
                 "~$60.500,00",
                 "~Esperando CAE",
                 "~👁",
@@ -1533,7 +1533,7 @@ export const salesPage: GuidePage = {
               [
                 "~0001-00000045",
                 "~Transportes del Sur S.A.",
-                "~04/11/2026",
+                "~04-11-2026",
                 "~$500.000,00",
                 "~Emitido",
                 "~👁 ✉ ☑ ✎ ⊘",

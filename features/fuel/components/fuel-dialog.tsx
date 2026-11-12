@@ -40,7 +40,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { amountToInput, parseArAmount } from "@/lib/format";
+import {
+  amountToInput,
+  formatArgentineDate,
+  parseArAmount,
+} from "@/lib/format";
 import { CostVoucherFields } from "@/features/fleet-reports/components/cost-voucher-fields";
 import type { CostVoucherAccess } from "@/lib/cost-vouchers";
 
@@ -94,7 +98,7 @@ function tripLabel(t: {
 }) {
   // Trips made after the route left the form have neither end.
   if (!t.origin && !t.destination) return t.trip_date;
-  return `${t.trip_date} ${t.origin ?? "?"}→${t.destination ?? "?"}`;
+  return `${formatArgentineDate(t.trip_date)} ${t.origin ?? "?"}→${t.destination ?? "?"}`;
 }
 
 export function FuelDialog({

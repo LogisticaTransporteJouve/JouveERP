@@ -214,7 +214,7 @@ describe("proposeReceipt", () => {
       retentions: [],
     });
     expect(prepared.summary).toContainEqual({
-      label: "Imputa a FC A 0002-00000007 del 1 sep 2026",
+      label: "Imputa a FC A 0002-00000007 del 01-09-2026",
       value: expect.stringContaining("50.000"),
     });
   });

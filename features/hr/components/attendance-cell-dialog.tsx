@@ -40,6 +40,7 @@ import {
   type AttendanceKind,
   type AttendanceRecord,
 } from "../attendance-schema";
+import { formatArgentineDate } from "@/lib/format";
 
 type FormValues = {
   kind: AttendanceKind;
@@ -135,7 +136,7 @@ export function AttendanceCellDialog({
         <DialogHeader>
           <DialogTitle>{employeeName}</DialogTitle>
           <DialogDescription>
-            {date}
+            {formatArgentineDate(date)}
             {isSyncRow ? (
               <span className="ml-2 text-muted-foreground dark:text-muted-foreground">
                 · auto desde{" "}

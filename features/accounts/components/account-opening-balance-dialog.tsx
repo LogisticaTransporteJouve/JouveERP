@@ -29,6 +29,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { todayIsoLocal as todayIso } from "@/lib/date-range";
 import {
+  formatArgentineDate,
   formatNumber2,
   parseArAmount,
   signedAmountToInput,
@@ -227,8 +228,8 @@ export function AccountOpeningBalanceDialog({
             <div className="rounded-md border bg-muted/30 p-3 text-xs">
               <p className="font-medium">Ajuste registrado actualmente</p>
               <p className="font-mono">
-                Corte: {existing.adjustment_date} · Saldo: $
-                {formatNumber2(existing.target_balance)}
+                Corte: {formatArgentineDate(existing.adjustment_date)} · Saldo:
+                ${formatNumber2(existing.target_balance)}
               </p>
             </div>
           )}

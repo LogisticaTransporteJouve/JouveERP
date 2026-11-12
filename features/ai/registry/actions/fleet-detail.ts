@@ -15,7 +15,7 @@ import {
 } from "@/features/trips/actions/trips-actions";
 import { TRIP_STATUS_LABELS, type Trip } from "@/features/trips/schema";
 import { userCan } from "@/lib/auth/permissions";
-import { round2 } from "@/lib/format";
+import { formatArgentineDate, round2 } from "@/lib/format";
 import { IsoDateSchema, UuidSchema } from "@/lib/validation/common";
 
 import { defineAiAction } from "../define";
@@ -211,7 +211,7 @@ export const getTripDetail = defineAiAction({
     const t = tripRes.data;
     const shipments = shipmentsRes?.data ?? null;
     return okResult(
-      `Viaje ${t.trip_date} · ${t.vehicle?.patente ?? "sin vehículo"} · ${
+      `Viaje ${formatArgentineDate(t.trip_date)} · ${t.vehicle?.patente ?? "sin vehículo"} · ${
         t.driver?.full_name ?? "sin chofer"
       }` +
         (t.companion ? ` · acompañante ${t.companion.legal_name}` : "") +

@@ -169,7 +169,7 @@ describe("propose actions", () => {
     expect(
       summary.filter((r) => r.label === "Atención").map((r) => r.value),
     ).toEqual([
-      expect.stringContaining("sería el martes 24 nov 2026"),
+      expect.stringContaining("sería el martes 24-11-2026"),
       "La licencia es de 5 días y le quedan 3 días de vacaciones pendientes.",
     ]);
 

@@ -11,7 +11,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
-import { formatMoney } from "@/lib/format";
+import { formatArgentineDate, formatMoney } from "@/lib/format";
 
 import {
   usePurchaseInvoiceByIdOptional,
@@ -22,7 +22,7 @@ import { formatInvoiceNumber, type PurchaseInvoice } from "../schema";
 const RESULT_LIMIT = 8;
 
 function invoiceSummary(inv: PurchaseInvoice): string {
-  return `${inv.supplier_legal_name} · ${inv.fecha} · ${formatMoney(inv.imp_total, inv.moneda)}`;
+  return `${inv.supplier_legal_name} · ${formatArgentineDate(inv.fecha)} · ${formatMoney(inv.imp_total, inv.moneda)}`;
 }
 
 /**

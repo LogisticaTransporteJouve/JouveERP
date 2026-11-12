@@ -312,8 +312,8 @@ export const warehousePage: GuidePage = {
               fields: [
                 { label: "PDF", kind: "checkbox", value: "✓", marker: 2 },
                 { label: "Excel", kind: "checkbox" },
-                { label: "Desde", kind: "date", value: "01/11/2026" },
-                { label: "Hasta", kind: "date", value: "05/11/2026" },
+                { label: "Desde", kind: "date", value: "01-11-2026" },
+                { label: "Hasta", kind: "date", value: "05-11-2026" },
               ],
               footer: [
                 { label: "Todo el historial", variant: "outline", marker: 3 },
@@ -658,7 +658,7 @@ export const warehousePage: GuidePage = {
                 {
                   label: "Ingreso",
                   kind: "date",
-                  value: "05/11/2026",
+                  value: "05-11-2026",
                   marker: 2,
                 },
                 { label: "Egreso (opcional)", kind: "date" },
@@ -769,7 +769,7 @@ export const warehousePage: GuidePage = {
                 {
                   label: "Fecha de ingreso",
                   kind: "date",
-                  value: "05/11/2026",
+                  value: "05-11-2026",
                   marker: 2,
                 },
                 { label: "Cantidad por pallet", value: "40" },
@@ -952,7 +952,7 @@ export const warehousePage: GuidePage = {
                 {
                   label: "Fecha de salida",
                   kind: "date",
-                  value: "05/11/2026",
+                  value: "05-11-2026",
                   marker: 3,
                   wide: true,
                 },

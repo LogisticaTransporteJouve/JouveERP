@@ -97,7 +97,7 @@ export const purchasesPage: GuidePage = {
                 "~Responsable Inscripto",
                 "~Combustible",
                 "~Activo",
-                "~03/11/2026",
+                "~03-11-2026",
                 "~✎ 🗑",
               ],
               [
@@ -106,7 +106,7 @@ export const purchasesPage: GuidePage = {
                 "~Responsable Inscripto",
                 "~Repuestos",
                 "~Activo",
-                "~28/10/2026",
+                "~28-10-2026",
                 "~✎ 🗑",
               ],
             ],
@@ -407,7 +407,7 @@ export const purchasesPage: GuidePage = {
                 ],
                 rows: [
                   [
-                    "~04/11/2026",
+                    "~04-11-2026",
                     "~Orden de Pago",
                     "~OP0003-00000041",
                     "~Jouve fiscal",
@@ -417,7 +417,7 @@ export const purchasesPage: GuidePage = {
                     "~👁",
                   ],
                   [
-                    "~20/10/2026",
+                    "~20-10-2026",
                     "~Factura",
                     "~A00002-00001234 Parcial",
                     "~Jouve fiscal",
@@ -468,7 +468,7 @@ export const purchasesPage: GuidePage = {
                 {
                   label: "Fecha de corte",
                   kind: "date",
-                  value: "31/12/2025",
+                  value: "31-12-2025",
                   marker: 2,
                 },
                 {
@@ -818,7 +818,7 @@ export const purchasesPage: GuidePage = {
                 "~Factura A00002-00001234",
                 "~Transportes del Sur S.A.",
                 "~Fiscal",
-                "~20/10/2026",
+                "~20-10-2026",
                 "~$800.000,00",
                 "~Recibida",
                 "~👁 ✎ 🏷 ⊘",
@@ -827,7 +827,7 @@ export const purchasesPage: GuidePage = {
                 "~Nota de Crédito NC00002-00000045",
                 "~Transportes del Sur S.A.",
                 "~Fiscal",
-                "~25/10/2026",
+                "~25-10-2026",
                 "~$50.000,00",
                 "~Recibida",
                 "~👁 ✎ 🏷 ⊘",
@@ -921,13 +921,13 @@ export const purchasesPage: GuidePage = {
                 {
                   label: "Fecha",
                   kind: "date",
-                  value: "20/10/2026",
+                  value: "20-10-2026",
                   marker: 5,
                 },
                 {
                   label: "Vencimiento de pago",
                   kind: "date",
-                  value: "19/11/2026",
+                  value: "19-11-2026",
                   marker: 5,
                 },
                 {
@@ -1277,7 +1277,7 @@ export const purchasesPage: GuidePage = {
                   marker: 3,
                 },
                 { label: "Número", kind: "input", value: "18", marker: 3 },
-                { label: "Fecha", kind: "date", value: "02/11/2026" },
+                { label: "Fecha", kind: "date", value: "02-11-2026" },
                 {
                   label: "Neto",
                   kind: "money",
@@ -1853,7 +1853,7 @@ export const purchasesPage: GuidePage = {
                 {
                   label: "Vencimiento de pago",
                   kind: "date",
-                  value: "19/11/2026",
+                  value: "19-11-2026",
                   marker: 3,
                 },
                 { label: "Cuenta de gasto", kind: "select", marker: 3 },
@@ -2087,7 +2087,7 @@ export const purchasesPage: GuidePage = {
               [
                 "~OP0003-00000041",
                 "~Transportes del Sur S.A.",
-                "~04/11/2026",
+                "~04-11-2026",
                 "~$500.000,00",
                 "~Emitida",
                 "~👁 ☰ ✎ ⊘",
@@ -2095,7 +2095,7 @@ export const purchasesPage: GuidePage = {
               [
                 "~OP0003-00000040",
                 "~Neumáticos Lanús S.R.L.",
-                "~30/10/2026",
+                "~30-10-2026",
                 "~$210.000,00",
                 "~Emitida",
                 "~👁 ☰ ✎ ⊘",
@@ -2157,7 +2157,7 @@ export const purchasesPage: GuidePage = {
                 {
                   label: "Fecha",
                   kind: "date",
-                  value: "04/11/2026",
+                  value: "04-11-2026",
                   marker: 2,
                 },
                 { label: "Moneda", kind: "select", value: "ARS", marker: 2 },
@@ -2354,7 +2354,7 @@ export const purchasesPage: GuidePage = {
                 {
                   label: "Fecha de vto.",
                   kind: "date",
-                  value: "04/12/2026",
+                  value: "04-12-2026",
                   marker: 2,
                 },
                 {

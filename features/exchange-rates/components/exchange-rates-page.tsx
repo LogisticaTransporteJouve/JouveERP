@@ -56,7 +56,7 @@ export function ExchangeRatesPage({ actorAccess }: { actorAccess: Access }) {
   const columns = useMemo<ColumnDef<ExchangeRate>[]>(() => {
     async function handleDelete(r: ExchangeRate) {
       const ok = await confirm({
-        title: `Borrar cotización ${r.rate_date}`,
+        title: `Borrar cotización ${formatArgentineDate(r.rate_date)}`,
         description:
           "Las conversiones que usaban esta fecha van a tomar la cotización anterior más cercana.",
         confirmLabel: "Borrar",

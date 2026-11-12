@@ -55,7 +55,7 @@ export const hrPage: GuidePage = {
                 "~$ 950.000",
                 "~$ 20.000",
                 "~Activo",
-                "~03/02/2021",
+                "~03-02-2021",
                 "~Editar",
               ],
               [
@@ -65,7 +65,7 @@ export const hrPage: GuidePage = {
                 "~$ 820.000",
                 "~$ 20.000",
                 "~Activo",
-                "~15/08/2024",
+                "~15-08-2024",
                 "~Editar",
               ],
             ],
@@ -138,7 +138,7 @@ export const hrPage: GuidePage = {
                 {
                   label: "Fecha de ingreso",
                   kind: "date",
-                  value: "03/02/2021",
+                  value: "03-02-2021",
                 },
                 { label: "Monotributista", kind: "checkbox" },
                 { label: "Notas", kind: "textarea", wide: true },
@@ -417,7 +417,7 @@ export const hrPage: GuidePage = {
                 {
                   label: "Fecha de egreso",
                   kind: "date",
-                  value: "31/10/2026",
+                  value: "31-10-2026",
                   marker: 2,
                 },
                 { label: "Motivo / notas", kind: "textarea", marker: 2 },
@@ -505,7 +505,7 @@ export const hrPage: GuidePage = {
                   marker: 2,
                 },
                 { label: "Canal", kind: "select", value: "Jouve", marker: 2 },
-                { label: "Fecha", kind: "date", value: "05/11/2026" },
+                { label: "Fecha", kind: "date", value: "05-11-2026" },
                 {
                   label: "Primera cuota en el sueldo de",
                   kind: "select",
@@ -669,7 +669,7 @@ export const hrPage: GuidePage = {
                 },
                 { label: "Moneda", kind: "select", value: "USD" },
                 { label: "Importe", kind: "money", value: "1.500" },
-                { label: "Fecha", kind: "date", value: "05/11/2026" },
+                { label: "Fecha", kind: "date", value: "05-11-2026" },
                 { label: "Plan (opcional)", kind: "select", value: "Sin plan" },
                 {
                   label: "Descripción",
@@ -962,7 +962,7 @@ export const hrPage: GuidePage = {
                 {
                   label: "Vigente desde",
                   kind: "date",
-                  value: "01/11/2026",
+                  value: "01-11-2026",
                   marker: 3,
                 },
                 { label: "Hasta (opcional)", kind: "date", marker: 3 },
@@ -1189,7 +1189,7 @@ export const hrPage: GuidePage = {
                 {
                   label: "Vencimiento",
                   kind: "date",
-                  value: "10/03/2028",
+                  value: "10-03-2028",
                   marker: 2,
                 },
                 { label: "Autoridad emisora (opcional)", kind: "input" },
@@ -1305,12 +1305,12 @@ export const hrPage: GuidePage = {
           table: {
             columns: ["Período", "Estado", "Creado", "Cerrado", "Acciones"],
             rows: [
-              ["~Noviembre 2026", "~Borrador", "~01/11/2026", "—", "~Abrir →"],
+              ["~Noviembre 2026", "~Borrador", "~01-11-2026", "—", "~Abrir →"],
               [
                 "~Octubre 2026",
                 "~Cerrado",
-                "~01/10/2026",
-                "~04/11/2026",
+                "~01-10-2026",
+                "~04-11-2026",
                 "~Abrir →",
               ],
             ],
@@ -1793,7 +1793,7 @@ export const hrPage: GuidePage = {
                 {
                   label: "Fecha",
                   kind: "date",
-                  value: "05/11/2026",
+                  value: "05-11-2026",
                   marker: 2,
                 },
                 { label: "Monto", kind: "money", value: "530.000", marker: 2 },
@@ -1975,7 +1975,7 @@ export const hrPage: GuidePage = {
                 {
                   label: "Fecha",
                   kind: "date",
-                  value: "05/11/2026",
+                  value: "05-11-2026",
                   marker: 2,
                 },
               ],
@@ -2144,13 +2144,13 @@ export const hrPage: GuidePage = {
                 {
                   label: "Desde",
                   kind: "date",
-                  value: "05/01/2027",
+                  value: "05-01-2027",
                   marker: 2,
                 },
                 {
                   label: "Hasta",
                   kind: "date",
-                  value: "18/01/2027",
+                  value: "18-01-2027",
                   marker: 2,
                 },
                 {

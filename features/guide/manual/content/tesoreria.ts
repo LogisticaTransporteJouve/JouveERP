@@ -101,7 +101,7 @@ export const treasuryPage: GuidePage = {
                 { label: "Lado", kind: "select", value: "Fiscal", marker: 2 },
                 { label: "Canal", kind: "select", marker: 3 },
                 { label: "Número", kind: "input", value: "123" },
-                { label: "Fecha", kind: "date", value: "05/11/2026" },
+                { label: "Fecha", kind: "date", value: "05-11-2026" },
                 { label: "Moneda", kind: "select", value: "ARS" },
                 { label: "Cliente", kind: "picker", marker: 4, wide: true },
                 { label: "Imputación", kind: "select", marker: 6, wide: true },
@@ -187,7 +187,7 @@ export const treasuryPage: GuidePage = {
                 { label: "Lado", kind: "select", value: "Interno", marker: 2 },
                 { label: "Canal", kind: "select", marker: 3 },
                 { label: "Número", kind: "input" },
-                { label: "Fecha", kind: "date", value: "05/11/2026" },
+                { label: "Fecha", kind: "date", value: "05-11-2026" },
                 { label: "Moneda", kind: "select", value: "ARS" },
                 { label: "Proveedor", kind: "picker", marker: 4, wide: true },
                 { label: "Imputación", kind: "select", marker: 6, wide: true },
@@ -270,7 +270,7 @@ export const treasuryPage: GuidePage = {
                 { label: "Empleado", kind: "select", marker: 2, wide: true },
                 { label: "Cuenta", kind: "select", value: "Caja chica (ARS)" },
                 { label: "Canal", kind: "select" },
-                { label: "Fecha", kind: "date", value: "05/11/2026" },
+                { label: "Fecha", kind: "date", value: "05-11-2026" },
                 {
                   label: "Descontar en el sueldo de",
                   kind: "select",
@@ -563,7 +563,7 @@ export const treasuryPage: GuidePage = {
                 {
                   label: "Fecha de ajuste",
                   kind: "date",
-                  value: "30/04/2026",
+                  value: "30-04-2026",
                   marker: 2,
                 },
                 {
@@ -691,7 +691,7 @@ export const treasuryPage: GuidePage = {
             ],
             rows: [
               [
-                "04/11/2026",
+                "04-11-2026",
                 "Banco Galicia ARS",
                 "Jouve fiscal",
                 "Comisión mantenimiento",
@@ -699,7 +699,7 @@ export const treasuryPage: GuidePage = {
                 "$ 12.500,00",
               ],
               [
-                "03/11/2026",
+                "03-11-2026",
                 "Caja chica",
                 "Jouve interno",
                 "Venta de chatarra",
@@ -770,7 +770,7 @@ export const treasuryPage: GuidePage = {
                 {
                   label: "Fecha",
                   kind: "date",
-                  value: "04/11/2026",
+                  value: "04-11-2026",
                   marker: 5,
                 },
                 {
@@ -925,7 +925,7 @@ export const treasuryPage: GuidePage = {
                 {
                   label: "Fecha",
                   kind: "date",
-                  value: "04/11/2026",
+                  value: "04-11-2026",
                   marker: 2,
                 },
                 {
@@ -1111,13 +1111,13 @@ export const treasuryPage: GuidePage = {
                 {
                   label: "Desde",
                   kind: "date",
-                  value: "01/11/2026",
+                  value: "01-11-2026",
                   marker: 3,
                 },
                 {
                   label: "Hasta",
                   kind: "date",
-                  value: "05/11/2026",
+                  value: "05-11-2026",
                   marker: 3,
                 },
               ],
@@ -1193,7 +1193,7 @@ export const treasuryPage: GuidePage = {
             ],
             rows: [
               [
-                "28/10/2026",
+                "28-10-2026",
                 "TRANSF. RECIBIDA 3071234",
                 "",
                 "$ 850.000,00",
@@ -1201,7 +1201,7 @@ export const treasuryPage: GuidePage = {
                 "Conciliada",
               ],
               [
-                "31/10/2026",
+                "31-10-2026",
                 "COM. MANTENIMIENTO CTA",
                 "$ 12.500,00",
                 "",
@@ -1507,13 +1507,13 @@ export const treasuryPage: GuidePage = {
                 "Elegí el movimiento de la cuenta que la explica, o varios que sumen su importe. Mientras esté conciliado, el movimiento no se edita ni se borra.",
               fields: [
                 {
-                  label: "~Pago OP 456 · 27/10/2026 · -$ 300.000,00",
+                  label: "~Pago OP 456 · 27-10-2026 · -$ 300.000,00",
                   kind: "checkbox",
                   marker: 2,
                   wide: true,
                 },
                 {
-                  label: "~Pago OP 457 · 27/10/2026 · -$ 200.000,00",
+                  label: "~Pago OP 457 · 27-10-2026 · -$ 200.000,00",
                   kind: "checkbox",
                   marker: 2,
                   wide: true,
@@ -1790,7 +1790,7 @@ export const treasuryPage: GuidePage = {
                 "00012345",
                 "Banco Nación",
                 "Transportes del Sur SRL",
-                "20/11/2026",
+                "20-11-2026",
                 "$ 850.000,00",
                 "En cartera",
                 "Depositar · Rechazar",
@@ -1800,7 +1800,7 @@ export const treasuryPage: GuidePage = {
                 "88001234",
                 "Galicia",
                 "Agro Norte SA",
-                "02/11/2026",
+                "02-11-2026",
                 "$ 480.000,00",
                 "Depositado",
                 "Marcar acreditado · Rechazar",
@@ -1874,13 +1874,13 @@ export const treasuryPage: GuidePage = {
                 {
                   label: "Fecha de emisión",
                   kind: "date",
-                  value: "01/11/2026",
+                  value: "01-11-2026",
                   marker: 6,
                 },
                 {
                   label: "Fecha de cobro",
                   kind: "date",
-                  value: "20/11/2026",
+                  value: "20-11-2026",
                   marker: 6,
                 },
                 {
@@ -1967,7 +1967,7 @@ export const treasuryPage: GuidePage = {
                 {
                   label: "Fecha",
                   kind: "date",
-                  value: "05/11/2026",
+                  value: "05-11-2026",
                   marker: 3,
                 },
                 { label: "Descripción (opcional)", kind: "input", wide: true },
@@ -2070,7 +2070,7 @@ export const treasuryPage: GuidePage = {
                 {
                   label: "Fecha",
                   kind: "date",
-                  value: "05/11/2026",
+                  value: "05-11-2026",
                   marker: 2,
                 },
                 {
@@ -2159,7 +2159,7 @@ export const treasuryPage: GuidePage = {
                   wide: true,
                 },
                 { label: "Canal", kind: "select", value: "Jouve fiscal" },
-                { label: "Fecha", kind: "date", value: "05/11/2026" },
+                { label: "Fecha", kind: "date", value: "05-11-2026" },
                 {
                   label: "Intereses",
                   kind: "money",
@@ -2436,7 +2436,7 @@ export const treasuryPage: GuidePage = {
                 "#45001234 Banco Galicia",
                 "Físico",
                 "Repuestos Pampa SRL",
-                "15/11/2026",
+                "15-11-2026",
                 "$320.000,00",
                 "Emitido",
                 "",
@@ -2482,13 +2482,13 @@ export const treasuryPage: GuidePage = {
                 {
                   label: "Fecha de emisión",
                   kind: "date",
-                  value: "05/11/2026",
+                  value: "05-11-2026",
                   marker: 4,
                 },
                 {
                   label: "Fecha de cobro",
                   kind: "date",
-                  value: "15/11/2026",
+                  value: "15-11-2026",
                   marker: 4,
                 },
                 {
@@ -2807,7 +2807,7 @@ export const treasuryPage: GuidePage = {
                 "$ 1.783.037,51",
                 "11/12",
                 "$ 1.850.555,27 (1)",
-                "03/12/2026",
+                "03-12-2026",
                 "Activo",
               ],
             ],
@@ -2913,7 +2913,7 @@ export const treasuryPage: GuidePage = {
                 {
                   label: "Fecha de alta",
                   kind: "date",
-                  value: "04/12/2025",
+                  value: "04-12-2025",
                   marker: 3,
                 },
                 {
@@ -3193,7 +3193,7 @@ export const treasuryPage: GuidePage = {
                 {
                   label: "Fecha de pago",
                   kind: "date",
-                  value: "15/11/2026",
+                  value: "15-11-2026",
                   marker: 2,
                 },
                 {
@@ -3295,7 +3295,7 @@ export const treasuryPage: GuidePage = {
                 {
                   label: "Fecha",
                   kind: "date",
-                  value: "15/11/2026",
+                  value: "15-11-2026",
                   marker: 2,
                 },
                 {

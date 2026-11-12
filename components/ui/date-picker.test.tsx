@@ -70,15 +70,15 @@ describe("DatePicker", () => {
         className="w-[160px]"
       />,
     );
-    const trigger = screen.getByRole("button", { name: /05\/11\/2026/ });
+    const trigger = screen.getByRole("button", { name: /05-11-2026/ });
     expect(trigger.className.split(" ")).toContain("flex");
     expect(trigger.className).not.toContain("inline-flex");
   });
 
-  it("shows dd/mm/yyyy and emits YYYY-MM-DD", () => {
+  it("shows dd-mm-yyyy and emits YYYY-MM-DD", () => {
     const onChange = vi.fn();
     render(<DatePicker value="2026-11-05" onChange={onChange} />);
-    fireEvent.click(screen.getByRole("button", { name: /05\/11\/2026/ }));
+    fireEvent.click(screen.getByRole("button", { name: /05-11-2026/ }));
     fireEvent.click(screen.getByRole("button", { name: /20 de noviembre/ }));
     expect(onChange).toHaveBeenCalledWith("2026-11-20");
   });
@@ -93,7 +93,7 @@ describe("DatePicker", () => {
         max="2026-11-10"
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: /05\/11\/2026/ }));
+    fireEvent.click(screen.getByRole("button", { name: /05-11-2026/ }));
     const late = screen.getByRole("button", { name: /11 de noviembre/ });
     expect(late).toHaveProperty("disabled", true);
     const early = screen.getByRole("button", { name: /, 2 de noviembre/ });
@@ -134,7 +134,7 @@ describe("DatePicker", () => {
     );
     expect(
       screen.getByRole("button", {
-        name: "Fecha de pago del cheque: 05/11/2026",
+        name: "Fecha de pago del cheque: 05-11-2026",
       }),
     ).toBeTruthy();
   });

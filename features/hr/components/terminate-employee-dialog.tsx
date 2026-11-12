@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/form";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Textarea } from "@/components/ui/textarea";
-import { todayInAR } from "@/lib/format";
+import { formatArgentineDate, todayInAR } from "@/lib/format";
 
 import {
   useReactivateEmployee,
@@ -101,7 +101,8 @@ export function TerminateEmployeeDialog({ employee }: { employee: Employee }) {
               <DialogTitle>Reactivar empleado</DialogTitle>
               <DialogDescription>
                 {employee.legal_name} fue dado de baja el{" "}
-                {employee.termination_date}. ¿Confirmás la reactivación?
+                {formatArgentineDate(employee.termination_date)}. ¿Confirmás la
+                reactivación?
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>

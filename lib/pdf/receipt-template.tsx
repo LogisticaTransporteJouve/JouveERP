@@ -14,6 +14,7 @@ import {
   type VoucherParty,
   type VoucherPaymentLine,
 } from "./voucher-template";
+import { formatArgentineDate } from "@/lib/format";
 
 // Receipt PDF: the shared voucher layout plus the withholdings the client
 // applied.
@@ -70,7 +71,9 @@ export function ReceiptDocument({ data }: { data: ReceiptTemplateData }) {
             {r.jurisdiction ? ` · ${r.jurisdiction}` : ""}
           </Text>
           <Text style={styles.colSmall}>{r.certificate_number}</Text>
-          <Text style={styles.colSmall}>{r.certificate_date}</Text>
+          <Text style={styles.colSmall}>
+            {formatArgentineDate(r.certificate_date)}
+          </Text>
           <Text style={styles.colNumber}>
             {formatVoucherAmount(r.amount, data.moneda)}
           </Text>

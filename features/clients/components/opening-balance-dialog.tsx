@@ -26,6 +26,7 @@ import {
 } from "../hooks/use-clients";
 import { todayIsoLocal as todayIso } from "@/lib/date-range";
 import {
+  formatArgentineDate,
   formatNumber2,
   parseArAmount,
   signedAmountToInput,
@@ -219,7 +220,7 @@ export function OpeningBalanceDialog({
             <div className="rounded-md border bg-muted/30 p-3 text-xs">
               <p className="font-medium">Registrado actualmente</p>
               <p className="font-mono">
-                Corte: {existing.opening_date} · Saldo: $
+                Corte: {formatArgentineDate(existing.opening_date)} · Saldo: $
                 {formatNumber2(existing.target_balance)} · Imputado a facturas:
                 ${formatNumber2(existing.total_settled)}
               </p>
