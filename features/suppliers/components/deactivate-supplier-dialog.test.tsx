@@ -1,5 +1,11 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { Supplier } from "../schema";
@@ -56,8 +62,11 @@ describe("DeactivateSupplierDialog", () => {
     expect(
       screen.queryByRole("button", { name: "Eliminar definitivamente" }),
     ).toBeNull();
-    const buttons = screen.getAllByRole("button", { name: "Desactivar" });
-    fireEvent.click(buttons[buttons.length - 1]);
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: "Desactivar",
+      }),
+    );
     expect(h.setActive).toHaveBeenCalledWith(
       { id: "c1", is_active: false },
       expect.anything(),
