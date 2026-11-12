@@ -2984,7 +2984,7 @@ export const treasuryPage: GuidePage = {
           body: [
             "Como todo movimiento de Caja, solo genera asientos un préstamo de canal fiscal.",
             "Registrar el desembolso deja el ingreso en el banco y lo asienta contra la deuda del préstamo (pasivo).",
-            "Pagar una cuota deja el egreso en la cuenta elegida. Si la cuota tiene desglose, el capital baja la deuda del préstamo y el resto va a intereses, IVA crédito fiscal y percepciones. Sin desglose, si el desembolso está registrado se toma primero como capital lo que todavía se debe y el resto como interés; si no, la cuota entera va a gastos.",
+            "Pagar una cuota deja el egreso en la cuenta elegida. Si la cuota tiene desglose, el capital baja la deuda del préstamo y el resto va a intereses, IVA crédito fiscal y percepciones: la {{Percepción IVA}} a «Percepciones IVA sufridas» (1.1.3.4) y la {{Percepción IIBB}} a «Percepciones IIBB sufridas» (1.1.3.2). Sin desglose, si el desembolso está registrado se toma primero como capital lo que todavía se debe y el resto como interés; si no, la cuota entera va a gastos.",
             "En un préstamo en dólares, el capital se da de baja a la cotización del desembolso y la diferencia con la del pago va a diferencia de cambio.",
           ],
         },
@@ -3269,13 +3269,14 @@ export const treasuryPage: GuidePage = {
             {
               text: "Para separar los componentes, marcá {{Desglosar capital, interés, IVA y cargos}} y completá:",
               substeps: [
-                "{{Capital}}, {{Interés}}, {{IVA}}, {{Percepción}} y {{Otros cargos (sellos, punitorios)}}. El monto de la cuota pasa a ser la suma.",
+                "{{Capital}}, {{Interés}}, {{IVA}}, {{Percepción IVA}}, {{Percepción IIBB}} y {{Otros cargos (sellos, punitorios)}}. El monto de la cuota pasa a ser la suma.",
+                "La {{Percepción IVA}} es la que el banco detalla como «IVA percepción»; la {{Percepción IIBB}}, la de Ingresos Brutos y otros impuestos. Si no sabés cuál es, dejala en IIBB, como hasta ahora.",
               ],
             },
             "Hacé clic en {{Guardar}}.",
           ],
           after: [
-            "La cuota y la proyección del flujo de caja se actualizan. Con desglose, al pagarla el capital baja la deuda y el resto va a intereses, IVA y percepción.",
+            "La cuota y la proyección del flujo de caja se actualizan. Con desglose, al pagarla el capital baja la deuda y el resto va a intereses, IVA y percepciones (la de IVA a 1.1.3.4, la de IIBB a 1.1.3.2). La percepción de IVA de las cuotas se resta en la estimación del IVA del mes ([[#estimar-iva]]).",
           ],
           errors: [
             {
@@ -3342,7 +3343,7 @@ export const treasuryPage: GuidePage = {
           after: [
             "La cuota pasa a {{Pagada}} con su fecha e importe, y se registra el egreso en Caja con su asiento (ver «Qué asientos hace un préstamo»). Ese egreso se corrige desde el préstamo, no desde Caja.",
             "Cuando se paga la última cuota, el préstamo pasa a {{Cancelado}}.",
-            "Si el banco ya debitó la cuota, es más rápido desde el extracto: en la pestaña {{Extracto}} de la cuenta, la línea del débito (en Macro, código 361) muestra la cuota que paga y el botón {{Pagar cuota}}. Paga la cuota con la fecha y el importe de la línea, desde la cuenta del extracto, y deja la línea conciliada. Aparece si el préstamo tiene esa {{Cuenta de débito}} y una cuota pendiente que vence hasta 31 días antes o después, por el mismo importe o con hasta un 10 % de diferencia. Si el importe no coincide (el banco cobró interés por días, punitorios o impuestos), {{Pagar cuota}} abre el desglose: Capital, Intereses, Intereses exceso (punitorios), IVA e Impuestos; cargalo como el detalle de la cuota del home banking, tiene que sumar el débito, y hacé clic en {{Pagar y conciliar}}. Las demás propuestas del extracto están en [[#registrar-linea-desde-propuesta]].",
+            "Si el banco ya debitó la cuota, es más rápido desde el extracto: en la pestaña {{Extracto}} de la cuenta, la línea del débito (en Macro, código 361) muestra la cuota que paga y el botón {{Pagar cuota}}. Paga la cuota con la fecha y el importe de la línea, desde la cuenta del extracto, y deja la línea conciliada. Aparece si el préstamo tiene esa {{Cuenta de débito}} y una cuota pendiente que vence hasta 31 días antes o después, por el mismo importe o con hasta un 10 % de diferencia. Si el importe no coincide (el banco cobró interés por días, punitorios o impuestos), {{Pagar cuota}} abre el desglose: Capital, Intereses, Intereses exceso (punitorios), IVA, Percepción IVA y Percepción IIBB / impuestos (sugeridos con las tasas de la última cuota pagada); cargalo como el detalle de la cuota del home banking, tiene que sumar el débito, y hacé clic en {{Pagar y conciliar}}. Las demás propuestas del extracto están en [[#registrar-linea-desde-propuesta]].",
           ],
           errors: [
             {
