@@ -43,6 +43,7 @@ import {
 } from "@/features/hr/attendance-schema";
 import {
   BulkCreatePayrollPaymentsSchema,
+  formatPayrollPeriod,
   PAYROLL_PAYMENT_METHOD_LABEL,
 } from "@/features/hr/payroll-schema";
 import {
@@ -2107,6 +2108,11 @@ const CASH_KIND_LABEL = {
   payment: "Pago del empleado",
 } as const;
 
+/** «Noviembre 2026» for an ISO date or month start. */
+function payrollMonthLabel(iso: string): string {
+  return formatPayrollPeriod(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)));
+}
+
 export const employeeAccountCashProposalSpec = defineProposalSpec({
   title: "Movimiento de caja del empleado",
   draft: RecordAccountCashSchema,
@@ -2135,6 +2141,14 @@ export const employeeAccountCashProposalSpec = defineProposalSpec({
                   ? `Plan en cuotas de ${formatMoney(d.installment_amount, currency)}`
                   : "Sin plan: queda como deuda en la cuenta corriente",
             },
+            ...(d.installment_amount != null
+              ? [
+                  {
+                    label: "Se descuenta desde",
+                    value: payrollMonthLabel(d.start_month ?? d.date),
+                  },
+                ]
+              : []),
           ]
         : []),
       ...(d.plan_id

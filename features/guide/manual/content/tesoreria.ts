@@ -265,12 +265,18 @@ export const treasuryPage: GuidePage = {
               kind: "dialog",
               title: "Adelanto a empleado",
               description:
-                "Sale de la cuenta elegida y va a la cuenta corriente del empleado (no es un gasto). Se descuenta entero en la planilla del mes de la fecha.",
+                "Sale de la cuenta elegida y va a la cuenta corriente del empleado (no es un gasto). Se descuenta entero en la planilla del sueldo que elijas.",
               fields: [
                 { label: "Empleado", kind: "select", marker: 2, wide: true },
                 { label: "Cuenta", kind: "select", value: "Caja chica (ARS)" },
                 { label: "Canal", kind: "select" },
                 { label: "Fecha", kind: "date", value: "05/11/2026" },
+                {
+                  label: "Descontar en el sueldo de",
+                  kind: "select",
+                  value: "Noviembre 2026",
+                  marker: 3,
+                },
                 { label: "~Importe (ARS)", kind: "money", value: "150.000,00" },
                 { label: "Descripción (opcional)", kind: "input", wide: true },
               ],
@@ -281,14 +287,15 @@ export const treasuryPage: GuidePage = {
             },
           ],
           steps: [
-            "En [[/treasury]] (o en [[/transactions]]), hacé clic en {{Adelanto a empleado}} (se descuenta entero en la planilla del mes) o en {{Préstamo a empleado}} (en cuotas: pide la {{Cuota mensual}}, menor que el importe).",
+            "En [[/treasury]] (o en [[/transactions]]), hacé clic en {{Adelanto a empleado}} (se descuenta entero en la planilla de un mes) o en {{Préstamo a empleado}} (en cuotas: pide la {{Cuota mensual}}, menor que el importe).",
             "En {{Empleado}}, elegí el empleado.",
             "Completá {{Cuenta}} (de donde sale la plata; la moneda del adelanto es la de la cuenta), {{Canal}}, {{Fecha}}, {{Importe}} y, si querés, {{Descripción (opcional)}}.",
+            "En {{Descontar en el sueldo de}} (en un préstamo, {{Primera cuota en el sueldo de}}) elegí la planilla donde se descuenta: viene en el mes de la fecha y se puede pasar al mes anterior o a uno de los dos siguientes.",
             "Hacé clic en {{Registrar}}. La planilla solo descuenta planes en pesos: uno en dólares se salda con pagos del empleado.",
           ],
           after: [
             "Se registra un egreso en la cuenta elegida y un movimiento en la cuenta corriente del empleado. Si el canal es fiscal y el plan de cuentas tiene activa la cuenta de anticipos al personal, el asiento va contra ella y no contra gastos.",
-            "Queda un plan que la planilla de sueldos descuenta: entero en el mes de la fecha (adelanto) o una cuota por mes (préstamo).",
+            "Queda un plan que la planilla de sueldos descuenta: entero en el sueldo elegido (adelanto) o una cuota por mes desde ese sueldo (préstamo).",
             "Ese egreso lo maneja la cuenta corriente del empleado: no se edita monto, fecha ni cuenta desde Caja.",
           ],
           errors: [

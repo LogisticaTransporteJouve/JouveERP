@@ -11700,6 +11700,7 @@ export type Database = {
           p_installment_amount?: number
           p_kind: string
           p_plan_id?: string
+          p_start_month?: string
         }
         Returns: string
       }

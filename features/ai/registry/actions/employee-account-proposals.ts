@@ -121,7 +121,7 @@ export const proposeEmployeeAccountCash = defineAiProposal({
     "or a payment by the employee (pago del empleado, entra plata) for the " +
     "user to accept on a card: the Caja movement and the employee's account " +
     "movement together. An advance (adelanto) is discounted whole in the " +
-    "planilla of its month; a loan (préstamo) is the same with " +
+    "planilla of its month (or payroll_month); a loan (préstamo) is the same with " +
     "installment_amount, the monthly cuota, below the amount. " +
     "discount_in_payroll false leaves it out of the planilla. A payment can be applied to one of the " +
     "employee's debt plans (plan). Writes nothing by itself.",
@@ -141,6 +141,13 @@ export const proposeEmployeeAccountCash = defineAiProposal({
     installment_amount: money
       .optional()
       .describe("Advance only: monthly cuota discounted in the planilla."),
+    payroll_month: z
+      .string()
+      .regex(/^\d{4}-\d{2}$/)
+      .optional()
+      .describe(
+        "Advance only: the planilla (YYYY-MM) it is discounted in (a loan: its first cuota), from the month before the date's to two months after. Default the date's month.",
+      ),
     discount_in_payroll: z
       .boolean()
       .optional()
@@ -202,6 +209,10 @@ export const proposeEmployeeAccountCash = defineAiProposal({
         description: input.description ?? null,
         plan_id: plan?.value.id ?? null,
         installment_amount: installment,
+        start_month:
+          installment !== null && input.payroll_month
+            ? input.payroll_month
+            : null,
       },
       labels: {
         [employee.value.id]: employee.value.legal_name,

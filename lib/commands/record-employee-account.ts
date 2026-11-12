@@ -39,6 +39,7 @@ export async function recordEmployeeAccountCash(
     ...(v.installment_amount != null
       ? { p_installment_amount: v.installment_amount }
       : {}),
+    ...(v.start_month ? { p_start_month: v.start_month } : {}),
   });
   if (error || !data) {
     if (error && !error.hint) {
@@ -69,6 +70,7 @@ export async function recordEmployeeAccountCash(
       amount: v.amount,
       plan_id: v.plan_id ?? null,
       installment_amount: v.installment_amount ?? null,
+      start_month: v.start_month ?? null,
     },
     data,
   );
