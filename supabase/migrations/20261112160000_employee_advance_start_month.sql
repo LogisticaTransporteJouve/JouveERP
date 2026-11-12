@@ -17,7 +17,7 @@ create function public.record_employee_account_cash(p_employee_id uuid, p_kind t
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO ''
-AS $function$
+AS $$
 declare
   v_name         text;
   v_account      public.accounts;
@@ -139,7 +139,7 @@ begin
   perform public.repost_journal('transactions', v_tx_id);
   return v_movement_id;
 end;
-$function$
+$$
 ;
 
 revoke all on function public.record_employee_account_cash(uuid, text, uuid, text, date, numeric, text, uuid, numeric, date) from public, anon, authenticated;
