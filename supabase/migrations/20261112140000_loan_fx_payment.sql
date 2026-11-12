@@ -40,15 +40,15 @@ alter table public.loans
   add column is_open_ended boolean not null default false,
   add column monthly_rate numeric(7, 4);
 
+-- Every row holds the defaults just added (false / null): the checks are
+-- validated at once, like 20261111185000.
 alter table public.loans
+  -- squawk-ignore constraint-missing-not-valid
   add constraint loans_monthly_rate_check
-    check (monthly_rate is null or monthly_rate between 0 and 100) not valid;
-alter table public.loans validate constraint loans_monthly_rate_check;
-
-alter table public.loans
+    check (monthly_rate is null or monthly_rate between 0 and 100),
+  -- squawk-ignore constraint-missing-not-valid
   add constraint loans_open_ended_check
-    check (not is_open_ended or (monthly_rate is not null and kind = 'prestamo')) not valid;
-alter table public.loans validate constraint loans_open_ended_check;
+    check (not is_open_ended or (monthly_rate is not null and kind = 'prestamo'));
 
 comment on column public.loans.is_open_ended is
   'Préstamo sin vencimiento: solo se pagan intereses mensuales (siempre hay 3 cuotas próximas) y el capital vuelve con «Devolución de capital».';
@@ -60,20 +60,17 @@ alter table public.loan_installments
   add column paid_amount_ars numeric(14, 2),
   add column paid_rate numeric(14, 6);
 
+-- Every row holds the defaults just added ('cuota' / null): validated at once.
 alter table public.loan_installments
+  -- squawk-ignore constraint-missing-not-valid
   add constraint loan_installments_kind_check
-    check (kind in ('cuota', 'devolucion_capital')) not valid;
-alter table public.loan_installments validate constraint loan_installments_kind_check;
-
-alter table public.loan_installments
+    check (kind in ('cuota', 'devolucion_capital')),
+  -- squawk-ignore constraint-missing-not-valid
   add constraint loan_installments_paid_ars_check
-    check ((paid_amount_ars is null) = (paid_rate is null)) not valid;
-alter table public.loan_installments validate constraint loan_installments_paid_ars_check;
-
-alter table public.loan_installments
+    check ((paid_amount_ars is null) = (paid_rate is null)),
+  -- squawk-ignore constraint-missing-not-valid
   add constraint loan_installments_paid_rate_check
-    check (paid_rate is null or paid_rate > 0) not valid;
-alter table public.loan_installments validate constraint loan_installments_paid_rate_check;
+    check (paid_rate is null or paid_rate > 0);
 
 comment on column public.loan_installments.kind is
   'cuota (la del cronograma o el interés de un préstamo sin vencimiento) o devolucion_capital (capital devuelto de un préstamo sin vencimiento).';
