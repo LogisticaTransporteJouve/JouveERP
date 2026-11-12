@@ -373,8 +373,8 @@ function PeriodDetail({ period }: { period: ReconciliationPeriod }) {
           <p className="text-xs text-muted-foreground">
             {nf.format(period.uncomparable)}{" "}
             {period.uncomparable === 1
-              ? "comprobante de ARCA cuenta en la cantidad pero no en los importes: no se pudieron leer sus importes o es de un tipo que no se carga solo."
-              : "comprobantes de ARCA cuentan en la cantidad pero no en los importes: no se pudieron leer sus importes o son de un tipo que no se carga solo."}
+              ? "comprobante de ARCA cuenta en la cantidad pero no en los importes, ni del lado de ARCA ni del ERP: no se pudieron leer sus importes o es de un tipo que no se carga solo."
+              : "comprobantes de ARCA cuentan en la cantidad pero no en los importes, ni del lado de ARCA ni del ERP: no se pudieron leer sus importes o son de un tipo que no se carga solo."}
           </p>
         )}
       </div>

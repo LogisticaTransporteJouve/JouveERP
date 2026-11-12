@@ -1999,7 +1999,7 @@ export const purchasesPage: GuidePage = {
           body: [
             "Una fila por año, con la flecha para abrir sus meses. Cada período muestra tres renglones: {{ARCA}}, {{ERP}} y {{Diferencia}} (ARCA menos ERP), con {{Cantidad}}, {{Neto gravado}}, {{IVA}}, {{Otros tributos}} y {{Total}}. Cuando los dos lados coinciden, la diferencia dice «—».",
             "Los importes están en pesos: los comprobantes en dólares se pasan a pesos con la cotización de cada uno. Las notas de crédito restan.",
-            "Del lado de ARCA no cuentan los comprobantes descartados en la bandeja; del lado del ERP, las compras anuladas ni las de otras compras (canal interno). Un comprobante de ARCA cuyos importes no se pudieron leer, o de un tipo que no se carga solo, suma en {{Cantidad}} pero no en los importes; el detalle del período lo avisa.",
+            "Del lado de ARCA no cuentan los comprobantes descartados en la bandeja; del lado del ERP, las compras anuladas ni las de otras compras (canal interno). Un comprobante de ARCA cuyos importes no se pudieron leer, o de un tipo que no se carga solo, suma en {{Cantidad}} pero no en los importes, ni del lado de ARCA ni del de su compra en el ERP; el detalle del período lo avisa. Una factura B o C que ARCA lista con neto gravado 0 y sin no gravado ni exento cuenta su neto como total menos tributos, igual que la guarda el sistema. Si los totales coinciden, un centavo de diferencia en el neto, el IVA o los tributos (ARCA a veces redondea sus componentes un centavo distinto de su total) no se muestra como diferencia.",
             "Cada lado cuenta por su propia fecha: si la compra se cargó con otra fecha que la de ARCA, la diferencia de un mes se compensa en el otro.",
           ],
         },
