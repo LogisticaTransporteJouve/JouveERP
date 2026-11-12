@@ -290,6 +290,123 @@ describe("a paid part", () => {
   });
 });
 
+// A card's new default on a paid part books it again once, with only the
+// lines still on the previous default.
+describe("a card's default on a paid part", () => {
+  const ID = "00000000-0000-4000-8000-0000000000c1";
+  const LINE = "00000000-0000-4000-8000-0000000000d1";
+  const HAND = "00000000-0000-4000-8000-0000000000d3";
+  const OLD = "00000000-0000-4000-8000-0000000000e2";
+  const OTHER = "00000000-0000-4000-8000-0000000000e3";
+  const NEW = "00000000-0000-4000-8000-0000000000e1";
+  const EMPLOYEE = "00000000-0000-4000-8000-0000000000a1";
+  const line = (
+    id: string,
+    over: Partial<{
+      treatment: string;
+      chart_account_id: string | null;
+      employee_id: string | null;
+    }>,
+  ) => ({
+    id,
+    card_last4: "1234",
+    currency: "ARS",
+    source: "purchase",
+    treatment: "expense",
+    chart_account_id: OLD,
+    employee_id: null,
+    ...over,
+  });
+  const paidCard = (
+    previous: {
+      treatment: string;
+      chart_account_id: string | null;
+      employee_id: string | null;
+    },
+    lines: ReturnType<typeof line>[],
+  ) =>
+    recordingSupabase((call) => {
+      if (call.table === "card_statements") {
+        return {
+          data: {
+            account_number: "0600000001",
+            paid_ars_on: "2026-10-13",
+            paid_usd_on: "2026-10-13",
+          },
+          error: null,
+        };
+      }
+      if (call.table === "card_holders" && call.op === "select") {
+        return { data: previous, error: null };
+      }
+      if (call.table === "card_statement_lines" && call.op === "select") {
+        const probe = call.filters.some(
+          ([k, c]) =>
+            (k === "eq" && c === "treatment") ||
+            (k === "in" && c === "chart_account_id"),
+        );
+        return { data: probe ? [] : lines, error: null };
+      }
+      if (call.op === "rpc") return { data: 1, error: null };
+      return { data: [], error: null };
+    });
+
+  it("books the part again once, only with the lines still on the previous default", async () => {
+    fake = paidCard(
+      { treatment: "expense", chart_account_id: OLD, employee_id: null },
+      [line(LINE, {}), line(HAND, { chart_account_id: OTHER })],
+    );
+    const res = await cards.setCardHolderAction({
+      statement_id: ID,
+      last4: "1234",
+      treatment: "expense",
+      chart_account_id: NEW,
+      employee_id: null,
+    });
+    expect(res).toMatchObject({ ok: true, data: { updated: 1 } });
+    const rpcs = fake.calls.filter((c) => c.op === "rpc");
+    expect(rpcs).toHaveLength(1);
+    expect(rpcs[0]?.payload).toMatchObject({
+      p_line_ids: [LINE],
+      p_chart_account_id: NEW,
+    });
+    // The previous default is read before it is overwritten.
+    const read = fake.calls.findIndex(
+      (c) => c.table === "card_holders" && c.op === "select",
+    );
+    const write = fake.calls.findIndex(
+      (c) => c.table === "card_holders" && c.op === "update",
+    );
+    expect(read).toBeGreaterThanOrEqual(0);
+    expect(read).toBeLessThan(write);
+    // Both parts paid: no plain update of lines.
+    expect(
+      fake.calls.some(
+        (c) => c.op === "update" && c.table === "card_statement_lines",
+      ),
+    ).toBe(false);
+  });
+
+  it("leaves advance lines as they are without hr:write", async () => {
+    denied = ["hr:write"];
+    const advance = {
+      treatment: "advance",
+      chart_account_id: null,
+      employee_id: EMPLOYEE,
+    };
+    fake = paidCard(advance, [line(LINE, advance)]);
+    const res = await cards.setCardHolderAction({
+      statement_id: ID,
+      last4: "1234",
+      treatment: "expense",
+      chart_account_id: NEW,
+      employee_id: null,
+    });
+    expect(res).toMatchObject({ ok: true, data: { updated: 0 } });
+    expect(fake.calls.some((c) => c.op === "rpc")).toBe(false);
+  });
+});
+
 describe("unmatching a card payment", () => {
   const LINE_ID = "00000000-0000-4000-8000-0000000000b1";
 

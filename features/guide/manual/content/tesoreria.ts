@@ -2851,7 +2851,7 @@ export const treasuryPage: GuidePage = {
             "En [[/card-statements]], hacé clic en {{Subir resumen}} y elegí el PDF que bajás del home banking.",
             "Revisá lo que leyó (tarjetas, consumos, cargos y total), elegí la {{Cuenta que paga la tarjeta}} y hacé clic en {{Cargar}}.",
             "En cada tarjeta, elegí qué son por defecto sus consumos ({{Gasto de la empresa}} con su cuenta, o {{Adelanto de sueldo}} con el empleado): se aplica a sus consumos y se recuerda para los próximos resúmenes.",
-            "Si un consumo es otra cosa, cambialo en su fila. Los cargos del banco ya vienen con su cuenta (los sellos, en «5.4.4 Impuesto de sellos»).",
+            "Si un consumo es otra cosa, cambialo en su fila. Para cambiar varios a la vez, marcalos con la casilla de la izquierda (la del encabezado marca toda la tabla): arriba aparece una barra con cuántos están seleccionados y {{Qué es:}}; elegí el destino y hacé clic en {{Aplicar}}. Los cargos del banco ya vienen con su cuenta (los sellos, en «5.4.4 Impuesto de sellos»).",
           ],
           after: [
             "El resumen queda {{Pendiente}} hasta que el banco debita el pago. Si te equivocaste de archivo, {{Borrar resumen}} lo saca mientras no tenga ningún pago.",
@@ -2878,13 +2878,58 @@ export const treasuryPage: GuidePage = {
             "En la cuenta del banco, con la fecha del débito, queda un egreso por cada cuenta contable y un adelanto por cada empleado (en su cuenta corriente), y la línea del extracto queda conciliada con ellos.",
             "Si la parte que pagás tiene adelantos de sueldo, pide también el permiso de escritura de Personal; si tiene IVA o percepciones, el de Impuestos.",
             "Si pagaste con el débito equivocado, en el resumen deshacé el pago de los pesos (o de los dólares) y confirmá con {{Deshacer pago}}: borra sus egresos y adelantos con sus asientos, la línea del extracto vuelve a pendiente y los consumos se pueden cambiar otra vez.",
-            "Después de pagar podés seguir cambiando qué es cada consumo en su fila: el pago de esa parte se vuelve a registrar solo, contra el mismo débito, con los egresos y adelantos nuevos. Si el cambio no se puede pagar (por ejemplo, una devolución que queda sola en una cuenta), no cambia nada y te avisa por qué.",
+            "Después de pagar podés seguir cambiando qué es cada consumo: ver [[#corregir-resumen-pagado]].",
           ],
           related: [
             "cargar-resumen-tarjeta",
+            "corregir-resumen-pagado",
             "registrar-linea-desde-propuesta",
           ],
           keywords: ["pago tarjeta", "visa", "debito automatico"],
+        },
+        {
+          id: "corregir-resumen-pagado",
+          title: "Cambiar consumos de un resumen ya pagado",
+          summary:
+            "Un resumen pagado se puede recategorizar (por ejemplo, un seguro que quedó en Peajes o consumos personales que son adelantos de los socios) sin deshacer el pago: se vuelve a registrar una sola vez, con la misma fecha, la misma línea del extracto y el mismo total.",
+          permission: [
+            "accounting:read",
+            "accounts:read",
+            "transactions:write",
+          ],
+          prerequisites: [
+            "El resumen pagado con {{Pagar resumen}} desde el extracto.",
+            "El mes del pago abierto en contabilidad (si está cerrado, reabrilo antes).",
+          ],
+          steps: [
+            "Abrí el resumen en [[/card-statements]].",
+            "Para un consumo, cambiá {{Qué es}} en su fila. Para varios, marcalos con la casilla, elegí el destino en {{Qué es:}} de la barra de seleccionados y hacé clic en {{Aplicar}}.",
+            "Para cambiar el destino {{Por defecto:}} de una tarjeta, elegilo en el encabezado de la tarjeta: se cambian solo los consumos que seguían el destino anterior; los que cambiaste a mano quedan como están.",
+            "Confirmá con {{Volver a registrar}} en «¿Volver a registrar el pago?», que dice cuántos consumos del resumen pagado se vuelven a registrar.",
+          ],
+          after: [
+            "El pago de esa parte (pesos o dólares) se registra de nuevo una sola vez: los egresos y adelantos anteriores se borran con sus asientos y se crean los nuevos, con la fecha del débito y conciliados con la misma línea del extracto. El total no cambia.",
+            "Si la parte tiene adelantos de sueldo, hace falta también el permiso de escritura de Personal; si tiene IVA o percepciones, el de Impuestos.",
+          ],
+          errors: [
+            {
+              message:
+                "No se encontró la línea del extracto que pagó este resumen: deshacé el pago y volvé a pagarlo",
+              fix: "La conciliación del débito se deshizo por otro lado. Usá {{Deshacer pago}} en el resumen y pagalo de nuevo desde el extracto; después cambiá los consumos.",
+            },
+            {
+              message:
+                "Una cuenta o un empleado del resumen queda negativo (una devolución sola): imputala a la cuenta o al empleado de su consumo",
+              fix: "Poné la devolución en la misma cuenta (o el mismo empleado) que el consumo que devuelve. No cambia nada hasta que el cambio se pueda pagar.",
+            },
+          ],
+          related: ["pagar-resumen-tarjeta", "cargar-resumen-tarjeta"],
+          keywords: [
+            "recategorizar tarjeta",
+            "resumen pagado",
+            "cambiar cuenta consumo",
+            "adelanto socio",
+          ],
         },
       ],
     },

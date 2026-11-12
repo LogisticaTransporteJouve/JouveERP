@@ -2,11 +2,13 @@
 -- per account at the debit, in pesos or in dollars at the bank's rate with
 -- the rounding cents on one line, refuses a lone refund, and owns what it
 -- books (no edit or delete by hand, not loose, tagged card_statement);
--- unsettle_card_statement undoes it. One transaction, rolled back.
+-- unsettle_card_statement undoes it; reclassify_card_statement_lines books a
+-- paid part again on the same debit and refuses (20261112100200) a paid part
+-- whose debit is no longer matched. One transaction, rolled back.
 
 begin;
 
-select plan(18);
+select plan(21);
 
 select set_config('request.jwt.claims', '{"role":"service_role"}', true);
 
@@ -209,6 +211,42 @@ select throws_like(
       'ignore', '00000000-0000-0000-0000-0000000c0f01')$$,
   'Hay consumos marcados como «no corresponde»%',
   'a change the payment cannot book is refused and nothing changes'
+);
+
+select is(
+  (select array_agg(distinct m.line_id::text || '/' || t.transaction_date::text)
+     from public.transactions t
+     join public.bank_statement_matches m on m.transaction_id = t.id
+    where t.id in (select transaction_id from public.card_statement_lines
+                    where statement_id = '00000000-0000-0000-0000-0000000c05a2')),
+  array[(select id from t_lines where amount = -145600.02)::text || '/2026-11-05'],
+  'booked again on the same bank line and date'
+);
+
+-- A paid part whose debit is no longer matched is refused, lines untouched.
+select public.settle_card_statement('00000000-0000-0000-0000-0000000c05a1',
+  (select id from t_lines where amount = -1500), 'ARS', 'jouve_fiscal',
+  '00000000-0000-0000-0000-0000000c0f01');
+delete from public.bank_statement_matches
+ where line_id = (select id from t_lines where amount = -1500);
+
+select throws_ok(
+  $$select public.reclassify_card_statement_lines('00000000-0000-0000-0000-0000000c05a1',
+      array(select id from public.card_statement_lines
+             where statement_id = '00000000-0000-0000-0000-0000000c05a1' and description = 'Peaje'),
+      'expense', '00000000-0000-0000-0000-0000000c0f01',
+      (select id from public.chart_of_accounts where code = '5.1.1'))$$,
+  '55006',
+  'No se encontró la línea del extracto que pagó este resumen: deshacé el pago y volvé a pagarlo',
+  'a paid part with no matched debit is refused'
+);
+
+select is(
+  (select c.code from public.card_statement_lines l
+     join public.chart_of_accounts c on c.id = l.chart_account_id
+    where l.statement_id = '00000000-0000-0000-0000-0000000c05a1' and l.description = 'Peaje'),
+  '5.2.1',
+  'and its line keeps its account'
 );
 
 -- 6. A lone refund ----------------------------------------------------------------
