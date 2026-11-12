@@ -32,7 +32,9 @@ import { mapDbGuardError } from "@/lib/db/guard-errors";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { fetchInChunks, paginateRange } from "@/lib/supabase/paginate";
+import { createClient } from "@/lib/supabase/server";
 import { getServiceClient } from "@/lib/supabase/service";
+import { fetchUsdRateOnOrBefore, type UsdRate } from "@/lib/fx";
 
 import {
   lastStatementBalance,
@@ -55,11 +57,13 @@ import {
   TransferFromLineSchema,
   DepositCheckFromLineSchema,
   PayLoanFromLineSchema,
+  ListPayableInstallmentsSchema,
   MatchLinesToMovementSchema,
   ReconciliationQuerySchema,
   SUGGESTION_DAY_WINDOW,
   isStatementLineStatus,
   type BookMovement,
+  type PayableLoanInstallment,
   type ReconciliationAccount,
   type ReconciliationView,
   type StatementLine,
@@ -1031,6 +1035,54 @@ export async function payLoanInstallmentFromLineAction(
     };
   }
   const debit = -Number(line.data.amount);
+  // A USD cuota paid from a peso line: paid whole at the rate the debit
+  // implies; its amount is never overwritten with the pesos.
+  const [cuota, account] = await Promise.all([
+    getServiceClient()
+      .from("loan_installments")
+      .select("amount, loan:loans!inner ( currency )")
+      .eq("id", parsed.data.installment_id)
+      .maybeSingle(),
+    getServiceClient()
+      .from("accounts")
+      .select("currency")
+      .eq("id", line.data.account_id)
+      .maybeSingle(),
+  ]);
+  if (cuota.error || !cuota.data || account.error || !account.data) {
+    return { ok: false, error: "La cuota o la cuenta ya no existen." };
+  }
+  const loanRow = Array.isArray(cuota.data.loan)
+    ? cuota.data.loan[0]
+    : cuota.data.loan;
+  if (loanRow && loanRow.currency !== account.data.currency) {
+    if (parsed.data.split) {
+      return {
+        ok: false,
+        error:
+          "Una cuota en otra moneda se paga entera: no se desglosa el débito.",
+      };
+    }
+    const paid = await payLoanInstallment(ctx.userId, {
+      id: parsed.data.installment_id,
+      paid_date: line.data.line_date,
+      account_id: line.data.account_id,
+      amount: Number(cuota.data.amount),
+      account_amount: debit,
+    });
+    if (!paid.ok) return paid;
+    const matched = await matchBankLine(ctx.userId, {
+      line_id: parsed.data.line_id,
+      transaction_ids: [paid.data.transactionId],
+    });
+    if (!matched.ok) {
+      return {
+        ok: false,
+        error: `La cuota quedó pagada pero la línea no se concilió: ${matched.error}`,
+      };
+    }
+    return matched;
+  }
   const split = parsed.data.split;
   if (split) {
     const parts =
@@ -1098,6 +1150,84 @@ export async function payLoanInstallmentFromLineAction(
     };
   }
   return matched;
+}
+
+/** The pending cuotas of every active loan the user sees (loans RLS), the
+ *  nearest due date to the line first, and the official USD rate of the
+ *  line's date, for «Pagar cuota de préstamo…» on an open debit line. */
+export async function listPayableInstallmentsAction(input: unknown): Promise<
+  ActionResult<{
+    installments: PayableLoanInstallment[];
+    usd_rate: UsdRate | null;
+  }>
+> {
+  const ctx = await requireUserContext();
+  if (!userCanAll(ctx.access, LOAN_CASH_PERMISSIONS)) {
+    return {
+      ok: false,
+      error: "No tenés permiso para pagar cuotas de préstamos.",
+    };
+  }
+  const parsed = ListPayableInstallmentsSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Datos inválidos." };
+  const supabase = await createClient();
+  const line = await supabase
+    .from("bank_statement_lines")
+    .select("line_date")
+    .eq("id", parsed.data.line_id)
+    .maybeSingle();
+  if (line.error || !line.data) {
+    return { ok: false, error: "La línea del extracto ya no existe." };
+  }
+  const lineDate = line.data.line_date;
+  const { data, error } = await supabase
+    .from("loan_installments")
+    .select(
+      "id, number, kind, due_date, amount, capital_amount, iva_amount, loan:loans!inner ( id, description, lender, currency, installments_count, is_open_ended, status )",
+    )
+    .eq("status", "pendiente")
+    .eq("loan.status", "active")
+    .order("due_date")
+    .order("id")
+    .limit(500);
+  if (error) {
+    logger.error("reconciliation.payable_installments.failed", {
+      userId: ctx.userId,
+      error,
+    });
+    return { ok: false, error: "No se pudieron leer las cuotas pendientes." };
+  }
+  const days = (d: string) =>
+    Math.abs(Date.parse(d) - Date.parse(lineDate)) / 86_400_000;
+  const installments = data
+    .flatMap((i): PayableLoanInstallment[] => {
+      const loan = Array.isArray(i.loan) ? i.loan[0] : i.loan;
+      if (!loan) return [];
+      return [
+        {
+          id: i.id,
+          loan_id: loan.id,
+          loan_description: loan.description,
+          lender: loan.lender,
+          currency: loan.currency,
+          kind:
+            i.kind === "devolucion_capital" ? "devolucion_capital" : "cuota",
+          is_open_ended: loan.is_open_ended,
+          has_split: i.capital_amount !== null,
+          number: i.number,
+          count: loan.installments_count,
+          due_date: i.due_date,
+          amount: Number(i.amount),
+          capital: Number(i.capital_amount ?? i.amount),
+          iva: Number(i.iva_amount ?? 0),
+        },
+      ];
+    })
+    .sort((a, b) => days(a.due_date) - days(b.due_date));
+  const usd_rate = installments.some((i) => i.currency === "USD")
+    ? await fetchUsdRateOnOrBefore(supabase, lineDate)
+    : null;
+  return { ok: true, data: { installments, usd_rate } };
 }
 
 export type AcceptSuggestionsResult = BankMatchesResult;

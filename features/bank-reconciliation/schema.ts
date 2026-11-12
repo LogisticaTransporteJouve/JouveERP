@@ -511,6 +511,24 @@ export type StatementCheckSaleTransfer = {
 
 const splitPart = z.number().min(0).max(1e12);
 
+/** A pending cuota of any active loan, for «Pagar cuota de préstamo…» on an
+ *  open debit line (the loan need not be debited from that account). */
+export type PayableLoanInstallment = StatementLoanInstallment & {
+  loan_id: string;
+  lender: string | null;
+  /** The loan's currency; a USD cuota is paid whole from a peso line. */
+  currency: string;
+  /** «Devolución de capital» of an open-ended loan, else a cuota. */
+  kind: "cuota" | "devolucion_capital";
+  is_open_ended: boolean;
+  /** The cuota carries a split (capital, interest…). */
+  has_split: boolean;
+};
+
+export const ListPayableInstallmentsSchema = z.object({
+  line_id: z.string().uuid(),
+});
+
 export const PayLoanFromLineSchema = z.object({
   line_id: z.string().uuid(),
   installment_id: z.string().uuid(),

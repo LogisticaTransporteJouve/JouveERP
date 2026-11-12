@@ -2,6 +2,7 @@
 
 import {
   useMutation,
+  useQuery,
   useQueryClient,
   useSuspenseQuery,
 } from "@tanstack/react-query";
@@ -19,8 +20,10 @@ import {
   cancelLoanAction,
   createLoanAction,
   getLoanAction,
+  getOfficialUsdRateAction,
   listLoansAction,
   payInstallmentAction,
+  repayLoanCapitalAction,
   recordBankPaymentsAction,
   recordLoanDisbursementAction,
   updateInstallmentAction,
@@ -80,6 +83,27 @@ export function usePayInstallment() {
     mutationFn: (input: unknown) =>
       runAction(() => payInstallmentAction(input)),
     onSuccess: () => invalidate(qc),
+  });
+}
+
+/** «Devolución de capital» of an open-ended loan: a cash movement too. */
+export function useRepayLoanCapital() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: unknown) =>
+      runAction(() => repayLoanCapitalAction(input)),
+    onSuccess: () => invalidate(qc),
+  });
+}
+
+/** Official USD rate on or before `date`, read only while `enabled` (a USD
+ *  amount paid from a peso account). */
+export function useOfficialUsdRate(date: string, enabled: boolean) {
+  return useQuery({
+    queryKey: loansKeys.usdRate(date),
+    queryFn: () => runAction(() => getOfficialUsdRateAction(date)),
+    enabled: enabled && /^\d{4}-\d{2}-\d{2}$/.test(date),
+    staleTime: 5 * 60_000,
   });
 }
 

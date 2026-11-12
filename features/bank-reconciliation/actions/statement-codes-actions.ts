@@ -105,7 +105,7 @@ async function readLoanInstallments(
   const { data, error } = await service
     .from("loan_installments")
     .select(
-      "id, number, due_date, amount, capital_amount, iva_amount, loan:loans!inner ( description, installments_count, account_id, status )",
+      "id, number, due_date, amount, capital_amount, iva_amount, loan:loans!inner ( description, installments_count, account_id, status, currency, account:accounts ( currency ) )",
     )
     .eq("status", "pendiente")
     .eq("loan.account_id", accountId)
@@ -151,6 +151,12 @@ async function readLoanInstallments(
   return data.flatMap((i) => {
     const loan = Array.isArray(i.loan) ? i.loan[0] : i.loan;
     if (!loan) return [];
+    // A cuota in another currency than the account (a USD loan debited in
+    // pesos) is never proposed by amount: «Pagar cuota de préstamo…» pays it.
+    const debitAccount = Array.isArray(loan.account)
+      ? loan.account[0]
+      : loan.account;
+    if (debitAccount && debitAccount.currency !== loan.currency) return [];
     return [
       {
         id: i.id,

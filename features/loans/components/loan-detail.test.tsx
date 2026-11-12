@@ -15,6 +15,7 @@ const loan: Loan = {
   currency: "ARS",
   channel_id: "jouve_fiscal",
   channel_name: "Fiscal",
+  channel_is_fiscal: true,
   installments_count: 1,
   first_due_date: "2026-12-01",
   status: "active",
@@ -29,6 +30,8 @@ const loan: Loan = {
   tna: null,
   tea: null,
   cft: null,
+  is_open_ended: false,
+  monthly_rate: null,
   paid_count: 0,
   interest_paid: 0,
   next_due_amount: 1000,
@@ -46,11 +49,14 @@ const loan: Loan = {
       id: "i1",
       loan_id: "l1",
       number: 1,
+      kind: "cuota",
       due_date: "2026-12-01",
       amount: 1000,
       status: "pendiente",
       paid_date: null,
       paid_amount: null,
+      paid_amount_ars: null,
+      paid_rate: null,
       transaction_id: null,
       notes: null,
       split: null,
@@ -80,6 +86,9 @@ vi.mock("./pay-installment-dialog", () => ({
 }));
 vi.mock("./edit-installment-dialog", () => ({
   EditInstallmentDialog: () => null,
+}));
+vi.mock("./repay-capital-dialog", () => ({
+  RepayCapitalDialog: () => null,
 }));
 vi.mock("./loan-movement-dialogs", () => ({
   AdoptInstallmentPaymentDialog: () => null,
@@ -219,5 +228,56 @@ describe("LoanDetail savings plan", () => {
     expect(
       screen.queryByRole("button", { name: "Registrar desembolso" }),
     ).toBeNull();
+  });
+});
+
+describe("LoanDetail open-ended loan", () => {
+  it("shows «Sin vencimiento», «Interés n», the peso payment and «Devolución de capital…»", async () => {
+    h.listAccounts.mockResolvedValue({
+      ok: true,
+      data: [
+        {
+          id: "a1",
+          name: "Banco Galicia",
+          type: "bank",
+          currency: "ARS",
+          is_active: true,
+        },
+      ],
+    });
+    const cuota = loan.installments[0];
+    if (!cuota) throw new Error("fixture");
+    current = {
+      ...loan,
+      currency: "USD",
+      principal: 40000,
+      capital_outstanding: 40000,
+      is_open_ended: true,
+      monthly_rate: 1,
+      installments: [
+        {
+          ...cuota,
+          amount: 400,
+          status: "pagada",
+          paid_date: "2026-10-02",
+          paid_amount: 400,
+          paid_amount_ars: 622000,
+          paid_rate: 1555,
+          transaction_id: "t1",
+        },
+        { ...cuota, id: "i2", number: 2, amount: 400 },
+      ],
+    };
+    renderDetail();
+    expect(
+      await screen.findByText(/Sin vencimiento · 1 % mensual/),
+    ).toBeTruthy();
+    expect(screen.getByText("Interés 2")).toBeTruthy();
+    expect(screen.getByText(/\$ 622\.000,00 \(1\.555\)/)).toBeTruthy();
+    expect(
+      await screen.findByRole("button", { name: "Devolución de capital…" }),
+    ).toBeTruthy();
+    // A USD loan is paid from a peso account too.
+    expect(screen.getByRole("button", { name: "Pagar" })).toBeTruthy();
   });
 });

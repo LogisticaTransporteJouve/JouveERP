@@ -389,6 +389,31 @@ export async function getCashFlowAction(input: {
         });
       }
     }
+    // An open-ended loan has only its next 3 interest cuotas generated: the
+    // months after them come from the same interest the database generates
+    // (open_ended_loan_projection), placed like a cuota.
+    const until = new Date(`${rangeEndExclusive}T00:00:00Z`);
+    until.setUTCDate(until.getUTCDate() - 1);
+    const { data: projected, error: projErr } = await supabase.rpc(
+      "open_ended_loan_projection",
+      { p_until: until.toISOString().slice(0, 10) },
+    );
+    if (projErr) return failed("open_ended_projection", projErr);
+    for (const p of projected ?? []) {
+      const loan = loanInfo.get(p.loan_id);
+      if (!loan) continue;
+      const amt = arsAtRate(Math.abs(Number(p.amount)), loan.currency);
+      if (amt === null) continue;
+      const m = placementMonth(p.due_date, null, firstFwd);
+      if (monthSet.has(m)) {
+        events.push({
+          month: m,
+          direction: "out",
+          amount: amt,
+          scope: loan.scope,
+        });
+      }
+    }
   }
   const loanScopes = new Set([...loanInfo.values()].map((l) => l.scope));
 

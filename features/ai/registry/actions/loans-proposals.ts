@@ -4,6 +4,7 @@ import { isCheckAccount, type Account } from "@/features/accounts/schema";
 import { isoDate } from "@/features/exchange-rates/schema";
 import {
   getLoanAction,
+  getOfficialUsdRateAction,
   listLoansAction,
 } from "@/features/loans/actions/loans-actions";
 import { LOAN_CASH_PERMISSIONS } from "@/features/loans/lib/loan-cash";
@@ -88,7 +89,9 @@ export const proposeLoanInstallmentPayment = defineAiProposal({
     "to accept on a card: the next pending cuota unless the user names its " +
     "number, for its scheduled amount unless the user says another one (not " +
     "for a cuota with a desglose, paid for its amount), from an account in " +
-    "the loan's currency. Writes nothing by itself.",
+    "the loan's currency; a USD loan's cuota can also be paid whole from a " +
+    "peso account at a rate (the user's, else the official BCRA rate on or " +
+    "before the payment date). Writes nothing by itself.",
   input: z.object({
     loan: z
       .string()
@@ -116,6 +119,15 @@ export const proposeLoanInstallmentPayment = defineAiProposal({
       .max(1_000_000_000_000)
       .optional()
       .describe("What was actually paid, when it differs from the cuota."),
+    rate: z
+      .number()
+      .finite()
+      .positive()
+      .max(1_000_000)
+      .optional()
+      .describe(
+        "ARS per USD, only for a USD cuota paid from a peso account; default the official rate of the payment date.",
+      ),
   }),
   spec: loanInstallmentPaymentProposalSpec,
   prepare: async (_ctx, input) => {
@@ -163,7 +175,7 @@ export const proposeLoanInstallmentPayment = defineAiProposal({
       };
     }
     // As the loan page: an active account in the loan's currency that moves
-    // money (not a check cartera).
+    // money (not a check cartera); a USD loan also a peso one, at a rate.
     const account = await resolveTreasuryAccount(
       input.account,
       (accounts: Account[]) =>
@@ -171,23 +183,64 @@ export const proposeLoanInstallmentPayment = defineAiProposal({
           (a) =>
             a.is_active &&
             !isCheckAccount(a.type) &&
-            a.currency === loan.currency,
+            (a.currency === loan.currency ||
+              (loan.currency === "USD" && a.currency === "ARS")),
         ),
-      `una cuenta activa en ${loan.currency}`,
+      loan.currency === "USD"
+        ? "una cuenta activa en USD o en pesos"
+        : `una cuenta activa en ${loan.currency}`,
     );
     if (!account.ok) return account.result;
+    const paidDate = input.paid_date ?? todayInAR();
+    let accountAmount: number | null = null;
+    if (account.value.currency !== loan.currency) {
+      if (input.amount !== undefined && input.amount !== cuota.amount) {
+        return {
+          kind: "issues",
+          issues: [
+            {
+              field: "amount",
+              message: `Una cuota en dólares pagada desde una cuenta en pesos se paga entera (${formatMoney(cuota.amount, loan.currency)}).`,
+            },
+          ],
+        };
+      }
+      let rate = input.rate ?? null;
+      if (rate === null) {
+        const official = await getOfficialUsdRateAction(paidDate);
+        if (!official.ok) return { kind: "error", error: official.error };
+        rate = official.data?.rate ?? null;
+      }
+      if (rate === null) {
+        return {
+          kind: "issues",
+          issues: [
+            {
+              field: "rate",
+              message:
+                "No hay cotización oficial cargada para esa fecha: decime a qué cotización se pagó.",
+            },
+          ],
+        };
+      }
+      accountAmount = Math.round(cuota.amount * rate * 100) / 100;
+    }
     return {
       kind: "draft",
       draft: {
         id: cuota.id,
-        paid_date: input.paid_date ?? todayInAR(),
+        paid_date: paidDate,
         account_id: account.value.id,
-        amount: input.amount ?? cuota.amount,
+        amount:
+          accountAmount === null
+            ? (input.amount ?? cuota.amount)
+            : cuota.amount,
+        account_amount: accountAmount,
       },
       labels: {
         [LOAN_INSTALLMENT_LABELS.loan]: loanLabel(loan),
         [LOAN_INSTALLMENT_LABELS.currency]: loan.currency,
-        [cuota.id]: `${cuota.number} de ${loan.installments.length} · vence el ${formatArgentineDate(cuota.due_date)} · ${formatMoney(cuota.amount, loan.currency)}`,
+        [cuota.id]: `${loan.is_open_ended ? `Interés ${cuota.number}` : `${cuota.number} de ${loan.installments.length}`} · vence el ${formatArgentineDate(cuota.due_date)} · ${formatMoney(cuota.amount, loan.currency)}`,
         [account.value.id]: account.value.name,
       },
     };

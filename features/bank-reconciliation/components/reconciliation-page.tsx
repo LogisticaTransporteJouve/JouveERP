@@ -6,6 +6,7 @@ import {
   CheckCheck,
   CreditCard,
   FileUp,
+  Landmark,
   Link2,
   Loader2,
   MoreHorizontal,
@@ -79,6 +80,8 @@ import {
   MatchMovementLinesDialog,
 } from "./line-dialogs";
 import type { ReconciliationGates } from "../lib/gates";
+
+import { PickLoanInstallmentDialog } from "./pay-loan-from-line-dialog";
 import {
   AcceptReadyButton,
   BankCodesDialog,
@@ -228,7 +231,7 @@ export function AccountStatement({
   );
 }
 
-type LineDialog = "match" | "ignore" | "create";
+type LineDialog = "match" | "ignore" | "create" | "pay_loan";
 
 function ReconciliationBody({
   accountId,
@@ -591,6 +594,16 @@ function ReconciliationBody({
                                 <Plus className="size-4" />
                                 Crear movimiento…
                               </DropdownMenuItem>
+                              {gates.canPayLoans && line.amount < 0 && (
+                                <DropdownMenuItem
+                                  onSelect={() =>
+                                    setDialog({ kind: "pay_loan", line })
+                                  }
+                                >
+                                  <Landmark className="size-4" />
+                                  Pagar cuota de préstamo…
+                                </DropdownMenuItem>
+                              )}
                               <DropdownMenuItem
                                 onSelect={() =>
                                   setDialog({ kind: "ignore", line })
@@ -750,6 +763,14 @@ function ReconciliationBody({
         currency={currency}
         onOpenChange={(o) => (o ? null : close())}
       />
+      {dialog?.kind === "pay_loan" && (
+        <PickLoanInstallmentDialog
+          line={dialog.line}
+          currency={currency}
+          open
+          onOpenChange={(o) => (o ? null : close())}
+        />
+      )}
       <CreateLineTransactionDialog
         line={dialog?.kind === "create" ? dialog.line : null}
         currency={currency}

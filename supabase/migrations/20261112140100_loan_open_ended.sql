@@ -282,7 +282,7 @@ create function public.repay_loan_capital(
   p_date           date,
   p_account_id     uuid,
   p_amount         numeric,
-  p_account_amount numeric
+  p_account_amount numeric default null
 )
 returns uuid
 language plpgsql

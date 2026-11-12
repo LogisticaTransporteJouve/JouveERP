@@ -11765,7 +11765,7 @@ export type Database = {
       reopen_accounting_period: { Args: { p_period: string }; Returns: Json }
       repay_loan_capital: {
         Args: {
-          p_account_amount: number
+          p_account_amount?: number
           p_account_id: string
           p_amount: number
           p_date: string

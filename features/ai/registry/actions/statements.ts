@@ -360,7 +360,7 @@ export const getLoanDetail = defineAiAction({
   sideEffect: "read",
   sources: ["loans", "loan_installments"],
   description:
-    "Detalle de UN préstamo con su cronograma de cuotas (vencimiento, monto, estado, pago y el desglose opcional `split`: capital, interés, IVA, percepción y otros cargos; null = sin desglose) y su saldo de capital; de un plan de ahorro, `accumulated` es lo ya acumulado en el activo (no hay deuda). Requiere el UUID del préstamo (de getLoans). Con un alcance, solo lo devuelve si su canal es de ese alcance.",
+    "Detalle de UN préstamo con su cronograma de cuotas (vencimiento, monto, estado, pago y el desglose opcional `split`: capital, interés, IVA, percepción y otros cargos; null = sin desglose) y su saldo de capital; de un plan de ahorro, `accumulated` es lo ya acumulado en el activo (no hay deuda). Un préstamo `is_open_ended` (sin vencimiento) solo paga interés mensual (`monthly_rate` %, sobre el capital adeudado; siempre 3 cuotas próximas) y su capital vuelve con cuotas `kind` = `devolucion_capital`; una cuota en dólares pagada desde una cuenta en pesos trae `paid_amount_ars` (pesos debitados) y `paid_rate` (cotización implícita), y `paid_amount` sigue en la moneda del préstamo. Requiere el UUID del préstamo (de getLoans). Con un alcance, solo lo devuelve si su canal es de ese alcance.",
   input: z.object({
     loanId: UuidSchema.describe("UUID del préstamo."),
     scope: ScopeInputSchema,
@@ -370,9 +370,11 @@ export const getLoanDetail = defineAiAction({
     const res = await getLoanAction(input.loanId, { isFiscal });
     if (!res.ok) return errResult(res.error);
     return okResult(
-      `${label} · canal ${res.data.channel_name ?? "sin canal"}: ${res.data.description}: ${res.data.installments.length} cuotas · pendiente ${res.data.currency} ${money(
-        res.data.pending_total,
-      )}.`,
+      `${label} · canal ${res.data.channel_name ?? "sin canal"}: ${res.data.description}: ${
+        res.data.is_open_ended
+          ? `sin vencimiento, ${res.data.monthly_rate ?? 0} % mensual · capital adeudado ${res.data.currency} ${money(res.data.capital_outstanding)}`
+          : `${res.data.installments.length} cuotas`
+      } · pendiente ${res.data.currency} ${money(res.data.pending_total)}.`,
       res.data,
       { currency: res.data.currency },
     );

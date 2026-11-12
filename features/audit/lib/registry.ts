@@ -1044,6 +1044,12 @@ const AUDIT_ACTIONS: Record<string, Spec> = {
     group: "treasury",
     say: (c) => `pagó una cuota de préstamo por ${money(c.p.amount) ?? "—"}`,
   },
+  "loan.capital_repaid": {
+    group: "treasury",
+    subject: "loan",
+    say: (c) =>
+      `registró una devolución de capital de ${subj(c, "un préstamo")}`,
+  },
   "loan.installment_payment_adopted": {
     group: "treasury",
     say: () =>

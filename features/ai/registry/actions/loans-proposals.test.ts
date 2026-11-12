@@ -5,11 +5,13 @@ import { resolveAccess } from "@/lib/auth/permissions";
 const listLoansAction = vi.fn();
 const getLoanAction = vi.fn();
 const listAccountsAction = vi.fn();
+const getOfficialUsdRateAction = vi.fn();
 const payLoanInstallment = vi.fn();
 
 vi.mock("@/features/loans/actions/loans-actions", () => ({
   listLoansAction,
   getLoanAction,
+  getOfficialUsdRateAction,
 }));
 vi.mock("@/features/accounts/actions/accounts-actions", () => ({
   listAccountsAction,
@@ -180,5 +182,60 @@ describe("proposeLoanInstallmentPayment", () => {
       { id: C2, paid_date: "2026-11-05", account_id: ARS, amount: 250000 },
     );
     expect(res).toEqual({ ok: true, data: { id: "tx-1" } });
+  });
+
+  describe("a USD cuota from a peso account", () => {
+    beforeEach(() => {
+      const usdLoan = { ...loan, kind: "prestamo", currency: "USD" };
+      listLoansAction.mockResolvedValue({ ok: true, data: [usdLoan] });
+      getLoanAction.mockResolvedValue({
+        ok: true,
+        data: {
+          ...usdLoan,
+          is_open_ended: true,
+          installments: [{ ...cuota(C2, 2, "pendiente"), amount: 400 }],
+        },
+      });
+    });
+
+    it("pays it whole at the official rate of the date", async () => {
+      getOfficialUsdRateAction.mockResolvedValue({
+        ok: true,
+        data: { rate: 1555, rate_date: "2026-11-04" },
+      });
+      const res = await proposeLoanInstallmentPayment.proposal?.prepareDraft(
+        ctx,
+        { loan: "scania", account: "galicia pesos", paid_date: "2026-11-05" },
+      );
+      expect(res).toMatchObject({
+        kind: "draft",
+        draft: { id: C2, amount: 400, account_id: ARS, account_amount: 622000 },
+      });
+      expect(getOfficialUsdRateAction).toHaveBeenCalledWith("2026-11-05");
+    });
+
+    it("takes the user's rate over the official one", async () => {
+      const res = await proposeLoanInstallmentPayment.proposal?.prepareDraft(
+        ctx,
+        { loan: "scania", account: "galicia pesos", rate: 1500 },
+      );
+      expect(res).toMatchObject({
+        kind: "draft",
+        draft: { amount: 400, account_amount: 600000 },
+      });
+      expect(getOfficialUsdRateAction).not.toHaveBeenCalled();
+    });
+
+    it("asks for the rate when none is loaded", async () => {
+      getOfficialUsdRateAction.mockResolvedValue({ ok: true, data: null });
+      const res = await proposeLoanInstallmentPayment.proposal?.prepareDraft(
+        ctx,
+        { loan: "scania", account: "galicia pesos" },
+      );
+      expect(res).toMatchObject({
+        kind: "issues",
+        issues: [{ field: "rate" }],
+      });
+    });
   });
 });

@@ -6,6 +6,7 @@ import { type Role, resolveAccess } from "@/lib/auth/permissions";
 // its perceptions as their total and apart their IVA part.
 
 let roles: Role[] = ["finance"];
+let loanCurrency = "ARS";
 const updates: Array<Record<string, unknown>> = [];
 const pay = vi.fn();
 const match = vi.fn();
@@ -43,7 +44,27 @@ vi.mock("@/lib/supabase/service", () => ({
         };
         return q;
       }
+      if (table === "accounts") {
+        const q = {
+          select: () => q,
+          eq: () => q,
+          maybeSingle: async () => ({
+            data: { currency: "ARS" },
+            error: null,
+          }),
+        };
+        return q;
+      }
+      const read = {
+        select: () => read,
+        eq: () => read,
+        maybeSingle: async () => ({
+          data: { amount: 400, loan: { currency: loanCurrency } },
+          error: null,
+        }),
+      };
       return {
+        select: read.select,
         update: (values: Record<string, unknown>) => {
           updates.push(values);
           return {
@@ -63,6 +84,7 @@ const CUOTA = "00000000-0000-4000-8000-000000000002";
 
 beforeEach(() => {
   roles = ["finance"];
+  loanCurrency = "ARS";
   updates.length = 0;
   pay
     .mockReset()
@@ -112,6 +134,45 @@ describe("payLoanInstallmentFromLineAction", () => {
       error: "El desglose suma 1100.00 y el débito es 1150.00.",
     });
     expect(updates).toEqual([]);
+    expect(pay).not.toHaveBeenCalled();
+  });
+
+  it("pays a USD cuota whole from a peso line, without touching its amount", async () => {
+    loanCurrency = "USD";
+    const res = await payLoanInstallmentFromLineAction({
+      line_id: LINE,
+      installment_id: CUOTA,
+    });
+    expect(res.ok).toBe(true);
+    expect(updates).toEqual([]);
+    expect(pay).toHaveBeenCalledWith("u1", {
+      id: CUOTA,
+      paid_date: "2026-11-10",
+      account_id: "a1",
+      amount: 400,
+      account_amount: 1150,
+    });
+    expect(match).toHaveBeenCalledWith("u1", {
+      line_id: LINE,
+      transaction_ids: ["t1"],
+    });
+  });
+
+  it("refuses to split a debit for a cuota in another currency", async () => {
+    loanCurrency = "USD";
+    const res = await payLoanInstallmentFromLineAction({
+      line_id: LINE,
+      installment_id: CUOTA,
+      split: {
+        capital: 1150,
+        interest: 0,
+        late_interest: 0,
+        iva: 0,
+        taxes: 0,
+        iva_perception: 0,
+      },
+    });
+    expect(res.ok).toBe(false);
     expect(pay).not.toHaveBeenCalled();
   });
 });

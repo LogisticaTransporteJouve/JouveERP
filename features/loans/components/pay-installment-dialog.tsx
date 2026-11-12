@@ -28,13 +28,18 @@ import { amountToInput, parseArAmount, todayInAR } from "@/lib/format";
 import { usePayInstallment } from "../hooks/use-loans";
 import type { LoanInstallment } from "../schema";
 
+import { FxPaymentFields, useFxPayment } from "./fx-payment-fields";
+
 export function PayInstallmentDialog({
   installment,
+  loanCurrency,
   accountOptions,
   onClose,
 }: {
   installment: LoanInstallment | null;
-  accountOptions: { id: string; name: string }[];
+  loanCurrency: string;
+  /** Accounts in the loan's currency, and peso accounts for a USD loan. */
+  accountOptions: { id: string; name: string; currency: string }[];
   onClose: () => void;
 }) {
   const payMut = usePayInstallment();
@@ -42,19 +47,35 @@ export function PayInstallmentDialog({
   const [paidDate, setPaidDate] = useState(todayInAR());
   const [accountId, setAccountId] = useState("");
   const [amount, setAmount] = useState("");
+  const account = accountOptions.find((a) => a.id === accountId);
+  // A USD cuota from a peso account: paid whole, at a rate.
+  const inPesos = account !== undefined && account.currency !== loanCurrency;
+  const fx = useFxPayment({
+    active: inPesos,
+    date: paidDate,
+    usdAmount: installment?.amount ?? 0,
+  });
+  const { reset: resetFx } = fx;
 
   useEffect(() => {
     if (open && installment) {
       setPaidDate(todayInAR());
       setAccountId("");
       setAmount(amountToInput(installment.amount));
+      resetFx();
     }
-  }, [open, installment]);
+  }, [open, installment, resetFx]);
+
+  const blocked = !accountId
+    ? "Elegí la cuenta de pago."
+    : inPesos && fx.pesos === null
+      ? "Ingresá la cotización o el monto en pesos."
+      : null;
 
   function onSubmit() {
     if (!installment) return;
-    if (!accountId) {
-      toast.error("Elegí la cuenta de pago.");
+    if (blocked) {
+      toast.error(blocked);
       return;
     }
     payMut.mutate(
@@ -62,7 +83,8 @@ export function PayInstallmentDialog({
         id: installment.id,
         paid_date: paidDate,
         account_id: accountId,
-        amount: parseArAmount(amount) ?? 0,
+        amount: inPesos ? installment.amount : (parseArAmount(amount) ?? 0),
+        account_amount: inPesos ? fx.pesos : null,
       },
       {
         onSuccess: () => {
@@ -104,8 +126,8 @@ export function PayInstallmentDialog({
               <MoneyInput
                 id="pay-amount"
                 value={amount}
-                // A split cuota is paid for its amount.
-                disabled={installment?.split != null}
+                // A split cuota, or a USD one paid in pesos, is paid whole.
+                disabled={installment?.split != null || inPesos}
                 onChange={setAmount}
               />
             </div>
@@ -120,21 +142,23 @@ export function PayInstallmentDialog({
                 {accountOptions.map((a) => (
                   <SelectItem key={a.id} value={a.id}>
                     {a.name}
+                    {a.currency !== loanCurrency ? ` (${a.currency})` : ""}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
+          {inPesos && <FxPaymentFields idPrefix="pay" fx={fx} />}
         </div>
         <DialogFooter>
           <Button type="button" variant="outline" onClick={onClose}>
             Cancelar
           </Button>
-          <DisabledHint reason={!accountId ? "Elegí la cuenta." : null}>
+          <DisabledHint reason={blocked}>
             <Button
               type="button"
               onClick={onSubmit}
-              disabled={payMut.isPending || !accountId}
+              disabled={payMut.isPending || blocked !== null}
             >
               Pagar
             </Button>
