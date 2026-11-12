@@ -24,3 +24,34 @@ export function applyFiscalFilter<Q extends FiscalFilterable<Q>>(
   if (!embed) return query.eq("channel_is_fiscal", isFiscal);
   return query.eq(`${embed}.is_fiscal`, isFiscal).not(embed, "is", null);
 }
+
+type ChannelScopeFilterable<Q> = FiscalFilterable<Q> & {
+  eq(column: string, value: string | boolean): Q;
+  not(column: string, operator: string, value: boolean | null): Q;
+};
+
+/**
+ * The list filter of a page: always the side (`applyFiscalFilter`, so a
+ * fiscal-only user asking for an internal channel by id gets nothing), then
+ * either that segregated channel (`scope.channelId`) or the main app without
+ * segregated channels. `scope.isFiscal` must already be pinned with
+ * `scopeIsFiscalFor(ctx.access, …)`.
+ *
+ * With `embed`, the table's `channel_id` is NOT NULL and the embed selects
+ * `is_segregated`. Without it, a view's `channel_is_segregated` column; rows
+ * with no channel (opening balances) stay in the main app.
+ */
+export function applyChannelScope<Q extends ChannelScopeFilterable<Q>>(
+  query: Q,
+  scope: {
+    isFiscal: boolean | null | undefined;
+    channelId: string | null | undefined;
+  },
+  embed?: string,
+): Q {
+  const sided = applyFiscalFilter(query, scope.isFiscal, embed);
+  if (scope.channelId) return sided.eq("channel_id", scope.channelId);
+  return embed
+    ? sided.eq(`${embed}.is_segregated`, false).not(embed, "is", null)
+    : sided.not("channel_is_segregated", "is", true);
+}

@@ -19,6 +19,7 @@ const h = vi.hoisted(() => ({
 }));
 
 vi.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams(),
   usePathname: () => h.pathname,
   useRouter: () => ({ refresh: vi.fn() }),
 }));
@@ -138,7 +139,10 @@ describe.each([
     });
     await waitFor(() => expect(result.current?.data).toBe("fetched"));
     expect(action()).toHaveBeenCalledTimes(1);
-    expect(action()).toHaveBeenCalledWith("c1", { isFiscal: true });
+    expect(action()).toHaveBeenCalledWith(
+      "c1",
+      expect.objectContaining({ isFiscal: true }),
+    );
     expect(qc.getQueryData(key(false))).toBeUndefined();
   });
 });

@@ -295,12 +295,16 @@ export type PurchaseInvoiceOpen = {
   paid: number;
   credited: number;
   opening_applied: number;
+  /** Credit of other NCs of the supplier beyond their own origin that this
+   *  purchase absorbs (oldest first, same channel and currency). */
+  credited_spill: number;
   open_amount: number;
 };
 
 /** What a purchase still owes, from v_purchase_invoice_open: issued OPs, NCs
- *  against it and opening-balance applications, the figure «Pagar» and the OP
- *  form use. Needs payment_orders:read, since it measures OPs. */
+ *  against it, opening-balance applications and the credit other NCs spill
+ *  on it, the figure «Pagar» and the OP form use. Needs payment_orders:read,
+ *  since it measures OPs. */
 export async function getPurchaseInvoiceOpenAction(
   invoiceId: string,
 ): Promise<ActionResult<PurchaseInvoiceOpen>> {
@@ -312,11 +316,28 @@ export async function getPurchaseInvoiceOpenAction(
     return { ok: false, error: "No tenés permiso." };
   }
   const supabase = await createClient();
+  // The view spills per supplier and channel: filtering by them keeps the
+  // read to that supplier's documents instead of every supplier's.
+  const { data: invoice, error: invoiceError } = await supabase
+    .from("purchase_invoices")
+    .select("supplier_id, channel_id")
+    .eq("id", invoiceId)
+    .maybeSingle();
+  if (invoiceError || !invoice) {
+    logger.error("purchase_invoices.open.failed", {
+      userId: ctx.userId,
+      invoiceId,
+      error: invoiceError,
+    });
+    return { ok: false, error: "No se pudieron leer los pagos." };
+  }
   const { data, error } = await supabase
     .from("v_purchase_invoice_open")
     .select(
-      "amount_paid, amount_credited_by_nc, amount_opening_applied, open_amount",
+      "amount_paid, amount_credited_by_nc, amount_opening_applied, amount_credited_by_nc_spill, open_amount",
     )
+    .eq("supplier_id", invoice.supplier_id)
+    .eq("channel_id", invoice.channel_id)
     .eq("purchase_invoice_id", invoiceId)
     .maybeSingle();
   if (error || !data) {
@@ -333,6 +354,7 @@ export async function getPurchaseInvoiceOpenAction(
       paid: Number(data.amount_paid ?? 0),
       credited: Number(data.amount_credited_by_nc ?? 0),
       opening_applied: Number(data.amount_opening_applied ?? 0),
+      credited_spill: Number(data.amount_credited_by_nc_spill ?? 0),
       open_amount: Number(data.open_amount ?? 0),
     },
   };

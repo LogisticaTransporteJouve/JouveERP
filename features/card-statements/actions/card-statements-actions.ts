@@ -17,6 +17,7 @@ import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 import { getServiceClient } from "@/lib/supabase/service";
 
+import { linesFollowingDefault } from "../lib/holder-default";
 import {
   CreateCardStatementSchema,
   DeleteCardStatementSchema,
@@ -27,6 +28,7 @@ import {
   isCardStatementStatus,
   isCardTreatment,
   type CardStatementDetail,
+  type CardTreatment,
   type CardStatementListItem,
 } from "../schema";
 
@@ -503,9 +505,25 @@ export async function setCardLinesAction(
       (hrWrite || l.treatment !== "advance"),
   );
   if (lines.length === 0) return { ok: true, data: { updated: 0 } };
-  const rebooked = paidParts(st.data).filter((c) =>
-    lines.some((l) => l.currency === c),
-  );
+  const res = await reclassifyLines(service, ctx, d, lines, paidParts(st.data));
+  return res.ok ? { ok: true, data: { updated: res.data } } : res;
+}
+
+/** Changes some lines of a statement in one call: a paid part they are in
+ *  is booked again once, against the same debit. */
+async function reclassifyLines(
+  service: Service,
+  ctx: { userId: string; access: Access },
+  d: {
+    statement_id: string;
+    treatment: CardTreatment;
+    chart_account_id: string | null;
+    employee_id: string | null;
+  },
+  lines: readonly { id: string; currency: string }[],
+  paid: readonly ("ARS" | "USD")[],
+): Promise<ActionResult<number>> {
+  const rebooked = paid.filter((c) => lines.some((l) => l.currency === c));
 
   // Booking a part again books all of it: the user needs the writes its
   // advances and tax lines need, before and after the change.
@@ -545,7 +563,7 @@ export async function setCardLinesAction(
     { treatment: d.treatment, lines: data, rebooked },
     d.statement_id,
   );
-  return { ok: true, data: { updated: data } };
+  return { ok: true, data };
 }
 
 async function rebookDenied(
@@ -587,8 +605,10 @@ async function rebookDenied(
   );
 }
 
-/** A card's default: kept for the next statements, and applied now to its
- *  purchases of this statement not paid yet. */
+/** A card's default: kept for the next statements and applied now to its
+ *  purchases of this statement. A part not paid yet just changes; in a paid
+ *  part, only the lines still on the previous default change (one changed
+ *  by hand stays), booking the part again once against the same debit. */
 export async function setCardHolderAction(
   input: unknown,
 ): Promise<ActionResult<{ updated: number }>> {
@@ -608,7 +628,7 @@ export async function setCardHolderAction(
   const service = getServiceClient();
   const st = await service
     .from("card_statements")
-    .select("account_number, status, paid_ars_on, paid_usd_on")
+    .select("account_number, paid_ars_on, paid_usd_on")
     .eq("id", d.statement_id)
     .maybeSingle();
   if (st.error) {
@@ -627,6 +647,57 @@ export async function setCardHolderAction(
   };
   // An advance is Personal's: without its write it stays as it is.
   const hrWrite = userCan(ctx.access, "hr:write");
+  const paid = paidParts(st.data);
+
+  // The lines of a paid part still on the previous default, read before
+  // the default changes.
+  let applied = 0;
+  if (paid.length > 0) {
+    const [previous, rows] = await Promise.all([
+      service
+        .from("card_holders")
+        .select("treatment, chart_account_id, employee_id")
+        .eq("account_number", st.data.account_number)
+        .eq("last4", d.last4)
+        .maybeSingle(),
+      service
+        .from("card_statement_lines")
+        .select(
+          "id, card_last4, currency, source, treatment, chart_account_id, employee_id",
+        )
+        .eq("statement_id", d.statement_id)
+        .eq("card_last4", d.last4)
+        .in("currency", paid),
+    ]);
+    const readError = previous.error ?? rows.error;
+    if (readError) {
+      logger.error("cards.read_failed", {
+        userId: ctx.userId,
+        statementId: d.statement_id,
+        error: readError,
+      });
+      return { ok: false, error: "No se pudo leer el resumen." };
+    }
+    const following = linesFollowingDefault(rows.data ?? [], {
+      last4: d.last4,
+      previous: previous.data,
+      next: values,
+      paidParts: paid,
+      hrWrite,
+    });
+    if (following.length > 0) {
+      const res = await reclassifyLines(
+        service,
+        ctx,
+        { statement_id: d.statement_id, ...values },
+        following,
+        paid,
+      );
+      if (!res.ok) return res;
+      applied += res.data;
+    }
+  }
+
   let holderUpdate = service
     .from("card_holders")
     .update(values)
@@ -639,42 +710,42 @@ export async function setCardHolderAction(
       userId: ctx.userId,
       error: holder.error,
     });
-    return { ok: false, error: "No se pudo guardar la tarjeta." };
-  }
-  if (st.data.status === "pagado") {
-    await logAudit(
-      "card_holder.updated",
-      ctx.userId,
-      { last4: d.last4, treatment: d.treatment, applied: 0 },
-      d.statement_id,
-    );
-    return { ok: true, data: { updated: 0 } };
-  }
-  let linesUpdate = service
-    .from("card_statement_lines")
-    .update(values)
-    .eq("statement_id", d.statement_id)
-    .eq("card_last4", d.last4)
-    .is("transaction_id", null);
-  const paid = paidParts(st.data);
-  if (paid.length > 0)
-    linesUpdate = linesUpdate.not("currency", "in", `(${paid.join(",")})`);
-  if (!hrWrite) linesUpdate = linesUpdate.neq("treatment", "advance");
-  const { data, error } = await linesUpdate.select("id");
-  if (error) {
-    logger.error("cards.holder_apply_failed", { userId: ctx.userId, error });
     return {
       ok: false,
-      error: "Se guardó la tarjeta, pero no se aplicó a sus consumos.",
+      error:
+        applied > 0
+          ? "Se cambiaron los consumos pagados, pero no se guardó la tarjeta."
+          : "No se pudo guardar la tarjeta.",
     };
+  }
+
+  if (paid.length < 2) {
+    let linesUpdate = service
+      .from("card_statement_lines")
+      .update(values)
+      .eq("statement_id", d.statement_id)
+      .eq("card_last4", d.last4)
+      .is("transaction_id", null);
+    if (paid.length > 0)
+      linesUpdate = linesUpdate.not("currency", "in", `(${paid.join(",")})`);
+    if (!hrWrite) linesUpdate = linesUpdate.neq("treatment", "advance");
+    const { data, error } = await linesUpdate.select("id");
+    if (error) {
+      logger.error("cards.holder_apply_failed", { userId: ctx.userId, error });
+      return {
+        ok: false,
+        error: "Se guardó la tarjeta, pero no se aplicó a sus consumos.",
+      };
+    }
+    applied += data.length;
   }
   await logAudit(
     "card_holder.updated",
     ctx.userId,
-    { last4: d.last4, treatment: d.treatment, applied: data.length },
+    { last4: d.last4, treatment: d.treatment, applied },
     d.statement_id,
   );
-  return { ok: true, data: { updated: data.length } };
+  return { ok: true, data: { updated: applied } };
 }
 
 /** Deletes a statement loaded by mistake, while nothing of it is paid. */

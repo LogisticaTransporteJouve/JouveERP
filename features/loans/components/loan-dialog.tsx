@@ -41,6 +41,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useAccountOptions } from "@/features/accounts/hooks/use-accounts";
 import { formatArgentineDate, formatMoney, parseArAmount } from "@/lib/format";
+import { isMainChannel } from "@/lib/scope";
 import { generateInstallments } from "@/lib/loans/amortization";
 import {
   fixedCapitalPlan,
@@ -70,6 +71,7 @@ const FormSchema = z.object({
   start_date: z.string(),
   principal: positiveArAmountField,
   currency: z.enum(["ARS", "USD"]),
+  channel_id: z.string().min(1, "Elegí el canal."),
   tna: rateField,
   tea: rateField,
   cft: rateField,
@@ -89,6 +91,7 @@ const DEFAULTS: FormValues = {
   start_date: "",
   principal: "",
   currency: "ARS",
+  channel_id: "",
   tna: "",
   tea: "",
   cft: "",
@@ -114,9 +117,12 @@ export function LoanDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const { channels } = useScope();
-  // A loan is the company's debt: it goes to the fiscal channel.
-  const fiscalChannel =
-    channels.find((c) => c.is_active && c.is_fiscal)?.id ?? "";
+  // Any active channel of the main app; the fiscal one by default (a private
+  // loan can live only in the internal channel).
+  const channelOptions = channels.filter(
+    (c) => c.is_active && isMainChannel(c),
+  );
+  const fiscalChannel = channelOptions.find((c) => c.is_fiscal)?.id ?? "";
   const { accounts } = useAccountOptions();
   const createMut = useCreateLoan();
   const form = useForm<FormValues>({
@@ -130,10 +136,15 @@ export function LoanDialog({
   const [paidRaw, setPaidRaw] = useState("");
   const [openingRaw, setOpeningRaw] = useState("");
   const [openingTaxesRaw, setOpeningTaxesRaw] = useState("");
+  // «Sin vencimiento (solo interés)»: no plan, a monthly interest.
+  const [openEnded, setOpenEnded] = useState(false);
+  const [monthlyRateRaw, setMonthlyRateRaw] = useState("");
 
   useEffect(() => {
     if (!open) return;
-    form.reset(DEFAULTS);
+    form.reset({ ...DEFAULTS, channel_id: fiscalChannel });
+    setOpenEnded(false);
+    setMonthlyRateRaw("");
     setMode("bank");
     setPlanText("");
     setByDays(false);
@@ -141,12 +152,15 @@ export function LoanDialog({
     setPaidRaw("");
     setOpeningRaw("");
     setOpeningTaxesRaw("");
+    // The default channel is read once per opening.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, form]);
 
-  const [currency, principalRaw, tnaRaw, countRaw, firstDue, startDate] =
+  const [kind, currency, principalRaw, tnaRaw, countRaw, firstDue, startDate] =
     useWatch({
       control: form.control,
       name: [
+        "kind",
         "currency",
         "principal",
         "tna",
@@ -201,6 +215,7 @@ export function LoanDialog({
         interest: 0,
         iva: 0,
         perception: 0,
+        iva_perception: 0,
         other: 0,
         paid: false,
       }));
@@ -221,7 +236,52 @@ export function LoanDialog({
     startDate,
   ]);
 
+  const isOpenEnded = openEnded && kind === "prestamo";
+
   function onSubmit(values: FormValues) {
+    const principal = parseArAmount(values.principal) ?? 0;
+    const common = {
+      kind: values.kind,
+      description: values.description,
+      lender: values.lender,
+      loan_number: values.loan_number,
+      account_id: values.account_id === NONE ? null : values.account_id,
+      start_date: values.start_date || null,
+      principal,
+      original_amount: principal,
+      currency: values.currency,
+      channel_id: values.channel_id,
+      tna: rateOrNull(values.tna),
+      tea: rateOrNull(values.tea),
+      cft: rateOrNull(values.cft),
+      notes: values.notes,
+    };
+    const onDone = {
+      onSuccess: () => {
+        toast.success("Préstamo creado.");
+        onOpenChange(false);
+      },
+      onError: (err: Error) => toast.error(err.message),
+    };
+    if (isOpenEnded) {
+      const monthlyRate = rateOrNull(monthlyRateRaw);
+      if (monthlyRate === null || monthlyRate <= 0 || !values.first_due_date) {
+        toast.error("Completá el interés mensual y el primer vencimiento.");
+        return;
+      }
+      createMut.mutate(
+        {
+          ...common,
+          installments_count: 1,
+          first_due_date: values.first_due_date,
+          is_open_ended: true,
+          monthly_rate: monthlyRate,
+          plan: null,
+        },
+        onDone,
+      );
+      return;
+    }
     if (!plan) {
       toast.error(
         mode === "bank"
@@ -231,35 +291,15 @@ export function LoanDialog({
       );
       return;
     }
-    const principal = parseArAmount(values.principal) ?? 0;
     createMut.mutate(
       {
-        kind: values.kind,
-        description: values.description,
-        lender: values.lender,
-        loan_number: values.loan_number,
-        account_id: values.account_id === NONE ? null : values.account_id,
-        start_date: values.start_date || null,
-        principal,
-        original_amount: principal,
-        currency: values.currency,
-        channel_id: fiscalChannel,
-        tna: rateOrNull(values.tna),
-        tea: rateOrNull(values.tea),
-        cft: rateOrNull(values.cft),
+        ...common,
         installments_count: plan.length,
         first_due_date: plan[0]?.due_date,
-        notes: values.notes,
         // Equal parts carry no split: the DB keeps them as before.
         plan: mode === "equal" ? null : plan,
       },
-      {
-        onSuccess: () => {
-          toast.success("Préstamo creado.");
-          onOpenChange(false);
-        },
-        onError: (err) => toast.error(err.message),
-      },
+      onDone,
     );
   }
 
@@ -269,7 +309,7 @@ export function LoanDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Nuevo préstamo / leasing</DialogTitle>
+          <DialogTitle>Nuevo préstamo, leasing o plan de ahorro</DialogTitle>
           <DialogDescription>
             Cargá los datos del préstamo como los muestra el banco y su plan de
             cuotas. Las cuotas que el banco da por pagadas quedan pagadas, sin
@@ -350,6 +390,49 @@ export function LoanDialog({
                   </FormItem>
                 )}
               />
+            </div>
+            {kind === "plan_ahorro" && (
+              <p className="text-muted-foreground text-sm">
+                Las cuotas suman a Rodados en plan de ahorro; no hay desembolso.
+              </p>
+            )}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="channel_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Canal</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Elegí el canal" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {channelOptions.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              {kind === "prestamo" && (
+                <div className="flex items-center gap-2 pt-6 text-sm">
+                  <Checkbox
+                    id="loan-open-ended"
+                    checked={openEnded}
+                    onCheckedChange={(v) => setOpenEnded(v === true)}
+                  />
+                  <Label htmlFor="loan-open-ended" className="font-normal">
+                    Sin vencimiento (solo interés)
+                  </Label>
+                </div>
+              )}
             </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <FormField
@@ -447,161 +530,200 @@ export function LoanDialog({
             </div>
             <ChannelsReadError inline />
 
-            <div className="space-y-3 rounded-lg border p-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-sm font-medium">Plan de cuotas</p>
-                <Tabs
-                  value={mode}
-                  onValueChange={(v) => setMode(isPlanMode(v) ? v : "bank")}
-                >
-                  <TabsList>
-                    <TabsTrigger value="bank">Pegar del banco</TabsTrigger>
-                    <TabsTrigger value="french">Francés (TNA)</TabsTrigger>
-                    <TabsTrigger value="fixed">Capital fijo (TNA)</TabsTrigger>
-                    <TabsTrigger value="equal">Cuotas iguales</TabsTrigger>
-                  </TabsList>
-                </Tabs>
-              </div>
-              {mode === "bank" ? (
-                <div className="space-y-1.5">
-                  <Textarea
-                    aria-label="Plan de cuotas del banco"
-                    rows={4}
-                    value={planText}
-                    onChange={(e) => setPlanText(e.target.value)}
-                    placeholder="En el home banking abrí el préstamo › Plan de cuotas, seleccioná la tabla entera, copiala y pegala acá."
+            {isOpenEnded ? (
+              <div className="space-y-3 rounded-lg border p-3">
+                <p className="text-sm font-medium">Sin vencimiento</p>
+                <div className="grid grid-cols-2 gap-3 sm:max-w-md">
+                  <div className="space-y-2">
+                    <Label htmlFor="loan-monthly-rate">Interés mensual %</Label>
+                    <Input
+                      id="loan-monthly-rate"
+                      inputMode="decimal"
+                      value={monthlyRateRaw}
+                      onChange={(e) => setMonthlyRateRaw(e.target.value)}
+                      placeholder="1,00"
+                    />
+                  </div>
+                  <FormField
+                    control={form.control}
+                    name="first_due_date"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Primer vencimiento</FormLabel>
+                        <FormControl>
+                          <DatePicker {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                  {pasted && !pasted.ok && (
-                    <p className="text-sm">{pasted.error}</p>
-                  )}
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  <div className="grid grid-cols-3 gap-3 sm:max-w-lg">
-                    <FormField
-                      control={form.control}
-                      name="installments_count"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Cuotas</FormLabel>
-                          <FormControl>
-                            <Input
-                              {...field}
-                              type="number"
-                              inputMode="numeric"
-                              min={1}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
+                <p className="text-muted-foreground text-xs">
+                  Cada mes vence una cuota de interés sobre el capital que se
+                  sigue debiendo; siempre se ven las 3 próximas. El capital se
+                  devuelve con «Devolución de capital» desde el préstamo.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3 rounded-lg border p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-medium">Plan de cuotas</p>
+                  <Tabs
+                    value={mode}
+                    onValueChange={(v) => setMode(isPlanMode(v) ? v : "bank")}
+                  >
+                    <TabsList>
+                      <TabsTrigger value="bank">Pegar del banco</TabsTrigger>
+                      <TabsTrigger value="french">Francés (TNA)</TabsTrigger>
+                      <TabsTrigger value="fixed">
+                        Capital fijo (TNA)
+                      </TabsTrigger>
+                      <TabsTrigger value="equal">Cuotas iguales</TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+                </div>
+                {mode === "bank" ? (
+                  <div className="space-y-1.5">
+                    <Textarea
+                      aria-label="Plan de cuotas del banco"
+                      rows={4}
+                      value={planText}
+                      onChange={(e) => setPlanText(e.target.value)}
+                      placeholder="En el home banking abrí el préstamo › Plan de cuotas, seleccioná la tabla entera, copiala y pegala acá."
                     />
-                    <FormField
-                      control={form.control}
-                      name="first_due_date"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>1ª cuota</FormLabel>
-                          <FormControl>
-                            <DatePicker {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <div className="space-y-2">
-                      <Label htmlFor="loan-paid-count">
-                        Ya pagadas (hasta la Nº)
-                      </Label>
-                      <Input
-                        id="loan-paid-count"
-                        type="number"
-                        inputMode="numeric"
-                        min={0}
-                        value={paidRaw}
-                        onChange={(e) => setPaidRaw(e.target.value)}
-                        placeholder="0"
-                      />
-                    </div>
+                    {pasted && !pasted.ok && (
+                      <p className="text-sm">{pasted.error}</p>
+                    )}
                   </div>
-                  <div className="grid grid-cols-2 gap-3 sm:max-w-md">
-                    <div className="space-y-2">
-                      <Label htmlFor="loan-opening-count">
-                        Cuotas del otorgamiento
-                      </Label>
-                      <Input
-                        id="loan-opening-count"
-                        type="number"
-                        inputMode="numeric"
-                        min={0}
-                        value={openingRaw}
-                        onChange={(e) => setOpeningRaw(e.target.value)}
-                        placeholder="0"
+                ) : (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-3 gap-3 sm:max-w-lg">
+                      <FormField
+                        control={form.control}
+                        name="installments_count"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Cuotas</FormLabel>
+                            <FormControl>
+                              <Input
+                                {...field}
+                                type="number"
+                                inputMode="numeric"
+                                min={1}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
                       />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="loan-opening-taxes">
-                        Impuestos al otorgamiento
-                      </Label>
-                      <MoneyInput
-                        id="loan-opening-taxes"
-                        value={openingTaxesRaw}
-                        onChange={setOpeningTaxesRaw}
-                        disabled={!Number(openingRaw)}
+                      <FormField
+                        control={form.control}
+                        name="first_due_date"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>1ª cuota</FormLabel>
+                            <FormControl>
+                              <DatePicker {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
                       />
-                    </div>
-                  </div>
-                  <p className="text-muted-foreground text-xs">
-                    Algunos bancos numeran cuotas al otorgar el préstamo (Banco
-                    Provincia: la 1 con los impuestos y la 2 en $0). Cargalas
-                    acá para que los números coincidan con los del banco.
-                  </p>
-                  {(mode === "french" || mode === "fixed") && (
-                    <div className="space-y-2 text-sm">
-                      <div className="flex items-center gap-2">
-                        <Checkbox
-                          id="loan-by-days"
-                          checked={byDays}
-                          onCheckedChange={(v) => setByDays(v === true)}
-                        />
-                        <Label htmlFor="loan-by-days" className="font-normal">
-                          Interés por días reales (saldo × TNA × días / 365,
-                          desde la fecha de alta)
+                      <div className="space-y-2">
+                        <Label htmlFor="loan-paid-count">
+                          Ya pagadas (hasta la Nº)
                         </Label>
+                        <Input
+                          id="loan-paid-count"
+                          type="number"
+                          inputMode="numeric"
+                          min={0}
+                          value={paidRaw}
+                          onChange={(e) => setPaidRaw(e.target.value)}
+                          placeholder="0"
+                        />
                       </div>
-                      {mode === "fixed" && (
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 sm:max-w-md">
+                      <div className="space-y-2">
+                        <Label htmlFor="loan-opening-count">
+                          Cuotas del otorgamiento
+                        </Label>
+                        <Input
+                          id="loan-opening-count"
+                          type="number"
+                          inputMode="numeric"
+                          min={0}
+                          value={openingRaw}
+                          onChange={(e) => setOpeningRaw(e.target.value)}
+                          placeholder="0"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="loan-opening-taxes">
+                          Impuestos al otorgamiento
+                        </Label>
+                        <MoneyInput
+                          id="loan-opening-taxes"
+                          value={openingTaxesRaw}
+                          onChange={setOpeningTaxesRaw}
+                          disabled={!Number(openingRaw)}
+                        />
+                      </div>
+                    </div>
+                    <p className="text-muted-foreground text-xs">
+                      Algunos bancos numeran cuotas al otorgar el préstamo
+                      (Banco Provincia: la 1 con los impuestos y la 2 en $0).
+                      Cargalas acá para que los números coincidan con los del
+                      banco.
+                    </p>
+                    {(mode === "french" || mode === "fixed") && (
+                      <div className="space-y-2 text-sm">
                         <div className="flex items-center gap-2">
                           <Checkbox
-                            id="loan-separate-interest"
-                            checked={separateInterest}
-                            onCheckedChange={(v) =>
-                              setSeparateInterest(v === true)
-                            }
+                            id="loan-by-days"
+                            checked={byDays}
+                            onCheckedChange={(v) => setByDays(v === true)}
                           />
-                          <Label
-                            htmlFor="loan-separate-interest"
-                            className="font-normal"
-                          >
-                            Interés en cuota aparte (el banco lista capital e
-                            interés como dos cuotas)
+                          <Label htmlFor="loan-by-days" className="font-normal">
+                            Interés por días reales (saldo × TNA × días / 365,
+                            desde la fecha de alta)
                           </Label>
                         </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-              {plan && (
-                <>
-                  <p className="text-muted-foreground text-xs">
-                    {plan.length} cuotas
-                    {paidBefore > 0 &&
-                      ` · ${paidBefore} pagadas antes (quedan pagadas, sin movimiento)`}
-                  </p>
-                  <PlanPreview plan={plan} currency={currency} />
-                </>
-              )}
-            </div>
+                        {mode === "fixed" && (
+                          <div className="flex items-center gap-2">
+                            <Checkbox
+                              id="loan-separate-interest"
+                              checked={separateInterest}
+                              onCheckedChange={(v) =>
+                                setSeparateInterest(v === true)
+                              }
+                            />
+                            <Label
+                              htmlFor="loan-separate-interest"
+                              className="font-normal"
+                            >
+                              Interés en cuota aparte (el banco lista capital e
+                              interés como dos cuotas)
+                            </Label>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {plan && (
+                  <>
+                    <p className="text-muted-foreground text-xs">
+                      {plan.length} cuotas
+                      {paidBefore > 0 &&
+                        ` · ${paidBefore} pagadas antes (quedan pagadas, sin movimiento)`}
+                    </p>
+                    <PlanPreview plan={plan} currency={currency} />
+                  </>
+                )}
+              </div>
+            )}
 
             <FormField
               control={form.control}

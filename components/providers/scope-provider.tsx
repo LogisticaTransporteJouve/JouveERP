@@ -10,17 +10,21 @@ import {
   useMemo,
   useState,
 } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import {
+  CHANNEL_PARAM,
   channelIsFiscal,
+  channelsForScope,
   defaultChannelFor,
   isFiscalFor,
   isScopedPath,
   parseFiscalFilter,
   SCOPE_COOKIE,
+  segregatedChannelFor,
   serializeFiscalFilter,
   toScopeSide,
+  type ChannelScope,
   type FiscalFilter,
   type InvoicingChannelSummary,
   type ScopeSide,
@@ -29,7 +33,15 @@ import {
 type ScopeContextValue = {
   /** The side the menu last switched to; it applies only on split pages. */
   fiscalFilter: ScopeSide;
+  /** The channels the page works with: inside a segregated channel's section
+   *  (`channelId`), that channel; else every channel of the main app. */
   channels: InvoicingChannelSummary[];
+  /** Every channel, segregated ones included: to label or classify a stored
+   *  channel, never to offer one. */
+  allChannels: InvoicingChannelSummary[];
+  /** The segregated channel whose section the page is in: a record's own
+   *  (PageChannelProvider) or the URL's `?channel=` on a split page. */
+  channelId: string | null;
   /** The layout could not read the channels: `channels` is empty because of
    *  the error, not because there are none. */
   channelsFailed: boolean;
@@ -121,9 +133,37 @@ export function ScopeProvider({
     [locked, router],
   );
 
+  // A segregated channel's section travels in the URL of a split page; a
+  // record page pins its own (PageChannelProvider, read in useScope).
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const rawChannel = isScopedPath(pathname)
+    ? searchParams.get(CHANNEL_PARAM)
+    : null;
+  const urlChannelId =
+    segregatedChannelFor(channels, rawChannel, locked)?.id ?? null;
+
   const value = useMemo<ScopeContextValue>(
-    () => ({ fiscalFilter, channels, channelsFailed, locked, setFiscalFilter }),
-    [fiscalFilter, channels, channelsFailed, locked, setFiscalFilter],
+    () => ({
+      fiscalFilter,
+      channels: channelsForScope(
+        channels,
+        channels.find((c) => c.id === urlChannelId) ?? null,
+      ),
+      allChannels: channels,
+      channelId: urlChannelId,
+      channelsFailed,
+      locked,
+      setFiscalFilter,
+    }),
+    [
+      fiscalFilter,
+      channels,
+      urlChannelId,
+      channelsFailed,
+      locked,
+      setFiscalFilter,
+    ],
   );
 
   return (
@@ -131,12 +171,51 @@ export function ScopeProvider({
   );
 }
 
-export function useScope() {
+const PageChannelContext = createContext<string | null>(null);
+
+/** Pins everything below it to a record's segregated channel (a DZ purchase
+ *  or supplier opened from anywhere), so its forms offer that channel and the
+ *  menu keeps its section active. `channelId: null` pins nothing. */
+export function PageChannelProvider({
+  channelId,
+  children,
+}: {
+  channelId: string | null;
+  children: React.ReactNode;
+}) {
+  return (
+    <PageChannelContext.Provider value={channelId}>
+      {children}
+    </PageChannelContext.Provider>
+  );
+}
+
+export function useScope(): ScopeContextValue {
   const ctx = useContext(ScopeContext);
-  if (!ctx) {
+  const pinned = useContext(PageChannelContext);
+  const value = useMemo(() => {
+    if (!ctx || !pinned) return ctx;
+    const channel = segregatedChannelFor(ctx.allChannels, pinned, ctx.locked);
+    return channel
+      ? {
+          ...ctx,
+          channelId: channel.id,
+          channels: channelsForScope(ctx.allChannels, channel),
+        }
+      : ctx;
+  }, [ctx, pinned]);
+  if (!value) {
     throw new Error("useScope must be used within ScopeProvider");
   }
-  return ctx;
+  return value;
+}
+
+/** The segregated channel the page is in, or `null` (the main app). */
+function useSectionChannel(): InvoicingChannelSummary | null {
+  const { allChannels, channelId } = useScope();
+  return channelId
+    ? (allChannels.find((c) => c.id === channelId) ?? null)
+    : null;
 }
 
 const PageSideContext = createContext<ScopeSide | null>(null);
@@ -161,11 +240,37 @@ export function PageSideProvider({
  *  always fiscal. */
 export function usePageScope(): FiscalFilter {
   const { fiscalFilter, locked } = useScope();
+  const section = useSectionChannel();
   const pinned = useContext(PageSideContext);
   const pathname = usePathname();
   if (locked) return "fiscal";
+  // Inside a segregated channel's section the side is the channel's own.
+  if (section) return section.is_fiscal ? "fiscal" : "internal";
   if (pinned) return pinned;
   return isScopedPath(pathname) ? fiscalFilter : "all";
+}
+
+/** What a list reads (`ChannelScope`): the page's side and, inside a
+ *  segregated channel's section, that channel. Matches the server's
+ *  `readPageChannelScope`. */
+export function usePageChannelScope(): ChannelScope {
+  const { channelId } = useScope();
+  const isFiscal = isFiscalFor(usePageScope());
+  return useMemo(() => ({ isFiscal, channelId }), [isFiscal, channelId]);
+}
+
+/** The channel options of a form: the page's channels plus the record's
+ *  stored channel when it is not among them (a DZ record edited from
+ *  elsewhere keeps its channel). */
+export function useChannelOptions(
+  stored?: string | null,
+): InvoicingChannelSummary[] {
+  const { channels, allChannels } = useScope();
+  return useMemo(() => {
+    if (!stored || channels.some((c) => c.id === stored)) return channels;
+    const own = allChannels.find((c) => c.id === stored);
+    return own ? [...channels, own] : channels;
+  }, [channels, allChannels, stored]);
 }
 
 /** The channel a new-record form pre-selects (`defaultChannelFor`): the page
@@ -192,21 +297,46 @@ export function usePageIsFiscal(): boolean | null {
 export function useSideChannels<T extends { id: string }>(
   options: readonly T[],
 ): T[] {
-  const { channels } = useScope();
+  const { allChannels } = useScope();
   const isFiscal = usePageIsFiscal();
   return useMemo(
     () =>
       isFiscal === null
         ? [...options]
-        : options.filter((o) => channelIsFiscal(o.id, channels) === isFiscal),
-    [options, channels, isFiscal],
+        : options.filter(
+            (o) => channelIsFiscal(o.id, allChannels) === isFiscal,
+          ),
+    [options, allChannels, isFiscal],
   );
 }
 
-/** Remounts the page when the menu switches side: Ventas › Comprobantes and
- *  Otras ventas › Comprobantes share a URL, and list state (filters, open
- *  dialogs) from one side must not carry over to the other. */
+/** Remounts the page when the menu switches side or section: Ventas ›
+ *  Comprobantes, Otras ventas › Comprobantes and a segregated channel's
+ *  Comprobantes share a path, and list state (filters, open dialogs) from one
+ *  must not carry over to another. */
 export function SideKeyed({ children }: { children: React.ReactNode }) {
-  const { fiscalFilter } = useScope();
-  return <Fragment key={fiscalFilter}>{children}</Fragment>;
+  const { fiscalFilter, channelId } = useScope();
+  return (
+    <Fragment key={`${fiscalFilter}:${channelId ?? ""}`}>{children}</Fragment>
+  );
+}
+
+/** The segregated channel's section the page is in, or `null`; also `null`
+ *  outside the dashboard's ScopeProvider (a picker rendered on its own). */
+export function useSectionChannelId(): string | null {
+  const ctx = useContext(ScopeContext);
+  const pinned = useContext(PageChannelContext);
+  if (!ctx) return null;
+  if (pinned) {
+    return (
+      segregatedChannelFor(ctx.allChannels, pinned, ctx.locked)?.id ?? null
+    );
+  }
+  return ctx.channelId;
+}
+
+/** Every channel the layout read, or none outside the dashboard's
+ *  ScopeProvider (a table rendered on its own). */
+export function useAllChannels(): InvoicingChannelSummary[] {
+  return useContext(ScopeContext)?.allChannels ?? [];
 }

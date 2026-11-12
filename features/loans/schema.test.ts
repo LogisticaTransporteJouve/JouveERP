@@ -1,6 +1,32 @@
 import { describe, expect, it } from "vitest";
 
-import { UpdateInstallmentSchema, canCancelLoan } from "./schema";
+import { Constants } from "@/lib/db/database.types";
+
+import {
+  CreateLoanSchema,
+  InstallmentSplitSchema,
+  PayInstallmentSchema,
+  RepayCapitalSchema,
+  LOAN_KINDS,
+  LOAN_KIND_LABEL,
+  UpdateInstallmentSchema,
+  canCancelLoan,
+  isLoanKind,
+  splitTotal,
+} from "./schema";
+
+describe("LOAN_KINDS", () => {
+  it("lists exactly the database enum loan_kind", () => {
+    expect([...LOAN_KINDS].sort()).toEqual(
+      [...Constants.public.Enums.loan_kind].sort(),
+    );
+  });
+
+  it("names the savings plan", () => {
+    expect(isLoanKind("plan_ahorro")).toBe(true);
+    expect(LOAN_KIND_LABEL.plan_ahorro).toBe("Plan de ahorro");
+  });
+});
 
 describe("canCancelLoan", () => {
   const loan = {
@@ -36,6 +62,7 @@ describe("UpdateInstallmentSchema", () => {
     interest: 0,
     iva: 0,
     perception: 0,
+    iva_perception: 0,
     other: 0,
   };
 
@@ -64,5 +91,99 @@ describe("UpdateInstallmentSchema", () => {
     expect(UpdateInstallmentSchema.safeParse({ id, split: null }).success).toBe(
       true,
     );
+  });
+});
+
+describe("IVA and IIBB perception of a cuota", () => {
+  const split = {
+    capital: 1000,
+    interest: 0,
+    iva: 0,
+    perception: 50,
+    iva_perception: 100,
+    other: 0,
+  };
+
+  it("counts both perceptions in the cuota's amount", () => {
+    expect(splitTotal(split)).toBe(1150);
+  });
+
+  it("reads a split without the IVA part as none", () => {
+    const older = {
+      capital: 1000,
+      interest: 0,
+      iva: 0,
+      perception: 50,
+      other: 0,
+    };
+    expect(InstallmentSplitSchema.parse(older).iva_perception).toBe(0);
+  });
+});
+
+describe("open-ended loans and payments at a rate", () => {
+  const base = {
+    description: "Simionato",
+    principal: 40000,
+    currency: "USD",
+    channel_id: "jouve_internal",
+    installments_count: 1,
+    first_due_date: "2026-10-02",
+  };
+
+  it("an open-ended loan needs a monthly rate above 0", () => {
+    expect(
+      CreateLoanSchema.safeParse({ ...base, is_open_ended: true }).success,
+    ).toBe(false);
+    expect(
+      CreateLoanSchema.safeParse({
+        ...base,
+        is_open_ended: true,
+        monthly_rate: 1,
+      }).success,
+    ).toBe(true);
+  });
+
+  it("an open-ended loan is a préstamo, never a leasing nor a plan", () => {
+    expect(
+      CreateLoanSchema.safeParse({
+        ...base,
+        kind: "leasing",
+        is_open_ended: true,
+        monthly_rate: 1,
+      }).success,
+    ).toBe(false);
+  });
+
+  it("a fixed loan still parses without the new fields", () => {
+    const parsed = CreateLoanSchema.parse(base);
+    expect(parsed.is_open_ended).toBe(false);
+  });
+
+  it("a payment may carry the pesos that leave a peso account", () => {
+    const pay = {
+      id: "00000000-0000-4000-8000-000000000001",
+      paid_date: "2026-11-02",
+      account_id: "00000000-0000-4000-8000-000000000002",
+      amount: 400,
+    };
+    expect(PayInstallmentSchema.parse(pay).account_amount).toBeUndefined();
+    expect(
+      PayInstallmentSchema.parse({ ...pay, account_amount: 622000 })
+        .account_amount,
+    ).toBe(622000);
+    expect(
+      PayInstallmentSchema.safeParse({ ...pay, account_amount: 0 }).success,
+    ).toBe(false);
+  });
+
+  it("a capital repayment needs a positive amount", () => {
+    expect(
+      RepayCapitalSchema.safeParse({
+        loan_id: "00000000-0000-4000-8000-000000000001",
+        date: "2026-11-02",
+        account_id: "00000000-0000-4000-8000-000000000002",
+        amount: 0,
+      }).success,
+    ).toBe(false);
   });
 });

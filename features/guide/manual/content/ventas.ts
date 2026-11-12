@@ -276,33 +276,31 @@ export const salesPage: GuidePage = {
         },
         {
           id: "eliminar-cliente",
-          title: "Eliminar, desactivar o reactivar un cliente",
+          title: "Desactivar, reactivar o eliminar un cliente",
           summary:
-            "Un cliente con movimientos no se borra: se desactiva para que deje de aparecer en las listas, y se puede reactivar después.",
+            "Desactivar oculta al cliente de la lista y de los selectores sin perder su historial; se puede reactivar después.",
           permission: "clients:write",
           screens: [
             {
               kind: "dialog",
-              caption: "Clientes › tacho de la fila",
-              title: "Eliminar cliente",
+              caption: "Clientes › Desactivar en la fila",
+              title: "Desactivar cliente",
               description: "Transportes del Sur S.A. · CUIT 30714637432",
               footer: [
                 { label: "Cancelar", variant: "ghost" },
-                { label: "Desactivar", variant: "outline", marker: 3 },
-                { label: "Eliminar", variant: "destructive", marker: 3 },
+                {
+                  label: "Eliminar definitivamente",
+                  variant: "outline",
+                  marker: 3,
+                },
+                { label: "Desactivar", variant: "primary", marker: 2 },
               ],
             },
           ],
           steps: [
-            "En [[/clients]], en la fila del cliente, hacé clic en el tacho ({{Eliminar}}).",
-            "El sistema revisa si el cliente tiene movimientos asociados (comprobantes, recibos, etc.) y los lista.",
-            {
-              text: "Elegí:",
-              substeps: [
-                "Si tiene movimientos, solo se ofrece {{Desactivar}}: queda guardado pero deja de aparecer en las listas activas.",
-                "Si no tiene movimientos, podés {{Desactivar}} o {{Eliminar}} definitivamente (no se puede deshacer).",
-              ],
-            },
+            "En [[/clients]], en la fila del cliente, hacé clic en {{Desactivar}} (el ícono de archivo).",
+            "Confirmá con {{Desactivar}}: aviso «Cliente desactivado.».",
+            "Si el cliente no tiene movimientos asociados (comprobantes, recibos, etc.), el diálogo también ofrece {{Eliminar definitivamente}}, que no se puede deshacer.",
           ],
           after: [
             "Un cliente desactivado solo aparece en [[/clients]] destildando {{Solo activos}}, y no se le pueden emitir comprobantes. Para volver a usarlo, hacé clic en {{Reactivar}} (el ícono de encendido) en su fila: aviso «Cliente reactivado.».",
@@ -315,7 +313,7 @@ export const salesPage: GuidePage = {
             },
             {
               message: "No se pudo verificar si tiene movimientos asociados.",
-              fix: "Hacé clic en reintentar dentro del diálogo; si sigue, recargá la página.",
+              fix: "Podés desactivarlo igual; para ofrecer la eliminación, hacé clic en reintentar dentro del diálogo.",
             },
             {
               message: "No tenés permiso para eliminar clientes.",
@@ -1076,7 +1074,7 @@ export const salesPage: GuidePage = {
             "Anula o ajusta a la baja una factura fiscal emitida. Es la única forma de corregir una factura con CAE.",
           permission: ["invoices:issue", "credit_debit_notes:issue"],
           prerequisites: [
-            "Una factura fiscal {{Emitido}} con saldo abierto: la nota de crédito no puede superar lo que la factura todavía debe.",
+            "Una factura fiscal {{Emitido}} con saldo abierto: la nota de crédito no puede superar lo que la factura todavía debe por sí sola (su total menos cobros, saldo inicial y sus propias notas de crédito).",
           ],
           screens: [
             {
@@ -1128,6 +1126,7 @@ export const salesPage: GuidePage = {
           after: [
             "El aviso dice «Nota de Crédito en cola — esperando CAE.» y se abre el detalle de la nota. Lleva la misma letra, punto de venta y cliente que la factura (RG 1415).",
             "Con el CAE: la nota descuenta el saldo de la factura en la cuenta corriente y el aging, y su asiento revierte el de la venta (Ventas e IVA débito al Debe, Deudores por ventas al Haber).",
+            "Si las notas de crédito de una factura suman más que lo que la factura debe, el sobrante cancela las otras facturas y notas de débito abiertas del mismo cliente, del mismo canal y en la misma moneda, de la más vieja a la más nueva. Esas facturas bajan en el aging y en el selector de comprobantes del recibo; lo que sobre después de cancelar todo queda como saldo a favor del cliente en la cuenta corriente.",
           ],
           errors: [
             {
@@ -1144,8 +1143,8 @@ export const salesPage: GuidePage = {
             },
             {
               message:
-                "La nota de crédito (…) supera el saldo abierto del comprobante de origen (…).",
-              fix: "Bajá el importe: la factura ya está cobrada o acreditada en parte.",
+                "La nota de crédito (…) supera lo que el comprobante de origen debe por sí solo (…).",
+              fix: "Bajá el importe: la factura ya está cobrada o acreditada en parte por sus propias notas. El crédito que le pasan otras NC no cuenta para este tope.",
             },
             {
               message:

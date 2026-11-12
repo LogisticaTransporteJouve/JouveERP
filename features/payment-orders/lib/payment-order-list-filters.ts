@@ -3,12 +3,15 @@ import {
   resolvePeriod,
   type PeriodSelection,
 } from "@/lib/list-period";
+import type { ChannelScope } from "@/lib/scope";
 
 import { isPaymentOrderStatus, type PaymentOrderStatus } from "../schema";
 
 /** What the payment orders list filters on: its query key and action input. */
 export interface PaymentOrderListFilters {
   isFiscal: boolean | null;
+  /** A segregated channel's section; null = the main app. */
+  channelId: string | null;
   status: PaymentOrderStatus | null;
   /** OP number (digits) or supplier name (`parseSearchTerm`). */
   query: string;
@@ -54,12 +57,13 @@ export function paymentOrderListParamsToUrl(
 
 export function paymentOrderListFilters(
   params: PaymentOrderListParams,
-  isFiscal: boolean | null,
+  scope: ChannelScope,
   today?: string,
 ): PaymentOrderListFilters {
   const range = resolvePeriod(params.period, today);
   return {
-    isFiscal,
+    isFiscal: scope.isFiscal,
+    channelId: scope.channelId,
     status: params.status,
     query: params.query.trim(),
     from: range?.from ?? null,
@@ -75,6 +79,7 @@ export function paymentOrderListActionInput(
 ) {
   return {
     isFiscal: filters.isFiscal,
+    channelId: filters.channelId,
     status: filters.status,
     query: filters.query.length > 0 ? filters.query : null,
     from: filters.from,

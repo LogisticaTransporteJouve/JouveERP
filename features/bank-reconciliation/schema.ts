@@ -168,6 +168,8 @@ export type BookMovement = {
   description: string | null;
   /** The document that owns it (v_transactions_tagged.source_document). */
   source_document: string | null;
+  /** Its channel: a segregated one (DZ) shows its mark. */
+  channel_id: string | null;
   /** The statement lines it is reconciled with: none, one, or several when
    *  the bank split it (each of them matched with this movement alone). */
   line_ids: string[];
@@ -403,6 +405,9 @@ export type StatementLoanInstallment = {
    *  cuota that had them (Banco Provincia: «Impuestos» / «Intereses»);
    *  null when none did. Used to suggest the split of the next debit. */
   tax_rate?: number | null;
+  /** The IVA part of those taxes over the same interest; null when that
+   *  cuota had no IVA part. */
+  iva_tax_rate?: number | null;
 };
 
 export type StatementCoding = {
@@ -506,6 +511,24 @@ export type StatementCheckSaleTransfer = {
 
 const splitPart = z.number().min(0).max(1e12);
 
+/** A pending cuota of any active loan, for «Pagar cuota de préstamo…» on an
+ *  open debit line (the loan need not be debited from that account). */
+export type PayableLoanInstallment = StatementLoanInstallment & {
+  loan_id: string;
+  lender: string | null;
+  /** The loan's currency; a USD cuota is paid whole from a peso line. */
+  currency: string;
+  /** «Devolución de capital» of an open-ended loan, else a cuota. */
+  kind: "cuota" | "devolucion_capital";
+  is_open_ended: boolean;
+  /** The cuota carries a split (capital, interest…). */
+  has_split: boolean;
+};
+
+export const ListPayableInstallmentsSchema = z.object({
+  line_id: z.string().uuid(),
+});
+
 export const PayLoanFromLineSchema = z.object({
   line_id: z.string().uuid(),
   installment_id: z.string().uuid(),
@@ -517,7 +540,9 @@ export const PayLoanFromLineSchema = z.object({
       interest: splitPart,
       late_interest: splitPart,
       iva: splitPart,
+      /** IIBB and the bank's other taxes. */
       taxes: splitPart,
+      iva_perception: splitPart.default(0),
     })
     .nullable()
     .optional(),

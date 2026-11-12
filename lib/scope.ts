@@ -15,10 +15,75 @@ export const SCOPE_COOKIE = "jouve_scope";
 export type InvoicingChannel =
   Database["public"]["Tables"]["invoicing_channels"]["Row"];
 
+/** A channel as the client knows it. The segregated-channel fields are
+ *  optional so a channel without them reads as one of the main app. */
 export type InvoicingChannelSummary = Pick<
   InvoicingChannel,
   "id" | "name" | "is_fiscal" | "is_active"
->;
+> &
+  Partial<
+    Pick<
+      InvoicingChannel,
+      "is_segregated" | "short_label" | "purchase_account_id"
+    >
+  >;
+
+/** Whether a channel belongs to the main app. A segregated channel (DZ
+ *  Instalaciones) shows only in its own section of the menu; the SQL twin is
+ *  `public.channel_in_main_scope`. */
+export function isMainChannel(
+  channel: Pick<InvoicingChannelSummary, "is_segregated">,
+): boolean {
+  return channel.is_segregated !== true;
+}
+
+/** What a list reads: the side (`isFiscal`, pinned for a fiscal-only user)
+ *  and, inside a segregated channel's section, that channel. `channelId: null`
+ *  is the main app, without segregated channels. */
+export type ChannelScope = {
+  isFiscal: boolean | null;
+  channelId: string | null;
+};
+
+/** The search param that puts a page inside a segregated channel's section.
+ *  It travels in the URL, not in a cookie, so a plain link (mobile tab bar,
+ *  breadcrumbs, global search) always opens the main app. */
+export const CHANNEL_PARAM = "channel";
+
+/** `path` inside a segregated channel's section, or `path` itself. */
+export function scopedHref(path: string, channelId: string | null): string {
+  if (!channelId) return path;
+  const sep = path.includes("?") ? "&" : "?";
+  return `${path}${sep}${CHANNEL_PARAM}=${encodeURIComponent(channelId)}`;
+}
+
+/** The active segregated channel a raw param names, or `null`: unknown,
+ *  inactive or main ids do not open a section, and a fiscal-only user only
+ *  opens fiscal ones. */
+export function segregatedChannelFor<
+  C extends Pick<
+    InvoicingChannelSummary,
+    "id" | "is_fiscal" | "is_active" | "is_segregated"
+  >,
+>(
+  channels: readonly C[],
+  raw: string | null | undefined,
+  locked: boolean,
+): C | null {
+  if (!raw) return null;
+  const channel = channels.find((c) => c.id === raw);
+  if (!channel || !channel.is_active || isMainChannel(channel)) return null;
+  if (locked && !channel.is_fiscal) return null;
+  return channel;
+}
+
+/** The channels a page works with: the section's channel, else every
+ *  channel of the main app. */
+export function channelsForScope<
+  C extends Pick<InvoicingChannelSummary, "is_segregated">,
+>(channels: readonly C[], channel: C | null): C[] {
+  return channel ? [channel] : channels.filter(isMainChannel);
+}
 
 /** A side of the business: Ventas/Compras (fiscal) or Otras ventas/compras. */
 export type ScopeSide = Exclude<FiscalFilter, "all">;

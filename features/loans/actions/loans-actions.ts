@@ -20,6 +20,7 @@ import { generateInstallments } from "@/lib/loans/amortization";
 import { fiscalYearMonths, fiscalYearOf } from "@/lib/fiscal-year";
 import { readFiscalYearStartMonth } from "@/lib/fiscal-year-settings";
 import { todayInAR } from "@/lib/format";
+import { fetchUsdRateOnOrBefore, type UsdRate } from "@/lib/fx";
 import { z } from "zod";
 
 const BankPaymentsResultSchema = z.object({
@@ -35,6 +36,7 @@ import {
   CreateLoanSchema,
   RecordBankPaymentsSchema,
   PayInstallmentSchema,
+  RepayCapitalSchema,
   RecordDisbursementSchema,
   UpdateInstallmentSchema,
   splitTotal,
@@ -42,6 +44,7 @@ import {
   type LoanDetail,
   type LoanInstallment,
   type LoanListItem,
+  isInstallmentKind,
   isInstallmentStatus,
   isLoanChargeConcept,
   type LoanInstallmentCharge,
@@ -50,7 +53,7 @@ import {
 } from "../schema";
 
 const LOAN_COLUMNS =
-  "id, kind, description, lender, principal, currency, channel_id, installments_count, first_due_date, status, notes, created_at, disbursement_transaction_id, loan_number, account_id, start_date, original_amount, tna, tea, cft, channel:invoicing_channels(name, is_fiscal), account:accounts(name)";
+  "id, kind, description, lender, principal, currency, channel_id, installments_count, first_due_date, status, notes, created_at, disbursement_transaction_id, loan_number, account_id, start_date, original_amount, tna, tea, cft, is_open_ended, monthly_rate, channel:invoicing_channels(name, is_fiscal), account:accounts(name)";
 
 const numOrNull = (v: number | string | null) =>
   v === null ? null : Number(v);
@@ -60,6 +63,13 @@ function readChannelName(
 ): string | null {
   const c = Array.isArray(channel) ? channel[0] : channel;
   return c?.name ?? null;
+}
+
+function readChannelIsFiscal(
+  channel: { is_fiscal: boolean } | { is_fiscal: boolean }[] | null,
+): boolean {
+  const c = Array.isArray(channel) ? channel[0] : channel;
+  return c?.is_fiscal ?? false;
 }
 
 type InstallmentAgg = {
@@ -86,6 +96,7 @@ function summarize(
   | "pending_count"
   | "next_due_date"
   | "capital_outstanding"
+  | "accumulated"
 > {
   let paid = 0;
   let paidCount = 0;
@@ -122,6 +133,7 @@ function summarize(
       0,
       Math.round((principal - capitalPaid) * 100) / 100,
     ),
+    accumulated: Math.round(capitalPaid * 100) / 100,
   };
 }
 
@@ -130,14 +142,22 @@ function readSplit(i: {
   interest_amount: number | null;
   iva_amount: number | null;
   perception_amount: number | null;
+  iva_perception_amount: number | null;
   other_charges_amount: number | null;
 }): InstallmentSplit | null {
   if (i.capital_amount === null) return null;
+  // perception_amount is the total; its IVA part never counts above it.
+  const perceptions = Number(i.perception_amount ?? 0);
+  const ivaPerception = Math.min(
+    Number(i.iva_perception_amount ?? 0),
+    perceptions,
+  );
   return {
     capital: Number(i.capital_amount),
     interest: Number(i.interest_amount ?? 0),
     iva: Number(i.iva_amount ?? 0),
-    perception: Number(i.perception_amount ?? 0),
+    perception: Math.round((perceptions - ivaPerception) * 100) / 100,
+    iva_perception: ivaPerception,
     other: Number(i.other_charges_amount ?? 0),
   };
 }
@@ -164,7 +184,12 @@ function toListItem(
     tna: number | string | null;
     tea: number | string | null;
     cft: number | string | null;
-    channel: { name: string } | { name: string }[] | null;
+    is_open_ended: boolean;
+    monthly_rate: number | string | null;
+    channel:
+      | { name: string; is_fiscal: boolean }
+      | { name: string; is_fiscal: boolean }[]
+      | null;
     account: { name: string } | { name: string }[] | null;
   },
   agg: ReturnType<typeof summarize>,
@@ -178,6 +203,7 @@ function toListItem(
     currency: loan.currency,
     channel_id: loan.channel_id,
     channel_name: readChannelName(loan.channel),
+    channel_is_fiscal: readChannelIsFiscal(loan.channel),
     installments_count: loan.installments_count,
     first_due_date: loan.first_due_date,
     status: isLoanStatus(loan.status) ? loan.status : "active",
@@ -192,6 +218,8 @@ function toListItem(
     tna: numOrNull(loan.tna),
     tea: numOrNull(loan.tea),
     cft: numOrNull(loan.cft),
+    is_open_ended: loan.is_open_ended,
+    monthly_rate: numOrNull(loan.monthly_rate),
     ...agg,
   };
 }
@@ -292,7 +320,7 @@ export async function getLoanAction(
     supabase
       .from("loan_installments")
       .select(
-        "id, loan_id, number, due_date, amount, status, paid_date, paid_amount, transaction_id, notes, capital_amount, interest_amount, iva_amount, perception_amount, other_charges_amount, paid_outside",
+        "id, loan_id, number, kind, due_date, amount, status, paid_date, paid_amount, paid_amount_ars, paid_rate, transaction_id, notes, capital_amount, interest_amount, iva_amount, perception_amount, iva_perception_amount, other_charges_amount, paid_outside",
       )
       .eq("loan_id", id)
       .order("number")
@@ -340,11 +368,14 @@ export async function getLoanAction(
     id: i.id,
     loan_id: i.loan_id,
     number: i.number,
+    kind: isInstallmentKind(i.kind) ? i.kind : "cuota",
     due_date: i.due_date,
     amount: Number(i.amount),
     status: isInstallmentStatus(i.status) ? i.status : "pendiente",
     paid_date: i.paid_date,
     paid_amount: i.paid_amount === null ? null : Number(i.paid_amount),
+    paid_amount_ars: numOrNull(i.paid_amount_ars),
+    paid_rate: numOrNull(i.paid_rate),
     transaction_id: i.transaction_id,
     notes: i.notes,
     split: readSplit(i),
@@ -589,6 +620,7 @@ export async function applyInstallmentStatementAction(
         interest: d.interest,
         iva: d.iva,
         perception: 0,
+        iva_perception: 0,
       },
       p_charges: d.charges,
     },
@@ -664,6 +696,50 @@ export async function createLoanAction(
   const d = parsed.data;
   const supabase = await createSupabaseClient();
 
+  // An open-ended loan has no schedule: the database generates its next
+  // interest cuotas from the monthly rate.
+  if (d.is_open_ended) {
+    const { data: loanId, error } = await supabase.rpc("create_loan", {
+      p_loan: {
+        kind: "prestamo",
+        description: d.description,
+        lender: d.lender ?? null,
+        principal: d.principal,
+        currency: d.currency,
+        channel_id: d.channel_id,
+        installments_count: 1,
+        first_due_date: d.first_due_date,
+        notes: d.notes ?? null,
+        loan_number: d.loan_number ?? null,
+        account_id: d.account_id ?? null,
+        start_date: d.start_date ?? null,
+        original_amount: d.original_amount ?? null,
+        tna: d.tna ?? null,
+        tea: d.tea ?? null,
+        cft: d.cft ?? null,
+        is_open_ended: true,
+        monthly_rate: d.monthly_rate ?? null,
+      },
+      p_installments: [],
+    });
+    if (error || !loanId) {
+      const guardError = mapDbGuardError(error, {
+        slug: "loans.create.rejected",
+        userId: ctx.userId,
+      });
+      if (guardError) return { ok: false, error: guardError };
+      logger.error("loans.create.failed", { userId: ctx.userId, error });
+      return { ok: false, error: "No se pudo crear el préstamo." };
+    }
+    await logAudit(
+      "loan.created",
+      ctx.userId,
+      { kind: "prestamo", is_open_ended: true },
+      loanId,
+    );
+    return { ok: true, data: { id: loanId } };
+  }
+
   // The bank's plan (or the French one from the TNA) sets the cuotas, their
   // split and which were paid before; without it, equal parts of the capital.
   const plan = d.plan ?? null;
@@ -675,7 +751,9 @@ export async function createLoanAction(
         capital: p.capital,
         interest: p.interest,
         iva: p.iva,
-        perception: p.perception,
+        // The RPC takes the total of perceptions and its IVA part.
+        perception: Math.round((p.perception + p.iva_perception) * 100) / 100,
+        iva_perception: p.iva_perception,
         other: p.other,
         paid_outside: p.paid,
       }))
@@ -811,6 +889,7 @@ export async function updateInstallmentAction(
             interest_amount: null,
             iva_amount: null,
             perception_amount: null,
+            iva_perception_amount: null,
             other_charges_amount: null,
           }
         : {
@@ -818,7 +897,9 @@ export async function updateInstallmentAction(
             capital_amount: split.capital,
             interest_amount: split.interest,
             iva_amount: split.iva,
-            perception_amount: split.perception,
+            perception_amount:
+              Math.round((split.perception + split.iva_perception) * 100) / 100,
+            iva_perception_amount: split.iva_perception || null,
             other_charges_amount: split.other,
           };
 
@@ -977,6 +1058,82 @@ export async function payInstallmentAction(
     };
   }
   return payLoanInstallment(ctx.userId, parsed.data);
+}
+
+/** «Devolución de capital» of an open-ended loan: the capital (in the loan's
+ *  currency) from an account, with the pesos that leave it when a USD loan
+ *  is repaid from a peso account. */
+export async function repayLoanCapitalAction(
+  input: unknown,
+): Promise<ActionResult<{ transactionId: string }>> {
+  const ctx = await requireUserContext();
+  if (!userCanAll(ctx.access, LOAN_CASH_PERMISSIONS)) {
+    return { ok: false, error: "Sin permiso para registrar pagos." };
+  }
+  const parsed = RepayCapitalSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
+    };
+  }
+  const d = parsed.data;
+  const supabase = await createSupabaseClient();
+  const { data: transactionId, error } = await supabase.rpc(
+    "repay_loan_capital",
+    {
+      p_loan_id: d.loan_id,
+      p_date: d.date,
+      p_account_id: d.account_id,
+      p_amount: d.amount,
+      // A null p_account_amount is how the RPC reads «same currency».
+      p_account_amount: d.account_amount ?? undefined,
+    },
+  );
+  if (error || !transactionId) {
+    const guardError = mapDbGuardError(error, {
+      slug: "loans.capital_repay.rejected",
+      userId: ctx.userId,
+      id: d.loan_id,
+    });
+    if (guardError) return { ok: false, error: guardError };
+    logger.error("loans.capital_repay.failed", {
+      userId: ctx.userId,
+      id: d.loan_id,
+      error,
+    });
+    return {
+      ok: false,
+      error: "No se pudo registrar la devolución de capital.",
+    };
+  }
+  await logAudit(
+    "loan.capital_repaid",
+    ctx.userId,
+    {
+      amount: d.amount,
+      account_amount: d.account_amount ?? null,
+      transaction_id: transactionId,
+    },
+    d.loan_id,
+  );
+  return { ok: true, data: { transactionId } };
+}
+
+/** The official USD rate on or before a date, to prefill «Cotización» when a
+ *  USD cuota or capital is paid from a peso account; null = none loaded. */
+export async function getOfficialUsdRateAction(
+  date: string,
+): Promise<ActionResult<UsdRate | null>> {
+  const ctx = await requireUserContext();
+  if (!userCanAll(ctx.access, LOAN_CASH_PERMISSIONS)) {
+    return { ok: false, error: "Sin permiso para registrar pagos." };
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return { ok: false, error: "Fecha inválida." };
+  }
+  const supabase = await createSupabaseClient();
+  return { ok: true, data: await fetchUsdRateOnOrBefore(supabase, date) };
 }
 
 export async function cancelLoanAction(input: unknown): Promise<ActionResult> {

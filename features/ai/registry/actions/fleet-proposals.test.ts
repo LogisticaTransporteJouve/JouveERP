@@ -156,7 +156,7 @@ describe("proposeShipmentStatus", () => {
     });
     expect(prepared.summary).toContainEqual({
       label: "Estado",
-      value: "En progreso → Entregada",
+      value: "En curso → Entregada",
     });
     expect(listShipmentsAction).toHaveBeenCalledWith({
       id: SHIPMENT,

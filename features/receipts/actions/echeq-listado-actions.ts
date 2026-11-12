@@ -76,6 +76,8 @@ async function prepare(
       .select("id")
       .eq("is_fiscal", true)
       .eq("is_active", true)
+      .eq("is_segregated", false)
+      .order("id")
       .limit(1)
       .maybeSingle(),
     service

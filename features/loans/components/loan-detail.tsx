@@ -34,6 +34,7 @@ import {
 import { LeasingStatementUpload } from "./leasing-statement-upload";
 import { LoanBankPayments } from "./loan-bank-payments";
 import { PayInstallmentDialog } from "./pay-installment-dialog";
+import { RepayCapitalDialog } from "./repay-capital-dialog";
 
 function Stat({
   label,
@@ -69,6 +70,12 @@ const pct = (n: number | null) =>
     ? null
     : `${n.toLocaleString("es-AR", { minimumFractionDigits: 2 })} %`;
 
+/** «Cuota 3», «Interés 3» (open-ended) or «Devolución de capital». */
+function installmentLabel(i: LoanInstallment, openEnded: boolean): string {
+  if (i.kind === "devolucion_capital") return "Devolución de capital";
+  return openEnded ? `Interés ${i.number}` : String(i.number);
+}
+
 function installmentState(i: LoanInstallment, today: string): string {
   if (i.status === "pagada") {
     return i.paid_outside ? "Pagada (antes de cargar)" : "Pagada";
@@ -90,12 +97,17 @@ export function LoanDetail({
   canMoveCash: boolean;
 }) {
   const { data: loan } = useLoan(loanId);
+  // A savings plan is an asset that grows with each cuota: no disbursement
+  // and no capital owed.
+  const isPlan = loan.kind === "plan_ahorro";
+  const openEnded = loan.is_open_ended;
   const today = todayInAR();
   const money = (n: number) => formatMoney(n, loan.currency);
   const [payTarget, setPayTarget] = useState<LoanInstallment | null>(null);
   const [editTarget, setEditTarget] = useState<LoanInstallment | null>(null);
   const [adoptTarget, setAdoptTarget] = useState<LoanInstallment | null>(null);
   const [disbursing, setDisbursing] = useState(false);
+  const [repaying, setRepaying] = useState(false);
   const {
     accounts,
     error: accountsError,
@@ -112,6 +124,15 @@ export function LoanDetail({
       a.type !== "checks" &&
       a.type !== "echeq" &&
       a.currency === loan.currency,
+  );
+  // A USD cuota or capital can also be paid from a peso account, at a rate.
+  const payAccounts = accounts.filter(
+    (a) =>
+      a.is_active &&
+      a.type !== "checks" &&
+      a.type !== "echeq" &&
+      (a.currency === loan.currency ||
+        (loan.currency === "USD" && a.currency === "ARS")),
   );
 
   return (
@@ -144,7 +165,34 @@ export function LoanDetail({
             .join(" · ")}
         </p>
         <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
-          {loan.installments.some((i) => i.paid_outside) ? (
+          {openEnded && (
+            <span className="text-muted-foreground">
+              Sin vencimiento ·{" "}
+              {(loan.monthly_rate ?? 0).toLocaleString("es-AR", {
+                maximumFractionDigits: 4,
+              })}{" "}
+              % mensual
+            </span>
+          )}
+          {openEnded &&
+            loan.status === "active" &&
+            canMoveCash &&
+            canPickAccount &&
+            loan.capital_outstanding > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setRepaying(true)}
+              >
+                Devolución de capital…
+              </Button>
+            )}
+          {isPlan ? (
+            <span className="text-muted-foreground">
+              Las cuotas pagadas suman a Rodados en plan de ahorro; no hay
+              desembolso.
+            </span>
+          ) : loan.installments.some((i) => i.paid_outside) ? (
             <span className="text-muted-foreground">
               Préstamo en curso: se cargó con cuotas ya pagadas, el desembolso
               fue antes de usar el sistema.
@@ -179,14 +227,30 @@ export function LoanDetail({
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat
-          label="Capital adeudado"
-          value={money(loan.capital_outstanding)}
-        />
+      <div
+        className={`grid grid-cols-2 gap-3 ${isPlan ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}
+      >
+        {isPlan ? (
+          <>
+            <Stat label="Falta pagar" value={money(loan.pending_total)} />
+            <Stat
+              label="Acumulado en el plan"
+              value={money(loan.accumulated)}
+            />
+          </>
+        ) : (
+          <Stat
+            label="Capital adeudado"
+            value={money(loan.capital_outstanding)}
+          />
+        )}
         <Stat
           label="Cuotas pagas"
-          value={`${loan.paid_count}/${loan.installments.length}`}
+          value={
+            openEnded
+              ? String(loan.paid_count)
+              : `${loan.paid_count}/${loan.installments.length}`
+          }
         />
         <Stat
           label="Próxima cuota"
@@ -216,7 +280,14 @@ export function LoanDetail({
               loan.start_date ? formatArgentineDate(loan.start_date) : null
             }
           />
-          <Fact label="Plazo" value={`${loan.installments.length} cuotas`} />
+          <Fact
+            label="Plazo"
+            value={
+              openEnded
+                ? "Sin vencimiento"
+                : `${loan.installments.length} cuotas`
+            }
+          />
           <Fact label="Cuotas restantes" value={String(loan.pending_count)} />
           <Fact label="Pendiente de pago" value={money(loan.pending_total)} />
           <Fact
@@ -267,8 +338,8 @@ export function LoanDetail({
             <TableBody>
               {loan.installments.map((i) => (
                 <TableRow key={i.id}>
-                  <TableCell className="text-muted-foreground tabular-nums">
-                    {i.number}
+                  <TableCell className="text-muted-foreground tabular-nums whitespace-nowrap">
+                    {installmentLabel(i, openEnded)}
                   </TableCell>
                   <TableCell className="text-sm">
                     {formatArgentineDate(i.due_date)}
@@ -283,7 +354,13 @@ export function LoanDetail({
                     {i.split ? money(i.split.interest) : "—"}
                   </TableCell>
                   <TableCell className="text-right font-mono tabular-nums">
-                    {i.split ? money(i.split.other + i.split.perception) : "—"}
+                    {i.split
+                      ? money(
+                          i.split.other +
+                            i.split.perception +
+                            i.split.iva_perception,
+                        )
+                      : "—"}
                     {i.charges.length > 0 && (
                       <span className="text-muted-foreground block font-sans text-xs whitespace-nowrap">
                         {i.charges
@@ -306,6 +383,9 @@ export function LoanDetail({
                         <span className="text-muted-foreground block text-xs">
                           {formatArgentineDate(i.paid_date)} ·{" "}
                           {money(i.paid_amount ?? 0)}
+                          {i.paid_amount_ars !== null &&
+                            i.paid_rate !== null &&
+                            ` · ${formatMoney(i.paid_amount_ars, "ARS")} (${i.paid_rate.toLocaleString("es-AR", { maximumFractionDigits: 2 })})`}
                         </span>
                       )}
                   </TableCell>
@@ -355,10 +435,19 @@ export function LoanDetail({
 
       <PayInstallmentDialog
         installment={payTarget}
-        // An installment is paid from an account in the loan's currency.
-        accountOptions={loanAccounts}
+        loanCurrency={loan.currency}
+        // The loan's currency, or pesos for a USD loan (at a rate).
+        accountOptions={payAccounts}
         onClose={() => setPayTarget(null)}
       />
+      {openEnded && (
+        <RepayCapitalDialog
+          loan={loan}
+          accountOptions={payAccounts}
+          open={repaying}
+          onClose={() => setRepaying(false)}
+        />
+      )}
       <EditInstallmentDialog
         installment={editTarget}
         onClose={() => setEditTarget(null)}

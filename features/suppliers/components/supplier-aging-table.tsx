@@ -5,6 +5,7 @@ import {
   type AgingReportCopy,
 } from "@/components/aging-report-view";
 import { useRealtimeInvalidate } from "@/hooks/use-realtime-invalidate";
+import { scopedHref } from "@/lib/scope";
 
 import { useSupplierAging } from "../hooks/use-suppliers";
 import { suppliersKeys } from "../lib/suppliers-keys";
@@ -26,10 +27,16 @@ const COPY: AgingReportCopy = {
   },
 };
 
-const supplierHref = (id: string) => `/suppliers/${id}`;
-
-export function SupplierAgingTable() {
-  const { data } = useSupplierAging();
+/** `channelId`: one segregated channel's suppliers (its section's Resumen);
+ *  their rows open in that section. */
+export function SupplierAgingTable({
+  channelId = null,
+}: {
+  channelId?: string | null;
+}) {
+  const { data } = useSupplierAging(channelId);
+  const supplierHref = (id: string) =>
+    scopedHref(`/suppliers/${id}`, channelId);
 
   useRealtimeInvalidate([
     { table: "purchase_invoices", queryKeys: [suppliersKeys.all] },

@@ -177,6 +177,16 @@ Cada tabla operativa tiene triggers `AFTER` que emiten/revierten/borran su asien
 ### 3.5 Reglas de negocio (asientos)
 
 - **Fiscal-only** (`is_channel_fiscal`): solo canales fiscales generan asientos.
+- **Cuentas del canal** (`20261111205000`): `invoicing_channels.sales_account_id`
+  y `purchase_account_id`. El neto de una venta va a la cuenta de ventas del
+  canal y, sin ella, al rol `ventas`. El neto de una compra va, en este orden, a
+  `anticipos_personal` (a cargo de un empleado), a la cuenta propia de la compra,
+  a la cuenta de compras del canal y al rol `compras`. Si la cuenta del canal
+  está inactiva el asiento falla (`55006`) en vez de caer en el rol, y una
+  cuenta que usa un canal no se puede desactivar
+  (`guard_account_channel_reference`). Hoy solo `dz_fiscal` (DZ Instalaciones,
+  segregado) las tiene: 4.1.2 y 5.1.2. IVA, percepciones, contrapartida y
+  diferencia de cambio no cambian.
 - **Anti-doble-conteo** (fix `…250000`): el generador de `transactions` saltea filas
   con `invoice_id`/`receipt_id`/`payment_order_id` (ya cubiertas por su header).
 - **Un builder por origen:** `build_{invoice,purchase_invoice,receipt,payment_order,transaction}_journal_lines`;
@@ -495,6 +505,21 @@ Reportes fiscales de solo lectura. Dos RPCs `SECURITY INVOKER`:
   los días desde `fch_vto_pago` (o `fecha` si no tiene); los clientes, desde
   `v_aging_documents.due_date` = `invoice_effective_due_date` (`fch_vto_pago`
   si es posterior a `fecha`, si no `fecha` + 7 días).
+- **Saldo de cada comprobante y sobrante de NC** (decisión
+  [`2026-11-11-credito-de-nc-cancela-comprobantes`](decisions/2026-11-11-credito-de-nc-cancela-comprobantes.md)):
+  una vista base por lado, `v_invoice_open` (ventas) y `v_purchase_invoice_open`
+  (compras), con dos cifras. `own_open_amount` = lo que el comprobante debe por
+  sí solo (total − cobros/pagos − saldo inicial − sus NC); la leen las guardas,
+  el tope de una NC nueva (`invoice_own_open_amount`) y la cancelación de
+  remitos (`settle_billed_remito`, `impute_purchase_remitos`). `open_amount` =
+  lo que realmente debe: en facturas y ND vigentes, `greatest(own, 0)` −
+  `amount_credited_by_nc_spill`, el sobrante de las NC mayores que su origen,
+  repartido por (cliente/proveedor, canal, moneda) del comprobante más viejo al
+  más nuevo (fecha, punto de venta, número). Con saldo inicial en esa moneda, el
+  sobrante de NC hasta el corte solo baja comprobantes hasta el corte (el resto
+  lo absorbe el saldo inicial). `v_aging_documents`,
+  `v_supplier_aging_documents`, el FIFO del saldo inicial, el selector del
+  recibo y el de la OP leen `open_amount`; ningún TS recalcula el sobrante.
 - **Cuenta corriente por moneda:** `v_client_account_movements` /
   `v_supplier_account_movements` traen `currency` (ARS/USD) por movimiento; las
   acciones llevan un saldo corrido por moneda y devuelven `balances: { ARS, USD }`
@@ -630,7 +655,9 @@ manage owner/admin/finance. Actions: `list`/`create`/`delete…Action`.
 
 ## 10b. Resultado de gestión (uso interno, roadmap 1.0)
 
-Vista interna de "¿la operación deja plata?", fiscal + interno. **No** escribe
+Vista interna de "¿la operación deja plata?", fiscal + interno, sin los
+canales segregados (DZ Instalaciones, `20261111205300`: su resultado está en el
+Resumen de su bloque, `channel_summary`). **No** escribe
 asientos ni cambia `journal_expected_entry`, los builders,
 `get_account_balances` ni el EERR fiscal. Migraciones `20261102250000`
 (`journal_document_entry`, `invoice_items.revenue_kind`) y `20261102260000`

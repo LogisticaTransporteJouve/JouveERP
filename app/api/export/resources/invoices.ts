@@ -6,13 +6,14 @@ import {
   isInvoiceStatus,
 } from "@/features/invoices/schema";
 import type { TableReportColumn } from "@/lib/pdf/table-report-template";
-import { applyFiscalFilter } from "@/lib/supabase/fiscal-filter";
+import { applyChannelScope } from "@/lib/supabase/fiscal-filter";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 
 import {
   channelCell,
   dateCell,
+  exportChannelScope,
   exportScope,
   moneyCell,
   scopedSubtitle,
@@ -36,18 +37,19 @@ export const invoices: Exporter = {
   permission: "invoices:read",
   load: async (params, range) => {
     const { scope, isFiscal } = exportScope(params);
+    const channelScope = await exportChannelScope(params, isFiscal);
     const supabase = await createClient();
 
     // Drained page by page: PostgREST caps responses at max_rows (1000);
     // `id` closes the order so OFFSET pages never repeat or skip rows.
     const build = () => {
-      let query = applyFiscalFilter(
+      let query = applyChannelScope(
         supabase
           .from("invoices")
           .select(
-            "kind, letter, punto_venta, numero, fecha, imp_total, moneda, status, clients!inner(legal_name), channel:invoicing_channels(name, is_fiscal)",
+            "kind, letter, punto_venta, numero, fecha, imp_total, moneda, status, clients!inner(legal_name), channel:invoicing_channels(name, is_fiscal, is_segregated)",
           ),
-        isFiscal,
+        channelScope,
         "channel",
       )
         .order("fecha", { ascending: true })

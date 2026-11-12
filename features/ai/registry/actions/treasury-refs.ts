@@ -9,7 +9,7 @@ import {
   type InvoicingChannelRow,
 } from "@/lib/channels";
 import { formatMoney } from "@/lib/format";
-import type { ScopeSide } from "@/lib/scope";
+import { isMainChannel, type ScopeSide } from "@/lib/scope";
 
 import type { AiPrepareResult } from "../propose";
 
@@ -117,7 +117,8 @@ export const ChannelSideInput = z
       "unless the user said it; the proposal asks when it cannot tell.",
   );
 
-/** The active invoicing channels, or an error result. */
+/** The active invoicing channels of the main app (the AI never proposes on a
+ *  segregated one), or an error result. */
 export async function activeChannels(): Promise<
   Resolved<InvoicingChannelRow[]>
 > {
@@ -128,7 +129,10 @@ export async function activeChannels(): Promise<
       result: { kind: "error", error: "No se pudieron leer los canales." },
     };
   }
-  return { ok: true, value: res.channels.filter((c) => c.is_active) };
+  return {
+    ok: true,
+    value: res.channels.filter((c) => c.is_active && isMainChannel(c)),
+  };
 }
 
 /** The channel of a side; with no side, the only active channel, else a

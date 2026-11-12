@@ -25,6 +25,10 @@ vi.mock("@/lib/channels", () => ({
   readInvoicingChannels: async () => ({ ok: true, channels: [] }),
 }));
 vi.mock("@/lib/actions/audit", () => ({ logAudit: vi.fn() }));
+const rpc = vi.fn();
+vi.mock("@/lib/supabase/service", () => ({
+  getServiceClient: () => ({ rpc }),
+}));
 
 const { setShipmentsTripAction } = await import("./shipments-actions");
 
@@ -33,6 +37,8 @@ const update = () =>
 
 beforeEach(() => {
   fake = recordingSupabase(() => ({ data: [{ id: A }], error: null }));
+  rpc.mockReset();
+  rpc.mockResolvedValue({ data: 1, error: null });
 });
 
 describe("setShipmentsTripAction", () => {
@@ -41,7 +47,7 @@ describe("setShipmentsTripAction", () => {
       tripId: TRIP,
       shipmentIds: [A, B],
     });
-    expect(res).toEqual({ ok: true, data: { count: 1 } });
+    expect(res).toEqual({ ok: true, data: { count: 1, warning: null } });
     const call = update();
     expect(call?.payload).toEqual({ trip_id: TRIP });
     expect(call && filterValue(call, "in", "id")).toEqual([A, B]);
@@ -59,9 +65,33 @@ describe("setShipmentsTripAction", () => {
     expect(call && filterValue(call, "is", "trip_id")).toBeUndefined();
   });
 
+  it("syncs the status of the cargas that moved, as the actor", async () => {
+    await setShipmentsTripAction({ tripId: TRIP, shipmentIds: [A, B] });
+    expect(rpc).toHaveBeenCalledWith("sync_shipment_trip_status", {
+      p_shipment_ids: [A],
+      p_actor: "u1",
+    });
+  });
+
+  it("keeps the assignment and warns when the status sync fails", async () => {
+    rpc.mockResolvedValue({ data: null, error: { message: "boom" } });
+    const res = await setShipmentsTripAction({
+      tripId: null,
+      shipmentIds: [A],
+    });
+    expect(res).toEqual({
+      ok: true,
+      data: {
+        count: 1,
+        warning: "Se guardó, pero no se actualizó el estado de las cargas.",
+      },
+    });
+  });
+
   it("rejects an empty selection", async () => {
     const res = await setShipmentsTripAction({ tripId: TRIP, shipmentIds: [] });
     expect(res.ok).toBe(false);
     expect(update()).toBeUndefined();
+    expect(rpc).not.toHaveBeenCalled();
   });
 });

@@ -16,23 +16,30 @@ import { createClient } from "@/lib/supabase/server";
  * and closes the loan after the last one; then the audit. The caller has
  * already checked LOAN_CASH_PERMISSIONS (accounting:write +
  * transactions:write) and parsed the input with `PayInstallmentSchema`:
- * the loan page and an accepted assistant proposal.
+ * the loan page, a bank line and an accepted assistant proposal. A USD cuota
+ * paid from a peso account carries `account_amount` (the pesos that leave the
+ * account) and goes to the 5-arg signature; any other call keeps the 4-arg one.
  */
 export async function payLoanInstallment(
   actorId: string,
   input: z.output<typeof PayInstallmentSchema>,
 ): Promise<ActionResult<{ transactionId: string }>> {
   const { id, paid_date, account_id, amount } = input;
+  const accountAmount = input.account_amount ?? null;
   const supabase = await createClient();
-  const { data: transactionId, error } = await supabase.rpc(
-    "pay_loan_installment",
-    {
-      p_installment_id: id,
-      p_paid_date: paid_date,
-      p_account_id: account_id,
-      p_amount: amount,
-    },
-  );
+  const args = {
+    p_installment_id: id,
+    p_paid_date: paid_date,
+    p_account_id: account_id,
+    p_amount: amount,
+  };
+  const { data: transactionId, error } =
+    accountAmount === null
+      ? await supabase.rpc("pay_loan_installment", args)
+      : await supabase.rpc("pay_loan_installment", {
+          ...args,
+          p_account_amount: accountAmount,
+        });
   if (error) {
     const guardError = mapDbGuardError(error, {
       slug: "loans.installment.pay.rejected",
@@ -51,7 +58,9 @@ export async function payLoanInstallment(
   await logAudit(
     "loan.installment_paid",
     actorId,
-    { installment_id: id, amount },
+    accountAmount === null
+      ? { installment_id: id, amount }
+      : { installment_id: id, amount, account_amount: accountAmount },
     transactionId,
   );
   return { ok: true, data: { transactionId } };

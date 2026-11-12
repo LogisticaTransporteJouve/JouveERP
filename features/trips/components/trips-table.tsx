@@ -17,7 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { PageHeader } from "@/components/ui/page-header";
-import { userCan, type Access } from "@/lib/auth/permissions";
+import { userCan, userCanAll, type Access } from "@/lib/auth/permissions";
 
 import { useDeleteTrip, useTrips } from "../hooks/use-trips";
 import { TRIP_STATUS_LABELS, type Trip } from "../schema";
@@ -37,6 +37,11 @@ export function TripsTable({
   const canWrite = userCan(actorAccess, "trips:write");
   // «Ver cargas» opens a page whose cargas read checks shipments:read.
   const canSeeShipments = userCan(actorAccess, "shipments:read");
+  // «Nuevo viaje» lists the cargas without a trip and assigns the picked ones.
+  const canAssign = userCanAll(actorAccess, [
+    "shipments:read",
+    "shipments:write",
+  ]);
   const { data: items } = useTrips();
   const deleteMut = useDeleteTrip();
   const confirm = useConfirm();
@@ -54,7 +59,10 @@ export function TripsTable({
       });
       if (!ok) return;
       deleteMut.mutate(t.id, {
-        onSuccess: () => toast.success("Viaje borrado."),
+        onSuccess: ({ warning }) => {
+          if (warning) toast.warning(`Viaje borrado. ${warning}`);
+          else toast.success("Viaje borrado.");
+        },
         onError: (err) => toast.error(err.message),
       });
     }
@@ -82,6 +90,17 @@ export function TripsTable({
           ) : (
             <span className="text-sm">—</span>
           ),
+        meta: { mobile: "secondary" },
+      },
+      {
+        accessorKey: "companion",
+        header: "Acompañante",
+        enableSorting: false,
+        cell: ({ row }) => (
+          <span className="text-sm">
+            {row.original.companion?.legal_name ?? "—"}
+          </span>
+        ),
         meta: { mobile: "secondary" },
       },
       {
@@ -162,7 +181,7 @@ export function TripsTable({
     <>
       <PageHeader
         title="Viajes"
-        description="Viajes de la flota con fecha, estado, chofer y vehículo."
+        description="Viajes de la flota con fecha, estado, chofer, acompañante y vehículo."
         actions={
           canWrite && (
             <Button onClick={() => setDialog({ mode: "create" })}>
@@ -186,6 +205,7 @@ export function TripsTable({
           trip={dialog.mode === "edit" ? dialog.trip : undefined}
           driverOptions={driverOptions}
           vehicleOptions={vehicleOptions}
+          canAssign={canAssign}
           open={dialog !== null}
           onOpenChange={(o) => {
             if (!o) setDialog(null);

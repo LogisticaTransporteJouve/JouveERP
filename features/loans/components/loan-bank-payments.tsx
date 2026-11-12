@@ -41,8 +41,12 @@ export function LoanBankPayments({
   const money = (n: number) => formatMoney(n, loan.currency);
   const inCourse = loan.installments.some((i) => i.paid_outside);
   // What the loan owed when the open year began: its debt then, or its
-  // disbursement if it was granted within the year.
+  // disbursement if it was granted within the year. A savings plan owes
+  // nothing: its account starts with the first cuota loaded.
+  // An internal loan posts no journal entry: it has no opening debt.
   const needsOpening =
+    loan.kind !== "plan_ahorro" &&
+    loan.channel_is_fiscal &&
     inCourse &&
     !loan.opening_booked &&
     loan.start_date !== null &&

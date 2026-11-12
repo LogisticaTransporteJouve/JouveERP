@@ -4,7 +4,10 @@ import { Download, FileSpreadsheet, FileText } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { usePageScope } from "@/components/providers/scope-provider";
+import {
+  usePageScope,
+  useSectionChannelId,
+} from "@/components/providers/scope-provider";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -18,6 +21,7 @@ import {
 import { DatePicker } from "@/components/ui/date-picker";
 import { downloadFromUrl } from "@/lib/export/download";
 import { XLSX_MIME } from "@/lib/export/mime";
+import { CHANNEL_PARAM } from "@/lib/scope";
 
 function pad(n: number): string {
   return String(n).padStart(2, "0");
@@ -60,11 +64,14 @@ export function ExportButton({
   const [to, setTo] = useState(today);
   const [downloading, setDownloading] = useState(false);
   const scope = usePageScope();
+  const channelId = useSectionChannelId();
 
   async function exportRange(rangeFrom: string, rangeTo: string) {
     const qs = new URLSearchParams(params);
     // Every export follows the page scope; unscoped exporters ignore it.
     qs.set("scope", scope);
+    // Inside a segregated channel's section, that channel's rows.
+    if (channelId) qs.set(CHANNEL_PARAM, channelId);
     if (rangeFrom) qs.set("from", rangeFrom);
     if (rangeTo) qs.set("to", rangeTo);
     if (format === "pdf") {

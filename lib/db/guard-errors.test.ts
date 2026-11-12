@@ -126,8 +126,11 @@ const GUARDS = [
   "guard_transaction_expense_account",
   "guard_loan_installment_paid",
   "pay_loan_installment",
-  "adopt_loan_installment_payment",
+  "adopt_loan_installment_payment_core",
   "record_loan_disbursement",
+  "repay_loan_capital",
+  "convert_loan_to_open_ended",
+  "relink_loan_installment_payment",
   "allocate_receipt",
   "allocate_payment_order",
   "guard_transaction_owned_by_document",
@@ -232,6 +235,9 @@ const GUARDS = [
   "payroll_period_post_receipt_gaps",
   "split_matched_movement",
   "merge_matched_movement",
+  "guard_account_channel_reference",
+  "build_invoice_journal_lines",
+  "build_purchase_invoice_journal_lines",
 ];
 
 describe("guard hints in migrations", () => {

@@ -196,7 +196,7 @@ export const ROUTE_GUIDES: readonly RouteGuide[] = [
     prefix: "/loans",
     title: "Préstamos",
     summary:
-      "Préstamos y leasing con sus cuotas. Pagar una cuota registra el egreso y su asiento.",
+      "Préstamos, leasings y planes de ahorro con sus cuotas. Pagar una cuota registra el egreso y su asiento.",
   },
   {
     prefix: "/accounting/package",

@@ -387,13 +387,14 @@ export function computeTotals(
   };
 }
 
-/** Join row shape for `channel ( name, is_fiscal, business_unit_id )` used
- *  by the PDF renders (receipt and payment-order). */
+/** Join row shape for `channel ( name, is_fiscal, business_unit_id,
+ *  division_label )` used by the PDF renders (receipt and payment-order). */
 export type ChannelIssuerJoin = {
   channel: {
     name: string;
     is_fiscal: boolean;
     business_unit_id: string;
+    division_label: string | null;
   } | null;
 };
 

@@ -171,6 +171,7 @@ export const getTaxDocuments = defineAiAction({
     "libro_iva_ventas",
     "libro_iva_compras",
     "receipt_retentions",
+    "loan_iva_perceptions",
   ],
   description:
     "Tax obligations (Impuestos: IVA, IIBB, Ganancias anticipos, SICORE, " +
@@ -193,7 +194,7 @@ export const getTaxDocuments = defineAiAction({
         `How many days ahead count as due soon. Default ${DEFAULT_DUE_WITHIN_DAYS}.`,
       ),
     ivaPeriod: PeriodSchema.nullish().describe(
-      "Fiscal period (YYYY-MM) whose IVA position to estimate from the libro IVA (débito − crédito − retenciones − IVA perceptions on purchases − last month's saldo a favor). Omit unless IVA to pay is asked.",
+      "Fiscal period (YYYY-MM) whose IVA position to estimate from the libro IVA (débito − crédito − retenciones − IVA perceptions on purchases − IVA perceptions on loan cuotas (percepciones de IVA de cuotas de préstamos) − last month's saldo a favor). Omit unless IVA to pay is asked.",
     ),
   }),
   run: (_ctx, input) => runTaxDocuments(input),

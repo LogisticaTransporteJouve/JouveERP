@@ -730,6 +730,12 @@ export const tripProposalSpec = defineProposalSpec({
       "Chofer",
       d.driver_id ? (labels[d.driver_id] ?? d.driver_id) : null,
     ),
+    ...rowIf(
+      "Acompañante",
+      d.companion_employee_id
+        ? (labels[d.companion_employee_id] ?? d.companion_employee_id)
+        : null,
+    ),
     { label: "Estado", value: TRIP_STATUS_LABELS[d.status] },
   ],
 });
@@ -2248,6 +2254,21 @@ export const loanInstallmentPaymentProposalSpec = defineProposalSpec({
       label: "Monto",
       value: formatMoney(d.amount, labels[LOAN_INSTALLMENT_LABELS.currency]),
     },
+    // A USD cuota paid from a peso account: the rate and the pesos.
+    ...(d.account_amount != null && d.amount > 0
+      ? [
+          {
+            label: "Cotización",
+            value: (d.account_amount / d.amount).toLocaleString("es-AR", {
+              maximumFractionDigits: 2,
+            }),
+          },
+          {
+            label: "Monto en pesos",
+            value: formatMoney(d.account_amount, "ARS"),
+          },
+        ]
+      : []),
     { label: "Cuenta", value: labels[d.account_id] ?? d.account_id },
     { label: "Fecha de pago", value: formatArgentineDate(d.paid_date) },
     {

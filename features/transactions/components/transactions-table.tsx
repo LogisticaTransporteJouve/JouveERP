@@ -15,6 +15,7 @@ import { ExportButton } from "@/components/export-button";
 import { ListPending, ListToolbar } from "@/components/list-toolbar";
 import { PeriodFilter } from "@/components/period-filter";
 import { useConfirm } from "@/components/providers/confirm-provider";
+import { ChannelBadge } from "@/components/channel-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
@@ -188,6 +189,7 @@ function useTransactionColumns(
           return (
             <>
               {title ?? <span className="text-muted-foreground">—</span>}
+              <ChannelBadge channelId={tx.channel_id} />
               {detail && (
                 <span className="block text-xs text-muted-foreground">
                   {detail}

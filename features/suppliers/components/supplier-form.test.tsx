@@ -41,7 +41,8 @@ vi.mock("@/components/ui/select", () => ({
 
 vi.mock("@/components/providers/scope-provider", () => ({
   usePageIsFiscal: () => true,
-  useScope: () => ({ channels }),
+  useScope: () => ({ channels, channelId: null }),
+  useChannelOptions: () => channels,
 }));
 
 // The identity block is out of scope here: one field stands for the rest.

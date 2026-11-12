@@ -2231,6 +2231,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "client_opening_balance_allocations_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: true
+            referencedRelation: "v_invoice_open"
+            referencedColumns: ["invoice_id"]
+          },
+          {
             foreignKeyName: "client_opening_balance_allocations_opening_fkey"
             columns: ["client_id"]
             isOneToOne: false
@@ -2388,6 +2395,7 @@ export type Database = {
           phone: string | null
           real_address: string | null
           updated_at: string
+          in_main_scope: boolean | null
         }
         Insert: {
           address?: string | null
@@ -3539,6 +3547,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "file_attachments_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_invoice_open"
+            referencedColumns: ["invoice_id"]
+          },
+          {
             foreignKeyName: "file_attachments_issued_check_id_fkey"
             columns: ["issued_check_id"]
             isOneToOne: false
@@ -3903,6 +3918,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "invoices"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "freight_settlements_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_invoice_open"
+            referencedColumns: ["invoice_id"]
           },
         ]
       }
@@ -4476,6 +4498,13 @@ export type Database = {
             referencedRelation: "invoices"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "invoice_items_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_invoice_open"
+            referencedColumns: ["invoice_id"]
+          },
         ]
       }
       invoices: {
@@ -4653,11 +4682,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "invoices_invoice_origin_id_fkey"
+            columns: ["invoice_origin_id"]
+            isOneToOne: false
+            referencedRelation: "v_invoice_open"
+            referencedColumns: ["invoice_id"]
+          },
+          {
             foreignKeyName: "invoices_source_remito_id_fkey"
             columns: ["source_remito_id"]
             isOneToOne: false
             referencedRelation: "invoices"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_source_remito_id_fkey"
+            columns: ["source_remito_id"]
+            isOneToOne: false
+            referencedRelation: "v_invoice_open"
+            referencedColumns: ["invoice_id"]
           },
         ]
       }
@@ -4666,30 +4709,45 @@ export type Database = {
           business_unit_id: string
           created_at: string
           display_color: string | null
+          division_label: string | null
           id: string
           is_active: boolean
           is_fiscal: boolean
+          is_segregated: boolean
           name: string
+          purchase_account_id: string | null
+          sales_account_id: string | null
+          short_label: string | null
           updated_at: string
         }
         Insert: {
           business_unit_id: string
           created_at?: string
           display_color?: string | null
+          division_label?: string | null
           id: string
           is_active?: boolean
           is_fiscal: boolean
+          is_segregated?: boolean
           name: string
+          purchase_account_id?: string | null
+          sales_account_id?: string | null
+          short_label?: string | null
           updated_at?: string
         }
         Update: {
           business_unit_id?: string
           created_at?: string
           display_color?: string | null
+          division_label?: string | null
           id?: string
           is_active?: boolean
           is_fiscal?: boolean
+          is_segregated?: boolean
           name?: string
+          purchase_account_id?: string | null
+          sales_account_id?: string | null
+          short_label?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -4698,6 +4756,34 @@ export type Database = {
             columns: ["business_unit_id"]
             isOneToOne: false
             referencedRelation: "business_units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoicing_channels_purchase_account_id_fkey"
+            columns: ["purchase_account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoicing_channels_purchase_account_id_fkey"
+            columns: ["purchase_account_id"]
+            isOneToOne: false
+            referencedRelation: "expense_leaf_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoicing_channels_sales_account_id_fkey"
+            columns: ["sales_account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoicing_channels_sales_account_id_fkey"
+            columns: ["sales_account_id"]
+            isOneToOne: false
+            referencedRelation: "expense_leaf_accounts"
             referencedColumns: ["id"]
           },
         ]
@@ -4997,11 +5083,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "late_interest_charges_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_invoice_open"
+            referencedColumns: ["invoice_id"]
+          },
+          {
             foreignKeyName: "late_interest_charges_nd_invoice_id_fkey"
             columns: ["nd_invoice_id"]
             isOneToOne: false
             referencedRelation: "invoices"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "late_interest_charges_nd_invoice_id_fkey"
+            columns: ["nd_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_invoice_open"
+            referencedColumns: ["invoice_id"]
           },
         ]
       }
@@ -5138,13 +5238,17 @@ export type Database = {
           id: string
           interest_amount: number | null
           iva_amount: number | null
+          iva_perception_amount: number | null
+          kind: string
           loan_id: string
           notes: string | null
           number: number
           other_charges_amount: number | null
           paid_amount: number | null
+          paid_amount_ars: number | null
           paid_date: string | null
           paid_outside: boolean
+          paid_rate: number | null
           perception_amount: number | null
           status: Database["public"]["Enums"]["loan_installment_status"]
           transaction_id: string | null
@@ -5158,13 +5262,17 @@ export type Database = {
           id?: string
           interest_amount?: number | null
           iva_amount?: number | null
+          iva_perception_amount?: number | null
+          kind?: string
           loan_id: string
           notes?: string | null
           number: number
           other_charges_amount?: number | null
           paid_amount?: number | null
+          paid_amount_ars?: number | null
           paid_date?: string | null
           paid_outside?: boolean
+          paid_rate?: number | null
           perception_amount?: number | null
           status?: Database["public"]["Enums"]["loan_installment_status"]
           transaction_id?: string | null
@@ -5178,13 +5286,17 @@ export type Database = {
           id?: string
           interest_amount?: number | null
           iva_amount?: number | null
+          iva_perception_amount?: number | null
+          kind?: string
           loan_id?: string
           notes?: string | null
           number?: number
           other_charges_amount?: number | null
           paid_amount?: number | null
+          paid_amount_ars?: number | null
           paid_date?: string | null
           paid_outside?: boolean
+          paid_rate?: number | null
           perception_amount?: number | null
           status?: Database["public"]["Enums"]["loan_installment_status"]
           transaction_id?: string | null
@@ -5228,9 +5340,11 @@ export type Database = {
           id: string
           import_run_id: string | null
           installments_count: number
+          is_open_ended: boolean
           kind: Database["public"]["Enums"]["loan_kind"]
           lender: string | null
           loan_number: string | null
+          monthly_rate: number | null
           notes: string | null
           opening_journal_entry_id: string | null
           original_amount: number | null
@@ -5254,9 +5368,11 @@ export type Database = {
           id?: string
           import_run_id?: string | null
           installments_count: number
+          is_open_ended?: boolean
           kind?: Database["public"]["Enums"]["loan_kind"]
           lender?: string | null
           loan_number?: string | null
+          monthly_rate?: number | null
           notes?: string | null
           opening_journal_entry_id?: string | null
           original_amount?: number | null
@@ -5280,9 +5396,11 @@ export type Database = {
           id?: string
           import_run_id?: string | null
           installments_count?: number
+          is_open_ended?: boolean
           kind?: Database["public"]["Enums"]["loan_kind"]
           lender?: string | null
           loan_number?: string | null
+          monthly_rate?: number | null
           notes?: string | null
           opening_journal_entry_id?: string | null
           original_amount?: number | null
@@ -6642,6 +6760,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "receipt_allocations_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_invoice_open"
+            referencedColumns: ["invoice_id"]
+          },
+          {
             foreignKeyName: "receipt_allocations_receipt_id_fkey"
             columns: ["receipt_id"]
             isOneToOne: false
@@ -7284,6 +7409,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "shipments_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_invoice_open"
+            referencedColumns: ["invoice_id"]
+          },
+          {
             foreignKeyName: "shipments_trip_id_fkey"
             columns: ["trip_id"]
             isOneToOne: false
@@ -7410,6 +7542,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "invoices"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "storage_billing_runs_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_invoice_open"
+            referencedColumns: ["invoice_id"]
           },
         ]
       }
@@ -7670,6 +7809,7 @@ export type Database = {
           phone: string | null
           real_address: string | null
           updated_at: string
+          in_main_scope: boolean | null
         }
         Insert: {
           address?: string | null
@@ -8162,6 +8302,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "transactions_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_invoice_open"
+            referencedColumns: ["invoice_id"]
+          },
+          {
             foreignKeyName: "transactions_issued_check_id_fkey"
             columns: ["issued_check_id"]
             isOneToOne: false
@@ -8251,6 +8398,7 @@ export type Database = {
         Row: {
           cargo_description: string | null
           channel_id: string | null
+          companion_employee_id: string | null
           cost: number | null
           created_at: string
           created_by: string | null
@@ -8269,6 +8417,7 @@ export type Database = {
         Insert: {
           cargo_description?: string | null
           channel_id?: string | null
+          companion_employee_id?: string | null
           cost?: number | null
           created_at?: string
           created_by?: string | null
@@ -8287,6 +8436,7 @@ export type Database = {
         Update: {
           cargo_description?: string | null
           channel_id?: string | null
+          companion_employee_id?: string | null
           cost?: number | null
           created_at?: string
           created_by?: string | null
@@ -8308,6 +8458,13 @@ export type Database = {
             columns: ["channel_id"]
             isOneToOne: false
             referencedRelation: "invoicing_channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trips_companion_employee_id_fkey"
+            columns: ["companion_employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
             referencedColumns: ["id"]
           },
           {
@@ -8648,6 +8805,7 @@ export type Database = {
           bucket: string | null
           channel_id: string | null
           channel_is_fiscal: boolean | null
+          channel_is_segregated: boolean | null
           channel_name: string | null
           check_number: string | null
           client_id: string | null
@@ -8696,6 +8854,7 @@ export type Database = {
         Row: {
           channel_id: string | null
           channel_is_fiscal: boolean | null
+          channel_is_segregated: boolean | null
           channel_name: string | null
           client_id: string | null
           created_at: string | null
@@ -8958,10 +9117,46 @@ export type Database = {
         }
         Relationships: []
       }
+      v_invoice_open: {
+        Row: {
+          amount_credited_by_nc: number | null
+          amount_credited_by_nc_spill: number | null
+          amount_nc_in_flight: number | null
+          amount_opening_applied: number | null
+          amount_paid: number | null
+          channel_id: string | null
+          client_id: string | null
+          currency: string | null
+          fecha: string | null
+          imp_total: number | null
+          invoice_id: string | null
+          kind: string | null
+          open_amount: number | null
+          own_open_amount: number | null
+          status: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "invoicing_channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_payment_order_unapplied: {
         Row: {
           channel_id: string | null
           channel_is_fiscal: boolean | null
+          channel_is_segregated: boolean | null
           currency: string | null
           payment_date: string | null
           payment_order_id: string | null
@@ -9066,6 +9261,7 @@ export type Database = {
       v_purchase_invoice_open: {
         Row: {
           amount_credited_by_nc: number | null
+          amount_credited_by_nc_spill: number | null
           amount_opening_applied: number | null
           amount_paid: number | null
           channel_id: string | null
@@ -9074,6 +9270,7 @@ export type Database = {
           kind: string | null
           moneda: string | null
           open_amount: number | null
+          own_open_amount: number | null
           purchase_invoice_id: string | null
           status: string | null
           supplier_id: string | null
@@ -9113,6 +9310,7 @@ export type Database = {
         Row: {
           channel_id: string | null
           channel_is_fiscal: boolean | null
+          channel_is_segregated: boolean | null
           client_id: string | null
           currency: string | null
           receipt_date: string | null
@@ -9172,6 +9370,7 @@ export type Database = {
         Row: {
           channel_id: string | null
           channel_is_fiscal: boolean | null
+          channel_is_segregated: boolean | null
           channel_name: string | null
           created_at: string | null
           currency: string | null
@@ -9196,6 +9395,50 @@ export type Database = {
           ars_bucket_60_90: number | null
           ars_bucket_90_plus: number | null
           ars_total_open: number | null
+          document_count: number | null
+          oldest_days: number | null
+          supplier_id: string | null
+          usd_bucket_0_30: number | null
+          usd_bucket_30_60: number | null
+          usd_bucket_60_90: number | null
+          usd_bucket_90_plus: number | null
+          usd_total_open: number | null
+          suppliers: {
+            address: string | null
+            category_id: string | null
+            created_at: string
+            created_by: string | null
+            cuit: string | null
+            default_channel_id: string | null
+            default_cost_center_id: string | null
+            default_expense_account_id: string | null
+            default_payment_term_days: number | null
+            display_name: string | null
+            email: string | null
+            id: string
+            import_run_id: string | null
+            is_active: boolean
+            is_fiscal: boolean
+            iva_condition: string | null
+            legal_name: string
+            notes: string | null
+            phone: string | null
+            real_address: string | null
+            updated_at: string
+          } | null
+        }
+        Relationships: []
+      }
+      v_supplier_aging_by_channel: {
+        Row: {
+          ars_bucket_0_30: number | null
+          ars_bucket_30_60: number | null
+          ars_bucket_60_90: number | null
+          ars_bucket_90_plus: number | null
+          ars_total_open: number | null
+          channel_id: string | null
+          channel_is_fiscal: boolean | null
+          channel_is_segregated: boolean | null
           document_count: number | null
           oldest_days: number | null
           supplier_id: string | null
@@ -9280,6 +9523,7 @@ export type Database = {
           bucket: string | null
           channel_id: string | null
           channel_is_fiscal: boolean | null
+          channel_is_segregated: boolean | null
           channel_name: string | null
           check_number: string | null
           days_overdue: number | null
@@ -9399,6 +9643,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "transactions_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_invoice_open"
+            referencedColumns: ["invoice_id"]
+          },
+          {
             foreignKeyName: "transactions_issued_check_id_fkey"
             columns: ["issued_check_id"]
             isOneToOne: false
@@ -9505,6 +9756,14 @@ export type Database = {
       }
       adopt_loan_installment_payment: {
         Args: { p_installment_id: string; p_transaction_id: string }
+        Returns: undefined
+      }
+      adopt_loan_installment_payment_core: {
+        Args: {
+          p_allow_paid_outside: boolean
+          p_installment_id: string
+          p_transaction_id: string
+        }
         Returns: undefined
       }
       aging_apply_credit: {
@@ -10083,6 +10342,21 @@ export type Database = {
         }
         Returns: string
       }
+      channel_in_main_scope: {
+        Args: { p_channel_id: string }
+        Returns: boolean
+      }
+      channel_summary: {
+        Args: { p_channel_id: string; p_from: string; p_to: string }
+        Returns: {
+          costs: number
+          margin: number
+          month: string
+          payments: number
+          pending_usd: number
+          sales: number
+        }[]
+      }
       checks_channel_mismatches: {
         Args: never
         Returns: {
@@ -10299,6 +10573,10 @@ export type Database = {
               remito_pos: number
             }[]
           }
+      convert_loan_to_open_ended: {
+        Args: { p_loan_id: string; p_monthly_rate: number }
+        Returns: number
+      }
       create_ai_confirmation_revision: {
         Args: {
           p_action: string
@@ -10576,6 +10854,7 @@ export type Database = {
         Args: { p_employee_id: string; p_month: string }
         Returns: number
       }
+      extend_open_ended_loan: { Args: { p_loan_id: string }; Returns: number }
       fail_itemless_invoice_drafts: {
         Args: { p_created_before: string; p_limit?: number }
         Returns: string[]
@@ -10782,6 +11061,19 @@ export type Database = {
         }
         Returns: string[]
       }
+      in_main_scope:
+        | {
+            Args: { "": Database["public"]["Tables"]["clients"]["Row"] }
+            Returns: {
+              error: true
+            } & "the function public.in_main_scope with parameter or with a single unnamed json/jsonb parameter, but no matches were found in the schema cache"
+          }
+        | {
+            Args: { "": Database["public"]["Tables"]["suppliers"]["Row"] }
+            Returns: {
+              error: true
+            } & "the function public.in_main_scope with parameter or with a single unnamed json/jsonb parameter, but no matches were found in the schema cache"
+          }
       increase_storage_tariffs: {
         Args: { p_percent: number; p_valid_from: string }
         Returns: {
@@ -10795,6 +11087,7 @@ export type Database = {
       }
       invoice_list_totals: {
         Args: {
+          p_channel_id?: string
           p_client_id?: string
           p_client_name?: string
           p_from?: string
@@ -10814,6 +11107,10 @@ export type Database = {
         }[]
       }
       invoice_open_amount: { Args: { p_invoice_id: string }; Returns: number }
+      invoice_own_open_amount: {
+        Args: { p_invoice_id: string }
+        Returns: number
+      }
       is_bank_tax_account: { Args: { p_account_id: string }; Returns: boolean }
       is_channel_fiscal: { Args: { p_channel_id: string }; Returns: boolean }
       is_driver_employee: { Args: { p_employee_id: string }; Returns: boolean }
@@ -11045,6 +11342,10 @@ export type Database = {
         }
         Returns: Json
       }
+      loan_iva_perceptions: {
+        Args: { p_from: string; p_to: string }
+        Returns: number
+      }
       loan_liability_role: {
         Args: { p_loan_id: string }
         Returns: Database["public"]["Enums"]["coa_system_role"]
@@ -11128,7 +11429,20 @@ export type Database = {
         Args: { p_type: string; p_user_id: string }
         Returns: boolean
       }
+      open_ended_loan_interest: { Args: { p_loan_id: string }; Returns: number }
+      open_ended_loan_projection: {
+        Args: { p_until: string }
+        Returns: {
+          amount: number
+          due_date: string
+          loan_id: string
+        }[]
+      }
       open_or_create_dm: { Args: { p_other: string }; Returns: string }
+      party_in_main_scope: {
+        Args: { p_kind: string; p_party_id: string }
+        Returns: boolean
+      }
       pay_check_sale_debt: {
         Args: {
           p_account_id: string
@@ -11138,15 +11452,26 @@ export type Database = {
         }
         Returns: string
       }
-      pay_loan_installment: {
-        Args: {
-          p_account_id: string
-          p_amount: number
-          p_installment_id: string
-          p_paid_date: string
-        }
-        Returns: string
-      }
+      pay_loan_installment:
+        | {
+            Args: {
+              p_account_id: string
+              p_amount: number
+              p_installment_id: string
+              p_paid_date: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_account_amount: number
+              p_account_id: string
+              p_amount: number
+              p_installment_id: string
+              p_paid_date: string
+            }
+            Returns: string
+          }
       pay_tax_document: {
         Args: {
           p_account_id: string
@@ -11425,6 +11750,10 @@ export type Database = {
         }
         Returns: string
       }
+      relink_loan_installment_payment: {
+        Args: { p_installment_id: string; p_transaction_id: string }
+        Returns: undefined
+      }
       remove_driver_settlement_difference: {
         Args: {
           p_allow_driver: boolean
@@ -11434,6 +11763,16 @@ export type Database = {
         Returns: undefined
       }
       reopen_accounting_period: { Args: { p_period: string }; Returns: Json }
+      repay_loan_capital: {
+        Args: {
+          p_account_amount?: number
+          p_account_id: string
+          p_amount: number
+          p_date: string
+          p_loan_id: string
+        }
+        Returns: string
+      }
       replace_freight_tariff_lines: {
         Args: { p_lines: Json; p_version_id: string }
         Returns: number
@@ -11493,6 +11832,7 @@ export type Database = {
       }
       search_clients: {
         Args: {
+          p_channel_id?: string
           p_is_fiscal?: boolean
           p_limit?: number
           p_offset?: number
@@ -11628,6 +11968,8 @@ export type Database = {
       search_suppliers: {
         Args: {
           p_category_id?: string
+          p_channel_id?: string
+          p_channel_members_only?: boolean
           p_is_fiscal?: boolean
           p_limit?: number
           p_offset?: number
@@ -11835,6 +12177,40 @@ export type Database = {
           }
         | {
             Args: {
+              "": Database["public"]["Views"]["v_supplier_aging_by_channel"]["Row"]
+            }
+            Returns: {
+              address: string | null
+              category_id: string | null
+              created_at: string
+              created_by: string | null
+              cuit: string | null
+              default_channel_id: string | null
+              default_cost_center_id: string | null
+              default_expense_account_id: string | null
+              default_payment_term_days: number | null
+              display_name: string | null
+              email: string | null
+              id: string
+              import_run_id: string | null
+              is_active: boolean
+              is_fiscal: boolean
+              iva_condition: string | null
+              legal_name: string
+              notes: string | null
+              phone: string | null
+              real_address: string | null
+              updated_at: string
+            }
+            SetofOptions: {
+              from: "v_supplier_aging_by_channel"
+              to: "suppliers"
+              isOneToOne: true
+              isSetofReturn: true
+            }
+          }
+        | {
+            Args: {
               "": Database["public"]["Views"]["v_supplier_aging_by_scope"]["Row"]
             }
             Returns: {
@@ -11882,6 +12258,10 @@ export type Database = {
       sync_purchase_employee_charge: {
         Args: { p_invoice_id: string }
         Returns: undefined
+      }
+      sync_shipment_trip_status: {
+        Args: { p_actor?: string; p_shipment_ids?: string[] }
+        Returns: number
       }
       tax_document_difference_note: {
         Args: {
@@ -12061,6 +12441,7 @@ export type Database = {
         | "cheques_rechazados"
         | "anticipos_personal"
         | "rodados"
+        | "planes_ahorro"
         | "cheques_diferidos_emitidos"
         | "prestamos"
         | "deudas_leasing"
@@ -12092,7 +12473,7 @@ export type Database = {
         | "paternidad"
         | "otro"
       loan_installment_status: "pendiente" | "pagada"
-      loan_kind: "prestamo" | "leasing"
+      loan_kind: "prestamo" | "leasing" | "plan_ahorro"
       loan_status: "active" | "paid" | "cancelled"
       payroll_payment_method: "transferencia" | "efectivo"
     }
@@ -12262,6 +12643,7 @@ export const Constants = {
         "cheques_rechazados",
         "anticipos_personal",
         "rodados",
+        "planes_ahorro",
         "cheques_diferidos_emitidos",
         "prestamos",
         "deudas_leasing",
@@ -12296,7 +12678,7 @@ export const Constants = {
         "otro",
       ],
       loan_installment_status: ["pendiente", "pagada"],
-      loan_kind: ["prestamo", "leasing"],
+      loan_kind: ["prestamo", "leasing", "plan_ahorro"],
       loan_status: ["active", "paid", "cancelled"],
       payroll_payment_method: ["transferencia", "efectivo"],
     },

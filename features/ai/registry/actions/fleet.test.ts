@@ -106,6 +106,8 @@ function trip(id: string, status: TripStatus, revenue: number | null): Trip {
     updated_at: "2026-10-01T00:00:00Z",
     driver: null,
     vehicle: null,
+    companion_employee_id: null,
+    companion: null,
   };
 }
 

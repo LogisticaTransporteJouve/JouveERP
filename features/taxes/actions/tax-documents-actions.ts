@@ -223,7 +223,8 @@ const ISSUED_RECEIPT: ReceiptStatus = "issued";
  * débito of the sales book − crédito of the purchases book − IVA retentions
  * and perceptions suffered on the period's receipts − the saldo a favor
  * técnico the previous period's IVA document carries − the IVA perceptions
- * of the period's purchases. The purchases' other taxes (IIBB, Ganancias,
+ * of the period's purchases − the IVA perceptions loan cuotas and bank
+ * receipts debited in the period. The purchases' other taxes (IIBB, Ganancias,
  * municipales, internos) are returned apart, not subtracted.
  */
 export async function getIvaPositionEstimateAction(input: {
@@ -305,6 +306,23 @@ export async function getIvaPositionEstimateAction(input: {
     retentionsArs.push(round2(amount * rate));
   }
 
+  const { data: loanPerceptions, error: loanError } = await supabase.rpc(
+    "loan_iva_perceptions",
+    { p_from: from, p_to: to },
+  );
+  if (loanError || loanPerceptions === null) {
+    logger.error("tax_documents.iva_estimate.loans_failed", {
+      userId: ctx.userId,
+      period,
+      error: loanError,
+    });
+    return {
+      ok: false,
+      error:
+        "No se pudieron leer las percepciones de IVA de los préstamos del período.",
+    };
+  }
+
   const { data: previousDocs, error: prevError } = await supabase
     .from("tax_documents")
     .select("id, status, credit_balance, updated_at")
@@ -345,6 +363,7 @@ export async function getIvaPositionEstimateAction(input: {
       })),
     ),
     percepcionesCompras: comprasTotals.breakdown.perc_iva,
+    percepcionesPrestamos: Number(loanPerceptions),
     tributosCompras: comprasTotals.imp_trib - comprasTotals.breakdown.perc_iva,
     ventas: ventasGrouped.length,
     compras: comprasGrouped.length,

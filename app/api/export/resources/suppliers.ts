@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 
 import {
   endOfDay,
+  exportChannelScope,
   exportScope,
   scopedSubtitle,
   type Exporter,
@@ -27,7 +28,31 @@ export const suppliers: Exporter = {
   permission: "suppliers:read",
   load: async (params, range) => {
     const { scope, isFiscal } = exportScope(params);
+    const channelScope = await exportChannelScope(params, isFiscal);
     const supabase = await createClient();
+
+    // Inside a segregated channel's section, its suppliers (the section's
+    // list: search_suppliers members-only); elsewhere, the main app's.
+    let memberIds: string[] | null = null;
+    if (channelScope.channelId) {
+      const members = await paginateRange(
+        (from, to) =>
+          supabase
+            .rpc("search_suppliers", {
+              p_query: "",
+              p_only_active: false,
+              p_offset: from,
+              p_limit: to - from + 1,
+              p_is_fiscal: channelScope.isFiscal ?? undefined,
+              p_channel_id: channelScope.channelId ?? undefined,
+              p_channel_members_only: true,
+            })
+            .select("id"),
+        200,
+      );
+      if (members.error) throw new Error("Could not load suppliers.");
+      memberIds = (members.data ?? []).map((m) => m.id);
+    }
 
     // Drained page by page: PostgREST caps responses at max_rows (1000);
     // `id` closes the order so OFFSET pages never repeat or skip rows.
@@ -40,7 +65,12 @@ export const suppliers: Exporter = {
         .order("legal_name", { ascending: true })
         .order("id", { ascending: true });
 
-      if (isFiscal !== null) query = query.eq("is_fiscal", isFiscal);
+      if (channelScope.isFiscal !== null) {
+        query = query.eq("is_fiscal", channelScope.isFiscal);
+      }
+      query = memberIds
+        ? query.in("id", memberIds)
+        : query.eq("in_main_scope", true);
       if (range.from) query = query.gte("created_at", range.from);
       if (range.to) query = query.lte("created_at", endOfDay(range.to));
       return query;

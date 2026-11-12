@@ -450,12 +450,12 @@ export async function issueComprobante(
   // (it would post phantom revenue and charge IVA on a non-fiscal document).
   const totals = computeTotals(data.items, channel.is_fiscal);
 
-  // An NC can't credit more than its origin still owes: the figure of the
-  // deferred guard invoices_nc_open_after_change (NCs in flight included).
-  // Not v_aging_documents, which also spreads the client's NCs with no origin.
+  // An NC can't credit more than its origin owes by itself
+  // (invoice_own_open_amount, the figure of the deferred guard, NCs in flight
+  // included); credit spilled from other NCs does not count.
   if (data.kind === "nc" && data.invoice_origin_id) {
     const { data: open, error: openErr } = await supabase.rpc(
-      "invoice_open_amount",
+      "invoice_own_open_amount",
       { p_invoice_id: data.invoice_origin_id },
     );
     if (openErr) {
@@ -473,7 +473,7 @@ export async function issueComprobante(
     if (totals.imp_total > originOpen + 0.01) {
       return {
         ok: false,
-        error: `La nota de crédito (${formatMoney(totals.imp_total, paymentCurrencyOf(moneda))}) supera el saldo abierto del comprobante de origen (${formatMoney(originOpen, paymentCurrencyOf(moneda))}).`,
+        error: `La nota de crédito (${formatMoney(totals.imp_total, paymentCurrencyOf(moneda))}) supera lo que el comprobante de origen debe por sí solo (${formatMoney(originOpen, paymentCurrencyOf(moneda))}).`,
       };
     }
   }

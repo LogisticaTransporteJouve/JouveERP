@@ -6,6 +6,7 @@ import {
   CheckCheck,
   CreditCard,
   FileUp,
+  Landmark,
   Link2,
   Loader2,
   MoreHorizontal,
@@ -46,6 +47,7 @@ import {
 } from "@/components/ui/table";
 import { ImportDialog } from "@/features/imports/components/import-dialog";
 import { PeriodFilter } from "@/components/period-filter";
+import { ChannelBadge } from "@/components/channel-badge";
 import { useListParams } from "@/hooks/use-list-params";
 import {
   ALL_DATES_PARAM,
@@ -78,6 +80,8 @@ import {
   MatchMovementLinesDialog,
 } from "./line-dialogs";
 import type { ReconciliationGates } from "../lib/gates";
+
+import { PickLoanInstallmentDialog } from "./pay-loan-from-line-dialog";
 import {
   AcceptReadyButton,
   BankCodesDialog,
@@ -227,7 +231,7 @@ export function AccountStatement({
   );
 }
 
-type LineDialog = "match" | "ignore" | "create";
+type LineDialog = "match" | "ignore" | "create" | "pay_loan";
 
 function ReconciliationBody({
   accountId,
@@ -405,6 +409,7 @@ function ReconciliationBody({
                       <TableCell className="align-top text-sm">
                         <span className="block">
                           {m.description || "(sin descripción)"}
+                          <ChannelBadge channelId={m.channel_id} />
                         </span>
                         <span className="text-muted-foreground text-xs">
                           {formatArgentineDate(m.transaction_date)}
@@ -589,6 +594,16 @@ function ReconciliationBody({
                                 <Plus className="size-4" />
                                 Crear movimiento…
                               </DropdownMenuItem>
+                              {gates.canPayLoans && line.amount < 0 && (
+                                <DropdownMenuItem
+                                  onSelect={() =>
+                                    setDialog({ kind: "pay_loan", line })
+                                  }
+                                >
+                                  <Landmark className="size-4" />
+                                  Pagar cuota de préstamo…
+                                </DropdownMenuItem>
+                              )}
                               <DropdownMenuItem
                                 onSelect={() =>
                                   setDialog({ kind: "ignore", line })
@@ -707,6 +722,7 @@ function ReconciliationBody({
                   </TableCell>
                   <TableCell className="text-sm">
                     {m.description || "(sin descripción)"}
+                    <ChannelBadge channelId={m.channel_id} />
                   </TableCell>
                   <DebitCreditCells
                     amount={m.signed_amount}
@@ -747,6 +763,14 @@ function ReconciliationBody({
         currency={currency}
         onOpenChange={(o) => (o ? null : close())}
       />
+      {dialog?.kind === "pay_loan" && (
+        <PickLoanInstallmentDialog
+          line={dialog.line}
+          currency={currency}
+          open
+          onOpenChange={(o) => (o ? null : close())}
+        />
+      )}
       <CreateLineTransactionDialog
         line={dialog?.kind === "create" ? dialog.line : null}
         currency={currency}
@@ -784,7 +808,8 @@ function MatchedMovement({
   return (
     <span className="text-muted-foreground block text-xs">
       ↳ {formatArgentineDate(movement.transaction_date)} ·{" "}
-      {movement.description || "(sin descripción)"} ·{" "}
+      {movement.description || "(sin descripción)"}
+      <ChannelBadge channelId={movement.channel_id} /> ·{" "}
       {formatMoneySigned(movement.signed_amount, currency)}
       {movement.line_ids.length > 1
         ? ` · partido en ${movement.line_ids.length} líneas`

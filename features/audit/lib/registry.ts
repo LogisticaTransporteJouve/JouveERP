@@ -1044,6 +1044,23 @@ const AUDIT_ACTIONS: Record<string, Spec> = {
     group: "treasury",
     say: (c) => `pagó una cuota de préstamo por ${money(c.p.amount) ?? "—"}`,
   },
+  // Written by the I6 data step (docs/pendientes/2026-11-12-prestamo-sin-vencimiento.md).
+  "loan.converted_open_ended": {
+    group: "treasury",
+    subject: "loan",
+    say: (c) => `pasó ${subj(c, "un préstamo")} a sin vencimiento`,
+  },
+  "loan.installment_payment_relinked": {
+    group: "treasury",
+    say: () =>
+      "vinculó el egreso real a una cuota pagada antes de cargar el préstamo",
+  },
+  "loan.capital_repaid": {
+    group: "treasury",
+    subject: "loan",
+    say: (c) =>
+      `registró una devolución de capital de ${subj(c, "un préstamo")}`,
+  },
   "loan.installment_payment_adopted": {
     group: "treasury",
     say: () =>

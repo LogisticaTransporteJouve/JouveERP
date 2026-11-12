@@ -32,6 +32,7 @@ import {
 
 import {
   usePageIsFiscal,
+  useChannelOptions,
   useScope,
 } from "@/components/providers/scope-provider";
 import { CostTagSelect } from "@/features/cost-centers/components/cost-tag-select";
@@ -106,7 +107,10 @@ export function SupplierForm({
   const pageIsFiscal = usePageIsFiscal();
   // A supplier's side never changes: edit follows the record.
   const isFiscal = supplier?.is_fiscal ?? isFiscalProp ?? pageIsFiscal ?? true;
-  const { channels } = useScope();
+  // The page's channels (a segregated channel's section offers only it) plus
+  // the supplier's own default, so editing a DZ supplier elsewhere keeps it.
+  const { channelId: sectionChannelId } = useScope();
+  const channels = useChannelOptions(supplier?.default_channel_id);
   const activeChannels = useMemo(
     () => channels.filter((c) => c.is_active && c.is_fiscal === isFiscal),
     [channels, isFiscal],
@@ -115,6 +119,10 @@ export function SupplierForm({
   const form = useForm<FormValues>({
     defaultValues: {
       ...supplierToValues(supplier),
+      // Created inside a segregated channel's section: that is its channel.
+      ...(!supplier && sectionChannelId
+        ? { default_channel_id: sectionChannelId }
+        : {}),
       ...(initialValues?.cuit
         ? { cuit: initialValues.cuit.replace(/\D/g, "") }
         : {}),

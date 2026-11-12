@@ -22,6 +22,7 @@ import type { ReceivedVoucher } from "../schema";
 const h = vi.hoisted(() => ({ mutate: vi.fn(), submitCreate: vi.fn() }));
 
 vi.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams(),
   usePathname: () => "/purchases/arca",
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
 }));

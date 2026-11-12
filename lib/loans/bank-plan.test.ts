@@ -34,6 +34,7 @@ describe("parseBankPlan", () => {
         interest: 116952.05,
         iva: 12279.97,
         perception: 0,
+        iva_perception: 0,
         other: 3625.51,
         paid: true,
       },

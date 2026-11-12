@@ -316,35 +316,39 @@ export const purchasesPage: GuidePage = {
         },
         {
           id: "eliminar-o-desactivar-proveedor",
-          title: "Eliminar o desactivar un proveedor",
+          title: "Desactivar, reactivar o eliminar un proveedor",
           summary:
-            "Un proveedor con movimientos no se elimina: se desactiva y deja de aparecer en las listas activas.",
+            "Desactivar oculta al proveedor de la lista y de los selectores sin perder su historial; se puede reactivar después.",
           permission: "suppliers:write",
           screens: [
             {
               kind: "dialog",
-              title: "Eliminar proveedor",
+              title: "Desactivar proveedor",
               description: "Transportes del Sur S.A. · CUIT 30-71234567-8",
               footer: [
                 { label: "Cancelar", variant: "ghost" },
-                { label: "Desactivar", variant: "outline", marker: 2 },
-                { label: "Eliminar", variant: "destructive", marker: 2 },
+                {
+                  label: "Eliminar definitivamente",
+                  variant: "outline",
+                  marker: 2,
+                },
+                { label: "Desactivar", variant: "primary", marker: 2 },
               ],
             },
           ],
           steps: [
-            "En [[/suppliers]], en la fila del proveedor, hacé clic en el tacho ({{Eliminar}}). El sistema revisa si el proveedor tiene movimientos asociados.",
+            "En [[/suppliers]], en la fila del proveedor, hacé clic en {{Desactivar}} (el ícono de archivo).",
             {
-              text: "Elegí según lo que muestre:",
+              text: "En el diálogo:",
               substeps: [
-                "Si **tiene movimientos** (compras, órdenes de pago, cheques, saldo de apertura, adjuntos, movimientos de caja), lista cuántos hay y solo ofrece {{Desactivar}}.",
-                "Si **no tiene movimientos**, podés {{Eliminar}} definitivamente o {{Desactivar}} para conservarlo.",
+                "{{Desactivar}} lo deja guardado con todo su historial y lo saca de la lista y de los selectores.",
+                "Si **no tiene movimientos** (compras, órdenes de pago, cheques, saldo de apertura, adjuntos, movimientos de caja), también aparece {{Eliminar definitivamente}}.",
               ],
             },
           ],
           after: [
-            "Desactivar: aviso «Proveedor desactivado.»; el proveedor queda guardado con todo su historial y solo se ve con {{Solo activos}} destildado.",
-            "Eliminar: aviso «Proveedor eliminado.»; no se puede deshacer.",
+            "Desactivar: aviso «Proveedor desactivado.»; solo se ve con {{Solo activos}} destildado. Para volver a usarlo, hacé clic en {{Reactivar}} (el ícono de encendido) en su fila: aviso «Proveedor reactivado.».",
+            "Eliminar definitivamente: aviso «Proveedor eliminado.»; no se puede deshacer.",
           ],
           errors: [
             {
@@ -353,16 +357,20 @@ export const purchasesPage: GuidePage = {
               fix: "Usá {{Desactivar}}.",
             },
             {
-              message:
-                "No se pudo verificar si el proveedor tiene movimientos asociados.",
-              fix: "Reintentá; mientras no se pueda verificar, el sistema no deja eliminarlo.",
+              message: "No se pudo verificar si tiene movimientos asociados.",
+              fix: "Podés desactivarlo igual; mientras no se pueda verificar, el sistema no ofrece eliminarlo.",
             },
             {
               message: "No tenés permiso para eliminar proveedores.",
               fix: "Pedíselo a alguien con el permiso (ver [[#roles-y-permisos]]).",
             },
           ],
-          keywords: ["borrar proveedor", "dar de baja", "inactivo"],
+          keywords: [
+            "borrar proveedor",
+            "dar de baja",
+            "inactivo",
+            "reactivar proveedor",
+          ],
         },
         {
           id: "ver-cuenta-corriente-proveedor",
@@ -776,7 +784,7 @@ export const purchasesPage: GuidePage = {
         "Del lado fiscal, la pantalla se llama {{Comprobantes}} (como en Ventas): facturas, notas de crédito y notas de débito que te mandan los proveedores de Compras, con su IVA, percepciones y cuenta de gasto. Del lado interno se llama {{Remitos internos de compra}}: compras a proveedores de Otras compras sin factura, que no van al Libro IVA.",
         "Columnas: {{Comprobante}} (tipo y número), {{Proveedor}}, {{Tipo}} ({{Fiscal}} o {{Interno}}), {{Fecha}}, {{Total}}, {{Estado}} ({{Recibida}} o {{Anulada}}) y {{Acciones}}. Arriba podés buscar por proveedor, CUIT o número, filtrar por fechas y por estado ({{Cualquier estado}}).",
         "Del lado fiscal, quien puede cargar compras ve además el botón {{Recibidos de ARCA}}, con la cantidad de comprobantes pendientes: ver [[/purchases/arca]].",
-        "El detalle de una compra muestra el proveedor (con CAE, vencimiento del CAE y vencimiento de pago), los {{Totales}} ({{Neto}}, no gravado, exento, {{IVA}}, {{Otros tributos}} y su reparto, {{Total}}, {{Pagado}}, {{Acreditado}} y {{Saldo}}), los {{Ítems}} (o {{Sin detalle (cargada solo por totales)}}), el motivo si es NC/ND, las {{Órdenes de pago imputadas}}, los {{Remitos internos imputados}}, las notas, los adjuntos y, con permiso de auditoría, el {{Historial}} de cambios.",
+        "El detalle de una compra muestra el proveedor (con CAE, vencimiento del CAE y vencimiento de pago), los {{Totales}} ({{Neto}}, no gravado, exento, {{IVA}}, {{Otros tributos}} y su reparto, {{Total}}, {{Pagado}}, {{Acreditado}}, {{Cubierto por el crédito de otras NC}} cuando otra nota de crédito del proveedor le pasa su sobrante, y {{Saldo}}), los {{Ítems}} (o {{Sin detalle (cargada solo por totales)}}), el motivo si es NC/ND, las {{Órdenes de pago imputadas}}, los {{Remitos internos imputados}}, las notas, los adjuntos y, con permiso de auditoría, el {{Historial}} de cambios.",
       ],
       screens: [
         {
@@ -1187,6 +1195,7 @@ export const purchasesPage: GuidePage = {
           ],
           after: [
             "Una nota de crédito baja lo que se le debe al proveedor y descuenta el saldo de la factura de origen; una nota de débito suma deuda y se paga como una factura.",
+            "Si las notas de crédito de una factura suman más que lo que la factura debe, el sobrante cancela las otras facturas y notas de débito abiertas del mismo proveedor, del mismo canal y en la misma moneda, de la más vieja a la más nueva. En el detalle de esas facturas aparece {{Cubierto por el crédito de otras NC}} y dejan de figurar en el aging y en el selector de la orden de pago.",
             "Su asiento es el de la factura, al revés en el caso de la nota de crédito.",
           ],
           errors: [
@@ -1990,7 +1999,7 @@ export const purchasesPage: GuidePage = {
           body: [
             "Una fila por año, con la flecha para abrir sus meses. Cada período muestra tres renglones: {{ARCA}}, {{ERP}} y {{Diferencia}} (ARCA menos ERP), con {{Cantidad}}, {{Neto gravado}}, {{IVA}}, {{Otros tributos}} y {{Total}}. Cuando los dos lados coinciden, la diferencia dice «—».",
             "Los importes están en pesos: los comprobantes en dólares se pasan a pesos con la cotización de cada uno. Las notas de crédito restan.",
-            "Del lado de ARCA no cuentan los comprobantes descartados en la bandeja; del lado del ERP, las compras anuladas ni las de otras compras (canal interno). Un comprobante de ARCA cuyos importes no se pudieron leer, o de un tipo que no se carga solo, suma en {{Cantidad}} pero no en los importes; el detalle del período lo avisa.",
+            "Del lado de ARCA no cuentan los comprobantes descartados en la bandeja; del lado del ERP, las compras anuladas ni las de otras compras (canal interno). Un comprobante de ARCA cuyos importes no se pudieron leer, o de un tipo que no se carga solo, suma en {{Cantidad}} pero no en los importes, ni del lado de ARCA ni del de su compra en el ERP; el detalle del período lo avisa. Una factura B o C que ARCA lista con neto gravado 0 y sin no gravado ni exento cuenta su neto como total menos tributos, igual que la guarda el sistema. Si los totales coinciden, un centavo de diferencia en el neto, el IVA o los tributos (ARCA a veces redondea sus componentes un centavo distinto de su total) no se muestra como diferencia.",
             "Cada lado cuenta por su propia fecha: si la compra se cargó con otra fecha que la de ARCA, la diferencia de un mes se compensa en el otro.",
           ],
         },
@@ -2612,6 +2621,44 @@ export const purchasesPage: GuidePage = {
           after: [
             "Se descargan las OP del lado donde estás: fecha, número, proveedor, canal, moneda, total y estado.",
           ],
+        },
+      ],
+    },
+
+    // ── DZ Instalaciones ──────────────────────────────────────────────────
+    {
+      id: "dz-instalaciones",
+      title: "DZ Instalaciones",
+      menuPath: "DZ Instalaciones",
+      routes: ["/channel-summary/[channelId]"],
+      permission: "management:read",
+      intro: [
+        "DZ Instalaciones es una división de la misma empresa (el mismo CUIT) con un canal propio. Cuando ese canal está activo, la barra lateral muestra al final un bloque **DZ Instalaciones** con {{Resumen}}, {{Comprobantes de compra}}, {{Órdenes de pago}}, {{Ventas}} y {{Proveedores}}: las mismas pantallas de siempre, pero solo con lo de DZ.",
+        "Fuera de ese bloque, lo de DZ no aparece: ni en las listas de Compras y Ventas, ni en los selectores de canal, ni en el resultado de gestión, el flujo de caja, el aging, las tareas o el asistente. Lo incluyen el Libro IVA, el libro diario, el mayor y el balance, porque el CUIT es uno, y Tesorería: sus movimientos, cheques y la conciliación llevan la marca «DZ».",
+      ],
+      concepts: [
+        {
+          title: "Qué se carga desde el bloque",
+          body: [
+            "Un formulario abierto desde el bloque (una factura de compra, una orden de pago, un proveedor nuevo) ya viene con el canal de DZ y no ofrece otro. Una compra o un proveedor de DZ abierto desde otro lado conserva su canal.",
+            "Las compras de DZ sin cuenta propia van a «Costo de mercadería vendida (Instalaciones)» y sus ventas a «Venta de productos (Instalaciones)», no a las cuentas de Logística Jouve.",
+            "Las ventas de DZ llegan desde ARCA, por su punto de venta: en el bloque, {{Ventas}} no tiene {{Nuevo comprobante}}.",
+          ],
+        },
+      ],
+      tasks: [
+        {
+          id: "ver-resumen-de-dz",
+          title: "Ver el resumen de DZ Instalaciones",
+          permission: "management:read",
+          steps: [
+            "En la barra lateral, abrí **DZ Instalaciones › Resumen**.",
+            "Arriba están las {{Ventas netas}}, los {{Costos}}, el {{Margen}} y lo {{Pagado a proveedores}} de los últimos doce meses; abajo, el detalle {{Por mes}} y los {{Saldos con proveedores}} de DZ.",
+          ],
+          after: [
+            "Las cifras salen de los asientos de DZ, con sus propias cuentas de ventas y costos. Los saldos con proveedores se ven si además tenés acceso al aging de proveedores.",
+          ],
+          keywords: ["dz", "instalaciones", "división", "resultado de dz"],
         },
       ],
     },

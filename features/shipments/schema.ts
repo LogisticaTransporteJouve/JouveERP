@@ -18,7 +18,7 @@ export type ShipmentStatus = (typeof SHIPMENT_STATUSES)[number];
 
 export const SHIPMENT_STATUS_LABELS: Record<ShipmentStatus, string> = {
   not_started: "No iniciada",
-  in_progress: "En progreso",
+  in_progress: "En curso",
   delivered: "Entregada",
   cancelled: "Cancelada",
   reprogrammed: "Reprogramada",
@@ -131,7 +131,8 @@ export const ASSIGNABLE_SHIPMENT_STATUSES = [
   "reprogrammed",
 ] as const satisfies readonly ShipmentStatus[];
 
-/** The statuses a carga can be moved to (never back to not_started). */
+/** The statuses change_shipment_status accepts as a target (never
+ *  not_started by hand; in_progress stays for older callers). */
 export const SHIPMENT_TARGET_STATUSES = [
   "in_progress",
   "delivered",
@@ -140,8 +141,18 @@ export const SHIPMENT_TARGET_STATUSES = [
 ] as const satisfies readonly ShipmentStatus[];
 export type ShipmentTargetStatus = (typeof SHIPMENT_TARGET_STATUSES)[number];
 
-/** Where each status can go: the transitions change_shipment_status accepts
- *  and the cargas table offers. */
+/** What a user (the table, the assistant) can move a carga to: a carga
+ *  starts by itself on its trip's date (sync_shipment_trip_status). */
+export const OFFERED_SHIPMENT_TARGETS = [
+  "delivered",
+  "cancelled",
+  "reprogrammed",
+] as const satisfies readonly ShipmentTargetStatus[];
+export type OfferedShipmentTarget = (typeof OFFERED_SHIPMENT_TARGETS)[number];
+
+/** Where each status can go: the transitions change_shipment_status accepts.
+ *  Reprogramming an in_progress carga sends it back to not_started, off its
+ *  trip. */
 export const SHIPMENT_NEXT_STATUSES: Record<
   ShipmentStatus,
   readonly ShipmentTargetStatus[]
@@ -153,8 +164,9 @@ export const SHIPMENT_NEXT_STATUSES: Record<
   reprogrammed: ["reprogrammed"],
 };
 
-/** Status transition: start / deliver / cancel / reprogram. The relevant extra
- *  fields per status are validated/applied in the action. */
+/** Status transition: deliver / cancel / reprogram (start, for older
+ *  callers). The relevant extra fields per status are validated/applied in
+ *  the action and change_shipment_status. */
 export const ShipmentStatusChangeSchema = z.object({
   id: z.string().uuid(),
   status: z.enum(SHIPMENT_STATUSES),
@@ -190,7 +202,14 @@ export const ShipmentListFilterSchema = z.object({
   id: UuidSchema.nullish(),
   clientId: UuidSchema.nullish(),
   tripId: UuidSchema.nullish(),
-  status: z.enum(SHIPMENT_STATUSES).nullish(),
+  /** Any of these statuses. */
+  statuses: z
+    .array(z.enum(SHIPMENT_STATUSES))
+    .min(1)
+    .max(SHIPMENT_STATUSES.length)
+    .nullish(),
+  /** true: on a trip; false: without one. */
+  assigned: z.boolean().nullish(),
   remito: z.string().trim().min(1).max(REMITO_NUMBER_MAX).nullish(),
 });
 export type ShipmentListFilter = z.input<typeof ShipmentListFilterSchema>;

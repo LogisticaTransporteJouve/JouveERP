@@ -408,7 +408,12 @@ type SupplierDefaults = {
 type ChunkContext = {
   service: Service;
   suppliers: Map<string, SupplierDefaults>;
-  channels: { id: string; is_fiscal: boolean; is_active: boolean }[];
+  channels: {
+    id: string;
+    is_fiscal: boolean;
+    is_active: boolean;
+    is_segregated: boolean;
+  }[];
   costOptions: Parameters<typeof supplierCostDefaults>[1];
   rates: Map<string, Awaited<ReturnType<typeof fetchUsdRateOnOrBefore>>>;
 };
@@ -460,7 +465,9 @@ async function readChunk(
         "id, default_channel_id, default_payment_term_days, default_expense_account_id, default_cost_center_id",
       )
       .in("id", supplierIds),
-    service.from("invoicing_channels").select("id, is_fiscal, is_active"),
+    service
+      .from("invoicing_channels")
+      .select("id, is_fiscal, is_active, is_segregated"),
     latestTributeSplits(service, supplierIds),
   ]);
   if (supplierRows.error) {
@@ -521,7 +528,9 @@ async function readChunk(
   };
 }
 
-/** The supplier's facturas an NC/ND can hang from, with what is open. */
+/** The supplier's facturas an NC/ND can hang from, with what each owes by
+ *  itself (own_open_amount, the figure guard_purchase_invoice_open_after_edit
+ *  checks; credit other NCs spill on it does not count). */
 async function originCandidates(
   service: Service,
   supplierId: string,
@@ -545,7 +554,8 @@ async function originCandidates(
   if (facturas.length === 0) return [];
   const { data: open, error: openError } = await service
     .from("v_purchase_invoice_open")
-    .select("purchase_invoice_id, open_amount")
+    .select("purchase_invoice_id, own_open_amount")
+    .eq("supplier_id", supplierId)
     .in(
       "purchase_invoice_id",
       facturas.map((f) => f.id),
@@ -554,7 +564,7 @@ async function originCandidates(
   const openById = new Map(
     (open ?? []).map((o) => [
       o.purchase_invoice_id,
-      Number(o.open_amount ?? 0),
+      Number(o.own_open_amount ?? 0),
     ]),
   );
   return facturas.map((f) => ({

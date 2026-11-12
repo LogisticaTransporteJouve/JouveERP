@@ -1636,7 +1636,7 @@ export const accountingPage: GuidePage = {
               text: "Revisá el recuadro de la posición estimada:",
               substeps: [
                 "IVA débito (ventas fiscales) menos IVA crédito (compras fiscales).",
-                "Menos las retenciones y percepciones de IVA sufridas en el mes.",
+                "Menos las retenciones y percepciones de IVA sufridas en el mes: las de los cobros, las de las compras y las {{Percepción IVA}} de las cuotas de préstamos (y de los comprobantes del banco) con fecha en el mes.",
                 "Menos el saldo a favor que dejó el IVA del mes anterior (si no hay IVA cargado de ese mes, lo avisa: restalo a mano si corresponde).",
               ],
             },
@@ -1659,6 +1659,11 @@ export const accountingPage: GuidePage = {
             },
             {
               message: "No se pudo leer el IVA del mes anterior.",
+              fix: "Probá de nuevo.",
+            },
+            {
+              message:
+                "No se pudieron leer las percepciones de IVA de los préstamos del período.",
               fix: "Probá de nuevo.",
             },
           ],

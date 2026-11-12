@@ -52,6 +52,9 @@ export default async function DashboardLayout({
       name: row.name,
       is_fiscal: row.is_fiscal,
       is_active: row.is_active,
+      is_segregated: row.is_segregated,
+      short_label: row.short_label,
+      purchase_account_id: row.purchase_account_id,
     }));
 
   const cookieStore = await cookies();

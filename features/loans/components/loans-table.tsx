@@ -192,7 +192,7 @@ export function LoansTable({
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Préstamos y leasing"
+        title="Préstamos, leasings y planes de ahorro"
         description="Capital, cuotas y pagos. Las cuotas pendientes se proyectan en el flujo de caja."
         actions={
           canWrite && (

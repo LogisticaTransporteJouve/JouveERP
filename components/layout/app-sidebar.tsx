@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/sidebar";
 import { useChatUnreadCountLite } from "@/features/chat/hooks/use-chat";
 import type { Access } from "@/lib/auth/permissions";
+import { scopedHref } from "@/lib/scope";
 import { cn } from "@/lib/utils";
 
 import {
@@ -36,6 +37,7 @@ import {
   type NavItem,
 } from "./nav-items";
 import { NavHelp } from "./nav-help";
+import { useChannelSections } from "./use-channel-sections";
 import { NavTheme } from "./nav-theme";
 import { NavUser, type ProfileSummary } from "./nav-user";
 
@@ -60,6 +62,9 @@ function NavLink({
   const { fiscalFilter, setFiscalFilter } = useScope();
   const pathname = usePathname();
   const isActive = item === activeItem;
+  // A segregated channel's item opens its page inside the channel; a main
+  // item opens the main app (no `?channel=`).
+  const href = scopedHref(item.href, item.channelId ?? null);
   return (
     <SidebarMenuItem>
       <SidebarMenuButton
@@ -69,7 +74,7 @@ function NavLink({
         className={cn("text-xs", primary ? PRIMARY_BUTTON : ACTIVE_ITEM)}
       >
         <Link
-          href={item.href}
+          href={href}
           aria-current={isActive ? "page" : undefined}
           onClick={(e) => {
             // A click that opens another tab leaves this tab's side alone.
@@ -112,9 +117,10 @@ export function AppSidebar({
   const pathname = usePathname();
   const { setOpenMobile } = useSidebar();
   const chatUnread = useChatUnreadCountLite();
-  const { fiscalFilter } = useScope();
-  const activeItem = navItemForPath(pathname, fiscalFilter);
-  const sections = visibleSections(userAccess);
+  const { fiscalFilter, channelId } = useScope();
+  const extra = useChannelSections();
+  const activeItem = navItemForPath(pathname, fiscalFilter, channelId, extra);
+  const sections = visibleSections(userAccess, extra);
 
   return (
     <Sidebar variant="inset" collapsible="offcanvas">
@@ -166,7 +172,7 @@ export function AppSidebar({
                     <SidebarMenu>
                       {section.items.map((item) => (
                         <NavLink
-                          key={item.href}
+                          key={`${item.channelId ?? ""}:${item.href}`}
                           item={item}
                           activeItem={activeItem}
                           badge={item.href === "/chat" ? chatUnread : 0}

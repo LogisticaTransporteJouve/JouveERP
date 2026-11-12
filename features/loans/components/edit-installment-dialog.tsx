@@ -41,6 +41,7 @@ function draftOf(
     interest: amountToInput(split?.interest ?? 0),
     iva: amountToInput(split?.iva ?? 0),
     perception: amountToInput(split?.perception ?? 0),
+    iva_perception: amountToInput(split?.iva_perception ?? 0),
     other: amountToInput(split?.other ?? 0),
   };
 }
@@ -51,6 +52,7 @@ function parseDraft(draft: SplitDraft): InstallmentSplit {
     interest: parseArAmount(draft.interest) ?? 0,
     iva: parseArAmount(draft.iva) ?? 0,
     perception: parseArAmount(draft.perception) ?? 0,
+    iva_perception: parseArAmount(draft.iva_perception) ?? 0,
     other: parseArAmount(draft.other) ?? 0,
   };
 }

@@ -2,8 +2,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/lib/db/database.types";
 
-/** The division line every PDF prints under the issuer (the only division
- *  left after DZ was retired). */
+/** The division line a PDF prints under the issuer when its channel has no
+ *  `division_label` of its own (DZ Instalaciones has one). */
 export const DIVISION_LABEL = "Logística Jouve";
 
 /** The issuer block of the invoice, receipt and payment-order PDFs. */
@@ -19,6 +19,8 @@ export type Emisor = {
 
 export type EmisorChannel = {
   business_unit_id: string | null;
+  /** The channel's division line; null/absent = DIVISION_LABEL. */
+  division_label?: string | null;
 };
 
 const DEFAULT_LEGAL_NAME = "DZ & Sons S.A.";
@@ -35,7 +37,7 @@ export async function loadEmisor(
     cuit: "",
     iva_condition: "",
     address: null,
-    division_label: DIVISION_LABEL,
+    division_label: channel.division_label || DIVISION_LABEL,
     iibb_number: null,
     inicio_actividades: null,
   };

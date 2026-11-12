@@ -2,11 +2,12 @@ import { z } from "zod";
 
 import { LEASING_CHARGE_CONCEPTS } from "@/lib/loans/leasing-statement";
 
-export const LOAN_KINDS = ["prestamo", "leasing"] as const;
+export const LOAN_KINDS = ["prestamo", "leasing", "plan_ahorro"] as const;
 export type LoanKind = (typeof LOAN_KINDS)[number];
 export const LOAN_KIND_LABEL: Record<LoanKind, string> = {
   prestamo: "Préstamo",
   leasing: "Leasing",
+  plan_ahorro: "Plan de ahorro",
 };
 
 export const LOAN_STATUSES = ["active", "paid", "cancelled"] as const;
@@ -20,15 +21,32 @@ export const LOAN_STATUS_LABEL: Record<LoanStatus, string> = {
 export const INSTALLMENT_STATUSES = ["pendiente", "pagada"] as const;
 export type InstallmentStatus = (typeof INSTALLMENT_STATUSES)[number];
 
+export const INSTALLMENT_KINDS = ["cuota", "devolucion_capital"] as const;
+export type InstallmentKind = (typeof INSTALLMENT_KINDS)[number];
+
+export function isInstallmentKind(v: unknown): v is InstallmentKind {
+  return (
+    typeof v === "string" &&
+    (INSTALLMENT_KINDS as readonly string[]).includes(v)
+  );
+}
+
 export interface LoanInstallment {
   id: string;
   loan_id: string;
   number: number;
+  /** A cuota (scheduled or the interest of an open-ended loan) or a capital
+   *  repayment of an open-ended loan. */
+  kind: InstallmentKind;
   due_date: string;
   amount: number;
   status: InstallmentStatus;
   paid_date: string | null;
   paid_amount: number | null;
+  /** A USD cuota paid from a peso account: the pesos that left it and the
+   *  implied rate; null when the account is in the loan's currency. */
+  paid_amount_ars: number | null;
+  paid_rate: number | null;
   transaction_id: string | null;
   notes: string | null;
   /** Optional split of the cuota; null = no split (posted whole as an expense). */
@@ -69,7 +87,9 @@ export interface InstallmentSplit {
   capital: number;
   interest: number;
   iva: number;
+  /** IIBB and other non-IVA perceptions. */
   perception: number;
+  iva_perception: number;
   other: number;
 }
 
@@ -77,6 +97,7 @@ export const INSTALLMENT_SPLIT_KEYS = [
   "capital",
   "interest",
   "iva",
+  "iva_perception",
   "perception",
   "other",
 ] as const;
@@ -85,7 +106,8 @@ export const INSTALLMENT_SPLIT_LABEL: Record<keyof InstallmentSplit, string> = {
   capital: "Capital",
   interest: "Interés",
   iva: "IVA",
-  perception: "Percepción",
+  iva_perception: "Percepción IVA",
+  perception: "Percepción IIBB",
   other: "Otros cargos (sellos, punitorios)",
 };
 
@@ -97,6 +119,7 @@ export function splitTotal(split: InstallmentSplit): number {
         split.interest +
         split.iva +
         split.perception +
+        split.iva_perception +
         split.other) *
         100,
     ) / 100
@@ -112,6 +135,8 @@ export interface LoanListItem {
   currency: string;
   channel_id: string;
   channel_name: string | null;
+  /** Its channel posts journal entries (an internal loan does not). */
+  channel_is_fiscal: boolean;
   installments_count: number;
   first_due_date: string;
   status: LoanStatus;
@@ -129,6 +154,11 @@ export interface LoanListItem {
   tna: number | null;
   tea: number | null;
   cft: number | null;
+  /** «Sin vencimiento»: interest-only, 3 upcoming cuotas always, capital
+   *  back only with «Devolución de capital». */
+  is_open_ended: boolean;
+  /** Monthly interest % of an open-ended loan. */
+  monthly_rate: number | null;
   // computed summary
   /** Paid through Caja (a cuota paid before the loan was loaded is not). */
   paid_total: number;
@@ -140,6 +170,9 @@ export interface LoanListItem {
   /** Capital still owed: principal − capital of the paid cuotas (an unsplit
    *  cuota counts whole as capital, as the management P&L reads it). */
   capital_outstanding: number;
+  /** A savings plan: what its paid cuotas added to «Rodados en plan de
+   *  ahorro» (capital of a split cuota, else what was paid). */
+  accumulated: number;
   pending_total: number;
   pending_count: number;
   next_due_date: string | null;
@@ -217,35 +250,55 @@ export const PlanInstallmentSchema = z.object({
   interest: z.number().min(0),
   iva: z.number().min(0),
   perception: z.number().min(0),
+  iva_perception: z.number().min(0).default(0),
   other: z.number().min(0),
   paid: z.boolean(),
 });
 
-export const CreateLoanSchema = z.object({
-  kind: z.enum(LOAN_KINDS).default("prestamo"),
-  description: z.string().trim().min(1, "Descripción requerida.").max(200),
-  lender: optionalText(200),
-  principal: z.coerce.number().positive("El capital debe ser mayor a 0."),
-  currency: z.enum(["ARS", "USD"]).default("ARS"),
-  channel_id: z.string().min(1, "Canal requerido."),
-  installments_count: z.coerce
-    .number()
-    .int("Cantidad de cuotas inválida.")
-    .min(1, "Mínimo 1 cuota.")
-    .max(600, "Máximo 600 cuotas."),
-  first_due_date: dateStr,
-  notes: optionalText(2000),
-  loan_number: optionalText(60),
-  account_id: z.string().uuid().nullable().optional(),
-  start_date: dateStr.nullable().optional(),
-  original_amount: z.coerce.number().positive().nullable().optional(),
-  tna: rate,
-  tea: rate,
-  cft: rate,
-  /** The bank's plan, or the French plan from the TNA; without it the
-   *  cuotas are equal parts of the capital. */
-  plan: z.array(PlanInstallmentSchema).min(1).max(600).nullable().optional(),
-});
+export const CreateLoanSchema = z
+  .object({
+    kind: z.enum(LOAN_KINDS).default("prestamo"),
+    description: z.string().trim().min(1, "Descripción requerida.").max(200),
+    lender: optionalText(200),
+    principal: z.coerce.number().positive("El capital debe ser mayor a 0."),
+    currency: z.enum(["ARS", "USD"]).default("ARS"),
+    channel_id: z.string().min(1, "Canal requerido."),
+    installments_count: z.coerce
+      .number()
+      .int("Cantidad de cuotas inválida.")
+      .min(1, "Mínimo 1 cuota.")
+      .max(600, "Máximo 600 cuotas."),
+    first_due_date: dateStr,
+    notes: optionalText(2000),
+    loan_number: optionalText(60),
+    account_id: z.string().uuid().nullable().optional(),
+    start_date: dateStr.nullable().optional(),
+    original_amount: z.coerce.number().positive().nullable().optional(),
+    tna: rate,
+    tea: rate,
+    cft: rate,
+    /** The bank's plan, or the French plan from the TNA; without it the
+     *  cuotas are equal parts of the capital. */
+    plan: z.array(PlanInstallmentSchema).min(1).max(600).nullable().optional(),
+    /** «Sin vencimiento (solo interés)»: no schedule, monthly interest %. */
+    is_open_ended: z.boolean().default(false),
+    monthly_rate: z.coerce
+      .number()
+      .min(0, "El interés no puede ser negativo.")
+      .max(100, "Interés inválido.")
+      .nullable()
+      .optional(),
+  })
+  .refine(
+    (v) =>
+      !v.is_open_ended ||
+      (v.kind === "prestamo" && v.monthly_rate != null && v.monthly_rate > 0),
+    {
+      message:
+        "Un préstamo sin vencimiento necesita el interés mensual (mayor a 0) y no puede ser leasing ni plan de ahorro.",
+      path: ["monthly_rate"],
+    },
+  );
 export type CreateLoanInput = z.infer<typeof CreateLoanSchema>;
 
 const splitPart = z.coerce.number().min(0, "No puede ser negativo.");
@@ -255,6 +308,7 @@ export const InstallmentSplitSchema = z.object({
   interest: splitPart,
   iva: splitPart,
   perception: splitPart,
+  iva_perception: splitPart.default(0),
   other: splitPart,
 });
 
@@ -298,6 +352,25 @@ export const PayInstallmentSchema = z.object({
   paid_date: dateStr,
   account_id: z.string().uuid("Cuenta requerida."),
   amount: z.coerce.number().positive("El monto debe ser mayor a 0."),
+  /** A USD cuota paid from a peso account: the pesos that leave it. */
+  account_amount: z.coerce
+    .number()
+    .positive("El monto en pesos debe ser mayor a 0.")
+    .nullable()
+    .optional(),
+});
+
+/** «Devolución de capital» of an open-ended loan. */
+export const RepayCapitalSchema = z.object({
+  loan_id: z.string().uuid(),
+  date: dateStr,
+  account_id: z.string().uuid("Cuenta requerida."),
+  amount: z.coerce.number().positive("El capital debe ser mayor a 0."),
+  account_amount: z.coerce
+    .number()
+    .positive("El monto en pesos debe ser mayor a 0.")
+    .nullable()
+    .optional(),
 });
 
 export const CancelLoanSchema = z.object({ id: z.string().uuid() });

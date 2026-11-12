@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { DIALOG_STICKY_FOOTER } from "@/components/ui/dialog";
 import { LIST_FORM, ListFormColumns } from "@/components/form-columns";
 import {
+  useChannelOptions,
   useDefaultChannel,
   usePageIsFiscal,
   useSideChannels,
@@ -118,7 +119,6 @@ type FormValues = z.infer<typeof FormSchema>;
 
 export function PaymentOrderForm({
   mode,
-  channels,
   accounts,
   paymentOrder,
   initialSupplier,
@@ -128,7 +128,6 @@ export function PaymentOrderForm({
   onCancel,
 }: {
   mode: Mode;
-  channels: ChannelOption[];
   accounts: Account[];
   paymentOrder?: PaymentOrderDetail;
   initialSupplier?: PickedSupplier | null;
@@ -160,7 +159,17 @@ export function PaymentOrderForm({
     "";
   /** A bank line's order goes to the bank's channel: no choice to make. */
   const channelFixed = mode === "create" && !!fromBankLine?.channel_id;
-  const sideChannels = useSideChannels(channels);
+  // The page's channels (a segregated channel's section offers only it) plus
+  // the order's own; active ones, unless it is the order's.
+  const channelOptions = useChannelOptions(initialChannel);
+  const activeOptions = useMemo(
+    () =>
+      channelOptions
+        .filter((c) => c.is_active || c.id === initialChannel)
+        .map((c): ChannelOption => ({ id: c.id, name: c.name })),
+    [channelOptions, initialChannel],
+  );
+  const sideChannels = useSideChannels(activeOptions);
   const pageIsFiscal = usePageIsFiscal();
 
   const initialPaymentLines: PaymentLineDraft[] = paymentOrder

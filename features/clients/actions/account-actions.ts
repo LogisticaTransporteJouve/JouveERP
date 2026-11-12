@@ -100,7 +100,7 @@ export interface ClientAccountResult {
  */
 export async function getClientAccountAction(
   clientId: string,
-  input?: { isFiscal?: boolean | null },
+  input?: { isFiscal?: boolean | null; channelId?: string | null },
 ): Promise<ActionResult<ClientAccountResult>> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "clients:read")) {
@@ -124,7 +124,7 @@ export async function getClientAccountAction(
       supabase
         .from("v_client_account_movements")
         .select(
-          "source_type, source_id, movement_date, created_at, kind, letter, punto_venta, numero, signed_amount, gross_amount, channel_id, channel_name, channel_is_fiscal, currency",
+          "source_type, source_id, movement_date, created_at, kind, letter, punto_venta, numero, signed_amount, gross_amount, channel_id, channel_name, channel_is_fiscal, channel_is_segregated, currency",
         )
         .eq("client_id", clientId)
         .order("movement_date", { ascending: true })
@@ -163,7 +163,9 @@ export async function getClientAccountAction(
     paginateRange((from, to) =>
       supabase
         .from("v_aging_documents")
-        .select("document_id, open_amount, channel_is_fiscal, moneda")
+        .select(
+          "document_id, open_amount, channel_id, channel_is_fiscal, channel_is_segregated, moneda",
+        )
         .eq("client_id", clientId)
         .order("document_id", { ascending: true })
         .range(from, to),
@@ -193,7 +195,16 @@ export async function getClientAccountAction(
   // date tie the opening row goes last (after the invoices/receipts of that
   // same day) — so the adjustment reconciles the full day. Same-day documents
   // follow their number, the order the statement lists them in.
-  const rows = movementsRes.data.slice().sort((a, b) => {
+  // Inside a segregated channel's section, only that channel's documents;
+  // elsewhere, the main app's (the opening balance included).
+  const channelId = input?.channelId ?? null;
+  const inScope = (r: {
+    channel_id: string | null;
+    channel_is_segregated: boolean | null;
+  }) =>
+    channelId ? r.channel_id === channelId : r.channel_is_segregated !== true;
+  const openDocs = openRes.data.filter(inScope);
+  const rows = movementsRes.data.filter(inScope).sort((a, b) => {
     const dateA = a.movement_date ?? "";
     const dateB = b.movement_date ?? "";
     if (dateA !== dateB) return dateA < dateB ? -1 : 1;
@@ -297,7 +308,7 @@ export async function getClientAccountAction(
   // rejected checks) owe minus what its receipts paid without applying
   // ("a cuenta"), so a payment on account lowers it.
   const balances = zeroBalances();
-  for (const d of openRes.data) {
+  for (const d of openDocs) {
     if (d.channel_is_fiscal !== isFiscal) continue;
     balances[paymentCurrencyOf(d.moneda)] += Number(d.open_amount ?? 0);
   }

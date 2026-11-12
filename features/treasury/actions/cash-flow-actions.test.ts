@@ -22,6 +22,8 @@ function builder(rows: Row[]) {
     lte: () => b,
     lt: () => b,
     order: () => b,
+    // Segregated channels (DZ) are left out in SQL: the fake rows are main.
+    not: () => b,
     range: async () => ({ data: rows, error: null }),
   };
   return b;
@@ -36,7 +38,12 @@ vi.mock("@/lib/auth/context", () => ({
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({
     from: (table: string) => builder(db[table] ?? []),
-    rpc: (fn: string) => builder(rpcRows[fn] ?? []),
+    // Awaited directly (open_ended_loan_projection) or paged like a table.
+    rpc: (fn: string) =>
+      Object.assign(
+        Promise.resolve({ data: rpcRows[fn] ?? [], error: null }),
+        builder(rpcRows[fn] ?? []),
+      ),
   }),
 }));
 vi.mock("@/lib/supabase/paginate", () => ({
@@ -261,6 +268,29 @@ describe("getCashFlowAction and loans", () => {
     if (!res.ok) return;
     const first = res.data.months.find((m) => m.month === firstProjected());
     expect(first?.outTotal).toBe(500);
+  });
+
+  it("projects the interest of an open-ended USD loan for every month after its generated cuotas", async () => {
+    rateRead = { ok: true, rate: { rate: 1500, rate_date: "2026-10-31" } };
+    db.loans = [{ id: "l2", currency: "USD", channel_id: "jouve_internal" }];
+    db.loan_installments = [];
+    const months = [1, 2, 3, 4, 5, 6].map((i) => {
+      const now = new Date();
+      return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + i, 2))
+        .toISOString()
+        .slice(0, 10);
+    });
+    rpcRows.open_ended_loan_projection = months.map((due_date) => ({
+      loan_id: "l2",
+      due_date,
+      amount: 400,
+    }));
+    const res = await getCashFlowAction({ monthsFwd: 6 });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    const projectedMonths = res.data.months.filter((m) => !m.realized);
+    expect(projectedMonths).toHaveLength(6);
+    expect(projectedMonths.every((m) => m.outTotal === 600000)).toBe(true);
   });
 
   it("does not count a recurring “Préstamo” next to a loaded loan twice", async () => {

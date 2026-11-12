@@ -5,7 +5,6 @@ import { toast } from "sonner";
 
 import { DisabledHint } from "@/components/disabled-hint";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -14,12 +13,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Skeleton } from "@/components/ui/skeleton";
 
-import {
-  useSetShipmentsTrip,
-  useUnassignedShipments,
-} from "../hooks/use-shipments";
+import { useSetShipmentsTrip } from "../hooks/use-shipments";
+
+import { UnassignedShipmentsPicker } from "./unassigned-shipments-picker";
 
 /** Picks cargas still without a trip and puts them on this one. */
 export function AssignShipmentsDialog({
@@ -31,7 +28,6 @@ export function AssignShipmentsDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const { data: items, isLoading, isError } = useUnassignedShipments(open);
   const assign = useSetShipmentsTrip();
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
@@ -54,8 +50,10 @@ export function AssignShipmentsDialog({
     assign.mutate(
       { tripId, shipmentIds },
       {
-        onSuccess: ({ count }) => {
-          if (count < shipmentIds.length) {
+        onSuccess: ({ count, warning }) => {
+          if (warning) {
+            toast.warning(warning);
+          } else if (count < shipmentIds.length) {
             toast.warning(
               `Se asignaron ${count} de ${shipmentIds.length} cargas: las demás ya estaban en otro viaje.`,
             );
@@ -81,45 +79,11 @@ export function AssignShipmentsDialog({
             este viaje.
           </DialogDescription>
         </DialogHeader>
-        <div className="max-h-80 space-y-1 overflow-y-auto">
-          {isLoading ? (
-            <>
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-            </>
-          ) : isError ? (
-            <p className="text-sm text-muted-foreground">
-              No se pudieron cargar las cargas sin viaje.
-            </p>
-          ) : !items || items.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No hay cargas sin viaje. Creálas en Cargas.
-            </p>
-          ) : (
-            items.map((s) => (
-              <label
-                key={s.id}
-                className="flex cursor-pointer items-start gap-3 rounded-md border p-2 text-sm hover:bg-muted/50"
-              >
-                <Checkbox
-                  className="mt-0.5"
-                  checked={selected.has(s.id)}
-                  onCheckedChange={(v) => toggle(s.id, v === true)}
-                />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate font-medium">
-                    {s.client?.legal_name ?? "Sin cliente"}
-                  </span>
-                  <span className="block truncate text-xs text-muted-foreground">
-                    {[s.destination, s.scheduled_date, s.description]
-                      .filter(Boolean)
-                      .join(" · ") || "—"}
-                  </span>
-                </span>
-              </label>
-            ))
-          )}
-        </div>
+        <UnassignedShipmentsPicker
+          enabled={open}
+          selected={selected}
+          onToggle={toggle}
+        />
         <DialogFooter>
           <Button variant="outline" onClick={() => close(false)}>
             Cancelar

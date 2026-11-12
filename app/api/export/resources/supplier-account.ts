@@ -9,6 +9,7 @@ import {
 import {
   ACCOUNT_COLUMNS,
   accountStatementTable,
+  exportChannelScope,
   exportScope,
   ExportInputError,
   inRange,
@@ -23,7 +24,11 @@ export const supplierAccount: Exporter = {
     const { scope, isFiscal } = exportScope(params);
     const supplierId = params.get("supplierId");
     if (!supplierId) throw new ExportInputError("Missing supplier.");
-    const res = await getSupplierAccountAction(supplierId, { isFiscal });
+    const { channelId } = await exportChannelScope(params, isFiscal);
+    const res = await getSupplierAccountAction(supplierId, {
+      isFiscal,
+      channelId,
+    });
     if (!res.ok) throw new Error(res.error);
     const movements = res.data.movements.filter((m) =>
       inRange(m.movement_date, range),

@@ -30,6 +30,7 @@ function mov(p: Partial<BookMovement> & { id: string }): BookMovement {
     signed_amount: -100,
     description: null,
     source_document: null,
+    channel_id: null,
     line_ids: [],
     ...p,
   };

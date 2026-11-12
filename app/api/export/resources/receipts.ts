@@ -3,13 +3,14 @@ import "server-only";
 import { formatReceiptNumber } from "@/features/receipts/schema";
 import { logger } from "@/lib/logger";
 import type { TableReportColumn } from "@/lib/pdf/table-report-template";
-import { applyFiscalFilter } from "@/lib/supabase/fiscal-filter";
+import { applyChannelScope } from "@/lib/supabase/fiscal-filter";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 
 import {
   channelCell,
   dateCell,
+  exportChannelScope,
   exportScope,
   money,
   moneyCell,
@@ -40,17 +41,18 @@ export const receipts: Exporter = {
   permission: "receipts:read",
   load: async (params, range) => {
     const { scope, isFiscal } = exportScope(params);
+    const channelScope = await exportChannelScope(params, isFiscal);
     const supabase = await createClient();
     // Drained page by page: PostgREST caps responses at max_rows (1000);
     // `id` closes the order so OFFSET pages never repeat or skip rows.
     const build = () => {
-      let query = applyFiscalFilter(
+      let query = applyChannelScope(
         supabase
           .from("receipts")
           .select(
-            "punto_venta, numero, receipt_date, total_amount, currency, status, clients ( legal_name ), channel:invoicing_channels ( name, is_fiscal )",
+            "punto_venta, numero, receipt_date, total_amount, currency, status, clients ( legal_name ), channel:invoicing_channels ( name, is_fiscal, is_segregated )",
           ),
-        isFiscal,
+        channelScope,
         "channel",
       )
         .order("receipt_date", { ascending: true })

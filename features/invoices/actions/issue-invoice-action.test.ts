@@ -12,7 +12,7 @@ const h = vi.hoisted(() => {
   const db: Record<string, Array<Record<string, unknown>>> = {};
   const inserts: Array<{ table: string; values: unknown }> = [];
   const deletes: string[] = [];
-  // invoice_open_amount of each comprobante; a missing id reads as NULL.
+  // invoice_own_open_amount of each comprobante; a missing id reads as NULL.
   const openAmount: Record<string, number> = {};
   // Tables whose reads fail with a DB error.
   const failing = new Set<string>();
@@ -75,7 +75,7 @@ vi.mock("@/lib/supabase/service", () => ({
   getServiceClient: () => ({
     from,
     rpc: async (fn: string, args: Record<string, unknown>) => {
-      if (fn === "invoice_open_amount") {
+      if (fn === "invoice_own_open_amount") {
         const id = String(args.p_invoice_id);
         return { data: h.openAmount[id] ?? null, error: null };
       }
@@ -180,7 +180,9 @@ describe("issueFiscalInvoiceAction for a credit note", () => {
     h.openAmount[ORIGIN] = 50;
     const res = await issueFiscalInvoiceAction(noteInput());
     expect(res.ok).toBe(false);
-    expect(!res.ok && res.error).toMatch(/supera el saldo abierto/);
+    expect(!res.ok && res.error).toMatch(
+      /supera lo que el comprobante de origen debe por sí solo/,
+    );
     expect(h.inserts).toEqual([]);
   });
 

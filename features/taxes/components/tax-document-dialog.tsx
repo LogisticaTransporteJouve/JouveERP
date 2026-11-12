@@ -427,6 +427,12 @@ export function TaxDocumentDialog({
                         de percepciones de IVA de las compras.
                       </p>
                     )}
+                    {estimate.percepciones_prestamos !== 0 && (
+                      <p className="text-muted-foreground">
+                        Se restan {formatMoney(estimate.percepciones_prestamos)}{" "}
+                        de percepciones de IVA de cuotas de préstamos.
+                      </p>
+                    )}
                     {estimate.tributos_compras !== 0 && (
                       <p className="text-muted-foreground">
                         Las compras tienen además{" "}

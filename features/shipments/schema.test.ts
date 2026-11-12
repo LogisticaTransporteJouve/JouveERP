@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
   SHIPMENT_STATUS_LABELS,
   SHIPMENT_STATUSES,
+  OFFERED_SHIPMENT_TARGETS,
   ShipmentCreateSchema,
+  ShipmentListFilterSchema,
   ShipmentUpdateSchema,
   ShipmentStatusChangeSchema,
   isShipmentStatus,
@@ -107,5 +109,35 @@ describe("isShipmentStatus", () => {
     for (const s of SHIPMENT_STATUSES) {
       expect(SHIPMENT_STATUS_LABELS[s]).toBeTruthy();
     }
+  });
+});
+
+describe("ShipmentListFilterSchema", () => {
+  it("takes several statuses and the assigned flag", () => {
+    expect(
+      ShipmentListFilterSchema.parse({
+        statuses: ["not_started", "reprogrammed"],
+        assigned: false,
+      }),
+    ).toMatchObject({
+      statuses: ["not_started", "reprogrammed"],
+      assigned: false,
+    });
+  });
+
+  it("refuses an empty or unknown status list", () => {
+    expect(ShipmentListFilterSchema.safeParse({ statuses: [] }).success).toBe(
+      false,
+    );
+    expect(
+      ShipmentListFilterSchema.safeParse({ statuses: ["started"] }).success,
+    ).toBe(false);
+  });
+});
+
+describe("OFFERED_SHIPMENT_TARGETS", () => {
+  it("never offers starting a carga by hand", () => {
+    expect(OFFERED_SHIPMENT_TARGETS).not.toContain("in_progress");
+    expect(SHIPMENT_STATUS_LABELS.in_progress).toBe("En curso");
   });
 });

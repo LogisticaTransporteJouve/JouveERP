@@ -46,6 +46,29 @@ describe("payLoanInstallment", () => {
     );
   });
 
+  it("pays a USD cuota from pesos with the 5-arg signature", async () => {
+    rpc.mockResolvedValue({ data: "tx-2", error: null });
+    const res = await payLoanInstallment("u1", {
+      ...pay,
+      amount: 400,
+      account_amount: 622000,
+    });
+    expect(res).toEqual({ ok: true, data: { transactionId: "tx-2" } });
+    expect(rpc).toHaveBeenCalledWith("pay_loan_installment", {
+      p_installment_id: CUOTA,
+      p_paid_date: "2026-11-05",
+      p_account_id: ACC,
+      p_amount: 400,
+      p_account_amount: 622000,
+    });
+    expect(logAudit).toHaveBeenCalledWith(
+      "loan.installment_paid",
+      "u1",
+      { installment_id: CUOTA, amount: 400, account_amount: 622000 },
+      "tx-2",
+    );
+  });
+
   it("returns the guard's refusal (a cuota already paid) without auditing", async () => {
     rpc.mockResolvedValue({
       data: null,

@@ -19,12 +19,17 @@ const h = vi.hoisted(() => ({
 }));
 
 vi.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams(),
   notFound: () => {
     throw new Error("NEXT_NOT_FOUND");
   },
   redirect: (to: string) => {
     throw new Error(`NEXT_REDIRECT ${to}`);
   },
+}));
+// No segregated channel here: the record opens in the main app.
+vi.mock("@/lib/scope-server", () => ({
+  segregatedChannelIdOf: async () => null,
 }));
 vi.mock("@/lib/auth/context", () => ({
   requireUserContext: async () => ({ userId: "u1", access: h.access }),

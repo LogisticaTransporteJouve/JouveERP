@@ -9,8 +9,7 @@ import {
   suppliersKeys,
 } from "@/features/suppliers/lib/suppliers-keys";
 import { requireUserContext } from "@/lib/auth/context";
-import { isFiscalFor } from "@/lib/scope";
-import { readScopeCookie } from "@/lib/scope-server";
+import { readPageChannelScope } from "@/lib/scope-server";
 import { userCan } from "@/lib/auth/permissions";
 import { Hydrate } from "@/lib/query/hydrate";
 import { prefetchQueries } from "@/lib/query/prefetch";
@@ -21,7 +20,12 @@ export const dynamic = "force-dynamic";
 export default async function SuppliersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; inactive?: string; category?: string }>;
+  searchParams: Promise<{
+    q?: string;
+    inactive?: string;
+    category?: string;
+    channel?: string;
+  }>;
 }) {
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "suppliers:read")) {
@@ -33,11 +37,13 @@ export default async function SuppliersPage({
   const initialOnlyActive = params.inactive !== "1";
   const initialCategoryId = params.category?.trim() || null;
 
+  const scope = await readPageChannelScope(params);
   const filters = {
     query: initialQuery,
     onlyActive: initialOnlyActive,
     categoryId: initialCategoryId,
-    isFiscal: isFiscalFor(await readScopeCookie()),
+    isFiscal: scope.isFiscal,
+    channelId: scope.channelId,
   };
   const dehydratedState = await prefetchQueries([
     {
@@ -47,6 +53,7 @@ export default async function SuppliersPage({
         runAction(() =>
           searchSuppliersAction({
             ...filters,
+            channelMembersOnly: !!filters.channelId,
             offset: pageParam,
             limit: SUPPLIERS_PAGE_SIZE,
           }),

@@ -242,7 +242,7 @@ export type ClientReferences = {
 /**
  * Counts referencing rows across known dependent tables. Until invoices,
  * receipts, etc land in later phases, the count is always zero — but the
- * DeleteClientDialog already routes through this so adding new tables only
+ * DeactivateClientDialog already routes through this so adding new tables only
  * means extending the map below.
  */
 export async function getClientReferencesAction(

@@ -90,7 +90,8 @@ export function AdoptInstallmentPaymentDialog({
             onChange={setTransactionId}
             aroundDate={installment?.due_date ?? ""}
             channelId={loan.channel_id}
-            currency={loan.currency}
+            // A USD cuota can be paid by a peso expense (at its rate).
+            currency={loan.currency === "USD" ? undefined : loan.currency}
             manualOnly
           />
         </div>

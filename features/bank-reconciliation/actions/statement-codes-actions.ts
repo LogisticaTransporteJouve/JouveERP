@@ -105,7 +105,7 @@ async function readLoanInstallments(
   const { data, error } = await service
     .from("loan_installments")
     .select(
-      "id, number, due_date, amount, capital_amount, iva_amount, loan:loans!inner ( description, installments_count, account_id, status )",
+      "id, number, due_date, amount, capital_amount, iva_amount, loan:loans!inner ( description, installments_count, account_id, status, currency, account:accounts ( currency ) )",
     )
     .eq("status", "pendiente")
     .eq("loan.account_id", accountId)
@@ -118,7 +118,7 @@ async function readLoanInstallments(
   const last = await service
     .from("loan_installments")
     .select(
-      "interest_amount, perception_amount, loan:loans!inner ( account_id )",
+      "interest_amount, perception_amount, iva_perception_amount, loan:loans!inner ( account_id )",
     )
     .eq("status", "pagada")
     .eq("loan.account_id", accountId)
@@ -137,9 +137,26 @@ async function readLoanInstallments(
           10_000,
       ) / 10_000
     : null;
+  const iva_tax_rate =
+    last.data && last.data.iva_perception_amount !== null
+      ? Math.round(
+          (Math.min(
+            Number(last.data.iva_perception_amount),
+            Number(last.data.perception_amount),
+          ) /
+            Number(last.data.interest_amount)) *
+            10_000,
+        ) / 10_000
+      : null;
   return data.flatMap((i) => {
     const loan = Array.isArray(i.loan) ? i.loan[0] : i.loan;
     if (!loan) return [];
+    // A cuota in another currency than the account (a USD loan debited in
+    // pesos) is never proposed by amount: «Pagar cuota de préstamo…» pays it.
+    const debitAccount = Array.isArray(loan.account)
+      ? loan.account[0]
+      : loan.account;
+    if (debitAccount && debitAccount.currency !== loan.currency) return [];
     return [
       {
         id: i.id,
@@ -151,6 +168,7 @@ async function readLoanInstallments(
         capital: Number(i.capital_amount ?? i.amount),
         iva: Number(i.iva_amount ?? 0),
         tax_rate,
+        iva_tax_rate,
       },
     ];
   });

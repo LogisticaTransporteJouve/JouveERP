@@ -369,10 +369,10 @@ select ok(
   'the new guard functions are not callable through the API');
 
 select ok(
-  not has_function_privilege('anon', 'public.search_clients(text, boolean, int, int, boolean)', 'execute')
-  and has_function_privilege('authenticated', 'public.search_clients(text, boolean, int, int, boolean)', 'execute')
-  and not has_function_privilege('anon', 'public.search_suppliers(text, boolean, int, int, uuid, boolean)', 'execute')
-  and has_function_privilege('authenticated', 'public.search_suppliers(text, boolean, int, int, uuid, boolean)', 'execute'),
+  not has_function_privilege('anon', 'public.search_clients(text, boolean, int, int, boolean, text)', 'execute')
+  and has_function_privilege('authenticated', 'public.search_clients(text, boolean, int, int, boolean, text)', 'execute')
+  and not has_function_privilege('anon', 'public.search_suppliers(text, boolean, int, int, uuid, boolean, text, boolean)', 'execute')
+  and has_function_privilege('authenticated', 'public.search_suppliers(text, boolean, int, int, uuid, boolean, text, boolean)', 'execute'),
   'the side-aware searches are callable by authenticated users only');
 
 select is(

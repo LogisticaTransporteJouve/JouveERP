@@ -19,8 +19,10 @@ import { IconButton } from "@/components/ui/icon-button";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { APP_WINDOW, MANUAL_WINDOW } from "@/lib/manual/windows";
+import { scopedHref } from "@/lib/scope";
 
 import { canSee, navItemForPath, navSectionForItem } from "./nav-items";
+import { useChannelSections } from "./use-channel-sections";
 
 // Sticky over the scrolling canvas, on the canvas's own surface and hairline
 // so it reads as part of the card.
@@ -31,10 +33,11 @@ export function AppHeader({
   actions: React.ReactNode;
   userAccess: Access;
 }) {
-  const { fiscalFilter, locked } = useScope();
+  const { fiscalFilter, locked, channelId } = useScope();
   const pathname = usePathname();
-  const item = navItemForPath(pathname, fiscalFilter);
-  const section = item ? navSectionForItem(item) : undefined;
+  const extra = useChannelSections();
+  const item = navItemForPath(pathname, fiscalFilter, channelId, extra);
+  const section = item ? navSectionForItem(item, extra) : undefined;
   // The section has no page of its own: its crumb opens the section's first
   // screen the user may see (Ventas › Comprobantes).
   const sectionHome = section?.items.find((i) => canSee(userAccess, i));
@@ -62,7 +65,14 @@ export function AppHeader({
                 <BreadcrumbItem className="hidden md:inline-flex">
                   {sectionHome && sectionHome.href !== pathname ? (
                     <BreadcrumbLink asChild>
-                      <Link href={sectionHome.href}>{section.label}</Link>
+                      <Link
+                        href={scopedHref(
+                          sectionHome.href,
+                          sectionHome.channelId ?? null,
+                        )}
+                      >
+                        {section.label}
+                      </Link>
                     </BreadcrumbLink>
                   ) : (
                     section.label

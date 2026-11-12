@@ -47,6 +47,12 @@ export type SearchSuppliersInput = {
   categoryId?: string | null;
   /** Compras (true) or Otras compras (false); null lists both. */
   isFiscal?: boolean | null;
+  /** A segregated channel's section. Without it, suppliers that only live on
+   *  a segregated channel are left out. */
+  channelId?: string | null;
+  /** With `channelId`: only that channel's suppliers (a document on it, or it
+   *  as their default channel). The section's list; pickers leave it off. */
+  channelMembersOnly?: boolean;
 };
 
 export type SearchSuppliersPage = {
@@ -87,6 +93,8 @@ export async function searchSuppliersAction(
     p_limit: limit + 1,
     p_category_id: input.categoryId ?? undefined,
     p_is_fiscal: input.isFiscal ?? undefined,
+    p_channel_id: input.channelId ?? undefined,
+    p_channel_members_only: input.channelMembersOnly ?? undefined,
   });
 
   if (error) {

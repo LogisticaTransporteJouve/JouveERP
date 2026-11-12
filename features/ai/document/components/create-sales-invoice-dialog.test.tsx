@@ -10,6 +10,7 @@ import type { InvoicingChannelSummary } from "@/lib/scope";
 const h = vi.hoisted(() => ({ pos: {} as Record<string, unknown> }));
 
 vi.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams(),
   usePathname: () => "/documents",
   useRouter: () => ({ refresh: vi.fn() }),
 }));

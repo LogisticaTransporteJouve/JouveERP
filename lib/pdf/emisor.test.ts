@@ -68,6 +68,19 @@ describe("loadEmisor", () => {
     expect(emisor.division_label).toBe("Logística Jouve");
   });
 
+  it("prints the channel's own division line when it has one", async () => {
+    const emisor = await loadEmisor(fakeClient(null), {
+      business_unit_id: "dz_sons",
+      division_label: "DZ Instalaciones",
+    });
+    expect(emisor.division_label).toBe("DZ Instalaciones");
+    const fallback = await loadEmisor(fakeClient(null), {
+      business_unit_id: "dz_sons",
+      division_label: null,
+    });
+    expect(fallback.division_label).toBe("Logística Jouve");
+  });
+
   it("throws on a read error", async () => {
     await expect(
       loadEmisor(fakeClient(null, { message: "down" }), channel),

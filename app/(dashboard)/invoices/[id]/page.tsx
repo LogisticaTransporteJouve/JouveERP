@@ -47,7 +47,10 @@ import {
   itemUnitPrice,
   type InvoiceFigures,
 } from "@/lib/pdf/invoice-figures";
+import { PageChannelProvider } from "@/components/providers/scope-provider";
 import { requireUserContext } from "@/lib/auth/context";
+import { scopedHref } from "@/lib/scope";
+import { segregatedChannelIdOf } from "@/lib/scope-server";
 import { userCan, userCanAll } from "@/lib/auth/permissions";
 import { canChangeAttachments } from "@/lib/files/attachment-targets";
 import {
@@ -84,6 +87,8 @@ export default async function ComprobanteDetailPage({
   if (!res.ok) throw new Error(res.error);
   if (!res.data) notFound();
   const c = res.data;
+  // A record of a segregated channel (DZ) opens inside its section.
+  const segregatedId = await segregatedChannelIdOf(c.channel.id);
   const canIssue = userCan(ctx.access, "invoices:issue");
   // An unreadable link must not read as "not billed": Facturar and the retry
   // hide, and the page says it could not tell.
@@ -150,407 +155,417 @@ export default async function ComprobanteDetailPage({
   const invoiceLabel = `${kindLabel} ${numeroLabel}`;
 
   return (
-    <div className="space-y-6">
-      <Breadcrumb>
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbLink href="/invoices">Comprobantes</BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator />
-          <BreadcrumbItem>
-            <BreadcrumbPage>{invoiceLabel}</BreadcrumbPage>
-          </BreadcrumbItem>
-        </BreadcrumbList>
-      </Breadcrumb>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {kindLabel}{" "}
-            <span className="font-mono text-base text-muted-foreground">
-              {numeroLabel}
-            </span>
-            {isProvisional && (
-              <span className="ml-2 text-xs font-normal text-muted-foreground">
-                (provisorio, lo confirma AFIP)
+    <PageChannelProvider channelId={segregatedId}>
+      <div className="space-y-6">
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink href={scopedHref("/invoices", segregatedId)}>
+                Comprobantes
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage>{invoiceLabel}</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 space-y-1">
+            <h1 className="text-2xl font-semibold tracking-tight">
+              {kindLabel}{" "}
+              <span className="font-mono text-base text-muted-foreground">
+                {numeroLabel}
               </span>
+              {isProvisional && (
+                <span className="ml-2 text-xs font-normal text-muted-foreground">
+                  (provisorio, lo confirma AFIP)
+                </span>
+              )}
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              {c.channel.name} · {c.fecha}
+            </p>
+            {links?.billedAs && (
+              <p className="text-sm">
+                Facturado en{" "}
+                <a
+                  href={`/invoices/${links.billedAs.id}`}
+                  className="font-mono underline"
+                >
+                  {links.billedAs.label}
+                </a>
+              </p>
             )}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {c.channel.name} · {c.fecha}
-          </p>
-          {links?.billedAs && (
-            <p className="text-sm">
-              Facturado en{" "}
-              <a
-                href={`/invoices/${links.billedAs.id}`}
-                className="font-mono underline"
-              >
-                {links.billedAs.label}
-              </a>
-            </p>
-          )}
-          {links?.sourceRemito && (
-            <p className="text-sm">
-              Origen: remito interno{" "}
-              <a
-                href={`/invoices/${links.sourceRemito.id}`}
-                className="font-mono underline"
-              >
-                {links.sourceRemito.label}
-              </a>
-            </p>
-          )}
-          {links?.creditState === "running" && (
-            <p className="text-sm text-muted-foreground">
-              Acreditando el remito: en unos minutos queda saldado.
-            </p>
-          )}
-          {links?.creditState === "pending" && (
-            <p className="text-sm text-muted-foreground">
-              El remito todavía no se acreditó: la venta figura en Ventas y en
-              Otras ventas hasta que se complete.
-            </p>
-          )}
-          {links === null && (
-            <p className="text-sm text-muted-foreground">
-              No se pudo leer si el comprobante está vinculado a un remito
-              interno. Recargá la página.
-            </p>
-          )}
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <InvoiceJobStatus
-            id={c.id}
-            initialStatus={c.status as InvoiceStatus}
-          />
-          {c.status === "emitted" && (
-            <Button asChild variant="outline" size="sm">
-              <a
-                href={`/api/invoices/${c.id}/pdf`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <FileDown />
-                PDF
-              </a>
-            </Button>
-          )}
-          {canIssue && c.status === "emitted" && !c.pdf_hash && (
-            <RegeneratePdfButton id={c.id} />
-          )}
-          {canCancel && <CancelInvoiceDialog id={c.id} label={invoiceLabel} />}
-          {collectOpen && (
-            <CollectDialog
-              defaultOpen={openCollect}
-              side={c.channel.is_fiscal ? "fiscal" : "internal"}
-              canEditRetentions={userCan(ctx.access, "retentions:write")}
-              initialClient={{
-                id: c.client.id,
-                legal_name: c.client.legal_name,
-                display_name: null,
-                cuit: c.doc_nro ? String(c.doc_nro) : null,
-                iva_condition: c.client.iva_condition,
-                is_fiscal: c.channel.is_fiscal,
-              }}
-              initialAllocations={[
-                {
-                  document_id: c.id,
-                  document_type: "invoice",
-                  amount_applied: amountToInput(collectOpen.outstanding),
-                },
-              ]}
-              trigger={
-                <Button>
-                  <HandCoins className="size-4" />
-                  Cobrar
-                </Button>
-              }
+            {links?.sourceRemito && (
+              <p className="text-sm">
+                Origen: remito interno{" "}
+                <a
+                  href={`/invoices/${links.sourceRemito.id}`}
+                  className="font-mono underline"
+                >
+                  {links.sourceRemito.label}
+                </a>
+              </p>
+            )}
+            {links?.creditState === "running" && (
+              <p className="text-sm text-muted-foreground">
+                Acreditando el remito: en unos minutos queda saldado.
+              </p>
+            )}
+            {links?.creditState === "pending" && (
+              <p className="text-sm text-muted-foreground">
+                El remito todavía no se acreditó: la venta figura en Ventas y en
+                Otras ventas hasta que se complete.
+              </p>
+            )}
+            {links === null && (
+              <p className="text-sm text-muted-foreground">
+                No se pudo leer si el comprobante está vinculado a un remito
+                interno. Recargá la página.
+              </p>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <InvoiceJobStatus
+              id={c.id}
+              initialStatus={c.status as InvoiceStatus}
             />
-          )}
-          {canIssue && links?.creditState === "pending" && (
-            <RetryRemitoCreditButton facturaId={c.id} />
-          )}
-          {canIssue &&
-            isInternal &&
-            c.kind === "factura" &&
-            c.status === "emitted" &&
-            links !== null &&
-            !links.billedAs && (
-              <BillRemitoDialog
-                remitoId={c.id}
-                remitoLabel={invoiceLabel}
-                items={c.items.map((it) => ({
-                  quantity: Number(it.quantity),
-                  unit_price: Number(it.unit_price),
-                }))}
-              />
+            {c.status === "emitted" && (
+              <Button asChild variant="outline" size="sm">
+                <a
+                  href={`/api/invoices/${c.id}/pdf`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <FileDown />
+                  PDF
+                </a>
+              </Button>
             )}
-          {canIssue &&
-            c.status === "emitted" &&
-            c.kind === "factura" &&
-            c.channel.is_fiscal &&
-            c.letter &&
-            (() => {
-              const origin: OriginInvoice = {
-                id: c.id,
-                channel_id: c.channel.id,
-                letter: c.letter as "A" | "B" | "C",
-                punto_venta: c.punto_venta,
-                fecha: c.fecha,
-                concepto: c.concepto,
-                moneda: c.moneda,
-                cotizacion: c.cotizacion,
-                doc_nro: c.doc_nro,
-                client: {
+            {canIssue && c.status === "emitted" && !c.pdf_hash && (
+              <RegeneratePdfButton id={c.id} />
+            )}
+            {canCancel && (
+              <CancelInvoiceDialog id={c.id} label={invoiceLabel} />
+            )}
+            {collectOpen && (
+              <CollectDialog
+                defaultOpen={openCollect}
+                side={c.channel.is_fiscal ? "fiscal" : "internal"}
+                canEditRetentions={userCan(ctx.access, "retentions:write")}
+                initialClient={{
                   id: c.client.id,
                   legal_name: c.client.legal_name,
-                  iva_condition: c.client.iva_condition as IvaCondition,
-                },
-                items: c.items.map((it) => ({
-                  description: it.description,
-                  quantity: it.quantity,
-                  unit_price: it.unit_price,
-                  iva_rate_id: it.iva_rate_id,
-                  revenue_kind: it.revenue_kind,
-                })),
-              };
-              return (
-                <>
-                  <IssueNcNdDialog origin={origin} kind="nc" />
-                  <IssueNcNdDialog origin={origin} kind="nd" />
-                </>
-              );
-            })()}
-        </div>
-      </div>
-
-      {/* Cliente + emisor side by side */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <div className="rounded-lg border bg-card p-4">
-          <h2 className="text-sm font-medium">Cliente</h2>
-          <dl className="mt-3 space-y-1 text-sm">
-            <DetailRow
-              label={c.channel.is_fiscal ? "Razón social" : "Nombre"}
-              value={c.client.legal_name}
-            />
-            {c.channel.is_fiscal && (
-              <DetailRow label="Doc" value={`${c.doc_tipo} · ${c.doc_nro}`} />
-            )}
-            {c.client.iva_condition && (
-              <DetailRow
-                label="Condición IVA"
-                value={
-                  ivaConditionLabel(c.client.iva_condition) ??
-                  c.client.iva_condition
+                  display_name: null,
+                  cuit: c.doc_nro ? String(c.doc_nro) : null,
+                  iva_condition: c.client.iva_condition,
+                  is_fiscal: c.channel.is_fiscal,
+                }}
+                initialAllocations={[
+                  {
+                    document_id: c.id,
+                    document_type: "invoice",
+                    amount_applied: amountToInput(collectOpen.outstanding),
+                  },
+                ]}
+                trigger={
+                  <Button>
+                    <HandCoins className="size-4" />
+                    Cobrar
+                  </Button>
                 }
               />
             )}
-          </dl>
-        </div>
-
-        <div className="rounded-lg border bg-card p-4">
-          <h2 className="text-sm font-medium">Operación</h2>
-          <dl className="mt-3 space-y-1 text-sm">
-            <DetailRow label="Fecha de emisión" value={c.fecha} />
-            {c.fch_serv_desde && (
-              <DetailRow label="Servicio desde" value={c.fch_serv_desde} />
+            {canIssue && links?.creditState === "pending" && (
+              <RetryRemitoCreditButton facturaId={c.id} />
             )}
-            {c.fch_serv_hasta && (
-              <DetailRow label="Servicio hasta" value={c.fch_serv_hasta} />
-            )}
-            {c.fch_vto_pago && (
-              <DetailRow label="Vto. pago" value={c.fch_vto_pago} />
-            )}
-            <DetailRow
-              label="Concepto"
-              value={
-                c.concepto === 1
-                  ? "Productos"
-                  : c.concepto === 2
-                    ? "Servicios"
-                    : "Productos y Servicios"
-              }
-            />
-            <DetailRow
-              label="Moneda"
-              value={
-                c.moneda === "PES"
-                  ? "Pesos"
-                  : `${c.moneda} @ ${formatARS(c.cotizacion)}`
-              }
-            />
-          </dl>
-          {c.notes && (
-            <div className="mt-3 border-t pt-3 text-sm">
-              <div className="text-muted-foreground">Observaciones</div>
-              <p className="mt-1 whitespace-pre-wrap break-words">{c.notes}</p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Items */}
-      <div className="rounded-lg border bg-card">
-        <div className="border-b px-4 py-3">
-          <h2 className="text-sm font-medium">Ítems</h2>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/30 text-xs uppercase tracking-wide text-muted-foreground">
-              <tr>
-                <th className="px-4 py-2 text-left">Descripción</th>
-                <th className="px-4 py-2 text-right">Cant.</th>
-                <th className="px-4 py-2 text-right">
-                  {isInternal ? "Precio final" : "P. Unit."}
-                </th>
-                {!isInternal && <th className="px-4 py-2 text-right">IVA</th>}
-                <th className="px-4 py-2 text-right">Subtotal</th>
-                {canIssue && <th className="px-4 py-2 text-left">Gestión</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {c.items.map((item) => (
-                <tr key={item.id} className="border-t">
-                  <td className="px-4 py-2">{item.description}</td>
-                  <td className="px-4 py-2 text-right font-mono">
-                    {formatARS(item.quantity)}
-                  </td>
-                  <td className="px-4 py-2 text-right font-mono">
-                    ${formatARS(itemUnitPrice(figures, item))}
-                  </td>
-                  {!isInternal && (
-                    <td className="px-4 py-2 text-right">
-                      {item.iva_rate_id !== null
-                        ? `${ivaRatePercent(item.iva_rate_id as IvaRateId)}%`
-                        : "—"}
-                    </td>
-                  )}
-                  <td className="px-4 py-2 text-right font-mono">
-                    ${formatARS(itemSubtotal(figures, item))}
-                  </td>
-                  {canIssue && (
-                    <td className="px-4 py-2">
-                      <RevenueKindSelect
-                        itemId={item.id}
-                        value={item.revenue_kind}
-                      />
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Totals + AFIP card */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <div className="rounded-lg border bg-card p-4">
-          <h2 className="text-sm font-medium">Totales</h2>
-          <dl className="mt-3 space-y-1 text-sm font-mono">
-            {totalsRows.map((row) => (
-              <DetailRow
-                key={row.label}
-                label={row.label}
-                value={`$${formatARS(row.amount)}`}
-                monoValue
-              />
-            ))}
-            <div
-              className={
-                totalsRows.length > 0 ? "border-t pt-1 mt-1" : undefined
-              }
-            >
-              <DetailRow
-                label="Total"
-                value={`$${formatARS(c.imp_total)}`}
-                monoValue
-                emphasize
-              />
-            </div>
-            {!discriminatesIva(figures) && c.imp_iva > 0 && (
-              // RG 1415: a B voucher does not discriminate IVA; Ley 27.743
-              // asks to inform the IVA it contains, outside the sum.
-              <DetailRow
-                label="IVA contenido (Ley 27.743)"
-                value={`$${formatARS(c.imp_iva)}`}
-                monoValue
-              />
-            )}
-          </dl>
-        </div>
-
-        {c.channel.is_fiscal ? (
-          <div className="rounded-lg border bg-card p-4">
-            <h2 className="text-sm font-medium">Datos AFIP</h2>
-            <dl className="mt-3 space-y-1 text-sm">
-              {c.cae ? (
-                <>
-                  <DetailRow label="CAE" value={c.cae} mono />
-                  {c.cae_vencimiento && (
-                    <DetailRow
-                      label="Vencimiento CAE"
-                      value={c.cae_vencimiento}
-                    />
-                  )}
-                  {c.emitted_at && (
-                    <DetailRow
-                      label="Emitido el"
-                      value={formatArgentineDateTime(c.emitted_at)}
-                    />
-                  )}
-                </>
-              ) : c.status === "failed" ? (
-                <Badge
-                  variant="secondary"
-                  className="bg-muted text-foreground dark:text-foreground"
-                >
-                  Falló: revisá observaciones
-                </Badge>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  Pendiente de CAE…
-                </p>
+            {canIssue &&
+              isInternal &&
+              c.kind === "factura" &&
+              c.status === "emitted" &&
+              links !== null &&
+              !links.billedAs && (
+                <BillRemitoDialog
+                  remitoId={c.id}
+                  remitoLabel={invoiceLabel}
+                  items={c.items.map((it) => ({
+                    quantity: Number(it.quantity),
+                    unit_price: Number(it.unit_price),
+                  }))}
+                />
               )}
-              {c.afip_observaciones != null && (
-                <details className="mt-3 rounded-md border bg-muted/30 p-2 text-xs">
-                  <summary className="cursor-pointer font-medium">
-                    Observaciones AFIP
-                  </summary>
-                  <pre className="mt-2 whitespace-pre-wrap break-all">
-                    {JSON.stringify(c.afip_observaciones, null, 2)}
-                  </pre>
-                </details>
+            {canIssue &&
+              c.status === "emitted" &&
+              c.kind === "factura" &&
+              c.channel.is_fiscal &&
+              c.letter &&
+              (() => {
+                const origin: OriginInvoice = {
+                  id: c.id,
+                  channel_id: c.channel.id,
+                  letter: c.letter as "A" | "B" | "C",
+                  punto_venta: c.punto_venta,
+                  fecha: c.fecha,
+                  concepto: c.concepto,
+                  moneda: c.moneda,
+                  cotizacion: c.cotizacion,
+                  doc_nro: c.doc_nro,
+                  client: {
+                    id: c.client.id,
+                    legal_name: c.client.legal_name,
+                    iva_condition: c.client.iva_condition as IvaCondition,
+                  },
+                  items: c.items.map((it) => ({
+                    description: it.description,
+                    quantity: it.quantity,
+                    unit_price: it.unit_price,
+                    iva_rate_id: it.iva_rate_id,
+                    revenue_kind: it.revenue_kind,
+                  })),
+                };
+                return (
+                  <>
+                    <IssueNcNdDialog origin={origin} kind="nc" />
+                    <IssueNcNdDialog origin={origin} kind="nd" />
+                  </>
+                );
+              })()}
+          </div>
+        </div>
+
+        {/* Cliente + emisor side by side */}
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="rounded-lg border bg-card p-4">
+            <h2 className="text-sm font-medium">Cliente</h2>
+            <dl className="mt-3 space-y-1 text-sm">
+              <DetailRow
+                label={c.channel.is_fiscal ? "Razón social" : "Nombre"}
+                value={c.client.legal_name}
+              />
+              {c.channel.is_fiscal && (
+                <DetailRow label="Doc" value={`${c.doc_tipo} · ${c.doc_nro}`} />
+              )}
+              {c.client.iva_condition && (
+                <DetailRow
+                  label="Condición IVA"
+                  value={
+                    ivaConditionLabel(c.client.iva_condition) ??
+                    c.client.iva_condition
+                  }
+                />
               )}
             </dl>
           </div>
-        ) : (
-          <div className="rounded-lg border bg-card p-4">
-            <h2 className="text-sm font-medium">Documento no fiscal</h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              No se envió a AFIP. Es un comprobante interno de JouveERP.
-            </p>
-          </div>
-        )}
 
-        <div className="rounded-lg border bg-card p-4">
-          <h2 className="text-sm font-medium">Adjuntos</h2>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Remitos, comprobantes de respaldo, otros documentos.
-          </p>
-          <div className="mt-3">
-            <AttachmentsZone
-              targetType="invoice"
-              targetId={c.id}
-              canWrite={canChangeAttachments(ctx.access, "invoice")}
-              canDelete={canChangeAttachments(ctx.access, "invoice")}
-            />
+          <div className="rounded-lg border bg-card p-4">
+            <h2 className="text-sm font-medium">Operación</h2>
+            <dl className="mt-3 space-y-1 text-sm">
+              <DetailRow label="Fecha de emisión" value={c.fecha} />
+              {c.fch_serv_desde && (
+                <DetailRow label="Servicio desde" value={c.fch_serv_desde} />
+              )}
+              {c.fch_serv_hasta && (
+                <DetailRow label="Servicio hasta" value={c.fch_serv_hasta} />
+              )}
+              {c.fch_vto_pago && (
+                <DetailRow label="Vto. pago" value={c.fch_vto_pago} />
+              )}
+              <DetailRow
+                label="Concepto"
+                value={
+                  c.concepto === 1
+                    ? "Productos"
+                    : c.concepto === 2
+                      ? "Servicios"
+                      : "Productos y Servicios"
+                }
+              />
+              <DetailRow
+                label="Moneda"
+                value={
+                  c.moneda === "PES"
+                    ? "Pesos"
+                    : `${c.moneda} @ ${formatARS(c.cotizacion)}`
+                }
+              />
+            </dl>
+            {c.notes && (
+              <div className="mt-3 border-t pt-3 text-sm">
+                <div className="text-muted-foreground">Observaciones</div>
+                <p className="mt-1 whitespace-pre-wrap break-words">
+                  {c.notes}
+                </p>
+              </div>
+            )}
           </div>
         </div>
-      </div>
 
-      {userCan(ctx.access, "audit:read") && <RecordHistory resourceId={c.id} />}
-    </div>
+        {/* Items */}
+        <div className="rounded-lg border bg-card">
+          <div className="border-b px-4 py-3">
+            <h2 className="text-sm font-medium">Ítems</h2>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/30 text-xs uppercase tracking-wide text-muted-foreground">
+                <tr>
+                  <th className="px-4 py-2 text-left">Descripción</th>
+                  <th className="px-4 py-2 text-right">Cant.</th>
+                  <th className="px-4 py-2 text-right">
+                    {isInternal ? "Precio final" : "P. Unit."}
+                  </th>
+                  {!isInternal && <th className="px-4 py-2 text-right">IVA</th>}
+                  <th className="px-4 py-2 text-right">Subtotal</th>
+                  {canIssue && <th className="px-4 py-2 text-left">Gestión</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {c.items.map((item) => (
+                  <tr key={item.id} className="border-t">
+                    <td className="px-4 py-2">{item.description}</td>
+                    <td className="px-4 py-2 text-right font-mono">
+                      {formatARS(item.quantity)}
+                    </td>
+                    <td className="px-4 py-2 text-right font-mono">
+                      ${formatARS(itemUnitPrice(figures, item))}
+                    </td>
+                    {!isInternal && (
+                      <td className="px-4 py-2 text-right">
+                        {item.iva_rate_id !== null
+                          ? `${ivaRatePercent(item.iva_rate_id as IvaRateId)}%`
+                          : "—"}
+                      </td>
+                    )}
+                    <td className="px-4 py-2 text-right font-mono">
+                      ${formatARS(itemSubtotal(figures, item))}
+                    </td>
+                    {canIssue && (
+                      <td className="px-4 py-2">
+                        <RevenueKindSelect
+                          itemId={item.id}
+                          value={item.revenue_kind}
+                        />
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Totals + AFIP card */}
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="rounded-lg border bg-card p-4">
+            <h2 className="text-sm font-medium">Totales</h2>
+            <dl className="mt-3 space-y-1 text-sm font-mono">
+              {totalsRows.map((row) => (
+                <DetailRow
+                  key={row.label}
+                  label={row.label}
+                  value={`$${formatARS(row.amount)}`}
+                  monoValue
+                />
+              ))}
+              <div
+                className={
+                  totalsRows.length > 0 ? "border-t pt-1 mt-1" : undefined
+                }
+              >
+                <DetailRow
+                  label="Total"
+                  value={`$${formatARS(c.imp_total)}`}
+                  monoValue
+                  emphasize
+                />
+              </div>
+              {!discriminatesIva(figures) && c.imp_iva > 0 && (
+                // RG 1415: a B voucher does not discriminate IVA; Ley 27.743
+                // asks to inform the IVA it contains, outside the sum.
+                <DetailRow
+                  label="IVA contenido (Ley 27.743)"
+                  value={`$${formatARS(c.imp_iva)}`}
+                  monoValue
+                />
+              )}
+            </dl>
+          </div>
+
+          {c.channel.is_fiscal ? (
+            <div className="rounded-lg border bg-card p-4">
+              <h2 className="text-sm font-medium">Datos AFIP</h2>
+              <dl className="mt-3 space-y-1 text-sm">
+                {c.cae ? (
+                  <>
+                    <DetailRow label="CAE" value={c.cae} mono />
+                    {c.cae_vencimiento && (
+                      <DetailRow
+                        label="Vencimiento CAE"
+                        value={c.cae_vencimiento}
+                      />
+                    )}
+                    {c.emitted_at && (
+                      <DetailRow
+                        label="Emitido el"
+                        value={formatArgentineDateTime(c.emitted_at)}
+                      />
+                    )}
+                  </>
+                ) : c.status === "failed" ? (
+                  <Badge
+                    variant="secondary"
+                    className="bg-muted text-foreground dark:text-foreground"
+                  >
+                    Falló: revisá observaciones
+                  </Badge>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Pendiente de CAE…
+                  </p>
+                )}
+                {c.afip_observaciones != null && (
+                  <details className="mt-3 rounded-md border bg-muted/30 p-2 text-xs">
+                    <summary className="cursor-pointer font-medium">
+                      Observaciones AFIP
+                    </summary>
+                    <pre className="mt-2 whitespace-pre-wrap break-all">
+                      {JSON.stringify(c.afip_observaciones, null, 2)}
+                    </pre>
+                  </details>
+                )}
+              </dl>
+            </div>
+          ) : (
+            <div className="rounded-lg border bg-card p-4">
+              <h2 className="text-sm font-medium">Documento no fiscal</h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                No se envió a AFIP. Es un comprobante interno de JouveERP.
+              </p>
+            </div>
+          )}
+
+          <div className="rounded-lg border bg-card p-4">
+            <h2 className="text-sm font-medium">Adjuntos</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Remitos, comprobantes de respaldo, otros documentos.
+            </p>
+            <div className="mt-3">
+              <AttachmentsZone
+                targetType="invoice"
+                targetId={c.id}
+                canWrite={canChangeAttachments(ctx.access, "invoice")}
+                canDelete={canChangeAttachments(ctx.access, "invoice")}
+              />
+            </div>
+          </div>
+        </div>
+
+        {userCan(ctx.access, "audit:read") && (
+          <RecordHistory resourceId={c.id} />
+        )}
+      </div>
+    </PageChannelProvider>
   );
 }
 

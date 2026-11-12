@@ -100,16 +100,20 @@ describe("failed and cancelled invoices release what they billed", () => {
 });
 
 describe("NCs count against their origin", () => {
-  it("aging subtracts emitted NCs from the open amount", () => {
-    const view = lastStatement(
+  it("aging reads the open amount of v_invoice_open, which nets emitted NCs and their spill", () => {
+    const aging = lastStatement(
       /create or replace view public\.v_aging_documents[\s\S]*?;\n/gi,
     );
-    expect(view).toMatch(
-      /- COALESCE\(nc\.credited, 0::numeric\) AS open_amount/,
+    expect(aging).toMatch(/FROM public\.v_invoice_open o/);
+    expect(aging).toMatch(/o\.open_amount > 0::numeric/);
+
+    const open = lastStatement(
+      /create (?:or replace )?view public\.v_invoice_open[\s\S]*?;\n/gi,
     );
-    expect(view).toMatch(
-      /n\.kind = 'nc'::text AND n\.status = 'emitted'::text/,
+    expect(open).toMatch(
+      /sum\(n\.imp_total\) filter \(where n\.status = 'emitted'\) as credited/,
     );
+    expect(open).toMatch(/as amount_credited_by_nc_spill/);
   });
 
   it("receipt allocations reject NCs and non-emitted invoices and include NC and opening credits", () => {

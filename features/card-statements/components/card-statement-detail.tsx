@@ -1,6 +1,7 @@
 "use client";
 
 import { Trash2, Undo2 } from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
 
 import {
@@ -16,6 +17,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
   TableBody,
@@ -33,6 +35,7 @@ import {
   useSetCardLines,
   useUnsettleCardStatement,
 } from "../hooks/use-card-statements";
+import { linesFollowingDefault } from "../lib/holder-default";
 import {
   isCardLineUndefined,
   type CardStatementDetail,
@@ -66,6 +69,8 @@ export function CardStatementDetailView({
     <div className="space-y-2">
       {q.isError && <p className="text-sm">{q.error.message}</p>}
       <Detail
+        // Another statement starts with nothing selected.
+        key={q.data.statement.id}
         data={q.data}
         onDeleted={onDeleted}
         canWrite={canWrite}
@@ -110,6 +115,100 @@ function Detail({
     ...new Set(lines.flatMap((l) => (l.card_last4 ? [l.card_last4] : []))),
   ];
   const charges = lines.filter((l) => l.source === "charge");
+  const paidCurrencies = paidParts.map(([currency]) => currency);
+  const busy = setLines.isPending || setHolder.isPending;
+
+  // A change that books a paid part again is confirmed first.
+  const [confirm, setConfirm] = useState<{
+    n: number;
+    run: () => void;
+  } | null>(null);
+  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  const [bulk, setBulk] = useState<Destination>({
+    treatment: "expense",
+    chart_account_id: null,
+    employee_id: null,
+  });
+  const chosen = lines.filter((l) => selected.has(l.id));
+  const bulkReady =
+    (bulk.treatment === "expense" && bulk.chart_account_id !== null) ||
+    (bulk.treatment === "advance" && bulk.employee_id !== null);
+
+  function toggle(ids: string[], on: boolean) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      for (const id of ids) {
+        if (on) next.add(id);
+        else next.delete(id);
+      }
+      return next;
+    });
+  }
+
+  function confirmed(n: number, run: () => void) {
+    if (n > 0) setConfirm({ n, run });
+    else run();
+  }
+
+  function applySelected() {
+    const ids = chosen.map((l) => l.id);
+    const paidCount = chosen.filter((l) => l.paid).length;
+    confirmed(paidCount, () =>
+      setLines.mutate(
+        { statement_id: st.id, line_ids: ids, ...bulk },
+        {
+          onSuccess: ({ updated }) => {
+            setSelected(new Set());
+            toast.success(
+              `${updated === 1 ? "Se cambió 1 consumo" : `Se cambiaron ${updated} consumos`}${paidCount > 0 ? " y se volvió a registrar el pago" : ""}.`,
+            );
+          },
+          onError: (e) => toast.error(e.message),
+        },
+      ),
+    );
+  }
+
+  function applyHolder(last4: string, d: Destination) {
+    const h = holders.find((x) => x.last4 === last4) ?? null;
+    const rebooked = linesFollowingDefault(lines, {
+      last4,
+      previous: h,
+      next: d,
+      paidParts: paidCurrencies,
+      hrWrite: canAdvance,
+    }).length;
+    confirmed(rebooked, () =>
+      setHolder.mutate(
+        { statement_id: st.id, last4, ...d },
+        {
+          onSuccess: ({ updated }) =>
+            updated > 0 &&
+            toast.success(
+              `${updated === 1 ? "Aplicado a 1 consumo" : `Aplicado a ${updated} consumos`} de la tarjeta ${last4}${rebooked > 0 ? "; se volvió a registrar el pago" : ""}.`,
+            ),
+          onError: (e) => toast.error(e.message),
+        },
+      ),
+    );
+  }
+
+  function selectHead(own: CardStatementLine[]) {
+    const ids = own.map((l) => l.id);
+    const all = ids.length > 0 && ids.every((id) => selected.has(id));
+    return (
+      canWrite && (
+        <TableHead className="w-8">
+          <Checkbox
+            aria-label="Seleccionar todos"
+            checked={all}
+            disabled={busy}
+            onCheckedChange={(v) => toggle(ids, v === true)}
+          />
+        </TableHead>
+      )
+    );
+  }
 
   function applyLine(line: CardStatementLine, d: Destination) {
     setLines.mutate(
@@ -129,6 +228,16 @@ function Detail({
   function lineRow(l: CardStatementLine) {
     return (
       <TableRow key={l.id}>
+        {canWrite && (
+          <TableCell className="w-8">
+            <Checkbox
+              aria-label={`Seleccionar ${l.description}`}
+              checked={selected.has(l.id)}
+              disabled={busy}
+              onCheckedChange={(v) => toggle([l.id], v === true)}
+            />
+          </TableCell>
+        )}
         <TableCell className="whitespace-nowrap">
           {formatArgentineDate(l.line_date)}
         </TableCell>
@@ -151,7 +260,7 @@ function Detail({
             employees={employees}
             employeesHidden={employees_hidden}
             allowAdvance={canAdvance && l.source === "purchase"}
-            disabled={!canWrite || setLines.isPending || setHolder.isPending}
+            disabled={!canWrite || busy}
             onChange={(d) => applyLine(l, d)}
           />
         </TableCell>
@@ -175,7 +284,7 @@ function Detail({
           </p>
           <p className="text-sm">
             {locked
-              ? "Pagado: sus gastos y adelantos ya están en la cuenta."
+              ? "Pagado: sus gastos y adelantos ya están en la cuenta. Si cambiás un consumo o el destino de una tarjeta, el pago se vuelve a registrar con la misma línea del extracto."
               : pending > 0
                 ? `${pending === 1 ? "Falta 1 consumo o cargo" : `Faltan ${pending} consumos o cargos`} por definir (una cuenta, un empleado, o cambiar «no corresponde»). Cuando el banco debite el pago, la línea del extracto lo paga.`
                 : "Todo definido. Cuando el banco debite el pago, la línea del extracto lo paga."}
@@ -259,6 +368,43 @@ function Detail({
         </div>
       </div>
 
+      {canWrite && chosen.length > 0 && (
+        <div className="bg-background sticky top-0 z-10 flex flex-wrap items-center gap-2 rounded-lg border p-3">
+          <span className="text-sm font-medium">
+            {chosen.length === 1
+              ? "1 seleccionado"
+              : `${chosen.length} seleccionados`}
+          </span>
+          <span className="text-muted-foreground text-xs">Qué es:</span>
+          <DestinationPicker
+            value={bulk}
+            accounts={accounts}
+            employees={employees}
+            employeesHidden={employees_hidden}
+            allowAdvance={
+              canAdvance && chosen.every((l) => l.source === "purchase")
+            }
+            disabled={busy}
+            onChange={setBulk}
+          />
+          <Button
+            size="sm"
+            disabled={!bulkReady || busy}
+            onClick={applySelected}
+          >
+            Aplicar
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={busy}
+            onClick={() => setSelected(new Set())}
+          >
+            Quitar selección
+          </Button>
+        </div>
+      )}
+
       {cards.map((last4) => {
         const h = holders.find((x) => x.last4 === last4);
         const own = lines.filter((l) => l.card_last4 === last4);
@@ -292,27 +438,8 @@ function Detail({
                     employees={employees}
                     employeesHidden={employees_hidden}
                     allowAdvance={canAdvance}
-                    disabled={
-                      !canWrite ||
-                      locked ||
-                      setHolder.isPending ||
-                      setLines.isPending
-                    }
-                    onChange={(d) =>
-                      setHolder.mutate(
-                        { statement_id: st.id, last4, ...d },
-                        {
-                          onSuccess: ({ updated }) =>
-                            updated > 0 &&
-                            toast.success(
-                              updated === 1
-                                ? `Aplicado a 1 consumo de la tarjeta ${last4}.`
-                                : `Aplicado a ${updated} consumos de la tarjeta ${last4}.`,
-                            ),
-                          onError: (e) => toast.error(e.message),
-                        },
-                      )
-                    }
+                    disabled={!canWrite || busy}
+                    onChange={(d) => applyHolder(last4, d)}
                   />
                 </div>
               )}
@@ -321,6 +448,7 @@ function Detail({
               <Table>
                 <TableHeader>
                   <TableRow>
+                    {selectHead(own)}
                     <TableHead>Fecha</TableHead>
                     <TableHead>Consumo</TableHead>
                     <TableHead className="text-right">Importe</TableHead>
@@ -345,6 +473,7 @@ function Detail({
             <Table>
               <TableHeader>
                 <TableRow>
+                  {selectHead(charges)}
                   <TableHead>Fecha</TableHead>
                   <TableHead>Cargo</TableHead>
                   <TableHead className="text-right">Importe</TableHead>
@@ -357,6 +486,34 @@ function Detail({
         </section>
       )}
       {locked && <Badge variant="outline">Pagado</Badge>}
+
+      <AlertDialog
+        open={confirm !== null}
+        onOpenChange={(open) => !open && setConfirm(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Volver a registrar el pago?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirm?.n === 1
+                ? "Se vuelve a registrar 1 consumo de este resumen pagado con la misma línea del extracto."
+                : `Se vuelven a registrar ${confirm?.n ?? 0} consumos de este resumen pagado con la misma línea del extracto.`}{" "}
+              La fecha, la conciliación y el total no cambian.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                confirm?.run();
+                setConfirm(null);
+              }}
+            >
+              Volver a registrar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

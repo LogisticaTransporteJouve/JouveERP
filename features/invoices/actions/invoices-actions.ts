@@ -21,7 +21,7 @@ import { parseSearchTerm } from "@/lib/list-search";
 import { isoCurrency, type ListTotalRow } from "@/lib/list-totals";
 import { logger } from "@/lib/logger";
 import { containsPattern } from "@/lib/supabase/like-pattern";
-import { applyFiscalFilter } from "@/lib/supabase/fiscal-filter";
+import { applyChannelScope } from "@/lib/supabase/fiscal-filter";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { getServiceClient } from "@/lib/supabase/service";
 
@@ -208,7 +208,7 @@ export async function listInvoicesAction(
     .from("invoices")
     .select(
       `id, channel_id, client_id, kind, letter, punto_venta, numero, fecha, imp_total, moneda, status, cae, emitted_at,
-       channel:invoicing_channels(name, is_fiscal, is_active),
+       channel:invoicing_channels(name, is_fiscal, is_active, is_segregated),
        client:clients!inner(legal_name)`,
     )
     .order("fecha", { ascending: false })
@@ -218,10 +218,13 @@ export async function listInvoicesAction(
     .order("id", { ascending: false })
     .range(offset, offset + limit); // limit + 1 trick
 
-  if (filters.channel_id) query = query.eq("channel_id", filters.channel_id);
-  query = applyFiscalFilter(
+  // Without a channel, the main app: segregated channels are left out.
+  query = applyChannelScope(
     query,
-    scopeIsFiscalFor(ctx.access, filters.isFiscal),
+    {
+      isFiscal: scopeIsFiscalFor(ctx.access, filters.isFiscal),
+      channelId: filters.channel_id ?? null,
+    },
     "channel",
   );
   if (filters.activeChannelOnly) {
@@ -333,6 +336,7 @@ export async function getInvoiceListTotalsAction(
         p_to: filters.to ?? undefined,
         p_numero: term.numero ?? undefined,
         p_client_name: term.name ?? undefined,
+        p_channel_id: filters.channelId ?? undefined,
       })
       .range(from, to),
   );
@@ -598,6 +602,8 @@ export async function listInvoicingChannelsAction(): Promise<
     .from("invoicing_channels")
     .select("id, name, is_fiscal, is_active")
     .eq("is_active", true)
+    // A segregated channel is offered only inside its own section.
+    .eq("is_segregated", false)
     .order("name");
   if (error) {
     return {

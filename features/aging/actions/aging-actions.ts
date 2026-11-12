@@ -12,7 +12,10 @@ import { requireUserContext } from "@/lib/auth/context";
 import { CLIENT_AGING_PERMISSIONS, userCanAll } from "@/lib/auth/permissions";
 import { fetchLatestUsdRate } from "@/lib/fx";
 import { logger } from "@/lib/logger";
-import { applyFiscalFilter } from "@/lib/supabase/fiscal-filter";
+import {
+  applyChannelScope,
+  applyFiscalFilter,
+} from "@/lib/supabase/fiscal-filter";
 import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
@@ -56,13 +59,13 @@ export async function getAgingSummaryAction(input?: {
     // What each client paid a cuenta and is not applied yet: shown apart
     // from the buckets.
     paginateRange((from, to) =>
-      applyFiscalFilter(
+      applyChannelScope(
         supabase
           .from("v_receipt_unapplied")
           .select(
             "party_id:client_id, currency, unapplied_amount, party:clients!inner(legal_name, display_name, cuit)",
           ),
-        isFiscal,
+        { isFiscal, channelId: null },
       )
         .order("receipt_id", { ascending: true })
         .range(from, to),

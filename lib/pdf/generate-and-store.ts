@@ -47,7 +47,7 @@ export async function buildTemplateData(
     .select(
       `
       *,
-      channel:invoicing_channels(id, name, is_fiscal, business_unit_id),
+      channel:invoicing_channels(id, name, is_fiscal, business_unit_id, division_label),
       client:clients(id, legal_name, iva_condition, address, real_address),
       items:invoice_items(description, quantity, unit_price, iva_rate_id, line_neto, line_iva, line_total, sort_order)
     `,
@@ -62,6 +62,7 @@ export async function buildTemplateData(
     name: string;
     is_fiscal: boolean;
     business_unit_id: string;
+    division_label: string | null;
   } | null;
   const client = row.client as {
     id: string;

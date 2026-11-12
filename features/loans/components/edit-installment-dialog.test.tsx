@@ -22,11 +22,14 @@ const installment: LoanInstallment = {
   id: "00000000-0000-4000-8000-000000000001",
   loan_id: "00000000-0000-4000-8000-000000000002",
   number: 3,
+  kind: "cuota",
   due_date: "2026-12-10",
   amount: 1500,
   status: "pendiente",
   paid_date: null,
   paid_amount: null,
+  paid_amount_ars: null,
+  paid_rate: null,
   transaction_id: null,
   notes: null,
   split: null,
@@ -88,7 +91,13 @@ describe("EditInstallmentDialog", () => {
     fireEvent.change(amountInput(), { target: { value: "" } });
     fireEvent.click(screen.getByLabelText(/Desglosar/));
     expect(screen.getByLabelText("Capital")).toHaveProperty("value", "");
-    for (const label of ["Interés", "IVA", "Percepción", /Otros cargos/]) {
+    for (const label of [
+      "Interés",
+      "IVA",
+      "Percepción IVA",
+      "Percepción IIBB",
+      /Otros cargos/,
+    ]) {
       fireEvent.change(screen.getByLabelText(label), { target: { value: "" } });
     }
     fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
@@ -127,6 +136,26 @@ describe("EditInstallmentDialog", () => {
     expect(mutate.mock.calls[0]?.[0]).toMatchObject({
       id: installment.id,
       split: { capital: 1000, interest: 200 },
+    });
+  });
+
+  it("saves the IVA and the IIBB perception apart", () => {
+    render(
+      <EditInstallmentDialog installment={installment} onClose={() => {}} />,
+    );
+    fireEvent.click(screen.getByLabelText(/Desglosar/));
+    fireEvent.change(screen.getByLabelText("Capital"), {
+      target: { value: "1000" },
+    });
+    fireEvent.change(screen.getByLabelText("Percepción IVA"), {
+      target: { value: "100" },
+    });
+    fireEvent.change(screen.getByLabelText("Percepción IIBB"), {
+      target: { value: "50" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
+    expect(mutate.mock.calls[0]?.[0]).toMatchObject({
+      split: { capital: 1000, iva_perception: 100, perception: 50 },
     });
   });
 });

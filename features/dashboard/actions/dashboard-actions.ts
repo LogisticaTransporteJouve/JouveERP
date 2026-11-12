@@ -170,7 +170,9 @@ export async function getDashboardDueDatesAction(): Promise<
       const out: DueDateItem[] = [];
       const { data, error } = await supabase
         .from("recurring_payments")
-        .select("id, description, category, amount, currency, next_due_date")
+        .select(
+          "id, description, category, amount, currency, next_due_date, channel:invoicing_channels ( is_segregated )",
+        )
         .eq("is_active", true)
         .gte("next_due_date", today)
         .lte("next_due_date", until);
@@ -182,6 +184,8 @@ export async function getDashboardDueDatesAction(): Promise<
         return null;
       }
       for (const r of data ?? []) {
+        // As in Pagos recurrentes: a segregated channel's (DZ) stay out.
+        if (r.channel?.is_segregated === true) continue;
         out.push({
           id: `recurring_payment:${r.id}`,
           kind: "recurring_payment",

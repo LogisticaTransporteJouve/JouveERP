@@ -18,12 +18,17 @@ const h = vi.hoisted(() => ({
 }));
 
 vi.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams(),
   notFound: () => {
     throw new Error("NEXT_NOT_FOUND");
   },
   redirect: (to: string) => {
     throw new Error(`NEXT_REDIRECT ${to}`);
   },
+}));
+// No segregated channel here: the record opens in the main app.
+vi.mock("@/lib/scope-server", () => ({
+  segregatedChannelIdOf: async () => null,
 }));
 vi.mock("@/lib/auth/context", () => ({
   requireUserContext: async () => ({ userId: "u1", access: h.access }),
@@ -128,7 +133,13 @@ beforeEach(() => {
   h.pending = [{ id: "pi-1", outstanding: 121 }];
   h.openRes = {
     ok: true,
-    data: { paid: 0, credited: 0, opening_applied: 0, open_amount: 121 },
+    data: {
+      paid: 0,
+      credited: 0,
+      opening_applied: 0,
+      credited_spill: 0,
+      open_amount: 121,
+    },
   };
   h.itemsRes = { ok: true, data: [] };
   h.allocCalls = 0;
@@ -253,12 +264,37 @@ describe("purchase detail — Pagado y Saldo", () => {
   it("takes «Saldo» from the open amount, so a fiscal NC and the opening balance count", async () => {
     h.openRes = {
       ok: true,
-      data: { paid: 21, credited: 60, opening_applied: 10, open_amount: 30 },
+      data: {
+        paid: 21,
+        credited: 60,
+        opening_applied: 10,
+        credited_spill: 0,
+        open_amount: 30,
+      },
     };
     await renderPage();
     expect(rowValue("Pagado")).toContain("21,00");
     expect(rowValue("Acreditado")).toContain("60,00");
     expect(rowValue("Saldo inicial aplicado")).toContain("10,00");
+    expect(rowValue("Saldo")).toContain("30,00");
+    expect(
+      screen.queryByText("Cubierto por el crédito de otras NC"),
+    ).toBeNull();
+  });
+
+  it("shows the credit other NCs spill on it, so the rows add up to the total", async () => {
+    h.openRes = {
+      ok: true,
+      data: {
+        paid: 21,
+        credited: 0,
+        opening_applied: 0,
+        credited_spill: 70,
+        open_amount: 30,
+      },
+    };
+    await renderPage();
+    expect(rowValue("Cubierto por el crédito de otras NC")).toContain("70,00");
     expect(rowValue("Saldo")).toContain("30,00");
   });
 

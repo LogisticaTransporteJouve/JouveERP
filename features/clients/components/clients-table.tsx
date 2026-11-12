@@ -29,10 +29,12 @@ import { formatArgentineDate } from "@/lib/format";
 
 import { useClientsSearchInfinite } from "../hooks/use-clients";
 import { IVA_CONDITION_LABEL, type Client, type IvaCondition } from "../schema";
-import { DeleteClientDialog } from "./delete-client-dialog";
+import {
+  DeactivateClientDialog,
+  ReactivateClientButton,
+} from "./deactivate-client-dialog";
 import { EditClientDialog } from "./edit-client-dialog";
 import { NewClientDialog } from "./new-client-dialog";
-import { ReactivateClientButton } from "./reactivate-client-button";
 
 const IVA_BADGE_TONE: Record<IvaCondition, string> = {
   responsable_inscripto:
@@ -102,7 +104,9 @@ function useClientColumns(canWrite: boolean): ColumnDef<Client>[] {
             {canWrite && !row.original.is_active && (
               <ReactivateClientButton client={row.original} />
             )}
-            {canWrite && <DeleteClientDialog client={row.original} />}
+            {canWrite && row.original.is_active && (
+              <DeactivateClientDialog client={row.original} />
+            )}
           </div>
         ),
       },

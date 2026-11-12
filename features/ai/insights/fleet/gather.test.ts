@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
-  filterValue,
   recordingSupabase,
   type FakeResponse,
   type RecordedCall,
@@ -19,120 +18,11 @@ vi.mock("@/lib/supabase/service", () => ({
   getServiceClient: () => fake.client,
 }));
 
-const { gatherFleetDocExpiry, gatherTripMargins } = await import("./gather");
-
-const trip = (id: string, cost = 0) => ({
-  id,
-  trip_date: "2026-10-01",
-  origin: "Rosario",
-  destination: "Córdoba",
-  cost,
-});
-const revenue = (tripId: string, amount: number) => ({
-  trip_id: tripId,
-  revenue: amount,
-  uninvoiced_shipments: 0,
-});
+const { gatherFleetDocExpiry } = await import("./gather");
 
 beforeEach(() => {
   pages = {};
   fake.calls.length = 0;
-});
-
-describe("gatherTripMargins", () => {
-  it("drains trips and their fuel past one page, scoped to those trips", async () => {
-    pages.trips = [
-      { data: [trip("t1")], error: null },
-      { data: [trip("t2")], error: null },
-    ];
-    pages.v_trip_revenue = [
-      { data: [revenue("t1", 100), revenue("t2", 100)], error: null },
-    ];
-    pages.fuel_loads = [
-      { data: [{ id: "f1", trip_id: "t1", amount: 60 }], error: null },
-      { data: [{ id: "f2", trip_id: "t2", amount: 150 }], error: null },
-    ];
-    const findings = await gatherTripMargins("2026-11-03");
-    expect(findings).toHaveLength(1);
-    expect(findings[0]?.source_refs).toEqual(["t2"]);
-    const fuelRead = fake.calls.find((c) => c.table === "fuel_loads");
-    expect(fuelRead && filterValue(fuelRead, "in", "trip_id")).toEqual([
-      "t1",
-      "t2",
-    ]);
-  });
-
-  it("judges a trip on its invoiced freight and skips cancelled trips", async () => {
-    // No manual revenue on the trip: the view's invoiced freight is the
-    // revenue, so 1000 - 300 - 0 is not a loss.
-    pages.trips = [{ data: [trip("t1", 300)], error: null }];
-    pages.v_trip_revenue = [{ data: [revenue("t1", 1000)], error: null }];
-    const findings = await gatherTripMargins("2026-11-03");
-    expect(findings).toEqual([]);
-    const tripsRead = fake.calls.find((c) => c.table === "trips");
-    expect(tripsRead && filterValue(tripsRead, "neq", "status")).toBe(
-      "cancelled",
-    );
-    const revenueRead = fake.calls.find((c) => c.table === "v_trip_revenue");
-    expect(revenueRead && filterValue(revenueRead, "in", "trip_id")).toEqual([
-      "t1",
-    ]);
-  });
-
-  it("does not judge a trip whose cargas are still to invoice", async () => {
-    pages.trips = [{ data: [trip("t1", 300), trip("t2", 300)], error: null }];
-    pages.v_trip_revenue = [
-      {
-        data: [
-          // Nothing invoiced yet: one carga still pending.
-          { trip_id: "t1", revenue: 0, uninvoiced_shipments: 1 },
-          { trip_id: "t2", revenue: 100, uninvoiced_shipments: 0 },
-        ],
-        error: null,
-      },
-    ];
-    const findings = await gatherTripMargins("2026-11-03");
-    expect(findings[0]?.source_refs).toEqual(["t2"]);
-    expect(findings[0]?.metrics.pending_invoicing_count).toBe(1);
-  });
-
-  it("does not judge a trip whose carga is priced by tariff and not invoiced", async () => {
-    // A tariff-priced carga has no freight until its liquidación is
-    // invoiced: the view's pending amount is 0, its count is 1.
-    pages.trips = [{ data: [trip("t1", 300)], error: null }];
-    pages.v_trip_revenue = [
-      {
-        data: [
-          {
-            trip_id: "t1",
-            revenue: 0,
-            uninvoiced_freight: 0,
-            uninvoiced_shipments: 1,
-          },
-        ],
-        error: null,
-      },
-    ];
-    expect(await gatherTripMargins("2026-11-03")).toEqual([]);
-  });
-
-  it("throws when the revenue read fails", async () => {
-    pages.trips = [{ data: [trip("t1")], error: null }];
-    pages.v_trip_revenue = [{ data: null, error: { message: "timeout" } }];
-    await expect(gatherTripMargins("2026-11-03")).rejects.toThrow("timeout");
-  });
-
-  it("throws on a failed read instead of reporting no losing trips", async () => {
-    pages.trips = [{ data: null, error: { message: "timeout" } }];
-    await expect(gatherTripMargins("2026-11-03")).rejects.toThrow("timeout");
-  });
-
-  it("throws when the fuel read fails", async () => {
-    pages.trips = [{ data: [trip("t1")], error: null }];
-    pages.v_trip_revenue = [{ data: [revenue("t1", 100)], error: null }];
-    pages.fuel_loads = [{ data: null, error: { message: "timeout" } }];
-    await expect(gatherTripMargins("2026-11-03")).rejects.toThrow("timeout");
-  });
 });
 
 describe("gatherFleetDocExpiry", () => {

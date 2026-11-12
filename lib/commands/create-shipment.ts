@@ -9,10 +9,14 @@ import type { Database } from "@/lib/db/database.types";
 import { logger } from "@/lib/logger";
 import type { ActionResult } from "@/lib/query/run-action";
 
+import { syncShipmentTripStatus } from "./set-shipments-trip";
+
 /**
  * Inserts a carga and audits it. The caller has already checked `shipments:write`
  * and parsed the input with `ShipmentCreateSchema`: the carga dialog and an
  * accepted assistant proposal. `db` is the user's client (shipments' RLS).
+ * A carga born on a trip dated today or earlier starts at once (a failed
+ * sync is logged; the daily run starts it).
  */
 export async function createShipment(
   db: SupabaseClient<Database>,
@@ -36,5 +40,6 @@ export async function createShipment(
     return { ok: false, error: "No se pudo crear la carga." };
   }
   await logAudit("shipment.created", actorId, {}, data.id);
+  if (d.trip_id) await syncShipmentTripStatus([data.id], actorId);
   return { ok: true, data: { id: data.id } };
 }

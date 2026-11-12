@@ -43,6 +43,7 @@ import {
   debitIssuedCheckFromLineAction,
   depositCheckFromLineAction,
   payLoanInstallmentFromLineAction,
+  listPayableInstallmentsAction,
   matchLinesToMovementAction,
   restoreLineAction,
   unmatchLineAction,
@@ -169,6 +170,17 @@ export function usePayLoanFromLine() {
       runAction(() => payLoanInstallmentFromLineAction(input)),
     [loansKeys.all, ...CASH_KEYS],
   );
+}
+
+/** The pending cuotas of every active loan, for «Pagar cuota de préstamo…»
+ *  on an open debit line; read while its picker is open. */
+export function usePayableInstallments(lineId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: reconciliationKeys.payableInstallments(lineId),
+    queryFn: () =>
+      runAction(() => listPayableInstallmentsAction({ line_id: lineId })),
+    enabled,
+  });
 }
 
 export function useMatchLinesToMovement() {

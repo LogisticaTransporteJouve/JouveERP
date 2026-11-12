@@ -351,17 +351,24 @@ export function supplierFromPadron(
 
 // ─── Channel, rate and origin ────────────────────────────────────────────────
 
-/** The supplier's default channel when it is an active fiscal one, else the
- *  only active fiscal channel; null when that is not one. */
+/** The supplier's default channel when it is an active fiscal one (a
+ *  segregated one included: a DZ supplier's vouchers go to DZ), else the only
+ *  active fiscal channel of the main app; null when that is not one. */
 export function pickBulkChannel(
-  channels: readonly { id: string; is_fiscal: boolean; is_active: boolean }[],
+  channels: readonly {
+    id: string;
+    is_fiscal: boolean;
+    is_active: boolean;
+    is_segregated?: boolean;
+  }[],
   defaultChannelId: string | null,
 ): string | null {
   const fiscal = channels.filter((c) => c.is_active && c.is_fiscal);
   const usual = fiscal.find((c) => c.id === defaultChannelId);
   if (usual) return usual.id;
-  const [only] = fiscal;
-  return only && fiscal.length === 1 ? only.id : null;
+  const main = fiscal.filter((c) => c.is_segregated !== true);
+  const [only] = main;
+  return only && main.length === 1 ? only.id : null;
 }
 
 function daysBetween(from: string, to: string): number {
@@ -391,7 +398,8 @@ export type OriginCandidate = {
   id: string;
   fecha: string;
   imp_total: number;
-  /** What payments and NCs leave open of it. */
+  /** What it owes by itself: what payments and its own NCs leave open
+   *  (own_open_amount; credit other NCs spill on it does not count). */
   open_amount: number;
 };
 
@@ -403,6 +411,8 @@ const cents = (n: number) => Math.round(n * 100);
  * latest. An NC only takes a factura whose open amount still has room for
  * its whole total, so a guess never over-credits a factura (as the sales
  * import's matchOriginByTotal); an ND adds debt, so any factura takes it.
+ * Room = the factura's own open figure, the one
+ * guard_purchase_invoice_open_after_edit checks.
  */
 export function pickOriginByTotal(
   candidates: readonly OriginCandidate[],

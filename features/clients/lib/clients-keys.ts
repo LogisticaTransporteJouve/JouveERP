@@ -28,8 +28,11 @@ export const clientsKeys = {
   pickerAccess: () => [...clientsKeys.all, "pickerAccess"] as const,
   references: (id: string) => [...clientsKeys.all, "references", id] as const,
   account: (id: string) => [...clientsKeys.all, "account", id] as const,
-  accountByScope: (id: string, isFiscal: boolean | null) =>
-    [...clientsKeys.account(id), { isFiscal }] as const,
+  accountByScope: (
+    id: string,
+    isFiscal: boolean | null,
+    channelId: string | null = null,
+  ) => [...clientsKeys.account(id), { isFiscal, channelId }] as const,
   openingBalance: (id: string) =>
     [...clientsKeys.all, "openingBalance", id] as const,
 };

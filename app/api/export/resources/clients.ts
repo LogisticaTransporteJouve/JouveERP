@@ -39,6 +39,8 @@ export const clients: Exporter = {
         .order("id", { ascending: true });
 
       if (isFiscal !== null) query = query.eq("is_fiscal", isFiscal);
+      // Clients that only live on a segregated channel (DZ) stay out.
+      query = query.eq("in_main_scope", true);
       if (range.from) query = query.gte("created_at", range.from);
       if (range.to) query = query.lte("created_at", endOfDay(range.to));
       return query;
