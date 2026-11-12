@@ -19,6 +19,7 @@ import { ChannelsReadError } from "@/components/channels-read-error";
 import { DialogFormFooter } from "@/components/dialog-form-footer";
 import { DIALOG_STICKY_FOOTER } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
   Form,
@@ -167,6 +168,7 @@ type FormValues = {
   origin_invoice: PickedPurchaseInvoice | null;
   motivo_nc_nd: string;
   notes: string;
+  is_operational: boolean;
   with_items: boolean;
   items: PurchaseInvoiceItemDraft[];
 };
@@ -251,6 +253,7 @@ function invoiceToValues(
     origin_invoice: null,
     motivo_nc_nd: inv?.motivo_nc_nd ?? "",
     notes: inv?.notes ?? "",
+    is_operational: inv?.is_operational ?? true,
     with_items: false,
     items: [],
   };
@@ -955,6 +958,11 @@ export function PurchaseInvoiceForm({
         values.kind === "factura" ? null : (values.origin_invoice?.id ?? null),
       motivo_nc_nd: values.motivo_nc_nd || null,
       notes: values.notes || null,
+      // Sent when it says «No Jouve» or the user changed it: left out, the
+      // database keeps it (an NC/ND follows its origin).
+      ...(!values.is_operational || form.formState.dirtyFields.is_operational
+        ? { is_operational: values.is_operational }
+        : {}),
       items: itemsPayload,
     };
 
@@ -1297,6 +1305,32 @@ export function PurchaseInvoiceForm({
     </div>
   );
 
+  // Fiscal documents only: an internal one never reaches the books.
+  const operationalField = !isInternalChannel && (
+    <FormField
+      control={form.control}
+      name="is_operational"
+      render={({ field }) => (
+        <FormItem className="flex flex-row items-start gap-2 space-y-0">
+          <FormControl>
+            <Checkbox
+              checked={field.value}
+              onCheckedChange={(v) => field.onChange(v === true)}
+            />
+          </FormControl>
+          <div className="space-y-1">
+            <FormLabel>Corresponde a la actividad de Jouve</FormLabel>
+            <FormDescription>
+              Destildalo si es un gasto particular: sigue en el Libro IVA y en
+              la cuenta del proveedor, pero no cuenta como gasto (va a «Cuenta
+              particular de socios»).
+            </FormDescription>
+          </div>
+        </FormItem>
+      )}
+    />
+  );
+
   const notesField = (
     <FormField
       control={form.control}
@@ -1401,6 +1435,7 @@ export function PurchaseInvoiceForm({
               </div>
               {tributesSplit}
               {ncNdBlock}
+              {operationalField}
               {notesField}
             </section>
             <div className="sticky bottom-0 space-y-2 border-t bg-background px-4 py-3">
@@ -1820,6 +1855,8 @@ export function PurchaseInvoiceForm({
             {employeeField}
 
             {ncNdBlock}
+
+            {operationalField}
 
             {notesField}
           </FormColumn>

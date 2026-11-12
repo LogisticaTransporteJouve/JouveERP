@@ -150,6 +150,12 @@ export function suggestRevenueKind(item: {
     : "service";
 }
 
+/** «Corresponde a la actividad de Jouve» of a comprobante already issued. */
+export const SetInvoiceOperationalSchema = z.object({
+  id: z.string().uuid(),
+  is_operational: z.boolean(),
+});
+
 export const SetRevenueKindSchema = z.object({
   item_id: z.string().uuid(),
   revenue_kind: z.enum(REVENUE_KINDS),
@@ -263,6 +269,10 @@ export const CreateComprobanteSchema = z
       .nullable()
       .optional(),
     invoice_origin_id: z.string().uuid().nullable().optional(),
+    /** «Corresponde a la actividad de Jouve». false: not income (the net
+     *  posts to «Cuenta particular de socios»); undefined = Jouve's (an
+     *  NC/ND follows its origin). */
+    is_operational: z.boolean().optional(),
     /** A factura billed from this remito interno (Otras ventas). */
     source_remito_id: z.string().uuid().nullable().optional(),
     items: z

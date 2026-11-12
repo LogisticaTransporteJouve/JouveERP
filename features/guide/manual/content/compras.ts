@@ -973,6 +973,12 @@ export const purchasesPage: GuidePage = {
                   marker: 11,
                 },
                 { label: "Vto. CAE proveedor", kind: "date", marker: 11 },
+                {
+                  label: "Corresponde a la actividad de Jouve",
+                  kind: "checkbox",
+                  value: "✓",
+                  wide: true,
+                },
                 { label: "Notas", kind: "textarea", wide: true },
               ],
               footer: [
@@ -1012,6 +1018,7 @@ export const purchasesPage: GuidePage = {
             "Elegí la {{Cuenta de gasto}}. Si la compra la paga un empleado y la empresa se la cobra, elegilo en {{A cargo de empleado}} (si no, {{No (gasto de la empresa)}}).",
             "Si la factura es en dólares, elegí {{USD — Dólar}} en {{Moneda}} y cargá la {{Cotización}} (mayor a 1).",
             "Opcional: {{CAE proveedor (opcional)}}, {{Vto. CAE proveedor}} y {{Notas}}.",
+            "Dejá tildado {{Corresponde a la actividad de Jouve}}, salvo que sea un gasto particular de un socio: destildada, la factura sigue en el Libro IVA y en la cuenta del proveedor, pero no cuenta como gasto (su neto va a «Cuenta particular de socios») y lleva la marca «No Jouve». Se cambia después editando la factura, mientras su mes contable esté abierto.",
             "Hacé clic en {{Cargar factura}}.",
           ],
           after: [

@@ -37,6 +37,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -212,6 +213,7 @@ const FormSchema = z.object({
   client: z.custom<PickedClient>().nullable(),
   items: z.custom<ItemDraft[]>(),
   motivo: z.string(),
+  isOperational: z.boolean(),
 });
 
 type FormValues = z.infer<typeof FormSchema>;
@@ -249,6 +251,7 @@ function NewInvoiceForm({
       client: initialClient,
       items: defaultItems(),
       motivo: "",
+      isOperational: true,
     },
   });
 
@@ -358,6 +361,7 @@ function NewInvoiceForm({
     form.setValue("client", null);
     form.setValue("items", defaultItems());
     form.setValue("motivo", "");
+    form.setValue("isOperational", true);
     setClientPickerKey((k) => k + 1);
   }
 
@@ -497,6 +501,10 @@ function NewInvoiceForm({
         cotizacion: 1,
         invoice_origin_id: isNote ? (origin?.id ?? null) : null,
         motivo_nc_nd: motivo.trim().length === 0 ? null : motivo.trim(),
+        // A note follows its origin (create_invoice_draft).
+        ...(isFiscal && !isNote
+          ? { is_operational: form.getValues("isOperational") }
+          : {}),
         items: itemsForSubmit.map((it) => ({
           description: it.description.trim(),
           quantity: itemNumber(it.quantity),
@@ -790,6 +798,32 @@ function NewInvoiceForm({
                         <Textarea rows={2} className="min-h-0" {...field} />
                       </FormControl>
                       <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+              {!isNote && isFiscal && (
+                <FormField
+                  control={form.control}
+                  name="isOperational"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start gap-2 space-y-0">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={(v) => field.onChange(v === true)}
+                        />
+                      </FormControl>
+                      <div className="space-y-1">
+                        <FormLabel>
+                          Corresponde a la actividad de Jouve
+                        </FormLabel>
+                        <FormDescription>
+                          Destildalo si es una venta particular: sigue en el
+                          Libro IVA y en la cuenta del cliente, pero no cuenta
+                          como ingreso (va a «Cuenta particular de socios»).
+                        </FormDescription>
+                      </div>
                     </FormItem>
                   )}
                 />

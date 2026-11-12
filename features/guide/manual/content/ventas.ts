@@ -741,6 +741,7 @@ export const salesPage: GuidePage = {
             },
             "La fila {{Seguro}} siempre queda última: elegí el porcentaje (1%, 2%, 3%, 5% u {{Otro…}}) y escribí el {{Valor declarado}}. Si dejás el valor vacío, la fila no se incluye.",
             "Revisá Neto, IVA y Total al pie. Si querés, escribí {{Notas internas (no van a AFIP)}}.",
+            "Dejá tildado {{Corresponde a la actividad de Jouve}}, salvo que sea una venta particular de un socio: destildada, la factura sigue en el Libro IVA y en la cuenta del cliente, pero no cuenta como ingreso (su neto va a «Cuenta particular de socios») y lleva la marca «No Jouve». Se puede cambiar después desde el detalle del comprobante, mientras su mes contable esté abierto.",
             "Hacé clic en {{Guardar}}. Con {{Guardar y cargar otra}} (o Ctrl/⌘ + Enter) se emite y el formulario queda listo para otra factura.",
           ],
           after: [

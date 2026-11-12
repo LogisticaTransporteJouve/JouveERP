@@ -1,5 +1,6 @@
 "use client";
 
+import { NotJouveBadge } from "@/components/not-jouve-badge";
 import { formatCuit } from "@/lib/validation/cuit";
 import { Eye } from "lucide-react";
 import Link from "next/link";
@@ -121,6 +122,9 @@ function usePurchaseInvoiceColumns({
               >
                 {inv.supplier_legal_name}
               </Link>
+              {inv.is_operational === false && (
+                <NotJouveBadge className="ml-1" />
+              )}
               {inv.supplier_cuit && (
                 <div className="font-mono text-xs text-muted-foreground">
                   CUIT {formatCuit(inv.supplier_cuit)}

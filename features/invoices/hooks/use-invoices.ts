@@ -23,6 +23,7 @@ import {
   listEnabledPosAction,
   regeneratePdfAction,
   setInvoiceItemRevenueKindAction,
+  setInvoiceOperationalAction,
   type InvoiceListItem,
   type InvoiceStatusSnapshot,
 } from "../actions/invoices-actions";
@@ -256,6 +257,15 @@ export function useSetRevenueKind() {
     mutationFn: (
       input: Parameters<typeof setInvoiceItemRevenueKindAction>[0],
     ) => runAction(() => setInvoiceItemRevenueKindAction(input)),
+    onSuccess: () => invalidateKeys(qc, INVOICE_EFFECT_KEYS),
+  });
+}
+
+export function useSetInvoiceOperational() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: Parameters<typeof setInvoiceOperationalAction>[0]) =>
+      runAction(() => setInvoiceOperationalAction(input)),
     onSuccess: () => invalidateKeys(qc, INVOICE_EFFECT_KEYS),
   });
 }

@@ -426,6 +426,12 @@ const AUDIT_ACTIONS: Record<string, Spec> = {
     say: (c) =>
       `reintentó la nota de crédito del remito de ${doc(c, "un comprobante", "a")}`,
   },
+  "invoice.operational_set": {
+    group: "invoices",
+    subject: "invoice",
+    say: (c) =>
+      `marcó ${doc(c, "un comprobante", "a")} como ${c.p.is_operational === false ? "no correspondiente" : "correspondiente"} a la actividad de Jouve`,
+  },
   "invoice_item.revenue_kind_set": {
     group: "invoices",
     say: (c) =>

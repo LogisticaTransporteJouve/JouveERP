@@ -140,6 +140,8 @@ export async function listSupplierCategoryPurchasesAction(
     // Segregated channels (DZ) stay out of the main app's reports.
     .eq("invoicing_channels.is_segregated", false)
     .eq("status", "received")
+    // A purchase that is not Jouve's activity is no expense of the category.
+    .eq("is_operational", true)
     .gte("fecha", v.from)
     .lte("fecha", v.to);
   if (v.isFiscal !== null) {

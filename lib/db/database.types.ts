@@ -4541,6 +4541,7 @@ export type Database = {
           imp_total: number
           imp_trib: number
           invoice_origin_id: string | null
+          is_operational: boolean
           iva_condition_receptor: number | null
           kind: string
           letter: string | null
@@ -4589,6 +4590,7 @@ export type Database = {
           imp_total: number
           imp_trib?: number
           invoice_origin_id?: string | null
+          is_operational?: boolean
           iva_condition_receptor?: number | null
           kind: string
           letter?: string | null
@@ -4637,6 +4639,7 @@ export type Database = {
           imp_total?: number
           imp_trib?: number
           invoice_origin_id?: string | null
+          is_operational?: boolean
           iva_condition_receptor?: number | null
           kind?: string
           letter?: string | null
@@ -6508,6 +6511,7 @@ export type Database = {
           imp_trib: number
           imputed_to_id: string | null
           invoice_origin_id: string | null
+          is_operational: boolean
           kind: string
           letter: string | null
           moneda: string
@@ -6548,6 +6552,7 @@ export type Database = {
           imp_trib?: number
           imputed_to_id?: string | null
           invoice_origin_id?: string | null
+          is_operational?: boolean
           kind: string
           letter?: string | null
           moneda?: string
@@ -6588,6 +6593,7 @@ export type Database = {
           imp_trib?: number
           imputed_to_id?: string | null
           invoice_origin_id?: string | null
+          is_operational?: boolean
           kind?: string
           letter?: string | null
           moneda?: string
@@ -12441,6 +12447,7 @@ export type Database = {
         | "cheques_cartera"
         | "cheques_rechazados"
         | "anticipos_personal"
+        | "cuenta_particular_socios"
         | "rodados"
         | "planes_ahorro"
         | "cheques_diferidos_emitidos"
@@ -12643,6 +12650,7 @@ export const Constants = {
         "cheques_cartera",
         "cheques_rechazados",
         "anticipos_personal",
+        "cuenta_particular_socios",
         "rodados",
         "planes_ahorro",
         "cheques_diferidos_emitidos",

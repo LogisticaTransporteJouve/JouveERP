@@ -121,6 +121,29 @@ export async function searchPurchaseInvoicesAction(
     .map((row) => narrowRow(row as Record<string, unknown>))
     .filter((r): r is PurchaseInvoice => r !== null);
 
+  // The «No Jouve» mark: the search RPC returns a fixed row shape without it.
+  if (invoices.length > 0) {
+    const { data: flagged, error: flagError } = await supabase
+      .from("purchase_invoices")
+      .select("id")
+      .in(
+        "id",
+        invoices.map((i) => i.id),
+      )
+      .eq("is_operational", false);
+    if (flagError) {
+      logger.error("purchase_invoices.search.flag_failed", {
+        userId: ctx.userId,
+        error: flagError,
+      });
+      return { ok: false, error: "No se pudo buscar facturas de compra." };
+    }
+    const notJouve = new Set((flagged ?? []).map((f) => f.id));
+    for (const invoice of invoices) {
+      invoice.is_operational = !notJouve.has(invoice.id);
+    }
+  }
+
   return {
     ok: true,
     data: { invoices, nextOffset: hasMore ? offset + limit : null },
@@ -128,7 +151,7 @@ export async function searchPurchaseInvoicesAction(
 }
 
 const DETAIL_COLS =
-  "id, channel_id, account_id, cost_center_id, charged_employee_id, supplier_id, kind, letter, punto_venta, numero, fecha, fch_vto_pago, imp_neto, imp_iva, imp_trib, imp_total, imp_no_gravado, imp_op_exentas, imp_perc_iva, imp_perc_nacionales, imp_perc_iibb, imp_perc_municipales, imp_impuestos_internos, moneda, cotizacion, cae_proveedor, cae_vto_proveedor, status, invoice_origin_id, motivo_nc_nd, notes, created_by, cancelled_at, cancelled_by, created_at, updated_at, suppliers!inner(legal_name, cuit)";
+  "id, channel_id, account_id, cost_center_id, charged_employee_id, is_operational, supplier_id, kind, letter, punto_venta, numero, fecha, fch_vto_pago, imp_neto, imp_iva, imp_trib, imp_total, imp_no_gravado, imp_op_exentas, imp_perc_iva, imp_perc_nacionales, imp_perc_iibb, imp_perc_municipales, imp_impuestos_internos, moneda, cotizacion, cae_proveedor, cae_vto_proveedor, status, invoice_origin_id, motivo_nc_nd, notes, created_by, cancelled_at, cancelled_by, created_at, updated_at, suppliers!inner(legal_name, cuit)";
 
 export async function getPurchaseInvoiceByIdAction(
   id: string,
@@ -591,6 +614,9 @@ export async function updatePurchaseInvoiceAction(
         }),
         ...(rest.charged_employee_id !== undefined && {
           charged_employee_id: rest.charged_employee_id ?? null,
+        }),
+        ...(rest.is_operational !== undefined && {
+          is_operational: rest.is_operational,
         }),
         ...(rest.supplier_id !== undefined && {
           supplier_id: rest.supplier_id,

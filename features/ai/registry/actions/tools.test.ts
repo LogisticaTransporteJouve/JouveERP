@@ -767,6 +767,7 @@ describe("per-currency totals in list summaries", () => {
       status: "emitted",
       cae: null,
       emitted_at: null,
+      is_operational: true,
     } satisfies InvoiceListItem;
     vi.mocked(listInvoicesAction).mockResolvedValue({
       ok: true,
