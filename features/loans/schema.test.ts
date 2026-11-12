@@ -3,11 +3,13 @@ import { describe, expect, it } from "vitest";
 import { Constants } from "@/lib/db/database.types";
 
 import {
+  InstallmentSplitSchema,
   LOAN_KINDS,
   LOAN_KIND_LABEL,
   UpdateInstallmentSchema,
   canCancelLoan,
   isLoanKind,
+  splitTotal,
 } from "./schema";
 
 describe("LOAN_KINDS", () => {
@@ -57,6 +59,7 @@ describe("UpdateInstallmentSchema", () => {
     interest: 0,
     iva: 0,
     perception: 0,
+    iva_perception: 0,
     other: 0,
   };
 
@@ -85,5 +88,31 @@ describe("UpdateInstallmentSchema", () => {
     expect(UpdateInstallmentSchema.safeParse({ id, split: null }).success).toBe(
       true,
     );
+  });
+});
+
+describe("IVA and IIBB perception of a cuota", () => {
+  const split = {
+    capital: 1000,
+    interest: 0,
+    iva: 0,
+    perception: 50,
+    iva_perception: 100,
+    other: 0,
+  };
+
+  it("counts both perceptions in the cuota's amount", () => {
+    expect(splitTotal(split)).toBe(1150);
+  });
+
+  it("reads a split without the IVA part as none", () => {
+    const older = {
+      capital: 1000,
+      interest: 0,
+      iva: 0,
+      perception: 50,
+      other: 0,
+    };
+    expect(InstallmentSplitSchema.parse(older).iva_perception).toBe(0);
   });
 });

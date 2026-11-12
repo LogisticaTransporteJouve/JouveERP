@@ -405,6 +405,9 @@ export type StatementLoanInstallment = {
    *  cuota that had them (Banco Provincia: «Impuestos» / «Intereses»);
    *  null when none did. Used to suggest the split of the next debit. */
   tax_rate?: number | null;
+  /** The IVA part of those taxes over the same interest; null when that
+   *  cuota had no IVA part. */
+  iva_tax_rate?: number | null;
 };
 
 export type StatementCoding = {
@@ -519,7 +522,9 @@ export const PayLoanFromLineSchema = z.object({
       interest: splitPart,
       late_interest: splitPart,
       iva: splitPart,
+      /** IIBB and the bank's other taxes. */
       taxes: splitPart,
+      iva_perception: splitPart.default(0),
     })
     .nullable()
     .optional(),

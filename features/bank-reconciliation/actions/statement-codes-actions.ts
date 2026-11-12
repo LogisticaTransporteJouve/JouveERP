@@ -118,7 +118,7 @@ async function readLoanInstallments(
   const last = await service
     .from("loan_installments")
     .select(
-      "interest_amount, perception_amount, loan:loans!inner ( account_id )",
+      "interest_amount, perception_amount, iva_perception_amount, loan:loans!inner ( account_id )",
     )
     .eq("status", "pagada")
     .eq("loan.account_id", accountId)
@@ -137,6 +137,17 @@ async function readLoanInstallments(
           10_000,
       ) / 10_000
     : null;
+  const iva_tax_rate =
+    last.data && last.data.iva_perception_amount !== null
+      ? Math.round(
+          (Math.min(
+            Number(last.data.iva_perception_amount),
+            Number(last.data.perception_amount),
+          ) /
+            Number(last.data.interest_amount)) *
+            10_000,
+        ) / 10_000
+      : null;
   return data.flatMap((i) => {
     const loan = Array.isArray(i.loan) ? i.loan[0] : i.loan;
     if (!loan) return [];
@@ -151,6 +162,7 @@ async function readLoanInstallments(
         capital: Number(i.capital_amount ?? i.amount),
         iva: Number(i.iva_amount ?? 0),
         tax_rate,
+        iva_tax_rate,
       },
     ];
   });

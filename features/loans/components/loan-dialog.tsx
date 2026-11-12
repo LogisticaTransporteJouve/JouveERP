@@ -202,6 +202,7 @@ export function LoanDialog({
         interest: 0,
         iva: 0,
         perception: 0,
+        iva_perception: 0,
         other: 0,
         paid: false,
       }));

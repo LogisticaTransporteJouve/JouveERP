@@ -6,12 +6,14 @@ import { addMonthsClamped } from "./amortization";
 export type PlanInstallment = {
   number: number;
   due_date: string;
-  /** What the bank debits: capital + interest + IVA + perception + other. */
+  /** What the bank debits: capital + interest + IVA + perceptions + other. */
   amount: number;
   capital: number;
   interest: number;
   iva: number;
+  /** IIBB and other non-IVA perceptions. */
   perception: number;
+  iva_perception: number;
   other: number;
   /** The bank lists it as paid. */
   paid: boolean;
@@ -56,11 +58,17 @@ export function parseBankPlan(
       interest: round2(interest ?? 0),
       iva: round2(iva ?? 0),
       perception: 0,
+      iva_perception: 0,
       other: round2((insurance ?? 0) + (others ?? 0)),
       paid: /^pagada$/i.test((m[4] ?? "").trim()),
     };
     const parts = round2(
-      row.capital + row.interest + row.iva + row.perception + row.other,
+      row.capital +
+        row.interest +
+        row.iva +
+        row.perception +
+        row.iva_perception +
+        row.other,
     );
     if (Math.abs(parts - row.amount) > 0.01) {
       return {
@@ -115,6 +123,7 @@ export function frenchPlan(
       interest,
       iva: 0,
       perception: 0,
+      iva_perception: 0,
       other: 0,
       paid: false,
     });
@@ -162,7 +171,7 @@ export function fixedCapitalPlan(
     const capital = n === count ? round2(balance) : capitalEach;
     balance = round2(balance - capital);
     previous = due;
-    const parts = { iva: 0, perception: 0, other: 0 };
+    const parts = { iva: 0, perception: 0, iva_perception: 0, other: 0 };
     if (options.separateInterest) {
       rows.push({
         due_date: due,
@@ -247,6 +256,7 @@ export function withOpeningCuotas(
         interest: 0,
         iva: 0,
         perception: 0,
+        iva_perception: 0,
         other: taxes,
         paid: true,
       };

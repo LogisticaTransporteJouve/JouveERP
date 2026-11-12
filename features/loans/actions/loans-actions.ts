@@ -132,14 +132,22 @@ function readSplit(i: {
   interest_amount: number | null;
   iva_amount: number | null;
   perception_amount: number | null;
+  iva_perception_amount: number | null;
   other_charges_amount: number | null;
 }): InstallmentSplit | null {
   if (i.capital_amount === null) return null;
+  // perception_amount is the total; its IVA part never counts above it.
+  const perceptions = Number(i.perception_amount ?? 0);
+  const ivaPerception = Math.min(
+    Number(i.iva_perception_amount ?? 0),
+    perceptions,
+  );
   return {
     capital: Number(i.capital_amount),
     interest: Number(i.interest_amount ?? 0),
     iva: Number(i.iva_amount ?? 0),
-    perception: Number(i.perception_amount ?? 0),
+    perception: Math.round((perceptions - ivaPerception) * 100) / 100,
+    iva_perception: ivaPerception,
     other: Number(i.other_charges_amount ?? 0),
   };
 }
@@ -294,7 +302,7 @@ export async function getLoanAction(
     supabase
       .from("loan_installments")
       .select(
-        "id, loan_id, number, due_date, amount, status, paid_date, paid_amount, transaction_id, notes, capital_amount, interest_amount, iva_amount, perception_amount, other_charges_amount, paid_outside",
+        "id, loan_id, number, due_date, amount, status, paid_date, paid_amount, transaction_id, notes, capital_amount, interest_amount, iva_amount, perception_amount, iva_perception_amount, other_charges_amount, paid_outside",
       )
       .eq("loan_id", id)
       .order("number")
@@ -591,6 +599,7 @@ export async function applyInstallmentStatementAction(
         interest: d.interest,
         iva: d.iva,
         perception: 0,
+        iva_perception: 0,
       },
       p_charges: d.charges,
     },
@@ -677,7 +686,9 @@ export async function createLoanAction(
         capital: p.capital,
         interest: p.interest,
         iva: p.iva,
-        perception: p.perception,
+        // The RPC takes the total of perceptions and its IVA part.
+        perception: Math.round((p.perception + p.iva_perception) * 100) / 100,
+        iva_perception: p.iva_perception,
         other: p.other,
         paid_outside: p.paid,
       }))
@@ -813,6 +824,7 @@ export async function updateInstallmentAction(
             interest_amount: null,
             iva_amount: null,
             perception_amount: null,
+            iva_perception_amount: null,
             other_charges_amount: null,
           }
         : {
@@ -820,7 +832,9 @@ export async function updateInstallmentAction(
             capital_amount: split.capital,
             interest_amount: split.interest,
             iva_amount: split.iva,
-            perception_amount: split.perception,
+            perception_amount:
+              Math.round((split.perception + split.iva_perception) * 100) / 100,
+            iva_perception_amount: split.iva_perception || null,
             other_charges_amount: split.other,
           };
 

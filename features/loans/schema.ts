@@ -70,7 +70,9 @@ export interface InstallmentSplit {
   capital: number;
   interest: number;
   iva: number;
+  /** IIBB and other non-IVA perceptions. */
   perception: number;
+  iva_perception: number;
   other: number;
 }
 
@@ -78,6 +80,7 @@ export const INSTALLMENT_SPLIT_KEYS = [
   "capital",
   "interest",
   "iva",
+  "iva_perception",
   "perception",
   "other",
 ] as const;
@@ -86,7 +89,8 @@ export const INSTALLMENT_SPLIT_LABEL: Record<keyof InstallmentSplit, string> = {
   capital: "Capital",
   interest: "Interés",
   iva: "IVA",
-  perception: "Percepción",
+  iva_perception: "Percepción IVA",
+  perception: "Percepción IIBB",
   other: "Otros cargos (sellos, punitorios)",
 };
 
@@ -98,6 +102,7 @@ export function splitTotal(split: InstallmentSplit): number {
         split.interest +
         split.iva +
         split.perception +
+        split.iva_perception +
         split.other) *
         100,
     ) / 100
@@ -221,6 +226,7 @@ export const PlanInstallmentSchema = z.object({
   interest: z.number().min(0),
   iva: z.number().min(0),
   perception: z.number().min(0),
+  iva_perception: z.number().min(0).default(0),
   other: z.number().min(0),
   paid: z.boolean(),
 });
@@ -259,6 +265,7 @@ export const InstallmentSplitSchema = z.object({
   interest: splitPart,
   iva: splitPart,
   perception: splitPart,
+  iva_perception: splitPart.default(0),
   other: splitPart,
 });
 

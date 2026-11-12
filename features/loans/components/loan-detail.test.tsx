@@ -157,6 +157,7 @@ describe("LoanDetail leasing", () => {
             interest: 2178903.39,
             iva: 917497.28,
             perception: 0,
+            iva_perception: 0,
             other: 458349.75,
           },
           charges: [

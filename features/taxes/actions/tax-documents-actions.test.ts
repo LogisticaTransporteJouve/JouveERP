@@ -175,6 +175,11 @@ describe("payTaxDocumentAction", () => {
 });
 
 describe("getIvaPositionEstimateAction", () => {
+  beforeEach(() => {
+    rpc.mockReset();
+    rpc.mockResolvedValue({ data: 0, error: null });
+  });
+
   it("débito of the sales book − crédito of the purchases − IVA retentions", async () => {
     ventas.mockResolvedValue({
       ok: true,
@@ -273,6 +278,7 @@ describe("getIvaPositionEstimateAction", () => {
         saldo_anterior: 0,
         saldo_anterior_known: true,
         percepciones_compras: 0,
+        percepciones_prestamos: 0,
         saldo: 800,
         tributos_compras: 0,
         ventas: 2,
@@ -390,6 +396,36 @@ describe("getIvaPositionEstimateAction", () => {
     expect((await getIvaPositionEstimateAction({ period: "2026-10" })).ok).toBe(
       false,
     );
+  });
+
+  it("subtracts the IVA perceptions of loan cuotas dated in the period", async () => {
+    ventas.mockResolvedValue({ ok: true, data: [] });
+    compras.mockResolvedValue({ ok: true, data: [] });
+    fake = pagedSupabase({ tax_documents: [{ ...doc, period: "2026-09" }] });
+    rpc.mockResolvedValue({ data: 257, error: null });
+    const res = await getIvaPositionEstimateAction({ period: "2026-10" });
+    expect(rpc).toHaveBeenCalledWith("loan_iva_perceptions", {
+      p_from: "2026-10-01",
+      p_to: "2026-10-31",
+    });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.data).toMatchObject({
+      percepciones_prestamos: 257,
+      saldo: -257,
+    });
+  });
+
+  it("a failed read of the loans' IVA perceptions fails the estimate instead of counting 0", async () => {
+    ventas.mockResolvedValue({ ok: true, data: [] });
+    compras.mockResolvedValue({ ok: true, data: [] });
+    fake = pagedSupabase({ tax_documents: [] });
+    rpc.mockResolvedValue({ data: null, error: { message: "timeout" } });
+    expect(await getIvaPositionEstimateAction({ period: "2026-10" })).toEqual({
+      ok: false,
+      error:
+        "No se pudieron leer las percepciones de IVA de los préstamos del período.",
+    });
   });
 
   it("without last month's IVA document, the saldo a favor is unknown", async () => {

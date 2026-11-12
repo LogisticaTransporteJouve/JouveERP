@@ -126,6 +126,36 @@ describe("createLoanAction", () => {
     });
   });
 
+  it("sends a plan cuota's perceptions as their total and its IVA part", async () => {
+    rpc.mockResolvedValue({ data: "l9", error: null });
+    await createLoanAction({
+      ...input,
+      installments_count: 1,
+      plan: [
+        {
+          number: 1,
+          due_date: "2026-11-10",
+          amount: 1150,
+          capital: 1000,
+          interest: 0,
+          iva: 0,
+          perception: 50,
+          iva_perception: 100,
+          other: 0,
+          paid: false,
+        },
+      ],
+    });
+    expect(rpc).toHaveBeenCalledWith(
+      "create_loan",
+      expect.objectContaining({
+        p_installments: [
+          expect.objectContaining({ perception: 150, iva_perception: 100 }),
+        ],
+      }),
+    );
+  });
+
   it("shows the guard's message when the database refuses it", async () => {
     const message =
       "El cronograma no coincide con la cantidad de cuotas del préstamo";
@@ -257,6 +287,53 @@ describe("updateInstallmentAction", () => {
   });
 });
 
+describe("updateInstallmentAction perceptions", () => {
+  it("writes the total of perceptions and apart its IVA part", async () => {
+    let written: Record<string, unknown> | null = null;
+    const write = {
+      eq: () => write,
+      is: () => write,
+      select: async () => ({ data: [{ id: "i1" }], error: null }),
+    };
+    clientOverride = {
+      from: (table: string) => ({
+        select: () => ({
+          eq: () =>
+            table === "loan_installment_charges"
+              ? { limit: async () => ({ data: [], error: null }) }
+              : {
+                  maybeSingle: async () => ({
+                    data: { status: "pendiente", capital_amount: null },
+                    error: null,
+                  }),
+                },
+        }),
+        update: (values: Record<string, unknown>) => {
+          written = values;
+          return write;
+        },
+      }),
+    };
+    const res = await updateInstallmentAction({
+      id: "00000000-0000-4000-8000-000000000001",
+      split: {
+        capital: 1000,
+        interest: 0,
+        iva: 0,
+        perception: 50,
+        iva_perception: 100,
+        other: 0,
+      },
+    });
+    expect(res.ok).toBe(true);
+    expect(written).toMatchObject({
+      amount: 1150,
+      perception_amount: 150,
+      iva_perception_amount: 100,
+    });
+  });
+});
+
 describe("applyInstallmentStatementAction", () => {
   const statement = {
     loan_id: "00000000-0000-4000-8000-000000000001",
@@ -307,6 +384,7 @@ describe("applyInstallmentStatementAction", () => {
         interest: 2178903.39,
         iva: 917497.28,
         perception: 0,
+        iva_perception: 0,
       },
       p_charges: statement.charges,
     });

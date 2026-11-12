@@ -357,8 +357,8 @@ export const TaxListSchema = z.object({
 
 /** IVA position of a period from the libro IVA: débito − crédito −
  *  retenciones y percepciones de IVA sufridas en cobranzas − percepciones de
- *  IVA de las compras − saldo a favor técnico of the previous period's IVA
- *  document. Every figure in pesos, NC
+ *  IVA de las compras − percepciones de IVA de cuotas de préstamos − saldo a
+ *  favor técnico of the previous period's IVA document. Every figure in pesos, NC
  *  already subtracted. An estimate: the DDJJ in ARCA is the one that
  *  counts. */
 export type IvaPositionEstimate = {
@@ -372,8 +372,11 @@ export type IvaPositionEstimate = {
   saldo_anterior_known: boolean;
   /** IVA perceptions charged on the period's purchases (a pago a cuenta). */
   percepciones_compras: number;
-  /** debito − credito − retenciones − percepciones_compras − saldo_anterior;
-   *  negative = saldo a favor. */
+  /** IVA perceptions the bank charged on loan cuotas and receipts dated in
+   *  the period (a pago a cuenta too). */
+  percepciones_prestamos: number;
+  /** debito − credito − retenciones − percepciones_compras −
+   *  percepciones_prestamos − saldo_anterior; negative = saldo a favor. */
   saldo: number;
   /** The purchases' other taxes that are not IVA (IIBB, Ganancias and other
    *  national taxes, municipales, internos). Not subtracted. */
@@ -389,6 +392,7 @@ export function computeIvaPosition(input: {
   retenciones: number;
   saldoAnterior: number | null;
   percepcionesCompras: number;
+  percepcionesPrestamos: number;
   tributosCompras: number;
   ventas: number;
   compras: number;
@@ -398,6 +402,7 @@ export function computeIvaPosition(input: {
   const retenciones = round2(input.retenciones);
   const saldoAnterior = round2(input.saldoAnterior ?? 0);
   const percepciones = round2(input.percepcionesCompras);
+  const percepcionesPrestamos = round2(input.percepcionesPrestamos);
   return {
     period: input.period,
     debito,
@@ -406,8 +411,14 @@ export function computeIvaPosition(input: {
     saldo_anterior: saldoAnterior,
     saldo_anterior_known: input.saldoAnterior !== null,
     percepciones_compras: percepciones,
+    percepciones_prestamos: percepcionesPrestamos,
     saldo: round2(
-      debito - credito - retenciones - percepciones - saldoAnterior,
+      debito -
+        credito -
+        retenciones -
+        percepciones -
+        percepcionesPrestamos -
+        saldoAnterior,
     ),
     tributos_compras: round2(input.tributosCompras),
     ventas: input.ventas,

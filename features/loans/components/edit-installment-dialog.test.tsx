@@ -88,7 +88,13 @@ describe("EditInstallmentDialog", () => {
     fireEvent.change(amountInput(), { target: { value: "" } });
     fireEvent.click(screen.getByLabelText(/Desglosar/));
     expect(screen.getByLabelText("Capital")).toHaveProperty("value", "");
-    for (const label of ["Interés", "IVA", "Percepción", /Otros cargos/]) {
+    for (const label of [
+      "Interés",
+      "IVA",
+      "Percepción IVA",
+      "Percepción IIBB",
+      /Otros cargos/,
+    ]) {
       fireEvent.change(screen.getByLabelText(label), { target: { value: "" } });
     }
     fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
@@ -127,6 +133,26 @@ describe("EditInstallmentDialog", () => {
     expect(mutate.mock.calls[0]?.[0]).toMatchObject({
       id: installment.id,
       split: { capital: 1000, interest: 200 },
+    });
+  });
+
+  it("saves the IVA and the IIBB perception apart", () => {
+    render(
+      <EditInstallmentDialog installment={installment} onClose={() => {}} />,
+    );
+    fireEvent.click(screen.getByLabelText(/Desglosar/));
+    fireEvent.change(screen.getByLabelText("Capital"), {
+      target: { value: "1000" },
+    });
+    fireEvent.change(screen.getByLabelText("Percepción IVA"), {
+      target: { value: "100" },
+    });
+    fireEvent.change(screen.getByLabelText("Percepción IIBB"), {
+      target: { value: "50" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
+    expect(mutate.mock.calls[0]?.[0]).toMatchObject({
+      split: { capital: 1000, iva_perception: 100, perception: 50 },
     });
   });
 });

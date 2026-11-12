@@ -354,6 +354,7 @@ describe("a debit that is not the plan's amount (Provincia)", () => {
       late_interest: 0,
       iva: 0,
       taxes: 0,
+      iva_perception: 0,
     });
   });
 
@@ -374,6 +375,26 @@ describe("a debit that is not the plan's amount (Provincia)", () => {
       late_interest: 0,
       iva: 0,
       taxes: 10262.21,
+      iva_perception: 0,
+    });
+  });
+
+  it("takes the IVA part of the taxes at its own rate on the interest", () => {
+    // 1,6 % of taxes on the interest, 1 % of it IVA perception.
+    expect(
+      suggestLoanSplit(1133296.79, {
+        capital: 481646.35,
+        iva: 0,
+        tax_rate: 0.016,
+        iva_tax_rate: 0.01,
+      }),
+    ).toEqual({
+      capital: 481646.35,
+      interest: 641388.23,
+      late_interest: 0,
+      iva: 0,
+      taxes: 3848.33,
+      iva_perception: 6413.88,
     });
   });
 });

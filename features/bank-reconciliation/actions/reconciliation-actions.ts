@@ -1039,7 +1039,8 @@ export async function payLoanInstallmentFromLineAction(
           split.interest +
           split.late_interest +
           split.iva +
-          split.taxes) *
+          split.taxes +
+          split.iva_perception) *
           100,
       ) / 100;
     if (Math.abs(parts - debit) > 0.005) {
@@ -1049,7 +1050,8 @@ export async function payLoanInstallmentFromLineAction(
       };
     }
     // The cuota takes what the bank actually applied before it is paid:
-    // interest and punitorios to interest, taxes to perceptions.
+    // interest and punitorios to interest, taxes to perceptions (their total,
+    // and apart its IVA part).
     const { error } = await getServiceClient()
       .from("loan_installments")
       .update({
@@ -1058,7 +1060,9 @@ export async function payLoanInstallmentFromLineAction(
         interest_amount: split.interest,
         other_charges_amount: split.late_interest,
         iva_amount: split.iva,
-        perception_amount: split.taxes,
+        perception_amount:
+          Math.round((split.taxes + split.iva_perception) * 100) / 100,
+        iva_perception_amount: split.iva_perception || null,
       })
       .eq("id", parsed.data.installment_id)
       .eq("status", "pendiente");

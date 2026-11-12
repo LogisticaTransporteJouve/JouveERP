@@ -25,7 +25,8 @@ const PARTS = [
   ["interest", "Intereses"],
   ["late_interest", "Intereses exceso (punitorios)"],
   ["iva", "IVA"],
-  ["taxes", "Impuestos (percepciones)"],
+  ["iva_perception", "Percepción IVA"],
+  ["taxes", "Percepción IIBB / impuestos"],
 ] as const;
 
 type Part = (typeof PARTS)[number][0];
@@ -54,6 +55,7 @@ export function PayLoanFromLineDialog({
       late_interest: amountToInput(s.late_interest),
       iva: amountToInput(s.iva),
       taxes: amountToInput(s.taxes),
+      iva_perception: amountToInput(s.iva_perception),
     };
   });
   // Interest is the rest of the debit until the user types it: the detail
@@ -79,6 +81,7 @@ export function PayLoanFromLineDialog({
     late_interest: read("late_interest"),
     iva: read("iva"),
     taxes: read("taxes"),
+    iva_perception: read("iva_perception"),
   };
   const total =
     Math.round(PARTS.reduce((s, [k]) => s + amounts[k], 0) * 100) / 100;

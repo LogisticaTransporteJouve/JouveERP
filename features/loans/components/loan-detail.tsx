@@ -303,7 +303,13 @@ export function LoanDetail({
                     {i.split ? money(i.split.interest) : "—"}
                   </TableCell>
                   <TableCell className="text-right font-mono tabular-nums">
-                    {i.split ? money(i.split.other + i.split.perception) : "—"}
+                    {i.split
+                      ? money(
+                          i.split.other +
+                            i.split.perception +
+                            i.split.iva_perception,
+                        )
+                      : "—"}
                     {i.charges.length > 0 && (
                       <span className="text-muted-foreground block font-sans text-xs whitespace-nowrap">
                         {i.charges
