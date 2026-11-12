@@ -111,7 +111,6 @@ type UpdateEntryVars = {
   period_year: number;
   period_month: number;
   sueldo_neto?: number;
-  vacaciones_monto?: number;
   viaticos?: number;
   deudas?: number;
   telefono?: number;

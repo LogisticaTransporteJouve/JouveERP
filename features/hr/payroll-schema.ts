@@ -88,7 +88,6 @@ const moneyField = z.coerce.number().min(0).max(999999999.99);
 export const UpdatePayrollEntrySchema = z.object({
   id: z.string().uuid(),
   sueldo_neto: moneyField.optional(),
-  vacaciones_monto: moneyField.optional(),
   viaticos: moneyField.optional(),
   deudas: moneyField.optional(),
   telefono: moneyField.optional(),
@@ -117,13 +116,11 @@ export type PayrollEntryResolved = {
   employee_id: string;
   employee_legal_name: string;
   employee_pay_frequency: string;
-  /** recibo: the database copies the recibo into the sueldo and keeps
-   *  vacaciones at 0. */
+  /** recibo: the database copies the recibo into the sueldo. */
   employee_pay_mode: PayMode;
   employee_is_active: boolean;
   sueldo_neto: number;
   extras_total: number;
-  vacaciones_monto: number;
   viaticos: number;
   deudas: number;
   /** true = Deudas typed by hand for this period; false = the installments of

@@ -4,7 +4,7 @@
 
 begin;
 
-select plan(16);
+select plan(17);
 
 select set_config('request.jwt.claims', '{"role":"service_role"}', true);
 
@@ -134,6 +134,14 @@ select results_eq(
      where id = '00000000-0000-0000-0000-00000000c2c1'$$,
   $$values (750000.00::numeric, 0::numeric)$$,
   '6. the final settlement keeps the recibo and no vacaciones'
+);
+
+select is(
+  (select count(*)::int from public.payroll_entry_extras
+    where entry_id = '00000000-0000-0000-0000-00000000c2c1'
+      and description like 'Liquidación final:%'),
+  0,
+  '6. nor a vacation extra'
 );
 
 -- 4. SAC recibo: the entry's sueldo, not the base salary; fully fiscal.

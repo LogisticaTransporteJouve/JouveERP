@@ -130,7 +130,7 @@ export async function getPayrollPeriodAction(
   const { data: entries, error: entriesErr } = await supabase
     .from("v_payroll_entries_with_payments")
     .select(
-      "id, period_id, employee_id, sueldo_neto, extras_total, vacaciones_monto, viaticos, deudas, telefono, embargo, recibo_neto, total_a_pagar, paid_total, paid_transferencia, paid_efectivo, saldo, payments_count, notes, fiscal_share, paid_fiscal, paid_internal",
+      "id, period_id, employee_id, sueldo_neto, extras_total, viaticos, deudas, telefono, embargo, recibo_neto, total_a_pagar, paid_total, paid_transferencia, paid_efectivo, saldo, payments_count, notes, fiscal_share, paid_fiscal, paid_internal",
     )
     .eq("period_id", period.id);
 
@@ -220,7 +220,6 @@ export async function getPayrollPeriodAction(
         employee_is_active: emp?.is_active ?? true,
         sueldo_neto: Number(row.sueldo_neto ?? 0),
         extras_total: Number(row.extras_total ?? 0),
-        vacaciones_monto: Number(row.vacaciones_monto ?? 0),
         viaticos: Number(row.viaticos ?? 0),
         deudas: Number(row.deudas ?? 0),
         deudas_override:
@@ -490,8 +489,6 @@ export async function updatePayrollEntryAction(
   type EntryUpdate = Database["public"]["Tables"]["payroll_entries"]["Update"];
   const patch: EntryUpdate = {};
   if (rest.sueldo_neto !== undefined) patch.sueldo_neto = rest.sueldo_neto;
-  if (rest.vacaciones_monto !== undefined)
-    patch.vacaciones_monto = rest.vacaciones_monto;
   if (rest.viaticos !== undefined) patch.viaticos = rest.viaticos;
   if (rest.deudas !== undefined) patch.deudas = rest.deudas;
   if (rest.telefono !== undefined) patch.telefono = rest.telefono;
@@ -500,27 +497,6 @@ export async function updatePayrollEntryAction(
   if (rest.notes !== undefined) patch.notes = rest.notes ?? null;
 
   const supabase = await createSupabaseClient();
-
-  // A «por recibo» employee's vacaciones are inside the recibo: the database
-  // keeps them at 0, so the field is not written (nor audited) for them.
-  if (patch.vacaciones_monto !== undefined) {
-    const { data: entry, error: entryErr } = await supabase
-      .from("payroll_entries")
-      .select("employees!inner(pay_mode)")
-      .eq("id", id)
-      .maybeSingle();
-    if (entryErr) {
-      return {
-        ok: false,
-        error: dbErrorMessage(
-          entryErr,
-          { slug: "payroll.entry_update.read_failed", userId: ctx.userId, id },
-          "No se pudo guardar la fila.",
-        ),
-      };
-    }
-    if (entry?.employees.pay_mode === "recibo") delete patch.vacaciones_monto;
-  }
 
   if (Object.keys(patch).length === 0) {
     return { ok: true, data: undefined };

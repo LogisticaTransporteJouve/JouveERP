@@ -40,7 +40,6 @@ function entry(id: string, name: string, saldo: number) {
     employee_is_active: true,
     sueldo_neto: saldo,
     extras_total: 0,
-    vacaciones_monto: 0,
     viaticos: 0,
     deudas: 0,
     deudas_override: false,

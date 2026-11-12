@@ -87,7 +87,6 @@ export function PayrollPeriodGrid({
     field:
       | "sueldo_neto"
       | "recibo_neto"
-      | "vacaciones_monto"
       | "viaticos"
       | "deudas"
       | "telefono"
@@ -123,7 +122,6 @@ export function PayrollPeriodGrid({
         acc.transferencia + (suggestedSplit(e)?.transferencia ?? 0),
       efectivo: acc.efectivo + (suggestedSplit(e)?.efectivo ?? 0),
       extras: acc.extras + e.extras_total,
-      vacaciones: acc.vacaciones + e.vacaciones_monto,
       viaticos: acc.viaticos + e.viaticos,
       deudas: acc.deudas + e.deudas,
       telefono: acc.telefono + e.telefono,
@@ -139,7 +137,6 @@ export function PayrollPeriodGrid({
       transferencia: 0,
       efectivo: 0,
       extras: 0,
-      vacaciones: 0,
       viaticos: 0,
       deudas: 0,
       telefono: 0,
@@ -278,12 +275,6 @@ export function PayrollPeriodGrid({
                   Otros
                 </TableHead>
                 <TableHead className="w-32 text-right">Extras</TableHead>
-                <TableHead
-                  className="w-32 text-right"
-                  title="Vacía para los empleados por recibo: las vacaciones van dentro del recibo."
-                >
-                  Vacaciones
-                </TableHead>
                 <TableHead className="w-32 text-right">Viáticos</TableHead>
                 <TableHead
                   className="w-32 text-right"
@@ -313,7 +304,7 @@ export function PayrollPeriodGrid({
               {entries.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={14}
+                    colSpan={13}
                     className="py-10 text-center text-sm text-muted-foreground"
                   >
                     Sin entries. ¿No hay empleados activos?
@@ -337,7 +328,7 @@ export function PayrollPeriodGrid({
                         <Badge
                           variant="outline"
                           className="ml-1 text-[10px] font-normal"
-                          title="Por recibo: el sueldo sale del recibo y las vacaciones van dentro."
+                          title="Por recibo: el sueldo sale del recibo."
                         >
                           recibo
                         </Badge>
@@ -382,20 +373,6 @@ export function PayrollPeriodGrid({
                         month={month}
                         disabled={!canEdit}
                       />
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {e.employee_pay_mode === "recibo" ? (
-                        <span
-                          className="text-muted-foreground"
-                          title="Va dentro del recibo"
-                        />
-                      ) : (
-                        <InlineMoneyInput
-                          value={e.vacaciones_monto}
-                          disabled={!canEdit}
-                          onCommit={(v) => commit(e.id, "vacaciones_monto", v)}
-                        />
-                      )}
                     </TableCell>
                     <TableCell className="text-right">
                       <InlineMoneyInput
@@ -509,9 +486,6 @@ export function PayrollPeriodGrid({
                   </TableCell>
                   <TableCell className="text-right font-mono">
                     {money(totals.extras)}
-                  </TableCell>
-                  <TableCell className="text-right font-mono">
-                    {money(totals.vacaciones)}
                   </TableCell>
                   <TableCell className="text-right font-mono">
                     {money(totals.viaticos)}
