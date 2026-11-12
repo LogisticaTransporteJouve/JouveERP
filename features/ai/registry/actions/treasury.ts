@@ -45,7 +45,7 @@ export const getTreasurySummary = defineAiAction({
 });
 
 const CASH_FLOW_NOTE =
-  "Flujo de caja en pesos de todos los canales (facturado, interno y otro por separado en cada mes). Los meses pasados y el actual son movimientos reales de caja; los futuros proyectan pagos recurrentes, cobranzas y pagos pendientes por vencimiento (lo vencido cae en el primer mes proyectado), cheques en cartera y cuotas de préstamos, con el saldo de cierre proyectado desde la caja de hoy. Lo que está en dólares se pasa a pesos a la última cotización oficial.";
+  "Flujo de caja en pesos de todos los canales (facturado, interno y otro por separado en cada mes). Los meses pasados y el actual son movimientos reales de caja; los futuros proyectan cobranzas y pagos pendientes por vencimiento (lo vencido cae en el primer mes proyectado), cheques en cartera y cuotas de préstamos, con el saldo de cierre proyectado desde la caja de hoy. Lo que está en dólares se pasa a pesos a la última cotización oficial.";
 
 export const getCashFlow = defineAiAction({
   name: "getCashFlow",
@@ -56,7 +56,6 @@ export const getCashFlow = defineAiAction({
     "accounts",
     "account_movement_totals",
     "transaction_monthly_flows",
-    "recurring_payments",
     "v_aging_documents",
     "v_purchase_invoice_open",
     "checks",

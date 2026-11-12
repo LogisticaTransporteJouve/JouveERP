@@ -4,7 +4,6 @@ import { listAccountsAction } from "@/features/accounts/actions/accounts-actions
 import { listChecksAction } from "@/features/checks/actions/checks-actions";
 import { OPEN_CHECK_STATUSES } from "@/features/checks/schema";
 import { listIssuedChecksAction } from "@/features/issued-checks/actions/issued-checks-actions";
-import { listRecurringPaymentsAction } from "@/features/recurring-payments/actions/recurring-payments-actions";
 import { listTransactionsAction } from "@/features/transactions/actions/transactions-actions";
 
 import type { FiscalFilter } from "@/lib/scope";
@@ -15,7 +14,6 @@ import { defineAiAction } from "../define";
 import {
   type AiRunResult,
   errResult,
-  money,
   okResult,
   totalsByCurrency,
 } from "../result";
@@ -180,36 +178,4 @@ export const getIssuedChecks = defineAiAction({
     "For payments by own check or upcoming check due dates.",
   input: z.object({ scope: ScopeInputSchema }),
   run: (_ctx, input) => runIssuedChecks(input),
-});
-
-export const getRecurringPayments = defineAiAction({
-  name: "getRecurringPayments",
-  domain: "tesoreria",
-  permission: "recurring_payments:read",
-  sideEffect: "read",
-  sources: ["recurring_payments"],
-  description:
-    "Pagos recurrentes (alquileres, servicios, impuestos, sueldos fijos, etc.): descripción, categoría, monto, moneda, frecuencia, próximo vencimiento y estado.",
-  input: z.object({
-    onlyActive: z.boolean().nullish().describe("Solo activos (default true)."),
-    scope: ScopeInputSchema,
-  }),
-  run: async (_ctx, input) => {
-    const { isFiscal, label } = readScope(input.scope);
-    const res = await listRecurringPaymentsAction({
-      onlyActive: input.onlyActive ?? true,
-      isFiscal,
-    });
-    if (!res.ok) return errResult(res.error);
-    const soonest = res.data.find((r) => r.is_active);
-    return okResult(
-      `${label}: ${res.data.length} pagos recurrentes` +
-        (soonest
-          ? ` · próximo: ${soonest.description} el ${soonest.next_due_date} (${soonest.currency} ${money(
-              soonest.amount,
-            )}).`
-          : "."),
-      res.data,
-    );
-  },
 });

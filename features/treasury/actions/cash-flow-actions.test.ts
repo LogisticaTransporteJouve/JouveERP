@@ -158,7 +158,6 @@ describe("getCashFlowAction and amounts on account", () => {
     db.accounts = db.accounts!.filter((a) => a.currency === "ARS");
     db.loans = [];
     db.loan_installments = [];
-    db.recurring_payments = [];
   });
 
   it("nets an unapplied receipt off the projected collections, capped at them", async () => {
@@ -220,7 +219,6 @@ describe("getCashFlowAction and the receivables due date", () => {
     db.accounts = db.accounts!.filter((a) => a.currency === "ARS");
     db.loans = [];
     db.loan_installments = [];
-    db.recurring_payments = [];
   });
 
   it("places a receivable in the month of the view's effective due date", async () => {
@@ -291,27 +289,5 @@ describe("getCashFlowAction and loans", () => {
     const projectedMonths = res.data.months.filter((m) => !m.realized);
     expect(projectedMonths).toHaveLength(6);
     expect(projectedMonths.every((m) => m.outTotal === 600000)).toBe(true);
-  });
-
-  it("does not count a recurring “Préstamo” next to a loaded loan twice", async () => {
-    db.loan_installments = [];
-    db.recurring_payments = [
-      {
-        id: "r1",
-        amount: 700,
-        currency: "ARS",
-        frequency: "monthly",
-        next_due_date: `${firstProjected()}-05`,
-        end_date: null,
-        channel_id: "jouve_fiscal",
-        category: "prestamo",
-      },
-    ];
-    const res = await getCashFlowAction({});
-    expect(res.ok).toBe(true);
-    if (!res.ok) return;
-    expect(res.data.months.every((m) => m.realized || m.outTotal === 0)).toBe(
-      true,
-    );
   });
 });

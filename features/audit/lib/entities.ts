@@ -82,7 +82,8 @@ export const ENTITY_HREF: Record<EntityKind, ((id: string) => string) | null> =
     product: () => "/products",
     warehouse: () => "/warehouses",
     cost_center: () => "/accounting/cost-centers",
-    recurring_payment: () => "/recurring-payments",
+    // Its page was removed; past events still name it, unlinked.
+    recurring_payment: null,
   };
 
 /** Payload keys that name another record, and the kind they name. */

@@ -11,7 +11,6 @@ export const DUE_DATE_KINDS = [
   "received_check",
   "issued_check",
   "loan_installment",
-  "recurring_payment",
   "fleet_document",
   "employee_document",
 ] as const;
@@ -37,7 +36,6 @@ export const DUE_DATE_PERMISSIONS: readonly Permission[] = [
   "cheques:read",
   "issued_checks:read",
   "accounts:read",
-  "recurring_payments:read",
   "fleet_documents:read",
   "hr:read",
 ];

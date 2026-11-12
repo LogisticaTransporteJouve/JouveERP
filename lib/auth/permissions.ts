@@ -66,10 +66,6 @@ export const PERMISSIONS = [
   "transactions:delete",
   "opening_balances:write",
 
-  // Recurring payments (Phase R) — input for the AI cash-flow
-  "recurring_payments:read",
-  "recurring_payments:write",
-
   // Comprobantes (Phase E)
   "invoices:read",
   "invoices:issue",
@@ -205,8 +201,6 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "accounts:write",
     "transactions:read",
     "transactions:write",
-    "recurring_payments:read",
-    "recurring_payments:write",
     "invoices:read",
     "invoices:issue",
     "invoices:cancel",

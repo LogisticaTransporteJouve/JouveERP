@@ -21,7 +21,6 @@ export const PERMISSION_GROUPS: Record<Resource, string> = {
   accounts: "Cuentas y cajas",
   transactions: "Movimientos de caja",
   opening_balances: "Saldos iniciales",
-  recurring_payments: "Pagos recurrentes",
   accounting: "Contabilidad",
   taxes: "Impuestos",
   management: "Resultado de gestión",

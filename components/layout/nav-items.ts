@@ -34,7 +34,6 @@ import {
   Palmtree,
   Receipt,
   ReceiptText,
-  Repeat,
   Route,
   Scale,
   ScanLine,
@@ -234,12 +233,6 @@ export const NAV_SECTIONS: readonly NavSection[] = [
         label: "Cheques propios",
         icon: BookCheck,
         permission: "issued_checks:read",
-      },
-      {
-        href: "/recurring-payments",
-        label: "Pagos recurrentes",
-        icon: Repeat,
-        permission: "recurring_payments:read",
       },
       {
         href: "/loans",

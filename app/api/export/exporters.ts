@@ -24,7 +24,6 @@ import { paymentOrders } from "./resources/payment-orders";
 import { products } from "./resources/products";
 import { purchaseInvoices } from "./resources/purchase-invoices";
 import { receipts } from "./resources/receipts";
-import { recurringPayments } from "./resources/recurring-payments";
 import { supplierAccount } from "./resources/supplier-account";
 import { supplierAging } from "./resources/supplier-aging";
 import { supplierCategories } from "./resources/supplier-categories";
@@ -61,7 +60,6 @@ export const EXPORTERS: Record<string, Exporter> = {
   "fleet-documents": fleetDocuments,
   "cost-centers": costCenters,
   "exchange-rates": exchangeRates,
-  "recurring-payments": recurringPayments,
   "supplier-categories": supplierCategories,
   accounts,
   employees,

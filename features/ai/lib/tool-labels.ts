@@ -31,7 +31,6 @@ export const TOOL_LABELS: Record<string, string> = {
   getSupplierUpcomingDues: "Vencimientos a pagar",
   getSupplierPriceEvolution: "Evolución de compras",
   getSupplierCategories: "Categorías de proveedores",
-  getRecurringPayments: "Pagos recurrentes",
   getIncomeStatement: "Estado de resultados",
   getBalanceSheet: "Balance general",
   getManagementPnL: "Resultado de gestión",

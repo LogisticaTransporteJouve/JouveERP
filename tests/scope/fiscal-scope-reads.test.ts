@@ -45,8 +45,6 @@ const { listIssuedChecksAction } =
   await import("@/features/issued-checks/actions/issued-checks-actions");
 const { listLoansAction } =
   await import("@/features/loans/actions/loans-actions");
-const { listRecurringPaymentsAction } =
-  await import("@/features/recurring-payments/actions/recurring-payments-actions");
 const { listTransactionsAction } =
   await import("@/features/transactions/actions/transactions-actions");
 const { getAgingSummaryAction } =
@@ -77,11 +75,6 @@ const embedReads: [string, string, Read][] = [
     (isFiscal) => listIssuedChecksAction({ isFiscal }),
   ],
   ["loans", "loans", (isFiscal) => listLoansAction({ isFiscal })],
-  [
-    "recurring payments",
-    "recurring_payments",
-    (isFiscal) => listRecurringPaymentsAction({ isFiscal }),
-  ],
 ];
 
 const viewReads: [string, string, string, Read][] = [

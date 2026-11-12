@@ -3,8 +3,8 @@ import { PAYMENT_ORDER_FORM_PERMISSIONS } from "@/features/payment-orders/lib/pa
 import type { GuidePage } from "../types";
 
 // Treasury chapter: the summary and its shortcuts, cash flow, accounts, Caja,
-// bank statements and reconciliation, received and own checks, recurring
-// payments, credit cards and loans.
+// bank statements and reconciliation, received and own checks, credit cards
+// and loans.
 
 const TREASURY_READ = ["accounting:read", "accounts:read"] as const;
 
@@ -332,7 +332,7 @@ export const treasuryPage: GuidePage = {
       intro: [
         "Una tabla mensual, en pesos, de lo que entró y salió (los 3 meses anteriores y el actual, como {{Realizado}}) y de lo que se espera que entre y salga en los 6 meses siguientes ({{Proyectado}}). Es para control interno: incluye los dos lados.",
         "Arriba se ve el {{Saldo de caja hoy}} (cuentas líquidas activas). Si la proyección deja el saldo en negativo en algún mes, aparece el aviso «Te quedarías en negativo en …» con el mínimo.",
-        "Columnas: {{Mes}}, {{Entradas}}, {{Salidas}}, {{Neto}}, {{Saldo proyectado}} y la marca {{Realizado}} o {{Proyectado}}. Debajo de cada importe se ve el desglose F (facturado, canal fiscal), I (interno) y O (otros: lo que no tiene canal, como cheques en cartera o pagos recurrentes cargados sin canal).",
+        "Columnas: {{Mes}}, {{Entradas}}, {{Salidas}}, {{Neto}}, {{Saldo proyectado}} y la marca {{Realizado}} o {{Proyectado}}. Debajo de cada importe se ve el desglose F (facturado, canal fiscal), I (interno) y O (otros: lo que no tiene canal, como cheques en cartera).",
         "La pantalla es de solo lectura: no tiene operaciones. Para cambiar la proyección cargá o corregí los documentos de los que sale.",
       ],
       concepts: [
@@ -340,9 +340,8 @@ export const treasuryPage: GuidePage = {
           title: "De dónde sale la proyección",
           body: [
             "Los meses pasados y el actual salen de los movimientos de Caja.",
-            "Los futuros suman: los comprobantes de clientes pendientes (por vencimiento) y las facturas de proveedores pendientes, cada uno descontando lo cobrado o pagado a cuenta; los cheques {{En cartera}} por su fecha de cobro; las cuotas pendientes de [[/loans]]; y los [[/recurring-payments]] activos, en cada fecha en que vencen.",
+            "Los futuros suman: los comprobantes de clientes pendientes (por vencimiento) y las facturas de proveedores pendientes, cada uno descontando lo cobrado o pagado a cuenta; los cheques {{En cartera}} por su fecha de cobro; y las cuotas pendientes de [[/loans]].",
             "Lo que ya está vencido y sin cobrar o pagar se ubica en el primer mes proyectado.",
-            "Un pago recurrente de categoría {{Préstamo}} no se cuenta si ya hay un préstamo cargado del mismo lado: sus cuotas ya están en la proyección.",
             "Lo que está en dólares se convierte a la última cotización oficial cargada. Si no hay ninguna, se deja afuera y la pantalla avisa que faltan los importes en USD: cargá la cotización en [[/accounting/exchange-rates]].",
           ],
         },
@@ -1084,14 +1083,13 @@ export const treasuryPage: GuidePage = {
           id: "exportar-tesoreria",
           title: "Exportar cuentas, movimientos o cheques",
           summary:
-            "Cuentas, Caja, Cheques recibidos, Cheques propios y Pagos recurrentes tienen el mismo botón para bajar el listado.",
+            "Cuentas, Caja, Cheques recibidos y Cheques propios tienen el mismo botón para bajar el listado.",
           permission: {
             anyOf: [
               "accounts:read",
               "transactions:read",
               "cheques:read",
               "issued_checks:read",
-              "recurring_payments:read",
             ],
           },
           screens: [
@@ -2655,174 +2653,6 @@ export const treasuryPage: GuidePage = {
             "El cheque pasa a {{Anulado}} y queda fuera de circulación. No se puede deshacer desde la pantalla.",
           ],
           related: ["cargar-cheque-propio"],
-        },
-      ],
-    },
-
-    // ── Pagos recurrentes ────────────────────────────────────────────────
-    {
-      id: "pagos-recurrentes",
-      title: "Pagos recurrentes",
-      menuPath: "Tesorería › Pagos recurrentes",
-      routes: ["/recurring-payments"],
-      permission: "recurring_payments:read",
-      intro: [
-        "Los compromisos de pago que se repiten (alquiler, servicios, préstamos, impuestos, sueldos fijos). No generan movimientos ni asientos: alimentan la proyección de [[/treasury/cash-flow]].",
-        "La tabla muestra {{Descripción}}, {{Categoría}}, {{Monto}}, {{Frecuencia}}, {{Próx. venc.}} y el interruptor {{Activo}}.",
-      ],
-      tasks: [
-        {
-          id: "crear-pago-recurrente",
-          title: "Cargar un pago recurrente",
-          permission: "recurring_payments:write",
-          screens: [
-            {
-              kind: "dialog",
-              title: "Nuevo pago recurrente",
-              description:
-                "Compromiso de egreso que se repite (alquiler, servicios, préstamos, impuestos, sueldos). Alimenta el cash-flow proyectado.",
-              fields: [
-                {
-                  label: "Descripción",
-                  kind: "input",
-                  value: "Alquiler depósito",
-                  marker: 2,
-                  wide: true,
-                },
-                {
-                  label: "Categoría",
-                  kind: "select",
-                  value: "Alquiler",
-                  marker: 3,
-                },
-                {
-                  label: "Frecuencia",
-                  kind: "select",
-                  value: "Mensual",
-                  marker: 3,
-                },
-                {
-                  label: "Monto",
-                  kind: "money",
-                  value: "1.200.000,00",
-                  marker: 4,
-                },
-                { label: "Moneda", kind: "select", value: "ARS", marker: 4 },
-                {
-                  label: "Próximo vencimiento",
-                  kind: "date",
-                  value: "10/12/2026",
-                  marker: 5,
-                },
-                { label: "Fin (opcional)", kind: "date", marker: 5 },
-                {
-                  label: "Canal (opcional)",
-                  kind: "select",
-                  value: "Ninguno",
-                  marker: 6,
-                  wide: true,
-                },
-                { label: "Notas", kind: "textarea", wide: true },
-              ],
-              footer: [
-                { label: "Cancelar", variant: "outline" },
-                { label: "Crear", variant: "primary", marker: 7 },
-              ],
-            },
-          ],
-          steps: [
-            "En [[/recurring-payments]], hacé clic en {{Nuevo pago}}.",
-            "Escribí la {{Descripción}}.",
-            "Elegí la {{Categoría}} ({{Alquiler}}, {{Servicios}}, {{Préstamo}}, {{Impuesto}}, {{Sueldo fijo}} u {{Otro}}) y la {{Frecuencia}} ({{Semanal}}, {{Mensual}}, {{Trimestral}} o {{Anual}}).",
-            "Escribí el {{Monto}} (mayor a cero) y elegí la {{Moneda}}.",
-            "Elegí el {{Próximo vencimiento}} y, si termina, el {{Fin (opcional)}} (no puede ser anterior al próximo vencimiento).",
-            "Si querés que la proyección lo cuente como fiscal o interno, elegí el {{Canal (opcional)}}; sin canal se proyecta como «otros».",
-            "Hacé clic en {{Crear}}.",
-          ],
-          after: [
-            "El flujo de caja proyecta una salida en cada vencimiento hasta el fin. Un {{Préstamo}} recurrente no se proyecta si ya hay un préstamo cargado del mismo lado en [[/loans]].",
-          ],
-          errors: [
-            {
-              message: "Descripción requerida.",
-              fix: "Escribí la descripción.",
-            },
-            {
-              message: "El monto debe ser mayor a 0.",
-              fix: "Escribí un monto mayor a cero.",
-            },
-            {
-              message: "Fecha requerida.",
-              fix: "Elegí el próximo vencimiento.",
-            },
-            {
-              message: "El fin no puede ser anterior al próximo vencimiento.",
-              fix: "Corregí la fecha de fin.",
-            },
-            {
-              message: "No tenés permiso para crear pagos recurrentes.",
-              fix: "Pedí el permiso de pagos recurrentes.",
-            },
-          ],
-          related: ["editar-pago-recurrente", "flujo-de-caja"],
-          keywords: ["alquiler", "servicios", "gasto fijo", "compromiso"],
-        },
-        {
-          id: "editar-pago-recurrente",
-          title: "Editar un pago recurrente",
-          permission: "recurring_payments:write",
-          steps: [
-            "En [[/recurring-payments]], abrí el menú ⋯ de la fila y elegí {{Editar}}.",
-            "En {{Editar pago recurrente}}, cambiá lo que necesites (por ejemplo, el {{Próximo vencimiento}} o el {{Monto}} actualizado).",
-            "Hacé clic en {{Guardar}}.",
-          ],
-          after: [
-            "La proyección del flujo de caja se recalcula con los datos nuevos.",
-          ],
-          errors: [
-            {
-              message: "No tenés permiso para editar pagos recurrentes.",
-              fix: "Pedí el permiso de pagos recurrentes.",
-            },
-          ],
-          related: ["crear-pago-recurrente"],
-        },
-        {
-          id: "activar-pago-recurrente",
-          title: "Pausar o reactivar un pago recurrente",
-          permission: "recurring_payments:write",
-          steps: [
-            "En [[/recurring-payments]], usá el interruptor {{Activo}} de la fila.",
-          ],
-          after: [
-            "Un pago inactivo deja de proyectarse en el flujo de caja, pero queda en la lista.",
-          ],
-          errors: [
-            {
-              message: "No se pudo cambiar el estado.",
-              fix: "Probá de nuevo; si sigue, avisale a un administrador.",
-            },
-          ],
-          related: ["borrar-pago-recurrente"],
-        },
-        {
-          id: "borrar-pago-recurrente",
-          title: "Borrar un pago recurrente",
-          permission: "recurring_payments:write",
-          steps: [
-            "En [[/recurring-payments]], abrí el menú ⋯ de la fila y elegí {{Borrar}}.",
-            "Confirmá en el aviso.",
-          ],
-          after: [
-            "Se elimina el pago recurrente. No se puede deshacer: si solo querés pausarlo, usá el interruptor {{Activo}}.",
-          ],
-          errors: [
-            {
-              message: "No tenés permiso para borrar pagos recurrentes.",
-              fix: "Pedí el permiso de pagos recurrentes.",
-            },
-          ],
-          related: ["activar-pago-recurrente"],
         },
       ],
     },

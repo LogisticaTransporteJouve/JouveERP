@@ -25,7 +25,6 @@ import {
   getAccounts,
   getChecks,
   getIssuedChecks,
-  getRecurringPayments,
   getTransactions,
 } from "./actions/cash";
 import {
@@ -238,7 +237,6 @@ export const AI_ACTIONS: readonly AiAction[] = [
   getTransactions,
   getChecks,
   getIssuedChecks,
-  getRecurringPayments,
   getBankReconciliation,
   proposeBankMatches,
   proposeTreasuryAccount,

@@ -150,7 +150,7 @@ export const ROUTE_GUIDES: readonly RouteGuide[] = [
     prefix: "/treasury/cash-flow",
     title: "Flujo de caja",
     summary:
-      "Proyección de cobros y pagos por mes: aging, cheques, préstamos y pagos recurrentes.",
+      "Proyección de cobros y pagos por mes: aging, cheques y préstamos.",
   },
   {
     prefix: "/accounts",
@@ -179,12 +179,6 @@ export const ROUTE_GUIDES: readonly RouteGuide[] = [
     prefix: "/issued-checks",
     title: "Cheques propios",
     summary: "Los cheques emitidos y cuándo se debitan.",
-  },
-  {
-    prefix: "/recurring-payments",
-    title: "Pagos recurrentes",
-    summary:
-      "Alquileres, servicios y otros pagos fijos: entran en el flujo de caja proyectado.",
   },
   {
     prefix: "/card-statements",

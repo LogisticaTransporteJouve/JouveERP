@@ -56,7 +56,6 @@ const PAGE_TOOLS: Record<string, readonly string[]> = {
   "/transactions": ["getTransactions"],
   "/checks": ["getChecks"],
   "/issued-checks": ["getIssuedChecks"],
-  "/recurring-payments": ["getRecurringPayments"],
   "/loans": ["getLoans"],
   "/loans/[id]": ["getLoanDetail"],
   // Contabilidad
