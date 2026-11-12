@@ -8383,6 +8383,7 @@ export type Database = {
         Row: {
           cargo_description: string | null
           channel_id: string | null
+          companion_employee_id: string | null
           cost: number | null
           created_at: string
           created_by: string | null
@@ -8401,6 +8402,7 @@ export type Database = {
         Insert: {
           cargo_description?: string | null
           channel_id?: string | null
+          companion_employee_id?: string | null
           cost?: number | null
           created_at?: string
           created_by?: string | null
@@ -8419,6 +8421,7 @@ export type Database = {
         Update: {
           cargo_description?: string | null
           channel_id?: string | null
+          companion_employee_id?: string | null
           cost?: number | null
           created_at?: string
           created_by?: string | null
@@ -8440,6 +8443,13 @@ export type Database = {
             columns: ["channel_id"]
             isOneToOne: false
             referencedRelation: "invoicing_channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trips_companion_employee_id_fkey"
+            columns: ["companion_employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
             referencedColumns: ["id"]
           },
           {
@@ -12186,6 +12196,10 @@ export type Database = {
       sync_purchase_employee_charge: {
         Args: { p_invoice_id: string }
         Returns: undefined
+      }
+      sync_shipment_trip_status: {
+        Args: { p_actor?: string; p_shipment_ids?: string[] }
+        Returns: number
       }
       tax_document_difference_note: {
         Args: {
