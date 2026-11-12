@@ -2,11 +2,12 @@ import { z } from "zod";
 
 import { LEASING_CHARGE_CONCEPTS } from "@/lib/loans/leasing-statement";
 
-export const LOAN_KINDS = ["prestamo", "leasing"] as const;
+export const LOAN_KINDS = ["prestamo", "leasing", "plan_ahorro"] as const;
 export type LoanKind = (typeof LOAN_KINDS)[number];
 export const LOAN_KIND_LABEL: Record<LoanKind, string> = {
   prestamo: "Préstamo",
   leasing: "Leasing",
+  plan_ahorro: "Plan de ahorro",
 };
 
 export const LOAN_STATUSES = ["active", "paid", "cancelled"] as const;
@@ -140,6 +141,9 @@ export interface LoanListItem {
   /** Capital still owed: principal − capital of the paid cuotas (an unsplit
    *  cuota counts whole as capital, as the management P&L reads it). */
   capital_outstanding: number;
+  /** A savings plan: what its paid cuotas added to «Rodados en plan de
+   *  ahorro» (capital of a split cuota, else what was paid). */
+  accumulated: number;
   pending_total: number;
   pending_count: number;
   next_due_date: string | null;

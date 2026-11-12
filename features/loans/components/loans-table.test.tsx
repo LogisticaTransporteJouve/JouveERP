@@ -32,6 +32,7 @@ const loan: LoanListItem = {
   next_due_amount: 1000,
   paid_total: 0,
   capital_outstanding: 1000,
+  accumulated: 0,
   pending_total: 1000,
   pending_count: 10,
   next_due_date: "2026-12-01",

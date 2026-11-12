@@ -143,10 +143,11 @@ export function LoanDialog({
     setOpeningTaxesRaw("");
   }, [open, form]);
 
-  const [currency, principalRaw, tnaRaw, countRaw, firstDue, startDate] =
+  const [kind, currency, principalRaw, tnaRaw, countRaw, firstDue, startDate] =
     useWatch({
       control: form.control,
       name: [
+        "kind",
         "currency",
         "principal",
         "tna",
@@ -269,7 +270,7 @@ export function LoanDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Nuevo préstamo / leasing</DialogTitle>
+          <DialogTitle>Nuevo préstamo, leasing o plan de ahorro</DialogTitle>
           <DialogDescription>
             Cargá los datos del préstamo como los muestra el banco y su plan de
             cuotas. Las cuotas que el banco da por pagadas quedan pagadas, sin
@@ -351,6 +352,11 @@ export function LoanDialog({
                 )}
               />
             </div>
+            {kind === "plan_ahorro" && (
+              <p className="text-muted-foreground text-sm">
+                Las cuotas suman a Rodados en plan de ahorro; no hay desembolso.
+              </p>
+            )}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <FormField
                 control={form.control}

@@ -1,6 +1,27 @@
 import { describe, expect, it } from "vitest";
 
-import { UpdateInstallmentSchema, canCancelLoan } from "./schema";
+import { Constants } from "@/lib/db/database.types";
+
+import {
+  LOAN_KINDS,
+  LOAN_KIND_LABEL,
+  UpdateInstallmentSchema,
+  canCancelLoan,
+  isLoanKind,
+} from "./schema";
+
+describe("LOAN_KINDS", () => {
+  it("lists exactly the database enum loan_kind", () => {
+    expect([...LOAN_KINDS].sort()).toEqual(
+      [...Constants.public.Enums.loan_kind].sort(),
+    );
+  });
+
+  it("names the savings plan", () => {
+    expect(isLoanKind("plan_ahorro")).toBe(true);
+    expect(LOAN_KIND_LABEL.plan_ahorro).toBe("Plan de ahorro");
+  });
+});
 
 describe("canCancelLoan", () => {
   const loan = {

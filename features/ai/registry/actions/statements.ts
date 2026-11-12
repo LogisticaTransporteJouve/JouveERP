@@ -323,25 +323,31 @@ export const getLoans = defineAiAction({
   sideEffect: "read",
   sources: ["loans", "loan_installments"],
   description:
-    "Préstamos y leasings: acreedor, capital, saldo de capital (pasivo: capital menos lo pagado de capital; una cuota sin desglose cuenta entera como capital), si el desembolso está registrado en Caja (disbursement_transaction_id), moneda, estado, pagado, pendiente, cuotas pendientes y próximo vencimiento. Alcance opcional (fiscal/internal/all).",
+    "Préstamos, leasings y planes de ahorro: tipo (kind), acreedor, capital, saldo de capital (pasivo: capital menos lo pagado de capital; una cuota sin desglose cuenta entera como capital), si el desembolso está registrado en Caja (disbursement_transaction_id), moneda, estado, pagado, pendiente, cuotas pendientes y próximo vencimiento. Un plan de ahorro (kind plan_ahorro) no es deuda: su pendiente es lo que falta pagar del plan (savingsPlansPending, fuera de pendingByCurrency) y `accumulated` lo ya acumulado en el activo Rodados en plan de ahorro. Alcance opcional (fiscal/internal/all).",
   input: z.object({ scope: ScopeInputSchema }),
   run: async (_ctx, input) => {
     const { isFiscal, label } = readScope(input.scope);
     const res = await listLoansAction({ isFiscal });
     if (!res.ok) return errResult(res.error);
     const active = res.data.filter((l) => l.status === "active");
+    // A savings plan's pending cuotas are not debt: kept apart.
     const pendingByCurrency: Record<string, number> = {};
+    const savingsPlansPending: Record<string, number> = {};
     for (const l of active) {
-      pendingByCurrency[l.currency] =
-        (pendingByCurrency[l.currency] ?? 0) + l.pending_total;
+      const bucket =
+        l.kind === "plan_ahorro" ? savingsPlansPending : pendingByCurrency;
+      bucket[l.currency] = (bucket[l.currency] ?? 0) + l.pending_total;
     }
+    const byCurrency = (r: Record<string, number>) =>
+      Object.entries(r)
+        .map(([c, v]) => `${c} ${money(v)}`)
+        .join(" · ");
+    const plans = byCurrency(savingsPlansPending);
     return okResult(
       `${label}: ${res.data.length} préstamos (${active.length} activos) · pendiente ${
-        Object.entries(pendingByCurrency)
-          .map(([c, v]) => `${c} ${money(v)}`)
-          .join(" · ") || "$0"
-      }.`,
-      { loans: res.data, pendingByCurrency },
+        byCurrency(pendingByCurrency) || "$0"
+      }${plans ? ` · planes de ahorro por pagar ${plans}` : ""}.`,
+      { loans: res.data, pendingByCurrency, savingsPlansPending },
     );
   },
 });
@@ -354,7 +360,7 @@ export const getLoanDetail = defineAiAction({
   sideEffect: "read",
   sources: ["loans", "loan_installments"],
   description:
-    "Detalle de UN préstamo con su cronograma de cuotas (vencimiento, monto, estado, pago y el desglose opcional `split`: capital, interés, IVA, percepción y otros cargos; null = sin desglose) y su saldo de capital. Requiere el UUID del préstamo (de getLoans). Con un alcance, solo lo devuelve si su canal es de ese alcance.",
+    "Detalle de UN préstamo con su cronograma de cuotas (vencimiento, monto, estado, pago y el desglose opcional `split`: capital, interés, IVA, percepción y otros cargos; null = sin desglose) y su saldo de capital; de un plan de ahorro, `accumulated` es lo ya acumulado en el activo (no hay deuda). Requiere el UUID del préstamo (de getLoans). Con un alcance, solo lo devuelve si su canal es de ese alcance.",
   input: z.object({
     loanId: UuidSchema.describe("UUID del préstamo."),
     scope: ScopeInputSchema,

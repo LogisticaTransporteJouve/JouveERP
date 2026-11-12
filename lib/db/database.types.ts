@@ -12358,6 +12358,7 @@ export type Database = {
         | "cheques_rechazados"
         | "anticipos_personal"
         | "rodados"
+        | "planes_ahorro"
         | "cheques_diferidos_emitidos"
         | "prestamos"
         | "deudas_leasing"
@@ -12389,7 +12390,7 @@ export type Database = {
         | "paternidad"
         | "otro"
       loan_installment_status: "pendiente" | "pagada"
-      loan_kind: "prestamo" | "leasing"
+      loan_kind: "prestamo" | "leasing" | "plan_ahorro"
       loan_status: "active" | "paid" | "cancelled"
       payroll_payment_method: "transferencia" | "efectivo"
     }
@@ -12559,6 +12560,7 @@ export const Constants = {
         "cheques_rechazados",
         "anticipos_personal",
         "rodados",
+        "planes_ahorro",
         "cheques_diferidos_emitidos",
         "prestamos",
         "deudas_leasing",
@@ -12593,7 +12595,7 @@ export const Constants = {
         "otro",
       ],
       loan_installment_status: ["pendiente", "pagada"],
-      loan_kind: ["prestamo", "leasing"],
+      loan_kind: ["prestamo", "leasing", "plan_ahorro"],
       loan_status: ["active", "paid", "cancelled"],
       payroll_payment_method: ["transferencia", "efectivo"],
     },

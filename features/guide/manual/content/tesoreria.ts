@@ -2892,19 +2892,19 @@ export const treasuryPage: GuidePage = {
     // ── Préstamos ────────────────────────────────────────────────────────
     {
       id: "prestamos",
-      title: "Préstamos y leasing",
+      title: "Préstamos, leasings y planes de ahorro",
       menuPath: "Tesorería › Préstamos",
       routes: ["/loans", "/loans/[id]"],
       permission: TREASURY_READ,
       intro: [
-        "Los préstamos y leasings de la empresa con su cronograma de cuotas. Las cuotas pendientes se proyectan en [[/treasury/cash-flow]].",
-        "La lista muestra {{Descripción}} (con el tipo, {{Préstamo}} o {{Leasing}}, y el número del banco), {{Banco}}, {{Capital}}, {{Capital adeudado}}, {{Cuotas pagas}}, {{Pendiente}} (con la cantidad de cuotas), {{Próx. venc.}} y {{Estado}} ({{Activo}}, {{Cancelado}} cuando se pagó la última cuota, {{Anulado}}).",
+        "Los préstamos, leasings y planes de ahorro de la empresa con su cronograma de cuotas. Las cuotas pendientes se proyectan en [[/treasury/cash-flow]].",
+        "La lista muestra {{Descripción}} (con el tipo, {{Préstamo}}, {{Leasing}} o {{Plan de ahorro}}, y el número del banco), {{Banco}}, {{Capital}}, {{Capital adeudado}}, {{Cuotas pagas}}, {{Pendiente}} (con la cantidad de cuotas), {{Próx. venc.}} y {{Estado}} ({{Activo}}, {{Cancelado}} cuando se pagó la última cuota, {{Anulado}}).",
         "En el detalle (clic en la descripción o {{Ver cuotas}}) se ve lo mismo que en el home banking: arriba {{Capital adeudado}}, {{Cuotas pagas}}, {{Próxima cuota}} y {{Vencimiento próxima cuota}}; en {{General}} el estado, el monto original, la fecha de alta, el plazo y lo pendiente; en {{Tasas}} la TNA, la TEA, el CFT y los intereses pagados; y el {{Plan de cuotas}} con {{Total a pagar}}, {{Capital}}, {{Intereses}}, {{Otros}}, {{IVA}} y el estado de cada una ({{Pagada}}, {{Pagada (antes de cargar)}}, {{Vencida}} o la fecha en que vence).",
       ],
       screens: [
         {
           kind: "page",
-          title: "Préstamos y leasing",
+          title: "Préstamos, leasings y planes de ahorro",
           actions: [{ label: "Nuevo préstamo", variant: "primary" }],
           table: {
             columns: [
@@ -2951,16 +2951,25 @@ export const treasuryPage: GuidePage = {
             "Al pagar una cuota, el capital baja Deudas por leasing; el interés y la mora van a Intereses pagados; el seguro a «Seguros de vehículos» (5.2.5), las patentes a «Patentes» (5.2.6) y el valor residual a la deuda; todo el IVA va a IVA Crédito Fiscal.",
           ],
         },
+        {
+          title: "Qué asientos hace un plan de ahorro",
+          body: [
+            "Un plan de ahorro (Toyota Plan, Círculo Cerrado) no es una deuda: cada cuota pagada suma a «Rodados en plan de ahorro» (Bienes de uso, un activo).",
+            "Una cuota sin desglose, o pagada por otro importe, suma entera al plan; nunca va a gastos. Una cuota con desglose pagada por su importe suma su capital al plan, y el interés y el IVA van como en cualquier préstamo.",
+            "No tiene desembolso ni deuda de apertura: la cuenta arranca en cero y suma desde la primera cuota que se paga en el sistema. En el detalle, en lugar de {{Capital adeudado}} se ven {{Falta pagar}} y {{Acumulado en el plan}}.",
+            "La adjudicación (pasar lo acumulado a Rodados) todavía no se registra desde el sistema.",
+          ],
+        },
       ],
       tasks: [
         {
           id: "crear-prestamo",
-          title: "Cargar un préstamo o leasing",
+          title: "Cargar un préstamo, leasing o plan de ahorro",
           permission: "accounting:write",
           screens: [
             {
               kind: "dialog",
-              title: "Nuevo préstamo / leasing",
+              title: "Nuevo préstamo, leasing o plan de ahorro",
               description:
                 "Cargá los datos del préstamo como los muestra el banco y su plan de cuotas. Las cuotas que el banco da por pagadas quedan pagadas, sin movimiento en Caja.",
               fields: [
@@ -3019,7 +3028,7 @@ export const treasuryPage: GuidePage = {
           ],
           steps: [
             "En [[/loans]], hacé clic en {{Nuevo préstamo}}.",
-            "Elegí el {{Tipo}} ({{Préstamo}} o {{Leasing}}) y la {{Moneda}}, y escribí el {{Banco}} y el {{Número de préstamo}}.",
+            "Elegí el {{Tipo}} ({{Préstamo}}, {{Leasing}} o {{Plan de ahorro}}) y la {{Moneda}}, y escribí el {{Banco}} y el {{Número de préstamo}}.",
             "Escribí la {{Descripción}}, elegí la {{Cuenta de débito}} (de donde el banco debita las cuotas) y cargá la {{Fecha de alta}}, el {{Monto original}} y las tasas ({{TNA (%)}}, {{TEA (%)}}, {{CFT (%)}}) como figuran en el banco.",
             {
               text: "En {{Plan de cuotas}} elegí cómo se arman las cuotas.",
@@ -3037,7 +3046,7 @@ export const treasuryPage: GuidePage = {
           after: [
             "Se crea el préstamo {{Activo}}, en el canal fiscal, con su plan. Cada cuota pendiente se puede editar después ([[#editar-cuota-prestamo]]).",
             "Las cuotas que el banco da por pagadas quedan {{Pagada (antes de cargar)}}: sin movimiento en Caja ni asiento, porque esa plata salió antes de usar el sistema. En ese caso no hace falta registrar el desembolso.",
-            "Un préstamo nuevo todavía no tiene plata en Caja: registrá el desembolso cuando el banco lo deposite ([[#registrar-desembolso-prestamo]]).",
+            "Un préstamo nuevo todavía no tiene plata en Caja: registrá el desembolso cuando el banco lo deposite ([[#registrar-desembolso-prestamo]]). Un plan de ahorro no tiene desembolso: sus cuotas suman a «Rodados en plan de ahorro» a medida que se pagan.",
             "Cuando el banco debita una cuota, la línea del extracto propone {{Pagar cuota}}: un clic la paga y la concilia ([[#pagar-cuota-prestamo]]).",
           ],
           errors: [
@@ -3060,7 +3069,13 @@ export const treasuryPage: GuidePage = {
             },
           ],
           related: ["registrar-desembolso-prestamo", "pagar-cuota-prestamo"],
-          keywords: ["préstamo bancario", "leasing", "crédito", "cronograma"],
+          keywords: [
+            "préstamo bancario",
+            "leasing",
+            "plan de ahorro",
+            "crédito",
+            "cronograma",
+          ],
         },
         {
           id: "comprobantes-banco-prestamo",
@@ -3149,6 +3164,7 @@ export const treasuryPage: GuidePage = {
           permission: ["accounting:write", "transactions:write"],
           prerequisites: [
             "Que el préstamo no esté anulado y no tenga el desembolso registrado.",
+            "Que no sea un plan de ahorro: un plan no tiene desembolso.",
           ],
           steps: [
             "En el detalle del préstamo, junto a «El desembolso no está registrado en Caja», hacé clic en {{Registrar desembolso}}.",

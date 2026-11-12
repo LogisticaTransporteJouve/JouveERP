@@ -90,6 +90,9 @@ export function LoanDetail({
   canMoveCash: boolean;
 }) {
   const { data: loan } = useLoan(loanId);
+  // A savings plan is an asset that grows with each cuota: no disbursement
+  // and no capital owed.
+  const isPlan = loan.kind === "plan_ahorro";
   const today = todayInAR();
   const money = (n: number) => formatMoney(n, loan.currency);
   const [payTarget, setPayTarget] = useState<LoanInstallment | null>(null);
@@ -144,7 +147,12 @@ export function LoanDetail({
             .join(" · ")}
         </p>
         <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
-          {loan.installments.some((i) => i.paid_outside) ? (
+          {isPlan ? (
+            <span className="text-muted-foreground">
+              Las cuotas pagadas suman a Rodados en plan de ahorro; no hay
+              desembolso.
+            </span>
+          ) : loan.installments.some((i) => i.paid_outside) ? (
             <span className="text-muted-foreground">
               Préstamo en curso: se cargó con cuotas ya pagadas, el desembolso
               fue antes de usar el sistema.
@@ -179,11 +187,23 @@ export function LoanDetail({
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat
-          label="Capital adeudado"
-          value={money(loan.capital_outstanding)}
-        />
+      <div
+        className={`grid grid-cols-2 gap-3 ${isPlan ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}
+      >
+        {isPlan ? (
+          <>
+            <Stat label="Falta pagar" value={money(loan.pending_total)} />
+            <Stat
+              label="Acumulado en el plan"
+              value={money(loan.accumulated)}
+            />
+          </>
+        ) : (
+          <Stat
+            label="Capital adeudado"
+            value={money(loan.capital_outstanding)}
+          />
+        )}
         <Stat
           label="Cuotas pagas"
           value={`${loan.paid_count}/${loan.installments.length}`}

@@ -86,6 +86,7 @@ function summarize(
   | "pending_count"
   | "next_due_date"
   | "capital_outstanding"
+  | "accumulated"
 > {
   let paid = 0;
   let paidCount = 0;
@@ -122,6 +123,7 @@ function summarize(
       0,
       Math.round((principal - capitalPaid) * 100) / 100,
     ),
+    accumulated: Math.round(capitalPaid * 100) / 100,
   };
 }
 

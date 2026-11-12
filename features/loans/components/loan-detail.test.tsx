@@ -34,6 +34,7 @@ const loan: Loan = {
   next_due_amount: 1000,
   paid_total: 0,
   capital_outstanding: 1000,
+  accumulated: 0,
   pending_total: 1000,
   pending_count: 1,
   next_due_date: "2026-12-01",
@@ -185,6 +186,37 @@ describe("LoanDetail leasing", () => {
     await screen.findByText("Plan de cuotas");
     expect(
       screen.queryByRole("button", { name: /Cargar resumen de cuota/ }),
+    ).toBeNull();
+  });
+});
+
+describe("LoanDetail savings plan", () => {
+  it("shows what is left and what the plan accumulated, with no disbursement", async () => {
+    h.listAccounts.mockResolvedValue({
+      ok: true,
+      data: [
+        {
+          id: "a1",
+          name: "Banco Galicia",
+          type: "bank",
+          currency: "ARS",
+          is_active: true,
+        },
+      ],
+    });
+    current = {
+      ...loan,
+      kind: "plan_ahorro",
+      pending_total: 1358957.1,
+      accumulated: 948922.09,
+    };
+    renderDetail();
+    expect(await screen.findByText("Acumulado en el plan")).toBeTruthy();
+    expect(screen.getByText("Falta pagar")).toBeTruthy();
+    expect(screen.queryByText("Capital adeudado")).toBeNull();
+    expect(await screen.findByRole("button", { name: "Pagar" })).toBeTruthy();
+    expect(
+      screen.queryByRole("button", { name: "Registrar desembolso" }),
     ).toBeNull();
   });
 });
