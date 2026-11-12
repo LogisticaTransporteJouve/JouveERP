@@ -316,35 +316,39 @@ export const purchasesPage: GuidePage = {
         },
         {
           id: "eliminar-o-desactivar-proveedor",
-          title: "Eliminar o desactivar un proveedor",
+          title: "Desactivar, reactivar o eliminar un proveedor",
           summary:
-            "Un proveedor con movimientos no se elimina: se desactiva y deja de aparecer en las listas activas.",
+            "Desactivar oculta al proveedor de la lista y de los selectores sin perder su historial; se puede reactivar después.",
           permission: "suppliers:write",
           screens: [
             {
               kind: "dialog",
-              title: "Eliminar proveedor",
+              title: "Desactivar proveedor",
               description: "Transportes del Sur S.A. · CUIT 30-71234567-8",
               footer: [
                 { label: "Cancelar", variant: "ghost" },
-                { label: "Desactivar", variant: "outline", marker: 2 },
-                { label: "Eliminar", variant: "destructive", marker: 2 },
+                {
+                  label: "Eliminar definitivamente",
+                  variant: "outline",
+                  marker: 2,
+                },
+                { label: "Desactivar", variant: "primary", marker: 2 },
               ],
             },
           ],
           steps: [
-            "En [[/suppliers]], en la fila del proveedor, hacé clic en el tacho ({{Eliminar}}). El sistema revisa si el proveedor tiene movimientos asociados.",
+            "En [[/suppliers]], en la fila del proveedor, hacé clic en {{Desactivar}} (el ícono de archivo).",
             {
-              text: "Elegí según lo que muestre:",
+              text: "En el diálogo:",
               substeps: [
-                "Si **tiene movimientos** (compras, órdenes de pago, cheques, saldo de apertura, adjuntos, movimientos de caja), lista cuántos hay y solo ofrece {{Desactivar}}.",
-                "Si **no tiene movimientos**, podés {{Eliminar}} definitivamente o {{Desactivar}} para conservarlo.",
+                "{{Desactivar}} lo deja guardado con todo su historial y lo saca de la lista y de los selectores.",
+                "Si **no tiene movimientos** (compras, órdenes de pago, cheques, saldo de apertura, adjuntos, movimientos de caja), también aparece {{Eliminar definitivamente}}.",
               ],
             },
           ],
           after: [
-            "Desactivar: aviso «Proveedor desactivado.»; el proveedor queda guardado con todo su historial y solo se ve con {{Solo activos}} destildado.",
-            "Eliminar: aviso «Proveedor eliminado.»; no se puede deshacer.",
+            "Desactivar: aviso «Proveedor desactivado.»; solo se ve con {{Solo activos}} destildado. Para volver a usarlo, hacé clic en {{Reactivar}} (el ícono de encendido) en su fila: aviso «Proveedor reactivado.».",
+            "Eliminar definitivamente: aviso «Proveedor eliminado.»; no se puede deshacer.",
           ],
           errors: [
             {
@@ -353,16 +357,20 @@ export const purchasesPage: GuidePage = {
               fix: "Usá {{Desactivar}}.",
             },
             {
-              message:
-                "No se pudo verificar si el proveedor tiene movimientos asociados.",
-              fix: "Reintentá; mientras no se pueda verificar, el sistema no deja eliminarlo.",
+              message: "No se pudo verificar si tiene movimientos asociados.",
+              fix: "Podés desactivarlo igual; mientras no se pueda verificar, el sistema no ofrece eliminarlo.",
             },
             {
               message: "No tenés permiso para eliminar proveedores.",
               fix: "Pedíselo a alguien con el permiso (ver [[#roles-y-permisos]]).",
             },
           ],
-          keywords: ["borrar proveedor", "dar de baja", "inactivo"],
+          keywords: [
+            "borrar proveedor",
+            "dar de baja",
+            "inactivo",
+            "reactivar proveedor",
+          ],
         },
         {
           id: "ver-cuenta-corriente-proveedor",

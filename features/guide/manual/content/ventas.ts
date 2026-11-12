@@ -276,33 +276,31 @@ export const salesPage: GuidePage = {
         },
         {
           id: "eliminar-cliente",
-          title: "Eliminar, desactivar o reactivar un cliente",
+          title: "Desactivar, reactivar o eliminar un cliente",
           summary:
-            "Un cliente con movimientos no se borra: se desactiva para que deje de aparecer en las listas, y se puede reactivar después.",
+            "Desactivar oculta al cliente de la lista y de los selectores sin perder su historial; se puede reactivar después.",
           permission: "clients:write",
           screens: [
             {
               kind: "dialog",
-              caption: "Clientes › tacho de la fila",
-              title: "Eliminar cliente",
+              caption: "Clientes › Desactivar en la fila",
+              title: "Desactivar cliente",
               description: "Transportes del Sur S.A. · CUIT 30714637432",
               footer: [
                 { label: "Cancelar", variant: "ghost" },
-                { label: "Desactivar", variant: "outline", marker: 3 },
-                { label: "Eliminar", variant: "destructive", marker: 3 },
+                {
+                  label: "Eliminar definitivamente",
+                  variant: "outline",
+                  marker: 3,
+                },
+                { label: "Desactivar", variant: "primary", marker: 2 },
               ],
             },
           ],
           steps: [
-            "En [[/clients]], en la fila del cliente, hacé clic en el tacho ({{Eliminar}}).",
-            "El sistema revisa si el cliente tiene movimientos asociados (comprobantes, recibos, etc.) y los lista.",
-            {
-              text: "Elegí:",
-              substeps: [
-                "Si tiene movimientos, solo se ofrece {{Desactivar}}: queda guardado pero deja de aparecer en las listas activas.",
-                "Si no tiene movimientos, podés {{Desactivar}} o {{Eliminar}} definitivamente (no se puede deshacer).",
-              ],
-            },
+            "En [[/clients]], en la fila del cliente, hacé clic en {{Desactivar}} (el ícono de archivo).",
+            "Confirmá con {{Desactivar}}: aviso «Cliente desactivado.».",
+            "Si el cliente no tiene movimientos asociados (comprobantes, recibos, etc.), el diálogo también ofrece {{Eliminar definitivamente}}, que no se puede deshacer.",
           ],
           after: [
             "Un cliente desactivado solo aparece en [[/clients]] destildando {{Solo activos}}, y no se le pueden emitir comprobantes. Para volver a usarlo, hacé clic en {{Reactivar}} (el ícono de encendido) en su fila: aviso «Cliente reactivado.».",
@@ -315,7 +313,7 @@ export const salesPage: GuidePage = {
             },
             {
               message: "No se pudo verificar si tiene movimientos asociados.",
-              fix: "Hacé clic en reintentar dentro del diálogo; si sigue, recargá la página.",
+              fix: "Podés desactivarlo igual; para ofrecer la eliminación, hacé clic en reintentar dentro del diálogo.",
             },
             {
               message: "No tenés permiso para eliminar clientes.",

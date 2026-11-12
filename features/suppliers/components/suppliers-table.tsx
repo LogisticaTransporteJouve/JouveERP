@@ -42,7 +42,10 @@ import {
   type IvaCondition,
   type Supplier,
 } from "../schema";
-import { DeleteSupplierDialog } from "./delete-supplier-dialog";
+import {
+  DeactivateSupplierDialog,
+  ReactivateSupplierButton,
+} from "./deactivate-supplier-dialog";
 import { EditSupplierDialog } from "./edit-supplier-dialog";
 import { NewSupplierDialog } from "./new-supplier-dialog";
 
@@ -332,7 +335,12 @@ function buildColumns({
       cell: ({ row }) => (
         <div className="flex items-center justify-end gap-1">
           {canWrite && <EditSupplierDialog supplier={row.original} />}
-          {canWrite && <DeleteSupplierDialog supplier={row.original} />}
+          {canWrite && !row.original.is_active && (
+            <ReactivateSupplierButton supplier={row.original} />
+          )}
+          {canWrite && row.original.is_active && (
+            <DeactivateSupplierDialog supplier={row.original} />
+          )}
         </div>
       ),
     },
