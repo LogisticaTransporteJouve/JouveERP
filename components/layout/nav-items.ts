@@ -560,6 +560,13 @@ export function channelSections(
         channelId: channel.id,
       },
       {
+        href: "/clients",
+        label: "Clientes",
+        icon: Users,
+        permission: "clients:read",
+        channelId: channel.id,
+      },
+      {
         href: "/suppliers",
         label: "Proveedores",
         icon: Truck,

@@ -5,6 +5,7 @@ import { Building2, Plus, Search, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { useSectionChannelId } from "@/components/providers/scope-provider";
 import { ReadError } from "@/components/read-error";
 
 import { Badge } from "@/components/ui/badge";
@@ -94,8 +95,16 @@ export function ClientPicker({
   const readDenied = access?.canRead === false;
   const canCreate = isFiscal !== null && access?.canCreate === true;
 
+  // Inside a segregated channel's section its own clients are offered too.
+  const channelId = useSectionChannelId();
   const searchQuery = useClientsSearch(
-    { query: debouncedQuery, onlyActive: true, limit: RESULT_LIMIT, isFiscal },
+    {
+      query: debouncedQuery,
+      onlyActive: true,
+      limit: RESULT_LIMIT,
+      isFiscal,
+      channelId,
+    },
     { enabled: open && !readDenied },
   );
   const results = searchQuery.data?.clients ?? [];

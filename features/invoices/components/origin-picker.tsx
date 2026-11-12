@@ -3,6 +3,7 @@
 import { Loader2, Search, X } from "lucide-react";
 import { useState } from "react";
 
+import { useSectionChannelId } from "@/components/providers/scope-provider";
 import { ReadError } from "@/components/read-error";
 import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
@@ -36,7 +37,7 @@ export function OriginPicker({
   const [open, setOpen] = useState(false);
   const [queryInput, setQueryInput] = useState("");
   const debounced = useDebouncedValue(queryInput.trim(), 250);
-  const search = useOriginSearch(debounced, open);
+  const search = useOriginSearch(debounced, open, useSectionChannelId());
   const { data: items = [], isFetching } = search;
 
   if (value) {

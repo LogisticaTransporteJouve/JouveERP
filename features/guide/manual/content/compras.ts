@@ -2633,16 +2633,17 @@ export const purchasesPage: GuidePage = {
       routes: ["/channel-summary/[channelId]"],
       permission: "management:read",
       intro: [
-        "DZ Instalaciones es una división de la misma empresa (el mismo CUIT) con un canal propio. Cuando ese canal está activo, la barra lateral muestra al final un bloque **DZ Instalaciones** con {{Resumen}}, {{Comprobantes de compra}}, {{Órdenes de pago}}, {{Ventas}} y {{Proveedores}}: las mismas pantallas de siempre, pero solo con lo de DZ.",
+        "DZ Instalaciones es una división de la misma empresa (el mismo CUIT) con un canal propio. Cuando ese canal está activo, la barra lateral muestra al final un bloque **DZ Instalaciones** con {{Resumen}}, {{Comprobantes de compra}}, {{Órdenes de pago}}, {{Ventas}}, {{Clientes}} y {{Proveedores}}: las mismas pantallas de siempre, pero solo con lo de DZ. {{Clientes}} es la excepción: los clientes son una sola lista, compartida con Ventas.",
         "Fuera de ese bloque, lo de DZ no aparece: ni en las listas de Compras y Ventas, ni en los selectores de canal, ni en el resultado de gestión, el flujo de caja, el aging, las tareas o el asistente. Lo incluyen el Libro IVA, el libro diario, el mayor y el balance, porque el CUIT es uno, y Tesorería: sus movimientos, cheques y la conciliación llevan la marca «DZ».",
       ],
       concepts: [
         {
           title: "Qué se carga desde el bloque",
           body: [
-            "Un formulario abierto desde el bloque (una factura de compra, una orden de pago, un proveedor nuevo) ya viene con el canal de DZ y no ofrece otro. Una compra o un proveedor de DZ abierto desde otro lado conserva su canal.",
+            "Un formulario abierto desde el bloque (una factura de compra, una orden de pago, un proveedor nuevo, un comprobante de venta) ya viene con el canal de DZ y no ofrece otro. Una compra o un proveedor de DZ abierto desde otro lado conserva su canal.",
             "Las compras de DZ sin cuenta propia van a «Costo de mercadería vendida (Instalaciones)» y sus ventas a «Venta de productos (Instalaciones)», no a las cuentas de Logística Jouve.",
-            "Las ventas de DZ llegan desde ARCA, por su punto de venta: en el bloque, {{Ventas}} no tiene {{Nuevo comprobante}}.",
+            "Las ventas de DZ se emiten desde el bloque, con {{Nuevo comprobante}} en {{Ventas}}: el comprobante sale con el punto de venta de DZ (el 10) y su PDF lleva la línea «DZ Instalaciones» bajo los datos de la empresa. Los que se emitan desde ARCA con ese punto de venta también llegan con la sincronización de emitidos.",
+            "Un cliente es el mismo en Logística Jouve y en DZ. Un cliente que solo tiene comprobantes de DZ no aparece en las listas de Ventas; en el bloque, {{Clientes}} los muestra a todos.",
           ],
         },
       ],
@@ -2659,6 +2660,20 @@ export const purchasesPage: GuidePage = {
             "Las cifras salen de los asientos de DZ, con sus propias cuentas de ventas y costos. Los saldos con proveedores se ven si además tenés acceso al aging de proveedores.",
           ],
           keywords: ["dz", "instalaciones", "división", "resultado de dz"],
+        },
+        {
+          id: "emitir-factura-de-dz",
+          title: "Emitir una factura de DZ Instalaciones",
+          permission: "invoices:issue",
+          steps: [
+            "En la barra lateral, abrí **DZ Instalaciones › Ventas** y hacé clic en {{Nuevo comprobante}}.",
+            "El canal ya viene en DZ Instalaciones y el punto de venta, en el de DZ (el 10).",
+            "Elegí el cliente (o creá uno nuevo desde el selector), cargá los ítems y emitilo como cualquier factura ([[#emitir-factura]]).",
+          ],
+          after: [
+            "El comprobante pide el CAE a AFIP, queda solo en el bloque de DZ (y en el Libro IVA) y su neto va a «Venta de productos (Instalaciones)».",
+          ],
+          keywords: ["factura dz", "punto de venta 10", "venta instalaciones"],
         },
       ],
     },

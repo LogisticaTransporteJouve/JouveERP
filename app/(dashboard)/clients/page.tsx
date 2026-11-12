@@ -7,8 +7,7 @@ import {
   clientsKeys,
 } from "@/features/clients/lib/clients-keys";
 import { requireUserContext } from "@/lib/auth/context";
-import { isFiscalFor } from "@/lib/scope";
-import { readScopeCookie } from "@/lib/scope-server";
+import { readPageChannelScope } from "@/lib/scope-server";
 import { userCan } from "@/lib/auth/permissions";
 import { Hydrate } from "@/lib/query/hydrate";
 import { prefetchQueries } from "@/lib/query/prefetch";
@@ -19,7 +18,7 @@ export const dynamic = "force-dynamic";
 export default async function ClientesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; inactive?: string }>;
+  searchParams: Promise<{ q?: string; inactive?: string; channel?: string }>;
 }) {
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "clients:read")) {
@@ -30,10 +29,14 @@ export default async function ClientesPage({
   const initialQuery = (params.q ?? "").trim();
   const initialOnlyActive = params.inactive !== "1";
 
+  // Clients are one shared list: inside a segregated channel's section
+  // (DZ) the list also shows the clients that only live on it.
+  const scope = await readPageChannelScope(params);
   const filters = {
     query: initialQuery,
     onlyActive: initialOnlyActive,
-    isFiscal: isFiscalFor(await readScopeCookie()),
+    isFiscal: scope.isFiscal,
+    channelId: scope.channelId,
   };
   const dehydratedState = await prefetchQueries([
     {
@@ -57,9 +60,11 @@ export default async function ClientesPage({
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">Clientes</h1>
           <p className="text-sm text-muted-foreground">
-            {filters.isFiscal
-              ? "Clientes de Ventas: con CUIT y condición de IVA (AFIP)."
-              : "Clientes de Otras ventas: sin CUIT ni AFIP."}
+            {filters.channelId
+              ? "Con CUIT y condición de IVA (AFIP). La lista es la misma de Ventas: los clientes son compartidos."
+              : filters.isFiscal
+                ? "Clientes de Ventas: con CUIT y condición de IVA (AFIP)."
+                : "Clientes de Otras ventas: sin CUIT ni AFIP."}
           </p>
         </div>
       </div>

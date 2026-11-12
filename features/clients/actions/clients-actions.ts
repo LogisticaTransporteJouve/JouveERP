@@ -73,6 +73,9 @@ export type SearchClientsInput = {
   onlyActive?: boolean;
   /** Ventas (true) or Otras ventas (false); null lists both. */
   isFiscal?: boolean | null;
+  /** A segregated channel's section: clients that only live on it are
+   *  listed too (clients are one shared list). Without it they are left out. */
+  channelId?: string | null;
   offset?: number;
   limit?: number;
 };
@@ -116,6 +119,7 @@ export async function searchClientsAction(
     p_offset: offset,
     p_limit: limit + 1,
     p_is_fiscal: input.isFiscal ?? undefined,
+    p_channel_id: input.channelId ?? undefined,
   });
 
   if (error) {

@@ -169,9 +169,15 @@ export function useEnabledPos(
  * are all eligible. The invoices list page consumes this from the NC/ND
  * dialog.
  */
-export function useOriginSearch(query: string, enabled = true) {
+/** `channelId`: a segregated channel's section, whose invoices are the only
+ *  origins offered there; null = the main app's. */
+export function useOriginSearch(
+  query: string,
+  enabled = true,
+  channelId: string | null = null,
+) {
   return useQuery({
-    queryKey: invoicesKeys.originSearch(query),
+    queryKey: invoicesKeys.originSearch(query, channelId),
     queryFn: async (): Promise<InvoiceListItem[]> => {
       const res = await runAction(() =>
         listInvoicesAction({
@@ -179,6 +185,7 @@ export function useOriginSearch(query: string, enabled = true) {
           kind: "factura",
           isFiscal: true,
           activeChannelOnly: true,
+          channel_id: channelId,
           query: query.trim().length > 0 ? query : null,
           limit: 25,
         }),

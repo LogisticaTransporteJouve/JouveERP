@@ -216,10 +216,7 @@ export function ComprobantesTable({
               onChange={(next) => update({ group: next })}
             />
             <ExportButton resource="invoices" />
-            {/* A segregated channel's sales come from ARCA (its POS). */}
-            {canIssue && !scope.channelId && (
-              <NewInvoiceDialog channels={channels} />
-            )}
+            {canIssue && <NewInvoiceDialog channels={channels} />}
           </>
         }
       >

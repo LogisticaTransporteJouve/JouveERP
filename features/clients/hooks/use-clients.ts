@@ -66,6 +66,8 @@ export function useClientsSearchInfinite(filters: {
   query: string;
   onlyActive: boolean;
   isFiscal: boolean | null;
+  /** A segregated channel's section (see `SearchClientsInput`). */
+  channelId?: string | null;
 }) {
   const query = useSuspenseInfiniteQuery({
     queryKey: clientsKeys.searchInfinite(filters),
@@ -75,6 +77,7 @@ export function useClientsSearchInfinite(filters: {
           query: filters.query,
           onlyActive: filters.onlyActive,
           isFiscal: filters.isFiscal,
+          channelId: filters.channelId ?? null,
           offset: pageParam,
           limit: CLIENTS_PAGE_SIZE,
         }),
@@ -103,6 +106,8 @@ export function useClientsSearch(
     onlyActive: boolean;
     limit: number;
     isFiscal: boolean | null;
+    /** A segregated channel's section (see `SearchClientsInput`). */
+    channelId?: string | null;
   },
   options: { enabled?: boolean } = {},
 ) {
@@ -114,6 +119,7 @@ export function useClientsSearch(
           query: filters.query,
           onlyActive: filters.onlyActive,
           isFiscal: filters.isFiscal,
+          channelId: filters.channelId ?? null,
           offset: 0,
           limit: filters.limit,
         }),
