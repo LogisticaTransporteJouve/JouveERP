@@ -3,6 +3,7 @@ import { z } from "zod";
 import { MAINTENANCE_KINDS } from "@/features/maintenance/schema";
 import { listShipmentsAction } from "@/features/shipments/actions/shipments-actions";
 import {
+  SHIPMENT_KINDS,
   OFFERED_SHIPMENT_TARGETS,
   SHIPMENT_NEXT_STATUSES,
   SHIPMENT_STATUS_LABELS,
@@ -140,14 +141,22 @@ export const proposeShipment = defineAiProposal({
   sources: ["shipments", "clients"],
   description:
     "Propose creating a carga (shipment) for the user to accept on a card: " +
-    "client (name or CUIT), description, scheduled date and address " +
-    "(dirección: where it goes), the fields of the carga form, and trip_id " +
-    "(from getTrips) to put it on a trip. Writes nothing by itself.",
+    "client (name or CUIT), description, kind (retiro/carga/mudanza, " +
+    "default carga), load address (origin) and unload address " +
+    "(destination), load day (scheduled_date) and unload day (unload_date, " +
+    "not before the load day), horario (time_window) and observaciones " +
+    "(notes): the fields of the carga form; and trip_id (from getTrips) to " +
+    "put it on a trip. Writes nothing by itself.",
   input: z.object({
     client: z.string().trim().min(1).max(160).optional(),
     description: text(500),
-    scheduled_date: IsoDateSchema.optional(),
-    destination: text(160).describe("Address (dirección) of the carga."),
+    kind: z.enum(SHIPMENT_KINDS).optional(),
+    origin: text(160).describe("Dirección de carga (where it is loaded)."),
+    destination: text(160).describe("Dirección de descarga (where it goes)."),
+    scheduled_date: IsoDateSchema.optional().describe("Fecha de carga."),
+    unload_date: IsoDateSchema.optional().describe("Fecha de descarga."),
+    time_window: text(60).describe("Horario, e.g. «8 a 12 hs»."),
+    notes: text(1000).describe("Observaciones."),
     trip_id: UuidSchema.optional(),
   }),
   spec: shipmentProposalSpec,
@@ -161,9 +170,14 @@ export const proposeShipment = defineAiProposal({
       draft: {
         client_id: client?.id ?? null,
         trip_id: input.trip_id ?? null,
+        kind: input.kind ?? "carga",
+        origin: input.origin ?? null,
         destination: input.destination ?? null,
         description: input.description ?? null,
         scheduled_date: input.scheduled_date ?? null,
+        unload_date: input.unload_date ?? null,
+        time_window: input.time_window ?? null,
+        notes: input.notes ?? null,
       },
       labels: client?.label ? { [client.id]: client.label } : {},
     };

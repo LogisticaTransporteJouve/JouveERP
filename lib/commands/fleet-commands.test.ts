@@ -86,16 +86,24 @@ describe("createShipment", () => {
   it("inserts the carga as the actor and audits it", async () => {
     const { db, calls } = fakeDb({ data: { id: "s1" }, error: null });
     const res = await createShipment(db, "u1", {
+      kind: "retiro",
       description: "Pallets",
+      origin: "Depósito Norte",
       destination: "Av. Corrientes 1234, CABA",
+      time_window: "8 a 12 hs",
     });
     expect(res).toEqual({ ok: true, data: { id: "s1" } });
     expect(calls[0]?.payload).toEqual({
       client_id: null,
       trip_id: null,
+      kind: "retiro",
+      origin: "Depósito Norte",
       destination: "Av. Corrientes 1234, CABA",
       description: "Pallets",
       scheduled_date: null,
+      unload_date: null,
+      time_window: "8 a 12 hs",
+      notes: null,
       created_by: "u1",
     });
     expect(logAudit).toHaveBeenCalledWith("shipment.created", "u1", {}, "s1");

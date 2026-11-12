@@ -287,7 +287,7 @@ export const ROUTE_GUIDES: readonly RouteGuide[] = [
     prefix: "/cargas",
     title: "Cargas",
     summary:
-      "Las cargas a transportar: cliente, descripción, fecha programada y dirección.",
+      "Las cargas a transportar: cliente, tipo, direcciones de carga y descarga, fechas y horario.",
   },
   {
     prefix: "/fleet-tariffs",

@@ -4,8 +4,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { Shipment } from "../schema";
 
-// The carga form asks only for client, description, scheduled date and
-// dirección (the destination column); the trip is assigned from the trip.
+// The carga form asks for client, description, tipo, both addresses (origin /
+// destination), both days, horario and observaciones (notes); the trip is
+// assigned from the trip.
 
 const shipment: Shipment = {
   id: "s1",
@@ -13,10 +14,13 @@ const shipment: Shipment = {
   trip_id: null,
   channel_id: null,
   remito_number: "0001-00001234",
+  kind: "mudanza",
   origin: "Rosario",
   destination: "Av. Pellegrini 1500, Rosario",
   description: "Pallets",
-  scheduled_date: null,
+  scheduled_date: "2026-11-12",
+  unload_date: "2026-11-13",
+  time_window: "8 a 12 hs",
   status: "not_started",
   delivery_date: null,
   failure_reason: null,
@@ -44,7 +48,7 @@ const { ShipmentDialog } = await import("./shipment-dialog");
 afterEach(cleanup);
 
 describe("ShipmentDialog", () => {
-  it("shows only Cliente, Descripción, Fecha programada and Dirección", () => {
+  it("shows the carga's fields in order, filled from the carga", () => {
     render(
       <ShipmentDialog
         mode="edit"
@@ -53,20 +57,27 @@ describe("ShipmentDialog", () => {
         onOpenChange={() => {}}
       />,
     );
-    for (const label of [
+    const labels = [
       "Cliente",
       "Descripción",
-      "Fecha programada",
-      "Dirección",
-    ]) {
-      expect(screen.getByText(label)).toBeTruthy();
-    }
+      "Tipo",
+      "Dirección de carga",
+      "Dirección de descarga",
+      "Fecha de carga",
+      "Fecha de descarga",
+      "Horario",
+      "Observaciones",
+    ];
+    const shown = Array.from(document.querySelectorAll("label")).map(
+      (l) => l.textContent,
+    );
+    expect(shown.filter((l) => l !== null && labels.includes(l))).toEqual(
+      labels,
+    );
     for (const gone of [
       "Remito del cliente",
-      "Origen",
       "Flete",
       "Cobranza contra entrega",
-      "Notas",
       "Viaje",
     ]) {
       expect(screen.queryByText(gone)).toBeNull();
@@ -74,5 +85,8 @@ describe("ShipmentDialog", () => {
     expect(
       screen.getByDisplayValue("Av. Pellegrini 1500, Rosario"),
     ).toBeTruthy();
+    expect(screen.getByDisplayValue("Rosario")).toBeTruthy();
+    expect(screen.getByDisplayValue("8 a 12 hs")).toBeTruthy();
+    expect(screen.getByDisplayValue("nota vieja")).toBeTruthy();
   });
 });

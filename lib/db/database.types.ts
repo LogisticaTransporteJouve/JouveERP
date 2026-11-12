@@ -7340,12 +7340,15 @@ export type Database = {
           id: string
           invoice_id: string | null
           invoicing_claimed_at: string | null
+          kind: string
           notes: string | null
           origin: string | null
           remito_number: string | null
           scheduled_date: string | null
           status: string
+          time_window: string | null
           trip_id: string | null
+          unload_date: string | null
           updated_at: string
         }
         Insert: {
@@ -7362,12 +7365,15 @@ export type Database = {
           id?: string
           invoice_id?: string | null
           invoicing_claimed_at?: string | null
+          kind?: string
           notes?: string | null
           origin?: string | null
           remito_number?: string | null
           scheduled_date?: string | null
           status?: string
+          time_window?: string | null
           trip_id?: string | null
+          unload_date?: string | null
           updated_at?: string
         }
         Update: {
@@ -7384,12 +7390,15 @@ export type Database = {
           id?: string
           invoice_id?: string | null
           invoicing_claimed_at?: string | null
+          kind?: string
           notes?: string | null
           origin?: string | null
           remito_number?: string | null
           scheduled_date?: string | null
           status?: string
+          time_window?: string | null
           trip_id?: string | null
+          unload_date?: string | null
           updated_at?: string
         }
         Relationships: [

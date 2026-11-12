@@ -28,9 +28,14 @@ export async function createShipment(
     .insert({
       client_id: d.client_id ?? null,
       trip_id: d.trip_id ?? null,
+      kind: d.kind,
+      origin: d.origin ?? null,
       destination: d.destination ?? null,
       description: d.description ?? null,
       scheduled_date: d.scheduled_date ?? null,
+      unload_date: d.unload_date ?? null,
+      time_window: d.time_window ?? null,
+      notes: d.notes ?? null,
       created_by: actorId,
     })
     .select("id")

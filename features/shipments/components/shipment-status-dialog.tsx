@@ -126,7 +126,7 @@ export function ShipmentStatusDialog({
           {action === "reprogram" && (
             <div className="space-y-2">
               <Label htmlFor="shipment-scheduled-date">
-                Nueva fecha programada
+                Nueva fecha de carga
               </Label>
               <DatePicker
                 id="shipment-scheduled-date"

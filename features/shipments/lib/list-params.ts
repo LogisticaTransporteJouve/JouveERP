@@ -7,6 +7,8 @@ import { UuidSchema } from "@/lib/validation/common";
 
 import {
   SHIPMENT_STATUSES,
+  isShipmentKind,
+  type ShipmentKind,
   type ShipmentListFilter,
   type ShipmentStatus,
 } from "../schema";
@@ -23,14 +25,16 @@ function isTripFilter(v: unknown): v is ShipmentTripFilter {
 }
 
 /** The cargas list's URL state:
- *  `?q&estado&period&from&to&cliente&viaje` (`estado` is a comma-separated
- *  list, e.g. `not_started,in_progress`; `viaje` is `asignada` or `sin`). */
+ *  `?q&estado&period&from&to&cliente&viaje&tipo` (`estado` is a
+ *  comma-separated list, e.g. `not_started,in_progress`; `viaje` is
+ *  `asignada` or `sin`; `tipo` one of retiro, carga, mudanza). */
 export interface ShipmentListParams {
   query: string;
   statuses: ShipmentStatus[];
   period: PeriodSelection;
   clientId: string | null;
   trip: ShipmentTripFilter | null;
+  kind: ShipmentKind | null;
 }
 
 /** Distinct known statuses in canonical order, so equal selections share a
@@ -51,6 +55,7 @@ export function parseShipmentListParams(
     period: parsePeriodParams(params),
     clientId: client.success ? client.data : null,
     trip: isTripFilter(params.viaje) ? params.viaje : null,
+    kind: isShipmentKind(params.tipo) ? params.tipo : null,
   };
 }
 
@@ -65,6 +70,7 @@ export function shipmentListParamsToUrl(
     to: params.period.to,
     cliente: params.clientId,
     viaje: params.trip,
+    tipo: params.kind,
   };
 }
 
@@ -80,6 +86,7 @@ export function shipmentListFilter(
     ...(range && { from: range.from, to: range.to }),
     ...(params.clientId && { clientId: params.clientId }),
     ...(params.trip && { assigned: params.trip === "asignada" }),
+    ...(params.kind && { kinds: [params.kind] }),
   };
 }
 
@@ -90,4 +97,5 @@ export const DEFAULT_SHIPMENT_LIST_PARAMS: ShipmentListParams = {
   period: { preset: null, from: null, to: null },
   clientId: null,
   trip: null,
+  kind: null,
 };

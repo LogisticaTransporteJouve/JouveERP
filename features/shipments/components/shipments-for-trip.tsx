@@ -4,7 +4,9 @@ import { Plus, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { formatArgentineDate } from "@/lib/format";
 import { IconButton } from "@/components/ui/icon-button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -20,7 +22,8 @@ import {
   useSetShipmentsTrip,
   useShipmentsByTrip,
 } from "../hooks/use-shipments";
-import { type Shipment } from "../schema";
+import { shipmentRoute } from "../lib/format";
+import { SHIPMENT_KIND_LABELS, type Shipment } from "../schema";
 
 import { AssignShipmentsDialog } from "./assign-shipments-dialog";
 import { ShipmentStatusBadge } from "./shipment-status";
@@ -116,7 +119,7 @@ function TripShipments({
         <TableHeader>
           <TableRow>
             <TableHead>Cliente</TableHead>
-            <TableHead>Dirección</TableHead>
+            <TableHead>Carga → Descarga</TableHead>
             <TableHead className="w-36">Estado</TableHead>
             {canWrite && <TableHead className="w-12" />}
           </TableRow>
@@ -124,11 +127,29 @@ function TripShipments({
         <TableBody>
           {items.map((shipment: Shipment) => (
             <TableRow key={shipment.id}>
-              <TableCell className="font-medium">
-                {shipment.client?.legal_name ?? "—"}
+              <TableCell className="whitespace-normal">
+                <span className="flex flex-wrap items-center gap-1.5">
+                  <span className="font-medium">
+                    {shipment.client?.legal_name ?? "—"}
+                  </span>
+                  <Badge variant="outline" className="text-[10px] font-normal">
+                    {SHIPMENT_KIND_LABELS[shipment.kind]}
+                  </Badge>
+                </span>
+                {(shipment.unload_date || shipment.time_window) && (
+                  <span className="block text-xs text-muted-foreground">
+                    {[
+                      shipment.unload_date &&
+                        `Descarga ${formatArgentineDate(shipment.unload_date)}`,
+                      shipment.time_window,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </span>
+                )}
               </TableCell>
-              <TableCell className="text-sm">
-                {shipment.destination ?? "—"}
+              <TableCell className="whitespace-normal text-sm">
+                {shipmentRoute(shipment)}
               </TableCell>
               <TableCell>
                 <ShipmentStatusBadge status={shipment.status} />

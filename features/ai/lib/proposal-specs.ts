@@ -101,6 +101,8 @@ import {
 import {
   SHIPMENT_STATUS_LABELS,
   SHIPMENT_TARGET_STATUSES,
+  SHIPMENT_KIND_LABELS,
+  SHIPMENT_KINDS,
   ShipmentCreateSchema,
   ShipmentStatusChangeSchema,
 } from "@/features/shipments/schema";
@@ -746,8 +748,21 @@ export const shipmentProposalSpec = defineProposalSpec({
   draft: ShipmentCreateSchema,
   fields: [
     { key: "description", label: "Descripción", kind: "textarea" },
-    { key: "scheduled_date", label: "Fecha programada", kind: "date" },
-    { key: "destination", label: "Dirección", kind: "text" },
+    {
+      key: "kind",
+      label: "Tipo",
+      kind: "select",
+      options: SHIPMENT_KINDS.map((k) => ({
+        value: k,
+        label: SHIPMENT_KIND_LABELS[k],
+      })),
+    },
+    { key: "origin", label: "Dirección de carga", kind: "text" },
+    { key: "destination", label: "Dirección de descarga", kind: "text" },
+    { key: "scheduled_date", label: "Fecha de carga", kind: "date" },
+    { key: "unload_date", label: "Fecha de descarga", kind: "date" },
+    { key: "time_window", label: "Horario", kind: "text" },
+    { key: "notes", label: "Observaciones", kind: "textarea" },
   ],
   confirmLabel: "Crear carga",
   declineLabel: "Descartar",
@@ -757,11 +772,19 @@ export const shipmentProposalSpec = defineProposalSpec({
       value: d.client_id ? (labels[d.client_id] ?? d.client_id) : "Sin cliente",
     },
     ...rowIf("Descripción", d.description),
+    { label: "Tipo", value: SHIPMENT_KIND_LABELS[d.kind] },
+    ...rowIf("Dirección de carga", d.origin),
+    ...rowIf("Dirección de descarga", d.destination),
     ...rowIf(
-      "Fecha programada",
+      "Fecha de carga",
       d.scheduled_date ? formatArgentineDate(d.scheduled_date) : null,
     ),
-    ...rowIf("Dirección", d.destination),
+    ...rowIf(
+      "Fecha de descarga",
+      d.unload_date ? formatArgentineDate(d.unload_date) : null,
+    ),
+    ...rowIf("Horario", d.time_window),
+    ...rowIf("Observaciones", d.notes),
     { label: "Estado", value: SHIPMENT_STATUS_LABELS.not_started },
   ],
 });
@@ -793,7 +816,7 @@ export const shipmentStatusProposalSpec = defineProposalSpec({
   draft: ShipmentStatusDraftSchema,
   fields: [
     { key: "delivery_date", label: "Fecha de entrega", kind: "date" },
-    { key: "scheduled_date", label: "Nueva fecha programada", kind: "date" },
+    { key: "scheduled_date", label: "Nueva fecha de carga", kind: "date" },
     { key: "failure_reason", label: "Motivo", kind: "textarea" },
     { key: "comment", label: "Comentario", kind: "textarea" },
   ],
@@ -822,7 +845,7 @@ export const shipmentStatusProposalSpec = defineProposalSpec({
         : []),
       ...(d.status === "reprogrammed"
         ? rowIf(
-            "Nueva fecha programada",
+            "Nueva fecha de carga",
             d.scheduled_date ? formatArgentineDate(d.scheduled_date) : null,
           )
         : []),

@@ -18,6 +18,7 @@ describe("parseShipmentListParams", () => {
         period: "this_month",
         cliente: CLIENT,
         viaje: "sin",
+        tipo: "retiro",
       }),
     ).toEqual({
       query: "acme",
@@ -25,6 +26,7 @@ describe("parseShipmentListParams", () => {
       period: { preset: "this_month", from: null, to: null },
       clientId: CLIENT,
       trip: "sin",
+      kind: "retiro",
     });
   });
 
@@ -75,6 +77,7 @@ describe("shipmentListFilter", () => {
           period: { preset: "today", from: null, to: null },
           clientId: CLIENT,
           trip: "sin",
+          kind: "mudanza",
         },
         "2026-11-12",
       ),
@@ -84,6 +87,7 @@ describe("shipmentListFilter", () => {
       to: "2026-11-12",
       clientId: CLIENT,
       assigned: false,
+      kinds: ["mudanza"],
     });
   });
 

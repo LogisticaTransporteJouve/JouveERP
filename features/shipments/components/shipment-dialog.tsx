@@ -26,6 +26,13 @@ import {
 } from "@/components/ui/form";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
 import { isIvaCondition } from "@/features/clients/schema";
@@ -35,15 +42,32 @@ import {
 } from "@/features/invoices/components/client-picker";
 
 import { useCreateShipment, useUpdateShipment } from "../hooks/use-shipments";
-import type { Shipment } from "../schema";
+import {
+  SHIPMENT_KIND_LABELS,
+  SHIPMENT_KINDS,
+  UNLOAD_BEFORE_LOAD_MESSAGE,
+  isShipmentKind,
+  type Shipment,
+} from "../schema";
 
 // Plain string form, validated/coerced into the action schemas server-side.
-const FormSchema = z.object({
-  client_id: z.string(),
-  description: z.string().trim().max(500),
-  scheduled_date: z.string(),
-  destination: z.string().trim().max(160),
-});
+const FormSchema = z
+  .object({
+    client_id: z.string(),
+    description: z.string().trim().max(500),
+    kind: z.enum(SHIPMENT_KINDS),
+    origin: z.string().trim().max(160),
+    destination: z.string().trim().max(160),
+    scheduled_date: z.string(),
+    unload_date: z.string(),
+    time_window: z.string().trim().max(60),
+    notes: z.string().trim().max(1000),
+  })
+  .refine(
+    (v) =>
+      !v.scheduled_date || !v.unload_date || v.unload_date >= v.scheduled_date,
+    { message: UNLOAD_BEFORE_LOAD_MESSAGE, path: ["unload_date"] },
+  );
 
 type FormValues = z.infer<typeof FormSchema>;
 
@@ -64,8 +88,13 @@ function toDefaults(shipment?: Shipment): FormValues {
   return {
     client_id: shipment?.client_id ?? "",
     description: shipment?.description ?? "",
-    scheduled_date: shipment?.scheduled_date ?? "",
+    kind: shipment?.kind ?? "carga",
+    origin: shipment?.origin ?? "",
     destination: shipment?.destination ?? "",
+    scheduled_date: shipment?.scheduled_date ?? "",
+    unload_date: shipment?.unload_date ?? "",
+    time_window: shipment?.time_window ?? "",
+    notes: shipment?.notes ?? "",
   };
 }
 
@@ -129,8 +158,8 @@ export function ShipmentDialog({
         <DialogHeader>
           <DialogTitle>{isEdit ? "Editar carga" : "Nueva carga"}</DialogTitle>
           <DialogDescription>
-            Carga a transportar: cliente, descripción, fecha y dirección. El
-            viaje se asigna después, desde el viaje.
+            Carga a transportar: cliente, tipo, direcciones, fechas y horario.
+            El viaje se asigna después, desde el viaje.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -172,12 +201,46 @@ export function ShipmentDialog({
             />
             <FormField
               control={form.control}
-              name="scheduled_date"
+              name="kind"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Fecha programada</FormLabel>
+                  <FormLabel>Tipo</FormLabel>
+                  <Select
+                    value={field.value}
+                    onValueChange={(v) => {
+                      if (isShipmentKind(v)) field.onChange(v);
+                    }}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {SHIPMENT_KINDS.map((k) => (
+                        <SelectItem key={k} value={k}>
+                          {SHIPMENT_KIND_LABELS[k]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="origin"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Dirección de carga</FormLabel>
                   <FormControl>
-                    <DatePicker {...field} clearable />
+                    <Input
+                      {...field}
+                      placeholder="Depósito, Av. Mitre 500, Avellaneda"
+                      maxLength={160}
+                      autoComplete="off"
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -188,7 +251,7 @@ export function ShipmentDialog({
               name="destination"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Dirección</FormLabel>
+                  <FormLabel>Dirección de descarga</FormLabel>
                   <FormControl>
                     <Input
                       {...field}
@@ -196,6 +259,69 @@ export function ShipmentDialog({
                       maxLength={160}
                       autoComplete="off"
                     />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="scheduled_date"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Fecha de carga</FormLabel>
+                    <FormControl>
+                      <DatePicker {...field} clearable />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="unload_date"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Fecha de descarga</FormLabel>
+                    <FormControl>
+                      <DatePicker
+                        {...field}
+                        clearable
+                        min={form.watch("scheduled_date") || undefined}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            <FormField
+              control={form.control}
+              name="time_window"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Horario</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      placeholder="8 a 12 hs"
+                      maxLength={60}
+                      autoComplete="off"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="notes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Observaciones</FormLabel>
+                  <FormControl>
+                    <Textarea {...field} rows={2} maxLength={1000} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
