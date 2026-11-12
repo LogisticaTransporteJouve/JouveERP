@@ -2942,7 +2942,7 @@ export const treasuryPage: GuidePage = {
       routes: ["/loans", "/loans/[id]"],
       permission: TREASURY_READ,
       intro: [
-        "Los préstamos, leasings y planes de ahorro de la empresa con su cronograma de cuotas. Las cuotas pendientes se proyectan en [[/treasury/cash-flow]].",
+        "Los préstamos, leasings y planes de ahorro de la empresa con su cronograma de cuotas. Las cuotas pendientes se proyectan en [[/treasury/cash-flow]]; de un préstamo sin vencimiento se proyecta el interés de cada mes del horizonte.",
         "La lista muestra {{Descripción}} (con el tipo, {{Préstamo}}, {{Leasing}} o {{Plan de ahorro}}, y el número del banco), {{Banco}}, {{Capital}}, {{Capital adeudado}}, {{Cuotas pagas}}, {{Pendiente}} (con la cantidad de cuotas), {{Próx. venc.}} y {{Estado}} ({{Activo}}, {{Cancelado}} cuando se pagó la última cuota, {{Anulado}}).",
         "En el detalle (clic en la descripción o {{Ver cuotas}}) se ve lo mismo que en el home banking: arriba {{Capital adeudado}}, {{Cuotas pagas}}, {{Próxima cuota}} y {{Vencimiento próxima cuota}}; en {{General}} el estado, el monto original, la fecha de alta, el plazo y lo pendiente; en {{Tasas}} la TNA, la TEA, el CFT y los intereses pagados; y el {{Plan de cuotas}} con {{Total a pagar}}, {{Capital}}, {{Intereses}}, {{Otros}}, {{IVA}} y el estado de cada una ({{Pagada}}, {{Pagada (antes de cargar)}}, {{Vencida}} o la fecha en que vence).",
       ],
@@ -3005,6 +3005,24 @@ export const treasuryPage: GuidePage = {
             "La adjudicación (pasar lo acumulado a Rodados) todavía no se registra desde el sistema.",
           ],
         },
+        {
+          title: "Préstamo sin vencimiento (solo interés)",
+          body: [
+            "Un préstamo privado que no amortiza capital: cada mes vence una cuota de interés ({{Interés mensual %}} sobre el capital que se sigue debiendo) y el capital vuelve solo cuando se registra una {{Devolución de capital…}}.",
+            "Siempre se ven las 3 próximas cuotas de interés: al pagar una, o cada día a la madrugada, el sistema agrega las que falten. Pagar una cuota nunca cancela el préstamo; queda {{Cancelado}} cuando se devolvió todo el capital y no queda nada pendiente.",
+            "En el detalle se ve «Sin vencimiento · 1 % mensual», las cuotas como {{Interés 3}} (sin «de N») y {{Plazo}} «Sin vencimiento». Una devolución de capital aparece en el plan como {{Devolución de capital}}; las cuotas de interés siguientes se recalculan sobre lo que se sigue debiendo.",
+            "Puede ir en cualquier canal. En el canal interno no hace asientos (tampoco tiene deuda de apertura): en Gestión se ve el interés como costo financiero; la deuda se sigue en Préstamos.",
+          ],
+        },
+        {
+          title: "Cuota en dólares pagada desde una cuenta en pesos",
+          body: [
+            "La cuota de un préstamo en dólares se puede pagar desde una cuenta en pesos, entera, a la cotización del día: se elige la cuenta en pesos y aparecen {{Cotización}} (viene la oficial del BCRA cargada para esa fecha o la anterior, y se puede cambiar) y {{Monto en pesos}} (la cuota por la cotización; si se cambia el monto, se recalcula la cotización).",
+            "El egreso en Caja es en pesos por lo que salió de la cuenta; la cuota queda pagada por sus dólares y guarda los pesos y la cotización, que se ven debajo de su estado («US$ 400,00 · $ 622.000,00 (1.555)»). La cotización tiene que estar a menos de un 20 % de la oficial, si hay una cargada.",
+            "El asiento va a la cotización del pago: el interés por los pesos pagados y, si la cuota tiene capital, la deuda se da de baja a la cotización del desembolso y la diferencia va a diferencia de cambio.",
+            "Una cuota en pesos no se paga desde una cuenta en dólares.",
+          ],
+        },
       ],
       tasks: [
         {
@@ -3020,6 +3038,17 @@ export const treasuryPage: GuidePage = {
               fields: [
                 { label: "Tipo", kind: "select", value: "Préstamo", marker: 2 },
                 { label: "Moneda", kind: "select", value: "ARS", marker: 2 },
+                {
+                  label: "Canal",
+                  kind: "select",
+                  value: "Logística Jouve",
+                  marker: 3,
+                },
+                {
+                  label: "Sin vencimiento (solo interés)",
+                  kind: "checkbox",
+                  marker: 4,
+                },
                 {
                   label: "Banco",
                   kind: "input",
@@ -3074,7 +3103,9 @@ export const treasuryPage: GuidePage = {
           steps: [
             "En [[/loans]], hacé clic en {{Nuevo préstamo}}.",
             "Elegí el {{Tipo}} ({{Préstamo}}, {{Leasing}} o {{Plan de ahorro}}) y la {{Moneda}}, y escribí el {{Banco}} y el {{Número de préstamo}}.",
+            "Elegí el {{Canal}}: viene el fiscal; un préstamo privado que no va a los libros va en el canal interno.",
             "Escribí la {{Descripción}}, elegí la {{Cuenta de débito}} (de donde el banco debita las cuotas) y cargá la {{Fecha de alta}}, el {{Monto original}} y las tasas ({{TNA (%)}}, {{TEA (%)}}, {{CFT (%)}}) como figuran en el banco.",
+            "Si es un préstamo que solo paga interés y no tiene vencimiento, marcá {{Sin vencimiento (solo interés)}} (solo para {{Préstamo}}): en lugar del plan de cuotas pide el {{Interés mensual %}} y el {{Primer vencimiento}}. Ver «Préstamo sin vencimiento (solo interés)».",
             {
               text: "En {{Plan de cuotas}} elegí cómo se arman las cuotas.",
               substeps: [
@@ -3089,7 +3120,7 @@ export const treasuryPage: GuidePage = {
             "Revisá la vista previa del plan y hacé clic en {{Crear}}.",
           ],
           after: [
-            "Se crea el préstamo {{Activo}}, en el canal fiscal, con su plan. Cada cuota pendiente se puede editar después ([[#editar-cuota-prestamo]]).",
+            "Se crea el préstamo {{Activo}}, en el canal elegido, con su plan. Cada cuota pendiente se puede editar después ([[#editar-cuota-prestamo]]). Un préstamo sin vencimiento se crea con sus 3 próximas cuotas de interés.",
             "Las cuotas que el banco da por pagadas quedan {{Pagada (antes de cargar)}}: sin movimiento en Caja ni asiento, porque esa plata salió antes de usar el sistema. En ese caso no hace falta registrar el desembolso.",
             "Un préstamo nuevo todavía no tiene plata en Caja: registrá el desembolso cuando el banco lo deposite ([[#registrar-desembolso-prestamo]]). Un plan de ahorro no tiene desembolso: sus cuotas suman a «Rodados en plan de ahorro» a medida que se pagan.",
             "Cuando el banco debita una cuota, la línea del extracto propone {{Pagar cuota}}: un clic la paga y la concilia ([[#pagar-cuota-prestamo]]).",
@@ -3112,8 +3143,16 @@ export const treasuryPage: GuidePage = {
               message: "Sin permiso para crear préstamos.",
               fix: "Hace falta permiso de escritura en Contabilidad.",
             },
+            {
+              message: "Completá el interés mensual y el primer vencimiento.",
+              fix: "Un préstamo sin vencimiento necesita las dos cosas.",
+            },
           ],
-          related: ["registrar-desembolso-prestamo", "pagar-cuota-prestamo"],
+          related: [
+            "registrar-desembolso-prestamo",
+            "pagar-cuota-prestamo",
+            "devolucion-capital-prestamo",
+          ],
           keywords: [
             "préstamo bancario",
             "leasing",
@@ -3305,7 +3344,7 @@ export const treasuryPage: GuidePage = {
           permission: ["accounting:write", "transactions:write"],
           prerequisites: [
             "Que la cuota esté {{Pendiente}} y el préstamo {{Activo}}.",
-            "Una cuenta activa en la moneda del préstamo (no una cartera de cheques).",
+            "Una cuenta activa en la moneda del préstamo (no una cartera de cheques); para un préstamo en dólares, también una en pesos.",
           ],
           screens: [
             {
@@ -3337,12 +3376,13 @@ export const treasuryPage: GuidePage = {
           steps: [
             "En el detalle del préstamo, en la fila de la cuota, hacé clic en {{Pagar}}.",
             "Revisá la {{Fecha de pago}} y el {{Monto}} (viene el de la cuota; si la cuota tiene desglose no se cambia).",
-            "Elegí la {{Cuenta}} de la que sale el pago.",
+            "Elegí la {{Cuenta}} de la que sale el pago. En un préstamo en dólares se puede elegir una cuenta en pesos: la cuota se paga entera y aparecen {{Cotización}} (la oficial del día, editable) y {{Monto en pesos}}; revisalos con lo que salió del banco.",
             "Hacé clic en {{Pagar}}.",
           ],
           after: [
             "La cuota pasa a {{Pagada}} con su fecha e importe, y se registra el egreso en Caja con su asiento (ver «Qué asientos hace un préstamo»). Ese egreso se corrige desde el préstamo, no desde Caja.",
-            "Cuando se paga la última cuota, el préstamo pasa a {{Cancelado}}.",
+            "Cuando se paga la última cuota, el préstamo pasa a {{Cancelado}}; un préstamo sin vencimiento, en cambio, suma la cuota de interés que falte para tener 3 próximas.",
+            "Si la línea del extracto no propone la cuota (otra {{Cuenta de débito}}, otra moneda, como una cuota en dólares debitada en pesos), en el menú ⋯ de la línea elegí {{Pagar cuota de préstamo…}}: lista las cuotas pendientes de los préstamos activos, la de vencimiento más cercano primero; en una cuota en dólares muestra la cotización implícita del débito y la oficial. Al elegirla queda pagada con la fecha de la línea y la línea conciliada (una cuota en dólares, entera, por los pesos del débito).",
             "Si el banco ya debitó la cuota, es más rápido desde el extracto: en la pestaña {{Extracto}} de la cuenta, la línea del débito (en Macro, código 361) muestra la cuota que paga y el botón {{Pagar cuota}}. Paga la cuota con la fecha y el importe de la línea, desde la cuenta del extracto, y deja la línea conciliada. Aparece si el préstamo tiene esa {{Cuenta de débito}} y una cuota pendiente que vence hasta 31 días antes o después, por el mismo importe o con hasta un 10 % de diferencia. Si el importe no coincide (el banco cobró interés por días, punitorios o impuestos), {{Pagar cuota}} abre el desglose: Capital, Intereses, Intereses exceso (punitorios), IVA, Percepción IVA y Percepción IIBB / impuestos (sugeridos con las tasas de la última cuota pagada); cargalo como el detalle de la cuota del home banking, tiene que sumar el débito, y hacé clic en {{Pagar y conciliar}}. Las demás propuestas del extracto están en [[#registrar-linea-desde-propuesta]].",
           ],
           errors: [
@@ -3365,6 +3405,19 @@ export const treasuryPage: GuidePage = {
               fix: "El préstamo fue anulado.",
             },
             {
+              message: "Ingresá la cotización o el monto en pesos.",
+              fix: "Sin cotización oficial cargada para la fecha, escribí la cotización o los pesos que salieron.",
+            },
+            {
+              message:
+                "La cotización implícita (…) está lejos de la oficial (…)",
+              fix: "Revisá el monto en pesos: la cotización tiene que estar a menos de un 20 % de la oficial.",
+            },
+            {
+              message: "Una cuota en pesos se paga desde una cuenta en pesos",
+              fix: "Elegí una cuenta en pesos.",
+            },
+            {
               message: "Sin permiso para registrar pagos.",
               fix: "Hace falta permiso de escritura en Contabilidad y en movimientos de Caja.",
             },
@@ -3374,8 +3427,87 @@ export const treasuryPage: GuidePage = {
               fix: "Usá una fecha de un mes abierto ([[#periodos-cerrados]]).",
             },
           ],
-          related: ["vincular-egreso-cuota", "editar-cuota-prestamo"],
-          keywords: ["pagar cuota", "cuota del préstamo", "leasing"],
+          related: [
+            "vincular-egreso-cuota",
+            "editar-cuota-prestamo",
+            "devolucion-capital-prestamo",
+          ],
+          keywords: [
+            "pagar cuota",
+            "cuota del préstamo",
+            "leasing",
+            "cuota en dólares",
+            "cotización",
+          ],
+        },
+        {
+          id: "devolucion-capital-prestamo",
+          title:
+            "Registrar una devolución de capital (préstamo sin vencimiento)",
+          summary:
+            "El capital de un préstamo sin vencimiento vuelve solo con esta acción: parte o todo, desde una cuenta.",
+          permission: ["accounting:write", "transactions:write"],
+          prerequisites: [
+            "Un préstamo sin vencimiento {{Activo}} con capital adeudado.",
+          ],
+          screens: [
+            {
+              kind: "dialog",
+              title: "Devolución de capital",
+              fields: [
+                {
+                  label: "Fecha",
+                  kind: "date",
+                  value: "15/11/2026",
+                  marker: 2,
+                },
+                {
+                  label: "Capital",
+                  kind: "money",
+                  value: "10.000,00",
+                  marker: 2,
+                },
+                { label: "Cuenta", kind: "select", marker: 3, wide: true },
+              ],
+              footer: [
+                { label: "Cancelar", variant: "outline" },
+                { label: "Registrar", variant: "primary", marker: 4 },
+              ],
+            },
+          ],
+          steps: [
+            "En el detalle del préstamo, hacé clic en {{Devolución de capital…}}.",
+            "Cargá la {{Fecha}} y el capital que se devuelve, en la moneda del préstamo (no más que el capital adeudado).",
+            "Elegí la {{Cuenta}}. Desde una cuenta en pesos para un préstamo en dólares, completá {{Cotización}} y {{Monto en pesos}} como al pagar una cuota.",
+            "Hacé clic en {{Registrar}}.",
+          ],
+          after: [
+            "Se registra el egreso en Caja y en el plan aparece la {{Devolución de capital}} pagada. Las cuotas de interés que vencen después se recalculan sobre el capital que queda.",
+            "Si se devolvió todo, las cuotas de interés futuras se borran y el préstamo queda {{Cancelado}} cuando no queda nada pendiente.",
+            "En un préstamo fiscal, el capital baja la deuda (a la cotización del desembolso en uno en dólares, con su diferencia de cambio); en uno interno no hay asiento y Gestión lo muestra como devolución de préstamo, no como costo.",
+          ],
+          errors: [
+            {
+              message:
+                "El capital a devolver tiene que ser mayor a 0 y no más que lo que se debe (…)",
+              fix: "Revisá el importe contra el {{Capital adeudado}}.",
+            },
+            {
+              message:
+                "La devolución de capital es para un préstamo sin vencimiento activo",
+              fix: "Solo un préstamo sin vencimiento tiene devolución de capital.",
+            },
+            {
+              message: "Sin permiso para registrar pagos.",
+              fix: "Hace falta permiso de escritura en Contabilidad y en movimientos de Caja.",
+            },
+          ],
+          related: ["pagar-cuota-prestamo", "crear-prestamo"],
+          keywords: [
+            "devolución de capital",
+            "préstamo privado",
+            "solo interés",
+          ],
         },
         {
           id: "vincular-egreso-cuota",
@@ -3384,7 +3516,7 @@ export const treasuryPage: GuidePage = {
             "Si el banco debitó la cuota y ya la cargaste como egreso manual, se usa ese egreso en vez de crear otro.",
           permission: ["accounting:write", "transactions:write"],
           prerequisites: [
-            "Un egreso manual en Caja del mismo canal y moneda que el préstamo.",
+            "Un egreso manual en Caja del mismo canal y moneda que el préstamo (para un préstamo en dólares, también uno en pesos).",
           ],
           steps: [
             "En el detalle del préstamo, en la fila de la cuota, hacé clic en {{Vincular egreso}}.",
@@ -3393,6 +3525,7 @@ export const treasuryPage: GuidePage = {
           ],
           after: [
             "La cuota queda pagada con la fecha e importe del egreso, sin duplicar el movimiento; el asiento del egreso se rehace como pago de la cuota.",
+            "Un egreso en pesos para una cuota en dólares paga la cuota entera: guarda los pesos del egreso y la cotización implícita, que tiene que estar a menos de un 20 % de la oficial.",
           ],
           errors: [
             {
