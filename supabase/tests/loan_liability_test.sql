@@ -3,7 +3,9 @@
 -- schedule), a split cuota keeps its split, and a loan with money recorded
 -- cannot be cancelled or deleted. A savings plan (20261112100100) adds up
 -- its cuotas in «Rodados en plan de ahorro», never in gastos, and has no
--- disbursement nor opening debt. One transaction, rolled back.
+-- disbursement nor opening debt. A cuota's IVA perception (20261112110000)
+-- posts to percepciones IVA, the rest to IIBB, and the IVA estimate reads
+-- what loans debited there. One transaction, rolled back.
 
 select set_config('request.jwt.claims', '{"role":"service_role"}', true);
 
@@ -11,7 +13,7 @@ begin;
 
 select set_config('request.jwt.claims', '{"role":"service_role"}', true);
 
-select plan(20);
+select plan(28);
 
 insert into public.accounts (id, name, type, currency) values
   ('00000000-0000-0000-0000-0000000093a1', 'Banco préstamos auditoría', 'bank', 'ARS');
@@ -251,6 +253,112 @@ select is(
      from public.chart_of_accounts a where a.id = public.find_account_by_role('planes_ahorro')),
   true,
   'Rodados en plan de ahorro is an asset under Bienes de uso'
+);
+
+-- IVA and IIBB perception (20261112110000) ------------------------------------------
+
+create temp table t_perc_before on commit drop as
+  select public.loan_iva_perceptions(current_date - 40, current_date) as total;
+
+-- Cuota 1: 150 of perceptions, 100 of them IVA. Cuota 2: an IVA part above
+-- the total (older code that rewrote only the total) clamps to it. Cuota 3:
+-- no IVA part, posts as before. Cuota 4: paid before, its bank receipt
+-- carries 7 of IVA perception.
+create temp table t_perc on commit drop as
+  select public.create_loan_core(
+    jsonb_build_object(
+      'kind', 'prestamo', 'description', 'Préstamo con percepciones', 'principal', 3000,
+      'currency', 'ARS', 'channel_id', 'jouve_fiscal', 'installments_count', 4,
+      'first_due_date', current_date
+    ),
+    jsonb_build_array(
+      jsonb_build_object('number', 1, 'due_date', current_date, 'amount', 1250,
+        'capital', 1000, 'interest', 100, 'iva', 0, 'perception', 150, 'iva_perception', 100, 'other', 0),
+      jsonb_build_object('number', 2, 'due_date', current_date, 'amount', 1150,
+        'capital', 1000, 'interest', 0, 'iva', 0, 'perception', 150, 'iva_perception', 150, 'other', 0),
+      jsonb_build_object('number', 3, 'due_date', current_date, 'amount', 1030,
+        'capital', 1000, 'interest', 0, 'iva', 0, 'perception', 30, 'other', 0),
+      jsonb_build_object('number', 4, 'due_date', current_date - 40, 'amount', 1000,
+        'capital', 1000, 'interest', 0, 'iva', 0, 'perception', 0, 'other', 0,
+        'paid_outside', true)
+    ),
+    null, null
+  ) as id;
+
+update public.loan_installments set iva_perception_amount = 200
+ where loan_id = (select id from t_perc) and number = 2;
+
+create temp table t_perc_paid on commit drop as
+  select i.number,
+         public.pay_loan_installment(i.id, current_date, '00000000-0000-0000-0000-0000000093a1', i.amount) as tx_id
+    from public.loan_installments i
+   where i.loan_id = (select id from t_perc) and i.number in (1, 2, 3);
+
+select is(
+  pg_temp.debit((select tx_id from t_perc_paid where number = 1), 'percepciones_iva_pagadas')
+    || '/' || pg_temp.debit((select tx_id from t_perc_paid where number = 1), 'percepciones_iibb_pagadas'),
+  '100.00/50.00',
+  'a cuota with IVA and IIBB perception posts each to its account'
+);
+
+select is(
+  (select sum(l.debit) - sum(l.credit)
+     from public.journal_entries je
+     join public.journal_entry_lines l on l.journal_entry_id = je.id
+    where je.source_table = 'transactions' and not je.is_reversal
+      and je.source_id = (select tx_id from t_perc_paid where number = 1)),
+  0::numeric,
+  'and its entry balances'
+);
+
+select is(
+  pg_temp.debit((select tx_id from t_perc_paid where number = 2), 'percepciones_iva_pagadas')
+    || '/' || pg_temp.debit((select tx_id from t_perc_paid where number = 2), 'percepciones_iibb_pagadas'),
+  '150.00/0',
+  'an IVA part above the total perception clamps to it'
+);
+
+select is(
+  pg_temp.debit((select tx_id from t_perc_paid where number = 3), 'percepciones_iva_pagadas')
+    || '/' || pg_temp.debit((select tx_id from t_perc_paid where number = 3), 'percepciones_iibb_pagadas'),
+  '0/30.00',
+  'a cuota without an IVA part posts its perception to IIBB, as before'
+);
+
+select throws_ok(
+  $$update public.loan_installments set iva_perception_amount = 10
+     where loan_id = (select id from t_perc) and number = 1$$,
+  '55006',
+  null,
+  'the IVA part of a paid cuota is frozen'
+);
+
+select is(
+  public.record_loan_bank_payments(
+    (select id from t_perc),
+    jsonb_build_array(jsonb_build_object('receipt_number', 'R4', 'paid_date', current_date - 40,
+      'installment_number', 4, 'total', 1007, 'capital', 1000, 'iva_perception', 7)),
+    current_date - 365, null) ->> 'booked',
+  '1',
+  'a bank receipt with IVA perception is booked'
+);
+
+select is(
+  public.loan_iva_perceptions(current_date - 40, current_date) - (select total from t_perc_before),
+  257::numeric,
+  'the IVA perceptions of loans add the cuotas and the bank receipts of the range'
+);
+
+select throws_ok(
+  $$select public.set_loan_installment_charges(
+      (select i.id from public.loan_installments i
+         join public.loans l on l.id = i.loan_id
+        where i.status = 'pendiente' and l.description = 'Préstamo sin desglose' limit 1),
+      '{"capital": 100, "interest": 0, "iva": 0, "perception": 10, "iva_perception": 11}'::jsonb,
+      '[]'::jsonb)$$,
+  '22023',
+  'La percepción de IVA no puede ser negativa ni mayor que el total de percepciones',
+  'the IVA part of a cuota cannot exceed its total perception'
 );
 
 select * from finish();

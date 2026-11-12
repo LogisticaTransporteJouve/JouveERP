@@ -5238,6 +5238,7 @@ export type Database = {
           id: string
           interest_amount: number | null
           iva_amount: number | null
+          iva_perception_amount: number | null
           loan_id: string
           notes: string | null
           number: number
@@ -5258,6 +5259,7 @@ export type Database = {
           id?: string
           interest_amount?: number | null
           iva_amount?: number | null
+          iva_perception_amount?: number | null
           loan_id: string
           notes?: string | null
           number: number
@@ -5278,6 +5280,7 @@ export type Database = {
           id?: string
           interest_amount?: number | null
           iva_amount?: number | null
+          iva_perception_amount?: number | null
           loan_id?: string
           notes?: string | null
           number?: number
@@ -11300,6 +11303,10 @@ export type Database = {
           p_rate: number
         }
         Returns: Json
+      }
+      loan_iva_perceptions: {
+        Args: { p_from: string; p_to: string }
+        Returns: number
       }
       loan_liability_role: {
         Args: { p_loan_id: string }
