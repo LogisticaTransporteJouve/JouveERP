@@ -5352,6 +5352,7 @@ export type Database = {
           opening_journal_entry_id: string | null
           original_amount: number | null
           principal: number
+          salary_employee_id: string | null
           start_date: string | null
           status: Database["public"]["Enums"]["loan_status"]
           tea: number | null
@@ -5380,6 +5381,7 @@ export type Database = {
           opening_journal_entry_id?: string | null
           original_amount?: number | null
           principal: number
+          salary_employee_id?: string | null
           start_date?: string | null
           status?: Database["public"]["Enums"]["loan_status"]
           tea?: number | null
@@ -5408,6 +5410,7 @@ export type Database = {
           opening_journal_entry_id?: string | null
           original_amount?: number | null
           principal?: number
+          salary_employee_id?: string | null
           start_date?: string | null
           status?: Database["public"]["Enums"]["loan_status"]
           tea?: number | null
@@ -5455,6 +5458,13 @@ export type Database = {
             columns: ["opening_journal_entry_id"]
             isOneToOne: false
             referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loans_salary_employee_id_fkey"
+            columns: ["salary_employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
             referencedColumns: ["id"]
           },
         ]
@@ -6153,6 +6163,7 @@ export type Database = {
           description: string
           entry_id: string
           id: string
+          loan_installment_id: string | null
           sort_order: number
         }
         Insert: {
@@ -6162,6 +6173,7 @@ export type Database = {
           description: string
           entry_id: string
           id?: string
+          loan_installment_id?: string | null
           sort_order?: number
         }
         Update: {
@@ -6171,6 +6183,7 @@ export type Database = {
           description?: string
           entry_id?: string
           id?: string
+          loan_installment_id?: string | null
           sort_order?: number
         }
         Relationships: [
@@ -6193,6 +6206,13 @@ export type Database = {
             columns: ["entry_id"]
             isOneToOne: false
             referencedRelation: "v_payroll_entries_with_payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_entry_extras_loan_installment_id_fkey"
+            columns: ["loan_installment_id"]
+            isOneToOne: false
+            referencedRelation: "loan_installments"
             referencedColumns: ["id"]
           },
         ]
@@ -9204,6 +9224,7 @@ export type Database = {
           extras_total: number | null
           id: string | null
           notes: string | null
+          paid_in_kind: number | null
           period_id: string | null
           recibo_neto: number | null
           sueldo_neto: number | null
@@ -9242,6 +9263,7 @@ export type Database = {
           notes: string | null
           paid_efectivo: number | null
           paid_fiscal: number | null
+          paid_in_kind: number | null
           paid_internal: number | null
           paid_total: number | null
           paid_transferencia: number | null
@@ -10875,7 +10897,10 @@ export type Database = {
         Returns: string[]
       }
       files_storage_key_is_free: { Args: { p_name: string }; Returns: boolean }
-      fill_payroll_period: { Args: { p_period_id: string }; Returns: number }
+      fill_payroll_period: {
+        Args: { p_employee_id?: string; p_period_id: string }
+        Returns: number
+      }
       find_account_by_role: {
         Args: { p_role: Database["public"]["Enums"]["coa_system_role"] }
         Returns: string
@@ -12279,6 +12304,10 @@ export type Database = {
       }
       sync_employee_driver: {
         Args: { p_driver: Json; p_employee_id: string; p_is_driver: boolean }
+        Returns: undefined
+      }
+      sync_loan_installment_payroll_extra: {
+        Args: { p_installment_id: string }
         Returns: undefined
       }
       sync_purchase_employee_charge: {
