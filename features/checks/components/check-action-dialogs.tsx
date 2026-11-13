@@ -25,7 +25,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { todayInAR } from "@/lib/format";
+import { MoneyInput } from "@/components/money-input";
+import { parseArAmount, todayInAR } from "@/lib/format";
 import { AccountOptionsError } from "@/features/accounts/components/account-options-gate";
 import {
   useAccountOptions,
@@ -36,6 +37,7 @@ import { useRejectSoldCheckAsDebt } from "../hooks/use-check-sales";
 import {
   useCreditCheque,
   useDepositCheque,
+  useIssueRejectedCheckNd,
   useRejectCheque,
 } from "../hooks/use-checks";
 import type { Cheque } from "../schema";
@@ -309,17 +311,56 @@ export function RejectChequeDialog({
   check,
   channels,
   canPickAccount = true,
+  canIssueNd = false,
 }: {
   check: Cheque;
   channels: CheckChannelOption[];
   /** Without accounts:read a sold check's repayment cannot pick an account:
    *  it stays against the sale or the buyer's debt. */
   canPickAccount?: boolean;
+  /** invoices:issue + credit_debit_notes:issue: offers the expenses ND. */
+  canIssueNd?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const rejectMut = useRejectCheque();
   const debtMut = useRejectSoldCheckAsDebt();
-  const pending = rejectMut.isPending || debtMut.isPending;
+  const ndMut = useIssueRejectedCheckNd();
+  const pending = rejectMut.isPending || debtMut.isPending || ndMut.isPending;
+  // The expenses ND goes to the client who gave the check.
+  const offersNd = canIssueNd && Boolean(check.source_client_id);
+  const [charge, setCharge] = useState("");
+  // One per dialog: a double submit or a retry returns the same ND.
+  const [ndKey] = useState(() => crypto.randomUUID());
+
+  const chargeAmount = charge.trim() === "" ? 0 : parseArAmount(charge);
+
+  /** After the rejection: the expenses ND, if any. The rejection already
+   *  happened, so an ND failure says so and where to issue it by hand. */
+  function afterReject(rejectedMessage: string) {
+    if (!offersNd || !chargeAmount || chargeAmount <= 0) {
+      toast.success(rejectedMessage);
+      setOpen(false);
+      return;
+    }
+    ndMut.mutate(
+      { check_id: check.id, amount: chargeAmount, idempotency_key: ndKey },
+      {
+        onSuccess: () => {
+          toast.success(
+            `${rejectedMessage} Se emitió la nota de débito por los gastos.`,
+          );
+          setOpen(false);
+        },
+        onError: (err) => {
+          toast.error(
+            `${rejectedMessage} La nota de débito no se emitió: ${err.message} Emitila desde Ventas.`,
+            { duration: 15_000 },
+          );
+          setOpen(false);
+        },
+      },
+    );
+  }
   const {
     accounts,
     error: accountsError,
@@ -340,16 +381,22 @@ export function RejectChequeDialog({
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (
+      offersNd &&
+      charge.trim() !== "" &&
+      !(chargeAmount && chargeAmount > 0)
+    ) {
+      toast.error("Revisá los gastos a cobrarle al cliente.");
+      return;
+    }
     if (check.status === "vendido" && repayAccountId === BUYER_LATER) {
       debtMut.mutate(
         { check_id: check.id, event_date: eventDate, notes },
         {
-          onSuccess: () => {
-            toast.success(
+          onSuccess: () =>
+            afterReject(
               "Cheque rechazado: queda la deuda con el comprador para pagar después.",
-            );
-            setOpen(false);
-          },
+            ),
           onError: (err) => toast.error(err.message),
         },
       );
@@ -371,10 +418,7 @@ export function RejectChequeDialog({
             : null,
       },
       {
-        onSuccess: () => {
-          toast.success("Cheque rechazado.");
-          setOpen(false);
-        },
+        onSuccess: () => afterReject("Cheque rechazado."),
         onError: (err) => toast.error(err.message),
       },
     );
@@ -390,7 +434,7 @@ export function RejectChequeDialog({
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Rechazar check {check.check_number}</DialogTitle>
+          <DialogTitle>Rechazar cheque {check.check_number}</DialogTitle>
           <DialogDescription>
             {rejectDescription(check.status)}
           </DialogDescription>
@@ -438,6 +482,23 @@ export function RejectChequeDialog({
               )}
             </div>
           )}
+          {offersNd && (
+            <div className="space-y-1">
+              <Label htmlFor="reject-charge" className="text-xs">
+                Gastos a cobrarle al cliente (opcional)
+              </Label>
+              <MoneyInput
+                id="reject-charge"
+                className="text-right font-mono"
+                value={charge}
+                onChange={setCharge}
+              />
+              <p className="text-xs text-muted-foreground">
+                Neto, más IVA 21 %. Emite una nota de débito al cliente que dio
+                el cheque, sobre la factura que pagó. Vacío = no se emite.
+              </p>
+            </div>
+          )}
           <div className="space-y-1">
             <Label className="text-xs">Notas (opcional)</Label>
             <Textarea
@@ -456,7 +517,11 @@ export function RejectChequeDialog({
               Cancelar
             </Button>
             <Button type="submit" variant="destructive" disabled={pending}>
-              {pending ? "Rechazando…" : "Rechazar"}
+              {ndMut.isPending
+                ? "Emitiendo ND…"
+                : pending
+                  ? "Rechazando…"
+                  : "Rechazar"}
             </Button>
           </DialogFooter>
         </form>

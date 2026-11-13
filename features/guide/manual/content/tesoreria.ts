@@ -2062,7 +2062,7 @@ export const treasuryPage: GuidePage = {
           screens: [
             {
               kind: "dialog",
-              title: "~Rechazar check 00012345",
+              title: "~Rechazar cheque 00012345",
               description:
                 "El banco rechazó el cheque. Sale de la cuenta donde se depositó y queda como deuda del firmante (Deudores por cheques rechazados).",
               fields: [
@@ -2078,6 +2078,11 @@ export const treasuryPage: GuidePage = {
                   kind: "select",
                   value: "La cuenta de la venta",
                   marker: 3,
+                  wide: true,
+                },
+                {
+                  label: "Gastos a cobrarle al cliente (opcional)",
+                  kind: "money",
                   wide: true,
                 },
                 { label: "Notas (opcional)", kind: "textarea", wide: true },
@@ -2099,9 +2104,11 @@ export const treasuryPage: GuidePage = {
                 "{{Todavía no lo debitó (queda como deuda)}}: no se mueve plata ahora; queda una deuda con el comprador que pagás después ([[#pagar-cheque-vendido-rechazado]]).",
               ],
             },
+            "Si querés cobrarle al cliente lo que te cobró el banco por el rechazo, poné el importe neto en {{Gastos a cobrarle al cliente (opcional)}} (se le suma IVA 21 %). Aparece si el cheque vino de un cliente y podés emitir notas de débito.",
             "Hacé clic en {{Rechazar}}.",
           ],
           after: [
+            "Con gastos: se emite una nota de débito al cliente que dio el cheque, sobre la factura que pagó ese recibo (o, si no hay, su última factura del canal del cheque). Si no se puede emitir, el rechazo queda igual y el aviso dice por qué: emitila desde Ventas.",
             "El cheque pasa a {{Rechazado}} y queda como deuda del firmante en «Deudores por cheques rechazados»; esa deuda se cobra después con un recibo al cliente.",
             "Según de dónde venía: si estaba en cartera, sale de la cartera; si estaba depositado, sale del banco donde se depositó; si estaba endosado, la deuda con el proveedor vuelve; si estaba vendido, sale la devolución al comprador (o queda la deuda).",
           ],

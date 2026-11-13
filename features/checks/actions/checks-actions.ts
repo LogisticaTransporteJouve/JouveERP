@@ -4,6 +4,7 @@ import { logAudit } from "@/lib/actions/audit";
 import { creditCheck } from "@/lib/commands/credit-check";
 import { createManualCheck } from "@/lib/commands/create-manual-check";
 import { depositCheck } from "@/lib/commands/deposit-check";
+import { issueRejectedCheckNd } from "@/lib/commands/issue-rejected-check-nd";
 import type { ActionResult } from "@/lib/query/run-action";
 import { requireUserContext } from "@/lib/auth/context";
 import { userCan, userCanAll } from "@/lib/auth/permissions";
@@ -18,6 +19,8 @@ import { paginateRange } from "@/lib/supabase/paginate";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { getServiceClient } from "@/lib/supabase/service";
 
+import { issueFiscalInvoiceAction } from "@/features/invoices/actions/invoices-actions";
+
 import {
   CHECK_CASH_DENIED_REASON,
   CHECK_CASH_PERMISSIONS,
@@ -29,11 +32,13 @@ import {
   isChequeCurrency,
   isChequeKind,
   isChequeStatus,
+  IssueRejectedCheckNdSchema,
   ManualChequeCreateSchema,
   OPEN_CHECK_STATUSES,
   RejectChequeSchema,
   SellChequesSchema,
   type Cheque,
+  type IssueRejectedCheckNdInput,
   type SellChequesInput,
   type CheckMovement,
 } from "../schema";
@@ -466,4 +471,36 @@ export async function sellChecksAction(
     saleId,
   );
   return { ok: true, data: { sale_id: saleId } };
+}
+
+/**
+ * «Gastos a cobrarle al cliente» after a rejection: one ND to the client who
+ * gave the check (issueRejectedCheckNd through issueFiscalInvoiceAction, the
+ * documented cross-feature exception). Gated like any ND.
+ */
+export async function issueRejectedCheckNdAction(
+  input: IssueRejectedCheckNdInput,
+): Promise<ActionResult<{ invoiceId: string }>> {
+  const ctx = await requireUserContext();
+  if (
+    !userCan(ctx.access, "invoices:issue") ||
+    !userCan(ctx.access, "credit_debit_notes:issue")
+  ) {
+    return {
+      ok: false,
+      error: "No tenés permiso para emitir notas de débito.",
+    };
+  }
+  const parsed = IssueRejectedCheckNdSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
+    };
+  }
+  return issueRejectedCheckNd(
+    ctx.userId,
+    parsed.data,
+    issueFiscalInvoiceAction,
+  );
 }
