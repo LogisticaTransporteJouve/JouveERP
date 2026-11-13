@@ -68,7 +68,7 @@ const ICON: Record<CashKind, LucideIcon> = {
 
 const DESCRIPTION: Record<CashKind, string> = {
   advance:
-    "Sale de la cuenta elegida y va a la cuenta corriente del empleado (no es un gasto). Se descuenta entero en la planilla del sueldo que elijas.",
+    "Sale de la cuenta elegida y va a la cuenta corriente del empleado (no es un gasto). En la planilla del sueldo que elijas cuenta como ya pagado (suma en Pagado).",
   loan: "Sale de la cuenta elegida y va a la cuenta corriente del empleado (no es un gasto). Se descuenta en la planilla en cuotas mensuales, desde el sueldo que elijas.",
   payment: "Entra en la cuenta elegida y baja lo que el empleado debe.",
 };

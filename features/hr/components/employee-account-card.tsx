@@ -88,8 +88,8 @@ function monthLabel(isoFirstDay: string): string {
 
 /**
  * Cuenta corriente del empleado (D1): what the employee owes per currency,
- * the plans that pay it back (their installment is the planilla's default
- * Deudas) and every movement. `canMoveCash` (hr:write + transactions:write)
+ * the plans that pay it back (a préstamo's installment is the planilla's
+ * default Deudas; an adelanto counts as paid there) and every movement. `canMoveCash` (hr:write + transactions:write)
  * shows the advance and payment buttons.
  */
 export function EmployeeAccountCard({

@@ -319,6 +319,7 @@ export const getPayrollPeriodDetail = defineAiAction({
       pagado_libros: e.paid_fiscal,
       pagado_gestion: e.paid_internal,
       pagado_plan_ahorro: e.paid_in_kind,
+      pagado_adelantos: e.paid_advance,
       saldo: e.saldo,
       sugerido: suggestedSplit(e),
     }));

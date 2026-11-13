@@ -38,6 +38,7 @@ import {
 import { BulkPayrollPaymentDialog } from "./bulk-payroll-payment-dialog";
 import { InlineMoneyInput } from "./inline-money-input";
 import { PayrollExtrasDialog } from "./payroll-extras-dialog";
+import { PayrollPaidSummaryDialog } from "./payroll-paid-summary-dialog";
 import { PayrollPaymentsDialog } from "./payroll-payments-dialog";
 import { TripExtrasDialog } from "./trip-extras-dialog";
 
@@ -65,6 +66,7 @@ export function PayrollPeriodGrid({
   const reopenMut = useReopenPayrollPeriod();
   const addMissingMut = useAddMissingPayrollEntries();
   const resetMut = useResetPayrollOverride(year, month);
+  const periodLabel = formatPayrollPeriod(year, month, kind);
 
   const canWrite = userCan(actorAccess, "hr:write");
   const canAdmin = userCan(actorAccess, "hr:admin");
@@ -445,14 +447,25 @@ export function PayrollPeriodGrid({
                       <SplitCell entry={e} />
                     </TableCell>
                     <TableCell
-                      className="text-right font-mono text-muted-foreground"
+                      className="text-right"
                       title={`Libros ${money(e.paid_fiscal)} · Gestión ${money(e.paid_internal)}${
+                        e.paid_advance > 0
+                          ? ` · Adelantos ${money(e.paid_advance)}`
+                          : ""
+                      }${
                         e.paid_in_kind > 0
                           ? ` · Plan de ahorro ${money(e.paid_in_kind)}`
                           : ""
                       }`}
                     >
-                      {money(e.paid_total)}
+                      <PayrollPaidSummaryDialog
+                        entryId={e.id}
+                        employeeName={e.employee_legal_name}
+                        periodLabel={periodLabel}
+                        total={e.total_a_pagar}
+                        paid={e.paid_total}
+                        saldo={e.saldo}
+                      />
                     </TableCell>
                     <TableCell className="text-right">
                       <PayrollPaymentsDialog
