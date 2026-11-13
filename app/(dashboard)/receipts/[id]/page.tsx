@@ -10,6 +10,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
+import { ShareWhatsAppButton } from "@/components/share-whatsapp-button";
 import { Button } from "@/components/ui/button";
 import { RecordHistory } from "@/features/audit/components/record-history";
 import { AttachmentsZone } from "@/features/files/components/attachments-zone";
@@ -93,16 +94,23 @@ export default async function ReceiptDetailPage({
             )}
           </p>
         </div>
-        <Button asChild variant="outline" size="sm">
-          <a
-            href={`/api/receipts/${receipt.id}/pdf`}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <FileDown />
-            PDF
-          </a>
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button asChild variant="outline" size="sm">
+            <a
+              href={`/api/receipts/${receipt.id}/pdf`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <FileDown />
+              PDF
+            </a>
+          </Button>
+          <ShareWhatsAppButton
+            pdfUrl={`/api/receipts/${receipt.id}/pdf`}
+            fileName={`Recibo ${number}.pdf`}
+            text={`Recibo ${number} de Logística Jouve.`}
+          />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
