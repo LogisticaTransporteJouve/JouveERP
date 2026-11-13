@@ -465,12 +465,21 @@ export const TripRatesSchema = z.object({
   trip_rate_per_day: z.coerce.number().min(0).max(999999999.99).nullable(),
   trip_rate_per_km: z.coerce.number().min(0).max(999999999.99).nullable(),
   trip_rate_per_unload: z.coerce.number().min(0).max(999999999.99).nullable(),
+  /** Cargas the recibo already pays: only the rest are suggested. */
+  trip_unloads_in_receipt: z.coerce
+    .number()
+    .int("Las cargas por recibo son un número entero.")
+    .min(0, "Las cargas por recibo no pueden ser negativas.")
+    .max(9999)
+    .nullable(),
 });
 
 export type TripRates = {
   trip_rate_per_day: number | null;
   trip_rate_per_km: number | null;
   trip_rate_per_unload: number | null;
+  /** Cargas the recibo already pays; null = none. */
+  trip_unloads_in_receipt: number | null;
 };
 
 export type TripForExtras = {
@@ -497,6 +506,8 @@ export type TripExtrasSuggestion = {
   days: number;
   km: number;
   unloads: number;
+  /** Of `unloads`, the ones the recibo already pays (not suggested). */
+  unloads_in_receipt: number;
   lines: TripExtraLine[];
 };
 
@@ -509,16 +520,24 @@ const fmtQty = (n: number) =>
 /**
  * The month's extras from the driver's completed trips: one line per concept
  * with a rate (jornadas = distinct trip days, km = the trips' km, descargas =
- * delivered shipments). A concept without rate or quantity gives no line.
+ * delivered shipments beyond the ones the recibo already pays). A concept
+ * without rate or quantity gives no line.
  */
 export function tripExtrasLines(
   trips: readonly TripForExtras[],
   rates: TripRates,
   periodLabel: string,
-): Pick<TripExtrasSuggestion, "days" | "km" | "unloads" | "lines"> {
+): Pick<
+  TripExtrasSuggestion,
+  "days" | "km" | "unloads" | "unloads_in_receipt" | "lines"
+> {
   const days = new Set(trips.map((t) => t.trip_date)).size;
   const km = round2(trips.reduce((s, t) => s + (t.km ?? 0), 0));
   const unloads = trips.reduce((s, t) => s + t.unloads, 0);
+  const unloadsInReceipt = Math.min(
+    rates.trip_unloads_in_receipt ?? 0,
+    unloads,
+  );
   const lines: TripExtraLine[] = [];
   const push = (
     concept: TripExtraLine["concept"],
@@ -537,6 +556,11 @@ export function tripExtrasLines(
   };
   push("jornadas", "jornadas", days, rates.trip_rate_per_day);
   push("km", "km", km, rates.trip_rate_per_km);
-  push("descargas", "descargas", unloads, rates.trip_rate_per_unload);
-  return { days, km, unloads, lines };
+  push(
+    "descargas",
+    "descargas",
+    unloads - unloadsInReceipt,
+    rates.trip_rate_per_unload,
+  );
+  return { days, km, unloads, unloads_in_receipt: unloadsInReceipt, lines };
 }

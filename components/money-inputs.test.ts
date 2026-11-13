@@ -28,6 +28,10 @@ const ALLOWED = new Map<string, { count: number; why: string }>([
     { count: 3, why: "percentage" },
   ],
   [
+    "features/hr/components/trip-rates-card.tsx",
+    { count: 1, why: "cargas paid by the recibo (a count)" },
+  ],
+  [
     "features/inflation/components/inflation-page.tsx",
     { count: 1, why: "coefficient" },
   ],
