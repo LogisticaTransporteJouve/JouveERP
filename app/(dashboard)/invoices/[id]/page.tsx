@@ -23,6 +23,7 @@ import { RegeneratePdfButton } from "@/features/invoices/components/regenerate-p
 import { InvoiceOperationalToggle } from "@/features/invoices/components/invoice-operational-toggle";
 import { RevenueKindSelect } from "@/features/invoices/components/revenue-kind-select";
 import { NotJouveBadge } from "@/components/not-jouve-badge";
+import { ShareWhatsAppButton } from "@/components/share-whatsapp-button";
 import { getRemitoLinksAction } from "@/features/invoices/actions/bill-remito-actions";
 import { getInvoiceDetailAction } from "@/features/invoices/actions/invoices-actions";
 import { BillRemitoDialog } from "@/features/invoices/components/bill-remito-dialog";
@@ -252,6 +253,13 @@ export default async function ComprobanteDetailPage({
                   PDF
                 </a>
               </Button>
+            )}
+            {c.status === "emitted" && (
+              <ShareWhatsAppButton
+                pdfUrl={`/api/invoices/${c.id}/pdf`}
+                fileName={`${invoiceLabel}.pdf`}
+                text={`${invoiceLabel} de Logística Jouve.`}
+              />
             )}
             {canIssue && c.status === "emitted" && !c.pdf_hash && (
               <RegeneratePdfButton id={c.id} />

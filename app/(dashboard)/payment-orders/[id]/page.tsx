@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { Badge } from "@/components/ui/badge";
+import { ShareWhatsAppButton } from "@/components/share-whatsapp-button";
 import { Button } from "@/components/ui/button";
 import { RecordHistory } from "@/features/audit/components/record-history";
 import { AttachmentsZone } from "@/features/files/components/attachments-zone";
@@ -116,16 +117,23 @@ export default async function PaymentOrderDetailPage({
               )}
             </p>
           </div>
-          <Button asChild variant="outline" size="sm">
-            <a
-              href={`/api/payment-orders/${paymentOrder.id}/pdf`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <FileDown />
-              PDF
-            </a>
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button asChild variant="outline" size="sm">
+              <a
+                href={`/api/payment-orders/${paymentOrder.id}/pdf`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <FileDown />
+                PDF
+              </a>
+            </Button>
+            <ShareWhatsAppButton
+              pdfUrl={`/api/payment-orders/${paymentOrder.id}/pdf`}
+              fileName={`Orden de pago ${number}.pdf`}
+              text={`Orden de pago ${number} de Logística Jouve.`}
+            />
+          </div>
         </div>
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
