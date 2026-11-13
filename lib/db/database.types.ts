@@ -11964,6 +11964,7 @@ export type Database = {
           trip_rate_per_day: number | null
           trip_rate_per_km: number | null
           trip_rate_per_unload: number | null
+          trip_unloads_in_receipt: number | null
           updated_at: string
           viatico_monthly: number
         }[]
