@@ -978,6 +978,12 @@ const AUDIT_ACTIONS: Record<string, Spec> = {
     subject: "check",
     say: (c) => `marcó como rechazado ${subj(c, "un cheque")}`,
   },
+  "check.rejection_nd_issued": {
+    group: "invoices",
+    subject: "check",
+    say: (c) =>
+      `emitió ${named(c, "invoice", "nd_invoice_id", "una nota de débito")} por los gastos de ${subj(c, "un cheque")} rechazado${money(c.p.amount) ? ` (${money(c.p.amount)} + IVA)` : ""}`,
+  },
   "check.rejected_as_sale_debt": {
     group: "treasury",
     subject: "check",
