@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
+import { formatArgentineDate } from "@/lib/format";
 
 // The layout a receipt and a payment order share: issuer header, the
 // counterparty box, payment lines, allocations, totals and notes. Neither is
@@ -228,7 +229,7 @@ export function VoucherDocument({
             <Text style={styles.heading}>{title}</Text>
             <Text style={styles.subheading}>{number}</Text>
             <View style={[styles.meta, { textAlign: "right" }]}>
-              <Text>Fecha: {fecha}</Text>
+              <Text>Fecha: {formatArgentineDate(fecha)}</Text>
               <Text>Moneda: {moneda}</Text>
             </View>
           </View>
@@ -287,7 +288,9 @@ export function VoucherDocument({
             {allocations.map((a, i) => (
               <View key={i} style={styles.tableRow}>
                 <Text style={styles.colFlex}>{a.invoice_label}</Text>
-                <Text style={styles.colSmall}>{a.invoice_date}</Text>
+                <Text style={styles.colSmall}>
+                  {formatArgentineDate(a.invoice_date)}
+                </Text>
                 <Text style={styles.colNumber}>{money(a.amount_applied)}</Text>
               </View>
             ))}

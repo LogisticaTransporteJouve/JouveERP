@@ -4541,6 +4541,7 @@ export type Database = {
           imp_total: number
           imp_trib: number
           invoice_origin_id: string | null
+          is_operational: boolean
           iva_condition_receptor: number | null
           kind: string
           letter: string | null
@@ -4589,6 +4590,7 @@ export type Database = {
           imp_total: number
           imp_trib?: number
           invoice_origin_id?: string | null
+          is_operational?: boolean
           iva_condition_receptor?: number | null
           kind: string
           letter?: string | null
@@ -4637,6 +4639,7 @@ export type Database = {
           imp_total?: number
           imp_trib?: number
           invoice_origin_id?: string | null
+          is_operational?: boolean
           iva_condition_receptor?: number | null
           kind?: string
           letter?: string | null
@@ -6508,6 +6511,7 @@ export type Database = {
           imp_trib: number
           imputed_to_id: string | null
           invoice_origin_id: string | null
+          is_operational: boolean
           kind: string
           letter: string | null
           moneda: string
@@ -6548,6 +6552,7 @@ export type Database = {
           imp_trib?: number
           imputed_to_id?: string | null
           invoice_origin_id?: string | null
+          is_operational?: boolean
           kind: string
           letter?: string | null
           moneda?: string
@@ -6588,6 +6593,7 @@ export type Database = {
           imp_trib?: number
           imputed_to_id?: string | null
           invoice_origin_id?: string | null
+          is_operational?: boolean
           kind?: string
           letter?: string | null
           moneda?: string
@@ -7334,12 +7340,15 @@ export type Database = {
           id: string
           invoice_id: string | null
           invoicing_claimed_at: string | null
+          kind: string
           notes: string | null
           origin: string | null
           remito_number: string | null
           scheduled_date: string | null
           status: string
+          time_window: string | null
           trip_id: string | null
+          unload_date: string | null
           updated_at: string
         }
         Insert: {
@@ -7356,12 +7365,15 @@ export type Database = {
           id?: string
           invoice_id?: string | null
           invoicing_claimed_at?: string | null
+          kind?: string
           notes?: string | null
           origin?: string | null
           remito_number?: string | null
           scheduled_date?: string | null
           status?: string
+          time_window?: string | null
           trip_id?: string | null
+          unload_date?: string | null
           updated_at?: string
         }
         Update: {
@@ -7378,12 +7390,15 @@ export type Database = {
           id?: string
           invoice_id?: string | null
           invoicing_claimed_at?: string | null
+          kind?: string
           notes?: string | null
           origin?: string | null
           remito_number?: string | null
           scheduled_date?: string | null
           status?: string
+          time_window?: string | null
           trip_id?: string | null
+          unload_date?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -11700,6 +11715,7 @@ export type Database = {
           p_installment_amount?: number
           p_kind: string
           p_plan_id?: string
+          p_start_month?: string
         }
         Returns: string
       }
@@ -11788,6 +11804,16 @@ export type Database = {
       reprice_freight_settlement: {
         Args: { p_settlement_id: string }
         Returns: number
+      }
+      reprogram_shipment: {
+        Args: {
+          p_comment?: string
+          p_failure_reason?: string
+          p_id: string
+          p_scheduled_date: string
+          p_trip_id?: string
+        }
+        Returns: string
       }
       reverse_journal_entry: { Args: { p_entry_id: string }; Returns: string }
       save_driver_settlement: {
@@ -12440,6 +12466,7 @@ export type Database = {
         | "cheques_cartera"
         | "cheques_rechazados"
         | "anticipos_personal"
+        | "cuenta_particular_socios"
         | "rodados"
         | "planes_ahorro"
         | "cheques_diferidos_emitidos"
@@ -12642,6 +12669,7 @@ export const Constants = {
         "cheques_cartera",
         "cheques_rechazados",
         "anticipos_personal",
+        "cuenta_particular_socios",
         "rodados",
         "planes_ahorro",
         "cheques_diferidos_emitidos",

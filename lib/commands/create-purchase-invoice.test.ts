@@ -63,6 +63,17 @@ describe("createPurchaseInvoice", () => {
     );
   });
 
+  it("sends «No Jouve» and leaves a Jouve purchase to the database default", async () => {
+    rpc.mockResolvedValue({ data: "pi-1", error: null });
+    await createPurchaseInvoice("u1", invoice({ is_operational: false }));
+    expect(rpc.mock.calls[0]?.[1].p_header.is_operational).toBe(false);
+    rpc.mockClear();
+    await createPurchaseInvoice("u1", invoice({ is_operational: true }));
+    expect(rpc.mock.calls[0]?.[1].p_header).not.toHaveProperty(
+      "is_operational",
+    );
+  });
+
   it("refuses IVA on a fiscal B before writing", async () => {
     const res = await createPurchaseInvoice("u1", invoice({ letter: "B" }));
     expect(res.ok).toBe(false);

@@ -21,6 +21,13 @@ import type { ReceivedVoucher } from "../schema";
 
 const h = vi.hoisted(() => ({ mutate: vi.fn(), submitCreate: vi.fn() }));
 
+// The «Corresponde a la actividad de Jouve» checkbox (Radix) measures itself.
+globalThis.ResizeObserver ??= class {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
+
 vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
   usePathname: () => "/purchases/arca",

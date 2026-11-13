@@ -22,7 +22,7 @@ function formatDisplay(iso: string): string {
   const day = String(d.getDate()).padStart(2, "0");
   const month = String(d.getMonth() + 1).padStart(2, "0");
   const year = d.getFullYear();
-  return `${day}/${month}/${year}`;
+  return `${day}-${month}-${year}`;
 }
 
 function clamp(d: Date, min?: Date, max?: Date): Date {
@@ -33,7 +33,7 @@ function clamp(d: Date, min?: Date, max?: Date): Date {
 
 /**
  * Uniform DatePicker: a compact trigger showing the date in AR format
- * (dd/mm/yyyy) that opens the Spanish shadcn Calendar inside a Popover. It
+ * (dd-mm-yyyy) that opens the Spanish shadcn Calendar inside a Popover. It
  * replaces the native date input everywhere (`components/date-inputs.test.ts`
  * keeps it that way), so every date field looks and reads the same.
  *

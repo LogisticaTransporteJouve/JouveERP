@@ -3,6 +3,7 @@
 import { Loader2, Search, X } from "lucide-react";
 import { useState } from "react";
 
+import { useSectionChannelId } from "@/components/providers/scope-provider";
 import { ReadError } from "@/components/read-error";
 import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
@@ -12,7 +13,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
-import { formatNumber2 } from "@/lib/format";
+import { formatArgentineDate, formatNumber2 } from "@/lib/format";
 
 import type { InvoiceListItem } from "../actions/invoices-actions";
 import { useOriginSearch } from "../hooks/use-invoices";
@@ -36,7 +37,7 @@ export function OriginPicker({
   const [open, setOpen] = useState(false);
   const [queryInput, setQueryInput] = useState("");
   const debounced = useDebouncedValue(queryInput.trim(), 250);
-  const search = useOriginSearch(debounced, open);
+  const search = useOriginSearch(debounced, open, useSectionChannelId());
   const { data: items = [], isFetching } = search;
 
   if (value) {
@@ -53,7 +54,7 @@ export function OriginPicker({
           </p>
           <p className="truncate font-medium">{value.client_legal_name}</p>
           <p className="font-mono text-xs text-muted-foreground">
-            {value.fecha} · ${formatARS(value.imp_total)}
+            {formatArgentineDate(value.fecha)} · ${formatARS(value.imp_total)}
           </p>
         </div>
         <IconButton
@@ -136,7 +137,9 @@ export function OriginPicker({
                       <span className="font-mono">
                         ${formatARS(it.imp_total)}
                       </span>
-                      <span className="text-muted-foreground">{it.fecha}</span>
+                      <span className="text-muted-foreground">
+                        {formatArgentineDate(it.fecha)}
+                      </span>
                     </div>
                   </button>
                 </li>

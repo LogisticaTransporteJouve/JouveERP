@@ -15,6 +15,7 @@ import {
   documentTypeLabel,
   statusConfig,
 } from "../lib/document-config";
+import { formatArgentineDate } from "@/lib/format";
 
 function matchName(matches: unknown): string {
   if (typeof matches !== "object" || matches === null) return "—";
@@ -103,7 +104,7 @@ export function buildDocumentColumns(opts: {
       meta: { headerClassName: "w-24" },
       cell: ({ row }) => (
         <span className="text-muted-foreground text-xs">
-          {new Date(row.original.created_at).toLocaleDateString("es-AR")}
+          {formatArgentineDate(row.original.created_at)}
         </span>
       ),
     },

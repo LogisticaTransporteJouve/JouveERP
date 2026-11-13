@@ -98,6 +98,23 @@ export type CreateManualMovementInput = z.input<
   typeof CreateManualMovementSchema
 >;
 
+const monthStart = z
+  .string()
+  .regex(/^\d{4}-\d{2}$/, "Mes inválido.")
+  .transform((v) => `${v}-01`);
+
+/** The payroll months an advance can be discounted in, as offsets from its
+ *  date's month: the month before through two months after (the database
+ *  enforces the same window). */
+export const ADVANCE_MONTH_OFFSETS = [-1, 0, 1, 2] as const;
+
+/** `YYYY-MM` of `iso`'s month moved `offset` months. */
+export function shiftMonth(iso: string, offset: number): string {
+  const [y, m] = iso.split("-").map(Number);
+  const d = new Date(Date.UTC(y ?? 1970, (m ?? 1) - 1 + offset, 1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
 /** An advance paid from a cash or bank account, or a cash payment by the
  *  employee. The currency is the account's. */
 export const RecordAccountCashSchema = z
@@ -111,8 +128,36 @@ export const RecordAccountCashSchema = z
     description: optionalText(200),
     plan_id: z.string().uuid().nullable().optional(),
     installment_amount: positiveMoney.nullable().optional(),
+    /** The payroll month (`YYYY-MM`, or its first day) the advance's plan
+     *  starts in; absent = the date's month. */
+    start_month: z
+      .string()
+      .regex(/^\d{4}-\d{2}(-01)?$/, "Mes inválido.")
+      .transform((v) => `${v.slice(0, 7)}-01`)
+      .nullable()
+      .optional(),
   })
   .superRefine((v, ctx) => {
+    if (v.start_month != null) {
+      const allowed = ADVANCE_MONTH_OFFSETS.map(
+        (o) => `${shiftMonth(v.date, o)}-01`,
+      );
+      if (v.installment_amount == null) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["start_month"],
+          message:
+            "Solo un adelanto con plan elige el sueldo en que se descuenta.",
+        });
+      } else if (!allowed.includes(v.start_month)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["start_month"],
+          message:
+            "El sueldo en que se descuenta va del mes anterior a la fecha hasta dos meses después.",
+        });
+      }
+    }
     if (v.plan_id && v.kind !== "payment") {
       ctx.addIssue({
         code: "custom",
@@ -230,11 +275,6 @@ export function isPlanStatus(value: unknown): value is PlanStatus {
     (PLAN_STATUSES as readonly string[]).includes(value)
   );
 }
-
-const monthStart = z
-  .string()
-  .regex(/^\d{4}-\d{2}$/, "Mes inválido.")
-  .transform((v) => `${v}-01`);
 
 const planFields = z.object({
   description: z

@@ -6,6 +6,7 @@ import {
   listShipmentsByTripAction,
 } from "@/features/shipments/actions/shipments-actions";
 import {
+  SHIPMENT_KINDS,
   SHIPMENT_STATUSES,
   SHIPMENT_STATUS_LABELS,
 } from "@/features/shipments/schema";
@@ -15,7 +16,7 @@ import {
 } from "@/features/trips/actions/trips-actions";
 import { TRIP_STATUS_LABELS, type Trip } from "@/features/trips/schema";
 import { userCan } from "@/lib/auth/permissions";
-import { round2 } from "@/lib/format";
+import { formatArgentineDate, round2 } from "@/lib/format";
 import { IsoDateSchema, UuidSchema } from "@/lib/validation/common";
 
 import { defineAiAction } from "../define";
@@ -211,7 +212,7 @@ export const getTripDetail = defineAiAction({
     const t = tripRes.data;
     const shipments = shipmentsRes?.data ?? null;
     return okResult(
-      `Viaje ${t.trip_date} · ${t.vehicle?.patente ?? "sin vehículo"} · ${
+      `Viaje ${formatArgentineDate(t.trip_date)} · ${t.vehicle?.patente ?? "sin vehículo"} · ${
         t.driver?.full_name ?? "sin chofer"
       }` +
         (t.companion ? ` · acompañante ${t.companion.legal_name}` : "") +
@@ -238,12 +239,10 @@ export const getShipments = defineAiAction({
   sideEffect: "read",
   sources: ["shipments"],
   description:
-    "Listado de cargas (envíos), las más recientes primero, filtrable por fecha programada, cliente (UUID de searchClients), viaje, estados, asignada o no a un viaje y número de remito: cliente, dirección, fecha, estado, viaje y remito si tiene. Una carga en un viaje pasa sola a En curso el día del viaje. Para encontrar una carga puntual; los totales por estado y cliente están en getShipmentsSummary.",
+    "Listado de cargas (envíos), las más recientes primero, filtrable por fecha de carga, cliente (UUID de searchClients), viaje, estados, tipo (retiro, carga o mudanza), asignada o no a un viaje y número de remito: cliente, tipo (kind), dirección de carga (origin) y de descarga (destination), fecha de carga (scheduled_date) y de descarga (unload_date), horario (time_window), observaciones (notes), estado, viaje y remito si tiene. Una carga en un viaje pasa sola a En curso el día del viaje. Para encontrar una carga puntual; los totales por estado y cliente están en getShipmentsSummary.",
   input: z.object({
-    from: IsoDateSchema.nullish().describe(
-      "Fecha programada desde, YYYY-MM-DD.",
-    ),
-    to: IsoDateSchema.nullish().describe("Fecha programada hasta, YYYY-MM-DD."),
+    from: IsoDateSchema.nullish().describe("Fecha de carga desde, YYYY-MM-DD."),
+    to: IsoDateSchema.nullish().describe("Fecha de carga hasta, YYYY-MM-DD."),
     clientId: UuidSchema.nullish().describe("UUID del cliente."),
     tripId: UuidSchema.nullish().describe("UUID del viaje."),
     statuses: z
@@ -256,6 +255,12 @@ export const getShipments = defineAiAction({
       .boolean()
       .nullish()
       .describe("true: solo cargas en un viaje; false: solo sin viaje."),
+    kinds: z
+      .array(z.enum(SHIPMENT_KINDS))
+      .min(1)
+      .max(SHIPMENT_KINDS.length)
+      .nullish()
+      .describe("Cualquiera de estos tipos."),
     remito: z
       .string()
       .trim()

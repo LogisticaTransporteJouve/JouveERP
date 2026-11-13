@@ -20,7 +20,9 @@ import {
   type OriginInvoice,
 } from "@/features/invoices/components/issue-nc-nd-dialog";
 import { RegeneratePdfButton } from "@/features/invoices/components/regenerate-pdf-button";
+import { InvoiceOperationalToggle } from "@/features/invoices/components/invoice-operational-toggle";
 import { RevenueKindSelect } from "@/features/invoices/components/revenue-kind-select";
+import { NotJouveBadge } from "@/components/not-jouve-badge";
 import { getRemitoLinksAction } from "@/features/invoices/actions/bill-remito-actions";
 import { getInvoiceDetailAction } from "@/features/invoices/actions/invoices-actions";
 import { BillRemitoDialog } from "@/features/invoices/components/bill-remito-dialog";
@@ -55,6 +57,7 @@ import { userCan, userCanAll } from "@/lib/auth/permissions";
 import { canChangeAttachments } from "@/lib/files/attachment-targets";
 import {
   amountToInput,
+  formatArgentineDate,
   formatArgentineDateTime,
   formatNumber2,
 } from "@/lib/format";
@@ -184,8 +187,15 @@ export default async function ComprobanteDetailPage({
               )}
             </h1>
             <p className="text-sm text-muted-foreground">
-              {c.channel.name} · {c.fecha}
+              {c.channel.name} · {formatArgentineDate(c.fecha)}
+              {!c.is_operational && <NotJouveBadge className="ml-2" />}
             </p>
+            {canIssue && c.channel.is_fiscal && c.status !== "failed" && (
+              <InvoiceOperationalToggle
+                invoiceId={c.id}
+                value={c.is_operational}
+              />
+            )}
             {links?.billedAs && (
               <p className="text-sm">
                 Facturado en{" "}

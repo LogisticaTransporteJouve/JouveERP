@@ -31,7 +31,7 @@ import {
 const UNASSIGNED_LIMIT = 200;
 
 const SELECT_COLUMNS =
-  "id, client_id, trip_id, channel_id, remito_number, origin,destination, description, scheduled_date, status, delivery_date, failure_reason, freight_amount, invoice_id, notes, created_at, updated_at, client:clients(legal_name, display_name, cuit, iva_condition, is_fiscal), trip:trips(trip_date)";
+  "id, client_id, trip_id, channel_id, remito_number, kind, origin, destination, description, scheduled_date, unload_date, time_window, status, delivery_date, failure_reason, freight_amount, invoice_id, notes, created_at, updated_at, client:clients(legal_name, display_name, cuit, iva_condition, is_fiscal), trip:trips(trip_date)";
 
 type ShipmentRow = {
   status: string;
@@ -109,6 +109,7 @@ export async function listShipmentsAction(
     if (f.statuses) query = query.in("status", f.statuses);
     if (f.assigned === true) query = query.not("trip_id", "is", null);
     if (f.assigned === false) query = query.is("trip_id", null);
+    if (f.kinds) query = query.in("kind", f.kinds);
     if (f.remito) {
       query = query.ilike("remito_number", containsPattern(f.remito));
     }
@@ -184,11 +185,20 @@ export async function updateShipmentAction(
     .from("shipments")
     .update({
       ...(rest.client_id !== undefined && { client_id: rest.client_id }),
+      ...(rest.kind !== undefined && { kind: rest.kind }),
+      ...(rest.origin !== undefined && { origin: rest.origin }),
       ...(rest.destination !== undefined && { destination: rest.destination }),
       ...(rest.description !== undefined && { description: rest.description }),
       ...(rest.scheduled_date !== undefined && {
         scheduled_date: rest.scheduled_date,
       }),
+      ...(rest.unload_date !== undefined && {
+        unload_date: rest.unload_date,
+      }),
+      ...(rest.time_window !== undefined && {
+        time_window: rest.time_window,
+      }),
+      ...(rest.notes !== undefined && { notes: rest.notes }),
     })
     .eq("id", id)
     .select("id");
@@ -221,7 +231,7 @@ export async function updateShipmentAction(
  */
 export async function changeShipmentStatusAction(
   input: unknown,
-): Promise<ActionResult> {
+): Promise<ActionResult<{ warning: string | null }>> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "shipments:write")) {
     return { ok: false, error: "No tenés permiso para cambiar el estado." };
@@ -231,6 +241,13 @@ export async function changeShipmentStatusAction(
     return {
       ok: false,
       error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
+    };
+  }
+  // Putting the carga on a trip also edits the trip's cargas.
+  if (parsed.data.trip_id && !userCan(ctx.access, "trips:write")) {
+    return {
+      ok: false,
+      error: "No tenés permiso para asignar cargas a viajes.",
     };
   }
   return changeShipmentStatus(

@@ -32,6 +32,7 @@ import type { FuelLoad } from "../schema";
 import { FuelDialog } from "./fuel-dialog";
 import { FuelImportDialog } from "./fuel-import-dialog";
 import { FuelTicketDialog, type FuelFileAccess } from "./fuel-ticket-dialog";
+import { formatArgentineDate } from "@/lib/format";
 
 function formatMoney(n: number) {
   return `$${n.toLocaleString("es-AR")}`;
@@ -71,7 +72,7 @@ export function FuelTable({
   const columns = useMemo<ColumnDef<FuelLoad>[]>(() => {
     async function handleDelete(f: FuelLoad) {
       const ok = await confirm({
-        title: `Borrar carga del ${f.load_date}`,
+        title: `Borrar carga del ${formatArgentineDate(f.load_date)}`,
         description: "Esta acción no se puede deshacer.",
         confirmLabel: "Borrar",
         tone: "destructive",
@@ -88,7 +89,9 @@ export function FuelTable({
         accessorKey: "load_date",
         header: "Fecha",
         cell: ({ row }) => (
-          <span className="font-medium">{row.original.load_date}</span>
+          <span className="font-medium">
+            {formatArgentineDate(row.original.load_date)}
+          </span>
         ),
         meta: { headerClassName: "w-32" },
       },

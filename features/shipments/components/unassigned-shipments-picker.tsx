@@ -4,6 +4,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import { useUnassignedShipments } from "../hooks/use-shipments";
+import { formatArgentineDate } from "@/lib/format";
 
 /** Checkbox list of the cargas without a trip that can still go on one
  *  (pendientes o reprogramadas); read while `enabled`. */
@@ -49,7 +50,11 @@ export function UnassignedShipmentsPicker({
                 {s.client?.legal_name ?? "Sin cliente"}
               </span>
               <span className="block truncate text-xs text-muted-foreground">
-                {[s.destination, s.scheduled_date, s.description]
+                {[
+                  s.destination,
+                  s.scheduled_date && formatArgentineDate(s.scheduled_date),
+                  s.description,
+                ]
                   .filter(Boolean)
                   .join(" · ") || "—"}
               </span>

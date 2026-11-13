@@ -42,9 +42,23 @@ describe("ShipmentCreateSchema", () => {
     });
     expect(r).toEqual({
       client_id: "11111111-1111-4111-8111-111111111111",
+      kind: "carga",
       destination: "Av. Corrientes 1234, CABA",
       scheduled_date: "2026-06-30",
+      origin: "Rosario",
+      notes: "x",
     });
+  });
+
+  it("refuses an unload day before the load day", () => {
+    const r = ShipmentCreateSchema.safeParse({
+      scheduled_date: "2026-06-30",
+      unload_date: "2026-06-29",
+    });
+    expect(r.success).toBe(false);
+    expect(r.error?.issues[0]?.message).toBe(
+      "La fecha de descarga no puede ser anterior a la fecha de carga.",
+    );
   });
 
   it("rejects a non-uuid client_id", () => {

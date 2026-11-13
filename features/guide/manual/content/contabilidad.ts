@@ -476,14 +476,14 @@ export const accountingPage: GuidePage = {
             columns: ["~Fecha", "~Período", "~Descripción", "Origen", "~Debe"],
             rows: [
               [
-                "~04/11/2026",
+                "~04-11-2026",
                 "~2026-11",
                 "~Factura A 0003-00001234",
                 "~Comprobante emitido",
                 "~$ 1.210.000,00",
               ],
               [
-                "~03/11/2026",
+                "~03-11-2026",
                 "~2026-11",
                 "~Ajuste previsión incobrables",
                 "~Manual",
@@ -553,7 +553,7 @@ export const accountingPage: GuidePage = {
                 {
                   label: "Fecha",
                   kind: "date",
-                  value: "31/10/2026",
+                  value: "31-10-2026",
                   marker: 2,
                 },
                 {
@@ -699,8 +699,8 @@ export const accountingPage: GuidePage = {
           title: "Libro mayor",
           toolbar: [
             { label: "Cuenta", kind: "select", value: "1.1.1.1 Caja general" },
-            { label: "Desde", kind: "date", value: "01/10/2026" },
-            { label: "Hasta", kind: "date", value: "31/10/2026" },
+            { label: "Desde", kind: "date", value: "01-10-2026" },
+            { label: "Hasta", kind: "date", value: "31-10-2026" },
           ],
           stats: [
             { label: "Total Debe", value: "~2.450.000,00" },
@@ -718,9 +718,9 @@ export const accountingPage: GuidePage = {
               "Saldo",
             ],
             rows: [
-              ["~01/10/2026", "", "Saldo anterior", "", "", "", "~850.000,00"],
+              ["~01-10-2026", "", "Saldo anterior", "", "", "", "~850.000,00"],
               [
-                "~03/10/2026",
+                "~03-10-2026",
                 "~2026-10",
                 "~Cobro recibo 0001-00000456",
                 "~Recibo",
@@ -814,7 +814,7 @@ export const accountingPage: GuidePage = {
             ],
             rows: [
               [
-                "~02/10/2026",
+                "~02-10-2026",
                 "~FC",
                 "~A 0003-00001230",
                 "~Transportes del Sur S.A.",
@@ -830,7 +830,7 @@ export const accountingPage: GuidePage = {
                 "~76012345678901",
               ],
               [
-                "~15/10/2026",
+                "~15-10-2026",
                 "~NC",
                 "~A 0003-00000045",
                 "~Transportes del Sur S.A.",
@@ -1074,7 +1074,7 @@ export const accountingPage: GuidePage = {
         {
           title: "El ejercicio",
           body: [
-            "El ejercicio (año fiscal) empieza en el mes que se configura en [[/accounting/settings]]; en Jouve va de octubre a septiembre (por ejemplo, 01/10/2025 – 30/09/2026).",
+            "El ejercicio (año fiscal) empieza en el mes que se configura en [[/accounting/settings]]; en Jouve va de octubre a septiembre (por ejemplo, 01-10-2025 – 30-09-2026).",
             "Sin {{Desde (opcional)}}, el {{Estado de Resultados}} suma desde el primer mes del ejercicio que contiene el {{Período de corte}} hasta el corte, y en {{Balance General}} el resultado se separa en {{Resultado del período}} (desde ese mismo mes) y {{Resultados de períodos anteriores}}. Las cuentas patrimoniales (activo, pasivo, patrimonio) siempre son acumuladas hasta el corte.",
           ],
         },
@@ -1431,7 +1431,7 @@ export const accountingPage: GuidePage = {
               [
                 "~IVA",
                 "~octubre de 2026",
-                "~18/11/2026",
+                "~18-11-2026",
                 "~$ 1.250.000,00 (estimado)",
                 "~Pendiente",
                 "—",
@@ -1439,7 +1439,7 @@ export const accountingPage: GuidePage = {
               [
                 "~IIBB (Buenos Aires)",
                 "~octubre de 2026",
-                "~16/11/2026",
+                "~16-11-2026",
                 "~$ 310.000,00",
                 "~Liquidado",
                 "—",
@@ -1447,10 +1447,10 @@ export const accountingPage: GuidePage = {
               [
                 "~SICORE",
                 "~septiembre de 2026",
-                "~10/10/2026",
+                "~10-10-2026",
                 "~$ 95.000,00",
                 "~Pagado",
-                "~10/10/2026 · Banco Galicia",
+                "~10-10-2026 · Banco Galicia",
               ],
             ],
             rowMenu: true,
@@ -1533,7 +1533,7 @@ export const accountingPage: GuidePage = {
                 {
                   label: "Vencimiento",
                   kind: "date",
-                  value: "16/11/2026",
+                  value: "16-11-2026",
                   marker: 2,
                 },
                 {
@@ -1771,7 +1771,7 @@ export const accountingPage: GuidePage = {
                 {
                   label: "Fecha de pago",
                   kind: "date",
-                  value: "16/11/2026",
+                  value: "16-11-2026",
                   marker: 2,
                 },
                 {
@@ -1872,7 +1872,7 @@ export const accountingPage: GuidePage = {
                 columns: ["~Movimiento", "~Importe"],
                 rows: [
                   [
-                    "~Transferencia ARBA · 15/11/2026 (1 día antes) · Banco Galicia",
+                    "~Transferencia ARBA · 15-11-2026 (1 día antes) · Banco Galicia",
                     "~$ 310.000,00",
                   ],
                 ],
@@ -2028,7 +2028,7 @@ export const accountingPage: GuidePage = {
             columns: ["Período", "Coeficiente", "Fuente / Notas", "Estado"],
             rows: [
               ["~2026-10", "~1,028500", "~IPIM INDEC", "~Sin aplicar"],
-              ["~2026-09", "~1,031200", "~IPIM INDEC", "~Aplicado 06/10/2026"],
+              ["~2026-09", "~1,031200", "~IPIM INDEC", "~Aplicado 06-10-2026"],
             ],
           },
         },
@@ -2210,8 +2210,8 @@ export const accountingPage: GuidePage = {
           table: {
             columns: ["Fecha", "ARS por USD", "Fuente", "Notas"],
             rows: [
-              ["~05/11/2026", "~1.452,500000", "BCRA", "—"],
-              ["~04/11/2026", "~1.449,000000", "Manual", "~BCRA no publicó"],
+              ["~05-11-2026", "~1.452,500000", "BCRA", "—"],
+              ["~04-11-2026", "~1.449,000000", "Manual", "~BCRA no publicó"],
             ],
           },
         },
@@ -2231,7 +2231,7 @@ export const accountingPage: GuidePage = {
                 {
                   label: "Fecha",
                   kind: "date",
-                  value: "04/11/2026",
+                  value: "04-11-2026",
                   marker: 2,
                 },
                 {
@@ -2343,7 +2343,7 @@ export const accountingPage: GuidePage = {
           title: "Qué usa el inicio del ejercicio",
           body: [
             "El {{Estado de Resultados}} y el {{Resultado del período}} del {{Balance General}} cuando {{Desde (opcional)}} está vacío, los atajos {{Ejercicio actual}} y {{Ejercicio anterior}} de [[/accounting/balance]], el {{Año fiscal}} de [[/management]] y el estado de resultados del asistente cuando se le pide «el ejercicio».",
-            "Un ejercicio se nombra por los años que abarca: con inicio en octubre, el ejercicio 2025/26 va del 01/10/2025 al 30/09/2026. Con inicio en enero, es el año calendario (por ejemplo, 2026).",
+            "Un ejercicio se nombra por los años que abarca: con inicio en octubre, el ejercicio 2025/26 va del 01-10-2025 al 30-09-2026. Con inicio en enero, es el año calendario (por ejemplo, 2026).",
           ],
         },
       ],

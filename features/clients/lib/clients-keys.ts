@@ -17,12 +17,14 @@ export const clientsKeys = {
     query: string;
     onlyActive: boolean;
     isFiscal: boolean | null;
+    channelId?: string | null;
   }) => [...clientsKeys.all, "searchInfinite", filters] as const,
   search: (filters: {
     query: string;
     onlyActive: boolean;
     limit: number;
     isFiscal: boolean | null;
+    channelId?: string | null;
   }) => [...clientsKeys.all, "search", filters] as const,
   byId: (id: string) => [...clientsKeys.all, "byId", id] as const,
   pickerAccess: () => [...clientsKeys.all, "pickerAccess"] as const,

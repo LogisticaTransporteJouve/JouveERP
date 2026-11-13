@@ -97,7 +97,7 @@ export const purchasesPage: GuidePage = {
                 "~Responsable Inscripto",
                 "~Combustible",
                 "~Activo",
-                "~03/11/2026",
+                "~03-11-2026",
                 "~✎ 🗑",
               ],
               [
@@ -106,7 +106,7 @@ export const purchasesPage: GuidePage = {
                 "~Responsable Inscripto",
                 "~Repuestos",
                 "~Activo",
-                "~28/10/2026",
+                "~28-10-2026",
                 "~✎ 🗑",
               ],
             ],
@@ -407,7 +407,7 @@ export const purchasesPage: GuidePage = {
                 ],
                 rows: [
                   [
-                    "~04/11/2026",
+                    "~04-11-2026",
                     "~Orden de Pago",
                     "~OP0003-00000041",
                     "~Jouve fiscal",
@@ -417,7 +417,7 @@ export const purchasesPage: GuidePage = {
                     "~👁",
                   ],
                   [
-                    "~20/10/2026",
+                    "~20-10-2026",
                     "~Factura",
                     "~A00002-00001234 Parcial",
                     "~Jouve fiscal",
@@ -468,7 +468,7 @@ export const purchasesPage: GuidePage = {
                 {
                   label: "Fecha de corte",
                   kind: "date",
-                  value: "31/12/2025",
+                  value: "31-12-2025",
                   marker: 2,
                 },
                 {
@@ -818,7 +818,7 @@ export const purchasesPage: GuidePage = {
                 "~Factura A00002-00001234",
                 "~Transportes del Sur S.A.",
                 "~Fiscal",
-                "~20/10/2026",
+                "~20-10-2026",
                 "~$800.000,00",
                 "~Recibida",
                 "~👁 ✎ 🏷 ⊘",
@@ -827,7 +827,7 @@ export const purchasesPage: GuidePage = {
                 "~Nota de Crédito NC00002-00000045",
                 "~Transportes del Sur S.A.",
                 "~Fiscal",
-                "~25/10/2026",
+                "~25-10-2026",
                 "~$50.000,00",
                 "~Recibida",
                 "~👁 ✎ 🏷 ⊘",
@@ -921,13 +921,13 @@ export const purchasesPage: GuidePage = {
                 {
                   label: "Fecha",
                   kind: "date",
-                  value: "20/10/2026",
+                  value: "20-10-2026",
                   marker: 5,
                 },
                 {
                   label: "Vencimiento de pago",
                   kind: "date",
-                  value: "19/11/2026",
+                  value: "19-11-2026",
                   marker: 5,
                 },
                 {
@@ -973,6 +973,12 @@ export const purchasesPage: GuidePage = {
                   marker: 11,
                 },
                 { label: "Vto. CAE proveedor", kind: "date", marker: 11 },
+                {
+                  label: "Corresponde a la actividad de Jouve",
+                  kind: "checkbox",
+                  value: "✓",
+                  wide: true,
+                },
                 { label: "Notas", kind: "textarea", wide: true },
               ],
               footer: [
@@ -1012,6 +1018,7 @@ export const purchasesPage: GuidePage = {
             "Elegí la {{Cuenta de gasto}}. Si la compra la paga un empleado y la empresa se la cobra, elegilo en {{A cargo de empleado}} (si no, {{No (gasto de la empresa)}}).",
             "Si la factura es en dólares, elegí {{USD — Dólar}} en {{Moneda}} y cargá la {{Cotización}} (mayor a 1).",
             "Opcional: {{CAE proveedor (opcional)}}, {{Vto. CAE proveedor}} y {{Notas}}.",
+            "Dejá tildado {{Corresponde a la actividad de Jouve}}, salvo que sea un gasto particular de un socio: destildada, la factura sigue en el Libro IVA y en la cuenta del proveedor, pero no cuenta como gasto (su neto va a «Cuenta particular de socios») y lleva la marca «No Jouve». Se cambia después editando la factura, mientras su mes contable esté abierto.",
             "Hacé clic en {{Cargar factura}}.",
           ],
           after: [
@@ -1270,7 +1277,7 @@ export const purchasesPage: GuidePage = {
                   marker: 3,
                 },
                 { label: "Número", kind: "input", value: "18", marker: 3 },
-                { label: "Fecha", kind: "date", value: "02/11/2026" },
+                { label: "Fecha", kind: "date", value: "02-11-2026" },
                 {
                   label: "Neto",
                   kind: "money",
@@ -1846,7 +1853,7 @@ export const purchasesPage: GuidePage = {
                 {
                   label: "Vencimiento de pago",
                   kind: "date",
-                  value: "19/11/2026",
+                  value: "19-11-2026",
                   marker: 3,
                 },
                 { label: "Cuenta de gasto", kind: "select", marker: 3 },
@@ -2080,7 +2087,7 @@ export const purchasesPage: GuidePage = {
               [
                 "~OP0003-00000041",
                 "~Transportes del Sur S.A.",
-                "~04/11/2026",
+                "~04-11-2026",
                 "~$500.000,00",
                 "~Emitida",
                 "~👁 ☰ ✎ ⊘",
@@ -2088,7 +2095,7 @@ export const purchasesPage: GuidePage = {
               [
                 "~OP0003-00000040",
                 "~Neumáticos Lanús S.R.L.",
-                "~30/10/2026",
+                "~30-10-2026",
                 "~$210.000,00",
                 "~Emitida",
                 "~👁 ☰ ✎ ⊘",
@@ -2150,7 +2157,7 @@ export const purchasesPage: GuidePage = {
                 {
                   label: "Fecha",
                   kind: "date",
-                  value: "04/11/2026",
+                  value: "04-11-2026",
                   marker: 2,
                 },
                 { label: "Moneda", kind: "select", value: "ARS", marker: 2 },
@@ -2347,7 +2354,7 @@ export const purchasesPage: GuidePage = {
                 {
                   label: "Fecha de vto.",
                   kind: "date",
-                  value: "04/12/2026",
+                  value: "04-12-2026",
                   marker: 2,
                 },
                 {
@@ -2633,16 +2640,17 @@ export const purchasesPage: GuidePage = {
       routes: ["/channel-summary/[channelId]"],
       permission: "management:read",
       intro: [
-        "DZ Instalaciones es una división de la misma empresa (el mismo CUIT) con un canal propio. Cuando ese canal está activo, la barra lateral muestra al final un bloque **DZ Instalaciones** con {{Resumen}}, {{Comprobantes de compra}}, {{Órdenes de pago}}, {{Ventas}} y {{Proveedores}}: las mismas pantallas de siempre, pero solo con lo de DZ.",
+        "DZ Instalaciones es una división de la misma empresa (el mismo CUIT) con un canal propio. Cuando ese canal está activo, la barra lateral muestra al final un bloque **DZ Instalaciones** con {{Resumen}}, {{Comprobantes de compra}}, {{Órdenes de pago}}, {{Ventas}}, {{Clientes}} y {{Proveedores}}: las mismas pantallas de siempre, pero solo con lo de DZ. {{Clientes}} es la excepción: los clientes son una sola lista, compartida con Ventas.",
         "Fuera de ese bloque, lo de DZ no aparece: ni en las listas de Compras y Ventas, ni en los selectores de canal, ni en el resultado de gestión, el flujo de caja, el aging, las tareas o el asistente. Lo incluyen el Libro IVA, el libro diario, el mayor y el balance, porque el CUIT es uno, y Tesorería: sus movimientos, cheques y la conciliación llevan la marca «DZ».",
       ],
       concepts: [
         {
           title: "Qué se carga desde el bloque",
           body: [
-            "Un formulario abierto desde el bloque (una factura de compra, una orden de pago, un proveedor nuevo) ya viene con el canal de DZ y no ofrece otro. Una compra o un proveedor de DZ abierto desde otro lado conserva su canal.",
+            "Un formulario abierto desde el bloque (una factura de compra, una orden de pago, un proveedor nuevo, un comprobante de venta) ya viene con el canal de DZ y no ofrece otro. Una compra o un proveedor de DZ abierto desde otro lado conserva su canal.",
             "Las compras de DZ sin cuenta propia van a «Costo de mercadería vendida (Instalaciones)» y sus ventas a «Venta de productos (Instalaciones)», no a las cuentas de Logística Jouve.",
-            "Las ventas de DZ llegan desde ARCA, por su punto de venta: en el bloque, {{Ventas}} no tiene {{Nuevo comprobante}}.",
+            "Las ventas de DZ se emiten desde el bloque, con {{Nuevo comprobante}} en {{Ventas}}: el comprobante sale con el punto de venta de DZ (el 10) y su PDF lleva la línea «DZ Instalaciones» bajo los datos de la empresa. Los que se emitan desde ARCA con ese punto de venta también llegan con la sincronización de emitidos.",
+            "Un cliente es el mismo en Logística Jouve y en DZ. Un cliente que solo tiene comprobantes de DZ no aparece en las listas de Ventas; en el bloque, {{Clientes}} los muestra a todos.",
           ],
         },
       ],
@@ -2659,6 +2667,20 @@ export const purchasesPage: GuidePage = {
             "Las cifras salen de los asientos de DZ, con sus propias cuentas de ventas y costos. Los saldos con proveedores se ven si además tenés acceso al aging de proveedores.",
           ],
           keywords: ["dz", "instalaciones", "división", "resultado de dz"],
+        },
+        {
+          id: "emitir-factura-de-dz",
+          title: "Emitir una factura de DZ Instalaciones",
+          permission: "invoices:issue",
+          steps: [
+            "En la barra lateral, abrí **DZ Instalaciones › Ventas** y hacé clic en {{Nuevo comprobante}}.",
+            "El canal ya viene en DZ Instalaciones y el punto de venta, en el de DZ (el 10).",
+            "Elegí el cliente (o creá uno nuevo desde el selector), cargá los ítems y emitilo como cualquier factura ([[#emitir-factura]]).",
+          ],
+          after: [
+            "El comprobante pide el CAE a AFIP, queda solo en el bloque de DZ (y en el Libro IVA) y su neto va a «Venta de productos (Instalaciones)».",
+          ],
+          keywords: ["factura dz", "punto de venta 10", "venta instalaciones"],
         },
       ],
     },

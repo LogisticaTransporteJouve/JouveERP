@@ -493,6 +493,51 @@ describe("issueFiscalInvoiceAction across sides", () => {
   });
 });
 
+describe("issueFiscalInvoiceAction on a segregated channel (DZ)", () => {
+  beforeEach(() => {
+    h.db.invoicing_channels = [
+      { id: "jouve_fiscal", is_fiscal: true, is_active: true },
+      { id: "dz_fiscal", is_fiscal: true, is_active: true },
+    ];
+    h.db.sales_points = [
+      { numero: 3, channel_id: "jouve_fiscal", is_enabled: true },
+      { numero: 10, channel_id: "dz_fiscal", is_enabled: true },
+    ];
+  });
+
+  function dzFactura(puntoVenta: number): CreateComprobanteInput {
+    return {
+      ...noteInput(),
+      channel_id: "dz_fiscal",
+      punto_venta: puntoVenta,
+      kind: "factura",
+      invoice_origin_id: null,
+      motivo_nc_nd: null,
+    };
+  }
+
+  it("issues a factura on dz_fiscal with its own sales point", async () => {
+    const res = await issueFiscalInvoiceAction(dzFactura(10));
+    expect(res.ok).toBe(true);
+    expect(h.inserts[0]).toEqual({
+      table: "invoices",
+      values: expect.objectContaining({
+        channel_id: "dz_fiscal",
+        punto_venta: 10,
+      }),
+    });
+  });
+
+  it("refuses Jouve's sales point on dz_fiscal before writing", async () => {
+    const res = await issueFiscalInvoiceAction(dzFactura(3));
+    expect(res).toEqual({
+      ok: false,
+      error: "Punto de venta 3 no está configurado o no pertenece a dz_fiscal.",
+    });
+    expect(h.inserts).toHaveLength(0);
+  });
+});
+
 describe("issueFiscalInvoiceAction when a lookup fails", () => {
   it.each(["invoicing_channels", "clients", "sales_points"])(
     "returns a refusal, without writing, when reading %s fails",

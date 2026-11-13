@@ -96,7 +96,7 @@ export const salesPage: GuidePage = {
                 "~30714637432",
                 "~Responsable Inscripto",
                 "~Activo",
-                "~03/11/2026",
+                "~03-11-2026",
                 "~✎ 🗑",
               ],
               [
@@ -104,7 +104,7 @@ export const salesPage: GuidePage = {
                 "~20123456786",
                 "~Monotributo",
                 "~Activo",
-                "~28/10/2026",
+                "~28-10-2026",
                 "~✎ 🗑",
               ],
             ],
@@ -387,7 +387,7 @@ export const salesPage: GuidePage = {
             ],
             rows: [
               [
-                "~04/11/2026",
+                "~04-11-2026",
                 "~Recibo",
                 "~0001-00000045",
                 "",
@@ -396,7 +396,7 @@ export const salesPage: GuidePage = {
                 "~👁 📄 ⬇",
               ],
               [
-                "~20/10/2026",
+                "~20-10-2026",
                 "~Factura A",
                 "~A0003-00000123 · Parcial",
                 "~$1.750.000,00",
@@ -462,7 +462,7 @@ export const salesPage: GuidePage = {
                 {
                   label: "Fecha de corte",
                   kind: "date",
-                  value: "31/12/2025",
+                  value: "31-12-2025",
                   marker: 2,
                 },
                 {
@@ -613,7 +613,7 @@ export const salesPage: GuidePage = {
               [
                 "~A0003-00000124",
                 "~Transportes del Sur S.A.",
-                "~04/11/2026",
+                "~04-11-2026",
                 "~$1.210.000,00",
                 "~Emitido",
                 "~👁 ✉",
@@ -621,7 +621,7 @@ export const salesPage: GuidePage = {
               [
                 "~NC0003-00000008",
                 "~Pérez Juan",
-                "~03/11/2026",
+                "~03-11-2026",
                 "~$60.500,00",
                 "~Esperando CAE",
                 "~👁",
@@ -741,6 +741,7 @@ export const salesPage: GuidePage = {
             },
             "La fila {{Seguro}} siempre queda última: elegí el porcentaje (1%, 2%, 3%, 5% u {{Otro…}}) y escribí el {{Valor declarado}}. Si dejás el valor vacío, la fila no se incluye.",
             "Revisá Neto, IVA y Total al pie. Si querés, escribí {{Notas internas (no van a AFIP)}}.",
+            "Dejá tildado {{Corresponde a la actividad de Jouve}}, salvo que sea una venta particular de un socio: destildada, la factura sigue en el Libro IVA y en la cuenta del cliente, pero no cuenta como ingreso (su neto va a «Cuenta particular de socios») y lleva la marca «No Jouve». Se puede cambiar después desde el detalle del comprobante, mientras su mes contable esté abierto.",
             "Hacé clic en {{Guardar}}. Con {{Guardar y cargar otra}} (o Ctrl/⌘ + Enter) se emite y el formulario queda listo para otra factura.",
           ],
           after: [
@@ -1532,7 +1533,7 @@ export const salesPage: GuidePage = {
               [
                 "~0001-00000045",
                 "~Transportes del Sur S.A.",
-                "~04/11/2026",
+                "~04-11-2026",
                 "~$500.000,00",
                 "~Emitido",
                 "~👁 ✉ ☑ ✎ ⊘",

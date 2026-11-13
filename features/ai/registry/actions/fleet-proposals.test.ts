@@ -134,9 +134,10 @@ describe("proposeShipment", () => {
     });
     expect(prepared.summary[0]).toEqual({ label: "Cliente", value: "Acme SA" });
     expect(prepared.summary).toContainEqual({
-      label: "Dirección",
+      label: "Dirección de descarga",
       value: "Av. Corrientes 1234, CABA",
     });
+    expect(prepared.summary).toContainEqual({ label: "Tipo", value: "Carga" });
   });
 });
 

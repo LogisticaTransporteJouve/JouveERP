@@ -22,6 +22,7 @@ import {
   itemUnitPrice,
   type PerRate,
 } from "./invoice-figures";
+import { formatArgentineDate } from "@/lib/format";
 
 // Single PDF template that renders fiscal AND internal comprobantes. The
 // `isFiscal` flag toggles the AFIP-specific furniture (letter box, CAE
@@ -368,7 +369,10 @@ function InvoicePage({
             </Text>
           </Text>
           <Text style={{ marginTop: 4 }}>
-            Fecha: <Text style={{ fontWeight: "bold" }}>{data.fecha}</Text>
+            Fecha:{" "}
+            <Text style={{ fontWeight: "bold" }}>
+              {formatArgentineDate(data.fecha)}
+            </Text>
           </Text>
         </View>
       </View>
@@ -379,18 +383,19 @@ function InvoicePage({
           {data.fch_serv_desde && (
             <Text>
               <Text style={styles.metaLabel}>Período desde:</Text>{" "}
-              {data.fch_serv_desde}
+              {formatArgentineDate(data.fch_serv_desde)}
             </Text>
           )}
           {data.fch_serv_hasta && (
             <Text style={{ marginLeft: 16 }}>
-              <Text style={styles.metaLabel}>hasta:</Text> {data.fch_serv_hasta}
+              <Text style={styles.metaLabel}>hasta:</Text>{" "}
+              {formatArgentineDate(data.fch_serv_hasta)}
             </Text>
           )}
           {data.fch_vto_pago && (
             <Text style={{ marginLeft: 16 }}>
               <Text style={styles.metaLabel}>Vto. pago:</Text>{" "}
-              {data.fch_vto_pago}
+              {formatArgentineDate(data.fch_vto_pago)}
             </Text>
           )}
         </View>
@@ -505,7 +510,7 @@ function InvoicePage({
                 <Text style={[styles.footerLabel, { marginTop: 6 }]}>
                   Vencimiento CAE
                 </Text>
-                <Text>{data.cae_vencimiento}</Text>
+                <Text>{formatArgentineDate(data.cae_vencimiento)}</Text>
               </>
             )}
           </View>

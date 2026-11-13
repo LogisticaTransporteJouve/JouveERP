@@ -13,7 +13,7 @@ describe("rateJumpWarning", () => {
 
   it("compares with the nearest rate on or before the date", () => {
     expect(rateJumpWarning(rates, "2026-10-01", 1_450_125)).toMatch(
-      /La última cotización fue 1\.450,00 \(30 \S+ 2026\)/,
+      /La última cotización fue 1\.450,00 \(30-09-2026\)/,
     );
     expect(rateJumpWarning(rates, "2026-10-01", 1500)).toBeNull();
     // An older day is compared with the rate of its own time.

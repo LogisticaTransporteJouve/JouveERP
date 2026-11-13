@@ -17,6 +17,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { todayInAR } from "@/lib/format";
 
+import { TripOnDateSelect } from "@/features/trips/components/trip-on-date-select";
+
 import { useChangeShipmentStatus } from "../hooks/use-shipments";
 import { type Shipment, type ShipmentStatus } from "../schema";
 
@@ -37,28 +39,31 @@ const ACTION_TITLE: Record<ShipmentStatusAction, string> = {
 const ACTION_DESCRIPTION: Record<ShipmentStatusAction, string> = {
   deliver: "Registrá la fecha de entrega.",
   cancel: "Indicá el motivo de la cancelación.",
-  reprogram: "Definí la nueva fecha y el motivo.",
+  reprogram:
+    "Definí la nueva fecha y, si ya sabés, el viaje que la lleva. Sale del viaje actual.",
 };
 
 export function ShipmentStatusDialog({
   shipment,
   action,
   onClose,
+  canAssignTrip = false,
 }: {
   shipment: Shipment | null;
   action: ShipmentStatusAction | null;
   onClose: () => void;
+  /** shipments:write and trips:write: reprogramming can put the carga on a
+   *  trip of the new date («Asignar a viaje»). */
+  canAssignTrip?: boolean;
 }) {
   const changeMut = useChangeShipmentStatus();
   const [comment, setComment] = useState("");
   const [deliveryDate, setDeliveryDate] = useState(todayInAR());
   const [failureReason, setFailureReason] = useState("");
   const [scheduledDate, setScheduledDate] = useState("");
+  const [tripId, setTripId] = useState<string | null>(null);
 
   const open = shipment !== null && action !== null;
-  // Reprogramming a started carga takes it off its trip (change_shipment_status).
-  const leavesTrip =
-    action === "reprogram" && shipment?.status === "in_progress";
 
   useEffect(() => {
     if (open) {
@@ -66,6 +71,7 @@ export function ShipmentStatusDialog({
       setDeliveryDate(todayInAR());
       setFailureReason("");
       setScheduledDate(shipment?.scheduled_date ?? "");
+      setTripId(null);
     }
   }, [open, shipment]);
 
@@ -79,7 +85,7 @@ export function ShipmentStatusDialog({
       toast.error("El motivo es obligatorio.");
       return;
     }
-    if (leavesTrip && scheduledDate === "") {
+    if (action === "reprogram" && scheduledDate === "") {
       toast.error("Indicá la nueva fecha.");
       return;
     }
@@ -91,10 +97,13 @@ export function ShipmentStatusDialog({
       failure_reason:
         action === "cancel" || action === "reprogram" ? failureReason : "",
       scheduled_date: action === "reprogram" ? scheduledDate : "",
+      trip_id:
+        action === "reprogram" && canAssignTrip && tripId ? tripId : null,
     };
     changeMut.mutate(payload, {
-      onSuccess: () => {
-        toast.success("Estado actualizado.");
+      onSuccess: ({ warning }) => {
+        if (warning) toast.warning(warning);
+        else toast.success("Estado actualizado.");
         onClose();
       },
       onError: (err) => toast.error(err.message),
@@ -108,8 +117,6 @@ export function ShipmentStatusDialog({
           <DialogTitle>{action ? ACTION_TITLE[action] : ""}</DialogTitle>
           <DialogDescription>
             {action ? ACTION_DESCRIPTION[action] : ""}
-            {leavesTrip &&
-              " La carga vuelve a No iniciada y sale del viaje; asignala a otro viaje."}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
@@ -126,14 +133,25 @@ export function ShipmentStatusDialog({
           {action === "reprogram" && (
             <div className="space-y-2">
               <Label htmlFor="shipment-scheduled-date">
-                Nueva fecha programada
+                Nueva fecha de carga
               </Label>
               <DatePicker
                 id="shipment-scheduled-date"
                 value={scheduledDate}
-                onChange={setScheduledDate}
+                onChange={(next) => {
+                  setScheduledDate(next);
+                  setTripId(null);
+                }}
               />
             </div>
+          )}
+          {action === "reprogram" && canAssignTrip && (
+            <TripOnDateSelect
+              id="shipment-trip"
+              date={scheduledDate}
+              value={tripId}
+              onChange={setTripId}
+            />
           )}
           {(action === "cancel" || action === "reprogram") && (
             <div className="space-y-2">

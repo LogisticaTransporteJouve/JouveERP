@@ -117,6 +117,9 @@ export async function createPurchaseInvoice(
         account_id: d.account_id ?? null,
         cost_center_id: d.cost_center_id ?? null,
         charged_employee_id: d.charged_employee_id ?? null,
+        // Omitted when Jouve's: the database defaults it (an NC/ND follows
+        // its origin).
+        ...(d.is_operational === false ? { is_operational: false } : {}),
         supplier_id: d.supplier_id,
         kind: d.kind,
         letter: d.letter ?? null,
@@ -182,6 +185,7 @@ export async function createPurchaseInvoice(
       account_id: d.account_id ?? null,
       cost_center_id: d.cost_center_id ?? null,
       charged_employee_id: d.charged_employee_id ?? null,
+      is_operational: d.is_operational ?? true,
     },
     createdId,
   );

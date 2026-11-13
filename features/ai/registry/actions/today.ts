@@ -61,12 +61,11 @@ export const getUpcomingDueDates = defineAiAction({
     "checks",
     "issued_checks",
     "loan_installments",
-    "recurring_payments",
     "fleet_documents",
     "employee_documents",
   ],
   description:
-    "Agenda de vencimientos de los próximos 14 días (tarjeta Vencimientos del dashboard): cheques en cartera y propios, cuotas de préstamos, pagos recurrentes y documentos de flota y de empleados, por fecha, con monto, moneda y si entra o sale plata. Cada sección necesita su permiso; las que no se pudieron leer se nombran.",
+    "Agenda de vencimientos de los próximos 14 días (tarjeta Vencimientos del dashboard): cheques en cartera y propios, cuotas de préstamos y documentos de flota y de empleados, por fecha, con monto, moneda y si entra o sale plata. Cada sección necesita su permiso; las que no se pudieron leer se nombran.",
   input: z.object({}),
   run: async () => {
     const res = await getDashboardDueDatesAction();

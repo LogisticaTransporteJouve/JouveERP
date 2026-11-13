@@ -259,7 +259,9 @@ const FIELD_LABELS: Record<string, string> = {
   lot_number: "lote",
   lot_expiry: "vencimiento del lote",
   remito_number: "remito",
-  scheduled_date: "fecha programada",
+  scheduled_date: "fecha de carga",
+  unload_date: "fecha de descarga",
+  time_window: "horario",
   delivery_date: "fecha de entrega",
   freight_amount: "flete",
   cod_amount: "contrareembolso",
@@ -425,6 +427,12 @@ const AUDIT_ACTIONS: Record<string, Spec> = {
     subject: "invoice",
     say: (c) =>
       `reintentó la nota de crédito del remito de ${doc(c, "un comprobante", "a")}`,
+  },
+  "invoice.operational_set": {
+    group: "invoices",
+    subject: "invoice",
+    say: (c) =>
+      `marcó ${doc(c, "un comprobante", "a")} como ${c.p.is_operational === false ? "no correspondiente" : "correspondiente"} a la actividad de Jouve`,
   },
   "invoice_item.revenue_kind_set": {
     group: "invoices",

@@ -1,10 +1,18 @@
 "use client";
 
-import { Plus, X } from "lucide-react";
+import { MoreHorizontal, Plus, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { formatArgentineDate } from "@/lib/format";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { IconButton } from "@/components/ui/icon-button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -20,17 +28,30 @@ import {
   useSetShipmentsTrip,
   useShipmentsByTrip,
 } from "../hooks/use-shipments";
-import { type Shipment } from "../schema";
+import { shipmentRoute } from "../lib/format";
+import { SHIPMENT_KIND_LABELS, type Shipment } from "../schema";
 
 import { AssignShipmentsDialog } from "./assign-shipments-dialog";
 import { ShipmentStatusBadge } from "./shipment-status";
+import {
+  ACTION_ICON,
+  ACTION_LABEL,
+  statusActions,
+} from "./shipment-status-actions";
+import {
+  ShipmentStatusDialog,
+  type ShipmentStatusAction,
+} from "./shipment-status-dialog";
 
 export function ShipmentsForTrip({
   tripId,
   canWrite,
+  canAssignTrip = false,
 }: {
   tripId: string;
   canWrite: boolean;
+  /** Reprogramming can put the carga on a trip of its new date. */
+  canAssignTrip?: boolean;
 }) {
   const [assignOpen, setAssignOpen] = useState(false);
   return (
@@ -48,7 +69,11 @@ export function ShipmentsForTrip({
           </Button>
         )}
       </div>
-      <TripShipments tripId={tripId} canWrite={canWrite} />
+      <TripShipments
+        tripId={tripId}
+        canWrite={canWrite}
+        canAssignTrip={canAssignTrip}
+      />
       {canWrite && (
         <AssignShipmentsDialog
           tripId={tripId}
@@ -63,12 +88,20 @@ export function ShipmentsForTrip({
 function TripShipments({
   tripId,
   canWrite,
+  canAssignTrip,
 }: {
   tripId: string;
   canWrite: boolean;
+  canAssignTrip: boolean;
 }) {
   const { data: items, isLoading, isError } = useShipmentsByTrip(tripId);
   const unassign = useSetShipmentsTrip();
+  // Entregar / Cancelar / Reprogramar: the cargas list's dialog and command
+  // (reprogramming a started carga takes it off this trip).
+  const [statusDialog, setStatusDialog] = useState<{
+    shipment: Shipment;
+    action: ShipmentStatusAction;
+  } | null>(null);
 
   function remove(id: string) {
     unassign.mutate(
@@ -116,39 +149,95 @@ function TripShipments({
         <TableHeader>
           <TableRow>
             <TableHead>Cliente</TableHead>
-            <TableHead>Dirección</TableHead>
+            <TableHead>Carga → Descarga</TableHead>
             <TableHead className="w-36">Estado</TableHead>
-            {canWrite && <TableHead className="w-12" />}
+            {canWrite && <TableHead className="w-20" />}
           </TableRow>
         </TableHeader>
         <TableBody>
           {items.map((shipment: Shipment) => (
             <TableRow key={shipment.id}>
-              <TableCell className="font-medium">
-                {shipment.client?.legal_name ?? "—"}
+              <TableCell className="whitespace-normal">
+                <span className="flex flex-wrap items-center gap-1.5">
+                  <span className="font-medium">
+                    {shipment.client?.legal_name ?? "—"}
+                  </span>
+                  <Badge variant="outline" className="text-[10px] font-normal">
+                    {SHIPMENT_KIND_LABELS[shipment.kind]}
+                  </Badge>
+                </span>
+                {(shipment.unload_date || shipment.time_window) && (
+                  <span className="block text-xs text-muted-foreground">
+                    {[
+                      shipment.unload_date &&
+                        `Descarga ${formatArgentineDate(shipment.unload_date)}`,
+                      shipment.time_window,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </span>
+                )}
               </TableCell>
-              <TableCell className="text-sm">
-                {shipment.destination ?? "—"}
+              <TableCell className="whitespace-normal text-sm">
+                {shipmentRoute(shipment)}
               </TableCell>
               <TableCell>
                 <ShipmentStatusBadge status={shipment.status} />
               </TableCell>
               {canWrite && (
                 <TableCell>
-                  <IconButton
-                    label="Quitar del viaje"
-                    variant="ghost"
-                    disabled={unassign.isPending}
-                    onClick={() => remove(shipment.id)}
-                  >
-                    <X className="size-4" />
-                  </IconButton>
+                  <div className="flex items-center justify-end gap-1">
+                    {statusActions(shipment.status).length > 0 && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <IconButton label="Cambiar estado" variant="ghost">
+                            <MoreHorizontal className="size-4" />
+                          </IconButton>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {statusActions(shipment.status).map((action) => {
+                            const Icon = ACTION_ICON[action];
+                            return (
+                              <DropdownMenuItem
+                                key={action}
+                                className={
+                                  action === "cancel" ? "text-destructive" : ""
+                                }
+                                onClick={() =>
+                                  setStatusDialog({ shipment, action })
+                                }
+                              >
+                                <Icon className="size-4" />
+                                {ACTION_LABEL[action]}
+                              </DropdownMenuItem>
+                            );
+                          })}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                    <IconButton
+                      label="Quitar del viaje"
+                      variant="ghost"
+                      disabled={unassign.isPending}
+                      onClick={() => remove(shipment.id)}
+                    >
+                      <X className="size-4" />
+                    </IconButton>
+                  </div>
                 </TableCell>
               )}
             </TableRow>
           ))}
         </TableBody>
       </Table>
+      {canWrite && (
+        <ShipmentStatusDialog
+          shipment={statusDialog?.shipment ?? null}
+          action={statusDialog?.action ?? null}
+          onClose={() => setStatusDialog(null)}
+          canAssignTrip={canAssignTrip}
+        />
+      )}
     </div>
   );
 }

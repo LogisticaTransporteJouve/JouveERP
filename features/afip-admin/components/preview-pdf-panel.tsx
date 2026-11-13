@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { formatArgentineDate } from "@/lib/format";
 
 interface InvoiceOption {
   id: string;
@@ -106,5 +107,5 @@ function labelFor(c: InvoiceOption): string {
       ? `${String(c.punto_venta).padStart(5, "0")}-—`
       : `${String(c.punto_venta).padStart(5, "0")}-${String(c.numero).padStart(8, "0")}`;
   const letter = c.letter ? `${c.kind} ${c.letter}` : c.kind;
-  return `${numero} · ${letter} · ${c.fecha} · ${c.status}`;
+  return `${numero} · ${letter} · ${formatArgentineDate(c.fecha)} · ${c.status}`;
 }

@@ -19,13 +19,17 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
-import { useScopeIsFiscal } from "@/components/providers/scope-provider";
+import {
+  usePageChannelScope,
+  useScopeIsFiscal,
+} from "@/components/providers/scope-provider";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
 import { useUrlFilter } from "@/hooks/use-url-filter";
 import type { Access } from "@/lib/auth/permissions";
 import { userCan } from "@/lib/auth/permissions";
 import { formatArgentineDate } from "@/lib/format";
+import { scopedHref } from "@/lib/scope";
 
 import { useClientsSearchInfinite } from "../hooks/use-clients";
 import { IVA_CONDITION_LABEL, type Client, type IvaCondition } from "../schema";
@@ -49,7 +53,8 @@ const IVA_BADGE_TONE: Record<IvaCondition, string> = {
 // disabled on every column. Otras ventas clients have no CUIT or IVA
 // condition, so those columns only show in Ventas.
 function useClientColumns(canWrite: boolean): ColumnDef<Client>[] {
-  const isFiscal = useScopeIsFiscal();
+  // Inside a segregated channel's section, rows open in it.
+  const { isFiscal, channelId } = usePageChannelScope();
   return useMemo<ColumnDef<Client>[]>(
     () => [
       {
@@ -59,7 +64,7 @@ function useClientColumns(canWrite: boolean): ColumnDef<Client>[] {
         cell: ({ row }) => (
           <>
             <Link
-              href={`/clients/${row.original.id}`}
+              href={scopedHref(`/clients/${row.original.id}`, channelId)}
               className="font-medium hover:underline"
             >
               {row.original.legal_name}
@@ -111,7 +116,7 @@ function useClientColumns(canWrite: boolean): ColumnDef<Client>[] {
         ),
       },
     ],
-    [canWrite, isFiscal],
+    [canWrite, isFiscal, channelId],
   );
 }
 
@@ -241,7 +246,7 @@ function ClientsTableRows({
   } = useClientsSearchInfinite({
     query,
     onlyActive,
-    isFiscal: useScopeIsFiscal(),
+    ...usePageChannelScope(),
   });
 
   const columns = useClientColumns(canWrite);

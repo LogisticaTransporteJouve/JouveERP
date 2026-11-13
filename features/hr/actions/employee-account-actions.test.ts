@@ -105,6 +105,36 @@ describe("recordEmployeeAccountCashAction", () => {
     );
   });
 
+  it("sends the chosen payroll month as the plan's first month", async () => {
+    roles = ["finance"];
+    const res = await recordEmployeeAccountCashAction({
+      ...advance,
+      start_month: "2026-12",
+    });
+    expect(res.ok).toBe(true);
+    expect(rpc).toHaveBeenCalledWith(
+      "record_employee_account_cash",
+      expect.objectContaining({ p_start_month: "2026-12-01" }),
+    );
+  });
+
+  it.each(["2026-09", "2027-02"])(
+    "refuses a payroll month outside the window (%s) before the database",
+    async (month) => {
+      roles = ["finance"];
+      const res = await recordEmployeeAccountCashAction({
+        ...advance,
+        start_month: month,
+      });
+      expect(res).toEqual({
+        ok: false,
+        error:
+          "El sueldo en que se descuenta va del mes anterior a la fecha hasta dos meses después.",
+      });
+      expect(rpc).not.toHaveBeenCalled();
+    },
+  );
+
   it("refuses an advance against an existing plan before the database", async () => {
     roles = ["finance"];
     const res = await recordEmployeeAccountCashAction({

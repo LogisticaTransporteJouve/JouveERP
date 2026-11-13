@@ -90,7 +90,7 @@ export function totalCell(
     : text;
 }
 
-/** A `YYYY-MM-DD` date or timestamp: `5 jun 2026` in the PDF, a date cell in
+/** A `YYYY-MM-DD` date or timestamp: `05-06-2026` in the PDF, a date cell in
  *  Excel; "—" when missing. */
 export function dateCell(value: string | null | undefined): ExportCell {
   return value

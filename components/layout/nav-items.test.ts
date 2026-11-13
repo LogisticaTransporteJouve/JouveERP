@@ -153,6 +153,7 @@ describe("segregated channel sections", () => {
       "Comprobantes de compra",
       "Órdenes de pago",
       "Ventas",
+      "Clientes",
       "Proveedores",
     ]);
     expect(dz[0]?.items.every((i) => i.channelId === "dz_fiscal")).toBe(true);
@@ -178,6 +179,12 @@ describe("segregated channel sections", () => {
     const outside = navItemForPath("/purchases", "fiscal", null, dz);
     expect(outside?.channelId).toBeUndefined();
     expect(navSectionForItem(outside!, dz)?.label).toBe("Compras");
+  });
+
+  it("opens the shared clients list inside the channel as its Clientes", () => {
+    const inside = navItemForPath("/clients/abc", "fiscal", "dz_fiscal", dz);
+    expect(inside?.label).toBe("Clientes");
+    expect(navSectionForItem(inside!, dz)?.label).toBe("DZ Instalaciones");
   });
 
   it("finds the channel's Resumen by its path", () => {

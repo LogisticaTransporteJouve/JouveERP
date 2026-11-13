@@ -26,6 +26,15 @@ export function useTrips() {
   });
 }
 
+/** The trips of one day (the reprogram dialog's «Asignar a viaje»). */
+export function useTripsOnDate(date: string, enabled: boolean) {
+  return useQuery({
+    queryKey: tripsKeys.onDate(date),
+    queryFn: () => runAction(() => listTripsAction({ from: date, to: date })),
+    enabled: enabled && date !== "",
+  });
+}
+
 /** Active employees for the Acompañante select, read when the form opens. */
 export function useTripCompanionOptions(enabled: boolean) {
   return useQuery({

@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 
 import {
   endOfDay,
+  exportChannelScope,
   exportScope,
   scopedSubtitle,
   type Exporter,
@@ -25,6 +26,7 @@ export const clients: Exporter = {
   permission: "clients:read",
   load: async (params, range) => {
     const { scope, isFiscal } = exportScope(params);
+    const channelScope = await exportChannelScope(params, isFiscal);
     const supabase = await createClient();
 
     // Drained page by page: PostgREST caps responses at max_rows (1000);
@@ -38,9 +40,12 @@ export const clients: Exporter = {
         .order("legal_name", { ascending: true })
         .order("id", { ascending: true });
 
-      if (isFiscal !== null) query = query.eq("is_fiscal", isFiscal);
-      // Clients that only live on a segregated channel (DZ) stay out.
-      query = query.eq("in_main_scope", true);
+      if (channelScope.isFiscal !== null) {
+        query = query.eq("is_fiscal", channelScope.isFiscal);
+      }
+      // Clients that only live on a segregated channel (DZ) stay out, except
+      // inside its section, where the shared list shows every client.
+      if (!channelScope.channelId) query = query.eq("in_main_scope", true);
       if (range.from) query = query.gte("created_at", range.from);
       if (range.to) query = query.lte("created_at", endOfDay(range.to));
       return query;

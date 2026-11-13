@@ -315,7 +315,7 @@ select results_eq(
 select ok(
   not has_table_privilege('anon', 'public.employee_account_movements', 'select')
   and not has_table_privilege('authenticated', 'public.employee_salary_changes', 'insert')
-  and not has_function_privilege('anon', 'public.record_employee_account_cash(uuid, text, uuid, text, date, numeric, text, uuid, numeric)', 'execute')
+  and not has_function_privilege('anon', 'public.record_employee_account_cash(uuid, text, uuid, text, date, numeric, text, uuid, numeric, date)', 'execute')
   and not has_function_privilege('authenticated', 'public.employee_plans_refresh_entries(uuid)', 'execute'),
   'anon reads nothing, the salary history is written by its trigger alone'
 );

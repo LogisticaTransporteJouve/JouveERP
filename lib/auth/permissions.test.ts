@@ -249,23 +249,6 @@ describe("userCan", () => {
     expect(userCan(denied, "taxes:write")).toBe(false);
   });
 
-  it("recurring_payments is managed by owner/admin/finance only", () => {
-    for (const role of ["owner", "admin", "finance"] as const) {
-      expect(userCan(resolveAccess([role]), "recurring_payments:read")).toBe(
-        true,
-      );
-      expect(userCan(resolveAccess([role]), "recurring_payments:write")).toBe(
-        true,
-      );
-    }
-    expect(
-      userCan(resolveAccess(["operations"]), "recurring_payments:read"),
-    ).toBe(false);
-    expect(
-      userCan(resolveAccess(["warehouse"]), "recurring_payments:write"),
-    ).toBe(false);
-  });
-
   it("audit:read is restricted to owner and admin", () => {
     expect(userCan(resolveAccess(["owner"]), "audit:read")).toBe(true);
     expect(userCan(resolveAccess(["admin"]), "audit:read")).toBe(true);
@@ -614,8 +597,6 @@ describe("full matrix snapshot (guards against silent privilege creep)", () => {
           "purchase_invoices:write",
           "receipts:read",
           "receipts:write",
-          "recurring_payments:read",
-          "recurring_payments:write",
           "retentions:write",
           "suppliers:read",
           "suppliers:write",

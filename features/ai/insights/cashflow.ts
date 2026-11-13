@@ -25,8 +25,6 @@ export type CashFlowProjection = {
   lowestClosing: number;
 };
 
-export type Frequency = "weekly" | "monthly" | "quarterly" | "yearly";
-
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
@@ -34,25 +32,6 @@ function round2(n: number): number {
 function addDays(date: string, days: number): string {
   const d = new Date(`${date}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
-
-function advance(date: string, frequency: Frequency): string {
-  const d = new Date(`${date}T00:00:00Z`);
-  switch (frequency) {
-    case "weekly":
-      d.setUTCDate(d.getUTCDate() + 7);
-      break;
-    case "monthly":
-      d.setUTCMonth(d.getUTCMonth() + 1);
-      break;
-    case "quarterly":
-      d.setUTCMonth(d.getUTCMonth() + 3);
-      break;
-    case "yearly":
-      d.setUTCFullYear(d.getUTCFullYear() + 1);
-      break;
-  }
   return d.toISOString().slice(0, 10);
 }
 
@@ -100,39 +79,4 @@ export function projectCashFlow(input: {
     totalOut: round2(totalOut),
     lowestClosing: round2(lowestClosing),
   };
-}
-
-/**
- * Expands a recurring payment into the outflow events that fall within
- * [fromDate, toDate). Walks from `nextDueDate` by `frequency`, skipping
- * occurrences past `endDate`.
- */
-export function expandRecurringPayment(input: {
-  nextDueDate: string;
-  frequency: Frequency;
-  endDate: string | null;
-  amount: number;
-  fromDate: string;
-  toDate: string;
-  label: string;
-}): CashEvent[] {
-  const events: CashEvent[] = [];
-  let due = input.nextDueDate;
-  let guard = 0;
-
-  while (due < input.fromDate && guard < 1000) {
-    due = advance(due, input.frequency);
-    guard += 1;
-  }
-  while (due < input.toDate && guard < 1000) {
-    if (input.endDate && due > input.endDate) break;
-    events.push({
-      date: due,
-      amount: -Math.abs(input.amount),
-      label: input.label,
-    });
-    due = advance(due, input.frequency);
-    guard += 1;
-  }
-  return events;
 }

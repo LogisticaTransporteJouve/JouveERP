@@ -3,8 +3,8 @@ import { PAYMENT_ORDER_FORM_PERMISSIONS } from "@/features/payment-orders/lib/pa
 import type { GuidePage } from "../types";
 
 // Treasury chapter: the summary and its shortcuts, cash flow, accounts, Caja,
-// bank statements and reconciliation, received and own checks, recurring
-// payments, credit cards and loans.
+// bank statements and reconciliation, received and own checks, credit cards
+// and loans.
 
 const TREASURY_READ = ["accounting:read", "accounts:read"] as const;
 
@@ -101,7 +101,7 @@ export const treasuryPage: GuidePage = {
                 { label: "Lado", kind: "select", value: "Fiscal", marker: 2 },
                 { label: "Canal", kind: "select", marker: 3 },
                 { label: "Número", kind: "input", value: "123" },
-                { label: "Fecha", kind: "date", value: "05/11/2026" },
+                { label: "Fecha", kind: "date", value: "05-11-2026" },
                 { label: "Moneda", kind: "select", value: "ARS" },
                 { label: "Cliente", kind: "picker", marker: 4, wide: true },
                 { label: "Imputación", kind: "select", marker: 6, wide: true },
@@ -187,7 +187,7 @@ export const treasuryPage: GuidePage = {
                 { label: "Lado", kind: "select", value: "Interno", marker: 2 },
                 { label: "Canal", kind: "select", marker: 3 },
                 { label: "Número", kind: "input" },
-                { label: "Fecha", kind: "date", value: "05/11/2026" },
+                { label: "Fecha", kind: "date", value: "05-11-2026" },
                 { label: "Moneda", kind: "select", value: "ARS" },
                 { label: "Proveedor", kind: "picker", marker: 4, wide: true },
                 { label: "Imputación", kind: "select", marker: 6, wide: true },
@@ -265,12 +265,18 @@ export const treasuryPage: GuidePage = {
               kind: "dialog",
               title: "Adelanto a empleado",
               description:
-                "Sale de la cuenta elegida y va a la cuenta corriente del empleado (no es un gasto). Se descuenta entero en la planilla del mes de la fecha.",
+                "Sale de la cuenta elegida y va a la cuenta corriente del empleado (no es un gasto). Se descuenta entero en la planilla del sueldo que elijas.",
               fields: [
                 { label: "Empleado", kind: "select", marker: 2, wide: true },
                 { label: "Cuenta", kind: "select", value: "Caja chica (ARS)" },
                 { label: "Canal", kind: "select" },
-                { label: "Fecha", kind: "date", value: "05/11/2026" },
+                { label: "Fecha", kind: "date", value: "05-11-2026" },
+                {
+                  label: "Descontar en el sueldo de",
+                  kind: "select",
+                  value: "Noviembre 2026",
+                  marker: 3,
+                },
                 { label: "~Importe (ARS)", kind: "money", value: "150.000,00" },
                 { label: "Descripción (opcional)", kind: "input", wide: true },
               ],
@@ -281,14 +287,15 @@ export const treasuryPage: GuidePage = {
             },
           ],
           steps: [
-            "En [[/treasury]] (o en [[/transactions]]), hacé clic en {{Adelanto a empleado}} (se descuenta entero en la planilla del mes) o en {{Préstamo a empleado}} (en cuotas: pide la {{Cuota mensual}}, menor que el importe).",
+            "En [[/treasury]] (o en [[/transactions]]), hacé clic en {{Adelanto a empleado}} (se descuenta entero en la planilla de un mes) o en {{Préstamo a empleado}} (en cuotas: pide la {{Cuota mensual}}, menor que el importe).",
             "En {{Empleado}}, elegí el empleado.",
             "Completá {{Cuenta}} (de donde sale la plata; la moneda del adelanto es la de la cuenta), {{Canal}}, {{Fecha}}, {{Importe}} y, si querés, {{Descripción (opcional)}}.",
+            "En {{Descontar en el sueldo de}} (en un préstamo, {{Primera cuota en el sueldo de}}) elegí la planilla donde se descuenta: viene en el mes de la fecha y se puede pasar al mes anterior o a uno de los dos siguientes.",
             "Hacé clic en {{Registrar}}. La planilla solo descuenta planes en pesos: uno en dólares se salda con pagos del empleado.",
           ],
           after: [
             "Se registra un egreso en la cuenta elegida y un movimiento en la cuenta corriente del empleado. Si el canal es fiscal y el plan de cuentas tiene activa la cuenta de anticipos al personal, el asiento va contra ella y no contra gastos.",
-            "Queda un plan que la planilla de sueldos descuenta: entero en el mes de la fecha (adelanto) o una cuota por mes (préstamo).",
+            "Queda un plan que la planilla de sueldos descuenta: entero en el sueldo elegido (adelanto) o una cuota por mes desde ese sueldo (préstamo).",
             "Ese egreso lo maneja la cuenta corriente del empleado: no se edita monto, fecha ni cuenta desde Caja.",
           ],
           errors: [
@@ -332,7 +339,7 @@ export const treasuryPage: GuidePage = {
       intro: [
         "Una tabla mensual, en pesos, de lo que entró y salió (los 3 meses anteriores y el actual, como {{Realizado}}) y de lo que se espera que entre y salga en los 6 meses siguientes ({{Proyectado}}). Es para control interno: incluye los dos lados.",
         "Arriba se ve el {{Saldo de caja hoy}} (cuentas líquidas activas). Si la proyección deja el saldo en negativo en algún mes, aparece el aviso «Te quedarías en negativo en …» con el mínimo.",
-        "Columnas: {{Mes}}, {{Entradas}}, {{Salidas}}, {{Neto}}, {{Saldo proyectado}} y la marca {{Realizado}} o {{Proyectado}}. Debajo de cada importe se ve el desglose F (facturado, canal fiscal), I (interno) y O (otros: lo que no tiene canal, como cheques en cartera o pagos recurrentes cargados sin canal).",
+        "Columnas: {{Mes}}, {{Entradas}}, {{Salidas}}, {{Neto}}, {{Saldo proyectado}} y la marca {{Realizado}} o {{Proyectado}}. Debajo de cada importe se ve el desglose F (facturado, canal fiscal), I (interno) y O (otros: lo que no tiene canal, como cheques en cartera).",
         "La pantalla es de solo lectura: no tiene operaciones. Para cambiar la proyección cargá o corregí los documentos de los que sale.",
       ],
       concepts: [
@@ -340,9 +347,8 @@ export const treasuryPage: GuidePage = {
           title: "De dónde sale la proyección",
           body: [
             "Los meses pasados y el actual salen de los movimientos de Caja.",
-            "Los futuros suman: los comprobantes de clientes pendientes (por vencimiento) y las facturas de proveedores pendientes, cada uno descontando lo cobrado o pagado a cuenta; los cheques {{En cartera}} por su fecha de cobro; las cuotas pendientes de [[/loans]]; y los [[/recurring-payments]] activos, en cada fecha en que vencen.",
+            "Los futuros suman: los comprobantes de clientes pendientes (por vencimiento) y las facturas de proveedores pendientes, cada uno descontando lo cobrado o pagado a cuenta; los cheques {{En cartera}} por su fecha de cobro; y las cuotas pendientes de [[/loans]].",
             "Lo que ya está vencido y sin cobrar o pagar se ubica en el primer mes proyectado.",
-            "Un pago recurrente de categoría {{Préstamo}} no se cuenta si ya hay un préstamo cargado del mismo lado: sus cuotas ya están en la proyección.",
             "Lo que está en dólares se convierte a la última cotización oficial cargada. Si no hay ninguna, se deja afuera y la pantalla avisa que faltan los importes en USD: cargá la cotización en [[/accounting/exchange-rates]].",
           ],
         },
@@ -557,7 +563,7 @@ export const treasuryPage: GuidePage = {
                 {
                   label: "Fecha de ajuste",
                   kind: "date",
-                  value: "30/04/2026",
+                  value: "30-04-2026",
                   marker: 2,
                 },
                 {
@@ -685,7 +691,7 @@ export const treasuryPage: GuidePage = {
             ],
             rows: [
               [
-                "04/11/2026",
+                "04-11-2026",
                 "Banco Galicia ARS",
                 "Jouve fiscal",
                 "Comisión mantenimiento",
@@ -693,7 +699,7 @@ export const treasuryPage: GuidePage = {
                 "$ 12.500,00",
               ],
               [
-                "03/11/2026",
+                "03-11-2026",
                 "Caja chica",
                 "Jouve interno",
                 "Venta de chatarra",
@@ -764,7 +770,7 @@ export const treasuryPage: GuidePage = {
                 {
                   label: "Fecha",
                   kind: "date",
-                  value: "04/11/2026",
+                  value: "04-11-2026",
                   marker: 5,
                 },
                 {
@@ -919,7 +925,7 @@ export const treasuryPage: GuidePage = {
                 {
                   label: "Fecha",
                   kind: "date",
-                  value: "04/11/2026",
+                  value: "04-11-2026",
                   marker: 2,
                 },
                 {
@@ -1084,14 +1090,13 @@ export const treasuryPage: GuidePage = {
           id: "exportar-tesoreria",
           title: "Exportar cuentas, movimientos o cheques",
           summary:
-            "Cuentas, Caja, Cheques recibidos, Cheques propios y Pagos recurrentes tienen el mismo botón para bajar el listado.",
+            "Cuentas, Caja, Cheques recibidos y Cheques propios tienen el mismo botón para bajar el listado.",
           permission: {
             anyOf: [
               "accounts:read",
               "transactions:read",
               "cheques:read",
               "issued_checks:read",
-              "recurring_payments:read",
             ],
           },
           screens: [
@@ -1106,13 +1111,13 @@ export const treasuryPage: GuidePage = {
                 {
                   label: "Desde",
                   kind: "date",
-                  value: "01/11/2026",
+                  value: "01-11-2026",
                   marker: 3,
                 },
                 {
                   label: "Hasta",
                   kind: "date",
-                  value: "05/11/2026",
+                  value: "05-11-2026",
                   marker: 3,
                 },
               ],
@@ -1188,7 +1193,7 @@ export const treasuryPage: GuidePage = {
             ],
             rows: [
               [
-                "28/10/2026",
+                "28-10-2026",
                 "TRANSF. RECIBIDA 3071234",
                 "",
                 "$ 850.000,00",
@@ -1196,7 +1201,7 @@ export const treasuryPage: GuidePage = {
                 "Conciliada",
               ],
               [
-                "31/10/2026",
+                "31-10-2026",
                 "COM. MANTENIMIENTO CTA",
                 "$ 12.500,00",
                 "",
@@ -1502,13 +1507,13 @@ export const treasuryPage: GuidePage = {
                 "Elegí el movimiento de la cuenta que la explica, o varios que sumen su importe. Mientras esté conciliado, el movimiento no se edita ni se borra.",
               fields: [
                 {
-                  label: "~Pago OP 456 · 27/10/2026 · -$ 300.000,00",
+                  label: "~Pago OP 456 · 27-10-2026 · -$ 300.000,00",
                   kind: "checkbox",
                   marker: 2,
                   wide: true,
                 },
                 {
-                  label: "~Pago OP 457 · 27/10/2026 · -$ 200.000,00",
+                  label: "~Pago OP 457 · 27-10-2026 · -$ 200.000,00",
                   kind: "checkbox",
                   marker: 2,
                   wide: true,
@@ -1785,7 +1790,7 @@ export const treasuryPage: GuidePage = {
                 "00012345",
                 "Banco Nación",
                 "Transportes del Sur SRL",
-                "20/11/2026",
+                "20-11-2026",
                 "$ 850.000,00",
                 "En cartera",
                 "Depositar · Rechazar",
@@ -1795,7 +1800,7 @@ export const treasuryPage: GuidePage = {
                 "88001234",
                 "Galicia",
                 "Agro Norte SA",
-                "02/11/2026",
+                "02-11-2026",
                 "$ 480.000,00",
                 "Depositado",
                 "Marcar acreditado · Rechazar",
@@ -1869,13 +1874,13 @@ export const treasuryPage: GuidePage = {
                 {
                   label: "Fecha de emisión",
                   kind: "date",
-                  value: "01/11/2026",
+                  value: "01-11-2026",
                   marker: 6,
                 },
                 {
                   label: "Fecha de cobro",
                   kind: "date",
-                  value: "20/11/2026",
+                  value: "20-11-2026",
                   marker: 6,
                 },
                 {
@@ -1962,7 +1967,7 @@ export const treasuryPage: GuidePage = {
                 {
                   label: "Fecha",
                   kind: "date",
-                  value: "05/11/2026",
+                  value: "05-11-2026",
                   marker: 3,
                 },
                 { label: "Descripción (opcional)", kind: "input", wide: true },
@@ -2065,7 +2070,7 @@ export const treasuryPage: GuidePage = {
                 {
                   label: "Fecha",
                   kind: "date",
-                  value: "05/11/2026",
+                  value: "05-11-2026",
                   marker: 2,
                 },
                 {
@@ -2154,7 +2159,7 @@ export const treasuryPage: GuidePage = {
                   wide: true,
                 },
                 { label: "Canal", kind: "select", value: "Jouve fiscal" },
-                { label: "Fecha", kind: "date", value: "05/11/2026" },
+                { label: "Fecha", kind: "date", value: "05-11-2026" },
                 {
                   label: "Intereses",
                   kind: "money",
@@ -2431,7 +2436,7 @@ export const treasuryPage: GuidePage = {
                 "#45001234 Banco Galicia",
                 "Físico",
                 "Repuestos Pampa SRL",
-                "15/11/2026",
+                "15-11-2026",
                 "$320.000,00",
                 "Emitido",
                 "",
@@ -2477,13 +2482,13 @@ export const treasuryPage: GuidePage = {
                 {
                   label: "Fecha de emisión",
                   kind: "date",
-                  value: "05/11/2026",
+                  value: "05-11-2026",
                   marker: 4,
                 },
                 {
                   label: "Fecha de cobro",
                   kind: "date",
-                  value: "15/11/2026",
+                  value: "15-11-2026",
                   marker: 4,
                 },
                 {
@@ -2659,174 +2664,6 @@ export const treasuryPage: GuidePage = {
       ],
     },
 
-    // ── Pagos recurrentes ────────────────────────────────────────────────
-    {
-      id: "pagos-recurrentes",
-      title: "Pagos recurrentes",
-      menuPath: "Tesorería › Pagos recurrentes",
-      routes: ["/recurring-payments"],
-      permission: "recurring_payments:read",
-      intro: [
-        "Los compromisos de pago que se repiten (alquiler, servicios, préstamos, impuestos, sueldos fijos). No generan movimientos ni asientos: alimentan la proyección de [[/treasury/cash-flow]].",
-        "La tabla muestra {{Descripción}}, {{Categoría}}, {{Monto}}, {{Frecuencia}}, {{Próx. venc.}} y el interruptor {{Activo}}.",
-      ],
-      tasks: [
-        {
-          id: "crear-pago-recurrente",
-          title: "Cargar un pago recurrente",
-          permission: "recurring_payments:write",
-          screens: [
-            {
-              kind: "dialog",
-              title: "Nuevo pago recurrente",
-              description:
-                "Compromiso de egreso que se repite (alquiler, servicios, préstamos, impuestos, sueldos). Alimenta el cash-flow proyectado.",
-              fields: [
-                {
-                  label: "Descripción",
-                  kind: "input",
-                  value: "Alquiler depósito",
-                  marker: 2,
-                  wide: true,
-                },
-                {
-                  label: "Categoría",
-                  kind: "select",
-                  value: "Alquiler",
-                  marker: 3,
-                },
-                {
-                  label: "Frecuencia",
-                  kind: "select",
-                  value: "Mensual",
-                  marker: 3,
-                },
-                {
-                  label: "Monto",
-                  kind: "money",
-                  value: "1.200.000,00",
-                  marker: 4,
-                },
-                { label: "Moneda", kind: "select", value: "ARS", marker: 4 },
-                {
-                  label: "Próximo vencimiento",
-                  kind: "date",
-                  value: "10/12/2026",
-                  marker: 5,
-                },
-                { label: "Fin (opcional)", kind: "date", marker: 5 },
-                {
-                  label: "Canal (opcional)",
-                  kind: "select",
-                  value: "Ninguno",
-                  marker: 6,
-                  wide: true,
-                },
-                { label: "Notas", kind: "textarea", wide: true },
-              ],
-              footer: [
-                { label: "Cancelar", variant: "outline" },
-                { label: "Crear", variant: "primary", marker: 7 },
-              ],
-            },
-          ],
-          steps: [
-            "En [[/recurring-payments]], hacé clic en {{Nuevo pago}}.",
-            "Escribí la {{Descripción}}.",
-            "Elegí la {{Categoría}} ({{Alquiler}}, {{Servicios}}, {{Préstamo}}, {{Impuesto}}, {{Sueldo fijo}} u {{Otro}}) y la {{Frecuencia}} ({{Semanal}}, {{Mensual}}, {{Trimestral}} o {{Anual}}).",
-            "Escribí el {{Monto}} (mayor a cero) y elegí la {{Moneda}}.",
-            "Elegí el {{Próximo vencimiento}} y, si termina, el {{Fin (opcional)}} (no puede ser anterior al próximo vencimiento).",
-            "Si querés que la proyección lo cuente como fiscal o interno, elegí el {{Canal (opcional)}}; sin canal se proyecta como «otros».",
-            "Hacé clic en {{Crear}}.",
-          ],
-          after: [
-            "El flujo de caja proyecta una salida en cada vencimiento hasta el fin. Un {{Préstamo}} recurrente no se proyecta si ya hay un préstamo cargado del mismo lado en [[/loans]].",
-          ],
-          errors: [
-            {
-              message: "Descripción requerida.",
-              fix: "Escribí la descripción.",
-            },
-            {
-              message: "El monto debe ser mayor a 0.",
-              fix: "Escribí un monto mayor a cero.",
-            },
-            {
-              message: "Fecha requerida.",
-              fix: "Elegí el próximo vencimiento.",
-            },
-            {
-              message: "El fin no puede ser anterior al próximo vencimiento.",
-              fix: "Corregí la fecha de fin.",
-            },
-            {
-              message: "No tenés permiso para crear pagos recurrentes.",
-              fix: "Pedí el permiso de pagos recurrentes.",
-            },
-          ],
-          related: ["editar-pago-recurrente", "flujo-de-caja"],
-          keywords: ["alquiler", "servicios", "gasto fijo", "compromiso"],
-        },
-        {
-          id: "editar-pago-recurrente",
-          title: "Editar un pago recurrente",
-          permission: "recurring_payments:write",
-          steps: [
-            "En [[/recurring-payments]], abrí el menú ⋯ de la fila y elegí {{Editar}}.",
-            "En {{Editar pago recurrente}}, cambiá lo que necesites (por ejemplo, el {{Próximo vencimiento}} o el {{Monto}} actualizado).",
-            "Hacé clic en {{Guardar}}.",
-          ],
-          after: [
-            "La proyección del flujo de caja se recalcula con los datos nuevos.",
-          ],
-          errors: [
-            {
-              message: "No tenés permiso para editar pagos recurrentes.",
-              fix: "Pedí el permiso de pagos recurrentes.",
-            },
-          ],
-          related: ["crear-pago-recurrente"],
-        },
-        {
-          id: "activar-pago-recurrente",
-          title: "Pausar o reactivar un pago recurrente",
-          permission: "recurring_payments:write",
-          steps: [
-            "En [[/recurring-payments]], usá el interruptor {{Activo}} de la fila.",
-          ],
-          after: [
-            "Un pago inactivo deja de proyectarse en el flujo de caja, pero queda en la lista.",
-          ],
-          errors: [
-            {
-              message: "No se pudo cambiar el estado.",
-              fix: "Probá de nuevo; si sigue, avisale a un administrador.",
-            },
-          ],
-          related: ["borrar-pago-recurrente"],
-        },
-        {
-          id: "borrar-pago-recurrente",
-          title: "Borrar un pago recurrente",
-          permission: "recurring_payments:write",
-          steps: [
-            "En [[/recurring-payments]], abrí el menú ⋯ de la fila y elegí {{Borrar}}.",
-            "Confirmá en el aviso.",
-          ],
-          after: [
-            "Se elimina el pago recurrente. No se puede deshacer: si solo querés pausarlo, usá el interruptor {{Activo}}.",
-          ],
-          errors: [
-            {
-              message: "No tenés permiso para borrar pagos recurrentes.",
-              fix: "Pedí el permiso de pagos recurrentes.",
-            },
-          ],
-          related: ["activar-pago-recurrente"],
-        },
-      ],
-    },
-
     // ── Tarjetas ─────────────────────────────────────────────────────────
     {
       id: "tarjetas",
@@ -2970,7 +2807,7 @@ export const treasuryPage: GuidePage = {
                 "$ 1.783.037,51",
                 "11/12",
                 "$ 1.850.555,27 (1)",
-                "03/12/2026",
+                "03-12-2026",
                 "Activo",
               ],
             ],
@@ -3076,7 +2913,7 @@ export const treasuryPage: GuidePage = {
                 {
                   label: "Fecha de alta",
                   kind: "date",
-                  value: "04/12/2025",
+                  value: "04-12-2025",
                   marker: 3,
                 },
                 {
@@ -3356,7 +3193,7 @@ export const treasuryPage: GuidePage = {
                 {
                   label: "Fecha de pago",
                   kind: "date",
-                  value: "15/11/2026",
+                  value: "15-11-2026",
                   marker: 2,
                 },
                 {
@@ -3458,7 +3295,7 @@ export const treasuryPage: GuidePage = {
                 {
                   label: "Fecha",
                   kind: "date",
-                  value: "15/11/2026",
+                  value: "15-11-2026",
                   marker: 2,
                 },
                 {

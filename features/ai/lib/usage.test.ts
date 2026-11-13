@@ -14,7 +14,7 @@ describe("aiSpendView", () => {
       pct: 35,
       atCap: false,
       tooltip:
-        "Gasto de IA de hoy: US$ 0,52 ≈ $ 804 al dólar oficial del 5 nov 2026",
+        "Gasto de IA de hoy: US$ 0,52 ≈ $ 804 al dólar oficial del 05-11-2026",
     });
   });
 

@@ -130,12 +130,12 @@ describe("xlsxSheetData", () => {
       {
         type: Date,
         value: new Date(Date.UTC(2026, 5, 5)),
-        format: "dd/mm/yyyy",
+        format: "dd-mm-yyyy",
       },
       {
         type: Date,
         value: new Date(Date.UTC(2026, 5, 4, 23, 30)),
-        format: "dd/mm/yyyy hh:mm",
+        format: "dd-mm-yyyy hh:mm",
       },
     ]);
     // Not a real day: kept as the text it is.

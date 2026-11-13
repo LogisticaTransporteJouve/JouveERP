@@ -151,6 +151,9 @@ transacción).
   `viaticos`, `deudas`, `telefono`, `embargo` (todos `numeric(15,2) >= 0`) y
   `recibo_neto` (nullable: el neto del recibo del liquidador; NULL = sin recibo,
   la planilla se comporta como antes). FK a `employees` con `ON DELETE RESTRICT`.
+  `vacaciones_monto` sigue en la tabla y en el total, pero la planilla ya no lo
+  muestra ni lo edita (2026-11-12); la liquidación final carga las vacaciones
+  no gozadas como extra y lo deja en 0.
 - **`employee_garnishments`** — embargos: `mode ∈ ('percentage','fixed')` con
   `percentage` (del neto del recibo, o del pactado sin recibo) o `amount`,
   `active_from`/`active_to`, `beneficiary`, `court_note`. Mientras uno está

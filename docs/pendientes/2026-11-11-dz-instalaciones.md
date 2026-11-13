@@ -23,8 +23,10 @@ Canal segregado `dz_fiscal` con su bloque en la barra lateral (decisión
       LOSADA Y MARTIN FITZSIMONS SOCIEDADES LEY 19550 CAPITULO I SECCION IV
       (30716032333) y P E I S A (30579103163). Falta el rango de fechas. Poner
       `default_channel_id = 'dz_fiscal'` a esos proveedores.
-- [ ] **Ventas de DZ:** asignar el punto de venta 10 a `dz_fiscal`, habilitarlo y
+- [x] **Ventas de DZ:** asignar el punto de venta 10 a `dz_fiscal`, habilitarlo y
       dejar que la sincronización de emitidos de ARCA traiga sus comprobantes.
+      Hecho en producción; desde 2026-11-12 también se emiten desde
+      **DZ Instalaciones › Ventas** (con «Clientes» en el bloque).
 - [ ] Nombres finales de las cuentas «Venta de productos (Instalaciones)» y
       «Costo de mercadería vendida (Instalaciones)» (se cambian en el plan de
       cuentas; nada lee el nombre).

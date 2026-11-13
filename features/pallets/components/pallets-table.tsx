@@ -38,6 +38,7 @@ import { BulkPalletDialog } from "./bulk-pallet-dialog";
 import { DispatchPalletsDialog } from "./dispatch-pallets-dialog";
 import { PalletDialog } from "./pallet-dialog";
 import { ClientOptionsReadError } from "./client-options-read-error";
+import { formatArgentineDate } from "@/lib/format";
 
 export function PalletsTable({
   warehouseOptions,
@@ -239,7 +240,7 @@ export function PalletsTable({
       {
         accessorKey: "entry_date",
         header: "Ingreso",
-        cell: ({ row }) => row.original.entry_date,
+        cell: ({ row }) => formatArgentineDate(row.original.entry_date),
         meta: {
           headerClassName: "w-32",
           cellClassName: "text-sm",
@@ -249,7 +250,7 @@ export function PalletsTable({
       {
         accessorKey: "exit_date",
         header: "Salida",
-        cell: ({ row }) => row.original.exit_date ?? "—",
+        cell: ({ row }) => formatArgentineDate(row.original.exit_date),
         meta: {
           headerClassName: "w-32",
           cellClassName: "text-sm",

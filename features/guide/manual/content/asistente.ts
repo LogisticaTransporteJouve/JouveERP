@@ -75,7 +75,7 @@ export const assistantPage: GuidePage = {
           steps: [
             "Abrí [[/ai]] (el botón {{Asistente}} arriba de la barra lateral). Para una conversación nueva, hacé clic en el lápiz ({{Nuevo chat}}) o en {{Historial}} › {{Nuevo chat}}.",
             "Escribí la pregunta en {{Escribí tu pregunta o adjuntá un archivo…}} y apretá Enter. En una conversación nueva también podés hacer clic en una sugerencia ({{¿Cómo viene la caja?}}, {{¿Quién me debe más?}}…).",
-            "Mientras trabaja, el asistente muestra «Pensando…» y las consultas que va haciendo. Arriba de la respuesta queda el recuadro de consultas: al abrirlo ves cada una con lo que buscó (por ejemplo «AB123CD · 01/10/2026 – 31/10/2026»), cuántas filas trajo y de qué hora son los datos, así comprobás que entendió bien la pregunta. Después responde con texto; si arma una tabla, un gráfico o un calendario, se abre a la derecha del chat (mientras lo arma, el panel muestra un esqueleto gris).",
+            "Mientras trabaja, el asistente muestra «Pensando…» y las consultas que va haciendo. Arriba de la respuesta queda el recuadro de consultas: al abrirlo ves cada una con lo que buscó (por ejemplo «AB123CD · 01-10-2026 – 31-10-2026»), cuántas filas trajo y de qué hora son los datos, así comprobás que entendió bien la pregunta. Después responde con texto; si arma una tabla, un gráfico o un calendario, se abre a la derecha del chat (mientras lo arma, el panel muestra un esqueleto gris).",
           ],
           after: [
             "La conversación queda guardada en el historial con un título, para retomarla después.",
@@ -214,7 +214,7 @@ export const assistantPage: GuidePage = {
                 columns: ["~Dato", "~Valor"],
                 rows: [
                   ["~Título", "~Llamar a Transportes Sur"],
-                  ["~Vence", "~15/11/2026"],
+                  ["~Vence", "~15-11-2026"],
                 ],
               },
               footer: [
@@ -514,7 +514,7 @@ export const assistantPage: GuidePage = {
                 "~YPF S.A.",
                 "~Alta",
                 "~Pendiente",
-                "~05/11/2026",
+                "~05-11-2026",
                 "~Revisar",
               ],
               [
@@ -523,7 +523,7 @@ export const assistantPage: GuidePage = {
                 "~—",
                 "~Media",
                 "~Pendiente",
-                "~05/11/2026",
+                "~05-11-2026",
                 "~Revisar",
               ],
             ],
@@ -659,7 +659,7 @@ export const assistantPage: GuidePage = {
               fields: [
                 { label: "Canal", kind: "select", value: "Fiscal" },
                 { label: "Número", kind: "input", value: "0001-00001234" },
-                { label: "Fecha de cobro", kind: "date", value: "05/11/2026" },
+                { label: "Fecha de cobro", kind: "date", value: "05-11-2026" },
                 { label: "Importe", kind: "money", value: "$ 150.000,00" },
                 { label: "Moneda", kind: "select", value: "ARS" },
                 {

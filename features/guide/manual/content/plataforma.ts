@@ -236,7 +236,7 @@ export const platformPage: GuidePage = {
         "Debajo, el bloque {{Hoy y esta semana}}, fijo: {{Vencimientos}} (las tareas abiertas del equipo vencidas o que vencen en los próximos 7 días; un clic abre la tarea), {{Viajes de hoy}} y {{Papeles por vencer}} (documentos de camiones, choferes y empleados vencidos o que vencen en 30 días). Cada recuadro aparece si podés ver su módulo.",
         "Después, las tarjetas (widgets) que cada usuario elige y ordena: {{Indicadores financieros}} ({{Caja ARS}}, {{Caja USD}}, {{Por cobrar}}, {{Por pagar}}), {{Operaciones}} (viajes en curso, cargas pendientes, pallets en depósito), {{Flujo de caja}}, {{Insights IA}}, {{Próximos vencimientos}} (cobros, pagos y documentos de los próximos 14 días) y {{Top deudores}}. Solo aparecen las tarjetas cuyos datos podés ver.",
         "Si no tenés ninguna tarjeta disponible, el dashboard muestra los accesos rápidos y te indica usar el menú lateral.",
-        "El dashboard usa todo el ancho de la pantalla. En {{Vencimientos}}, una fecha de otro año se muestra completa (dd/mm/aaaa).",
+        "El dashboard usa todo el ancho de la pantalla. En {{Vencimientos}}, las fechas se muestran como dd-mm-aaaa.",
       ],
       concepts: [
         {
@@ -454,10 +454,10 @@ export const platformPage: GuidePage = {
           table: {
             columns: ["Tarea", "Vence", "Responsables", ""],
             rows: [
-              ["~Pagar a YPF · Pago a proveedor", "~10/11/2026", "~AL", "~"],
+              ["~Pagar a YPF · Pago a proveedor", "~10-11-2026", "~AL", "~"],
               [
                 "~Cierre de mes · Recurrente",
-                "~01/12/2026",
+                "~01-12-2026",
                 "~AL JP MG",
                 "~Hecha",
               ],
@@ -521,7 +521,7 @@ export const platformPage: GuidePage = {
                 {
                   label: "Vencimiento (opcional)",
                   kind: "date",
-                  value: "15/11/2026",
+                  value: "15-11-2026",
                   marker: 4,
                 },
                 {
@@ -762,13 +762,13 @@ export const platformPage: GuidePage = {
                 "~factura-ypf.pdf",
                 "~Factura de compra",
                 "~Ana López",
-                "~04/11/2026 10:12",
+                "~04-11-2026 10:12",
               ],
               [
                 "~cheque.jpg",
                 "~Cheque de tercero",
                 "~Juan Pérez",
-                "~03/11/2026 16:40",
+                "~03-11-2026 16:40",
               ],
             ],
           },

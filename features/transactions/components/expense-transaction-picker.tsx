@@ -9,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { formatMoney } from "@/lib/format";
+import { formatArgentineDate, formatMoney } from "@/lib/format";
 import { runAction } from "@/lib/query/run-action";
 
 import { listTransactionsAction } from "../actions/transactions-actions";
@@ -94,7 +94,7 @@ export function ExpenseTransactionPicker({
         )}
         {items.map((t) => (
           <SelectItem key={t.id} value={t.id}>
-            {`${t.transaction_date} · ${formatMoney(t.amount, t.currency)} · ${
+            {`${formatArgentineDate(t.transaction_date)} · ${formatMoney(t.amount, t.currency)} · ${
               t.description ?? t.account_name
             }`}
           </SelectItem>

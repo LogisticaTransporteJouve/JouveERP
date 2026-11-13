@@ -40,13 +40,12 @@ const DUE_DATE_SECTION_LABELS = [
   "cheques en cartera",
   "cheques propios",
   "cuotas de préstamos",
-  "pagos recurrentes",
   "documentos de flota",
   "documentos de empleados",
 ] as const;
 
 // Unified 14-day agenda: checks maturing (both directions), loan
-// installments, recurring payments and document expiries. Each section is
+// installments and document expiries. Each section is
 // included only if the caller has that section's read permission, so the
 // same action serves finance and operations roles with different content.
 export async function getDashboardDueDatesAction(): Promise<
@@ -161,41 +160,6 @@ export async function getDashboardDueDatesAction(): Promise<
           currency: loan.currency === "USD" ? "USD" : "ARS",
           direction: "out",
           href: "/loans",
-        });
-      }
-      return out;
-    })(),
-    (async (): Promise<DueDateItem[] | null> => {
-      if (!userCan(ctx.access, "recurring_payments:read")) return [];
-      const out: DueDateItem[] = [];
-      const { data, error } = await supabase
-        .from("recurring_payments")
-        .select(
-          "id, description, category, amount, currency, next_due_date, channel:invoicing_channels ( is_segregated )",
-        )
-        .eq("is_active", true)
-        .gte("next_due_date", today)
-        .lte("next_due_date", until);
-      if (error) {
-        logger.warn("dashboard.due_dates.recurring_failed", {
-          userId: ctx.userId,
-          error,
-        });
-        return null;
-      }
-      for (const r of data ?? []) {
-        // As in Pagos recurrentes: a segregated channel's (DZ) stay out.
-        if (r.channel?.is_segregated === true) continue;
-        out.push({
-          id: `recurring_payment:${r.id}`,
-          kind: "recurring_payment",
-          date: r.next_due_date,
-          label: r.description,
-          detail: r.category,
-          amount: Number(r.amount),
-          currency: r.currency === "USD" ? "USD" : "ARS",
-          direction: "out",
-          href: "/recurring-payments",
         });
       }
       return out;

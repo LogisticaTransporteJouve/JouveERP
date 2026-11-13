@@ -125,13 +125,13 @@ export function PalletTraceability({
       {
         accessorKey: "entry_date",
         header: "Ingreso",
-        cell: ({ row }) => row.original.entry_date,
+        cell: ({ row }) => formatArgentineDate(row.original.entry_date),
         meta: { headerClassName: "w-28", cellClassName: "text-sm" },
       },
       {
         accessorKey: "exit_date",
         header: "Salida",
-        cell: ({ row }) => row.original.exit_date ?? "—",
+        cell: ({ row }) => formatArgentineDate(row.original.exit_date),
         meta: { headerClassName: "w-28", cellClassName: "text-sm" },
       },
       {

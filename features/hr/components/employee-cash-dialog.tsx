@@ -42,7 +42,13 @@ import { formatMoneyWithCode, parseArAmount, todayInAR } from "@/lib/format";
 
 import { useRecordAccountCash } from "../hooks/use-employee-account";
 import { useEmployeesList } from "../hooks/use-employees";
-import { loanInstallments, type DebtPlan } from "../account-schema";
+import {
+  ADVANCE_MONTH_OFFSETS,
+  loanInstallments,
+  shiftMonth,
+  type DebtPlan,
+} from "../account-schema";
+import { formatPayrollPeriod } from "../payroll-schema";
 
 /** advance: discounted whole in the month's planilla; loan: in cuotas. Both
  *  are an "advance" movement with its plan; they differ in the cuota. */
@@ -62,8 +68,8 @@ const ICON: Record<CashKind, LucideIcon> = {
 
 const DESCRIPTION: Record<CashKind, string> = {
   advance:
-    "Sale de la cuenta elegida y va a la cuenta corriente del empleado (no es un gasto). Se descuenta entero en la planilla del mes de la fecha.",
-  loan: "Sale de la cuenta elegida y va a la cuenta corriente del empleado (no es un gasto). Se descuenta en la planilla en cuotas mensuales, desde el mes de la fecha.",
+    "Sale de la cuenta elegida y va a la cuenta corriente del empleado (no es un gasto). Se descuenta entero en la planilla del sueldo que elijas.",
+  loan: "Sale de la cuenta elegida y va a la cuenta corriente del empleado (no es un gasto). Se descuenta en la planilla en cuotas mensuales, desde el sueldo que elijas.",
   payment: "Entra en la cuenta elegida y baja lo que el empleado debe.",
 };
 
@@ -220,6 +226,10 @@ function CashFormFields({
   const [description, setDescription] = useState("");
   const [installment, setInstallment] = useState("");
   const [planId, setPlanId] = useState(NONE);
+  // The payroll month the plan starts in, as an offset from the date's month
+  // (0 = the date's month), so moving the date keeps the choice relative.
+  const [monthOffset, setMonthOffset] = useState("0");
+  const opensPlan = kind !== "payment";
 
   const account = usable.find((a) => a.id === accountId);
   const currency = account?.currency ?? "ARS";
@@ -266,6 +276,7 @@ function CashFormFields({
             ? `Préstamo a ${employeeName}`
             : description,
         plan_id: kind === "payment" && planId !== NONE ? planId : null,
+        start_month: opensPlan ? shiftMonth(date, Number(monthOffset)) : null,
         installment_amount:
           kind === "advance"
             ? amountValue
@@ -335,6 +346,30 @@ function CashFormFields({
           <Label htmlFor="cash-date">Fecha</Label>
           <DatePicker id="cash-date" value={date} onChange={setDate} />
         </div>
+        {opensPlan && (
+          <div className="space-y-2">
+            <Label htmlFor="cash-month">
+              {kind === "loan"
+                ? "Primera cuota en el sueldo de"
+                : "Descontar en el sueldo de"}
+            </Label>
+            <Select value={monthOffset} onValueChange={setMonthOffset}>
+              <SelectTrigger id="cash-month">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {ADVANCE_MONTH_OFFSETS.map((offset) => {
+                  const [y, m] = shiftMonth(date, offset).split("-");
+                  return (
+                    <SelectItem key={offset} value={String(offset)}>
+                      {formatPayrollPeriod(Number(y), Number(m))}
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
         <div className="space-y-2">
           <Label htmlFor="cash-amount">Importe ({currency})</Label>
           <MoneyInput

@@ -514,6 +514,10 @@ export async function issueComprobante(
     motivo_nc_nd: data.motivo_nc_nd ?? null,
     // Trimmed by the schema; a blank note is no note.
     notes: data.notes || null,
+    // Left out, create_invoice_draft takes Jouve's (an NC/ND, its origin's).
+    ...(data.is_operational !== undefined
+      ? { is_operational: data.is_operational }
+      : {}),
     idempotency_key,
     created_by: actorId,
   };

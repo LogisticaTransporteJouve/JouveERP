@@ -1,14 +1,12 @@
 "use client";
 
 import {
-  CalendarClock,
   CheckCircle2,
   History,
   MoreHorizontal,
   Pencil,
   Plus,
   Trash2,
-  XCircle,
 } from "lucide-react";
 import { useDeferredValue, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -20,6 +18,7 @@ import {
   ListToolbar,
 } from "@/components/list-toolbar";
 import { useConfirm } from "@/components/providers/confirm-provider";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
@@ -44,10 +43,10 @@ import {
   type PickedClient,
 } from "@/features/invoices/components/client-picker";
 import { useListParams } from "@/hooks/use-list-params";
-import { userCan, type Access } from "@/lib/auth/permissions";
+import { userCan, userCanAll, type Access } from "@/lib/auth/permissions";
 
 import { useDeleteShipment, useShipments } from "../hooks/use-shipments";
-import { matchesShipmentSearch } from "../lib/format";
+import { matchesShipmentSearch, shipmentRoute } from "../lib/format";
 import {
   DEFAULT_SHIPMENT_LIST_PARAMS,
   SHIPMENT_TRIP_FILTERS,
@@ -57,10 +56,10 @@ import {
   type ShipmentTripFilter,
 } from "../lib/list-params";
 import {
-  SHIPMENT_NEXT_STATUSES,
+  SHIPMENT_KIND_LABELS,
+  SHIPMENT_KINDS,
+  isShipmentKind,
   type Shipment,
-  type ShipmentStatus,
-  type ShipmentTargetStatus,
 } from "../schema";
 
 import { ShipmentDialog } from "./shipment-dialog";
@@ -68,45 +67,22 @@ import { ShipmentHistoryDialog } from "./shipment-history-dialog";
 import { ShipmentStatusBadge } from "./shipment-status";
 import { ShipmentStatusFilter } from "./shipment-status-filter";
 import {
+  ACTION_ICON,
+  ACTION_LABEL,
+  statusActions,
+} from "./shipment-status-actions";
+import {
   ShipmentStatusDialog,
   type ShipmentStatusAction,
 } from "./shipment-status-dialog";
+import { formatArgentineDate } from "@/lib/format";
 
 function formatDate(value: string | null): string {
-  if (!value) return "—";
-  return new Date(value).toLocaleDateString("es-AR");
+  return formatArgentineDate(value);
 }
-
-// A carga is not started by hand: it is «En curso» on its trip's date, and
-// from there it can be delivered, cancelled or reprogrammed.
-const TARGET_ACTION: Record<ShipmentTargetStatus, ShipmentStatusAction | null> =
-  {
-    in_progress: null,
-    delivered: "deliver",
-    cancelled: "cancel",
-    reprogrammed: "reprogram",
-  };
-
-function statusActions(status: ShipmentStatus): ShipmentStatusAction[] {
-  return SHIPMENT_NEXT_STATUSES[status].flatMap((s) => {
-    const action = TARGET_ACTION[s];
-    return action ? [action] : [];
-  });
-}
-
-const ACTION_LABEL: Record<ShipmentStatusAction, string> = {
-  deliver: "Entregar",
-  cancel: "Cancelar",
-  reprogram: "Reprogramar",
-};
-
-const ACTION_ICON: Record<ShipmentStatusAction, typeof CheckCircle2> = {
-  deliver: CheckCircle2,
-  cancel: XCircle,
-  reprogram: CalendarClock,
-};
 
 const ANY_TRIP = "__any__";
+const ANY_KIND = "__any_kind__";
 
 const TRIP_FILTER_LABEL: Record<ShipmentTripFilter, string> = {
   asignada: "Asignada",
@@ -126,7 +102,7 @@ type StatusState = {
 } | null;
 
 /** `initialParams`: the URL's filters (`?q=` also comes from a scanned
- *  remito's link). Estado, Fecha programada, Cliente and Viaje filter on the
+ *  remito's link). Estado, Fecha de carga, Cliente, Viaje and Tipo filter on the
  *  server; the search box filters the rows already read. */
 export function ShipmentsTable({
   actorAccess,
@@ -136,6 +112,12 @@ export function ShipmentsTable({
   initialParams: ShipmentListParams;
 }) {
   const canWrite = userCan(actorAccess, "shipments:write");
+  // Reprogramming onto a trip of the new date edits that trip's cargas.
+  const canAssignTrip = userCanAll(actorAccess, [
+    "shipments:write",
+    "trips:read",
+    "trips:write",
+  ]);
   const { params, committed, update, reset, isFiltered } = useListParams({
     initial: initialParams,
     defaults: DEFAULT_SHIPMENT_LIST_PARAMS,
@@ -198,29 +180,55 @@ export function ShipmentsTable({
         accessorKey: "client",
         header: "Cliente",
         enableSorting: false,
-        cell: ({ row }) => (
-          <div className="flex flex-col">
-            <span className="font-medium">
-              {row.original.client?.legal_name ?? "—"}
-            </span>
-            {row.original.description && (
-              <span className="text-xs text-muted-foreground">
-                {row.original.description}
+        cell: ({ row }) => {
+          const s = row.original;
+          return (
+            <div className="flex flex-col gap-0.5">
+              <span className="flex flex-wrap items-center gap-1.5">
+                <span className="font-medium">
+                  {s.client?.legal_name ?? "—"}
+                </span>
+                <Badge variant="outline" className="text-[10px] font-normal">
+                  {SHIPMENT_KIND_LABELS[s.kind]}
+                </Badge>
               </span>
-            )}
-          </div>
-        ),
-        meta: { mobile: "primary" },
+              {s.description && (
+                <span className="text-xs text-muted-foreground">
+                  {s.description}
+                </span>
+              )}
+              {(s.origin || s.destination) && (
+                <span className="text-xs text-muted-foreground">
+                  {shipmentRoute(s)}
+                </span>
+              )}
+            </div>
+          );
+        },
+        meta: { mobile: "primary", cellClassName: "whitespace-normal" },
       },
       {
         accessorKey: "scheduled_date",
-        header: "Fecha programada",
-        cell: ({ row }) => (
-          <span className="text-sm">
-            {formatDate(row.original.scheduled_date)}
-          </span>
-        ),
-        meta: { headerClassName: "w-36", mobile: "secondary" },
+        header: "Fecha de carga",
+        cell: ({ row }) => {
+          const s = row.original;
+          return (
+            <div className="flex flex-col text-sm">
+              <span>{formatDate(s.scheduled_date)}</span>
+              {(s.unload_date || s.time_window) && (
+                <span className="text-xs text-muted-foreground">
+                  {[
+                    s.unload_date && `Descarga ${formatDate(s.unload_date)}`,
+                    s.time_window,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </span>
+              )}
+            </div>
+          );
+        },
+        meta: { headerClassName: "w-40", mobile: "secondary" },
       },
       {
         accessorKey: "trip",
@@ -228,7 +236,9 @@ export function ShipmentsTable({
         enableSorting: false,
         cell: ({ row }) => (
           <span className="text-sm">
-            {row.original.trip?.trip_date ?? "Sin asignar"}
+            {row.original.trip
+              ? formatDate(row.original.trip.trip_date)
+              : "Sin asignar"}
           </span>
         ),
         meta: { headerClassName: "w-32", mobile: "secondary" },
@@ -330,6 +340,22 @@ export function ShipmentsTable({
           onChange={(query) => update({ query })}
           placeholder="Buscar por cliente, descripción o dirección…"
         />
+        <Select
+          value={params.kind ?? ANY_KIND}
+          onValueChange={(v) => update({ kind: isShipmentKind(v) ? v : null })}
+        >
+          <SelectTrigger className="w-[150px]" aria-label="Tipo">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent position="popper">
+            <SelectItem value={ANY_KIND}>Todos los tipos</SelectItem>
+            {SHIPMENT_KINDS.map((k) => (
+              <SelectItem key={k} value={k}>
+                {SHIPMENT_KIND_LABELS[k]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <PeriodFilter
           value={params.period}
           onChange={(period) => update({ period })}
@@ -395,6 +421,7 @@ export function ShipmentsTable({
           shipment={statusDialog?.shipment ?? null}
           action={statusDialog?.action ?? null}
           onClose={() => setStatusDialog(null)}
+          canAssignTrip={canAssignTrip}
         />
       )}
 

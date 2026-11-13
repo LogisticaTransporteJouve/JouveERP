@@ -8,13 +8,14 @@ function fold(v: string): string {
     .trim();
 }
 
-/** The carga list search: client, description or dirección (the
- *  destination column). A remito number still matches (ignoring spaces, as
+/** The carga list search: client, description or either address (carga:
+ *  origin; descarga: destination). A remito number still matches (ignoring spaces, as
  *  the unique index does) so a scanned remito's link (?q=) finds its carga.
  *  Blank matches everything. */
 export function matchesShipmentSearch(
   s: {
     remito_number: string | null;
+    origin?: string | null;
     destination: string | null;
     description: string | null;
     client: { legal_name: string; display_name: string | null } | null;
@@ -34,8 +35,18 @@ export function matchesShipmentSearch(
     s.client?.legal_name,
     s.client?.display_name,
     s.description,
+    s.origin,
     s.destination,
   ].some((v) => v !== null && v !== undefined && fold(v).includes(q));
+}
+
+/** «Carga → Descarga»: a carga's load and unload addresses (either may be
+ *  missing). */
+export function shipmentRoute(s: {
+  origin: string | null;
+  destination: string | null;
+}): string {
+  return `${s.origin ?? "—"} → ${s.destination ?? "—"}`;
 }
 
 /** "0001-00001234" → [1, 1234]: the number groups of a remito, without

@@ -57,6 +57,8 @@ export async function gatherAnomalies(
       )
         .eq("kind", "factura")
         .eq("status", "received")
+        // Not Jouve's activity: no expense, no anomaly.
+        .eq("is_operational", true)
         .gte("fecha", minus(LOOKBACK_DAYS, today))
         .order("id", { ascending: true })
         .range(from, to),

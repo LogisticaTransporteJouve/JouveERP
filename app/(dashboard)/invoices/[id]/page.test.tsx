@@ -64,6 +64,9 @@ vi.mock("@/features/invoices/components/regenerate-pdf-button", () => ({
 vi.mock("@/features/invoices/components/revenue-kind-select", () => ({
   RevenueKindSelect: () => null,
 }));
+vi.mock("@/features/invoices/components/invoice-operational-toggle", () => ({
+  InvoiceOperationalToggle: () => <span>toggle-operational</span>,
+}));
 vi.mock("@/features/files/components/attachments-zone", () => ({
   AttachmentsZone: () => null,
 }));
@@ -115,6 +118,7 @@ function base(isFiscal: boolean): Record<string, unknown> {
     cae: isFiscal ? "123" : null,
     cae_vencimiento: null,
     emitted_at: null,
+    is_operational: true,
     afip_observaciones: null,
     fch_serv_desde: null,
     fch_serv_hasta: null,
@@ -357,6 +361,27 @@ describe("invoice detail — Observaciones", () => {
     h.detail = { ...base(true), notes: null };
     await renderPage();
     expect(screen.queryByText("Observaciones")).toBeNull();
+  });
+});
+
+describe("invoice detail — Corresponde a Jouve", () => {
+  beforeEach(() => {
+    h.links = okLinks({});
+    h.pending = [];
+  });
+
+  it("marks a sale that is not Jouve's and offers the switch to who issues", async () => {
+    h.detail = { ...base(true), is_operational: false };
+    await renderPage();
+    expect(screen.getByText("No Jouve")).toBeTruthy();
+    expect(screen.getByText("toggle-operational")).toBeTruthy();
+  });
+
+  it("shows neither the mark nor the switch on a remito interno", async () => {
+    h.detail = base(false);
+    await renderPage();
+    expect(screen.queryByText("No Jouve")).toBeNull();
+    expect(screen.queryByText("toggle-operational")).toBeNull();
   });
 });
 

@@ -155,6 +155,7 @@ describe("listSupplierCategoryPurchasesAction", () => {
       ["suppliers.category_id", CATEGORY],
       ["invoicing_channels.is_segregated", false],
       ["status", "received"],
+      ["is_operational", true],
       ["invoicing_channels.is_fiscal", true],
     ]);
     expect(calls).toContainEqual({

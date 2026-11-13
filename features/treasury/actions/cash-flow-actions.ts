@@ -28,16 +28,6 @@ function monthKey(isoDate: string): string {
   return isoDate.slice(0, 7);
 }
 
-function addByFrequency(iso: string, freq: string): string {
-  const [y, m, d] = iso.split("-").map(Number);
-  const dt = new Date(Date.UTC(y!, m! - 1, d!));
-  if (freq === "weekly") dt.setUTCDate(dt.getUTCDate() + 7);
-  else if (freq === "quarterly") dt.setUTCMonth(dt.getUTCMonth() + 3);
-  else if (freq === "yearly") dt.setUTCFullYear(dt.getUTCFullYear() + 1);
-  else dt.setUTCMonth(dt.getUTCMonth() + 1); // monthly (default)
-  return dt.toISOString().slice(0, 10);
-}
-
 /** No channel, or one we can't classify → "otro"; never guessed. */
 function cashScope(isFiscal: boolean | null): CashScope {
   if (isFiscal === null) return "otro";
@@ -91,8 +81,7 @@ export type CashFlowResult = CashFlow & {
 /**
  * Monthly cash flow expressed in ARS for internal control — includes blanco
  * (canal fiscal) y negro (canal interno). Past + current months are realized
- * from cash movements; future months project recurring payments (dated), open
- * client receivables and supplier payables (by due date), received checks and
+ * from cash movements; future months project open client receivables and supplier payables (by due date), received checks and
  * loan installments. USD accounts/documents/checks are converted at the latest
  * official rate (exchange_rates); without a loaded rate they're left out and
  * the result is flagged `usdSkipped`, and a failed rate read fails the whole
@@ -131,15 +120,14 @@ export async function getCashFlowAction(input: {
   const supabase = await createClient();
   const events: CashFlowEvent[] = [];
   // Every channel, inactive included, so history keeps its classification.
-  // Without them every scope would read «otro» and the loan dedupe would drop
-  // recurring «Préstamo» payments.
+  // Without them every scope would read «otro».
   const channelsRes = await readInvoicingChannels();
   if (!channelsRes.ok) return failed("channels", "read failed");
   const allChannels = channelsRes.channels;
   const scopeOfChannel = (channelId: string | null) =>
     cashScope(channelIsFiscal(channelId, allChannels));
-  // Loans and recurring payments of a segregated channel (DZ) stay out of the
-  // main projection; no channel stays in.
+  // Loans of a segregated channel (DZ) stay out of the main projection; no
+  // channel stays in.
   const inMainApp = (channelId: string | null) =>
     !channelId ||
     allChannels.every((c) => c.id !== channelId || isMainChannel(c));
@@ -415,52 +403,6 @@ export async function getCashFlowAction(input: {
       }
     }
   }
-  const loanScopes = new Set([...loanInfo.values()].map((l) => l.scope));
-
-  // Recurring payments → future outflows (dated), channel-split.
-  const { data: recurring, error: recurringErr } = await paginateRange(
-    (from, to) =>
-      supabase
-        .from("recurring_payments")
-        .select(
-          "id, amount, currency, frequency, next_due_date, end_date, channel_id, category",
-        )
-        .eq("is_active", true)
-        .order("id", { ascending: true })
-        .range(from, to),
-  );
-  if (recurringErr) return failed("recurring", recurringErr);
-  for (const rp of recurring) {
-    if (!inMainApp(rp.channel_id)) continue;
-    // A recurring "Préstamo" next to a loaded loan of the same channel is
-    // the same payment its installments already project: count it once.
-    if (
-      rp.category === "prestamo" &&
-      loanScopes.has(scopeOfChannel(rp.channel_id))
-    ) {
-      continue;
-    }
-    const amount = arsAtRate(Math.abs(Number(rp.amount)), rp.currency);
-    if (amount === null) continue;
-    let occ = rp.next_due_date;
-    let guard = 0;
-    while (occ < rangeEndExclusive && guard < 400) {
-      guard++;
-      if (occ >= `${firstFwd}-01` && (!rp.end_date || occ <= rp.end_date)) {
-        const m = monthKey(occ);
-        if (monthSet.has(m)) {
-          events.push({
-            month: m,
-            direction: "out",
-            amount,
-            scope: scopeOfChannel(rp.channel_id),
-          });
-        }
-      }
-      occ = addByFrequency(occ, rp.frequency);
-    }
-  }
-
   const flow = buildCashFlow({ months, events, cashToday });
   return {
     ok: true,

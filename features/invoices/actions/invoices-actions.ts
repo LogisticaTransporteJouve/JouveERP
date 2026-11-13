@@ -31,6 +31,7 @@ import {
   INTERNAL_CANCELLABLE_STATUSES,
   isInvoiceStatus,
   isRevenueKind,
+  SetInvoiceOperationalSchema,
   SetRevenueKindSchema,
   type InvoiceRow,
   type CreateComprobanteInput,
@@ -182,6 +183,8 @@ export interface InvoiceListItem {
   status: InvoiceRow["status"];
   cae: string | null;
   emitted_at: string | null;
+  /** «Corresponde a la actividad de Jouve»; false = «No Jouve». */
+  is_operational: boolean;
 }
 
 const DEFAULT_PAGE_SIZE = 50;
@@ -207,7 +210,7 @@ export async function listInvoicesAction(
   let query = supabase
     .from("invoices")
     .select(
-      `id, channel_id, client_id, kind, letter, punto_venta, numero, fecha, imp_total, moneda, status, cae, emitted_at,
+      `id, channel_id, client_id, kind, letter, punto_venta, numero, fecha, imp_total, moneda, status, cae, emitted_at, is_operational,
        channel:invoicing_channels(name, is_fiscal, is_active, is_segregated),
        client:clients!inner(legal_name)`,
     )
@@ -272,6 +275,7 @@ export async function listInvoicesAction(
     status: string;
     cae: string | null;
     emitted_at: string | null;
+    is_operational: boolean | null;
     channel: { name: string; is_fiscal: boolean; is_active: boolean } | null;
     client: { legal_name: string } | null;
   }>;
@@ -296,6 +300,7 @@ export async function listInvoicesAction(
     status: row.status as InvoiceRow["status"],
     cae: row.cae,
     emitted_at: row.emitted_at,
+    is_operational: row.is_operational !== false,
   }));
 
   return {
@@ -403,6 +408,8 @@ export interface ComprobanteDetail {
   /** Internal «Observaciones» (NC/ND); never sent to AFIP nor printed. */
   notes: string | null;
   emitted_at: string | null;
+  /** «Corresponde a la actividad de Jouve»; false = «No Jouve». */
+  is_operational: boolean;
   items: Array<{
     id: string;
     description: string;
@@ -557,6 +564,7 @@ export async function getInvoiceDetailAction(
       motivo_nc_nd: row.motivo_nc_nd,
       notes: row.notes,
       emitted_at: row.emitted_at,
+      is_operational: row.is_operational,
       items: (row.items ?? [])
         .slice()
         .sort((a, b) => a.sort_order - b.sort_order)
@@ -844,4 +852,47 @@ export async function setInvoiceItemRevenueKindAction(
     item_id,
   );
   return { ok: true, data: { id: item_id } };
+}
+
+/** «Corresponde a la actividad de Jouve» of an issued comprobante. It is not
+ *  in the Libro IVA nor AFIP's data: the database re-posts the entry (to
+ *  «Cuenta particular de socios» when false) and refuses it while that entry
+ *  sits in a closed accounting period. */
+export async function setInvoiceOperationalAction(
+  input: unknown,
+): Promise<ActionResult<{ id: string }>> {
+  const ctx = await requireUserContext();
+  if (!userCan(ctx.access, "invoices:issue")) {
+    return { ok: false, error: "No tenés permiso para editar comprobantes." };
+  }
+  const parsed = SetInvoiceOperationalSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Datos inválidos." };
+  const { id, is_operational } = parsed.data;
+
+  const supabase = getServiceClient();
+  const { data, error } = await supabase
+    .from("invoices")
+    .update({ is_operational })
+    .eq("id", id)
+    .select("id");
+  if (error) {
+    const guardError = mapDbGuardError(error, {
+      slug: "invoices.operational.rejected",
+      userId: ctx.userId,
+      id,
+    });
+    if (guardError) return { ok: false, error: guardError };
+    logger.error("invoices.operational.update_failed", {
+      userId: ctx.userId,
+      id,
+      err: error.message,
+    });
+    return { ok: false, error: "No se pudo guardar el cambio." };
+  }
+  if (!data || data.length === 0) {
+    return { ok: false, error: "No se encontró el comprobante." };
+  }
+
+  await logAudit("invoice.operational_set", ctx.userId, { is_operational }, id);
+  return { ok: true, data: { id } };
 }

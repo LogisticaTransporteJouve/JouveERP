@@ -47,7 +47,7 @@ describe("export cells", () => {
     expect(cellText(moneyCell(5, { currency: "USD", text: "US$5,00" }))).toBe(
       "US$5,00",
     );
-    expect(cellText(dateCell("2026-06-05"))).toBe("5 jun 2026");
+    expect(cellText(dateCell("2026-06-05"))).toBe("05-06-2026");
     expect(dateCell(null)).toBe("—");
   });
 });
@@ -67,13 +67,13 @@ describe("exportSheet", () => {
         totalsRow: ["Total", "", moneyCell(10)],
         fileName: "vehiculos",
       },
-      { dateRangeLabel: "Todo el historial", generatedAt: "5 jun 2026 10:00" },
+      { dateRangeLabel: "Todo el historial", generatedAt: "05-06-2026 10:00" },
     );
     expect(sheet.preamble).toEqual([
       "Vehículos",
       "Flota propia",
       "Período: Todo el historial",
-      "Generado el 5 jun 2026 10:00",
+      "Generado el 05-06-2026 10:00",
     ]);
     expect(sheet.columns).toEqual([
       { header: "Patente", type: "text" },

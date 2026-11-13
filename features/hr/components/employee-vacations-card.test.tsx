@@ -116,7 +116,7 @@ describe("EmployeeVacationsCard", () => {
     h.leaves = ok([]);
     renderCard();
     expect(
-      screen.getByText(/Empieza el miércoles 9 dic 2026: por la LCT/),
+      screen.getByText(/Empieza el miércoles 09-12-2026: por la LCT/),
     ).toBeTruthy();
     expect(
       screen.getByText(

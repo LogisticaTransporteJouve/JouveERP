@@ -2,6 +2,7 @@ import { Banknote } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { NotJouveBadge } from "@/components/not-jouve-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { RecordHistory } from "@/features/audit/components/record-history";
@@ -196,6 +197,9 @@ export default async function PurchaseInvoiceDetailPage({
                 >
                   Anulada
                 </Badge>
+              )}
+              {invoice.is_operational === false && (
+                <NotJouveBadge className="ml-2" />
               )}
             </p>
             {!channelRow && (

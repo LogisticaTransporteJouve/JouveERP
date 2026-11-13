@@ -331,7 +331,7 @@ describe("proposeCreditDebitNote", () => {
       items: [{ description: "Flete", quantity: 2, unit_price: 500 }],
     });
     expect(prepared.summary.find((r) => r.label === "Sobre")?.value).toBe(
-      "A0003-00000012 del 1 oct 2026",
+      "A0003-00000012 del 01-10-2026",
     );
   });
 

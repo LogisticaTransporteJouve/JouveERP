@@ -23,6 +23,7 @@ import {
   listEnabledPosAction,
   regeneratePdfAction,
   setInvoiceItemRevenueKindAction,
+  setInvoiceOperationalAction,
   type InvoiceListItem,
   type InvoiceStatusSnapshot,
 } from "../actions/invoices-actions";
@@ -169,9 +170,15 @@ export function useEnabledPos(
  * are all eligible. The invoices list page consumes this from the NC/ND
  * dialog.
  */
-export function useOriginSearch(query: string, enabled = true) {
+/** `channelId`: a segregated channel's section, whose invoices are the only
+ *  origins offered there; null = the main app's. */
+export function useOriginSearch(
+  query: string,
+  enabled = true,
+  channelId: string | null = null,
+) {
   return useQuery({
-    queryKey: invoicesKeys.originSearch(query),
+    queryKey: invoicesKeys.originSearch(query, channelId),
     queryFn: async (): Promise<InvoiceListItem[]> => {
       const res = await runAction(() =>
         listInvoicesAction({
@@ -179,6 +186,7 @@ export function useOriginSearch(query: string, enabled = true) {
           kind: "factura",
           isFiscal: true,
           activeChannelOnly: true,
+          channel_id: channelId,
           query: query.trim().length > 0 ? query : null,
           limit: 25,
         }),
@@ -249,6 +257,15 @@ export function useSetRevenueKind() {
     mutationFn: (
       input: Parameters<typeof setInvoiceItemRevenueKindAction>[0],
     ) => runAction(() => setInvoiceItemRevenueKindAction(input)),
+    onSuccess: () => invalidateKeys(qc, INVOICE_EFFECT_KEYS),
+  });
+}
+
+export function useSetInvoiceOperational() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: Parameters<typeof setInvoiceOperationalAction>[0]) =>
+      runAction(() => setInvoiceOperationalAction(input)),
     onSuccess: () => invalidateKeys(qc, INVOICE_EFFECT_KEYS),
   });
 }

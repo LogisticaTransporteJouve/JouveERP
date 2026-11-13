@@ -55,7 +55,7 @@ export const hrPage: GuidePage = {
                 "~$ 950.000",
                 "~$ 20.000",
                 "~Activo",
-                "~03/02/2021",
+                "~03-02-2021",
                 "~Editar",
               ],
               [
@@ -65,7 +65,7 @@ export const hrPage: GuidePage = {
                 "~$ 820.000",
                 "~$ 20.000",
                 "~Activo",
-                "~15/08/2024",
+                "~15-08-2024",
                 "~Editar",
               ],
             ],
@@ -138,7 +138,7 @@ export const hrPage: GuidePage = {
                 {
                   label: "Fecha de ingreso",
                   kind: "date",
-                  value: "03/02/2021",
+                  value: "03-02-2021",
                 },
                 { label: "Monotributista", kind: "checkbox" },
                 { label: "Notas", kind: "textarea", wide: true },
@@ -417,7 +417,7 @@ export const hrPage: GuidePage = {
                 {
                   label: "Fecha de egreso",
                   kind: "date",
-                  value: "31/10/2026",
+                  value: "31-10-2026",
                   marker: 2,
                 },
                 { label: "Motivo / notas", kind: "textarea", marker: 2 },
@@ -485,7 +485,7 @@ export const hrPage: GuidePage = {
           id: "registrar-adelanto-empleado",
           title: "Registrar un adelanto o un préstamo a un empleado",
           summary:
-            "Sale plata de una caja o banco y queda como deuda del empleado. Un adelanto se descuenta entero en la planilla del mes; un préstamo, en cuotas mensuales.",
+            "Sale plata de una caja o banco y queda como deuda del empleado. Un adelanto se descuenta entero en la planilla del sueldo que elijas; un préstamo, en cuotas mensuales desde ese sueldo.",
           permission: ["hr:write", "transactions:write"],
           prerequisites: [
             "Una caja o banco activo (no una cartera de cheques).",
@@ -496,7 +496,7 @@ export const hrPage: GuidePage = {
               kind: "dialog",
               title: "~Préstamo a empleado — Pérez, Juan",
               description:
-                "Sale de la cuenta elegida y va a la cuenta corriente del empleado (no es un gasto). Se descuenta en la planilla en cuotas mensuales, desde el mes de la fecha.",
+                "Sale de la cuenta elegida y va a la cuenta corriente del empleado (no es un gasto). Se descuenta en la planilla en cuotas mensuales, desde el sueldo que elijas.",
               fields: [
                 {
                   label: "Cuenta",
@@ -505,7 +505,12 @@ export const hrPage: GuidePage = {
                   marker: 2,
                 },
                 { label: "Canal", kind: "select", value: "Jouve", marker: 2 },
-                { label: "Fecha", kind: "date", value: "05/11/2026" },
+                { label: "Fecha", kind: "date", value: "05-11-2026" },
+                {
+                  label: "Primera cuota en el sueldo de",
+                  kind: "select",
+                  value: "Noviembre 2026",
+                },
                 {
                   label: "Importe",
                   kind: "money",
@@ -532,14 +537,14 @@ export const hrPage: GuidePage = {
             },
           ],
           steps: [
-            "En la ficha del empleado, en {{Cuenta corriente}}, hacé clic en {{Adelanto}} (se descuenta entero en la planilla del mes) o en {{Préstamo}} (se descuenta en cuotas). También se cargan desde Tesorería con {{Adelanto a empleado}} o {{Préstamo a empleado}}, eligiendo primero el {{Empleado}}.",
-            "Elegí la {{Cuenta}} de donde sale la plata (la moneda es la de la cuenta), el {{Canal}}, la {{Fecha}} y el {{Importe}}. Opcional: una {{Descripción (opcional)}}; si no, queda «Adelanto a» o «Préstamo a» y el nombre.",
+            "En la ficha del empleado, en {{Cuenta corriente}}, hacé clic en {{Adelanto}} (se descuenta entero en la planilla de un mes) o en {{Préstamo}} (se descuenta en cuotas). También se cargan desde Tesorería con {{Adelanto a empleado}} o {{Préstamo a empleado}}, eligiendo primero el {{Empleado}}.",
+            "Elegí la {{Cuenta}} de donde sale la plata (la moneda es la de la cuenta), el {{Canal}}, la {{Fecha}}, el sueldo donde se descuenta ({{Descontar en el sueldo de}}; en un préstamo, {{Primera cuota en el sueldo de}}: viene en el mes de la fecha y va del mes anterior a dos meses después) y el {{Importe}}. Opcional: una {{Descripción (opcional)}}; si no, queda «Adelanto a» o «Préstamo a» y el nombre.",
             "En un préstamo, cargá la {{Cuota mensual}}: tiene que ser menor que el importe, y abajo dice en cuántas cuotas queda.",
             "Hacé clic en {{Registrar}}.",
           ],
           after: [
             "Se crea un egreso en la cuenta elegida y su asiento contra **Anticipos al personal** (un activo, no un gasto).",
-            "En la cuenta corriente aparece el movimiento ({{Adelanto}} o {{Préstamo}}) con origen {{Caja}} y un plan con el total, la cuota (en un adelanto, el total) y primer mes el de la fecha.",
+            "En la cuenta corriente aparece el movimiento ({{Adelanto}} o {{Préstamo}}) con origen {{Caja}} y un plan con el total, la cuota (en un adelanto, el total) y primer mes el sueldo elegido.",
             "Las planillas mensuales en borrador recalculan la columna {{Deudas}} del empleado con la cuota (solo planes en pesos).",
           ],
           errors: [
@@ -561,6 +566,11 @@ export const hrPage: GuidePage = {
               message:
                 "El período contable … está cerrado y no admite movimientos",
               fix: "La fecha cae en un mes contable cerrado: usá otra fecha o pedí reabrir el período (ver [[#periodos-cerrados]]).",
+            },
+            {
+              message:
+                "El sueldo en que se descuenta va del mes anterior a la fecha hasta dos meses después.",
+              fix: "Elegí un sueldo de la lista, o cambiá la {{Fecha}}.",
             },
             {
               message:
@@ -659,7 +669,7 @@ export const hrPage: GuidePage = {
                 },
                 { label: "Moneda", kind: "select", value: "USD" },
                 { label: "Importe", kind: "money", value: "1.500" },
-                { label: "Fecha", kind: "date", value: "05/11/2026" },
+                { label: "Fecha", kind: "date", value: "05-11-2026" },
                 { label: "Plan (opcional)", kind: "select", value: "Sin plan" },
                 {
                   label: "Descripción",
@@ -952,7 +962,7 @@ export const hrPage: GuidePage = {
                 {
                   label: "Vigente desde",
                   kind: "date",
-                  value: "01/11/2026",
+                  value: "01-11-2026",
                   marker: 3,
                 },
                 { label: "Hasta (opcional)", kind: "date", marker: 3 },
@@ -1114,8 +1124,8 @@ export const hrPage: GuidePage = {
             "Hacé clic en {{Cargar en la planilla}}.",
           ],
           after: [
-            "Si la planilla del mes de la baja no existía, se genera. En la fila del empleado, {{Sueldo}} queda con el sueldo proporcional y {{Vacaciones}} con el monto de vacaciones, y se agrega un extra «Liquidación final: SAC proporcional (…)» si el SAC es mayor a cero.",
-            "Volver a cargarla reemplaza los montos y el extra anteriores.",
+            "Si la planilla del mes de la baja no existía, se genera. En la fila del empleado, {{Sueldo}} queda con el sueldo proporcional y se agregan los extras «Liquidación final: Vacaciones no gozadas» y «Liquidación final: SAC proporcional (…)» si cada monto es mayor a cero.",
+            "Volver a cargarla reemplaza el sueldo y los extras de la liquidación anteriores.",
             "En un empleado {{Por recibo}} no se agregan vacaciones ni SAC, y si el recibo final ya estaba cargado queda como sueldo.",
             "Los pagos se registran después en la planilla como cualquier otro ([[#registrar-pago-sueldo]]).",
           ],
@@ -1179,7 +1189,7 @@ export const hrPage: GuidePage = {
                 {
                   label: "Vencimiento",
                   kind: "date",
-                  value: "10/03/2028",
+                  value: "10-03-2028",
                   marker: 2,
                 },
                 { label: "Autoridad emisora (opcional)", kind: "input" },
@@ -1295,12 +1305,12 @@ export const hrPage: GuidePage = {
           table: {
             columns: ["Período", "Estado", "Creado", "Cerrado", "Acciones"],
             rows: [
-              ["~Noviembre 2026", "~Borrador", "~01/11/2026", "—", "~Abrir →"],
+              ["~Noviembre 2026", "~Borrador", "~01-11-2026", "—", "~Abrir →"],
               [
                 "~Octubre 2026",
                 "~Cerrado",
-                "~01/10/2026",
-                "~04/11/2026",
+                "~01-10-2026",
+                "~04-11-2026",
                 "~Abrir →",
               ],
             ],
@@ -1434,7 +1444,6 @@ export const hrPage: GuidePage = {
               "Recibo",
               "Otros",
               "Extras",
-              "Vacaciones",
               "Viáticos",
               "Deudas",
               "Teléfono",
@@ -1451,7 +1460,6 @@ export const hrPage: GuidePage = {
                 "~700.000",
                 "~250.000",
                 "~$ 60.000",
-                "~0",
                 "~20.000",
                 "~100.000",
                 "~0",
@@ -1470,11 +1478,11 @@ export const hrPage: GuidePage = {
           title: "Las columnas",
           body: [
             "{{Sueldo}} (en el SAC, {{SAC}}): el sueldo pactado del mes. {{Recibo}}: el neto del recibo del liquidador; vacío = sin recibo cargado. {{Otros}}: sueldo pactado − neto del recibo.",
-            "Un empleado {{Por recibo}} lleva la marca «recibo» junto al nombre: con el recibo cargado, su {{Sueldo}} es el recibo y no se edita («Sale del recibo»); su {{Vacaciones}} queda vacía porque van dentro del recibo.",
-            "{{Extras}}: la suma de las líneas de extras ([[#cargar-extras-planilla]]). {{Vacaciones}}, {{Viáticos}} y {{Teléfono}}: montos del mes.",
+            "Un empleado {{Por recibo}} lleva la marca «recibo» junto al nombre: con el recibo cargado, su {{Sueldo}} es el recibo y no se edita («Sale del recibo»).",
+            "{{Extras}}: la suma de las líneas de extras ([[#cargar-extras-planilla]]). {{Viáticos}} y {{Teléfono}}: montos del mes. La planilla no tiene columna de vacaciones: las vacaciones van dentro del sueldo o del recibo (y las no gozadas de una liquidación final, como extra).",
             "{{Deudas}}: la cuota de los planes activos en pesos de la cuenta corriente del empleado. Editable por mes; al cerrar el período pasa a su cuenta corriente.",
             "{{Embargo}}: lo que suman los embargos vigentes del empleado ese mes (un porcentaje se calcula sobre el {{Recibo}}, o sobre el {{Sueldo}} mientras no haya recibo).",
-            "{{Total}} = Sueldo + Extras + Vacaciones + Viáticos − Deudas − Teléfono − Embargo. {{Pagado}}: la suma de los pagos registrados. {{Saldo}} = Total − Pagado; hacé clic en el saldo para ver y cargar los pagos.",
+            "{{Total}} = Sueldo + Extras + Viáticos − Deudas − Teléfono − Embargo. {{Pagado}}: la suma de los pagos registrados. {{Saldo}} = Total − Pagado; hacé clic en el saldo para ver y cargar los pagos.",
             "{{Transf. / Efectivo}}: cómo se sugiere pagar el total. Transferencia = recibo − embargo − descuentos (deudas y teléfono), sin pasar el total; efectivo = el resto del total. Sin recibo cargado muestra «—».",
           ],
         },
@@ -1516,7 +1524,7 @@ export const hrPage: GuidePage = {
           permission: "hr:write",
           prerequisites: ["La planilla tiene que estar en {{Borrador}}."],
           steps: [
-            "En la planilla del mes, hacé clic en la celda que querés cambiar: {{Sueldo}} (o {{SAC}}), {{Recibo}}, {{Vacaciones}}, {{Viáticos}}, {{Deudas}}, {{Teléfono}} o {{Embargo}}.",
+            "En la planilla del mes, hacé clic en la celda que querés cambiar: {{Sueldo}} (o {{SAC}}), {{Recibo}}, {{Viáticos}}, {{Deudas}}, {{Teléfono}} o {{Embargo}}.",
             "Escribí el monto (formato argentino, por ejemplo `950.000,50`). En {{Recibo}} podés dejarlo vacío para quitar el recibo.",
             "Apretá Enter o salí de la celda para guardar; Escape descarta el cambio.",
           ],
@@ -1785,7 +1793,7 @@ export const hrPage: GuidePage = {
                 {
                   label: "Fecha",
                   kind: "date",
-                  value: "05/11/2026",
+                  value: "05-11-2026",
                   marker: 2,
                 },
                 { label: "Monto", kind: "money", value: "530.000", marker: 2 },
@@ -1967,7 +1975,7 @@ export const hrPage: GuidePage = {
                 {
                   label: "Fecha",
                   kind: "date",
-                  value: "05/11/2026",
+                  value: "05-11-2026",
                   marker: 2,
                 },
               ],
@@ -2136,13 +2144,13 @@ export const hrPage: GuidePage = {
                 {
                   label: "Desde",
                   kind: "date",
-                  value: "05/01/2027",
+                  value: "05-01-2027",
                   marker: 2,
                 },
                 {
                   label: "Hasta",
                   kind: "date",
-                  value: "18/01/2027",
+                  value: "18-01-2027",
                   marker: 2,
                 },
                 {

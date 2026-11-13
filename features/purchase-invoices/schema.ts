@@ -225,6 +225,10 @@ const baseFields = {
   cost_center_id: optionalUuid,
   /** "A cargo de empleado"; undefined = leave it as it is. */
   charged_employee_id: optionalUuid,
+  /** «Corresponde a la actividad de Jouve». false: not income nor expense
+   *  (the net posts to «Cuenta particular de socios»); undefined = Jouve's
+   *  (an NC/ND follows its origin). */
+  is_operational: z.boolean().optional(),
   supplier_id: z.string().uuid("Proveedor requerido."),
   kind: z.enum(PURCHASE_INVOICE_KINDS),
   letter: letterNullable,
@@ -300,6 +304,7 @@ export const PurchaseInvoiceUpdateSchema = z
     account_id: baseFields.account_id,
     cost_center_id: baseFields.cost_center_id,
     charged_employee_id: baseFields.charged_employee_id,
+    is_operational: baseFields.is_operational,
     supplier_id: baseFields.supplier_id.optional(),
     kind: baseFields.kind.optional(),
     letter: baseFields.letter,
@@ -363,6 +368,8 @@ export type PurchaseInvoice = {
   /** "A cargo de empleado". Only the detail read carries it; a listed row
    *  leaves it undefined. */
   charged_employee_id?: string | null;
+  /** «Corresponde a la actividad de Jouve»; false = «No Jouve». */
+  is_operational?: boolean;
   supplier_id: string;
   supplier_legal_name: string;
   supplier_cuit: string | null;

@@ -7,7 +7,7 @@ select set_config('request.jwt.claims', '{"role":"service_role"}', true);
 
 begin;
 
-select plan(27);
+select plan(28);
 
 select set_config('request.jwt.claims', '{"role":"service_role"}', true);
 
@@ -46,8 +46,15 @@ select lives_ok(
 select is(
   (select array_agg(description || '=' || amount order by description)
      from public.payroll_entry_extras x join fs on fs.entry_id = x.entry_id),
-  array['Adelanto=50.00', 'Liquidación final: SAC proporcional (1er SAC 2088)=400.00'],
-  'it replaces the settlement extra and keeps the others'
+  array['Adelanto=50.00', 'Liquidación final: SAC proporcional (1er SAC 2088)=400.00',
+        'Liquidación final: Vacaciones no gozadas=250.00'],
+  'it replaces the settlement extras (SAC and vacations) and keeps the others'
+);
+
+select is(
+  (select vacaciones_monto from public.payroll_entries e join fs on fs.entry_id = e.id),
+  0.00::numeric,
+  'the vacations go as an extra, not in the hidden vacaciones column'
 );
 
 -- A failed SAC insert (null description) undoes the whole call.
@@ -64,8 +71,8 @@ select is(
   (select sueldo_neto || '/' || (select count(*) from public.payroll_entry_extras x
                                    where x.entry_id = e.id and x.description like 'Liquidación final:%')
      from public.payroll_entries e join fs on fs.entry_id = e.id),
-  '1100.00/1',
-  'and leaves the line and its SAC extra as they were'
+  '1100.00/2',
+  'and leaves the line and its settlement extras as they were'
 );
 
 -- 2. Vacation opening -------------------------------------------------------------

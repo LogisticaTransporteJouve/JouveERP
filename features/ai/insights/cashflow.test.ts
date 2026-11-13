@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { expandRecurringPayment, projectCashFlow } from "./cashflow";
+import { projectCashFlow } from "./cashflow";
 
 describe("projectCashFlow", () => {
   it("runs a positive balance forward with no events", () => {
@@ -49,52 +49,5 @@ describe("projectCashFlow", () => {
     expect(p.totalIn).toBe(200);
     expect(p.totalOut).toBe(-50);
     expect(p.weeks[0]?.closing).toBe(150);
-  });
-});
-
-describe("expandRecurringPayment", () => {
-  it("expands a monthly payment across the horizon", () => {
-    const events = expandRecurringPayment({
-      nextDueDate: "2026-07-05",
-      frequency: "monthly",
-      endDate: null,
-      amount: 1000,
-      fromDate: "2026-07-01",
-      toDate: "2026-10-01",
-      label: "alquiler",
-    });
-    expect(events.map((e) => e.date)).toEqual([
-      "2026-07-05",
-      "2026-08-05",
-      "2026-09-05",
-    ]);
-    expect(events.every((e) => e.amount === -1000)).toBe(true);
-  });
-
-  it("advances a past next_due_date forward and respects end_date", () => {
-    const events = expandRecurringPayment({
-      nextDueDate: "2026-01-10",
-      frequency: "monthly",
-      endDate: "2026-08-31",
-      amount: 500,
-      fromDate: "2026-07-01",
-      toDate: "2026-12-01",
-      label: "préstamo",
-    });
-    // Catches up to July/Aug only (end_date stops Sep+).
-    expect(events.map((e) => e.date)).toEqual(["2026-07-10", "2026-08-10"]);
-  });
-
-  it("expands weekly payments", () => {
-    const events = expandRecurringPayment({
-      nextDueDate: "2026-07-01",
-      frequency: "weekly",
-      endDate: null,
-      amount: 100,
-      fromDate: "2026-07-01",
-      toDate: "2026-07-22",
-      label: "x",
-    });
-    expect(events).toHaveLength(3);
   });
 });

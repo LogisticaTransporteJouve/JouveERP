@@ -5,16 +5,12 @@ import { arsEquivalent, fetchLatestUsdRate } from "@/lib/fx";
 import { paginateRange, type PageError } from "@/lib/supabase/paginate";
 import { getServiceClient } from "@/lib/supabase/service";
 
-import {
-  expandRecurringPayment,
-  type CashEvent,
-  type Frequency,
-} from "./cashflow";
+import type { CashEvent } from "./cashflow";
 
 // Server-only data gathering for the analyst (runs in the Inngest cron with the
 // service client, no user context). ARS-only for the MVP — FX projection is a
 // follow-up. Aging is placed at coarse representative weeks (more overdue =
-// collected/paid sooner); commitments (recurring payments, checks) are dated.
+// collected/paid sooner); commitments (checks) are dated.
 
 /** A failed read throws: the cron step fails and retries instead of
  *  publishing an insight computed from a figure that silently became 0. */
@@ -35,9 +31,6 @@ function addDays(date: string, days: number): string {
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
 }
-
-const isFrequency = (v: string): v is Frequency =>
-  v === "weekly" || v === "monthly" || v === "quarterly" || v === "yearly";
 
 export type CashFlowInputs = {
   startingBalance: number;
@@ -111,34 +104,6 @@ export async function gatherCashFlow(
   const service = getServiceClient();
   const toDate = addDays(today, weeks * 7);
   const events: CashEvent[] = [];
-
-  // Recurring payments (ARS, active) → dated outflows.
-  const recurring = must(
-    await paginateRange((from, to) =>
-      service
-        .from("recurring_payments")
-        .select("id, description, amount, frequency, next_due_date, end_date")
-        .eq("is_active", true)
-        .eq("currency", "ARS")
-        .order("id", { ascending: true })
-        .range(from, to),
-    ),
-    "recurring",
-  );
-  for (const rp of recurring) {
-    if (!isFrequency(rp.frequency)) continue;
-    events.push(
-      ...expandRecurringPayment({
-        nextDueDate: rp.next_due_date,
-        frequency: rp.frequency,
-        endDate: rp.end_date,
-        amount: Number(rp.amount),
-        fromDate: today,
-        toDate,
-        label: rp.description,
-      }),
-    );
-  }
 
   // NOTE: issued checks (cheques propios) are deliberately NOT counted as future
   // outflows — issuing one is recorded as a cash transaction via its payment

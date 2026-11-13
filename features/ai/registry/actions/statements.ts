@@ -40,6 +40,7 @@ import {
   reachedCap,
   type AiRunResult,
 } from "../result";
+import { formatArgentineDate } from "@/lib/format";
 
 // Financial statements built from ai_account_type_totals (one SQL aggregate
 // per period, grouped by account type and EERR category), plus loans and
@@ -402,8 +403,8 @@ export const getExchangeRates = defineAiAction({
       const rate = res.data.rate;
       return okResult(
         rate === null
-          ? `Sin cotización USD cargada a ${date}.`
-          : `USD a ${date}: ${rate.toLocaleString("es-AR")}.`,
+          ? `Sin cotización USD cargada a ${formatArgentineDate(date)}.`
+          : `USD a ${formatArgentineDate(date)}: ${rate.toLocaleString("es-AR")}.`,
         res.data,
         rate === null ? {} : { exchangeRate: { currency: "USD", rate, date } },
       );
@@ -414,7 +415,7 @@ export const getExchangeRates = defineAiAction({
     return okResult(
       `${res.data.length} cotizaciones${
         latest
-          ? ` · última ${latest.currency} ${latest.rate.toLocaleString("es-AR")} (${latest.rate_date})`
+          ? ` · última ${latest.currency} ${latest.rate.toLocaleString("es-AR")} (${formatArgentineDate(latest.rate_date)})`
           : ""
       }.`,
       res.data,

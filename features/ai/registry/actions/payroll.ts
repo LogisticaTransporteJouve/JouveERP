@@ -32,7 +32,7 @@ import {
   PeriodRangeInputSchema,
   VacationOverviewInputSchema,
 } from "@/features/hr/reports-schema";
-import { round2 } from "@/lib/format";
+import { formatArgentineDate, round2 } from "@/lib/format";
 
 import { defineAiAction } from "../define";
 import { errResult, money, okResult, reachedCap } from "../result";
@@ -277,7 +277,7 @@ export const getPayrollPeriodDetail = defineAiAction({
   sideEffect: "read",
   sources: ["payroll_periods", "v_payroll_entries_with_payments"],
   description:
-    "Planilla de un período, por empleado: modalidad (por recibo: el sueldo sale del recibo y las vacaciones van dentro; sueldo acordado: se carga a mano), sueldo pactado, neto del recibo del liquidador, otros (pactado − recibo), extras, vacaciones, viáticos, descuentos y embargo, total, pagado (por transferencia y efectivo, y por canal: a libros y a gestión), saldo, la parte de libros (recibo − embargo: el sistema manda eso al canal fiscal y el resto al interno) y el reparto sugerido por método (transferencia = recibo − embargo − descuentos; efectivo = el resto). Para el SAC usá kind 'sac' con month 6 (1.er semestre) o 12 (2.º).",
+    "Planilla de un período, por empleado: modalidad (por recibo: el sueldo sale del recibo; sueldo acordado: se carga a mano), sueldo pactado, neto del recibo del liquidador, otros (pactado − recibo), extras, viáticos, descuentos y embargo, total, pagado (por transferencia y efectivo, y por canal: a libros y a gestión), saldo, la parte de libros (recibo − embargo: el sistema manda eso al canal fiscal y el resto al interno) y el reparto sugerido por método (transferencia = recibo − embargo − descuentos; efectivo = el resto). Para el SAC usá kind 'sac' con month 6 (1.er semestre) o 12 (2.º).",
   input: z.object({
     year: z.number().int().describe("Año, ej. 2026."),
     month: z.number().int().min(1).max(12).describe("Mes 1-12."),
@@ -307,7 +307,6 @@ export const getPayrollPeriodDetail = defineAiAction({
       recibo_neto: e.recibo_neto,
       otros: payrollOtros(e),
       extras: e.extras_total,
-      vacaciones: e.vacaciones_monto,
       viaticos: e.viaticos,
       deudas: e.deudas,
       telefono: e.telefono,
@@ -385,7 +384,7 @@ export const getFinalSettlement = defineAiAction({
     if (!res.ok) return errResult(res.error);
     const d = res.data;
     return okResult(
-      `Liquidación final (baja ${d.termination_date}): sueldo ${money(
+      `Liquidación final (baja ${formatArgentineDate(d.termination_date)}): sueldo ${money(
         d.prorated_salary,
       )} por ${d.days_worked} días · vacaciones ${d.vacation_days} días ${money(
         d.vacation_amount,

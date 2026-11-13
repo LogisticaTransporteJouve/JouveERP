@@ -36,14 +36,14 @@ export const adminPage: GuidePage = {
               [
                 "~maria@jouve.com.ar",
                 "~Finanzas",
-                "~04/11/2026 09:12",
-                "~01/03/2026 10:00",
+                "~04-11-2026 09:12",
+                "~01-03-2026 10:00",
               ],
               [
                 "~juan@jouve.com.ar",
                 "~Operaciones",
-                "~03/11/2026 18:40",
-                "~15/05/2026 11:20",
+                "~03-11-2026 18:40",
+                "~15-05-2026 11:20",
               ],
             ],
             rowMenu: true,
@@ -801,7 +801,7 @@ export const adminPage: GuidePage = {
             ],
             rows: [
               [
-                "~04/11/2026 10:20",
+                "~04-11-2026 10:20",
                 "~Clientes",
                 "~clientes.xlsx",
                 "~182",
@@ -1112,7 +1112,7 @@ export const adminPage: GuidePage = {
       permission: "audit:read",
       intro: [
         "Quién hizo qué y cuándo: usuarios, el asistente IA (con el usuario que lo pidió) y los procesos automáticos. Los eventos se guardan 400 días.",
-        "La tabla muestra {{Fecha}}, {{Quién}} (el usuario, «Asistente IA (por …)» o {{Sistema}}), {{Qué hizo}} en una frase («emitió la Factura A 0003-00022312 a TRANSPORTES SUR SA por $ 1.234.567,00», «registró el Recibo 0001-00000045 de AGRO PAMPA», «programó el viaje del 07/11/2026 con AE463UF») y {{Sobre qué}}: el comprobante, recibo, viaje, cliente o proveedor, con link a su pantalla. Al llegar al final de la lista se cargan solos los eventos siguientes.",
+        "La tabla muestra {{Fecha}}, {{Quién}} (el usuario, «Asistente IA (por …)» o {{Sistema}}), {{Qué hizo}} en una frase («emitió la Factura A 0003-00022312 a TRANSPORTES SUR SA por $ 1.234.567,00», «registró el Recibo 0001-00000045 de AGRO PAMPA», «programó el viaje del 07-11-2026 con AE463UF») y {{Sobre qué}}: el comprobante, recibo, viaje, cliente o proveedor, con link a su pantalla. Al llegar al final de la lista se cargan solos los eventos siguientes.",
         "Las consultas seguidas que hace el asistente para responder una pregunta se muestran en una sola fila («consultó IVA Ventas, IVA Compras e Impuestos (09/2026)»). Para no verlas, prendé {{Ocultar consultas del asistente}}.",
         "El detalle de una factura, un recibo, una orden de pago, una compra o un viaje también muestra su {{Historial}}: quién lo creó, editó, emitió o anuló y cuándo, con las mismas frases. Lo ve solo quien puede ver la auditoría.",
       ],
@@ -1138,13 +1138,13 @@ export const adminPage: GuidePage = {
             columns: ["Fecha", "Quién", "Qué hizo", "Sobre qué"],
             rows: [
               [
-                "~5 nov 2026, 09:31",
+                "~05-11-2026 09:31",
                 "~María Gómez",
                 "~emitió la Factura A 0003-00022312 a TRANSPORTES SUR SA por $ 1.234.567,00",
                 "~Factura A 0003-00022312 · TRANSPORTES SUR SA",
               ],
               [
-                "~5 nov 2026, 09:20",
+                "~05-11-2026 09:20",
                 "~Asistente IA (por Tomás)",
                 "~consultó IVA Ventas, IVA Compras e Impuestos (09/2026)",
                 "~—",

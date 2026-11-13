@@ -12,6 +12,7 @@ import {
   ListToolbar,
 } from "@/components/list-toolbar";
 import { PeriodFilter } from "@/components/period-filter";
+import { NotJouveBadge } from "@/components/not-jouve-badge";
 import { usePageChannelScope } from "@/components/providers/scope-provider";
 import { scopedHref } from "@/lib/scope";
 import { SendByEmailDialog } from "@/components/send-by-email-dialog";
@@ -129,9 +130,15 @@ function buildInvoiceColumns(
       header: "Estado",
       enableSorting: false,
       cell: ({ row }) => (
-        <Badge variant="secondary" className={STATUS_TONE[row.original.status]}>
-          {INVOICE_STATUS_LABEL[row.original.status]}
-        </Badge>
+        <div className="flex flex-wrap items-center gap-1">
+          <Badge
+            variant="secondary"
+            className={STATUS_TONE[row.original.status]}
+          >
+            {INVOICE_STATUS_LABEL[row.original.status]}
+          </Badge>
+          {!row.original.is_operational && <NotJouveBadge />}
+        </div>
       ),
     },
     {
@@ -216,10 +223,7 @@ export function ComprobantesTable({
               onChange={(next) => update({ group: next })}
             />
             <ExportButton resource="invoices" />
-            {/* A segregated channel's sales come from ARCA (its POS). */}
-            {canIssue && !scope.channelId && (
-              <NewInvoiceDialog channels={channels} />
-            )}
+            {canIssue && <NewInvoiceDialog channels={channels} />}
           </>
         }
       >
