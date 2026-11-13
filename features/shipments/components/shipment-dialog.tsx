@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -118,6 +118,9 @@ export function ShipmentDialog({
     resolver: zodResolver(FormSchema),
     defaultValues: toDefaults(shipment),
   });
+
+  // The unload day picker starts at the load day.
+  const loadDate = useWatch({ control: form.control, name: "scheduled_date" });
 
   const [client, setClient] = useState<PickedClient | null>(() =>
     pickedFrom(shipment),
@@ -288,7 +291,7 @@ export function ShipmentDialog({
                       <DatePicker
                         {...field}
                         clearable
-                        min={form.watch("scheduled_date") || undefined}
+                        min={loadDate || undefined}
                       />
                     </FormControl>
                     <FormMessage />
