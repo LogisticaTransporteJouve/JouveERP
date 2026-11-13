@@ -159,6 +159,10 @@ export interface LoanListItem {
   is_open_ended: boolean;
   /** Monthly interest % of an open-ended loan. */
   monthly_rate: number | null;
+  /** A savings plan imputed to an employee: each paid cuota shows on their
+   *  planilla as received (management only; the books keep the plan). */
+  salary_employee_id: string | null;
+  salary_employee_name: string | null;
   // computed summary
   /** Paid through Caja (a cuota paid before the loan was loaded is not). */
   paid_total: number;
@@ -288,6 +292,12 @@ export const CreateLoanSchema = z
       .max(100, "Interés inválido.")
       .nullable()
       .optional(),
+    /** «Se le imputa a»: only a savings plan. */
+    salary_employee_id: z.string().uuid().nullable().optional(),
+  })
+  .refine((v) => !v.salary_employee_id || v.kind === "plan_ahorro", {
+    message: "Solo un plan de ahorro se le imputa a un empleado.",
+    path: ["salary_employee_id"],
   })
   .refine(
     (v) =>

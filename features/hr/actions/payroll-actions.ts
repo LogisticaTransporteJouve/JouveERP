@@ -130,7 +130,7 @@ export async function getPayrollPeriodAction(
   const { data: entries, error: entriesErr } = await supabase
     .from("v_payroll_entries_with_payments")
     .select(
-      "id, period_id, employee_id, sueldo_neto, extras_total, viaticos, deudas, telefono, embargo, recibo_neto, total_a_pagar, paid_total, paid_transferencia, paid_efectivo, saldo, payments_count, notes, fiscal_share, paid_fiscal, paid_internal",
+      "id, period_id, employee_id, sueldo_neto, extras_total, viaticos, deudas, telefono, embargo, recibo_neto, total_a_pagar, paid_total, paid_transferencia, paid_efectivo, saldo, payments_count, notes, fiscal_share, paid_fiscal, paid_internal, paid_in_kind",
     )
     .eq("period_id", period.id);
 
@@ -238,6 +238,7 @@ export async function getPayrollPeriodAction(
         fiscal_share: Number(row.fiscal_share ?? 0),
         paid_fiscal: Number(row.paid_fiscal ?? 0),
         paid_internal: Number(row.paid_internal ?? 0),
+        paid_in_kind: Number(row.paid_in_kind ?? 0),
         notes: row.notes ?? null,
       };
     })
@@ -591,7 +592,7 @@ export async function listPayrollEntryExtrasAction(
   const { data, error } = await supabase
     .from("payroll_entry_extras")
     .select(
-      "id, entry_id, amount, description, sort_order, created_by, created_at",
+      "id, entry_id, amount, description, sort_order, created_by, created_at, loan_installment_id",
     )
     .eq("entry_id", entryId)
     .order("sort_order");

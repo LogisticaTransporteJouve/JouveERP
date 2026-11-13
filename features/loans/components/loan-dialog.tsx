@@ -40,6 +40,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useAccountOptions } from "@/features/accounts/hooks/use-accounts";
+import { EmployeeImputationSelect } from "@/features/hr/components/employee-imputation-select";
 import { formatArgentineDate, formatMoney, parseArAmount } from "@/lib/format";
 import { isMainChannel } from "@/lib/scope";
 import { generateInstallments } from "@/lib/loans/amortization";
@@ -78,6 +79,7 @@ const FormSchema = z.object({
   installments_count: z.string(),
   first_due_date: z.string(),
   notes: z.string().trim().max(2000),
+  salary_employee_id: z.string(),
 });
 
 type FormValues = z.infer<typeof FormSchema>;
@@ -98,6 +100,7 @@ const DEFAULTS: FormValues = {
   installments_count: "",
   first_due_date: "",
   notes: "",
+  salary_employee_id: "",
 };
 
 /** How the cuotas are set: the bank's plan pasted, the French system or
@@ -255,6 +258,10 @@ export function LoanDialog({
       tea: rateOrNull(values.tea),
       cft: rateOrNull(values.cft),
       notes: values.notes,
+      salary_employee_id:
+        values.kind === "plan_ahorro" && values.salary_employee_id !== ""
+          ? values.salary_employee_id
+          : null,
     };
     const onDone = {
       onSuccess: () => {
@@ -392,9 +399,23 @@ export function LoanDialog({
               />
             </div>
             {kind === "plan_ahorro" && (
-              <p className="text-muted-foreground text-sm">
-                Las cuotas suman a Rodados en plan de ahorro; no hay desembolso.
-              </p>
+              <>
+                <p className="text-muted-foreground text-sm">
+                  Las cuotas suman a Rodados en plan de ahorro; no hay
+                  desembolso.
+                </p>
+                <FormField
+                  control={form.control}
+                  name="salary_employee_id"
+                  render={({ field }) => (
+                    <EmployeeImputationSelect
+                      id="loan-salary-employee"
+                      value={field.value}
+                      onChange={field.onChange}
+                    />
+                  )}
+                />
+              </>
             )}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <FormField

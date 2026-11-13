@@ -277,7 +277,7 @@ export const getPayrollPeriodDetail = defineAiAction({
   sideEffect: "read",
   sources: ["payroll_periods", "v_payroll_entries_with_payments"],
   description:
-    "Planilla de un período, por empleado: modalidad (por recibo: el sueldo sale del recibo; sueldo acordado: se carga a mano), sueldo pactado, neto del recibo del liquidador, otros (pactado − recibo), extras, viáticos, descuentos y embargo, total, pagado (por transferencia y efectivo, y por canal: a libros y a gestión), saldo, la parte de libros (recibo − embargo: el sistema manda eso al canal fiscal y el resto al interno) y el reparto sugerido por método (transferencia = recibo − embargo − descuentos; efectivo = el resto). Para el SAC usá kind 'sac' con month 6 (1.er semestre) o 12 (2.º).",
+    "Planilla de un período, por empleado: modalidad (por recibo: el sueldo sale del recibo; sueldo acordado: se carga a mano), sueldo pactado, neto del recibo del liquidador, otros (pactado − recibo), extras, viáticos, descuentos y embargo, total, pagado (por transferencia y efectivo, y por canal: a libros y a gestión; pagado_plan_ahorro = cuotas de un plan de ahorro imputado al empleado, un extra que ya figura pagado, sin caja ni asiento), saldo, la parte de libros (recibo − embargo: el sistema manda eso al canal fiscal y el resto al interno) y el reparto sugerido por método (transferencia = recibo − embargo − descuentos; efectivo = el resto). Para el SAC usá kind 'sac' con month 6 (1.er semestre) o 12 (2.º).",
   input: z.object({
     year: z.number().int().describe("Año, ej. 2026."),
     month: z.number().int().min(1).max(12).describe("Mes 1-12."),
@@ -318,6 +318,7 @@ export const getPayrollPeriodDetail = defineAiAction({
       parte_libros: e.fiscal_share,
       pagado_libros: e.paid_fiscal,
       pagado_gestion: e.paid_internal,
+      pagado_plan_ahorro: e.paid_in_kind,
       saldo: e.saldo,
       sugerido: suggestedSplit(e),
     }));

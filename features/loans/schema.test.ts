@@ -143,6 +143,22 @@ describe("open-ended loans and payments at a rate", () => {
     ).toBe(true);
   });
 
+  it("only a savings plan is imputed to an employee", () => {
+    const employee = "00000000-0000-4000-8000-0000000000e1";
+    expect(
+      CreateLoanSchema.safeParse({ ...base, salary_employee_id: employee })
+        .success,
+    ).toBe(false);
+    expect(
+      CreateLoanSchema.safeParse({
+        ...base,
+        currency: "ARS",
+        kind: "plan_ahorro",
+        salary_employee_id: employee,
+      }).success,
+    ).toBe(true);
+  });
+
   it("an open-ended loan is a préstamo, never a leasing nor a plan", () => {
     expect(
       CreateLoanSchema.safeParse({

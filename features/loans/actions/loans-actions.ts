@@ -53,7 +53,7 @@ import {
 } from "../schema";
 
 const LOAN_COLUMNS =
-  "id, kind, description, lender, principal, currency, channel_id, installments_count, first_due_date, status, notes, created_at, disbursement_transaction_id, loan_number, account_id, start_date, original_amount, tna, tea, cft, is_open_ended, monthly_rate, channel:invoicing_channels(name, is_fiscal), account:accounts(name)";
+  "id, kind, description, lender, principal, currency, channel_id, installments_count, first_due_date, status, notes, created_at, disbursement_transaction_id, loan_number, account_id, start_date, original_amount, tna, tea, cft, is_open_ended, monthly_rate, salary_employee_id, channel:invoicing_channels(name, is_fiscal), account:accounts(name), salary_employee:employees(legal_name)";
 
 const numOrNull = (v: number | string | null) =>
   v === null ? null : Number(v);
@@ -70,6 +70,13 @@ function readChannelIsFiscal(
 ): boolean {
   const c = Array.isArray(channel) ? channel[0] : channel;
   return c?.is_fiscal ?? false;
+}
+
+function readEmployeeName(
+  employee: { legal_name: string } | { legal_name: string }[] | null,
+): string | null {
+  const e = Array.isArray(employee) ? employee[0] : employee;
+  return e?.legal_name ?? null;
 }
 
 type InstallmentAgg = {
@@ -191,6 +198,8 @@ function toListItem(
       | { name: string; is_fiscal: boolean }[]
       | null;
     account: { name: string } | { name: string }[] | null;
+    salary_employee_id: string | null;
+    salary_employee: { legal_name: string } | { legal_name: string }[] | null;
   },
   agg: ReturnType<typeof summarize>,
 ): LoanListItem {
@@ -220,6 +229,8 @@ function toListItem(
     cft: numOrNull(loan.cft),
     is_open_ended: loan.is_open_ended,
     monthly_rate: numOrNull(loan.monthly_rate),
+    salary_employee_id: loan.salary_employee_id,
+    salary_employee_name: readEmployeeName(loan.salary_employee),
     ...agg,
   };
 }
@@ -694,6 +705,13 @@ export async function createLoanAction(
     };
   }
   const d = parsed.data;
+  // Imputing a plan to an employee writes their planilla on every cuota paid.
+  if (d.salary_employee_id && !userCan(ctx.access, "hr:write")) {
+    return {
+      ok: false,
+      error: "Sin permiso para imputar el plan a un empleado.",
+    };
+  }
   const supabase = await createSupabaseClient();
 
   // An open-ended loan has no schedule: the database generates its next
@@ -783,6 +801,8 @@ export async function createLoanAction(
       tna: d.tna ?? null,
       tea: d.tea ?? null,
       cft: d.cft ?? null,
+      salary_employee_id:
+        d.kind === "plan_ahorro" ? (d.salary_employee_id ?? null) : null,
     },
     p_installments: schedule,
   });
@@ -796,7 +816,17 @@ export async function createLoanAction(
     return { ok: false, error: "No se pudo crear el préstamo." };
   }
 
-  await logAudit("loan.created", ctx.userId, { kind: d.kind }, loanId);
+  await logAudit(
+    "loan.created",
+    ctx.userId,
+    {
+      kind: d.kind,
+      ...(d.kind === "plan_ahorro" && d.salary_employee_id
+        ? { salary_employee_id: d.salary_employee_id }
+        : {}),
+    },
+    loanId,
+  );
   return { ok: true, data: { id: loanId } };
 }
 

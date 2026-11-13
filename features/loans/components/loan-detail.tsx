@@ -191,6 +191,8 @@ export function LoanDetail({
             <span className="text-muted-foreground">
               Las cuotas pagadas suman a Rodados en plan de ahorro; no hay
               desembolso.
+              {loan.salary_employee_name &&
+                ` Se le imputa a ${loan.salary_employee_name}: cada cuota pagada figura en su planilla del mes como pago recibido.`}
             </span>
           ) : loan.installments.some((i) => i.paid_outside) ? (
             <span className="text-muted-foreground">

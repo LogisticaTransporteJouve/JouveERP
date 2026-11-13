@@ -32,6 +32,8 @@ const loan: Loan = {
   cft: null,
   is_open_ended: false,
   monthly_rate: null,
+  salary_employee_id: null,
+  salary_employee_name: null,
   paid_count: 0,
   interest_paid: 0,
   next_due_amount: 1000,
