@@ -18,6 +18,7 @@ const base = {
   paid_transferencia: 0,
   paid_efectivo: 0,
   paid_in_kind: 0,
+  paid_advance: 0,
 };
 
 describe("payrollOtros", () => {
@@ -87,5 +88,22 @@ describe("a savings plan cuota imputed to the employee", () => {
         paid_in_kind: 100_000,
       }),
     ).toEqual(suggestedSplit(base));
+  });
+});
+
+describe("an adelanto discounted this month", () => {
+  it("is already paid: the split matches the same amount kept in Deudas", () => {
+    // Before, a 15k adelanto sat in Deudas (total 795k). Now Deudas keeps the
+    // 10k préstamo cuota and the adelanto is paid: total 810k, 15k paid.
+    expect(
+      suggestedSplit({
+        ...base,
+        deudas: 10_000,
+        total_a_pagar: 810_000,
+        paid_advance: 15_000,
+      }),
+    ).toEqual(
+      suggestedSplit({ ...base, deudas: 25_000, total_a_pagar: 795_000 }),
+    );
   });
 });

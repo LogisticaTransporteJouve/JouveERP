@@ -11,6 +11,8 @@ export const payrollKeys = {
   entries: (periodId: string) =>
     [...payrollKeys.all, "entries", periodId] as const,
   extras: (entryId: string) => [...payrollKeys.all, "extras", entryId] as const,
+  paidSummary: (entryId: string) =>
+    [...payrollKeys.all, "paid-summary", entryId] as const,
   garnishments: (employeeId: string) =>
     [...payrollKeys.all, "garnishments", employeeId] as const,
   finalSettlement: (employeeId: string) =>

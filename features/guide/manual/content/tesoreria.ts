@@ -265,7 +265,7 @@ export const treasuryPage: GuidePage = {
               kind: "dialog",
               title: "Adelanto a empleado",
               description:
-                "Sale de la cuenta elegida y va a la cuenta corriente del empleado (no es un gasto). Se descuenta entero en la planilla del sueldo que elijas.",
+                "Sale de la cuenta elegida y va a la cuenta corriente del empleado (no es un gasto). En la planilla del sueldo que elijas cuenta como ya pagado (suma en Pagado).",
               fields: [
                 { label: "Empleado", kind: "select", marker: 2, wide: true },
                 { label: "Cuenta", kind: "select", value: "Caja chica (ARS)" },

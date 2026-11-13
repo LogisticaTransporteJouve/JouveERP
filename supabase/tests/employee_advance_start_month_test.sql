@@ -1,6 +1,6 @@
 -- «Adelanto a empleado» with the payroll month chosen (20261112160000): the
--- plan starts in the picked month, so its installment is the Deudas of that
--- planilla and not of the date's; the window is the month before through two
+-- plan starts in the picked month, so it is paid on that planilla
+-- (adelantos, 20261113150000) and not on the date's; the window is the month before through two
 -- months after; the default stays the date's month. One transaction, rolled
 -- back.
 
@@ -44,7 +44,7 @@ select is(
 );
 
 select results_eq(
-  $$select p.month, e.deudas from public.payroll_entries e
+  $$select p.month, e.adelantos from public.payroll_entries e
       join public.payroll_periods p on p.id = e.period_id
      where e.employee_id = '00000000-0000-0000-0000-0000005a7e01'
      order by p.month$$,

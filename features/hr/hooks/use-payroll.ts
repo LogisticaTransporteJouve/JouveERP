@@ -23,6 +23,7 @@ import {
   seedSacPeriodAction,
   updatePayrollEntryAction,
 } from "../actions/payroll-actions";
+import { getPayrollPaidSummaryAction } from "../actions/payroll-paid-summary-actions";
 import { payrollKeys } from "../lib/payroll-keys";
 import type {
   PayrollOverrideField,
@@ -144,6 +145,16 @@ export function useResetPayrollOverride(year: number, month: number) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: payrollKeys.period(year, month) });
     },
+  });
+}
+
+// ─── How Pagado was paid ─────────────────────────────────────────────────────
+
+export function usePayrollPaidSummary(entryId: string) {
+  return useQuery({
+    queryKey: payrollKeys.paidSummary(entryId),
+    queryFn: () =>
+      runAction(() => getPayrollPaidSummaryAction({ entry_id: entryId })),
   });
 }
 

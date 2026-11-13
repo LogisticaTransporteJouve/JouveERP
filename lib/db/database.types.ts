@@ -6085,6 +6085,7 @@ export type Database = {
       }
       payroll_entries: {
         Row: {
+          adelantos: number
           created_at: string
           created_by: string | null
           deudas: number
@@ -6103,6 +6104,7 @@ export type Database = {
           viaticos: number
         }
         Insert: {
+          adelantos?: number
           created_at?: string
           created_by?: string | null
           deudas?: number
@@ -6121,6 +6123,7 @@ export type Database = {
           viaticos?: number
         }
         Update: {
+          adelantos?: number
           created_at?: string
           created_by?: string | null
           deudas?: number
@@ -9224,6 +9227,7 @@ export type Database = {
           extras_total: number | null
           id: string | null
           notes: string | null
+          paid_advance: number | null
           paid_in_kind: number | null
           period_id: string | null
           recibo_neto: number | null
@@ -9261,6 +9265,7 @@ export type Database = {
           fiscal_share: number | null
           id: string | null
           notes: string | null
+          paid_advance: number | null
           paid_efectivo: number | null
           paid_fiscal: number | null
           paid_in_kind: number | null
@@ -10836,6 +10841,10 @@ export type Database = {
         Args: { p_id: string; p_source: string }
         Returns: string[]
       }
+      debt_plan_is_advance: {
+        Args: { p_installment: number; p_total: number }
+        Returns: boolean
+      }
       delete_chat_draft_file: {
         Args: { p_file_id: string; p_user_id: string }
         Returns: {
@@ -11542,6 +11551,10 @@ export type Database = {
       }
       payroll_garnishment_amount: {
         Args: { p_base: number; p_employee_id: string; p_period_id: string }
+        Returns: number
+      }
+      payroll_plan_advances: {
+        Args: { p_employee_id: string; p_period_id: string }
         Returns: number
       }
       payroll_plan_installments: {

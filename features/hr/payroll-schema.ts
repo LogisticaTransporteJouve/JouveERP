@@ -148,6 +148,9 @@ export type PayrollEntryResolved = {
   /** Cuotas of a savings plan imputed to the employee: in the total and
    *  already paid (the cuota is the payment; no cash, no journal entry). */
   paid_in_kind: number;
+  /** Adelantos discounted this month: already paid from a cash or bank
+   *  account, so the planilla counts them as paid (not in Deudas). */
+  paid_advance: number;
   notes: string | null;
 };
 
@@ -251,6 +254,28 @@ export function isPayrollPaymentMethod(
     (PAYROLL_PAYMENT_METHODS as readonly string[]).includes(value)
   );
 }
+
+// ─── How Pagado was paid ─────────────────────────────────────────────────────
+
+export const PayrollPaidSummarySchema = z.object({
+  entry_id: z.string().uuid(),
+});
+
+/** One line of a planilla row's Pagado: a salary payment (by method and
+ *  channel), an adelanto discounted that month, or a savings plan cuota. */
+export type PayrollPaidLine = {
+  id: string;
+  kind: "payment" | "advance" | "savings_plan";
+  /** YYYY-MM-DD; null when the adelanto's cash movement is not found. */
+  date: string | null;
+  description: string | null;
+  method: PayrollPaymentMethod | null;
+  /** Payments only: true = libros, false = gestión. */
+  is_fiscal: boolean | null;
+  /** null without accounts:read or for a savings plan cuota. */
+  account_name: string | null;
+  amount: number;
+};
 
 // ─── Extras ──────────────────────────────────────────────────────────────────
 

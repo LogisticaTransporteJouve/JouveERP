@@ -545,7 +545,7 @@ export const hrPage: GuidePage = {
           after: [
             "Se crea un egreso en la cuenta elegida y su asiento contra **Anticipos al personal** (un activo, no un gasto).",
             "En la cuenta corriente aparece el movimiento ({{Adelanto}} o {{Préstamo}}) con origen {{Caja}} y un plan con el total, la cuota (en un adelanto, el total) y primer mes el sueldo elegido.",
-            "Las planillas mensuales en borrador recalculan la columna {{Deudas}} del empleado con la cuota (solo planes en pesos).",
+            "Las planillas mensuales en borrador lo toman solas (solo planes en pesos): un adelanto suma en {{Pagado}} del sueldo elegido, porque ya se pagó; un préstamo descuenta su cuota en {{Deudas}}.",
           ],
           errors: [
             {
@@ -1480,11 +1480,11 @@ export const hrPage: GuidePage = {
             "{{Sueldo}} (en el SAC, {{SAC}}): el sueldo pactado del mes. {{Recibo}}: el neto del recibo del liquidador; vacío = sin recibo cargado. {{Otros}}: sueldo pactado − neto del recibo.",
             "Un empleado {{Por recibo}} lleva la marca «recibo» junto al nombre: con el recibo cargado, su {{Sueldo}} es el recibo y no se edita («Sale del recibo»).",
             "{{Extras}}: la suma de las líneas de extras ([[#cargar-extras-planilla]]). {{Viáticos}} y {{Teléfono}}: montos del mes. La planilla no tiene columna de vacaciones: las vacaciones van dentro del sueldo o del recibo (y las no gozadas de una liquidación final, como extra).",
-            "{{Deudas}}: la cuota de los planes activos en pesos de la cuenta corriente del empleado. Editable por mes; al cerrar el período pasa a su cuenta corriente.",
+            "{{Deudas}}: la cuota de los préstamos activos en pesos de la cuenta corriente del empleado. Editable por mes; al cerrar el período pasa a su cuenta corriente. Los adelantos no van acá: ya están pagados y suman en {{Pagado}}.",
             "{{Embargo}}: lo que suman los embargos vigentes del empleado ese mes (un porcentaje se calcula sobre el {{Recibo}}, o sobre el {{Sueldo}} mientras no haya recibo).",
-            "{{Total}} = Sueldo + Extras + Viáticos − Deudas − Teléfono − Embargo. {{Pagado}}: la suma de los pagos registrados. {{Saldo}} = Total − Pagado; hacé clic en el saldo para ver y cargar los pagos.",
+            "{{Total}} = Sueldo + Extras + Viáticos − Deudas − Teléfono − Embargo. {{Pagado}}: la suma de los pagos registrados y de los adelantos que se descuentan ese mes. Haciendo clic en el monto se abre cómo cobró el empleado ese mes: cada pago (transferencia o efectivo, libros o gestión), cada adelanto y cada cuota de plan de ahorro, con su fecha y su cuenta. {{Saldo}} = Total − Pagado; hacé clic en el saldo para ver y cargar los pagos.",
             "Si la empresa paga un plan de ahorro que se le imputa al empleado (en Préstamos, {{Se le imputa a}}), cada cuota pagada entra como el extra «Plan de ahorro: <descripción> · cuota N», marcado «Ya pagado»: suma al {{Total}} y al {{Pagado}}, el {{Saldo}} no cambia y no entra en la transferencia ni el efectivo sugeridos. No hace asiento ni pago de sueldo (la cuota es el movimiento), no cuenta para el SAC y no se puede quitar desde la planilla: sale del pago de la cuota.",
-            "{{Transf. / Efectivo}}: cómo se sugiere pagar el total. Transferencia = recibo − embargo − descuentos (deudas y teléfono), sin pasar el total; efectivo = el resto del total. Sin recibo cargado muestra «—».",
+            "{{Transf. / Efectivo}}: cómo se sugiere pagar el total. Transferencia = recibo − embargo − descuentos (deudas, adelantos y teléfono), sin pasar el total; efectivo = el resto del total. Sin recibo cargado muestra «—».",
           ],
         },
         {
@@ -1492,7 +1492,7 @@ export const hrPage: GuidePage = {
           body: [
             "El canal de cada pago lo asigna el sistema, sea transferencia o efectivo: a libros (canal fiscal, cuenta Sueldos y jornales) va el neto del recibo menos el embargo, sin pasar el {{Total}}; el resto (otros, extras, viáticos) va a gestión (canal interno, sin asiento). Sin recibo cargado, todo va a gestión hasta que lo cargues.",
             "Los pagos llenan la parte de libros por orden de fecha. El pago que la cruza queda partido en dos: una parte a libros y otra a gestión. En la lista de pagos se ve como un solo pago, con «Libros $ · Gestión $» debajo. Si después cambian el recibo, el embargo, los descuentos o los extras, los pagos se reparten de nuevo solos.",
-            "Pasando el mouse por {{Pagado}} se ve cuánto fue a libros y cuánto a gestión (y cuánto es de un plan de ahorro imputado, que no es un pago de sueldo ni va a ningún canal).",
+            "Pasando el mouse por {{Pagado}} se ve cuánto fue a libros y cuánto a gestión (y cuánto son adelantos o un plan de ahorro imputado, que no van a ningún canal de la planilla).",
             "Si las deudas y el teléfono superan a los extras y los viáticos, lo pagado a libros queda por debajo del recibo. Al cerrar la planilla, la diferencia se asienta como sueldo contra la deuda del empleado (Debe Sueldos y jornales / Haber Anticipos al personal), con origen «Planilla de sueldos»; al reabrirla, ese asiento se anula. Gestión no lo vuelve a contar: ya cuenta el descuento de la planilla.",
             "Las planillas cerradas antes de este reparto conservan el canal que se eligió en cada pago.",
           ],
@@ -1507,7 +1507,7 @@ export const hrPage: GuidePage = {
           title: "Borrador y cerrado",
           body: [
             "**Borrador**: todo se edita. **Cerrado**: los montos, los extras y las filas quedan bloqueados; los pagos se siguen pudiendo registrar, editar y borrar (la idea es cerrar los montos y pagar en cuotas).",
-            "Al cerrar, las {{Deudas}} de cada fila pasan a la cuenta corriente del empleado como {{Descuento de planilla}}: a cada plan activo en pesos hasta su cuota (o hasta lo que resta del plan si la cifra se cargó a mano), y el sobrante sin plan. Al reabrir, esos descuentos se borran.",
+            "Al cerrar, las {{Deudas}} de cada fila pasan a la cuenta corriente del empleado como {{Descuento de planilla}}: a cada préstamo activo en pesos hasta su cuota (o hasta lo que resta del préstamo si la cifra se cargó a mano), y el sobrante sin plan. Los adelantos contados en {{Pagado}} también pasan como descuento y saldan su plan. Al reabrir, esos descuentos se borran.",
             "Cerrar una planilla de sueldos no es lo mismo que cerrar un período contable ([[#periodos-cerrados]]): un pago de sueldo con fecha en un mes contable cerrado se rechaza aunque la planilla esté abierta.",
           ],
         },
@@ -1708,7 +1708,7 @@ export const hrPage: GuidePage = {
           ],
           after: [
             "La planilla queda {{Cerrado}}: no se pueden cambiar montos, extras ni filas. Los pagos se siguen pudiendo registrar.",
-            "Las {{Deudas}} de cada fila pasan a la cuenta corriente de cada empleado como {{Descuento de planilla}} y bajan lo que resta de sus planes.",
+            "Las {{Deudas}} y los adelantos de cada fila pasan a la cuenta corriente de cada empleado como {{Descuento de planilla}} y bajan lo que resta de sus planes.",
             "Si en una fila lo que se puede pagar a libros queda por debajo del recibo (las deudas y el teléfono superan a los extras y los viáticos), la diferencia se asienta como sueldo contra la deuda del empleado (Debe Sueldos y jornales / Haber Anticipos al personal), con origen «Planilla de sueldos».",
             "Solo un owner o un admin la puede reabrir.",
           ],
