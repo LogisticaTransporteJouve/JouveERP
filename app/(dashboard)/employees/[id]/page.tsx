@@ -207,6 +207,9 @@ export default async function EmployeeDetailPage({
             trip_rate_per_day: numOrNull(employee.trip_rate_per_day),
             trip_rate_per_km: numOrNull(employee.trip_rate_per_km),
             trip_rate_per_unload: numOrNull(employee.trip_rate_per_unload),
+            trip_unloads_in_receipt: numOrNull(
+              employee.trip_unloads_in_receipt,
+            ),
           }}
         />
       </div>

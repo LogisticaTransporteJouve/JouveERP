@@ -314,10 +314,16 @@ describe("trip extras", () => {
         trip_rate_per_day: 10000,
         trip_rate_per_km: 50,
         trip_rate_per_unload: 3000,
+        trip_unloads_in_receipt: null,
       },
       "11/2026",
     );
-    expect(res).toMatchObject({ days: 2, km: 200.5, unloads: 3 });
+    expect(res).toMatchObject({
+      days: 2,
+      km: 200.5,
+      unloads: 3,
+      unloads_in_receipt: 0,
+    });
     expect(res.lines.map((l) => [l.concept, l.amount])).toEqual([
       ["jornadas", 20000],
       ["km", 10025],
@@ -333,9 +339,48 @@ describe("trip extras", () => {
         trip_rate_per_day: null,
         trip_rate_per_km: 0,
         trip_rate_per_unload: 3000,
+        trip_unloads_in_receipt: null,
       },
       "11/2026",
     );
     expect(res.lines.map((l) => l.concept)).toEqual(["descargas"]);
+  });
+
+  it("suggests only the cargas beyond the ones the recibo pays", () => {
+    const res = tripExtrasLines(
+      trips,
+      {
+        trip_rate_per_day: null,
+        trip_rate_per_km: null,
+        trip_rate_per_unload: 3000,
+        trip_unloads_in_receipt: 2,
+      },
+      "11/2026",
+    );
+    expect(res).toMatchObject({ unloads: 3, unloads_in_receipt: 2 });
+    expect(res.lines).toEqual([
+      {
+        concept: "descargas",
+        description: "Viajes 11/2026: 1 descargas",
+        quantity: 1,
+        rate: 3000,
+        amount: 3000,
+      },
+    ]);
+  });
+
+  it("suggests no descargas while the recibo covers them all", () => {
+    const res = tripExtrasLines(
+      trips,
+      {
+        trip_rate_per_day: null,
+        trip_rate_per_km: null,
+        trip_rate_per_unload: 3000,
+        trip_unloads_in_receipt: 8,
+      },
+      "11/2026",
+    );
+    expect(res).toMatchObject({ unloads: 3, unloads_in_receipt: 3 });
+    expect(res.lines).toEqual([]);
   });
 });

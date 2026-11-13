@@ -1049,10 +1049,11 @@ export const hrPage: GuidePage = {
           steps: [
             "En la ficha del empleado, en {{Extras por viajes}}, hacé clic en {{Editar}}.",
             "Cargá {{Por jornada}} (día con al menos un viaje completado), {{Por km}} y {{Por descarga}} (carga entregada). Un campo vacío no sugiere ese concepto.",
+            "Si el recibo del chofer ya paga algunas cargas (por ejemplo 8), ponelas en {{Cargas por recibo}}: los extras cobran solo las descargas que pasan esa cantidad. Vacío = ninguna.",
             "Hacé clic en {{Guardar}}.",
           ],
           after: [
-            "La planilla del mes sugiere los extras de este chofer con estas tarifas: ver [[#agregar-extras-viajes]].",
+            "La planilla del mes sugiere los extras de este chofer con estas tarifas, sin las cargas que ya paga el recibo (con 8 por recibo y 12 descargas en el mes, sugiere 4): ver [[#agregar-extras-viajes]].",
           ],
           errors: [
             {

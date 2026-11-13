@@ -121,6 +121,9 @@ function EmployeeTrips({
         <p className="text-xs text-muted-foreground">
           {row.trips.length} viajes · {row.days} jornadas ·{" "}
           {formatNumber2(row.km)} km · {row.unloads} descargas
+          {row.unloads_in_receipt > 0
+            ? ` (${row.unloads_in_receipt} por recibo)`
+            : ""}
         </p>
       </div>
       {row.lines.length === 0 ? (

@@ -68,7 +68,7 @@ export async function getPeriodTripExtrasAction(
   const { data: entries, error: entriesErr } = await supabase
     .from("payroll_entries")
     .select(
-      "id, employee_id, employee:employees ( legal_name, trip_rate_per_day, trip_rate_per_km, trip_rate_per_unload ), extras:payroll_entry_extras ( description )",
+      "id, employee_id, employee:employees ( legal_name, trip_rate_per_day, trip_rate_per_km, trip_rate_per_unload, trip_unloads_in_receipt ), extras:payroll_entry_extras ( description )",
     )
     .eq("period_id", period.id);
   if (entriesErr) {
@@ -104,6 +104,7 @@ export async function getPeriodTripExtrasAction(
         trip_rate_per_day: numOrNull(emp?.trip_rate_per_day),
         trip_rate_per_km: numOrNull(emp?.trip_rate_per_km),
         trip_rate_per_unload: numOrNull(emp?.trip_rate_per_unload),
+        trip_unloads_in_receipt: numOrNull(emp?.trip_unloads_in_receipt),
       },
       label,
     );

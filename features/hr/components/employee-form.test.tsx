@@ -59,6 +59,7 @@ const EMPLOYEE: Employee = {
   trip_rate_per_day: null,
   trip_rate_per_km: null,
   trip_rate_per_unload: null,
+  trip_unloads_in_receipt: null,
   import_run_id: null,
   created_at: "2020-01-01T00:00:00Z",
   created_by: null,

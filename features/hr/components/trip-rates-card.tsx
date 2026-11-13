@@ -14,6 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { MoneyInput } from "@/components/money-input";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { amountToInput, formatMoney, parseArAmount } from "@/lib/format";
 
@@ -27,6 +28,8 @@ const FIELDS = [
   ["trip_rate_per_km", "Por km"],
   ["trip_rate_per_unload", "Por descarga"],
 ] as const;
+
+type RateKey = (typeof FIELDS)[number][0];
 
 /** A driver's rates for the planilla's trip extras (Extras desde viajes). */
 export function TripRatesCard({
@@ -49,7 +52,8 @@ export function TripRatesCard({
           </h2>
           <p className="text-xs text-muted-foreground">
             La planilla sugiere los extras del mes con los viajes completados de
-            su chofer y estas tarifas.
+            su chofer y estas tarifas. Las cargas que ya paga el recibo no se
+            cobran aparte.
           </p>
         </div>
         {canWrite && (
@@ -59,7 +63,7 @@ export function TripRatesCard({
           </Button>
         )}
       </div>
-      <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-1 text-sm sm:grid-cols-3">
+      <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
         {FIELDS.map(([key, label]) => (
           <div key={key} className="flex items-center justify-between">
             <dt className="text-muted-foreground">{label}</dt>
@@ -68,6 +72,10 @@ export function TripRatesCard({
             </dd>
           </div>
         ))}
+        <div className="flex items-center justify-between">
+          <dt className="text-muted-foreground">Cargas por recibo</dt>
+          <dd className="font-mono">{rates.trip_unloads_in_receipt ?? "—"}</dd>
+        </div>
       </dl>
       {canWrite && open && (
         <TripRatesDialog
@@ -93,11 +101,16 @@ function TripRatesDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const mutation = useUpdateTripRates();
-  const [draft, setDraft] = useState<Record<keyof TripRates, string>>({
+  const [draft, setDraft] = useState<Record<RateKey, string>>({
     trip_rate_per_day: toText(rates.trip_rate_per_day),
     trip_rate_per_km: toText(rates.trip_rate_per_km),
     trip_rate_per_unload: toText(rates.trip_rate_per_unload),
   });
+  const [inReceipt, setInReceipt] = useState(
+    rates.trip_unloads_in_receipt === null
+      ? ""
+      : String(rates.trip_unloads_in_receipt),
+  );
   const toValue = (v: string) =>
     v.trim() === "" ? null : (parseArAmount(v) ?? Number.NaN);
 
@@ -108,6 +121,8 @@ function TripRatesDialog({
         trip_rate_per_day: toValue(draft.trip_rate_per_day),
         trip_rate_per_km: toValue(draft.trip_rate_per_km),
         trip_rate_per_unload: toValue(draft.trip_rate_per_unload),
+        trip_unloads_in_receipt:
+          inReceipt.trim() === "" ? null : Number(inReceipt),
       },
       {
         onSuccess: () => {
@@ -141,6 +156,23 @@ function TripRatesDialog({
               />
             </div>
           ))}
+          <div className="space-y-2">
+            <Label htmlFor="trip-unloads-in-receipt">Cargas por recibo</Label>
+            <Input
+              id="trip-unloads-in-receipt"
+              type="number"
+              inputMode="numeric"
+              min={0}
+              step={1}
+              className="text-right font-mono"
+              value={inReceipt}
+              onChange={(e) => setInReceipt(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Las que ya paga el recibo: los extras del mes cobran solo las
+              descargas que pasan esta cantidad. Vacío = ninguna.
+            </p>
+          </div>
         </div>
         <DialogFooter>
           <Button
