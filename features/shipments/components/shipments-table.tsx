@@ -1,14 +1,12 @@
 "use client";
 
 import {
-  CalendarClock,
   CheckCircle2,
   History,
   MoreHorizontal,
   Pencil,
   Plus,
   Trash2,
-  XCircle,
 } from "lucide-react";
 import { useDeferredValue, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -60,17 +58,19 @@ import {
 import {
   SHIPMENT_KIND_LABELS,
   SHIPMENT_KINDS,
-  SHIPMENT_NEXT_STATUSES,
   isShipmentKind,
   type Shipment,
-  type ShipmentStatus,
-  type ShipmentTargetStatus,
 } from "../schema";
 
 import { ShipmentDialog } from "./shipment-dialog";
 import { ShipmentHistoryDialog } from "./shipment-history-dialog";
 import { ShipmentStatusBadge } from "./shipment-status";
 import { ShipmentStatusFilter } from "./shipment-status-filter";
+import {
+  ACTION_ICON,
+  ACTION_LABEL,
+  statusActions,
+} from "./shipment-status-actions";
 import {
   ShipmentStatusDialog,
   type ShipmentStatusAction,
@@ -80,35 +80,6 @@ import { formatArgentineDate } from "@/lib/format";
 function formatDate(value: string | null): string {
   return formatArgentineDate(value);
 }
-
-// A carga is not started by hand: it is «En curso» on its trip's date, and
-// from there it can be delivered, cancelled or reprogrammed.
-const TARGET_ACTION: Record<ShipmentTargetStatus, ShipmentStatusAction | null> =
-  {
-    in_progress: null,
-    delivered: "deliver",
-    cancelled: "cancel",
-    reprogrammed: "reprogram",
-  };
-
-function statusActions(status: ShipmentStatus): ShipmentStatusAction[] {
-  return SHIPMENT_NEXT_STATUSES[status].flatMap((s) => {
-    const action = TARGET_ACTION[s];
-    return action ? [action] : [];
-  });
-}
-
-const ACTION_LABEL: Record<ShipmentStatusAction, string> = {
-  deliver: "Entregar",
-  cancel: "Cancelar",
-  reprogram: "Reprogramar",
-};
-
-const ACTION_ICON: Record<ShipmentStatusAction, typeof CheckCircle2> = {
-  deliver: CheckCircle2,
-  cancel: XCircle,
-  reprogram: CalendarClock,
-};
 
 const ANY_TRIP = "__any__";
 const ANY_KIND = "__any_kind__";

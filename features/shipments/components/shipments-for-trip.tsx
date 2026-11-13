@@ -1,12 +1,18 @@
 "use client";
 
-import { Plus, X } from "lucide-react";
+import { MoreHorizontal, Plus, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatArgentineDate } from "@/lib/format";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { IconButton } from "@/components/ui/icon-button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -27,6 +33,15 @@ import { SHIPMENT_KIND_LABELS, type Shipment } from "../schema";
 
 import { AssignShipmentsDialog } from "./assign-shipments-dialog";
 import { ShipmentStatusBadge } from "./shipment-status";
+import {
+  ACTION_ICON,
+  ACTION_LABEL,
+  statusActions,
+} from "./shipment-status-actions";
+import {
+  ShipmentStatusDialog,
+  type ShipmentStatusAction,
+} from "./shipment-status-dialog";
 
 export function ShipmentsForTrip({
   tripId,
@@ -72,6 +87,12 @@ function TripShipments({
 }) {
   const { data: items, isLoading, isError } = useShipmentsByTrip(tripId);
   const unassign = useSetShipmentsTrip();
+  // Entregar / Cancelar / Reprogramar: the cargas list's dialog and command
+  // (reprogramming a started carga takes it off this trip).
+  const [statusDialog, setStatusDialog] = useState<{
+    shipment: Shipment;
+    action: ShipmentStatusAction;
+  } | null>(null);
 
   function remove(id: string) {
     unassign.mutate(
@@ -121,7 +142,7 @@ function TripShipments({
             <TableHead>Cliente</TableHead>
             <TableHead>Carga → Descarga</TableHead>
             <TableHead className="w-36">Estado</TableHead>
-            {canWrite && <TableHead className="w-12" />}
+            {canWrite && <TableHead className="w-20" />}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -156,20 +177,57 @@ function TripShipments({
               </TableCell>
               {canWrite && (
                 <TableCell>
-                  <IconButton
-                    label="Quitar del viaje"
-                    variant="ghost"
-                    disabled={unassign.isPending}
-                    onClick={() => remove(shipment.id)}
-                  >
-                    <X className="size-4" />
-                  </IconButton>
+                  <div className="flex items-center justify-end gap-1">
+                    {statusActions(shipment.status).length > 0 && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <IconButton label="Cambiar estado" variant="ghost">
+                            <MoreHorizontal className="size-4" />
+                          </IconButton>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {statusActions(shipment.status).map((action) => {
+                            const Icon = ACTION_ICON[action];
+                            return (
+                              <DropdownMenuItem
+                                key={action}
+                                className={
+                                  action === "cancel" ? "text-destructive" : ""
+                                }
+                                onClick={() =>
+                                  setStatusDialog({ shipment, action })
+                                }
+                              >
+                                <Icon className="size-4" />
+                                {ACTION_LABEL[action]}
+                              </DropdownMenuItem>
+                            );
+                          })}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                    <IconButton
+                      label="Quitar del viaje"
+                      variant="ghost"
+                      disabled={unassign.isPending}
+                      onClick={() => remove(shipment.id)}
+                    >
+                      <X className="size-4" />
+                    </IconButton>
+                  </div>
                 </TableCell>
               )}
             </TableRow>
           ))}
         </TableBody>
       </Table>
+      {canWrite && (
+        <ShipmentStatusDialog
+          shipment={statusDialog?.shipment ?? null}
+          action={statusDialog?.action ?? null}
+          onClose={() => setStatusDialog(null)}
+        />
+      )}
     </div>
   );
 }

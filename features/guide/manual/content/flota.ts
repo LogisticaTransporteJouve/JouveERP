@@ -531,7 +531,7 @@ export const fleetPage: GuidePage = {
       permission: "trips:read",
       intro: [
         "Cada viaje de la flota con {{Fecha}}, {{Chofer}}, {{Acompañante}}, {{Vehículo}} y {{Estado}}. Un viaje junta las cargas que lleva: desde el menú ⋯ de la fila, {{Ver cargas}} abre la página del viaje.",
-        "La página del viaje (`Viaje del <fecha>`) muestra el chofer y la patente, y la tabla {{Cargas del viaje}} con {{Cliente}} (con el tipo, la fecha de descarga y el horario), {{Carga → Descarga}} (las dos direcciones) y {{Estado}} de cada carga. Quien puede ver la auditoría ve además el {{Historial}} del viaje: quién lo creó o editó y cuándo ({{Ver detalle}} abre cada cambio).",
+        "La página del viaje (`Viaje del <fecha>`, con la fecha como dd-mm-aaaa) muestra el chofer, la patente, el acompañante y el estado, el botón {{Editar viaje}} y la tabla {{Cargas del viaje}} con {{Cliente}} (con el tipo, la fecha de descarga y el horario), {{Carga → Descarga}} (las dos direcciones) y {{Estado}} de cada carga. En cada fila, {{Cambiar estado}} ofrece {{Entregar}}, {{Cancelar}} o {{Reprogramar}} como en [[/cargas]] (ver [[#cambiar-estado-carga]]) y la cruz la quita del viaje. Quien puede ver la auditoría ve además el {{Historial}} del viaje: quién lo creó o editó y cuándo ({{Ver detalle}} abre cada cambio).",
         "Un usuario con el rol Chofer vinculado a un chofer ve solo los viajes de ese chofer.",
       ],
       screens: [
@@ -655,7 +655,7 @@ export const fleetPage: GuidePage = {
           title: "Editar un viaje o cambiar su estado",
           permission: "trips:write",
           steps: [
-            "En [[/trips]], en la fila del viaje, abrí el menú ⋯ y elegí {{Editar}}.",
+            "En [[/trips]], en la fila del viaje, abrí el menú ⋯ y elegí {{Editar}}. También desde la página del viaje, con {{Editar viaje}}.",
             "Cambiá los datos ({{Fecha}}, {{Estado}}, {{Chofer}}, {{Acompañante}} o {{Vehículo}}). Las cargas se suman desde la página del viaje ([[#asignar-cargas-viaje]]).",
             "Hacé clic en {{Guardar}}.",
           ],
@@ -965,7 +965,7 @@ export const fleetPage: GuidePage = {
             },
           ],
           steps: [
-            "En [[/cargas]], en la fila de la carga, abrí el menú ⋯ y elegí la acción: {{Entregar}}, {{Cancelar}} o {{Reprogramar}}. El menú muestra solo las que permite el estado actual.",
+            "En [[/cargas]], en la fila de la carga, abrí el menú ⋯ y elegí la acción: {{Entregar}}, {{Cancelar}} o {{Reprogramar}}. El menú muestra solo las que permite el estado actual. Desde la página del viaje, el mismo menú está en {{Cambiar estado}} de cada fila de {{Cargas del viaje}}.",
             {
               text: "Completá el diálogo:",
               substeps: [
