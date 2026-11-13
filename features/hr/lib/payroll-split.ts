@@ -12,6 +12,8 @@ type SplitFields = {
   deudas: number;
   telefono: number;
   total_a_pagar: number;
+  /** Already paid by a savings plan cuota: not split into a method. */
+  paid_in_kind: number;
 };
 
 type PaidFields = SplitFields & {
@@ -35,7 +37,7 @@ export function suggestedSplit(
   e: SplitFields,
 ): { transferencia: number; efectivo: number } | null {
   if (e.recibo_neto === null) return null;
-  const total = Math.max(e.total_a_pagar, 0);
+  const total = Math.max(e.total_a_pagar - e.paid_in_kind, 0);
   // Transfer suggestion, not the books' share (payroll_fiscal_share): deudas
   // and teléfono net out of what is sent by bank; the books still carry the
   // full recibo − embargo (the recibo gap is posted at planilla close). Merge

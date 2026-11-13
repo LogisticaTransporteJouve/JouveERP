@@ -17,6 +17,7 @@ const base = {
   saldo: 795_000,
   paid_transferencia: 0,
   paid_efectivo: 0,
+  paid_in_kind: 0,
 };
 
 describe("payrollOtros", () => {
@@ -73,5 +74,18 @@ describe("suggestedPayment", () => {
     expect(
       suggestedPayment({ ...base, recibo_neto: null }, "transferencia"),
     ).toBe(795_000);
+  });
+});
+
+describe("a savings plan cuota imputed to the employee", () => {
+  it("is already paid: the split covers only the rest of the total", () => {
+    // 100k of the total is a plan cuota: cash is 795k − 100k.
+    expect(
+      suggestedSplit({
+        ...base,
+        total_a_pagar: 895_000,
+        paid_in_kind: 100_000,
+      }),
+    ).toEqual(suggestedSplit(base));
   });
 });

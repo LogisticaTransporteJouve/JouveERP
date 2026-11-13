@@ -172,16 +172,25 @@ function ExtrasBody({
               <span className="font-mono">
                 $ {ARS.format(Number(extra.amount))}
               </span>
-              {!disabled && (
-                <IconButton
-                  label="Borrar"
-                  variant="ghost"
-                  className="size-7"
-                  onClick={() => onRemove(extra.id)}
-                  disabled={removeMut.isPending}
+              {extra.loan_installment_id !== null ? (
+                <span
+                  className="text-xs text-muted-foreground"
+                  title="Sale del pago de la cuota: se quita solo si la cuota deja de estar pagada."
                 >
-                  <Trash2 className="size-3.5 text-destructive" />
-                </IconButton>
+                  Ya pagado
+                </span>
+              ) : (
+                !disabled && (
+                  <IconButton
+                    label="Borrar"
+                    variant="ghost"
+                    className="size-7"
+                    onClick={() => onRemove(extra.id)}
+                    disabled={removeMut.isPending}
+                  >
+                    <Trash2 className="size-3.5 text-destructive" />
+                  </IconButton>
+                )
               )}
             </li>
           ))

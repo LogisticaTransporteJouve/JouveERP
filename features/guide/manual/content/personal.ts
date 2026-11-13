@@ -1483,6 +1483,7 @@ export const hrPage: GuidePage = {
             "{{Deudas}}: la cuota de los planes activos en pesos de la cuenta corriente del empleado. Editable por mes; al cerrar el período pasa a su cuenta corriente.",
             "{{Embargo}}: lo que suman los embargos vigentes del empleado ese mes (un porcentaje se calcula sobre el {{Recibo}}, o sobre el {{Sueldo}} mientras no haya recibo).",
             "{{Total}} = Sueldo + Extras + Viáticos − Deudas − Teléfono − Embargo. {{Pagado}}: la suma de los pagos registrados. {{Saldo}} = Total − Pagado; hacé clic en el saldo para ver y cargar los pagos.",
+            "Si la empresa paga un plan de ahorro que se le imputa al empleado (en Préstamos, {{Se le imputa a}}), cada cuota pagada entra como el extra «Plan de ahorro: <descripción> · cuota N», marcado «Ya pagado»: suma al {{Total}} y al {{Pagado}}, el {{Saldo}} no cambia y no entra en la transferencia ni el efectivo sugeridos. No hace asiento ni pago de sueldo (la cuota es el movimiento), no cuenta para el SAC y no se puede quitar desde la planilla: sale del pago de la cuota.",
             "{{Transf. / Efectivo}}: cómo se sugiere pagar el total. Transferencia = recibo − embargo − descuentos (deudas y teléfono), sin pasar el total; efectivo = el resto del total. Sin recibo cargado muestra «—».",
           ],
         },
@@ -1491,7 +1492,7 @@ export const hrPage: GuidePage = {
           body: [
             "El canal de cada pago lo asigna el sistema, sea transferencia o efectivo: a libros (canal fiscal, cuenta Sueldos y jornales) va el neto del recibo menos el embargo, sin pasar el {{Total}}; el resto (otros, extras, viáticos) va a gestión (canal interno, sin asiento). Sin recibo cargado, todo va a gestión hasta que lo cargues.",
             "Los pagos llenan la parte de libros por orden de fecha. El pago que la cruza queda partido en dos: una parte a libros y otra a gestión. En la lista de pagos se ve como un solo pago, con «Libros $ · Gestión $» debajo. Si después cambian el recibo, el embargo, los descuentos o los extras, los pagos se reparten de nuevo solos.",
-            "Pasando el mouse por {{Pagado}} se ve cuánto fue a libros y cuánto a gestión.",
+            "Pasando el mouse por {{Pagado}} se ve cuánto fue a libros y cuánto a gestión (y cuánto es de un plan de ahorro imputado, que no es un pago de sueldo ni va a ningún canal).",
             "Si las deudas y el teléfono superan a los extras y los viáticos, lo pagado a libros queda por debajo del recibo. Al cerrar la planilla, la diferencia se asienta como sueldo contra la deuda del empleado (Debe Sueldos y jornales / Haber Anticipos al personal), con origen «Planilla de sueldos»; al reabrirla, ese asiento se anula. Gestión no lo vuelve a contar: ya cuenta el descuento de la planilla.",
             "Las planillas cerradas antes de este reparto conservan el canal que se eligió en cada pago.",
           ],

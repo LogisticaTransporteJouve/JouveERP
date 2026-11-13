@@ -446,7 +446,11 @@ export function PayrollPeriodGrid({
                     </TableCell>
                     <TableCell
                       className="text-right font-mono text-muted-foreground"
-                      title={`Libros ${money(e.paid_fiscal)} · Gestión ${money(e.paid_internal)}`}
+                      title={`Libros ${money(e.paid_fiscal)} · Gestión ${money(e.paid_internal)}${
+                        e.paid_in_kind > 0
+                          ? ` · Plan de ahorro ${money(e.paid_in_kind)}`
+                          : ""
+                      }`}
                     >
                       {money(e.paid_total)}
                     </TableCell>

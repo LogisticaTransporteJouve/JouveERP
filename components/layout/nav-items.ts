@@ -540,7 +540,7 @@ export function channelSections(
       },
       {
         href: "/purchases",
-        label: "Comprobantes de compra",
+        label: "Comprobantes",
         icon: ShoppingCart,
         permission: "purchase_invoices:read",
         channelId: channel.id,

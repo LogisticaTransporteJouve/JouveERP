@@ -172,6 +172,36 @@ describe("createLoanAction", () => {
     const res = await createLoanAction(input);
     expect(res).toEqual({ ok: false, error: "No se pudo crear el préstamo." });
   });
+
+  const plan = {
+    ...input,
+    kind: "plan_ahorro",
+    salary_employee_id: "00000000-0000-4000-8000-0000000000e1",
+  };
+
+  it("sends the employee a savings plan is imputed to", async () => {
+    rpc.mockResolvedValue({ data: "l9", error: null });
+    await createLoanAction(plan);
+    expect(rpc).toHaveBeenCalledWith(
+      "create_loan",
+      expect.objectContaining({
+        p_loan: expect.objectContaining({
+          kind: "plan_ahorro",
+          salary_employee_id: "00000000-0000-4000-8000-0000000000e1",
+        }),
+      }),
+    );
+  });
+
+  it("imputing a plan to an employee needs hr:write", async () => {
+    denied = ["hr:write"];
+    const res = await createLoanAction(plan);
+    expect(res).toEqual({
+      ok: false,
+      error: "Sin permiso para imputar el plan a un empleado.",
+    });
+    expect(rpc).not.toHaveBeenCalled();
+  });
 });
 
 describe("cancelLoanAction", () => {

@@ -2843,6 +2843,15 @@ export const treasuryPage: GuidePage = {
           ],
         },
         {
+          title: "Plan de ahorro que se le imputa a un empleado",
+          body: [
+            "Un plan que paga la empresa pero que en los hechos es parte de lo que recibe un empleado se carga con {{Se le imputa a}} (solo para {{Plan de ahorro}}, empleados activos). En el detalle se ve «Se le imputa a …».",
+            "Contablemente no cambia nada: el plan sigue siendo de la empresa, cada cuota suma a «Rodados en plan de ahorro» como en cualquier plan y el único movimiento es el débito de la cuota en el banco.",
+            "Cada cuota que se paga (con {{Pagar}}, {{Usar un egreso ya cargado}} o {{Pagar cuota}} desde el extracto) aparece en la planilla del empleado del mes de su vencimiento como la línea «Plan de ahorro: <descripción> · cuota N», ya pagada: suma al {{Total}} y al {{Pagado}}, y el {{Saldo}} no cambia. No hace asiento ni movimiento de sueldo. Si esa planilla no existe, se crea; si el empleado no está, se agrega su fila. En pesos: una cuota en dólares, por los pesos que salieron de la cuenta.",
+            "Si la planilla de ese mes está cerrada, la cuota no se puede pagar hasta reabrirla. A quién se le imputa no se cambia una vez que una cuota figura en una planilla.",
+          ],
+        },
+        {
           title: "Préstamo sin vencimiento (solo interés)",
           body: [
             "Un préstamo privado que no amortiza capital: cada mes vence una cuota de interés ({{Interés mensual %}} sobre el capital que se sigue debiendo) y el capital vuelve solo cuando se registra una {{Devolución de capital…}}.",
@@ -2940,6 +2949,7 @@ export const treasuryPage: GuidePage = {
           steps: [
             "En [[/loans]], hacé clic en {{Nuevo préstamo}}.",
             "Elegí el {{Tipo}} ({{Préstamo}}, {{Leasing}} o {{Plan de ahorro}}) y la {{Moneda}}, y escribí el {{Banco}} y el {{Número de préstamo}}.",
+            "En un {{Plan de ahorro}} que en realidad recibe un empleado, elegilo en {{Se le imputa a}}: figura en su planilla como pago recibido; contablemente sigue siendo un plan de ahorro de la empresa (ver «Plan de ahorro que se le imputa a un empleado»).",
             "Elegí el {{Canal}}: viene el fiscal; un préstamo privado que no va a los libros va en el canal interno.",
             "Escribí la {{Descripción}}, elegí la {{Cuenta de débito}} (de donde el banco debita las cuotas) y cargá la {{Fecha de alta}}, el {{Monto original}} y las tasas ({{TNA (%)}}, {{TEA (%)}}, {{CFT (%)}}) como figuran en el banco.",
             "Si es un préstamo que solo paga interés y no tiene vencimiento, marcá {{Sin vencimiento (solo interés)}} (solo para {{Préstamo}}): en lugar del plan de cuotas pide el {{Interés mensual %}} y el {{Primer vencimiento}}. Ver «Préstamo sin vencimiento (solo interés)».",

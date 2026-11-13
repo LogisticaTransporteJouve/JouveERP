@@ -145,6 +145,9 @@ export type PayrollEntryResolved = {
    *  the database assigns each payment's channel. */
   paid_fiscal: number;
   paid_internal: number;
+  /** Cuotas of a savings plan imputed to the employee: in the total and
+   *  already paid (the cuota is the payment; no cash, no journal entry). */
+  paid_in_kind: number;
   notes: string | null;
 };
 

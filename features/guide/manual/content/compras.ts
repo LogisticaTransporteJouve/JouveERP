@@ -2640,7 +2640,7 @@ export const purchasesPage: GuidePage = {
       routes: ["/channel-summary/[channelId]"],
       permission: "management:read",
       intro: [
-        "DZ Instalaciones es una división de la misma empresa (el mismo CUIT) con un canal propio. Cuando ese canal está activo, la barra lateral muestra al final un bloque **DZ Instalaciones** con {{Resumen}}, {{Comprobantes de compra}}, {{Órdenes de pago}}, {{Ventas}}, {{Clientes}} y {{Proveedores}}: las mismas pantallas de siempre, pero solo con lo de DZ. {{Clientes}} es la excepción: los clientes son una sola lista, compartida con Ventas.",
+        "DZ Instalaciones es una división de la misma empresa (el mismo CUIT) con un canal propio. Cuando ese canal está activo, la barra lateral muestra al final un bloque **DZ Instalaciones** con {{Resumen}}, {{Comprobantes}} (las compras), {{Órdenes de pago}}, {{Ventas}}, {{Clientes}} y {{Proveedores}}: las mismas pantallas de siempre, pero solo con lo de DZ. {{Clientes}} es la excepción: los clientes son una sola lista, compartida con Ventas.",
         "Fuera de ese bloque, lo de DZ no aparece: ni en las listas de Compras y Ventas, ni en los selectores de canal, ni en el resultado de gestión, el flujo de caja, el aging, las tareas o el asistente. Lo incluyen el Libro IVA, el libro diario, el mayor y el balance, porque el CUIT es uno, y Tesorería: sus movimientos, cheques y la conciliación llevan la marca «DZ».",
       ],
       concepts: [

@@ -324,7 +324,7 @@ export const getLoans = defineAiAction({
   sideEffect: "read",
   sources: ["loans", "loan_installments"],
   description:
-    "Préstamos, leasings y planes de ahorro: tipo (kind), acreedor, capital, saldo de capital (pasivo: capital menos lo pagado de capital; una cuota sin desglose cuenta entera como capital), si el desembolso está registrado en Caja (disbursement_transaction_id), moneda, estado, pagado, pendiente, cuotas pendientes y próximo vencimiento. Un plan de ahorro (kind plan_ahorro) no es deuda: su pendiente es lo que falta pagar del plan (savingsPlansPending, fuera de pendingByCurrency) y `accumulated` lo ya acumulado en el activo Rodados en plan de ahorro. Alcance opcional (fiscal/internal/all).",
+    "Préstamos, leasings y planes de ahorro: tipo (kind), acreedor, capital, saldo de capital (pasivo: capital menos lo pagado de capital; una cuota sin desglose cuenta entera como capital), si el desembolso está registrado en Caja (disbursement_transaction_id), moneda, estado, pagado, pendiente, cuotas pendientes y próximo vencimiento. Un plan de ahorro (kind plan_ahorro) no es deuda: su pendiente es lo que falta pagar del plan (savingsPlansPending, fuera de pendingByCurrency) y `accumulated` lo ya acumulado en el activo Rodados en plan de ahorro; `salary_employee_name` es el empleado al que se le imputa el plan (sus cuotas pagadas figuran en su planilla como pago recibido, solo gestión: contablemente sigue siendo un plan de la empresa). Alcance opcional (fiscal/internal/all).",
   input: z.object({ scope: ScopeInputSchema }),
   run: async (_ctx, input) => {
     const { isFiscal, label } = readScope(input.scope);
@@ -361,7 +361,7 @@ export const getLoanDetail = defineAiAction({
   sideEffect: "read",
   sources: ["loans", "loan_installments"],
   description:
-    "Detalle de UN préstamo con su cronograma de cuotas (vencimiento, monto, estado, pago y el desglose opcional `split`: capital, interés, IVA, percepción y otros cargos; null = sin desglose) y su saldo de capital; de un plan de ahorro, `accumulated` es lo ya acumulado en el activo (no hay deuda). Un préstamo `is_open_ended` (sin vencimiento) solo paga interés mensual (`monthly_rate` %, sobre el capital adeudado; siempre 3 cuotas próximas) y su capital vuelve con cuotas `kind` = `devolucion_capital`; una cuota en dólares pagada desde una cuenta en pesos trae `paid_amount_ars` (pesos debitados) y `paid_rate` (cotización implícita), y `paid_amount` sigue en la moneda del préstamo. Requiere el UUID del préstamo (de getLoans). Con un alcance, solo lo devuelve si su canal es de ese alcance.",
+    "Detalle de UN préstamo con su cronograma de cuotas (vencimiento, monto, estado, pago y el desglose opcional `split`: capital, interés, IVA, percepción y otros cargos; null = sin desglose) y su saldo de capital; de un plan de ahorro, `accumulated` es lo ya acumulado en el activo (no hay deuda) y `salary_employee_name` el empleado al que se le imputa (cada cuota pagada figura en su planilla del mes de vencimiento como pago recibido, sin asiento: el activo sigue siendo de la empresa). Un préstamo `is_open_ended` (sin vencimiento) solo paga interés mensual (`monthly_rate` %, sobre el capital adeudado; siempre 3 cuotas próximas) y su capital vuelve con cuotas `kind` = `devolucion_capital`; una cuota en dólares pagada desde una cuenta en pesos trae `paid_amount_ars` (pesos debitados) y `paid_rate` (cotización implícita), y `paid_amount` sigue en la moneda del préstamo. Requiere el UUID del préstamo (de getLoans). Con un alcance, solo lo devuelve si su canal es de ese alcance.",
   input: z.object({
     loanId: UuidSchema.describe("UUID del préstamo."),
     scope: ScopeInputSchema,
@@ -375,7 +375,11 @@ export const getLoanDetail = defineAiAction({
         res.data.is_open_ended
           ? `sin vencimiento, ${res.data.monthly_rate ?? 0} % mensual · capital adeudado ${res.data.currency} ${money(res.data.capital_outstanding)}`
           : `${res.data.installments.length} cuotas`
-      } · pendiente ${res.data.currency} ${money(res.data.pending_total)}.`,
+      } · pendiente ${res.data.currency} ${money(res.data.pending_total)}${
+        res.data.salary_employee_name
+          ? ` · se le imputa a ${res.data.salary_employee_name} (figura en su planilla)`
+          : ""
+      }.`,
       res.data,
       { currency: res.data.currency },
     );

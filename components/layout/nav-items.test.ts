@@ -150,7 +150,7 @@ describe("segregated channel sections", () => {
     expect(sections.at(-1)?.label).toBe("DZ Instalaciones");
     expect(sections.at(-1)?.items.map((i) => i.label)).toEqual([
       "Resumen",
-      "Comprobantes de compra",
+      "Comprobantes",
       "Órdenes de pago",
       "Ventas",
       "Clientes",
