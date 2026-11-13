@@ -133,6 +133,25 @@ const nonNegativeMoney = z.preprocess(
     .max(1_000_000_000_000),
 );
 
+/** «Gastos a cobrarle al cliente» of a rejected check: an ND for `amount`
+ *  net + IVA 21 %. One idempotency key per dialog. */
+export const IssueRejectedCheckNdSchema = z.object({
+  check_id: z.string().uuid(),
+  amount: z.preprocess(
+    moneyAmountPreprocess,
+    z
+      .number()
+      .finite("Importe inválido.")
+      .positive("Los gastos tienen que ser mayores a cero.")
+      .max(1_000_000_000_000),
+  ),
+  idempotency_key: z.string().uuid(),
+});
+
+export type IssueRejectedCheckNdInput = z.input<
+  typeof IssueRejectedCheckNdSchema
+>;
+
 /** Venta (descuento) of cartera checks to a bank or financiera. */
 export const SellChequesSchema = z.object({
   check_ids: z

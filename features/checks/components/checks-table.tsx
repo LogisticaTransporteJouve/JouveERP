@@ -65,6 +65,9 @@ export function ChequesTable({
   // Depositing, loading and selling a check pick an account: a per-user deny
   // of accounts:read hides them, not the cartera.
   const canPickAccount = userCan(actorAccess, "accounts:read");
+  const canIssueNd =
+    userCan(actorAccess, "invoices:issue") &&
+    userCan(actorAccess, "credit_debit_notes:issue");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [sellOpen, setSellOpen] = useState(false);
   const [prefill, setPrefill] = useState<SellPrefill | null>(null);
@@ -307,6 +310,7 @@ export function ChequesTable({
                     check={c}
                     channels={channels}
                     canPickAccount={canPickAccount}
+                    canIssueNd={canIssueNd}
                   />
                 )}
             </div>
@@ -314,7 +318,7 @@ export function ChequesTable({
         },
       },
     ],
-    [canWrite, canPickAccount, channels, selected],
+    [canWrite, canPickAccount, canIssueNd, channels, selected],
   );
 
   return (

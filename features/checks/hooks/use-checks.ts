@@ -9,6 +9,7 @@ import {
 import { agingKeys } from "@/features/aging/lib/aging-keys";
 import { reconciliationKeys } from "@/features/bank-reconciliation/lib/reconciliation-keys";
 import { clientsKeys } from "@/features/clients/lib/clients-keys";
+import { invoicesKeys } from "@/features/invoices/lib/invoices-keys";
 import { LEDGER_KEYS } from "@/features/journal-entries/lib/ledger-keys";
 import { receiptsKeys } from "@/features/receipts/lib/receipts-keys";
 import { CASH_KEYS } from "@/features/treasury/lib/cash-keys";
@@ -20,6 +21,7 @@ import {
   createCheckAction,
   creditCheckAction,
   depositCheckAction,
+  issueRejectedCheckNdAction,
   listChecksAction,
   rejectCheckAction,
   sellChecksAction,
@@ -69,3 +71,22 @@ export const useDepositCheque = makeChequeMutation(depositCheckAction);
 export const useCreditCheque = makeChequeMutation(creditCheckAction);
 export const useRejectCheque = makeChequeMutation(rejectCheckAction);
 export const useSellCheques = makeChequeMutation(sellChecksAction);
+
+/** «Gastos a cobrarle al cliente»: the ND joins the client's statement, the
+ *  comprobantes list and the aging. */
+export function useIssueRejectedCheckNd() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: Parameters<typeof issueRejectedCheckNdAction>[0]) =>
+      runAction(() => issueRejectedCheckNdAction(input)),
+    onSuccess: () => {
+      invalidateKeys(qc, [
+        invoicesKeys.all,
+        clientsKeys.all,
+        agingKeys.all,
+        receiptsKeys.all,
+        ...LEDGER_KEYS,
+      ]);
+    },
+  });
+}
