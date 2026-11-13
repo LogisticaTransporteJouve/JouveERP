@@ -99,6 +99,11 @@ export default async function TripDetailPage({
       <ShipmentsForTrip
         tripId={id}
         canWrite={userCan(ctx.access, "shipments:write")}
+        canAssignTrip={userCanAll(ctx.access, [
+          "shipments:write",
+          "trips:read",
+          "trips:write",
+        ])}
       />
 
       {userCan(ctx.access, "audit:read") && (

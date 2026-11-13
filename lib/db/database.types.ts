@@ -11805,6 +11805,16 @@ export type Database = {
         Args: { p_settlement_id: string }
         Returns: number
       }
+      reprogram_shipment: {
+        Args: {
+          p_comment?: string
+          p_failure_reason?: string
+          p_id: string
+          p_scheduled_date: string
+          p_trip_id?: string
+        }
+        Returns: string
+      }
       reverse_journal_entry: { Args: { p_entry_id: string }; Returns: string }
       save_driver_settlement: {
         Args: {

@@ -46,9 +46,12 @@ import {
 export function ShipmentsForTrip({
   tripId,
   canWrite,
+  canAssignTrip = false,
 }: {
   tripId: string;
   canWrite: boolean;
+  /** Reprogramming can put the carga on a trip of its new date. */
+  canAssignTrip?: boolean;
 }) {
   const [assignOpen, setAssignOpen] = useState(false);
   return (
@@ -66,7 +69,11 @@ export function ShipmentsForTrip({
           </Button>
         )}
       </div>
-      <TripShipments tripId={tripId} canWrite={canWrite} />
+      <TripShipments
+        tripId={tripId}
+        canWrite={canWrite}
+        canAssignTrip={canAssignTrip}
+      />
       {canWrite && (
         <AssignShipmentsDialog
           tripId={tripId}
@@ -81,9 +88,11 @@ export function ShipmentsForTrip({
 function TripShipments({
   tripId,
   canWrite,
+  canAssignTrip,
 }: {
   tripId: string;
   canWrite: boolean;
+  canAssignTrip: boolean;
 }) {
   const { data: items, isLoading, isError } = useShipmentsByTrip(tripId);
   const unassign = useSetShipmentsTrip();
@@ -226,6 +235,7 @@ function TripShipments({
           shipment={statusDialog?.shipment ?? null}
           action={statusDialog?.action ?? null}
           onClose={() => setStatusDialog(null)}
+          canAssignTrip={canAssignTrip}
         />
       )}
     </div>

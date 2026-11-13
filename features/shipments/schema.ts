@@ -230,6 +230,9 @@ export const ShipmentStatusChangeSchema = z.object({
   delivery_date: optionalDate,
   failure_reason: optionalText(1000),
   scheduled_date: optionalDate,
+  /** Reprogram only: the trip of the new date the carga goes on (it leaves
+   *  its current trip either way). */
+  trip_id: optionalUuid,
 });
 export type ShipmentStatusChangeInput = z.infer<
   typeof ShipmentStatusChangeSchema

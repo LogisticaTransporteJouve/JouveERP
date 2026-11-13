@@ -43,7 +43,7 @@ import {
   type PickedClient,
 } from "@/features/invoices/components/client-picker";
 import { useListParams } from "@/hooks/use-list-params";
-import { userCan, type Access } from "@/lib/auth/permissions";
+import { userCan, userCanAll, type Access } from "@/lib/auth/permissions";
 
 import { useDeleteShipment, useShipments } from "../hooks/use-shipments";
 import { matchesShipmentSearch, shipmentRoute } from "../lib/format";
@@ -112,6 +112,12 @@ export function ShipmentsTable({
   initialParams: ShipmentListParams;
 }) {
   const canWrite = userCan(actorAccess, "shipments:write");
+  // Reprogramming onto a trip of the new date edits that trip's cargas.
+  const canAssignTrip = userCanAll(actorAccess, [
+    "shipments:write",
+    "trips:read",
+    "trips:write",
+  ]);
   const { params, committed, update, reset, isFiltered } = useListParams({
     initial: initialParams,
     defaults: DEFAULT_SHIPMENT_LIST_PARAMS,
@@ -415,6 +421,7 @@ export function ShipmentsTable({
           shipment={statusDialog?.shipment ?? null}
           action={statusDialog?.action ?? null}
           onClose={() => setStatusDialog(null)}
+          canAssignTrip={canAssignTrip}
         />
       )}
 

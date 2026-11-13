@@ -231,7 +231,7 @@ export async function updateShipmentAction(
  */
 export async function changeShipmentStatusAction(
   input: unknown,
-): Promise<ActionResult> {
+): Promise<ActionResult<{ warning: string | null }>> {
   const ctx = await requireUserContext();
   if (!userCan(ctx.access, "shipments:write")) {
     return { ok: false, error: "No tenés permiso para cambiar el estado." };
@@ -241,6 +241,13 @@ export async function changeShipmentStatusAction(
     return {
       ok: false,
       error: parsed.error.issues[0]?.message ?? "Datos inválidos.",
+    };
+  }
+  // Putting the carga on a trip also edits the trip's cargas.
+  if (parsed.data.trip_id && !userCan(ctx.access, "trips:write")) {
+    return {
+      ok: false,
+      error: "No tenés permiso para asignar cargas a viajes.",
     };
   }
   return changeShipmentStatus(

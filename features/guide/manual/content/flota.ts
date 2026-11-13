@@ -819,7 +819,7 @@ export const fleetPage: GuidePage = {
           title: "Estados de la carga",
           body: [
             "{{No iniciada}} (al crearla) → {{En curso}} → {{Entregada}} ({{Entregar}}). Nadie la inicia a mano: una carga asignada a un viaje pasa sola a {{En curso}} el día del viaje (hora argentina), salvo que el viaje esté cancelado.",
-            "Desde {{No iniciada}} o {{En curso}} se puede {{Entregar}}, {{Cancelar}} (por ejemplo, si no se pudo retirar) o {{Reprogramar}}. Reprogramar una carga {{En curso}} pide la nueva fecha, la vuelve a {{No iniciada}} y la saca del viaje, para asignarla a otro; el historial guarda los dos pasos. Una carga {{Cancelada}} o {{Reprogramada}} solo se puede volver a reprogramar.",
+            "Desde {{No iniciada}} o {{En curso}} se puede {{Entregar}}, {{Cancelar}} (por ejemplo, si no se pudo retirar) o {{Reprogramar}}. Reprogramar pide la nueva fecha y saca la carga de su viaje (una carga {{En curso}} vuelve a {{No iniciada}}); en el mismo paso se la puede asignar a un viaje de la nueva fecha; el historial guarda los dos pasos. Una carga {{Cancelada}} o {{Reprogramada}} solo se puede volver a reprogramar.",
             "Para una carga {{Entregada}} el menú ya no ofrece cambios de estado.",
             "Cada cambio de estado queda en el {{Historial}} con su comentario, fecha y hora.",
           ],
@@ -971,7 +971,7 @@ export const fleetPage: GuidePage = {
               substeps: [
                 "{{Entregar carga}}: {{Fecha de entrega}} (hoy por defecto).",
                 "{{Cancelar carga}}: {{Motivo}} obligatorio.",
-                "{{Reprogramar carga}}: {{Nueva fecha de carga}} y un {{Motivo}} opcional. Si la carga está {{En curso}}, la fecha es obligatoria y la carga vuelve a {{No iniciada}}, fuera del viaje.",
+                "{{Reprogramar carga}}: {{Nueva fecha de carga}} (obligatoria), un {{Motivo}} opcional y, si ya sabés qué viaje la lleva, {{Asignar a viaje}}: lista los viajes no cancelados de esa fecha («fecha · chofer · patente»), y por defecto queda {{Sin viaje (asignar después)}}. La carga sale del viaje en que estaba; si elegiste un viaje queda asignada a él (y {{En curso}} si el viaje es de hoy). Si el viaje no se puede asignar, no se reprograma nada. El selector aparece solo si además podés editar viajes.",
                 "En todos, el {{Comentario}} es opcional y queda en el historial.",
               ],
             },

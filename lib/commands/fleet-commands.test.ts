@@ -117,7 +117,7 @@ describe("changeShipmentStatus", () => {
       id: SHIPMENT,
       status: "delivered",
     });
-    expect(res).toEqual({ ok: true, data: undefined });
+    expect(res).toEqual({ ok: true, data: { warning: null } });
     expect(calls[0]?.table).toBe("change_shipment_status");
     expect(calls[0]?.payload).toMatchObject({
       p_id: SHIPMENT,
@@ -130,6 +130,65 @@ describe("changeShipmentStatus", () => {
       { from: "in_progress", to: "delivered" },
       SHIPMENT,
     );
+  });
+
+  it("reprograms onto a trip of the new date in one call, then syncs it", async () => {
+    serviceRpc.mockResolvedValue({ data: null, error: null });
+    const { db, calls } = fakeDb({ data: "not_started", error: null });
+    const TRIP = "00000000-0000-4000-8000-000000000003";
+    const res = await changeShipmentStatus(db, "u1", {
+      id: SHIPMENT,
+      status: "reprogrammed",
+      scheduled_date: "2026-11-20",
+      failure_reason: "lluvia",
+      trip_id: TRIP,
+    });
+    expect(res).toEqual({ ok: true, data: { warning: null } });
+    expect(calls).toEqual([
+      {
+        op: "rpc",
+        table: "reprogram_shipment",
+        payload: {
+          p_id: SHIPMENT,
+          p_scheduled_date: "2026-11-20",
+          p_failure_reason: "lluvia",
+          p_comment: undefined,
+          p_trip_id: TRIP,
+        },
+      },
+    ]);
+    expect(serviceRpc).toHaveBeenCalledWith("sync_shipment_trip_status", {
+      p_shipment_ids: [SHIPMENT],
+      p_actor: "u1",
+    });
+  });
+
+  it("warns when the trip took the carga but its status did not follow", async () => {
+    serviceRpc.mockResolvedValue({ data: null, error: { message: "down" } });
+    const { db } = fakeDb({ data: "not_started", error: null });
+    const res = await changeShipmentStatus(db, "u1", {
+      id: SHIPMENT,
+      status: "reprogrammed",
+      scheduled_date: "2026-11-20",
+      trip_id: "00000000-0000-4000-8000-000000000003",
+    });
+    expect(res).toEqual({
+      ok: true,
+      data: {
+        warning: "Se guardó, pero no se actualizó el estado de las cargas.",
+      },
+    });
+  });
+
+  it("refuses a trip without a reprogram to a new date, before writing", async () => {
+    const { db, calls } = fakeDb({ data: "not_started", error: null });
+    const res = await changeShipmentStatus(db, "u1", {
+      id: SHIPMENT,
+      status: "delivered",
+      trip_id: "00000000-0000-4000-8000-000000000003",
+    });
+    expect(res.ok).toBe(false);
+    expect(calls).toEqual([]);
   });
 
   it("returns the guard's message when the carga changed meanwhile", async () => {
